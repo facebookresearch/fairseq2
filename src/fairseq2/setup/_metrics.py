@@ -58,6 +58,8 @@ def register_metric_descriptors(context: RuntimeContext) -> None:
     register("num_elements",              "Number of Elements",              830, format_as_int)
     register("num_source_elements",       "Number of Source Elements",       830, format_as_int)
     register("num_target_elements",       "Number of Target Elements",       830, format_as_int)
+    register("padding",                   "Padding",                         835, format_as_int)
+    register("padding_ratio",             "Padding Ratio (%)",               835, format_as_percentage)
     register("total_num_examples",        "Total Number of Examples",        840, format_as_int)
     register("total_num_elements",        "Total Number of Elements",        850, format_as_int)
     register("total_num_source_elements", "Total Number of Source Elements", 850, format_as_int)

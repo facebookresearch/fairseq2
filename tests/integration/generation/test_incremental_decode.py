@@ -10,8 +10,8 @@ import torch
 
 from fairseq2.data.text.tokenizers import get_text_tokenizer_hub
 from fairseq2.models.transformer import get_transformer_model_hub
-from fairseq2.nn import IncrementalStateBag
-from fairseq2.nn.padding import pad_seqs
+from fairseq2.nn import BatchLayout, IncrementalStateBag
+from fairseq2.nn.utils.padding import pad_seqs
 from tests.common import assert_close, device
 
 # fmt: off
@@ -55,19 +55,17 @@ def test_incremental_decoding_works() -> None:
 
     assert pad_idx is not None
 
-    source_seqs, source_padding_mask = pad_seqs(source_indices, pad_idx)
-    target_seqs, target_padding_mask = pad_seqs(target_indices, pad_idx)
+    source_seqs, source_seqs_layout = pad_seqs(source_indices, pad_value=pad_idx)
+    target_seqs, target_seqs_layout = pad_seqs(target_indices, pad_value=pad_idx)
 
     # Generate the expected decoder output.
-    encoder_output, encoder_padding_mask = model.encode(
-        source_seqs, source_padding_mask
+    encoder_output, encoder_output_layout = model.encode(
+        source_seqs, source_seqs_layout
     )
 
-    decoder_output, decoder_padding_mask = model.decode(
-        target_seqs, target_padding_mask, encoder_output, encoder_padding_mask
+    decoder_output, decoder_output_layout = model.decode(
+        target_seqs, target_seqs_layout, encoder_output, encoder_output_layout
     )
-
-    assert decoder_padding_mask is None
 
     # Now try to match the decoder output with incremental decoding.
     state_bag = IncrementalStateBag(max_num_steps=256)
@@ -77,15 +75,17 @@ def test_incremental_decoding_works() -> None:
     )
 
     for idx in range(target_seqs.size(1)):
-        pos_output, pos_padding_mask = model.decode(
-            target_seqs[:, idx : idx + 1],
-            None,
+        seqs = target_seqs[:, idx : idx + 1]
+
+        seqs_layout = BatchLayout.of(seqs)
+
+        pos_output, pos_output_layout = model.decode(
+            seqs,
+            seqs_layout,
             encoder_output,
-            encoder_padding_mask,
+            encoder_output_layout,
             state_bag=state_bag,
         )
-
-        assert pos_padding_mask is None
 
         state_bag.increment_step_nr()
 

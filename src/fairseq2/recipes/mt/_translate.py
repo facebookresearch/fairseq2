@@ -15,7 +15,7 @@ from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import TextTokenizer
-from fairseq2.datasets import StaticBatching, SyncMode
+from fairseq2.datasets import SequenceBatch, StaticBatching, SyncMode
 from fairseq2.datasets.text import (
     GENERIC_TEXT_DATASET_FAMILY,
     TextDataset,
@@ -28,7 +28,6 @@ from fairseq2.generation import BeamSearchConfig, Seq2SeqGenerator
 from fairseq2.generation.text import SequenceToTextConverter
 from fairseq2.metrics import MetricBag
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes import (
     Generator,
     GeneratorUnit,
@@ -331,9 +330,11 @@ class TextTranslationUnit(GeneratorUnit[SequenceBatch]):
                 f"`batch.example['text'] must be an iterable of strings, but is of type `{type(srcs)}` instead."
             )
 
-        hyps, output = self._converter.batch_convert(batch.seqs, batch.padding_mask)
+        seqs, seqs_layout = batch.as_input()
 
-        self._metric_bag.update_batch_metrics(output, batch.num_elements())
+        hyps, output = self._converter.batch_convert(seqs, seqs_layout)
+
+        self._metric_bag.update_batch_metrics(output, batch.num_elements)
 
         try:
             # Dump source sentences.

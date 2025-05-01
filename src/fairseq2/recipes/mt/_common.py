@@ -11,8 +11,8 @@ from typing import final
 
 from torch import Tensor
 
+from fairseq2.datasets import Seq2SeqBatch
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.models.seq2seq import Seq2SeqBatch, as_auto_regressive_input
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.recipes import Model, Seq2SeqMetricBag
 
@@ -41,19 +41,24 @@ class MTCriterion:
     def __call__(
         self, batch: Seq2SeqBatch, metric_bag: Seq2SeqMetricBag
     ) -> tuple[Tensor, int]:
-        input_batch, target_batch = as_auto_regressive_input(batch)
+        batch, target_batch = batch.as_auto_regressive()
 
-        model_output: SequenceModelOutput = self._model.module(input_batch)
+        source_seqs, source_seqs_layout = batch.as_source_input()
+        target_seqs, target_seqs_layout = batch.as_target_input()
+
+        model_output: SequenceModelOutput = self._model.module(
+            source_seqs, source_seqs_layout, target_seqs, target_seqs_layout
+        )
 
         loss = model_output.compute_loss(
             target_batch.seqs, label_smoothing=self._label_smoothing
         )
 
-        metric_bag.update_nll_loss(input_batch, loss)
+        metric_bag.update_nll_loss(batch, loss)
 
-        metric_bag.update_batch_metrics(input_batch)
+        metric_bag.update_batch_metrics(batch)
 
-        return loss, batch.num_target_elements()
+        return loss, batch.num_target_elements
 
     @property
     def model(self) -> Model:

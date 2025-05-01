@@ -15,7 +15,13 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
-from fairseq2.datasets import Batching, LengthBatching, StaticBatching, SyncMode
+from fairseq2.datasets import (
+    Batching,
+    LengthBatching,
+    Seq2SeqBatch,
+    StaticBatching,
+    SyncMode,
+)
 from fairseq2.datasets.parallel_text import (
     GENERIC_PARALLEL_TEXT_DATASET_FAMILY,
     ParallelTextDataset,
@@ -27,7 +33,6 @@ from fairseq2.generation import BeamSearchConfig
 from fairseq2.metrics import MetricBag
 from fairseq2.metrics.text import DEFAULT_BLEU_TOKENIZER
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import MYLE_LR, MyleLRConfig
 from fairseq2.recipes import EvalUnit, Model, Seq2SeqMetricBag, Trainer, TrainUnit

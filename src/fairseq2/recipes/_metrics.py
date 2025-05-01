@@ -12,11 +12,10 @@ import torch
 from torch import Tensor
 from torcheval.metrics import Throughput
 
+from fairseq2.datasets import Seq2SeqBatch, SequenceBatch
 from fairseq2.gang import Gang
 from fairseq2.generation import Seq2SeqGeneratorOutput, SequenceGeneratorOutput
 from fairseq2.metrics import Max, Mean, MetricBag, Sum
-from fairseq2.models.seq2seq import Seq2SeqBatch
-from fairseq2.models.sequence import SequenceBatch
 
 
 class RecipeMetricBag(MetricBag):
@@ -26,6 +25,7 @@ class RecipeMetricBag(MetricBag):
     num_elements: Sum
     total_num_examples: Sum
     total_num_elements: Sum
+    padding: Sum
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
@@ -37,6 +37,8 @@ class RecipeMetricBag(MetricBag):
 
         self.total_num_examples = Sum(device=device)
         self.total_num_elements = Sum(device=device)
+
+        self.padding = Sum(device=device)
 
 
 class SequenceMetricBag(RecipeMetricBag):
@@ -64,7 +66,7 @@ class SequenceMetricBag(RecipeMetricBag):
         loss = loss.detach()
 
         if normalize:
-            n = batch.num_target_elements()
+            n = batch.num_target_elements
         else:
             n = 1
 
@@ -72,21 +74,17 @@ class SequenceMetricBag(RecipeMetricBag):
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: SequenceBatch) -> None:
-        num_examples = batch.batch_size
+        self.num_examples.update(batch.num_examples)
+        self.num_elements.update(batch.num_elements)
 
-        num_elements = batch.num_elements()
+        self.num_target_elements.update(batch.num_target_elements)
 
-        num_target_elements = batch.num_target_elements()
+        self.total_num_examples.update(batch.num_examples)
+        self.total_num_elements.update(batch.num_elements)
 
-        self.num_examples.update(num_examples)
-        self.num_elements.update(num_elements)
+        self.total_num_target_elements.update(batch.num_target_elements)
 
-        self.num_target_elements.update(num_target_elements)
-
-        self.total_num_examples.update(num_examples)
-        self.total_num_elements.update(num_elements)
-
-        self.total_num_target_elements.update(num_target_elements)
+        self.padding.update(batch.padding)
 
 
 class Seq2SeqMetricBag(RecipeMetricBag):
@@ -118,7 +116,7 @@ class Seq2SeqMetricBag(RecipeMetricBag):
         loss = loss.detach()
 
         if normalize:
-            n = batch.num_target_elements()
+            n = batch.num_target_elements
         else:
             n = 1
 
@@ -126,24 +124,19 @@ class Seq2SeqMetricBag(RecipeMetricBag):
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: Seq2SeqBatch) -> None:
-        num_examples = batch.batch_size
+        self.num_examples.update(batch.num_examples)
+        self.num_elements.update(batch.num_elements)
 
-        num_source_elements = batch.num_source_elements()
-        num_target_elements = batch.num_target_elements()
+        self.num_source_elements.update(batch.num_source_elements)
+        self.num_target_elements.update(batch.num_target_elements)
 
-        num_elements = num_source_elements + num_target_elements
+        self.total_num_examples.update(batch.num_examples)
+        self.total_num_elements.update(batch.num_elements)
 
-        self.num_examples.update(num_examples)
-        self.num_elements.update(num_elements)
+        self.total_num_source_elements.update(batch.num_source_elements)
+        self.total_num_target_elements.update(batch.num_target_elements)
 
-        self.num_source_elements.update(num_source_elements)
-        self.num_target_elements.update(num_target_elements)
-
-        self.total_num_examples.update(num_examples)
-        self.total_num_elements.update(num_elements)
-
-        self.total_num_source_elements.update(num_source_elements)
-        self.total_num_target_elements.update(num_target_elements)
+        self.padding.update(batch.padding)
 
 
 class SequenceGenerationMetricBag(RecipeMetricBag):
@@ -285,3 +278,8 @@ def extend_batch_metric_values(
             metric_values["elements_per_second"] = num_elements / elapsed_time
         else:
             metric_values["elements_per_second"] = 0.0
+
+        if num_elements > 0:
+            padding = get_value("padding")
+            if padding is not None:
+                metric_values["padding_ratio"] = padding / (num_elements + padding)

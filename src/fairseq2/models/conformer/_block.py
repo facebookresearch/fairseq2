@@ -15,15 +15,14 @@ from typing_extensions import override
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.models.transformer import (
-    AttentionMask,
+    AttentionBiasCache,
     FeedForwardNetwork,
     LayerNormFactory,
     MultiheadAttention,
     TransformerEncoderLayer,
     create_standard_layer_norm,
 )
-from fairseq2.nn import LayerNorm
-from fairseq2.nn.padding import PaddingMask
+from fairseq2.nn import BatchLayout, LayerNorm
 
 # isort: split
 
@@ -127,20 +126,20 @@ class ConformerBlock(TransformerEncoderLayer):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
-        self_attn_mask: AttentionMask | None = None,
-    ) -> tuple[Tensor, PaddingMask | None]:
+        seqs_layout: BatchLayout,
+        attn_bias_cache: AttentionBiasCache,
+    ) -> Tensor:
         seqs = self._forward_ffn1(seqs)
 
-        seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask)
+        seqs = self._forward_self_attn(seqs, seqs_layout, attn_bias_cache)
 
-        seqs = self._forward_conv(seqs, padding_mask)
+        seqs = self._forward_conv(seqs, seqs_layout)
 
         seqs = self._forward_ffn2(seqs)
 
         seqs = self.layer_norm(seqs)
 
-        return seqs, padding_mask
+        return seqs
 
     def _forward_ffn1(self, seqs: Tensor) -> Tensor:
         residual = seqs
@@ -157,8 +156,8 @@ class ConformerBlock(TransformerEncoderLayer):
     def _forward_self_attn(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
-        self_attn_mask: AttentionMask | None,
+        seqs_layout: BatchLayout,
+        attn_bias_cache: AttentionBiasCache,
     ) -> Tensor:
         residual = seqs
 
@@ -166,11 +165,11 @@ class ConformerBlock(TransformerEncoderLayer):
 
         seqs = self.self_attn(
             seqs,
-            padding_mask,
+            seqs_layout,
             keys=seqs,
-            key_padding_mask=padding_mask,
+            keys_layout=seqs_layout,
             values=seqs,
-            attn_mask=self_attn_mask,
+            bias_cache=attn_bias_cache,
         )
 
         if self.self_attn_dropout is not None:
@@ -178,12 +177,12 @@ class ConformerBlock(TransformerEncoderLayer):
 
         return seqs + residual
 
-    def _forward_conv(self, seqs: Tensor, padding_mask: PaddingMask | None) -> Tensor:
+    def _forward_conv(self, seqs: Tensor, seqs_layout: BatchLayout) -> Tensor:
         residual = seqs
 
         seqs = self.conv_layer_norm(seqs)
 
-        seqs = self.conv(seqs, padding_mask)
+        seqs = self.conv(seqs, seqs_layout)
 
         if self.conv_dropout is not None:
             seqs = self.conv_dropout(seqs)

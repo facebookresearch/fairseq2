@@ -20,10 +20,10 @@ from fairseq2.datasets import (
     DataReader,
     DataReadOptions,
     DatasetHubAccessor,
+    SequenceBatch,
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
-from fairseq2.models.sequence import SequenceBatch
 
 
 @dataclass(kw_only=True)

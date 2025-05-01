@@ -15,6 +15,9 @@ from fairseq2.models.transformer_lm._decoder import (
 from fairseq2.models.transformer_lm._decoder import (
     TransformerLMDecoder as TransformerLMDecoder,
 )
+from fairseq2.models.transformer_lm._decoder import (
+    TransformerLMDecoderLayerHook as TransformerLMDecoderLayerHook,
+)
 from fairseq2.models.transformer_lm._decoder_layer import (
     StandardTransformerLMDecoderLayer as StandardTransformerLMDecoderLayer,
 )

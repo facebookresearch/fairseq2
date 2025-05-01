@@ -11,9 +11,8 @@ from abc import abstractmethod
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.models.sequence import SequenceBatch, SequenceModel, SequenceModelOutput
-from fairseq2.nn import IncrementalStateBag
-from fairseq2.nn.padding import PaddingMask
+from fairseq2.models.sequence import SequenceModel, SequenceModelOutput
+from fairseq2.nn import BatchLayout, IncrementalStateBag
 
 
 class DecoderModel(SequenceModel):
@@ -31,30 +30,25 @@ class DecoderModel(SequenceModel):
         self.model_dim = model_dim
 
     @override
-    def forward(self, batch: SequenceBatch) -> SequenceModelOutput:
-        decoder_output, decoder_padding_mask = self.decode(
-            batch.seqs, batch.padding_mask
-        )
+    def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> SequenceModelOutput:
+        decoder_output, decoder_output_layout = self.decode(seqs, seqs_layout)
 
-        return self.project(decoder_output, decoder_padding_mask)
+        return self.project(decoder_output, decoder_output_layout)
 
     @abstractmethod
     def decode(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
+        seqs_layout: BatchLayout,
         *,
         state_bag: IncrementalStateBag | None = None,
-    ) -> tuple[Tensor, PaddingMask | None]:
+    ) -> tuple[Tensor, BatchLayout]:
         """Decode the specified sequences.
 
         :param seqs:
             The sequences to decode. *Shape:* :math:`(N,S,*)`, where :math:`N`
             is the batch size, :math:`S` is the sequence length, and :math:`*`
             is any number of sequence-specific dimensions including none.
-        :param padding_mask:
-            The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
-            is the batch size and :math:`S` is the sequence length.
         :param state_bag:
             The state bag to use for incremental decoding.
 
@@ -69,7 +63,7 @@ class DecoderModel(SequenceModel):
 
     @abstractmethod
     def project(
-        self, decoder_output: Tensor, decoder_padding_mask: PaddingMask | None
+        self, decoder_output: Tensor, decoder_output_layout: BatchLayout
     ) -> SequenceModelOutput:
         """Produce logits for next-step prediction.
 

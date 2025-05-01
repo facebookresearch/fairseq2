@@ -16,7 +16,7 @@ from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
-from fairseq2.nn import LayerNorm, Linear, Projection
+from fairseq2.nn import Linear, Projection
 
 
 class FeedForwardNetwork(Module, ABC):
@@ -58,7 +58,6 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
     inner_proj: Projection
     inner_activation: Module
     inner_dropout: Dropout | None
-    inner_norm: LayerNorm | None
     output_proj: Projection
 
     def __init__(

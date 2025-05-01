@@ -8,16 +8,16 @@ from __future__ import annotations
 
 from typing import final
 
+from torch import Tensor
 from torch.nn import Dropout
 from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.models.asr import AsrModel, AsrModelOutput
-from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.transformer import TransformerEncoder
 from fairseq2.models.wav2vec2 import Wav2Vec2Frontend, Wav2Vec2Masker
-from fairseq2.nn import Projection
+from fairseq2.nn import BatchLayout, Projection
 
 
 @final
@@ -66,24 +66,22 @@ class Wav2Vec2AsrModel(AsrModel):
         self.final_proj = final_proj
 
     @override
-    def forward(self, batch: SequenceBatch) -> AsrModelOutput:
+    def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> AsrModelOutput:
         """
         :param batch:
             The batch of sequences to process.
         """
-        seqs, padding_mask, _ = self.encoder_frontend.extract_features(
-            batch.seqs, batch.padding_mask
+        seqs, seqs_layout, _ = self.encoder_frontend.extract_features(seqs, seqs_layout)
+
+        seqs, _ = self.encoder_frontend.process_features(
+            seqs, seqs_layout, self.masker if self.training else None
         )
 
-        seqs, padding_mask, _ = self.encoder_frontend.process_features(
-            seqs, padding_mask, self.masker if self.training else None
-        )
-
-        seqs, padding_mask = self.encoder(seqs, padding_mask)
+        seqs = self.encoder(seqs, seqs_layout)
 
         if self.final_dropout is not None:
             seqs = self.final_dropout(seqs)
 
         logits = self.final_proj(seqs)
 
-        return AsrModelOutput(logits, padding_mask)
+        return AsrModelOutput(logits, seqs_layout)

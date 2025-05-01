@@ -8,6 +8,7 @@ from copy import copy
 
 from fairseq2.models.jepa import JepaEncoderFactory
 from fairseq2.models.transformer import (
+    IdentityBias,
     MultiheadAttention,
     StandardMultiheadAttention,
     TransformerEncoder,
@@ -64,10 +65,10 @@ class JepaClassifierFactory:
         else:
             encoder = None
 
-        decoder = self.create_pooler_decoder_layer()
+        decoder_layer = self.create_pooler_decoder_layer()
 
         return AttentivePooler(
-            decoder=decoder,
+            decoder_layer=decoder_layer,
             encoder=encoder,
             num_queries=config.num_queries,
             init_std=config.encoder_config.init_std,
@@ -104,7 +105,9 @@ class JepaClassifierFactory:
 
         model_dim = config.model_dim
 
-        sdpa = create_default_sdpa(attn_dropout_p=config.attn_dropout_p)
+        attn_bias = IdentityBias()
+
+        sdpa = create_default_sdpa(attn_bias, dropout_p=config.attn_dropout_p)
 
         output_proj = self.create_cross_attention_output_projection()
 

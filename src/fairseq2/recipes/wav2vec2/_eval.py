@@ -14,7 +14,7 @@ import torch
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
-from fairseq2.datasets import LengthBatching, SyncMode
+from fairseq2.datasets import LengthBatching, SequenceBatch, SyncMode
 from fairseq2.datasets.speech import (
     GENERIC_SPEECH_DATASET_FAMILY,
     SpeechDataset,
@@ -23,7 +23,6 @@ from fairseq2.datasets.speech import (
 from fairseq2.device import CPU
 from fairseq2.gang import Gangs
 from fairseq2.metrics import MetricBag
-from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
 from fairseq2.recipes import Evaluator, EvalUnit, Model
 from fairseq2.recipes.common import (

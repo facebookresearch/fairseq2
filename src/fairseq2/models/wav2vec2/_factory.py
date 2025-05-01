@@ -11,7 +11,9 @@ from torch.nn import GELU, SiLU
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.transformer import (
+    SDPA,
     FeedForwardNetwork,
+    IdentityBias,
     MultiheadAttention,
     RelativePositionalEncoding,
     RelativePositionSDPA,
@@ -195,7 +197,9 @@ class Wav2Vec2EncoderFactory:
             layers.append(layer)
 
         return StandardTransformerEncoder(
-            layers, layer_drop_p=config.layer_drop_p, norm_order=config.norm_order
+            layers,
+            layer_drop_p=config.layer_drop_p,
+            norm_order=config.norm_order,
         )
 
     def create_rel_pos_encoding(self) -> RelativePositionalEncoding:
@@ -208,7 +212,7 @@ class Wav2Vec2EncoderFactory:
     ) -> TransformerEncoderLayer:
         config = self._config
 
-        self_attn = self.create_attention(lazy_rel_pos_encoding)
+        self_attn = self.create_self_attention(lazy_rel_pos_encoding)
 
         ffn = self.create_ffn()
 
@@ -216,7 +220,7 @@ class Wav2Vec2EncoderFactory:
             self_attn, ffn, dropout_p=config.dropout_p, norm_order=config.norm_order
         )
 
-    def create_attention(
+    def create_self_attention(
         self, lazy_rel_pos_encoding: Lazy[RelativePositionalEncoding]
     ) -> MultiheadAttention:
         config = self._config
@@ -228,7 +232,9 @@ class Wav2Vec2EncoderFactory:
         else:
             pos_encoder = None
 
-        sdpa = create_default_sdpa(attn_dropout_p=config.attn_dropout_p)
+        attn_bias = IdentityBias()
+
+        sdpa: SDPA
 
         if config.pos_encoder_type == "relative":
             rel_pos_encoding = lazy_rel_pos_encoding.retrieve()
@@ -237,8 +243,10 @@ class Wav2Vec2EncoderFactory:
                 config.model_dim,
                 config.num_encoder_attn_heads,
                 rel_pos_encoding,
-                inner_sdpa=sdpa,
+                attn_bias,
             )
+        else:
+            sdpa = create_default_sdpa(attn_bias, dropout_p=config.attn_dropout_p)
 
         return StandardMultiheadAttention(
             config.model_dim,
@@ -287,7 +295,7 @@ class Wav2Vec2EncoderFactory:
 
         ffn1 = self.create_ffn(use_swish=True)
 
-        self_attn = self.create_attention(lazy_rel_pos_encoding)
+        self_attn = self.create_self_attention(lazy_rel_pos_encoding)
 
         conv = self.create_conformer_conv()
 

@@ -21,7 +21,10 @@ from fairseq2.nn import (
 
 # isort: split
 
-from fairseq2.models.transformer._attention import create_default_sdpa
+from fairseq2.models.transformer._attention_bias import (
+    CausalAttentionBias,
+    IdentityBias,
+)
 from fairseq2.models.transformer._config import TransformerConfig
 from fairseq2.models.transformer._decoder import (
     StandardTransformerDecoder,
@@ -52,6 +55,7 @@ from fairseq2.models.transformer._multihead_attention import (
     MultiheadAttention,
     StandardMultiheadAttention,
 )
+from fairseq2.models.transformer._sdpa._default import create_default_sdpa
 
 
 def create_transformer_model(config: TransformerConfig) -> TransformerModel:
@@ -129,7 +133,7 @@ class TransformerFactory:
     def create_encoder_layer(self) -> TransformerEncoderLayer:
         config = self._config
 
-        self_attn = self.create_attention(config.num_encoder_attn_heads)
+        self_attn = self.create_encoder_self_attention()
 
         ffn = self.create_ffn()
 
@@ -137,10 +141,14 @@ class TransformerFactory:
             self_attn, ffn, dropout_p=config.dropout_p, norm_order=config.norm_order
         )
 
-    def create_attention(self, num_heads: int) -> MultiheadAttention:
+    def create_encoder_self_attention(self) -> MultiheadAttention:
         config = self._config
 
-        sdpa = create_default_sdpa(attn_dropout_p=config.dropout_p)
+        attn_bias = IdentityBias()
+
+        sdpa = create_default_sdpa(attn_bias, dropout_p=config.dropout_p)
+
+        num_heads = config.num_encoder_attn_heads
 
         return StandardMultiheadAttention(config.model_dim, num_heads, sdpa=sdpa)
 
@@ -166,9 +174,9 @@ class TransformerFactory:
     def create_decoder_layer(self) -> TransformerDecoderLayer:
         config = self._config
 
-        self_attn = self.create_attention(config.num_decoder_attn_heads)
+        self_attn = self.create_decoder_self_attention()
 
-        encoder_decoder_attn = self.create_attention(config.num_decoder_attn_heads)
+        encoder_decoder_attn = self.create_encoder_decoder_attention()
 
         ffn = self.create_ffn()
 
@@ -179,6 +187,28 @@ class TransformerFactory:
             dropout_p=config.dropout_p,
             norm_order=config.norm_order,
         )
+
+    def create_decoder_self_attention(self) -> MultiheadAttention:
+        config = self._config
+
+        attn_bias = CausalAttentionBias()
+
+        sdpa = create_default_sdpa(attn_bias, dropout_p=config.dropout_p)
+
+        num_heads = config.num_decoder_attn_heads
+
+        return StandardMultiheadAttention(config.model_dim, num_heads, sdpa=sdpa)
+
+    def create_encoder_decoder_attention(self) -> MultiheadAttention:
+        config = self._config
+
+        attn_bias = IdentityBias()
+
+        sdpa = create_default_sdpa(attn_bias, dropout_p=config.dropout_p)
+
+        num_heads = config.num_decoder_attn_heads
+
+        return StandardMultiheadAttention(config.model_dim, num_heads, sdpa=sdpa)
 
     def create_final_projection(self, embed: Embedding) -> Projection:
         config = self._config

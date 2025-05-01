@@ -10,7 +10,7 @@ import re
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from itertools import chain
-from typing import Protocol, runtime_checkable
+from typing import Protocol, cast, runtime_checkable
 
 import torch
 from torch import Tensor
@@ -573,7 +573,7 @@ def get_module_size_info(module: Module) -> ModuleSizeInfo:
             from torch.distributed.tensor import DTensor
 
             if isinstance(tensor, DTensor):
-                return tensor.detach().to_local().numel()  # type: ignore[no-any-return]
+                return cast(DTensor, tensor.detach()).to_local().numel()  # type: ignore[no-any-return]
 
         return tensor.numel()
 

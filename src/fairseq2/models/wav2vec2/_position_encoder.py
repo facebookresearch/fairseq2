@@ -19,12 +19,13 @@ from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.error import NotSupportedError
 from fairseq2.nn import (
+    BatchLayout,
     IncrementalStateBag,
     LayerNorm,
     PositionEncoder,
     StandardLayerNorm,
 )
-from fairseq2.nn.padding import PaddingMask, apply_padding_mask
+from fairseq2.nn.utils.mask import apply_mask
 
 
 @final
@@ -73,7 +74,7 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
+        seqs_layout: BatchLayout,
         state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         """:meta private:"""
@@ -82,9 +83,15 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
                 f"`{Wav2Vec2PositionEncoder}` does not support incremental decoding."
             )
 
-        # We have to ensure that the padded elements are correctly set to zero;
-        # otherwise, noise will leak into the feature maps.
-        seqs = apply_padding_mask(seqs, padding_mask)
+        if seqs_layout.packed:
+            raise ValueError("`seqs` must not be a packed batch.")
+
+        if seqs_layout.padded:
+            padding_mask = seqs_layout.position_indices >= 0
+
+            # We have to ensure that the padded elements are correctly set to
+            # zero; otherwise, noise will leak into the feature maps.
+            seqs = apply_mask(seqs, padding_mask)
 
         # (N, S, E) -> (N, E, S)
         encodings = seqs.transpose(1, 2)
@@ -195,7 +202,7 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
+        seqs_layout: BatchLayout,
         state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         """:meta private:"""
@@ -204,9 +211,15 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
                 f"`{Wav2Vec2StackedPositionEncoder}` does not support incremental decoding."
             )
 
-        # We have to ensure that the padded elements are correctly set to
-        # zero; otherwise, noise will leak into the feature maps.
-        seqs = apply_padding_mask(seqs, padding_mask)
+        if seqs_layout.packed:
+            raise ValueError("`seqs` must not be a packed batch.")
+
+        if seqs_layout.padded:
+            padding_mask = seqs_layout.position_indices >= 0
+
+            # We have to ensure that the padded elements are correctly set to
+            # zero; otherwise, noise will leak into the feature maps.
+            seqs = apply_mask(seqs, padding_mask)
 
         # (N, S, E) -> (N, E, S)
         encodings = seqs.transpose(1, 2)

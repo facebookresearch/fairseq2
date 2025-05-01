@@ -11,24 +11,27 @@ from typing import Protocol
 import torch
 from torch import Tensor
 
-from fairseq2.data_type import DataType
 from fairseq2.device import Device
-from fairseq2.nn.ops import repeat_interleave
+from fairseq2.utils.tensor import repeat_interleave
 
 
-def to_float_mask(mask: Tensor, dtype: DataType | None = None) -> Tensor:
-    """Convert a boolean mask to a float mask.
-
-    :param mask:
-        The boolean mask. *Shape:* Any.
-    :param dtype:
-        The data type of the float mask. If ``None``, the default floating-point
-        type will be used.
+def apply_mask(
+    seqs: Tensor, mask: Tensor, *, fill_value: int | float | Tensor = 0
+) -> Tensor:
     """
-    if dtype is None:
-        dtype = torch.get_default_dtype()
+    Applies the specified boolean mask to ``seqs``.
 
-    return torch.zeros_like(mask, dtype=dtype).masked_fill_(mask, -torch.inf)
+    :param seqs: The sequences to mask. *Shape:* :math:`(N,S,*)`, where :math:`N`
+        is the batch size, :math:`S` is the sequence length, and :math:`*` is
+        any number of sequence-specific dimensions including none.
+    :param mask: The boolean mask.
+
+    :returns: The input sequences with mask applied. *Shape:* Same as ``seqs``.
+    """
+    for _ in range(seqs.ndim - mask.ndim):
+        mask = mask.unsqueeze(-1)
+
+    return seqs.where(mask, fill_value)
 
 
 class RowMaskFactory(Protocol):
@@ -41,7 +44,8 @@ class RowMaskFactory(Protocol):
         min_num_spans: int = 0,
         device: Device | None = None,
     ) -> Tensor | None:
-        """Compute a random row mask of the specified shape.
+        """
+        Computes a random row mask of the specified shape.
 
         :param shape:
             The shape of the mask.
@@ -70,7 +74,8 @@ def compute_row_mask(
     min_num_spans: int = 0,
     device: Device | None = None,
 ) -> Tensor | None:
-    """Implements the :class:`RowMaskFactory` protocol.
+    """
+    Implements the :class:`RowMaskFactory` protocol.
 
     Note that, due to mask span overlap, the effective mask probability will be
     lower than ``max_mask_prob``. The implementation also guarantees that there

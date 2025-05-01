@@ -6,42 +6,17 @@
 
 from __future__ import annotations
 
-from fairseq2.models.transformer._attention import SDPA as SDPA
-from fairseq2.models.transformer._attention import NaiveSDPA as NaiveSDPA
-from fairseq2.models.transformer._attention import SDPAFactory as SDPAFactory
-from fairseq2.models.transformer._attention import TorchSDPA as TorchSDPA
-from fairseq2.models.transformer._attention import (
-    create_default_sdpa as create_default_sdpa,
+from fairseq2.models.transformer._attention_bias import (
+    ALiBiAttentionBias as ALiBiAttentionBias,
 )
-from fairseq2.models.transformer._attention import (
-    default_sdpa_factory as default_sdpa_factory,
+from fairseq2.models.transformer._attention_bias import AttentionBias as AttentionBias
+from fairseq2.models.transformer._attention_bias import (
+    AttentionBiasCache as AttentionBiasCache,
 )
-from fairseq2.models.transformer._attention import (
-    enable_memory_efficient_torch_sdpa as enable_memory_efficient_torch_sdpa,
+from fairseq2.models.transformer._attention_bias import (
+    CausalAttentionBias as CausalAttentionBias,
 )
-from fairseq2.models.transformer._attention import (
-    set_default_sdpa_factory as set_default_sdpa_factory,
-)
-from fairseq2.models.transformer._attention_mask import (
-    AbstractAttentionMask as AbstractAttentionMask,
-)
-from fairseq2.models.transformer._attention_mask import ALiBiMask as ALiBiMask
-from fairseq2.models.transformer._attention_mask import (
-    ALiBiMaskFactory as ALiBiMaskFactory,
-)
-from fairseq2.models.transformer._attention_mask import AttentionMask as AttentionMask
-from fairseq2.models.transformer._attention_mask import (
-    AttentionMaskFactory as AttentionMaskFactory,
-)
-from fairseq2.models.transformer._attention_mask import (
-    CausalAttentionMask as CausalAttentionMask,
-)
-from fairseq2.models.transformer._attention_mask import (
-    CausalAttentionMaskFactory as CausalAttentionMaskFactory,
-)
-from fairseq2.models.transformer._attention_mask import (
-    CustomAttentionMask as CustomAttentionMask,
-)
+from fairseq2.models.transformer._attention_bias import IdentityBias as IdentityBias
 from fairseq2.models.transformer._checkpoint import (
     convert_transformer_checkpoint as convert_transformer_checkpoint,
 )
@@ -156,15 +131,31 @@ from fairseq2.models.transformer._normalization import (
 from fairseq2.models.transformer._normalization import (
     create_standard_layer_norm as create_standard_layer_norm,
 )
-from fairseq2.models.transformer._relative_attention import (
+from fairseq2.models.transformer._sdpa._base import SDPA as SDPA
+from fairseq2.models.transformer._sdpa._default import SDPAFactory as SDPAFactory
+from fairseq2.models.transformer._sdpa._default import (
+    create_default_sdpa as create_default_sdpa,
+)
+from fairseq2.models.transformer._sdpa._default import (
+    get_default_sdpa_factory as get_default_sdpa_factory,
+)
+from fairseq2.models.transformer._sdpa._default import (
+    set_default_sdpa_factory as set_default_sdpa_factory,
+)
+from fairseq2.models.transformer._sdpa._naive import NaiveSDPA as NaiveSDPA
+from fairseq2.models.transformer._sdpa._naive import (
+    naive_scaled_dot_product_attention as naive_scaled_dot_product_attention,
+)
+from fairseq2.models.transformer._sdpa._relative import (
     RelativePositionalEncoding as RelativePositionalEncoding,
 )
-from fairseq2.models.transformer._relative_attention import (
+from fairseq2.models.transformer._sdpa._relative import (
     RelativePositionSDPA as RelativePositionSDPA,
 )
-from fairseq2.models.transformer._shaw_attention import (
+from fairseq2.models.transformer._sdpa._shaw import (
     ShawRelativePositionSDPA as ShawRelativePositionSDPA,
 )
-from fairseq2.models.transformer._shaw_attention import (
+from fairseq2.models.transformer._sdpa._shaw import (
     init_shaw_embedding as init_shaw_embedding,
 )
+from fairseq2.models.transformer._sdpa._torch import TorchSDPA as TorchSDPA

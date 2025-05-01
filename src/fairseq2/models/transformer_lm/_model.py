@@ -15,9 +15,8 @@ from typing_extensions import override
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer import TransformerFrontend
-from fairseq2.nn import IncrementalStateBag, Projection
+from fairseq2.nn import BatchLayout, IncrementalStateBag, Projection
 from fairseq2.nn.ops import CrossEntropy, cross_entropy
-from fairseq2.nn.padding import PaddingMask
 
 # isort: split
 
@@ -32,8 +31,7 @@ class TransformerLanguageModel(DecoderModel):
     decoder: TransformerLMDecoder
     final_proj: Projection
     pad_idx: int | None
-
-    _loss_fn: CrossEntropy
+    loss_fn: CrossEntropy
 
     def __init__(
         self,
@@ -59,33 +57,31 @@ class TransformerLanguageModel(DecoderModel):
 
         self.pad_idx = pad_idx
 
-        self._loss_fn = cross_entropy
+        self.loss_fn = cross_entropy
 
     def compile_loss_function(self, *args: Any, **kwargs: Any) -> None:
-        self._loss_fn = torch.compile(self._loss_fn, **kwargs)
+        self.loss_fn = torch.compile(self.loss_fn, **kwargs)
 
     @override
     def decode(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
+        seqs_layout: BatchLayout,
         *,
         state_bag: IncrementalStateBag | None = None,
-    ) -> tuple[Tensor, PaddingMask | None]:
-        seqs, padding_mask = self.decoder_frontend(
-            seqs, padding_mask, state_bag=state_bag
+    ) -> tuple[Tensor, BatchLayout]:
+        seqs, seqs_layout = self.decoder_frontend(
+            seqs, seqs_layout, state_bag=state_bag
         )
 
-        decoder_output, decoder_padding_mask = self.decoder(
-            seqs, padding_mask, state_bag=state_bag
-        )
+        seqs = self.decoder(seqs, seqs_layout, state_bag=state_bag)
 
-        return decoder_output, decoder_padding_mask
+        return seqs, seqs_layout
 
     @override
     def project(
-        self, decoder_output: Tensor, decoder_padding_mask: PaddingMask | None
+        self, decoder_output: Tensor, decoder_output_layout: BatchLayout
     ) -> SequenceModelOutput:
         logits = self.final_proj(decoder_output)
 
-        return SequenceModelOutput(logits, self.pad_idx, loss_fn=self._loss_fn)
+        return SequenceModelOutput(logits, self.pad_idx, loss_fn=self.loss_fn)

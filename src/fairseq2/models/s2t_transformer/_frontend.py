@@ -18,8 +18,13 @@ from fairseq2.device import Device
 from fairseq2.error import NotSupportedError
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.transformer import TransformerFrontend
-from fairseq2.nn import IncrementalStateBag, Linear, PositionEncoder, Projection
-from fairseq2.nn.padding import PaddingMask
+from fairseq2.nn import (
+    BatchLayout,
+    IncrementalStateBag,
+    Linear,
+    PositionEncoder,
+    Projection,
+)
 
 
 @final
@@ -99,29 +104,27 @@ class S2TTransformerFrontend(TransformerFrontend):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
+        seqs_layout: BatchLayout,
         *,
         state_bag: IncrementalStateBag | None = None,
-    ) -> tuple[Tensor, PaddingMask | None]:
+    ) -> tuple[Tensor, BatchLayout]:
         if state_bag is not None:
             raise NotSupportedError(
                 f"`{S2TTransformerFrontend}` does not support incremental decoding."
             )
 
         if self.feature_extractor is not None:
-            features, padding_mask = self.feature_extractor(seqs, padding_mask)
-        else:
-            features = seqs
+            seqs, seqs_layout = self.feature_extractor(seqs, seqs_layout)
 
-        features = features * self.scale
+        seqs = seqs * self.scale
 
         if self.pos_encoder is not None:
-            features = self.pos_encoder(features, padding_mask)
+            seqs = self.pos_encoder(seqs, seqs_layout)
 
         if self.proj is not None:
-            features = self.proj(features)
+            seqs = self.proj(seqs)
 
         if self.dropout is not None:
-            features = self.dropout(features)
+            seqs = self.dropout(seqs)
 
-        return features, padding_mask
+        return seqs, seqs_layout

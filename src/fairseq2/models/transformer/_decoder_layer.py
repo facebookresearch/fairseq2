@@ -16,16 +16,16 @@ from typing_extensions import override
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.nn import (
+    BatchLayout,
     IncrementalStateBag,
     LayerNorm,
     ResidualConnect,
     StandardResidualConnect,
 )
-from fairseq2.nn.padding import PaddingMask
 
 # isort: split
 
-from fairseq2.models.transformer._attention_mask import AttentionMask
+from fairseq2.models.transformer._attention_bias import AttentionBiasCache
 from fairseq2.models.transformer._ffn import FeedForwardNetwork
 from fairseq2.models.transformer._multihead_attention import MultiheadAttention
 from fairseq2.models.transformer._norm_order import TransformerNormOrder
@@ -42,8 +42,7 @@ class TransformerDecoderLayer(Module, ABC):
 
     def __init__(self, model_dim: int) -> None:
         """
-        :param model_dim:
-            The dimensionality of the model.
+        :param model_dim: The dimensionality of the model.
         """
         super().__init__()
 
@@ -53,41 +52,24 @@ class TransformerDecoderLayer(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
-        self_attn_mask: AttentionMask | None,
+        seqs_layout: BatchLayout,
         encoder_output: Tensor,
-        encoder_padding_mask: PaddingMask | None,
+        encoder_output_layout: BatchLayout,
+        attn_bias_cache: AttentionBiasCache,
         *,
         state_bag: IncrementalStateBag | None = None,
-    ) -> tuple[Tensor, PaddingMask | None]:
+    ) -> Tensor:
         """
-        :param seqs:
-            The sequences to process. *Shape:* :math:`(N,S,M)`, where :math:`N`
-            is the batch size, :math:`S` is the sequence length, and :math:`M`
-            is the dimensionality of the model.
-        :param padding_mask:
-            The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
-            is the batch size and :math:`S` is the sequence length.
-        :param self_attn_mask:
-            The mask that will be added to attention weights before computing
-            the self attention. *Shape:* :math:`([H],S,S)`, where :math:`H` is
-            the number of attention heads and :math:`S` is the sequence length.
-        :param encoder_output:
-            The encoder output to use in encoder-decoder attention. *Shape:*
-            :math:`(N,S_{enc},M_{enc})`, where :math:`N` is the batch size,
-            :math:`S_{enc}` is the encoder output sequence length, and
-            :math:`M_{enc}` is the dimensionality of the encoder.
-        :param encoder_padding_mask:
-            The padding mask of ``encoder_output``. *Shape:* :math:`(N,S_{enc})`,
-            where :math:`N` is the batch size and :math:`S_{enc}` is the encoder
-            output sequence length.
-        :param state_bag:
-            The state bag to use for incremental decoding.
+        :param seqs: The sequences to process. *Shape:* :math:`(N,S,M)`, where
+            :math:`N` is the batch size, :math:`S` is the sequence length, and
+            :math:`M` is the dimensionality of the model.
+        :param encoder_output: The encoder output to use in encoder-decoder
+            attention. *Shape:* :math:`(N,S_{enc},M_{enc})`, where :math:`N` is
+            the batch size, :math:`S_{enc}` is the encoder output sequence
+            length, and :math:`M_{enc}` is the dimensionality of the encoder.
+        :param state_bag: The state bag to use for incremental decoding.
 
-        :returns:
-            - The decoder layer output. *Shape:* Same as ``seqs``.
-            - The padding mask of the decoder layer output. *Shape:* Same as
-              ``padding_mask``.
+        :returns: The decoder layer output. *Shape:* Same as ``seqs``.
         """
 
     def extra_repr(self) -> str:
@@ -130,28 +112,20 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         dtype: DataType | None = None,
     ) -> None:
         """
-        :param self_attn:
-            The self attention layer.
-        :param encoder_decoder_attn:
-            The encoder-decoder attention layer.
-        :param ffn:
-            The feed-forward network.
-        :param dropout_p:
-            The dropout probability on outputs of the attention layers and the
-            feed-forward network.
-        :param norm_order:
-            The Layer Normalization order.
-        :param layer_norm_factory:
-            The factory to construct the Layer Normalization modules.
-        :param self_attn_residual:
-            The residual connection between the input and output of the self
-            attention layer.
-        :param encoder_decoder_attn_residual:
-            The residual connection between the input and output of the
-            encoder-decoder attention layer.
-        :param ffn_residual:
-            The residual connection between the input and output of the
-            feed-forward network.
+        :param self_attn: The self attention layer.
+        :param encoder_decoder_attn: The encoder-decoder attention layer.
+        :param ffn: The feed-forward network.
+        :param dropout_p: The dropout probability on outputs of the attention
+            layers and the feed-forward network.
+        :param norm_order: The Layer Normalization order.
+        :param layer_norm_factory: The factory to construct the Layer
+            Normalization modules.
+        :param self_attn_residual: The residual connection between the input and
+            output of the self attention layer.
+        :param encoder_decoder_attn_residual: The residual connection between
+            the input and output of the encoder-decoder attention layer.
+        :param ffn_residual: The residual connection between the input and
+            output of the feed-forward network.
         """
         model_dim = self_attn.model_dim
 
@@ -160,6 +134,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         if layer_norm_factory is None:
             layer_norm_factory = create_standard_layer_norm
 
+        # Self Attention
         self_attn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
 
         if norm_order != TransformerNormOrder.POST:
@@ -180,6 +155,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         if norm_order == TransformerNormOrder.POST:
             self.self_attn_layer_norm = self_attn_layer_norm
 
+        # Encoder-Decoder Attention
         encoder_decoder_attn_layer_norm = layer_norm_factory(
             model_dim, device=device, dtype=dtype
         )
@@ -202,6 +178,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         if norm_order == TransformerNormOrder.POST:
             self.encoder_decoder_attn_layer_norm = encoder_decoder_attn_layer_norm
 
+        # Feed-Forward Network
         ffn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
 
         if norm_order != TransformerNormOrder.POST:
@@ -228,28 +205,33 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
-        self_attn_mask: AttentionMask | None,
+        seqs_layout: BatchLayout,
         encoder_output: Tensor,
-        encoder_padding_mask: PaddingMask | None,
+        encoder_output_layout: BatchLayout,
+        attn_bias_cache: AttentionBiasCache,
         *,
         state_bag: IncrementalStateBag | None = None,
-    ) -> tuple[Tensor, PaddingMask | None]:
-        seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask, state_bag)
+    ) -> Tensor:
+        seqs = self._forward_self_attn(seqs, seqs_layout, attn_bias_cache, state_bag)
 
         seqs = self._forward_encoder_decoder_attn(
-            seqs, padding_mask, encoder_output, encoder_padding_mask, state_bag
+            seqs,
+            seqs_layout,
+            encoder_output,
+            encoder_output_layout,
+            attn_bias_cache,
+            state_bag,
         )
 
         seqs = self._forward_ffn(seqs)
 
-        return seqs, padding_mask
+        return seqs
 
     def _forward_self_attn(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
-        self_attn_mask: AttentionMask | None,
+        seqs_layout: BatchLayout,
+        attn_bias_cache: AttentionBiasCache,
         state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         residual = seqs
@@ -259,11 +241,11 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
 
         seqs = self.self_attn(
             seqs,
-            padding_mask,
+            seqs_layout,
             keys=seqs,
-            key_padding_mask=padding_mask,
+            keys_layout=seqs_layout,
             values=seqs,
-            attn_mask=self_attn_mask,
+            bias_cache=attn_bias_cache,
             state_bag=state_bag,
         )
 
@@ -280,9 +262,10 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
     def _forward_encoder_decoder_attn(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
+        seqs_layout: BatchLayout,
         encoder_output: Tensor,
-        encoder_padding_mask: PaddingMask | None,
+        encoder_output_layout: BatchLayout,
+        attn_bias_cache: AttentionBiasCache,
         state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         residual = seqs
@@ -292,10 +275,11 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
 
         seqs = self.encoder_decoder_attn(
             seqs,
-            padding_mask,
+            seqs_layout,
             keys=encoder_output,
-            key_padding_mask=encoder_padding_mask,
+            keys_layout=encoder_output_layout,
             values=encoder_output,
+            bias_cache=attn_bias_cache,
             state_bag=state_bag,
         )
 

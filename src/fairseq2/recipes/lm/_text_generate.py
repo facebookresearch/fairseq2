@@ -16,7 +16,7 @@ from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
-from fairseq2.datasets import StaticBatching, SyncMode
+from fairseq2.datasets import SequenceBatch, StaticBatching, SyncMode
 from fairseq2.datasets.instruction import (
     GENERIC_INSTRUCTION_DATASET_FAMILY,
     InstructionDataset,
@@ -29,7 +29,6 @@ from fairseq2.gang import Gangs
 from fairseq2.generation import SamplingConfig, SequenceGenerator
 from fairseq2.metrics import MetricBag
 from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes import (
     Generator,
     GeneratorUnit,
@@ -318,7 +317,9 @@ class TextGenerateUnit(GeneratorUnit[SequenceBatch]):
 
         ids = batch.example["id"]
 
-        output = self._generator(batch.seqs, batch.padding_mask)
+        prompt_seqs, prompt_seqs_layout = batch.as_input()
+
+        output = self._generator(prompt_seqs, prompt_seqs_layout)
 
         self._metric_bag.update_batch_metrics(output)
 

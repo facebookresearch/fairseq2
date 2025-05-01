@@ -13,11 +13,7 @@ import torch
 
 from fairseq2.context import RuntimeContext
 from fairseq2.logging import log
-from fairseq2.models.transformer import (
-    NaiveSDPA,
-    TorchSDPA,
-    set_default_sdpa_factory,
-)
+from fairseq2.models.transformer import NaiveSDPA, TorchSDPA, set_default_sdpa_factory
 from fairseq2.recipes import RecipeError
 from fairseq2.recipes.config import TorchSection
 from fairseq2.utils.env import get_rank

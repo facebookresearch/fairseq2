@@ -22,10 +22,9 @@ from fairseq2.error import InternalError
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
-from fairseq2.nn import IncrementalStateBag
-from fairseq2.nn.ops import repeat_interleave
-from fairseq2.nn.padding import PaddingMask
+from fairseq2.nn import BatchLayout, IncrementalStateBag
 from fairseq2.utils.stopwatch import Stopwatch
+from fairseq2.utils.tensor import repeat_interleave
 
 # isort: split
 
@@ -187,13 +186,13 @@ class SamplingSequenceGenerator(SequenceGenerator):
     @torch.inference_mode()
     @override
     def __call__(
-        self, prompt_seqs: Tensor, prompt_padding_mask: PaddingMask | None
+        self, prompt_seqs: Tensor, prompt_seqs_layout: BatchLayout
     ) -> SequenceGeneratorOutput:
         op = _SamplingSequenceGeneratorOp(
             self._model,
             self._vocab_info,
             prompt_seqs,
-            prompt_padding_mask,
+            prompt_seqs_layout,
             self._sampler,
             self._num_gens,
             self._min_gen_len,
@@ -366,19 +365,16 @@ class SamplingSeq2SeqGenerator(Seq2SeqGenerator):
     def __call__(
         self,
         source_seqs: Tensor,
-        source_padding_mask: PaddingMask | None,
+        source_seqs_layout: BatchLayout,
         prompt_seqs: Tensor,
-        prompt_padding_mask: PaddingMask | None,
+        prompt_seqs_layout: BatchLayout,
     ) -> Seq2SeqGeneratorOutput:
         # (P, S)
-        encoder_output, encoder_padding_mask = self.model.encode(
-            source_seqs, source_padding_mask
+        encoder_output, encoder_output_layout = self.model.encode(
+            source_seqs, source_seqs_layout
         )
 
-        if source_padding_mask is None:
-            max_source_len = source_seqs.size(1)
-        else:
-            max_source_len = int(source_padding_mask.seq_lens.max())
+        max_source_len = max(source_seqs_layout.seq_lens)
 
         a_term, b_term = self._max_gen_len
 
@@ -400,9 +396,9 @@ class SamplingSeq2SeqGenerator(Seq2SeqGenerator):
             self._model,
             self._target_vocab_info,
             encoder_output,
-            encoder_padding_mask,
+            encoder_output_layout,
             prompt_seqs,
-            prompt_padding_mask,
+            prompt_seqs_layout,
             self._sampler,
             self._num_gens,
             self._min_gen_len,
@@ -423,7 +419,7 @@ class SamplingSeq2SeqGenerator(Seq2SeqGenerator):
         hypotheses, counters = op()
 
         return Seq2SeqGeneratorOutput(
-            hypotheses, encoder_output, encoder_padding_mask, counters
+            hypotheses, encoder_output, encoder_output_layout, counters
         )
 
     @override
@@ -474,7 +470,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
         self,
         vocab_info: VocabularyInfo,
         prompt_seqs: Tensor,
-        prompt_padding_mask: PaddingMask | None,
+        prompt_seqs_layout: BatchLayout,
         sampler: Sampler,
         num_gens: int,
         min_gen_len: int,
@@ -502,30 +498,12 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
 
         self._num_gens = num_gens
 
-        min_prompt_idx: int | Tensor
-        max_prompt_idx: int | Tensor
-
-        if prompt_padding_mask is None:
-            self._min_prompt_len, min_prompt_idx = prompt_seqs.size(1), 0
-            self._max_prompt_len, max_prompt_idx = prompt_seqs.size(1), 0
-        else:
-            prompt_seq_lens = prompt_padding_mask.seq_lens
-
-            min_prompt_len, min_prompt_idx = torch.min(prompt_seq_lens, dim=0)
-            max_prompt_len, max_prompt_idx = torch.max(prompt_seq_lens, dim=0)
-
-            self._min_prompt_len = int(min_prompt_len)
-            self._max_prompt_len = int(max_prompt_len)
-
-            if self._min_prompt_len == self._max_prompt_len:
-                prompt_padding_mask = None
-
-        if self._min_prompt_len < 1:
-            raise ValueError(f"`prompt_seqs[{int(min_prompt_idx)}]` must not be empty.")
+        self._min_prompt_len = prompt_seqs_layout.min_seq_len
+        self._max_prompt_len = prompt_seqs_layout.max_seq_len
 
         if self._max_prompt_len >= max_seq_len:
             raise ValueError(
-                f"The length of `prompt_seqs[{int(max_prompt_idx)}]` must be less than `max_seq_len` ({max_seq_len}), but is {self._max_prompt_len} instead."
+                f"The maximum prompt length in `prompt_seqs` must be less than `max_seq_len` ({max_seq_len}), but is {self._max_prompt_len} instead."
             )
 
         self._min_seq_len = min(max_seq_len, self._max_prompt_len + min_gen_len)
@@ -547,15 +525,15 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
             self._max_seq_len, capacity_increment=decode_capacity_increment
         )
 
-        if prompt_padding_mask is None:
-            self._prompt_lens = None
-            self._prompt_mask = None
-        else:
+        if prompt_seqs_layout.padded:
             # (P)
-            self._prompt_lens = prompt_padding_mask.seq_lens
+            self._prompt_lens = prompt_seqs_layout.seq_lens_pt
 
             # (P, S_prm)
-            self._prompt_mask = prompt_padding_mask.materialize()
+            self._prompt_mask = prompt_seqs_layout.position_indices >= 0
+        else:
+            self._prompt_lens = None
+            self._prompt_mask = None
 
         device = prompt_seqs.device
 
@@ -605,8 +583,8 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
 
         self._watch.reset()
 
-        self._counters.cache_size = self._state_bag.size()
-        self._counters.cache_capacity = self._state_bag.capacity()
+        self._counters.cache_size = self._state_bag.size_bytes()
+        self._counters.cache_capacity = self._state_bag.capacity_bytes()
 
         if self._compute_scores:
             # Sort the hypotheses by their scores before returning.
@@ -887,7 +865,7 @@ class _SamplingSequenceGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
         model: DecoderModel,
         vocab_info: VocabularyInfo,
         prompt_seqs: Tensor,
-        prompt_padding_mask: PaddingMask | None,
+        prompt_seqs_layout: BatchLayout,
         sampler: Sampler,
         num_gens: int,
         min_gen_len: int,
@@ -907,7 +885,7 @@ class _SamplingSequenceGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
         super().__init__(
             vocab_info,
             prompt_seqs,
-            prompt_padding_mask,
+            prompt_seqs_layout,
             sampler,
             num_gens,
             min_gen_len,
@@ -929,29 +907,30 @@ class _SamplingSequenceGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
 
     @override
     def _decode(self, seqs: Tensor) -> SequenceModelOutput:
-        decoder_output, decoder_padding_mask = self._model.decode(
-            seqs,
-            None,  # We never use PAD in incremental decoding.
-            state_bag=self._state_bag,
+        # We never pad during incremental decoding.
+        seqs_layout = BatchLayout.of(seqs)
+
+        decoder_output, decoder_output_layout = self._model.decode(
+            seqs, seqs_layout, state_bag=self._state_bag
         )
 
-        return self._model.project(decoder_output, decoder_padding_mask)
+        return self._model.project(decoder_output, decoder_output_layout)
 
 
 @final
 class _SamplingSeq2SeqGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
     _model: EncoderDecoderModel
     _encoder_output: Tensor
-    _encoder_padding_mask: PaddingMask | None
+    _encoder_output_layout: BatchLayout
 
     def __init__(
         self,
         model: EncoderDecoderModel,
         target_vocab_info: VocabularyInfo,
         encoder_output: Tensor,
-        encoder_padding_mask: PaddingMask | None,
+        encoder_output_layout: BatchLayout,
         prompt_seqs: Tensor,
-        prompt_padding_mask: PaddingMask | None,
+        prompt_seqs_layout: BatchLayout,
         sampler: Sampler,
         num_gens: int,
         min_gen_len: int,
@@ -971,7 +950,7 @@ class _SamplingSeq2SeqGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
         super().__init__(
             target_vocab_info,
             prompt_seqs,
-            prompt_padding_mask,
+            prompt_seqs_layout,
             sampler,
             num_gens,
             min_gen_len,
@@ -991,19 +970,22 @@ class _SamplingSeq2SeqGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
 
         self._model = model
         self._encoder_output = encoder_output
-        self._encoder_padding_mask = encoder_padding_mask
+        self._encoder_output_layout = encoder_output_layout
 
     @override
     def _decode(self, seqs: Tensor) -> SequenceModelOutput:
-        decoder_output, decoder_padding_mask = self._model.decode(
+        # We never pad during incremental decoding.
+        seqs_layout = BatchLayout.of(seqs)
+
+        decoder_output, decoder_output_layout = self._model.decode(
             seqs,
-            None,  # We never use PAD in incremental decoding.
+            seqs_layout,
             self._encoder_output,
-            self._encoder_padding_mask,
+            self._encoder_output_layout,
             state_bag=self._state_bag,
         )
 
-        return self._model.project(decoder_output, decoder_padding_mask)
+        return self._model.project(decoder_output, decoder_output_layout)
 
     @override
     def _reorder_state(self, new_order: Tensor) -> None:
@@ -1011,12 +993,8 @@ class _SamplingSeq2SeqGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
 
         self._encoder_output = self._encoder_output.index_select(dim=0, index=new_order)
 
-        if self._encoder_padding_mask is not None:
-            encoder_seq_lens = self._encoder_padding_mask.seq_lens
+        seq_lens = self._encoder_output_layout.seq_lens
 
-            # (N) -> (N - F)
-            encoder_seq_lens = encoder_seq_lens.index_select(dim=0, index=new_order)
+        seq_lens = [seq_lens[i] for i in new_order.tolist()]
 
-            self._encoder_padding_mask = PaddingMask(
-                encoder_seq_lens, batch_seq_len=self._encoder_output.size(1)
-            )
+        self._encoder_output_layout = BatchLayout.of(self._encoder_output, seq_lens)

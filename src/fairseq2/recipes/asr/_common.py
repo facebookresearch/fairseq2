@@ -14,12 +14,11 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
+from fairseq2.datasets import Seq2SeqBatch
 from fairseq2.gang import Gang
 from fairseq2.metrics import Mean
 from fairseq2.metrics.text import WerMetric
 from fairseq2.models.asr import AsrModel, AsrModelOutput
-from fairseq2.models.seq2seq import Seq2SeqBatch
-from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes import Model, RecipeMetricBag, UnitError
 
 
@@ -41,11 +40,14 @@ class AsrCriterion:
     def __call__(
         self, batch: Seq2SeqBatch, metric_bag: AsrMetricBag
     ) -> tuple[Tensor, int]:
-        input_batch = SequenceBatch(batch.source_seqs, batch.source_padding_mask)
+        source_seqs, source_seqs_layout = batch.as_source_input()
+        target_seqs, target_seqs_layout = batch.as_target_input()
 
-        model_output: AsrModelOutput = self._model.module(input_batch)
+        model_output: AsrModelOutput = self._model.module(
+            source_seqs, source_seqs_layout
+        )
 
-        loss = model_output.compute_loss(batch.target_seqs, batch.target_padding_mask)
+        loss = model_output.compute_loss(target_seqs, target_seqs_layout)
 
         metric_bag.update_ctc_loss(batch, loss)
 
@@ -101,11 +103,11 @@ class AsrScorer:
     def __call__(
         self, batch: Seq2SeqBatch, output: AsrModelOutput, metric_bag: AsrMetricBag
     ) -> None:
-        # (N, S), (N, S)
-        ref_seqs, ref_padding_mask = batch.target_seqs, batch.target_padding_mask
+        # (N, S)
+        ref_seqs, ref_seqs_layout = batch.as_target_input()
 
-        # (N, S), (N, S)
-        hyp_seqs, hyp_padding_mask = output.generate_hypotheses(
+        # (N, S)
+        hyp_seqs, hyp_seqs_layout = output.generate_hypotheses(
             self._pad_idx, self._blank_label
         )
 
@@ -113,7 +115,7 @@ class AsrScorer:
         hyps = [self._text_decoder(s) for s in hyp_seqs]
 
         metric_bag.wer.update(
-            refs, ref_seqs, ref_padding_mask, hyps, hyp_seqs, hyp_padding_mask
+            refs, ref_seqs, ref_seqs_layout, hyps, hyp_seqs, hyp_seqs_layout
         )
 
         try:
@@ -159,15 +161,13 @@ class AsrMetricBag(RecipeMetricBag):
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: Seq2SeqBatch) -> None:
-        num_examples = batch.batch_size
+        self.num_examples.update(batch.num_examples)
+        self.num_elements.update(batch.num_elements)
 
-        num_elements = batch.num_source_elements()
+        self.total_num_examples.update(batch.num_examples)
+        self.total_num_elements.update(batch.num_elements)
 
-        self.num_examples.update(num_examples)
-        self.num_elements.update(num_elements)
-
-        self.total_num_examples.update(num_examples)
-        self.total_num_elements.update(num_elements)
+        self.padding.update(batch.padding)
 
     @override
     def process_metric_values(self, values: dict[str, object]) -> None:

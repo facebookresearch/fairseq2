@@ -30,12 +30,11 @@ from fairseq2.datasets import (
     DatasetHubAccessor,
     DatasetLoadError,
     LengthBatching,
+    SequenceBatch,
     StaticBatching,
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
-from fairseq2.models.sequence import SequenceBatch
-from fairseq2.nn.padding import get_seqs_and_padding_mask
 
 
 @dataclass(kw_only=True)
@@ -218,9 +217,9 @@ class GenericTextDataset(TextDataset):
     def _to_batch(example: dict[str, Any]) -> SequenceBatch:
         data = cast(SequenceData, example["indices"])
 
-        seqs, padding_mask = get_seqs_and_padding_mask(data)
+        seqs, seqs_layout = data["seqs"], data["seq_lens"]
 
-        return SequenceBatch(seqs, padding_mask, example=example)
+        return SequenceBatch(seqs, seqs_layout, example=example)
 
 
 get_text_dataset_hub = DatasetHubAccessor(TextDataset)

@@ -585,7 +585,7 @@ else:
 
 class SequenceData(TypedDict):
     seqs: Tensor
-    seq_lens: Tensor
+    seq_lens: list[int]
     is_ragged: bool
 
 

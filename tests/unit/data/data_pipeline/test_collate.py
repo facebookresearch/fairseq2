@@ -42,7 +42,8 @@ class TestCollateOp:
         expected_output2 = collater(bucket2)
 
         assert_equal(output1["seqs"], expected_output1["seqs"])
-        assert_equal(output1["seq_lens"], expected_output1["seq_lens"])
+
+        assert output1["seq_lens"] == expected_output1["seq_lens"]
 
         assert output1["is_ragged"] == expected_output1["is_ragged"]
 

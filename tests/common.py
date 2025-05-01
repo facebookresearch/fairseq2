@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import torch
 from torch import Tensor
 
@@ -18,7 +16,7 @@ from fairseq2.device import CPU
 device = CPU
 
 
-def assert_close(a: Tensor, b: Tensor | list[Any]) -> None:
+def assert_close(a: Tensor, b: Tensor | float | list[float]) -> None:
     """Assert that ``a`` and ``b`` are element-wise equal within a tolerance."""
     if not isinstance(b, Tensor):
         b = torch.tensor(b, device=device, dtype=a.dtype)
@@ -26,7 +24,7 @@ def assert_close(a: Tensor, b: Tensor | list[Any]) -> None:
     torch.testing.assert_close(a, b)  # type: ignore[attr-defined]
 
 
-def assert_equal(a: Tensor, b: Tensor | list[Any]) -> None:
+def assert_equal(a: Tensor, b: Tensor | int | list[int]) -> None:
     """Assert that ``a`` and ``b`` are element-wise equal."""
     if not isinstance(b, Tensor):
         b = torch.tensor(b, device=device, dtype=a.dtype)

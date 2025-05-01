@@ -15,13 +15,12 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
-from fairseq2.datasets import LengthBatching, SyncMode
+from fairseq2.datasets import LengthBatching, Seq2SeqBatch, SyncMode
 from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
 from fairseq2.device import CPU
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
 from fairseq2.metrics import MetricBag
-from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
 from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
