@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from copy import copy
 from dataclasses import dataclass, field
-from typing import Dict, Final, List, cast, final
+from typing import Dict, Final, List, cast, final, Any
 
 import ray
 import torch
@@ -123,9 +123,9 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     def display_name(self) -> str | None:
         return self._display_name
 
-    def maybe_sync_models(self):
+    def maybe_sync_models(self, force_sync_vllm=False):
 
-        if (
+        if force_sync_vllm or (
             self._sync_vllm_model_every_n_steps > 0
             and self._step_nr % self._sync_vllm_model_every_n_steps == 0
         ):
@@ -158,6 +158,8 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
             policy_sampling_params.n = 1
+            for k, v in self._loss_config.validation_vllm_sampling_params.items():
+                policy_sampling_params.__setattr__(k, v)
         else:
             policy_sampling_params = None
         rollouts = generate_rollouts(
@@ -449,6 +451,9 @@ class GrpoLossConfig:
 
     log_rollouts: bool = False
     """Log rollouts during training/validation"""
+
+    validation_vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
+    """VLLM sampling params for validation. If not set, the same params as training will be used."""
 
 
 @dataclass(kw_only=True)
