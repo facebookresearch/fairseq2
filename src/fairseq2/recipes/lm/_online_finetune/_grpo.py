@@ -134,7 +134,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                     self._vllm_model.sync_weights_with_vllm(train_model=self._model)
                 self._gangs.root.barrier()
 
-        if (
+        if hasattr(self, "_step_nr") and (
             self._sync_ref_model_every_n_steps > 0
             and self._step_nr % self._sync_ref_model_every_n_steps == 0
         ):
@@ -343,9 +343,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 (per_token_loss * target_mask).sum(dim=-1) / target_mask.sum(dim=-1)
             ).mean(dim=1)
         else:
-            per_seq_loss = (
-                (per_token_loss * target_mask).sum(dim=-1)
-            ).mean(dim=1)
+            per_seq_loss = ((per_token_loss * target_mask).sum(dim=-1)).mean(dim=1)
 
         # if self._gangs.root.rank == 0:
         #     from pudb.remote import set_trace
