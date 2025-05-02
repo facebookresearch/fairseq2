@@ -22,6 +22,7 @@ from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
 from fairseq2.recipes.lm._online_finetune._common import (
     compute_token_level_entropy,
     log_rollouts,
+    get_rollout_lengths,
 )
 
 from fairseq2.context import RuntimeContext
@@ -172,6 +173,14 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             log_rollouts(prompt_batch, rollouts, "Valid")
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
+
+        rollout_lengths = get_rollout_lengths(rollouts)
+        avg_rollout_length = torch.tensor(rollout_lengths).float().mean()
+        avg_reward_len_norm = avg_reward / avg_rollout_length
+
+        self._metric_bag.update_avg_rollout_length(avg_rollout_length)
+        self._metric_bag.update_avg_reward_len_norm(avg_reward_len_norm)
+
         self._metric_bag.update_avg_reward(avg_reward)
         self._metric_bag.update_batch_metrics(prompt_batch)
         # returning dummy loss since trainer expects it
@@ -387,6 +396,12 @@ class GrpoFinetuneMetricBag(SequenceMetricBag):
         self.register_metric("grpo_loss", Mean(device=gang.device), persistent=False)
         self.register_metric("avg_reward", Mean(device=gang.device), persistent=False)
         self.register_metric(
+            "avg_rollout_length", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "avg_reward_len_norm", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
             "logit_entropy", Mean(device=gang.device), persistent=False
         )
 
@@ -425,6 +440,14 @@ class GrpoFinetuneMetricBag(SequenceMetricBag):
     @torch.inference_mode()
     def update_avg_reward(self, avg_reward):
         self.avg_reward.update(avg_reward, weight=1)
+
+    @torch.inference_mode()
+    def update_avg_rollout_length(self, avg_rollout_length):
+        self.avg_rollout_length.update(avg_rollout_length, weight=1)
+
+    @torch.inference_mode()
+    def update_avg_reward_len_norm(self, avg_reward_len_norm):
+        self.avg_reward_len_norm.update(avg_reward_len_norm, weight=1)
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: PreferenceBatch):
