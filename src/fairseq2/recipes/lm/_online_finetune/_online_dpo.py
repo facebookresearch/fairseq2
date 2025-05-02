@@ -143,7 +143,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
                     self._vllm_model.sync_weights_with_vllm(train_model=self._model)
                 self._gangs.root.barrier()
 
-        if (
+        if not force_sync_vllm and (
             self._sync_ref_model_every_n_steps > 0
             and self._step_nr % self._sync_ref_model_every_n_steps == 0
         ):
