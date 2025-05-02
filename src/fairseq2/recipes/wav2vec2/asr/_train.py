@@ -8,20 +8,26 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, cast, final
+from typing import cast, final, List, Literal
 
 import torch
-from torch import Tensor
-from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
+
+from fairseq2.datasets.asr import (
+    AsrDataset,
+    AsrReadOptions,
+    GENERIC_ASR_DATASET_FAMILY,
+    MixingAsrDataset,
+)
+from fairseq2.datasets.speech import SpeechDataset, SpeechReadOptions
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
+from fairseq2.models.asr import AsrModel
+from fairseq2.models.llama import TransformerLanguageModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
-from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import TRI_STAGE_LR, TriStageLRConfig
@@ -59,6 +65,8 @@ from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+from torch import Tensor
+from typing_extensions import override
 
 
 @dataclass(kw_only=True)
@@ -69,6 +77,12 @@ class Wav2Vec2AsrTrainConfig:
 
     pretrained_model: ReferenceModelSection = field(
         default_factory=lambda: ReferenceModelSection(name="wav2vec2_base")
+    )
+    pretrained_model_full: ReferenceModelSection = field(
+        default_factory=lambda: ReferenceModelSection(name="")
+    )
+    pretrained_decoder: ReferenceModelSection = field(
+        default_factory=lambda: ReferenceModelSection(name="")
     )
 
     dataset: Wav2Vec2AsrTrainDatasetSection = field(
@@ -108,6 +122,7 @@ class Wav2Vec2AsrTrainConfig:
             validate_after_n_steps=10_000,
             validate_every_n_steps=1_000,
             publish_metrics_every_n_steps=200,
+            keep_last_n_checkpoints=1,
         )
     )
 
@@ -119,6 +134,7 @@ class Wav2Vec2AsrTrainConfig:
 @dataclass(kw_only=True)
 class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     name: str | None = "librilight_asr_10h"
+    """Can take comma separated values"""
 
     family: str = GENERIC_ASR_DATASET_FAMILY
 
@@ -127,6 +143,11 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     train_split: str = "train"
 
     valid_split: str | None = "dev_other"
+
+    sampling_weights: List[float] = field(default_factory=lambda: [1.0])
+    """Mixing ratios for training data."""
+
+    is_asr: List[bool] = field(default_factory=lambda: [True])
 
     min_audio_len: int = 1
     """The minimum audio sequence length."""
@@ -233,7 +254,7 @@ def load_wav2vec2_asr_trainer(
     seed += 1
 
     model = load_base_model(
-        Wav2Vec2AsrModel,
+        AsrModel,
         context,
         config.model,
         config.trainer,
@@ -242,11 +263,11 @@ def load_wav2vec2_asr_trainer(
         checkpoint_manager,
     )
 
-    module = cast(Wav2Vec2AsrModel, model.module)
+    module = cast(AsrModel, model.module)
 
     # If we start the training with an empty ASR model, use the weights of a
     # pretrained wav2vec 2.0 model.
-    if model.is_empty_initialized:
+    if model.is_empty_initialized and config.pretrained_model.name:
         pt_model = load_reference_model(
             Wav2Vec2Model,
             context,
@@ -278,6 +299,66 @@ def load_wav2vec2_asr_trainer(
                 "The collective barrier after the pretrained model load operation has failed. See the nested exception for details."
             ) from ex
 
+    if config.pretrained_model_full.name:
+        assert not config.pretrained_model.name
+
+        pt_model = load_reference_model(
+            type(model.module),
+            context,
+            config.pretrained_model_full,
+            gangs,
+            config.trainer.dtype,
+            mp=config.trainer.mixed_precision != "off",
+        )
+        pt_module = pt_model.module
+        share_parameters(pt_module, module)
+        del pt_model
+
+        # Make sure that the final projection layer is instantiated along with
+        # the pretrained parameters if it was on the meta device.
+        if gangs.dp.rank == 0:
+            to_device(module, gangs.root.device)
+
+        try:
+            gangs.root.barrier()
+        except GangError as ex:
+            raise RecipeError(
+                "The collective barrier after the pretrained model load operation has failed. See the nested exception for details."
+            ) from ex
+
+    if config.pretrained_decoder.name:
+        assert not config.pretrained_model_full.name
+
+        pt_model = load_reference_model(
+            TransformerLanguageModel,
+            context,
+            config.pretrained_decoder,
+            gangs,
+            config.trainer.dtype,
+            mp=config.trainer.mixed_precision != "off",
+        )
+        pt_module = pt_model.module
+        share_parameters(pt_module.decoder, module.llama_decoder)
+        del pt_model
+
+        # Make sure that the final projection layer is instantiated along with
+        # the pretrained parameters if it was on the meta device.
+        if gangs.dp.rank == 0:
+            to_device(module, gangs.root.device)
+
+        try:
+            gangs.root.barrier()
+        except GangError as ex:
+            raise RecipeError(
+                "The collective barrier after the pretrained model load operation has failed. See the nested exception for details."
+            ) from ex
+
+        # LoRA adapters
+        from fairseq2.models.llama.lora import get_llama_lora_config
+        from fairseq2.nn.lora import LoRAConfig, wrap_lora
+
+        module = wrap_lora(module, get_llama_lora_config())
+
     # We never train the feature extractor.
     freeze_parameters(module.encoder_frontend.feature_extractor)
 
@@ -297,7 +378,22 @@ def load_wav2vec2_asr_trainer(
         context, config.lr_scheduler, config.regime, optimizer
     )
 
-    dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
+    # Load the training dataset(s).
+    train_datasets = []
+    train_ds_names = config.dataset.name.split(",")
+    config.dataset.path = None
+    for ds_name, is_asr in zip(train_ds_names, config.dataset.is_asr):
+        config.dataset.name = ds_name
+        if is_asr:
+            train_datasets.append(
+                load_dataset(AsrDataset, context, config.dataset, gangs)
+            )
+        else:
+            train_datasets.append(
+                load_dataset(SpeechDataset | AsrDataset, context, config.dataset, gangs)
+            )
+    dataset = MixingAsrDataset(train_datasets, config.dataset.sampling_weights)
+    valid_dataset = train_datasets[0]
 
     tokenizer = load_text_tokenizer(context, config.tokenizer)
 
@@ -356,7 +452,7 @@ def load_wav2vec2_asr_trainer(
             valid_unit = AsrEvalUnit(valid_criterion, gangs)
             valid_units.append(valid_unit)
 
-            valid_data_reader = dataset.create_reader(
+            valid_data_reader = valid_dataset.create_reader(
                 valid_splits[i],
                 tokenizer,
                 gangs.dp,
@@ -393,7 +489,7 @@ def load_wav2vec2_asr_trainer(
 
 @final
 class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
-    _module: Wav2Vec2AsrModel
+    _module: AsrModel
     _criterion: AsrCriterion
     _freeze_encoder_for_n_steps: int
     _frozen: bool
@@ -408,9 +504,9 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
         """
         module = criterion.model.base_module
 
-        if not isinstance(module, Wav2Vec2AsrModel):
+        if not isinstance(module, AsrModel):
             raise TypeError(
-                f"`criterion.model.base_module` must be of type `{Wav2Vec2AsrModel}`, but is of type `{type(module)}` instead."
+                f"`criterion.model.base_module` must be of type `{AsrModel}`, but is of type `{type(module)}` instead."
             )
 
         self._module = module
