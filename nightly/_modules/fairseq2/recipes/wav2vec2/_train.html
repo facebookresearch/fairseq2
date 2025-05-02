@@ -330,7 +330,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">RuntimeContext</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">LengthBatching</span><span class="p">,</span> <span class="n">SyncMode</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">LengthBatching</span><span class="p">,</span> <span class="n">SequenceBatch</span><span class="p">,</span> <span class="n">SyncMode</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets.speech</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">GENERIC_SPEECH_DATASET_FAMILY</span><span class="p">,</span>
     <span class="n">SpeechDataset</span><span class="p">,</span>
@@ -339,7 +339,6 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gangs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricBag</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.sequence</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceBatch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.wav2vec2</span><span class="w"> </span><span class="kn">import</span> <span class="n">Wav2Vec2Model</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.optim</span><span class="w"> </span><span class="kn">import</span> <span class="n">ADAMW_OPTIMIZER</span><span class="p">,</span> <span class="n">AdamWConfig</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.optim.lr_scheduler</span><span class="w"> </span><span class="kn">import</span> <span class="n">POLYNOMIAL_DECAY_LR</span><span class="p">,</span> <span class="n">PolynomialDecayLRConfig</span>
@@ -693,7 +692,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=206ec5dc"></script>
+</div><script src="../../../../_static/documentation_options.js?v=6a3d7cb0"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

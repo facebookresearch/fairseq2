@@ -331,7 +331,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">RuntimeContext</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.data.text.tokenizers</span><span class="w"> </span><span class="kn">import</span> <span class="n">TextTokenDecoder</span><span class="p">,</span> <span class="n">TextTokenizer</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">StaticBatching</span><span class="p">,</span> <span class="n">SyncMode</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceBatch</span><span class="p">,</span> <span class="n">StaticBatching</span><span class="p">,</span> <span class="n">SyncMode</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets.instruction</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">GENERIC_INSTRUCTION_DATASET_FAMILY</span><span class="p">,</span>
     <span class="n">InstructionDataset</span><span class="p">,</span>
@@ -344,7 +344,6 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.generation</span><span class="w"> </span><span class="kn">import</span> <span class="n">SamplingConfig</span><span class="p">,</span> <span class="n">SequenceGenerator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricBag</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.decoder</span><span class="w"> </span><span class="kn">import</span> <span class="n">DecoderModel</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.sequence</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceBatch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">Generator</span><span class="p">,</span>
     <span class="n">GeneratorUnit</span><span class="p">,</span>
@@ -644,7 +643,9 @@
 
         <span class="n">ids</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">example</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
 
-        <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generator</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">seqs</span><span class="p">,</span> <span class="n">batch</span><span class="o">.</span><span class="n">padding_mask</span><span class="p">)</span>
+        <span class="n">prompt_seqs</span><span class="p">,</span> <span class="n">prompt_seqs_layout</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">as_input</span><span class="p">()</span>
+
+        <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generator</span><span class="p">(</span><span class="n">prompt_seqs</span><span class="p">,</span> <span class="n">prompt_seqs_layout</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span><span class="o">.</span><span class="n">update_batch_metrics</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
 
@@ -788,7 +789,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=206ec5dc"></script>
+</div><script src="../../../../_static/documentation_options.js?v=6a3d7cb0"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

@@ -329,9 +329,9 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torcheval.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">MulticlassAccuracy</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceBatch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gang</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mean</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.sequence</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceBatch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.wav2vec2</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">GumbelVectorQuantizerOutput</span><span class="p">,</span>
     <span class="n">VectorQuantizerOutput</span><span class="p">,</span>
@@ -375,7 +375,9 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">,</span> <span class="n">metric_bag</span><span class="p">:</span> <span class="n">Wav2Vec2MetricBag</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
-        <span class="n">model_output</span><span class="p">:</span> <span class="n">Wav2Vec2Output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">module</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+        <span class="n">seqs</span><span class="p">,</span> <span class="n">seqs_layout</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">as_input</span><span class="p">()</span>
+
+        <span class="n">model_output</span><span class="p">:</span> <span class="n">Wav2Vec2Output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">module</span><span class="p">(</span><span class="n">seqs</span><span class="p">,</span> <span class="n">seqs_layout</span><span class="p">)</span>
 
         <span class="n">loss</span> <span class="o">=</span> <span class="n">model_output</span><span class="o">.</span><span class="n">compute_loss</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_diversity_loss_weight</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature_penalty_weight</span>
@@ -470,15 +472,11 @@
 
     <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">update_batch_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">num_examples</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">batch_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_examples</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">num_examples</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_elements</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">num_elements</span><span class="p">)</span>
 
-        <span class="n">num_elements</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">num_elements</span><span class="p">()</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">num_examples</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">num_examples</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">num_elements</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">num_elements</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">total_num_examples</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">num_examples</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">total_num_elements</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">num_elements</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">total_num_examples</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">num_examples</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">total_num_elements</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">num_elements</span><span class="p">)</span></div>
 
 </pre></div>
         </article>
@@ -516,7 +514,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=206ec5dc"></script>
+</div><script src="../../../../_static/documentation_options.js?v=6a3d7cb0"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

@@ -330,16 +330,13 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">RuntimeContext</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceBatch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets.preference</span><span class="w"> </span><span class="kn">import</span> <span class="n">PreferenceBatch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gang</span><span class="p">,</span> <span class="n">Gangs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">log</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mean</span><span class="p">,</span> <span class="n">MetricBag</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.decoder</span><span class="w"> </span><span class="kn">import</span> <span class="n">DecoderModel</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.sequence</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">SequenceBatch</span><span class="p">,</span>
-    <span class="n">SequenceModelOutput</span><span class="p">,</span>
-    <span class="n">as_auto_regressive_input</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.sequence</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceModelOutput</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.nn.utils.module</span><span class="w"> </span><span class="kn">import</span> <span class="n">freeze_parameters</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Model</span><span class="p">,</span> <span class="n">TrainUnit</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">setup_reference_model</span>
@@ -390,10 +387,11 @@
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">PreferenceBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
         <span class="n">chosen_batch</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">chosen</span>
-        <span class="n">chosen_input_batch</span><span class="p">,</span> <span class="n">chosen_target_batch</span> <span class="o">=</span> <span class="n">as_auto_regressive_input</span><span class="p">(</span><span class="n">chosen_batch</span><span class="p">)</span>
+        <span class="n">chosen_input_batch</span><span class="p">,</span> <span class="n">chosen_target_batch</span> <span class="o">=</span> <span class="n">chosen_batch</span><span class="o">.</span><span class="n">as_auto_regressive</span><span class="p">()</span>
+
         <span class="n">rejected_batch</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">rejected</span>
-        <span class="n">rejected_input_batch</span><span class="p">,</span> <span class="n">rejected_target_batch</span> <span class="o">=</span> <span class="n">as_auto_regressive_input</span><span class="p">(</span>
-            <span class="n">rejected_batch</span>
+        <span class="n">rejected_input_batch</span><span class="p">,</span> <span class="n">rejected_target_batch</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">rejected_batch</span><span class="o">.</span><span class="n">as_auto_regressive</span><span class="p">()</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span>
             <span class="n">chosen_target_batch</span><span class="o">.</span><span class="n">target_mask</span> <span class="ow">is</span> <span class="kc">None</span>
@@ -401,11 +399,16 @@
         <span class="p">):</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;target_mask attributes must exist for DPO loss&quot;</span><span class="p">)</span>
 
-        <span class="n">chosen_output</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
-            <span class="n">SequenceModelOutput</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">module</span><span class="p">(</span><span class="n">chosen_input_batch</span><span class="p">)</span>
+        <span class="n">chosen_seqs</span><span class="p">,</span> <span class="n">chosen_seqs_layout</span> <span class="o">=</span> <span class="n">chosen_input_batch</span><span class="o">.</span><span class="n">as_input</span><span class="p">()</span>
+
+        <span class="n">chosen_output</span><span class="p">:</span> <span class="n">SequenceModelOutput</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">module</span><span class="p">(</span>
+            <span class="n">chosen_seqs</span><span class="p">,</span> <span class="n">chosen_seqs_layout</span>
         <span class="p">)</span>
-        <span class="n">rejected_output</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
-            <span class="n">SequenceModelOutput</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">module</span><span class="p">(</span><span class="n">rejected_input_batch</span><span class="p">)</span>
+
+        <span class="n">rejected_seqs</span><span class="p">,</span> <span class="n">rejected_seqs_layout</span> <span class="o">=</span> <span class="n">rejected_input_batch</span><span class="o">.</span><span class="n">as_input</span><span class="p">()</span>
+
+        <span class="n">rejected_output</span><span class="p">:</span> <span class="n">SequenceModelOutput</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">module</span><span class="p">(</span>
+            <span class="n">rejected_seqs</span><span class="p">,</span> <span class="n">rejected_seqs_layout</span>
         <span class="p">)</span>
 
         <span class="n">chosen_logps</span><span class="p">,</span> <span class="n">average_chosen_logps</span> <span class="o">=</span> <span class="n">_gather_lprobs_avg</span><span class="p">(</span>
@@ -478,7 +481,7 @@
             <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nll_scale</span>
             <span class="o">*</span> <span class="n">nll_loss</span>
             <span class="o">*</span> <span class="n">chosen_target_batch</span><span class="o">.</span><span class="n">batch_size</span>
-            <span class="o">/</span> <span class="n">chosen_target_batch</span><span class="o">.</span><span class="n">num_target_elements</span><span class="p">()</span>
+            <span class="o">/</span> <span class="n">chosen_target_batch</span><span class="o">.</span><span class="n">num_target_elements</span>
         <span class="p">)</span>  <span class="c1"># normalization applied locally per-rank</span>
 
         <span class="k">return</span> <span class="n">loss</span><span class="p">,</span> <span class="n">chosen_target_batch</span><span class="o">.</span><span class="n">batch_size</span>
@@ -661,7 +664,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../../_static/documentation_options.js?v=206ec5dc"></script>
+</div><script src="../../../../../_static/documentation_options.js?v=6a3d7cb0"></script>
     <script src="../../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/scripts/furo.js?v=5fa4622c"></script>

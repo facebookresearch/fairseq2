@@ -337,10 +337,11 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.data_type</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataType</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InternalError</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.nn.padding</span><span class="w"> </span><span class="kn">import</span> <span class="n">PaddingMask</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.tensor</span><span class="w"> </span><span class="kn">import</span> <span class="n">unsqueeze</span>
 
 <span class="c1"># isort: split</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.nn._batch_layout</span><span class="w"> </span><span class="kn">import</span> <span class="n">BatchLayout</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.nn._incremental_state</span><span class="w"> </span><span class="kn">import</span> <span class="n">IncrementalStateBag</span>
 
 
@@ -372,23 +373,20 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">padding_mask</span><span class="p">:</span> <span class="n">PaddingMask</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">seqs_layout</span><span class="p">:</span> <span class="n">BatchLayout</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">state_bag</span><span class="p">:</span> <span class="n">IncrementalStateBag</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns a copy of ``seqs`` with positional information encoded.</span>
 
-<span class="sd">        :param seqs: The input sequences to encode. *Shape:* :math:`(*,S,E)`,</span>
-<span class="sd">            where :math:`*` is any number of batch dimensions including none,</span>
-<span class="sd">            :math:`S` is the sequence length, and :math:`E` is the dimensionality</span>
-<span class="sd">            of the positional encodings.</span>
-<span class="sd">        :param padding_mask: The padding mask of ``seqs``. *Shape:* :math:`(*,S)`,</span>
-<span class="sd">            where :math:`*` is any number of batch dimensions including none and</span>
-<span class="sd">            :math:`S` is the sequence length.</span>
+<span class="sd">        :param seqs: The input sequences to encode. *Shape:* :math:`([N],S,*,E)`,</span>
+<span class="sd">            where :math:`N` is the batch size, :math:`S` is the sequence length,</span>
+<span class="sd">            :math:`*` is any number of batch dimensions including none, and</span>
+<span class="sd">            :math:`E` is the dimensionality of the positional encodings.</span>
 <span class="sd">        :param state_bag: If not ``None``, the encoder will operate in</span>
-<span class="sd">            incremental decoding mode. This means that the first step in ``seqs``</span>
-<span class="sd">            will be considered to be at position :attr:`state_bag.step_nr</span>
+<span class="sd">            incremental decoding mode. The first element in ``seqs`` will be</span>
+<span class="sd">            considered to be at position :attr:`state_bag.step_nr</span>
 <span class="sd">            &lt;fairseq2.nn.IncrementalStateBag.step_nr&gt;` instead of 0.</span>
 
 <span class="sd">        :raises ValueError: when the sequence length of ``seqs`` exceeds</span>
@@ -397,18 +395,21 @@
 <span class="sd">        :returns: The input sequences with positional information encoded.</span>
 <span class="sd">            *Shape:* Same as ``seqs``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">or</span> <span class="n">state_bag</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">start_step</span> <span class="o">=</span> <span class="mi">0</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">start_step</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step_nr</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">compiler</span><span class="o">.</span><span class="n">is_compiling</span><span class="p">():</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">and</span> <span class="n">state_bag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">start_step</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step_nr</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">start_step</span> <span class="o">=</span> <span class="mi">0</span>
 
-            <span class="k">if</span> <span class="p">(</span><span class="n">seq_len</span> <span class="o">:=</span> <span class="n">start_step</span> <span class="o">+</span> <span class="n">seqs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">))</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;The input sequence length must be less than or equal to the maximum sequence length (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">seq_len</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-                <span class="p">)</span>
+                <span class="n">max_seq_len</span> <span class="o">=</span> <span class="n">start_step</span> <span class="o">+</span> <span class="n">seqs_layout</span><span class="o">.</span><span class="n">max_seq_len</span>
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_forward</span><span class="p">(</span><span class="n">seqs</span><span class="p">,</span> <span class="n">padding_mask</span><span class="p">,</span> <span class="n">state_bag</span><span class="p">)</span></div>
+                <span class="k">if</span> <span class="n">max_seq_len</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="si">}</span><span class="s2">), but at least one sequence has a length of </span><span class="si">{</span><span class="n">max_seq_len</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+                    <span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_forward</span><span class="p">(</span><span class="n">seqs</span><span class="p">,</span> <span class="n">seqs_layout</span><span class="p">,</span> <span class="n">state_bag</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="PositionEncoder._do_forward">
@@ -417,7 +418,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_do_forward</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">padding_mask</span><span class="p">:</span> <span class="n">PaddingMask</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">seqs_layout</span><span class="p">:</span> <span class="n">BatchLayout</span><span class="p">,</span>
         <span class="n">state_bag</span><span class="p">:</span> <span class="n">IncrementalStateBag</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -472,7 +473,7 @@
             <span class="p">)</span>
 
         <span class="n">freqs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
-            <span class="p">(</span><span class="n">max_seq_len</span><span class="p">,</span> <span class="n">encoding_dim</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+            <span class="p">(</span><span class="n">max_seq_len</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">encoding_dim</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
         <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;freqs&quot;</span><span class="p">,</span> <span class="n">freqs</span><span class="p">,</span> <span class="n">persistent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
@@ -489,16 +490,18 @@
 <div class="viewcode-block" id="SinusoidalPositionEncoder.reset_parameters">
 <a class="viewcode-back" href="../../../reference/api/fairseq2.nn/position_encoders.html#fairseq2.nn.SinusoidalPositionEncoder.reset_parameters">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">reset_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset the parameters and buffers of the module.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resets the parameters and buffers of the module.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reset_non_persistent_buffers</span><span class="p">()</span></div>
 
 
 <div class="viewcode-block" id="SinusoidalPositionEncoder.reset_non_persistent_buffers">
 <a class="viewcode-back" href="../../../reference/api/fairseq2.nn/position_encoders.html#fairseq2.nn.SinusoidalPositionEncoder.reset_non_persistent_buffers">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">reset_non_persistent_buffers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset the non-persistent buffers of the module.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resets the non-persistent buffers of the module.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`max_seq_len` is `None`.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># pad</span>
 
         <span class="n">device</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="o">.</span><span class="n">dtype</span>
 
@@ -509,25 +512,43 @@
             <span class="n">start_step</span><span class="p">,</span> <span class="n">start_step</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span>
         <span class="p">)</span>
 
-        <span class="n">_fill_sin_freq_table</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoding_dim</span><span class="p">,</span> <span class="n">steps</span><span class="p">)</span></div>
+        <span class="n">_fill_sin_freq_table</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoding_dim</span><span class="p">,</span> <span class="n">steps</span><span class="p">)</span></div>
 
 
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_do_forward</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">padding_mask</span><span class="p">:</span> <span class="n">PaddingMask</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">seqs_layout</span><span class="p">:</span> <span class="n">BatchLayout</span><span class="p">,</span>
         <span class="n">state_bag</span><span class="p">:</span> <span class="n">IncrementalStateBag</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;:meta private:&quot;&quot;&quot;</span>
-        <span class="n">seq_len</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">seqs_layout</span><span class="o">.</span><span class="n">packed</span> <span class="ow">or</span> <span class="n">seqs_layout</span><span class="o">.</span><span class="n">padded</span><span class="p">:</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">seqs_layout</span><span class="o">.</span><span class="n">position_indices</span> <span class="o">+</span> <span class="mi">1</span>  <span class="c1"># +1 for padding</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">or</span> <span class="n">state_bag</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">start_step</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">and</span> <span class="n">state_bag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">indices</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step_nr</span> <span class="o">+</span> <span class="n">indices</span>
+
+            <span class="c1"># ([N], S, E)</span>
+            <span class="n">freqs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">start_step</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step_nr</span>
+            <span class="n">batch_width</span> <span class="o">=</span> <span class="n">seqs_layout</span><span class="o">.</span><span class="n">width</span>
 
-        <span class="n">fp32_seqs</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="p">[</span><span class="n">start_step</span> <span class="p">:</span> <span class="n">start_step</span> <span class="o">+</span> <span class="n">seq_len</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">and</span> <span class="n">state_bag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">start_step</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step_nr</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">start_step</span> <span class="o">=</span> <span class="mi">1</span>
+
+            <span class="c1"># (S, E)</span>
+            <span class="n">freqs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="p">[</span><span class="n">start_step</span> <span class="p">:</span> <span class="n">start_step</span> <span class="o">+</span> <span class="n">batch_width</span><span class="p">]</span>
+
+            <span class="c1"># (S, E) -&gt; (1, S, E)</span>
+            <span class="n">freqs</span> <span class="o">=</span> <span class="n">freqs</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">d</span> <span class="o">:=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">ndim</span> <span class="o">-</span> <span class="n">freqs</span><span class="o">.</span><span class="n">ndim</span><span class="p">:</span>
+            <span class="n">freqs</span> <span class="o">=</span> <span class="n">unsqueeze</span><span class="p">(</span><span class="n">freqs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">2</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="n">d</span><span class="p">)</span>
+
+        <span class="n">fp32_seqs</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="o">+</span> <span class="n">freqs</span>
 
         <span class="k">return</span> <span class="n">fp32_seqs</span><span class="o">.</span><span class="n">type_as</span><span class="p">(</span><span class="n">seqs</span><span class="p">)</span></div>
 
@@ -588,7 +609,7 @@
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">encoding_dim</span><span class="p">,</span> <span class="n">max_seq_len</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">weight</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">(</span>
-            <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">max_seq_len</span><span class="p">,</span> <span class="n">encoding_dim</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">max_seq_len</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">encoding_dim</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
         <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
@@ -596,30 +617,33 @@
 <div class="viewcode-block" id="LearnedPositionEncoder.reset_parameters">
 <a class="viewcode-back" href="../../../reference/api/fairseq2.nn/position_encoders.html#fairseq2.nn.LearnedPositionEncoder.reset_parameters">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">reset_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset the parameters and buffers of the module.&quot;&quot;&quot;</span>
-        <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">normal_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span></div>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resets the parameters and buffers of the module.&quot;&quot;&quot;</span>
+        <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">normal_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">fill_</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>  <span class="c1"># pad</span></div>
 
 
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_do_forward</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">padding_mask</span><span class="p">:</span> <span class="n">PaddingMask</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">seqs_layout</span><span class="p">:</span> <span class="n">BatchLayout</span><span class="p">,</span>
         <span class="n">state_bag</span><span class="p">:</span> <span class="n">IncrementalStateBag</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;:meta private:&quot;&quot;&quot;</span>
-        <span class="n">seq_len</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">seqs_layout</span><span class="o">.</span><span class="n">position_indices</span> <span class="o">+</span> <span class="mi">1</span>  <span class="c1"># +1 for padding</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">or</span> <span class="n">state_bag</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">start_step</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">start_step</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step_nr</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">and</span> <span class="n">state_bag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step_nr</span> <span class="o">+</span> <span class="n">indices</span>
 
-        <span class="n">steps</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span>
-            <span class="n">start_step</span><span class="p">,</span> <span class="n">start_step</span> <span class="o">+</span> <span class="n">seq_len</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">seqs</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span>
-        <span class="p">)</span>
+        <span class="c1"># ([N], S, E)</span>
+        <span class="n">embeds</span> <span class="o">=</span> <span class="n">embedding</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="n">padding_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">seqs</span> <span class="o">+</span> <span class="n">embedding</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="n">d</span> <span class="o">:=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">ndim</span> <span class="o">-</span> <span class="n">embeds</span><span class="o">.</span><span class="n">ndim</span><span class="p">:</span>
+            <span class="n">embeds</span> <span class="o">=</span> <span class="n">unsqueeze</span><span class="p">(</span><span class="n">embeds</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">2</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="n">d</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">seqs</span> <span class="o">+</span> <span class="n">embeds</span></div>
 
 
 
@@ -669,7 +693,7 @@
             <span class="p">)</span>
 
         <span class="n">freqs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
-            <span class="p">(</span><span class="n">max_seq_len</span><span class="p">,</span> <span class="n">encoding_dim</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+            <span class="p">(</span><span class="n">max_seq_len</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">encoding_dim</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
         <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;freqs&quot;</span><span class="p">,</span> <span class="n">freqs</span><span class="p">,</span> <span class="n">persistent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
@@ -682,20 +706,22 @@
 <div class="viewcode-block" id="RotaryEncoder.reset_parameters">
 <a class="viewcode-back" href="../../../reference/api/fairseq2.nn/position_encoders.html#fairseq2.nn.RotaryEncoder.reset_parameters">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">reset_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset the parameters and buffers of the module.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resets the parameters and buffers of the module.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reset_non_persistent_buffers</span><span class="p">()</span></div>
 
 
 <div class="viewcode-block" id="RotaryEncoder.reset_non_persistent_buffers">
 <a class="viewcode-back" href="../../../reference/api/fairseq2.nn/position_encoders.html#fairseq2.nn.RotaryEncoder.reset_non_persistent_buffers">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">reset_non_persistent_buffers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset the non-persistent buffers of the module.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resets the non-persistent buffers of the module.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`max_seq_len` is `None`.&quot;</span><span class="p">)</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># pad</span>
+
         <span class="n">device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="o">.</span><span class="n">device</span>
 
-        <span class="n">complex_freqs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">view_as_complex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="p">)</span>
+        <span class="n">complex_freqs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">view_as_complex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
 
         <span class="c1"># (S)</span>
         <span class="n">steps</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
@@ -721,29 +747,46 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_do_forward</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">padding_mask</span><span class="p">:</span> <span class="n">PaddingMask</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">seqs_layout</span><span class="p">:</span> <span class="n">BatchLayout</span><span class="p">,</span>
         <span class="n">state_bag</span><span class="p">:</span> <span class="n">IncrementalStateBag</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;:meta private:&quot;&quot;&quot;</span>
-        <span class="n">seq_len</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">or</span> <span class="n">state_bag</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">start_step</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">start_step</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step_nr</span>
-
         <span class="n">complex_freqs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">view_as_complex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="p">)</span>
 
-        <span class="n">complex_freqs</span> <span class="o">=</span> <span class="n">complex_freqs</span><span class="p">[</span><span class="n">start_step</span> <span class="p">:</span> <span class="n">start_step</span> <span class="o">+</span> <span class="n">seq_len</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">seqs_layout</span><span class="o">.</span><span class="n">packed</span> <span class="ow">or</span> <span class="n">seqs_layout</span><span class="o">.</span><span class="n">padded</span><span class="p">:</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">seqs_layout</span><span class="o">.</span><span class="n">position_indices</span> <span class="o">+</span> <span class="mi">1</span>  <span class="c1"># +1 for padding</span>
 
-        <span class="c1"># (*, S, E) -&gt; (*, S, E / 2, 2)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">and</span> <span class="n">state_bag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">indices</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step_nr</span> <span class="o">+</span> <span class="n">indices</span>
+
+            <span class="c1"># ([N], S, E / 2)</span>
+            <span class="n">complex_freqs</span> <span class="o">=</span> <span class="n">complex_freqs</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">batch_width</span> <span class="o">=</span> <span class="n">seqs_layout</span><span class="o">.</span><span class="n">width</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">and</span> <span class="n">state_bag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">start_step</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step_nr</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">start_step</span> <span class="o">=</span> <span class="mi">1</span>
+
+            <span class="c1"># (S, E / 2)</span>
+            <span class="n">complex_freqs</span> <span class="o">=</span> <span class="n">complex_freqs</span><span class="p">[</span><span class="n">start_step</span> <span class="p">:</span> <span class="n">start_step</span> <span class="o">+</span> <span class="n">batch_width</span><span class="p">]</span>
+
+            <span class="c1"># (S, E / 2) -&gt; (1, S, E / 2)</span>
+            <span class="n">complex_freqs</span> <span class="o">=</span> <span class="n">complex_freqs</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># ([N], S, *, E) -&gt; ([N], S, *, E / 2, 2)</span>
         <span class="n">seqs</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">unflatten</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
 
+        <span class="c1"># ([N], S, *, E / 2, 2) -&gt; ([N], S, *, E / 2)</span>
         <span class="n">complex_seqs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">view_as_complex</span><span class="p">(</span><span class="n">seqs</span><span class="o">.</span><span class="n">float</span><span class="p">())</span>
+
+        <span class="k">if</span> <span class="n">d</span> <span class="o">:=</span> <span class="n">complex_seqs</span><span class="o">.</span><span class="n">ndim</span> <span class="o">-</span> <span class="n">complex_freqs</span><span class="o">.</span><span class="n">ndim</span><span class="p">:</span>
+            <span class="n">complex_freqs</span> <span class="o">=</span> <span class="n">unsqueeze</span><span class="p">(</span><span class="n">complex_freqs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">2</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="n">d</span><span class="p">)</span>
 
         <span class="n">complex_seqs</span> <span class="o">=</span> <span class="n">complex_seqs</span> <span class="o">*</span> <span class="n">complex_freqs</span>
 
-        <span class="c1"># (*, S, E / 2, 2) -&gt; (*, S, E)</span>
+        <span class="c1"># ([N], S, *, E / 2) -&gt; ([N], S, *, E)</span>
         <span class="n">fp32_seqs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">view_as_real</span><span class="p">(</span><span class="n">complex_seqs</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">fp32_seqs</span><span class="o">.</span><span class="n">type_as</span><span class="p">(</span><span class="n">seqs</span><span class="p">)</span></div>
@@ -820,12 +863,12 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;freqs&quot;</span><span class="p">,</span> <span class="n">freqs</span><span class="p">,</span> <span class="n">persistent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">reset_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset the parameters and buffers of the module.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resets the parameters and buffers of the module.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reset_non_persistent_buffers</span><span class="p">()</span>
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">reset_non_persistent_buffers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset the non-persistent buffers of the module.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resets the non-persistent buffers of the module.&quot;&quot;&quot;</span>
 
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
@@ -859,7 +902,8 @@
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">Sinusoidal2dPositionEncoder</span><span class="p">(</span><span class="n">SinusoidalNdPositionEncoder</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Encodes 2-dimensional inputs with sinusoidal positional information.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Encodes 2-dimensional inputs with sinusoidal positional information.</span>
 
 <span class="sd">    .. note::</span>
 <span class="sd">        This implementation uses bicubic interpolation. The interpolation</span>
@@ -953,7 +997,8 @@
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">Sinusoidal3dPositionEncoder</span><span class="p">(</span><span class="n">SinusoidalNdPositionEncoder</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Encodes 3-dimensional inputs with sinusoidal positional information.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Encodes 3-dimensional inputs with sinusoidal positional information.</span>
 
 <span class="sd">    .. note::</span>
 <span class="sd">        This implementation uses trilinear interpolation. The interpolation</span>
@@ -1106,7 +1151,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=206ec5dc"></script>
+</div><script src="../../../_static/documentation_options.js?v=6a3d7cb0"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

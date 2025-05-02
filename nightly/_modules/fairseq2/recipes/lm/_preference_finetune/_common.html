@@ -325,9 +325,10 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torcheval.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mean</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceBatch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets.preference</span><span class="w"> </span><span class="kn">import</span> <span class="n">PreferenceBatch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gang</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.sequence</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceBatch</span><span class="p">,</span> <span class="n">SequenceModelOutput</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.sequence</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceModelOutput</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceMetricBag</span>
 
 
@@ -408,11 +409,11 @@
 <span class="sd">            The batch processed by the model.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">chosen_lengths</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
-            <span class="n">Tensor</span><span class="p">([</span><span class="n">batch</span><span class="o">.</span><span class="n">chosen</span><span class="o">.</span><span class="n">num_target_elements</span><span class="p">()</span> <span class="o">/</span> <span class="n">batch</span><span class="o">.</span><span class="n">chosen</span><span class="o">.</span><span class="n">batch_size</span><span class="p">]),</span>
+            <span class="n">Tensor</span><span class="p">([</span><span class="n">batch</span><span class="o">.</span><span class="n">chosen</span><span class="o">.</span><span class="n">num_target_elements</span> <span class="o">/</span> <span class="n">batch</span><span class="o">.</span><span class="n">chosen</span><span class="o">.</span><span class="n">batch_size</span><span class="p">]),</span>
             <span class="n">weight</span><span class="o">=</span><span class="n">batch</span><span class="o">.</span><span class="n">chosen</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">rejected_lengths</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
-            <span class="n">Tensor</span><span class="p">([</span><span class="n">batch</span><span class="o">.</span><span class="n">rejected</span><span class="o">.</span><span class="n">num_target_elements</span><span class="p">()</span> <span class="o">/</span> <span class="n">batch</span><span class="o">.</span><span class="n">rejected</span><span class="o">.</span><span class="n">batch_size</span><span class="p">]),</span>
+            <span class="n">Tensor</span><span class="p">([</span><span class="n">batch</span><span class="o">.</span><span class="n">rejected</span><span class="o">.</span><span class="n">num_target_elements</span> <span class="o">/</span> <span class="n">batch</span><span class="o">.</span><span class="n">rejected</span><span class="o">.</span><span class="n">batch_size</span><span class="p">]),</span>
             <span class="n">weight</span><span class="o">=</span><span class="n">batch</span><span class="o">.</span><span class="n">rejected</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span>
         <span class="p">)</span></div>
 </div>
@@ -453,7 +454,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../../_static/documentation_options.js?v=206ec5dc"></script>
+</div><script src="../../../../../_static/documentation_options.js?v=6a3d7cb0"></script>
     <script src="../../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/scripts/furo.js?v=5fa4622c"></script>

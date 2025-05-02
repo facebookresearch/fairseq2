@@ -361,21 +361,18 @@ If <code class="docutils literal notranslate"><span class="pre">None</span></cod
   PositionEncoder &lt;|-- SinusoidalPositionEncoder
     </pre><dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.nn.PositionEncoder.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seqs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">padding_mask</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state_bag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/_position_encoder.html#PositionEncoder.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.PositionEncoder.forward" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seqs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seqs_layout</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state_bag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/_position_encoder.html#PositionEncoder.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.PositionEncoder.forward" title="Link to this definition">¶</a></dt>
 <dd><p>Returns a copy of <code class="docutils literal notranslate"><span class="pre">seqs</span></code> with positional information encoded.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>seqs</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><em>Tensor</em></a>) – The input sequences to encode. <em>Shape:</em> <span class="math notranslate nohighlight">\((*,S,E)\)</span>,
-where <span class="math notranslate nohighlight">\(*\)</span> is any number of batch dimensions including none,
-<span class="math notranslate nohighlight">\(S\)</span> is the sequence length, and <span class="math notranslate nohighlight">\(E\)</span> is the dimensionality
-of the positional encodings.</p></li>
-<li><p><strong>padding_mask</strong> (<em>PaddingMask</em><em> | </em><em>None</em>) – The padding mask of <code class="docutils literal notranslate"><span class="pre">seqs</span></code>. <em>Shape:</em> <span class="math notranslate nohighlight">\((*,S)\)</span>,
-where <span class="math notranslate nohighlight">\(*\)</span> is any number of batch dimensions including none and
-<span class="math notranslate nohighlight">\(S\)</span> is the sequence length.</p></li>
+<li><p><strong>seqs</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><em>Tensor</em></a>) – The input sequences to encode. <em>Shape:</em> <span class="math notranslate nohighlight">\(([N],S,*,E)\)</span>,
+where <span class="math notranslate nohighlight">\(N\)</span> is the batch size, <span class="math notranslate nohighlight">\(S\)</span> is the sequence length,
+<span class="math notranslate nohighlight">\(*\)</span> is any number of batch dimensions including none, and
+<span class="math notranslate nohighlight">\(E\)</span> is the dimensionality of the positional encodings.</p></li>
 <li><p><strong>state_bag</strong> (<em>IncrementalStateBag</em><em> | </em><em>None</em>) – If not <code class="docutils literal notranslate"><span class="pre">None</span></code>, the encoder will operate in
-incremental decoding mode. This means that the first step in <code class="docutils literal notranslate"><span class="pre">seqs</span></code>
-will be considered to be at position <code class="xref py py-attr docutils literal notranslate"><span class="pre">state_bag.step_nr</span></code> instead of 0.</p></li>
+incremental decoding mode. The first element in <code class="docutils literal notranslate"><span class="pre">seqs</span></code> will be
+considered to be at position <code class="xref py py-attr docutils literal notranslate"><span class="pre">state_bag.step_nr</span></code> instead of 0.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
@@ -394,7 +391,7 @@ will be considered to be at position <code class="xref py py-attr docutils liter
 
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.nn.PositionEncoder._do_forward">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">_do_forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seqs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">padding_mask</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state_bag</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/_position_encoder.html#PositionEncoder._do_forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.PositionEncoder._do_forward" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">_do_forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seqs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seqs_layout</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state_bag</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/_position_encoder.html#PositionEncoder._do_forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.PositionEncoder._do_forward" title="Link to this definition">¶</a></dt>
 <dd><p>When overriden in a subclass, returns a copy of <code class="docutils literal notranslate"><span class="pre">seqs</span></code> with positional
 information encoded. See <a class="reference internal" href="#fairseq2.nn.PositionEncoder.forward" title="fairseq2.nn.PositionEncoder.forward"><code class="xref py py-meth docutils literal notranslate"><span class="pre">forward()</span></code></a> for parameter descriptions.</p>
 <dl class="field-list simple">
@@ -465,7 +462,7 @@ information.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.nn.SinusoidalPositionEncoder.reset_parameters">
 <span class="sig-name descname"><span class="pre">reset_parameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/_position_encoder.html#SinusoidalPositionEncoder.reset_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.SinusoidalPositionEncoder.reset_parameters" title="Link to this definition">¶</a></dt>
-<dd><p>Reset the parameters and buffers of the module.</p>
+<dd><p>Resets the parameters and buffers of the module.</p>
 <dl class="field-list simple">
 </dl>
 </dd></dl>
@@ -473,7 +470,7 @@ information.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.nn.SinusoidalPositionEncoder.reset_non_persistent_buffers">
 <span class="sig-name descname"><span class="pre">reset_non_persistent_buffers</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/_position_encoder.html#SinusoidalPositionEncoder.reset_non_persistent_buffers"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.SinusoidalPositionEncoder.reset_non_persistent_buffers" title="Link to this definition">¶</a></dt>
-<dd><p>Reset the non-persistent buffers of the module.</p>
+<dd><p>Resets the non-persistent buffers of the module.</p>
 <dl class="field-list simple">
 </dl>
 </dd></dl>
@@ -519,7 +516,7 @@ Sequences longer than <code class="docutils literal notranslate"><span class="pr
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.nn.LearnedPositionEncoder.reset_parameters">
 <span class="sig-name descname"><span class="pre">reset_parameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/_position_encoder.html#LearnedPositionEncoder.reset_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.LearnedPositionEncoder.reset_parameters" title="Link to this definition">¶</a></dt>
-<dd><p>Reset the parameters and buffers of the module.</p>
+<dd><p>Resets the parameters and buffers of the module.</p>
 <dl class="field-list simple">
 </dl>
 </dd></dl>
@@ -561,7 +558,7 @@ as described in the reference paper.</p></li>
     </pre><dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.nn.RotaryEncoder.reset_parameters">
 <span class="sig-name descname"><span class="pre">reset_parameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/_position_encoder.html#RotaryEncoder.reset_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.RotaryEncoder.reset_parameters" title="Link to this definition">¶</a></dt>
-<dd><p>Reset the parameters and buffers of the module.</p>
+<dd><p>Resets the parameters and buffers of the module.</p>
 <dl class="field-list simple">
 </dl>
 </dd></dl>
@@ -569,7 +566,7 @@ as described in the reference paper.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.nn.RotaryEncoder.reset_non_persistent_buffers">
 <span class="sig-name descname"><span class="pre">reset_non_persistent_buffers</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/_position_encoder.html#RotaryEncoder.reset_non_persistent_buffers"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.RotaryEncoder.reset_non_persistent_buffers" title="Link to this definition">¶</a></dt>
-<dd><p>Reset the non-persistent buffers of the module.</p>
+<dd><p>Resets the non-persistent buffers of the module.</p>
 <dl class="field-list simple">
 </dl>
 </dd></dl>
@@ -675,7 +672,7 @@ as described in the reference paper.</p></li>
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=206ec5dc"></script>
+</div><script src="../../../_static/documentation_options.js?v=6a3d7cb0"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
