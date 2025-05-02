@@ -134,7 +134,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                     self._vllm_model.sync_weights_with_vllm(train_model=self._model)
                 self._gangs.root.barrier()
 
-        if not force_sync_vllm and (
+        if hasattr(self, "_step_nr") and (
             self._sync_ref_model_every_n_steps > 0
             and self._step_nr % self._sync_ref_model_every_n_steps == 0
         ):
