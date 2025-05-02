@@ -208,21 +208,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         return ref_logps
 
-    def get_all_rollouts_entropy(self, rollouts):
-        all_entropy = []
-        for batch_idx in range(len(rollouts)):
-            batch_entropy = []
-            for rollout_idx in range(len(rollouts[batch_idx].outputs)):
-                logprobs = rollouts[batch_idx].outputs[rollout_idx].logprobs
-                logprobs = [next(iter(x.values())).logprob for x in logprobs]
-                entropy = sum(logprobs) / len(logprobs)
-                batch_entropy.append(entropy)
-            batch_entropy = torch.tensor(batch_entropy, device=self._gangs.dp.device)
-            all_entropy.append(batch_entropy)
-
-        all_entropy = torch.stack(all_entropy, dim=0)
-        return all_entropy
-
     @override
     def __call__(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
 
@@ -285,15 +270,12 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             rejected_output.logits, rejected_target_batch.target_mask
         )  # [Batch x Rollouts, 1]
 
-        # entropy for all N rollouts
-        logit_entropy = self.get_all_rollouts_entropy(rollouts)
-
         max_entropy_regularizer = (
             -chosen_tgt_logit_entropy.sum()
             * self._loss_config.entropy_regularizer_scale
         )
 
-        self.metric_bag.update_logit_entropy(logit_entropy)
+        self.metric_bag.update_logit_entropy(chosen_tgt_logit_entropy)
         self.metric_bag.update_chosen_logit_entropy(chosen_tgt_logit_entropy)
         self.metric_bag.update_rejected_logit_entropy(rejected_tgt_logit_entropy)
 
