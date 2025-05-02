@@ -365,22 +365,11 @@ class SkyworkVerifier(VLLMOutputReward):
             "Skywork/Skywork-Reward-Llama-3.1-8B-v0.2"
         )
 
-    def extract_text_from_llama3_wrapper(self, input_string):
-        start_pattern = r"<\|start_header_id\|>user<\|end_header_id\|>"
-        end_pattern = r"<\|eot_id\|><\|start_header_id\|>assistant<\|end_header_id\|>"
-        start_index = re.search(start_pattern, input_string).end()
-        end_index = re.search(end_pattern, input_string).start()
-        # Extract the text between the start and end indices
-        extracted_text = input_string[start_index:end_index].strip()
-        return extracted_text
-
     def wrap_text(self, prompt_text, rollout_text):
         wrapped_text = [
             {"role": "user", "content": prompt_text},
             {"role": "assistant", "content": rollout_text},
         ]
-        # templated_text = self.tokenizer.apply_chat_template(wrapped_text, tokenize=True)
-        # tokens_prompt = TokensPrompt(prompt_token_ids=templated_text)
         chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False)
         chat_str = chat_str.replace("<|begin_of_text|>", "")
 

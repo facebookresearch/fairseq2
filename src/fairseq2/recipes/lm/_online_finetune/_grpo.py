@@ -343,9 +343,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 (per_token_loss * target_mask).sum(dim=-1) / target_mask.sum(dim=-1)
             ).mean(dim=1)
         else:
-            per_seq_loss = (
-                (per_token_loss * target_mask).sum(dim=-1)
-            ).mean(dim=1)
+            per_seq_loss = ((per_token_loss * target_mask).sum(dim=-1)).mean(dim=1)
 
         # if self._gangs.root.rank == 0:
         #     from pudb.remote import set_trace
