@@ -344,6 +344,7 @@ def load_instruction_finetuner(
         optimizer,
         lr_scheduler,
         seed,
+        hyper_params=config,
     )
 
 

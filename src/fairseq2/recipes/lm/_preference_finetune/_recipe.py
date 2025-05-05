@@ -197,4 +197,5 @@ def load_po_finetuner(
         optimizer,
         lr_scheduler,
         seed,
+        hyper_params=config,
     )

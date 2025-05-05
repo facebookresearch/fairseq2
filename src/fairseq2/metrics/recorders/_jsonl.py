@@ -37,7 +37,7 @@ from fairseq2.metrics.recorders._recorder import (
 class JsonlMetricRecorder(MetricRecorder):
     """Records metric values to JSONL files."""
 
-    _RUN_PART_REGEX: Final = re.compile("^[-_a-zA-Z0-9]+$")
+    _SECTION_PART_REGEX: Final = re.compile("^[-_a-zA-Z0-9]+$")
 
     _output_dir: Path
     _file_system: FileSystem
@@ -63,21 +63,21 @@ class JsonlMetricRecorder(MetricRecorder):
     @override
     def record_metrics(
         self,
-        run: str,
+        section: str,
         values: Mapping[str, object],
         step_nr: int | None = None,
         *,
         flush: bool = True,
     ) -> None:
-        run = run.strip()
+        section = section.strip()
 
-        for part in run.split("/"):
-            if re.match(self._RUN_PART_REGEX, part) is None:
+        for part in section.split("/"):
+            if re.match(self._SECTION_PART_REGEX, part) is None:
                 raise ValueError(
-                    f"`run` must contain only alphanumeric characters, dash, underscore, and forward slash, but is '{run}' instead."
+                    f"`section` must contain only alphanumeric characters, dash, underscore, and forward slash, but is '{section}' instead."
                 )
 
-        stream = self._get_stream(run)
+        stream = self._get_stream(section)
 
         values_and_descriptors = []
 
@@ -127,16 +127,16 @@ class JsonlMetricRecorder(MetricRecorder):
                 stream.flush()
         except OSError as ex:
             raise MetricRecordError(
-                f"The metric values of the '{run}' cannot be saved to the JSON file. See the nested exception for details."
+                f"The metric values of the '{section}' cannot be saved to the JSON file. See the nested exception for details."
             ) from ex
 
-    def _get_stream(self, run: str) -> TextIO:
+    def _get_stream(self, section: str) -> TextIO:
         try:
-            return self._streams[run]
+            return self._streams[section]
         except KeyError:
             pass
 
-        file = self._output_dir.joinpath(run).with_suffix(".jsonl")
+        file = self._output_dir.joinpath(section).with_suffix(".jsonl")
 
         try:
             self._file_system.make_directory(file.parent)
@@ -149,10 +149,10 @@ class JsonlMetricRecorder(MetricRecorder):
             fp = self._file_system.open_text(file, mode=FileMode.APPEND)
         except OSError as ex:
             raise MetricRecordError(
-                f"The '{file}' metric file for the '{run} run cannot be created. See the nested exception for details."
+                f"The '{file}' metric file for the '{section} section cannot be created. See the nested exception for details."
             ) from ex
 
-        self._streams[run] = fp
+        self._streams[section] = fp
 
         return fp
 
@@ -184,7 +184,9 @@ class JsonlMetricRecorderHandler(MetricRecorderHandler):
         self._metric_descriptors = metric_descriptors
 
     @override
-    def create(self, output_dir: Path, config: object) -> MetricRecorder:
+    def create(
+        self, output_dir: Path, config: object, hyper_params: object
+    ) -> MetricRecorder:
         config = structure(config, JsonlMetricRecorderConfig)
 
         validate(config)

@@ -182,6 +182,7 @@ def load_wav2vec2_evaluator(
         [data_reader],
         gangs,
         seed,
+        hyper_params=config,
     )
 
 

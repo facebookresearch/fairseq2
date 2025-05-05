@@ -19,7 +19,7 @@ class MetricRecorder(ABC):
     @abstractmethod
     def record_metrics(
         self,
-        run: str,
+        section: str,
         values: Mapping[str, object],
         step_nr: int | None = None,
         *,
@@ -27,14 +27,10 @@ class MetricRecorder(ABC):
     ) -> None:
         """Record ``values``.
 
-        :param run:
-            The name of the run (e.g. 'train', 'eval').
-        :param values:
-            The metric values.
-        :param step_nr:
-            The step number of the run.
-        :param flush:
-            If ``True``, flushes any buffers after recording.
+        :param section: The run section (e.g. 'train', 'eval').
+        :param values: The metric values.
+        :param step_nr: The step number of the run.
+        :param flush: If ``True``, flushes any buffers after recording.
         """
 
     @abstractmethod
@@ -51,7 +47,7 @@ class NoopMetricRecorder(MetricRecorder):
     @override
     def record_metrics(
         self,
-        run: str,
+        section: str,
         values: Mapping[str, object],
         step_nr: int | None = None,
         *,
@@ -66,7 +62,7 @@ class NoopMetricRecorder(MetricRecorder):
 
 def record_metrics(
     recorders: Sequence[MetricRecorder],
-    run: str,
+    section: str,
     values: Mapping[str, object],
     step_nr: int | None = None,
     *,
@@ -75,10 +71,10 @@ def record_metrics(
     """Record ``values`` to ``recorders``.
 
     :param recorders: The recorders to record to.
-    :param run: The name of the run (e.g. 'train', 'eval').
+    :param section: The run section (e.g. 'train', 'eval').
     :param values: The metric values.
     :param step_nr: The step number of the run.
     :param flush: If ``True``, flushes any buffers after recording.
     """
     for recorder in recorders:
-        recorder.record_metrics(run, values, step_nr, flush=flush)
+        recorder.record_metrics(section, values, step_nr, flush=flush)

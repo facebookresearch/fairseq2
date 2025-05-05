@@ -219,6 +219,7 @@ def load_asr_evaluator(
         [data_reader],
         gangs,
         seed,
+        hyper_params=config,
     )
 
 

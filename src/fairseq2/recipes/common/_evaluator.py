@@ -35,8 +35,12 @@ def create_evaluator(
     data_readers: Sequence[DataReader[BatchT]],
     gangs: Gangs,
     seed: int,
+    *,
+    hyper_params: object = None,
 ) -> Evaluator[BatchT]:
-    metric_recorder = create_metric_recorder(context, common_section, gangs, output_dir)
+    metric_recorder = create_metric_recorder(
+        context, common_section, gangs, output_dir, hyper_params
+    )
 
     profiler = create_profiler(context, common_section, gangs, output_dir)
 

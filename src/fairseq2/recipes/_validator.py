@@ -405,13 +405,13 @@ class StandardValidator(Validator, Generic[BatchT]):
 
             values["wall_time"] = self._wall_watch.get_elapsed_time()
 
-            run = "valid"
+            section = "valid"
 
             if unit.name:
-                run = f"{run}/{unit.name}"
+                section = f"{section}/{unit.name}"
 
             try:
-                self._metric_recorder.record_metrics(run, values, train_step_nr)
+                self._metric_recorder.record_metrics(section, values, train_step_nr)
             except MetricRecordError as ex:
                 s = "validation"
 

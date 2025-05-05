@@ -346,13 +346,13 @@ class Evaluator(Recipe, Generic[BatchT]):
 
             values["wall_time"] = self._wall_watch.get_elapsed_time()
 
-            run = "eval"
+            section = "eval"
 
             if unit.name:
-                run = f"{run}/{unit.name}"
+                section = f"{section}/{unit.name}"
 
             try:
-                self._metric_recorder.record_metrics(run, values)
+                self._metric_recorder.record_metrics(section, values)
             except MetricRecordError as ex:
                 s = "evaluation"
 

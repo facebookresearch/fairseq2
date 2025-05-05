@@ -401,6 +401,7 @@ def load_mt_trainer(
         optimizer,
         lr_scheduler,
         train_seed,
+        hyper_params=config,
     )
 
 

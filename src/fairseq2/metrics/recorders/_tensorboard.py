@@ -62,13 +62,13 @@ class TensorBoardRecorder(MetricRecorder):
     @override
     def record_metrics(
         self,
-        run: str,
+        section: str,
         values: Mapping[str, object],
         step_nr: int | None = None,
         *,
         flush: bool = True,
     ) -> None:
-        writer = self._get_writer(run)
+        writer = self._get_writer(section)
         if writer is None:
             return
 
@@ -90,18 +90,18 @@ class TensorBoardRecorder(MetricRecorder):
                 writer.flush()
         except RuntimeError as ex:
             raise MetricRecordError(
-                f"The metric values of the '{run}' cannot be saved to TensorBoard. See the nested exception for details."
+                f"The metric values of the '{section}' section cannot be saved to TensorBoard. See the nested exception for details."
             ) from ex
 
-    def _get_writer(self, run: str) -> SummaryWriter | None:
+    def _get_writer(self, section: str) -> SummaryWriter | None:
         if not _has_tensorboard:
             return None
 
-        writer = self._writers.get(run)
+        writer = self._writers.get(section)
         if writer is None:
-            writer = SummaryWriter(self._output_dir.joinpath(run))
+            writer = SummaryWriter(self._output_dir.joinpath(section))
 
-            self._writers[run] = writer
+            self._writers[section] = writer
 
         return writer
 
@@ -129,7 +129,9 @@ class TensorBoardRecorderHandler(MetricRecorderHandler):
         self._metric_descriptors = metric_descriptors
 
     @override
-    def create(self, output_dir: Path, config: object) -> MetricRecorder:
+    def create(
+        self, output_dir: Path, config: object, hyper_params: object
+    ) -> MetricRecorder:
         config = structure(config, TensorBoardRecorderConfig)
 
         validate(config)
