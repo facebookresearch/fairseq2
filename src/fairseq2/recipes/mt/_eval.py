@@ -329,6 +329,7 @@ def load_mt_evaluator(
         data_readers,
         gangs,
         seed,
+        hyper_params=config,
     )
 
 

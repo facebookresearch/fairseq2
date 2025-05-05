@@ -262,6 +262,7 @@ def load_text_generator(
         data_reader,
         gangs,
         seed,
+        hyper_params=config,
     )
 
 

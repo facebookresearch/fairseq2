@@ -264,6 +264,7 @@ def load_text_translator(
         data_reader,
         gangs,
         seed,
+        hyper_params=config,
     )
 
 

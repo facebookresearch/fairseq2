@@ -44,7 +44,7 @@ class LogMetricRecorder(MetricRecorder):
     @override
     def record_metrics(
         self,
-        run: str,
+        section: str,
         values: Mapping[str, object],
         step_nr: int | None = None,
         *,
@@ -85,19 +85,19 @@ class LogMetricRecorder(MetricRecorder):
         if not s:
             s = "N/A"
 
-        run_parts = run.split("/")
+        section_parts = section.split("/")
 
-        phase = self._display_names.get(run_parts[0])
-        if phase is None:
-            phase = run_parts[0].capitalize()
+        title = self._display_names.get(section_parts[0])
+        if title is None:
+            title = section_parts[0].capitalize()
 
         if step_nr is None:
-            m = f"{phase} Metrics"
+            m = f"{title} Metrics"
         else:
-            m = f"{phase} Metrics (step {step_nr})"
+            m = f"{title} Metrics (step {step_nr})"
 
-        if len(run_parts) > 1:
-            m = f"{m} - {'/'.join(run_parts[1:])}"
+        if len(section_parts) > 1:
+            m = f"{m} - {'/'.join(section_parts[1:])}"
 
         self._log.info("{} - {}", m, s)
 
@@ -126,7 +126,9 @@ class LogMetricRecorderHandler(MetricRecorderHandler):
         self._metric_descriptors = metric_descriptors
 
     @override
-    def create(self, output_dir: Path, config: object) -> MetricRecorder:
+    def create(
+        self, output_dir: Path, config: object, hyper_params: object
+    ) -> MetricRecorder:
         config = structure(config, LogMetricRecorderConfig)
 
         validate(config)

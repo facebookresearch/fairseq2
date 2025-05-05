@@ -177,4 +177,5 @@ def load_lm_loss_evaluator(
         [data_reader],
         gangs,
         seed,
+        hyper_params=config,
     )

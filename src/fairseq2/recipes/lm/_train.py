@@ -253,6 +253,7 @@ def load_lm_trainer(
         optimizer,
         lr_scheduler,
         seed,
+        hyper_params=config,
     )
 
 

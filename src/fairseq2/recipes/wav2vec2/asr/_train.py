@@ -383,6 +383,7 @@ def load_wav2vec2_asr_trainer(
         optimizer,
         lr_scheduler,
         seed,
+        hyper_params=config,
         score_metric="wer",
     )
 

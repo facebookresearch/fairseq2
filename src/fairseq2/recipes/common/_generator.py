@@ -34,8 +34,12 @@ def create_generator(
     data_reader: DataReader[BatchT],
     gangs: Gangs,
     seed: int,
+    *,
+    hyper_params: object = None,
 ) -> Generator[BatchT]:
-    metric_recorder = create_metric_recorder(context, common_section, gangs, output_dir)
+    metric_recorder = create_metric_recorder(
+        context, common_section, gangs, output_dir, hyper_params
+    )
 
     profiler = create_profiler(context, common_section, gangs, output_dir)
 

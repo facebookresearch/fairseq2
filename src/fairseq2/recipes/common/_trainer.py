@@ -60,11 +60,14 @@ def create_trainer(
     lr_scheduler: LRScheduler,
     seed: int,
     *,
+    hyper_params: object = None,
     score_metric: str | None = None,
 ) -> Trainer[BatchT]:
     score_metric_descriptor = get_score_metric_descriptor(context, score_metric)
 
-    metric_recorder = create_metric_recorder(context, common_section, gangs, output_dir)
+    metric_recorder = create_metric_recorder(
+        context, common_section, gangs, output_dir, hyper_params
+    )
 
     profiler = create_profiler(context, common_section, gangs, output_dir)
 

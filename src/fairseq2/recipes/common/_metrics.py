@@ -27,12 +27,13 @@ def create_metric_recorder(
     common_section: CommonSection,
     gangs: Gangs,
     output_dir: Path,
+    hyper_params: object = None,
 ) -> MetricRecorder:
     recorder_handlers = context.get_registry(MetricRecorderHandler)
 
     creator = MetricRecorderCreator(recorder_handlers)
 
-    return creator.create(common_section, gangs, output_dir)
+    return creator.create(common_section, gangs, output_dir, hyper_params)
 
 
 @final
@@ -45,7 +46,11 @@ class MetricRecorderCreator:
         self._metric_recorder_handlers = metric_recorder_handlers
 
     def create(
-        self, common_section: CommonSection, gangs: Gangs, output_dir: Path
+        self,
+        common_section: CommonSection,
+        gangs: Gangs,
+        output_dir: Path,
+        hyper_params: object,
     ) -> MetricRecorder:
         recorders = []
 
@@ -59,7 +64,7 @@ class MetricRecorderCreator:
                 continue
 
             try:
-                recorder = handler.create(output_dir, recorder_config)
+                recorder = handler.create(output_dir, recorder_config, hyper_params)
             except StructureError as ex:
                 raise StructureError(
                     f"`common.metric_recorders.{recorder_name}.config` cannot be structured. See the nested exception for details."
