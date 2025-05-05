@@ -105,7 +105,7 @@ class Wav2Vec2AsrTrainConfig:
     regime: RegimeSection = field(
         default_factory=lambda: RegimeSection(
             num_steps=20_000,
-            validate_after_n_steps=10_000,
+            validate_after_n_steps=9999,
             validate_every_n_steps=1_000,
             publish_metrics_every_n_steps=200,
         )

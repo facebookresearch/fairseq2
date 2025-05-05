@@ -119,6 +119,7 @@ def create_trainer(
         max_num_steps=regime_section.num_steps,
         max_num_data_epochs=regime_section.num_data_epochs,
         validator=validator,
+        validate_at_start=regime_section.validate_at_start,
         validate_after_n_steps=regime_section.validate_after_n_steps,
         validate_every_n_steps=regime_section.validate_every_n_steps,
         validate_after_n_data_epochs=regime_section.validate_after_n_data_epochs,

@@ -538,8 +538,8 @@ class StandardValidator(Validator, Generic[BatchT]):
 @final
 class NoopValidator(Validator):
     @override
-    def run(self, train_step_nr: int, train_data_epoch_nr: int) -> float:
-        return -torch.inf
+    def run(self, train_step_nr: int, train_data_epoch_nr: int) -> float | None:
+        return None
 
     @override
     def reset(self) -> None:
