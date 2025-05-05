@@ -96,8 +96,8 @@ class TransformerFactory:
         config = self._config
 
         return StandardEmbedding(
-            num_embeddings=config.vocab_size,
-            embedding_dim=config.model_dim,
+            config.vocab_size,
+            config.model_dim,
             pad_idx=config.pad_idx,
             init_fn=init_scaled_embedding,
         )

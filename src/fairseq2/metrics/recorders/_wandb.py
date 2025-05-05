@@ -13,6 +13,13 @@ from typing import Final, final
 
 from typing_extensions import override
 
+try:
+    import wandb  # type: ignore[import-not-found]
+except ImportError:
+    _has_wandb = False
+else:
+    _has_wandb = True
+
 from fairseq2.logging import log
 from fairseq2.metrics import MetricDescriptor
 from fairseq2.registry import Provider
@@ -27,13 +34,6 @@ from fairseq2.metrics.recorders._recorder import (
     MetricRecordError,
     NoopMetricRecorder,
 )
-
-try:
-    import wandb  # type: ignore[import-not-found]
-except ImportError:
-    has_wandb = False
-else:
-    has_wandb = True
 
 
 @final
@@ -57,7 +57,7 @@ class WandbRecorder(MetricRecorder):
         In order to use W&B, run `wandb login` from the command line and enter
         the API key when prompted.
         """
-        if not has_wandb:
+        if not _has_wandb:
             log.warning("wandb not found. Please install it with `pip install wandb`.")  # fmt: skip
 
             self._run = None

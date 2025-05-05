@@ -67,7 +67,7 @@ class LMTrainConfig:
             family="llama",
             arch="llama3_8b",
             compile=True,
-            compile_options=CompileOptionsSection(fullgraph=False, dynamic=False),
+            compile_options=CompileOptionsSection(fullgraph=True, dynamic=False),
         )
     )
 
@@ -121,7 +121,7 @@ class LMTrainConfig:
     common: CommonSection = field(
         default_factory=lambda: CommonSection(
             torch=TorchSection(
-                default_sdpa="torch", compiled_region_activation_memory_budget=0.9
+                default_sdpa="flash2", compiled_region_activation_memory_budget=0.9
             )
         )
     )

@@ -18,6 +18,13 @@ import torch
 from torch import Tensor
 from typing_extensions import override
 
+try:
+    import safetensors  # type: ignore[import-not-found]
+except ImportError:
+    _has_safetensors = False
+else:
+    _has_safetensors = True
+
 from fairseq2.device import Device
 from fairseq2.error import NotSupportedError
 from fairseq2.file_system import FileMode, FileSystem
@@ -151,9 +158,7 @@ class SafetensorLoader(TensorLoader):
         restrict: bool = True,
         mmap: bool = False,
     ) -> dict[str, object]:
-        try:
-            from safetensors import safe_open  # type: ignore[import-not-found]
-        except ImportError:
+        if not _has_safetensors:
             raise RuntimeError(
                 "Safetensors is not found in your Python environment. Use `pip install safetensors`."
             )
@@ -190,7 +195,9 @@ class SafetensorLoader(TensorLoader):
 
         for file in files:
             try:
-                with safe_open(file, framework="pt", device=str(map_location)) as f:  # type: ignore[attr-defined]
+                with safetensors.safe_open(
+                    file, framework="pt", device=str(map_location)
+                ) as f:
                     for k in f.keys():
                         if k in tensors:
                             raise TensorLoadError(

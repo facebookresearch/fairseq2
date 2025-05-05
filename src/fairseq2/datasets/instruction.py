@@ -297,7 +297,9 @@ class GenericInstructionDataset(InstructionDataset):
             "target_mask", pad_value=False
         )
 
-        collater = Collater(pad_value=0, overrides=[target_mask_collate_opts])
+        collater = Collater(
+            pad_value=tokenizer.vocab_info.pad_idx, overrides=[target_mask_collate_opts]
+        )
 
         builder.map(collater, num_parallel_calls=npc)
 

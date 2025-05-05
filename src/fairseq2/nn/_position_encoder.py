@@ -76,19 +76,18 @@ class PositionEncoder(Module, ABC):
         :returns: The input sequences with positional information encoded.
             *Shape:* Same as ``seqs``.
         """
-        if not torch.compiler.is_compiling():
-            if self.max_seq_len is not None:
-                if not self.training and state_bag is not None:
-                    start_step = state_bag.step_nr
-                else:
-                    start_step = 0
+        if self.max_seq_len is not None:
+            if not self.training and state_bag is not None:
+                start_step = state_bag.step_nr
+            else:
+                start_step = 0
 
-                max_seq_len = start_step + seqs_layout.max_seq_len
+            max_seq_len = start_step + seqs_layout.max_seq_len
 
-                if max_seq_len > self.max_seq_len:
-                    raise ValueError(
-                        f"The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence has a length of {max_seq_len} instead."
-                    )
+            if max_seq_len > self.max_seq_len:
+                raise ValueError(
+                    f"The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence has a length of {max_seq_len} instead."
+                )
 
         return self._do_forward(seqs, seqs_layout, state_bag)
 

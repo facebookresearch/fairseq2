@@ -53,7 +53,7 @@ class BatchLayout:
             if seq_lens is None:
                 seq_lens = [batch_width]
 
-            self._seq_begin_indices = []
+            self._seq_begin_indices = [0]
 
             self._seq_lens = []
 
@@ -80,7 +80,7 @@ class BatchLayout:
                         f"`sum(seq_lens)` must be less than or equal to `shape[0]` ({batch_width}), but is {sum(seq_lens)} instead."
                     )
 
-                self._seq_begin_indices.append(seq_beg)
+                self._seq_begin_indices.append(seq_end)
 
                 self._seq_lens.append(seq_len)
 
@@ -113,7 +113,9 @@ class BatchLayout:
                     f"`len(seq_lens)` must be equal to `shape[0]` ({batch_size}), but is {len(seq_lens)} instead."
                 )
 
-            self._seq_begin_indices = [0] * batch_size
+            self._seq_begin_indices = list(
+                range(0, (batch_size * batch_width) + 1, batch_width)
+            )
 
             self._seq_lens = []
 
@@ -128,7 +130,7 @@ class BatchLayout:
             self._padded = False
 
             for idx, seq_len in enumerate(seq_lens):
-                if seq_len < 0:
+                if seq_len < 1:
                     raise ValueError(
                         f"All lengths in `seq_lens` must be greater than or equal to 1, but the length at index {idx} is {seq_len} instead."
                     )
@@ -150,9 +152,16 @@ class BatchLayout:
 
         self._width = batch_width
 
-        self._seq_begin_indices_pt = to_tensor(self._seq_begin_indices, device=device)
+        self._seq_begin_indices_pt = to_tensor(
+            self._seq_begin_indices, dtype=torch.int32, device=device
+        )
 
-        self._seq_lens_pt = to_tensor(self._seq_lens, device=device)
+        self._seq_lens_pt = to_tensor(self._seq_lens, dtype=torch.int32, device=device)
+
+        # Both `seq_begin_indices` and `seq_lens` are inherently dynamic and
+        # require to be marked so to avoid redundant recompilations.
+        torch._dynamo.maybe_mark_dynamic(self._seq_begin_indices_pt, 0)
+        torch._dynamo.maybe_mark_dynamic(self._seq_lens_pt, 0)
 
     @staticmethod
     def of(
@@ -188,6 +197,11 @@ class BatchLayout:
 
     @property
     def max_seq_len(self) -> int:
+        # TODO: As of PyTorch 2.7, integers cannot be marked as dynamic during
+        # compilation. This is a workaround till that gets fixed.
+        if torch.compiler.is_compiling():
+            return self._width
+
         return self._max_seq_len
 
     @property

@@ -19,12 +19,12 @@ TensorData: TypeAlias = int | float | Sequence[int] | Sequence[float]
 
 
 def to_tensor(
-    data: TensorData, device: Device | None = None, dtype: DataType | None = None
+    data: TensorData, *, dtype: DataType | None = None, device: Device | None = None
 ) -> Tensor:
     if device is None or device.type != "cuda":
         return torch.tensor(data, dtype=dtype, device=device)
 
-    t = torch.tensor(data, device=CPU, pin_memory=True)
+    t = torch.tensor(data, dtype=dtype, device=CPU, pin_memory=True)
 
     return t.to(device, non_blocking=True)
 

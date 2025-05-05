@@ -13,6 +13,13 @@ from typing import Final, final
 
 from typing_extensions import override
 
+try:
+    from torch.utils.tensorboard import SummaryWriter  # type: ignore[attr-defined]
+except ImportError:
+    _has_tensorboard = False
+else:
+    _has_tensorboard = True
+
 from fairseq2.logging import log
 from fairseq2.metrics import MetricDescriptor
 from fairseq2.registry import Provider
@@ -27,13 +34,6 @@ from fairseq2.metrics.recorders._recorder import (
     MetricRecordError,
     NoopMetricRecorder,
 )
-
-try:
-    from torch.utils.tensorboard import SummaryWriter  # type: ignore[attr-defined]
-except ImportError:
-    has_tensorboard = False
-else:
-    has_tensorboard = True
 
 
 @final
@@ -51,7 +51,7 @@ class TensorBoardRecorder(MetricRecorder):
         :param output_dir:
             The base directory under which to store the TensorBoard files.
         """
-        if not has_tensorboard:
+        if not _has_tensorboard:
             log.warning("tensorboard not found. Please install it with `pip install tensorboard`.")  # fmt: skip
 
         self._output_dir = output_dir
@@ -94,7 +94,7 @@ class TensorBoardRecorder(MetricRecorder):
             ) from ex
 
     def _get_writer(self, run: str) -> SummaryWriter | None:
-        if not has_tensorboard:
+        if not _has_tensorboard:
             return None
 
         writer = self._writers.get(run)
