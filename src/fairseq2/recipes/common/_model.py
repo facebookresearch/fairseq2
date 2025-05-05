@@ -697,6 +697,8 @@ def prepare_model(
     model_section: ModelSection,
     trainer_section: TrainerSection,
 ) -> Model:
+    # Apply AC before torch.compile() so that min-cut partitioner can see the AC
+    # information and avoid recomputing twice.
     if trainer_section.activation_checkpointing == "layerwise":
         if not model.handler.supports_activation_checkpointing:
             raise ActivationCheckpointingNotSupportedError(model.name)
@@ -715,7 +717,7 @@ def compile_model(model: Model, options_section: CompileOptionsSection) -> None:
     if not model.handler.supports_compilation:
         raise ModelCompilationNotSupportedError(model.name)
 
-    log.info("Compiling '{}' model.", model.name)
+    log.info("Applying torch.compile() to '{}' model.", model.name)
 
     try:
         model.handler.compile(

@@ -93,8 +93,9 @@ class LLaMAFactory:
             self._init_truncated_normal(embed.weight, bias=None, std=std)
 
         return StandardEmbedding(
-            num_embeddings=config.vocab_size,
-            embedding_dim=config.model_dim,
+            config.vocab_size,
+            config.model_dim,
+            pad_idx=config.pad_idx,
             init_fn=init_embed,
         )
 

@@ -13,6 +13,7 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.device import Device, SupportsDeviceTransfer
+from fairseq2.error import InvalidOperationError
 from fairseq2.nn import BatchLayout
 
 
@@ -105,7 +106,7 @@ class SequenceBatch(SupportsDeviceTransfer):
             self._padding = 0
 
             for idx, seq_len in enumerate(seq_lens):
-                if seq_len < 0:
+                if seq_len < 1:
                     raise ValueError(
                         f"All lengths in `seq_lens` must be greater than or equal to 1, but the length at index {idx} is {seq_len} instead."
                     )
@@ -163,11 +164,27 @@ class SequenceBatch(SupportsDeviceTransfer):
 
             seq_lens = self._seq_lens.copy()
 
-            seq_lens[-1] -= 1
+            if seq_lens[-1] == 1:
+                if len(seq_lens) == 1:
+                    raise InvalidOperationError(
+                        "The length of the sequence at index 0 is already 1 and cannot be trimmed to 0."
+                    )
+
+                del seq_lens[-1]
+            else:
+                seq_lens[-1] -= 1
         else:
             seqs = self._seqs[:, :-1]
 
-            seq_lens = [seq_len - 1 for seq_len in self._seq_lens]
+            seq_lens = []
+
+            for idx, seq_len in enumerate(self._seq_lens):
+                if seq_len == 1:
+                    raise InvalidOperationError(
+                        f"The length of the sequence at index {idx} is already 1 and cannot be trimmed to 0."
+                    )
+
+                seq_lens.append(seq_len - 1)
 
         batch = SequenceBatch(
             seqs, seq_lens, packed=self._packed, example=self._example
@@ -487,11 +504,27 @@ class Seq2SeqBatch(SupportsDeviceTransfer):
 
             seq_lens = self._target_seq_lens.copy()
 
-            seq_lens[-1] -= 1
+            if seq_lens[-1] == 1:
+                if len(seq_lens) == 1:
+                    raise InvalidOperationError(
+                        "The length of the target sequence at index 0 is already 1 and cannot be trimmed to 0."
+                    )
+
+                del seq_lens[-1]
+            else:
+                seq_lens[-1] -= 1
         else:
             seqs = self._target_seqs[:, :-1]
 
-            seq_lens = [seq_len - 1 for seq_len in self._target_seq_lens]
+            seq_lens = []
+
+            for idx, seq_len in enumerate(self._target_seq_lens):
+                if seq_len == 1:
+                    raise InvalidOperationError(
+                        f"The length of the target sequence at index {idx} is already 1 and cannot be trimmed to 0."
+                    )
+
+                seq_lens.append(seq_len - 1)
 
         batch = Seq2SeqBatch(
             self._source_seqs,

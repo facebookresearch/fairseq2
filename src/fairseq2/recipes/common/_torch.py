@@ -13,7 +13,13 @@ import torch
 
 from fairseq2.context import RuntimeContext
 from fairseq2.logging import log
-from fairseq2.models.transformer import NaiveSDPA, TorchSDPA, set_default_sdpa_factory
+from fairseq2.models.transformer import (
+    Flash2SDPA,
+    Flash3SDPA,
+    NaiveSDPA,
+    TorchSDPA,
+    set_default_sdpa_factory,
+)
 from fairseq2.recipes import RecipeError
 from fairseq2.recipes.config import TorchSection
 from fairseq2.utils.env import get_rank
@@ -131,6 +137,10 @@ def _set_default_sdpa_variant(name: str) -> None:
                 _set_torch_sdpa_backend(backend)
             except (ImportError, AttributeError):
                 log.warning("PyTorch SDPA kernel cannot be set to '{}'. Falling back to auto mode.", backend)  # fmt: skip
+        case "flash2":
+            set_default_sdpa_factory(Flash2SDPA)
+        case "flash3":
+            set_default_sdpa_factory(Flash3SDPA)
         case "naive":
             set_default_sdpa_factory(NaiveSDPA)
         case _:

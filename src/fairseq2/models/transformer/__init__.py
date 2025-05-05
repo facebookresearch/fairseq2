@@ -142,6 +142,8 @@ from fairseq2.models.transformer._sdpa._default import (
 from fairseq2.models.transformer._sdpa._default import (
     set_default_sdpa_factory as set_default_sdpa_factory,
 )
+from fairseq2.models.transformer._sdpa._flash2 import Flash2SDPA as Flash2SDPA
+from fairseq2.models.transformer._sdpa._flash3 import Flash3SDPA as Flash3SDPA
 from fairseq2.models.transformer._sdpa._naive import NaiveSDPA as NaiveSDPA
 from fairseq2.models.transformer._sdpa._naive import (
     naive_scaled_dot_product_attention as naive_scaled_dot_product_attention,

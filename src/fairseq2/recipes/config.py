@@ -424,6 +424,8 @@ SDPAVariant: TypeAlias = Literal[
     "torch_math",
     "torch_mem_efficient",
     "torch_flash",
+    "flash2",
+    "flash3",
     "naive",
 ]
 

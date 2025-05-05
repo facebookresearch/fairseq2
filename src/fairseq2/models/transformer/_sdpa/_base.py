@@ -68,7 +68,6 @@ class SDPA(Module, ABC):
         """
 
     @final
-    @torch.compiler.disable
     def _maybe_get_attention_bias_tensor(
         self,
         seqs: Tensor,
@@ -88,6 +87,19 @@ class SDPA(Module, ABC):
                 if seqs_layout.max_seq_len == 1:
                     return None
 
+        return self._get_attention_bias_tensor(  # type: ignore[no-any-return]
+            seqs, seqs_layout, keys_layout, bias_cache
+        )
+
+    @final
+    @torch.compiler.disable
+    def _get_attention_bias_tensor(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        keys_layout: BatchLayout,
+        bias_cache: AttentionBiasCache,
+    ) -> Tensor:
         impl = "tensor"
 
         bias = bias_cache.maybe_get(self.bias, impl, kls=Tensor)
