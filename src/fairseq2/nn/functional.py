@@ -6,24 +6,12 @@
 
 from __future__ import annotations
 
-from typing import Literal, Protocol
+from typing import Literal
 
 import torch
 from torch import Tensor
 from torch.nn.functional import log_softmax
 from torch.nn.functional import nll_loss as torch_nll_loss
-
-
-class CrossEntropy(Protocol):
-    def __call__(
-        self,
-        logits: Tensor,
-        targets: Tensor,
-        pad_idx: int | None,
-        *,
-        label_smoothing: float = 0.0,
-        reduction: Literal["sum", "mean", "none"] = "sum",
-    ) -> Tensor: ...
 
 
 def cross_entropy(

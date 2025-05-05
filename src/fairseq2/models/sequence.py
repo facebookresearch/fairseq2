@@ -8,13 +8,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Literal, final
+from typing import Literal, Protocol, final
 
 from torch import Tensor
 from torch.nn import Module
 
 from fairseq2.nn import BatchLayout
-from fairseq2.nn.ops import CrossEntropy, cross_entropy
+from fairseq2.nn.functional import cross_entropy
 
 
 class SequenceModel(Module, ABC):
@@ -34,6 +34,18 @@ class SequenceModel(Module, ABC):
     def forward(
         self, seqs: Tensor, seqs_layout: BatchLayout
     ) -> SequenceModelOutput: ...
+
+
+class CrossEntropy(Protocol):
+    def __call__(
+        self,
+        logits: Tensor,
+        targets: Tensor,
+        pad_idx: int | None,
+        *,
+        label_smoothing: float = 0.0,
+        reduction: Literal["sum", "mean", "none"] = "sum",
+    ) -> Tensor: ...
 
 
 @final

@@ -29,7 +29,7 @@ from fairseq2.nn import (
     PositionEncoder,
     Projection,
 )
-from fairseq2.utils.tensor import repeat_interleave
+from fairseq2.ops import repeat_interleave
 
 # isort: split
 

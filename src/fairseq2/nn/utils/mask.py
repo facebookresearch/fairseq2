@@ -12,7 +12,7 @@ import torch
 from torch import Tensor
 
 from fairseq2.device import Device
-from fairseq2.utils.tensor import repeat_interleave
+from fairseq2.ops import repeat_interleave, unsqueeze
 
 
 def apply_mask(
@@ -28,8 +28,7 @@ def apply_mask(
 
     :returns: The input sequences with mask applied. *Shape:* Same as ``seqs``.
     """
-    for _ in range(seqs.ndim - mask.ndim):
-        mask = mask.unsqueeze(-1)
+    unsqueeze(mask, dim=-1, count=seqs.ndim - mask.ndim)
 
     return seqs.where(mask, fill_value)
 

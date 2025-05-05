@@ -13,10 +13,10 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.sequence import SequenceModelOutput
+from fairseq2.models.sequence import CrossEntropy, SequenceModelOutput
 from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.nn import BatchLayout, IncrementalStateBag, Projection
-from fairseq2.nn.ops import CrossEntropy, cross_entropy
+from fairseq2.nn.functional import cross_entropy
 
 # isort: split
 

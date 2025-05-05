@@ -23,7 +23,7 @@ from fairseq2.device import META_DEVICE, Device
 from fairseq2.error import InternalError
 from fairseq2.gang import Gang
 from fairseq2.nn.utils.module import to_empty
-from fairseq2.tensor_parallel import gather, reduce, reduce_on_backward
+from fairseq2.ops.tensor_parallel import gather, reduce, reduce_on_backward
 
 
 class Embedding(Module, ABC):
