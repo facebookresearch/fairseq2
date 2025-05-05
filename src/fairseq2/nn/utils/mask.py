@@ -28,7 +28,7 @@ def apply_mask(
 
     :returns: The input sequences with mask applied. *Shape:* Same as ``seqs``.
     """
-    unsqueeze(mask, dim=-1, count=seqs.ndim - mask.ndim)
+    mask = unsqueeze(mask, dim=-1, count=seqs.ndim - mask.ndim)
 
     return seqs.where(mask, fill_value)
 
@@ -95,7 +95,7 @@ def compute_row_mask(
         )
     else:
         # (N)
-        row_lens = row_lens.view(num_rows)
+        row_lens = row_lens.to(torch.int64).view(num_rows)
 
         # We only mask rows that are longer than the mask span length.
         if (span_len >= row_lens).any():

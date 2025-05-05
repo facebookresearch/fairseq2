@@ -120,7 +120,8 @@ class Trainer(Recipe, Generic[BatchT]):
     _seed: int
     _max_num_steps: int | None
     _max_num_data_epochs: int | None
-    _validator: Validator
+    _validator: Validator | None
+    _validate_at_start: bool
     _validate_after_n_steps: int
     _validate_every_n_steps: int | None
     _validate_after_n_data_epochs: int
@@ -181,6 +182,7 @@ class Trainer(Recipe, Generic[BatchT]):
         anomaly_detection: bool = False,
         max_num_steps: int | None = None,
         max_num_data_epochs: int | None = None,
+        validate_at_start: bool = False,
         validate_after_n_steps: int = 0,
         validate_every_n_steps: int | None = None,
         validate_after_n_data_epochs: int = 0,
@@ -327,6 +329,8 @@ class Trainer(Recipe, Generic[BatchT]):
         self._max_num_data_epochs = max_num_data_epochs
 
         self._validator = validator
+
+        self._validate_at_start = validate_at_start
 
         if validate_every_n_steps is not None:
             if validate_every_n_steps <= 0:
@@ -507,6 +511,9 @@ class Trainer(Recipe, Generic[BatchT]):
             ) from ex
 
         if step_nr is None:
+            if self._validate_at_start:
+                return _TrainerState.PRE_VALIDATION
+
             return _TrainerState.DATA_LOAD
 
         log.info("Restoring training from the last checkpoint at step {}.", step_nr)
@@ -574,6 +581,9 @@ class Trainer(Recipe, Generic[BatchT]):
         with progress_task, self._lapse_watch:
             while self._state != _TrainerState.STOPPED:
                 match self._state:
+                    case _TrainerState.PRE_VALIDATION:
+                        self._state = self._pre_validate()
+
                     case _TrainerState.DATA_LOAD:
                         self._state = self._read_next_batches()
 
@@ -606,6 +616,12 @@ class Trainer(Recipe, Generic[BatchT]):
                         log.info("Stopping training at step {}.", self._step_nr)
 
                         self._state = self._stop()
+
+    def _pre_validate(self) -> _TrainerState:
+        if self._validate is not None:
+            self._validate()
+
+        return _TrainerState.DATA_LOAD
 
     def _read_next_batches(self) -> _TrainerState:
         with self._data_watch:
@@ -1045,6 +1061,9 @@ class Trainer(Recipe, Generic[BatchT]):
         return score
 
     def _should_validate(self) -> bool:
+        if self._validator is None:
+            return False
+
         return self._should_do(
             self._validate_after_n_steps,
             self._validate_every_n_steps,
@@ -1053,7 +1072,13 @@ class Trainer(Recipe, Generic[BatchT]):
         )
 
     def _validate(self) -> float | None:
-        log.info("Starting validation after step {}.", self._step_nr)
+        if self._validator is None:
+            raise InternalError("`_validator` is `None`.")
+
+        if self._step_nr == 0:
+            log.info("Starting pre-validation before training.")
+        else:
+            log.info("Starting validation after step {}.", self._step_nr)
 
         self._model.module.eval()
 
@@ -1135,9 +1160,12 @@ class Trainer(Recipe, Generic[BatchT]):
         after_n_data_epochs: int,
         every_n_data_epochs: int | None,
     ) -> bool:
+        if self._state == _TrainerState.PRE_VALIDATION:
+            return False
+
         def should_do_at_step() -> bool:
             if every_n_steps is not None:
-                if self._step_nr >= after_n_steps:
+                if self._step_nr > after_n_steps:
                     if self._step_nr % every_n_steps == 0:
                         return True
 
@@ -1158,7 +1186,7 @@ class Trainer(Recipe, Generic[BatchT]):
 
         if self._state == _TrainerState.END_OF_DATA_EPOCH:
             if every_n_data_epochs is not None:
-                if self._data_epoch_nr >= after_n_data_epochs:
+                if self._data_epoch_nr > after_n_data_epochs:
                     if self._data_epoch_nr % every_n_data_epochs == 0:
                         already_done = should_do_at_step()
 
@@ -1191,16 +1219,17 @@ class Trainer(Recipe, Generic[BatchT]):
 
 class _TrainerState(Enum):
     NOT_STARTED = 0
-    DATA_LOAD = 1
-    STEP = 2
-    POST_STEP = 3
-    END_OF_DATA_EPOCH = 4
-    END_OF_TRAINING = 5
-    END_OF_DATA = 6
-    GRADIENT_OVERFLOW = 7
-    EARLY_STOP = 8
-    STOP_REQUESTED = 9
-    STOPPED = 10
+    PRE_VALIDATION = 1
+    DATA_LOAD = 2
+    STEP = 3
+    POST_STEP = 4
+    END_OF_DATA_EPOCH = 5
+    END_OF_TRAINING = 6
+    END_OF_DATA = 7
+    GRADIENT_OVERFLOW = 8
+    EARLY_STOP = 9
+    STOP_REQUESTED = 10
+    STOPPED = 11
 
 
 T = TypeVar("T")

@@ -234,6 +234,9 @@ class RegimeSection:
     num_data_epochs: int | None = None
     """The maximum number of data epochs to train for."""
 
+    validate_at_start: bool = False
+    """If ``True``, runs validation before starting training."""
+
     validate_after_n_steps: int = 0
     """The number of steps after which to start validating the model."""
 
