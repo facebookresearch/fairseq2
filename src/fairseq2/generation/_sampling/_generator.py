@@ -23,8 +23,8 @@ from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn import BatchLayout, IncrementalStateBag
+from fairseq2.ops import repeat_interleave
 from fairseq2.utils.stopwatch import Stopwatch
-from fairseq2.utils.tensor import repeat_interleave
 
 # isort: split
 

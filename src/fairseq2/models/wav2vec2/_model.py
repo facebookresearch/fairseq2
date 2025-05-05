@@ -19,7 +19,7 @@ from fairseq2.device import Device
 from fairseq2.error import InternalError
 from fairseq2.models.transformer import TransformerEncoder
 from fairseq2.nn import BatchLayout, Linear
-from fairseq2.utils.tensor import repeat_interleave
+from fairseq2.ops import repeat_interleave
 
 # isort: split
 
