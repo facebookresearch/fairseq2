@@ -422,12 +422,12 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         if len(loss_to_sum) == 0:
             # dummy batch
-            loss_to_sum = [logps.sum()]  # dummy loss to zero out
+            loss_to_sum = [logps.sum()*0.0]  # dummy loss to zero out
             loss_zeroer = 0.0
         else:
             loss_zeroer = 1.0
 
-        return sum(loss_to_sum), loss_zeroer, len(loss_to_sum) 
+        return sum(loss_to_sum), loss_zeroer, batch_size
 
     @override
     def set_step_nr(self, step_nr: int) -> None:
