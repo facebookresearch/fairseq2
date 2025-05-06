@@ -18,7 +18,6 @@ from fairseq2.datasets import (
 )
 from fairseq2.datasets.asr import AsrDataset, AsrReadOptions
 from fairseq2.gang import Gang, Gangs
-from fairseq2.logging import log
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.recipes.common import load_dataset
 from fairseq2.recipes.config import DatasetSection
