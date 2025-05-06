@@ -296,6 +296,11 @@ def load_online_finetuner(
         raise UnknownOnlineFinetuneUnitError(config.criterion.name) from None
 
     unit = unit_handler.create(model, gangs, config, vllm_actors)
+    try:
+        unit.maybe_sync_models(force_sync_vllm=True)
+    except AttributeError:
+        raise RuntimeError("Train unit does not support maybe_sync_models")
+
     valid_unit = unit_handler.create(model, gangs, config, vllm_actors)
 
     batching: Batching
