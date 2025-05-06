@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 from __future__ import annotations
 
-import gc
 import tempfile
 from copy import deepcopy
 from functools import partial
@@ -13,7 +12,6 @@ from pathlib import Path
 from pickle import dumps, loads
 from typing import List, Optional
 
-import numpy as np
 import pyarrow as pa
 from retrying import retry
 
