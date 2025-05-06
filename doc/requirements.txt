@@ -10,3 +10,4 @@ ipython~=8.31.0
 pyarrow
 polars
 retrying
+pandas
