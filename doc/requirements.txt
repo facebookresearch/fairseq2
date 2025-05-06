@@ -11,3 +11,4 @@ pyarrow
 polars
 retrying
 pandas
+xxhash
