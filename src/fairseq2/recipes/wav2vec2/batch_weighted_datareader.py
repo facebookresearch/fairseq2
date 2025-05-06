@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import re
+from copy import deepcopy
 from typing import Dict, Final, List, Tuple
 
 from fairseq2.context import RuntimeContext
@@ -17,6 +18,7 @@ from fairseq2.datasets import (
 )
 from fairseq2.datasets.asr import AsrDataset, AsrReadOptions
 from fairseq2.gang import Gang, Gangs
+from fairseq2.logging import log
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.recipes.common import load_dataset
 from fairseq2.recipes.config import DatasetSection
@@ -128,7 +130,9 @@ class BatchMixtureDataset:
         assert dataset_config.name is not None
 
         for name, weight in cls.parse_dataset_config(dataset_config.name):
-            dataset = load_dataset(dataset_cls, context, dataset_config, gangs)
+            n_ds_config = deepcopy(dataset_config)
+            n_ds_config.name = name
+            dataset = load_dataset(dataset_cls, context, n_ds_config, gangs)
             datasets[name] = dataset
             weights[name] = weight
         return cls(dataset_config.name, datasets, weights)

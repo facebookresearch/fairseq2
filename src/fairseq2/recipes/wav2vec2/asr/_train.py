@@ -326,6 +326,9 @@ def load_wav2vec2_asr_trainer(
 
     dataset: AsrDataset | BatchMixtureDataset
     if config.dataset.family == MIXTURE_DATASET_FAMILY:
+        log.info(
+            f"Loading dataset {config.dataset.name} with family={config.dataset.family}"
+        )
         dataset = BatchMixtureDataset.from_configs(
             AsrDataset, context, config.dataset, gangs
         )
