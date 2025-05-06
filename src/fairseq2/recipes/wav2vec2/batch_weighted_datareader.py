@@ -35,9 +35,8 @@ class BatchMixtureDataset:
     name_pattern = r"^(?P<dataset_name>[a-zA-Z0-9_]+):(?P<weight>\d+(?:\.\d+)?)$"
     split_pattern = r"^(?P<dataset_name>[a-zA-Z0-9_]+)=(?P<split>[a-zA-Z0-9_]+)$"
 
-    # Regular expression pattern to match dataset with multiple splits like dataset2=[train,valid,test]
     multi_split_pattern = (
-        r"^(?P<dataset_name>[a-zA-Z0-9_]+)=\[(?P<splits>[a-zA-Z0-9_,\s]+)\]$"
+        r"([a-zA-Z0-9_]+)=\[([^\]]+)\]|([a-zA-Z0-9_]+)=([a-zA-Z0-9_]+)"
     )
 
     def __init__(
@@ -48,27 +47,26 @@ class BatchMixtureDataset:
         self._name = name
 
     @classmethod
+    @classmethod
     def parse_split_config_with_multiple_splits(cls, split_config: str) -> List[str]:
         """
-        input: "dataset0=[train,valid],dataset1=test,dataset2=[train,valid,test]"
+        input: "dataset0=[train,valid],dataset1=[test],dataset2=[train,valid,test]"
         output: ["dataset0=train", "dataset0=valid", "dataset1=test", "dataset2=train", "dataset2=valid", "dataset2=test"]
         """
         result = []
-        for item in split_config.split(","):
-            item = item.strip()
-            # Use regex to match datasets with multiple splits: dataset=[split1,split2]
-            _match = re.match(cls.multi_split_pattern, item)
-            if _match:
-                dataset_name = _match.group("dataset_name")
-                assert (
-                    dataset_name in cls._datasets
-                ), f"Dataset {dataset_name} not found in dataset list"
-                splits = [s.strip() for s in _match.group("splits").split(",")]
+        # Use regex to find all dataset configurations
+        matches = re.findall(cls.multi_split_pattern, split_config)
+
+        for match in matches:
+            if match[0]:  # Multi-split format: dataset=[split1,split2]
+                dataset_name = match[0]
+                splits = [s.strip() for s in match[1].split(",")]
                 for split in splits:
                     result.append(f"{dataset_name}={split}")
-            else:
-                # Handle dataset with single split
-                result.append(item)
+            else:  # Single split format: dataset=split
+                dataset_name = match[2]
+                split = match[3]
+                result.append(f"{dataset_name}={split}")
 
         return result
 
