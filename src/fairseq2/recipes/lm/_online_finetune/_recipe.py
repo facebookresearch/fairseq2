@@ -297,7 +297,8 @@ def load_online_finetuner(
 
     unit = unit_handler.create(model, gangs, config, vllm_actors)
     try:
-        unit.maybe_sync_models(force_sync_vllm=True)
+        if unit._sync_vllm_model_every_n_steps >= 0:
+            unit.maybe_sync_models(force_sync_vllm=True)
     except AttributeError:
         raise RuntimeError("Train unit does not support maybe_sync_models")
 
