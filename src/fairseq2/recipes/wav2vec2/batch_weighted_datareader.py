@@ -110,7 +110,7 @@ class BatchMixtureDataset:
                 raise ValueError(f"Invalid dataset config format: {item}")
 
             dataset_name = match.group("dataset_name")
-            split = match.group("weight")
+            split = match.group("split")
             result.append((dataset_name, split))
 
         return result
