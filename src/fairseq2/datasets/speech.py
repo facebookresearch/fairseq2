@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import partial, reduce
 from pathlib import Path
-from typing import Any, Dict, Final, List
+from typing import Any, Dict, Final, List, final
 
 import numpy as np
 import torch
@@ -397,6 +397,7 @@ class GenericSpeechDataset(SpeechDataset):
         )
 
         seed = options.seed
+        npc = options.npc
         no_padding = options.no_padding
 
         audio_dir = self._retrieve_data_directory(split)

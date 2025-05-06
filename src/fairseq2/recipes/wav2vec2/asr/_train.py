@@ -55,10 +55,6 @@ from fairseq2.recipes.config import (
     TrainerSection,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.wav2vec2.batch_weighted_datareader import (
-    MIXTURE_DATASET_FAMILY,
-    BatchMixtureDataset,
-)
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
@@ -301,6 +297,8 @@ def load_wav2vec2_asr_trainer(
         context, config.lr_scheduler, config.regime, optimizer
     )
 
+    dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
+
     tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the train unit.
@@ -323,14 +321,6 @@ def load_wav2vec2_asr_trainer(
         seed=seed,
         extras=config.dataset.extras,
     )
-
-    dataset: AsrDataset | BatchMixtureDataset
-    if config.dataset.family == MIXTURE_DATASET_FAMILY:
-        dataset = BatchMixtureDataset.from_configs(
-            AsrDataset, context, config.dataset, gangs
-        )
-    else:
-        dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
 
     data_reader = dataset.create_reader(
         config.dataset.train_split,
@@ -361,22 +351,13 @@ def load_wav2vec2_asr_trainer(
 
         valid_units = []
         valid_data_readers = []
-        if config.dataset.family == MIXTURE_DATASET_FAMILY:
-            # config.dataset.valid_split = "dataset0=[dev,test],dataset1=[validation,test]"
-            assert isinstance(dataset, BatchMixtureDataset)
-            valid_splits = dataset.parse_split_config_with_multiple_splits(
-                config.dataset.valid_split
-            )
-            # ["dataset0=dev", "dataset0=test", "dataset1=validation", "dataset1=test"]
-        else:
-            # config.dataset.valid_split = "dev,test"
-            valid_splits = [s.strip() for s in (config.dataset.valid_split).split(",")]
-        for single_vsplit in valid_splits:
+        valid_splits = (config.dataset.valid_split).split(",")
+        for i in range(len(valid_splits)):
             valid_unit = AsrEvalUnit(valid_criterion, gangs)
             valid_units.append(valid_unit)
 
             valid_data_reader = dataset.create_reader(
-                single_vsplit,
+                valid_splits[i],
                 tokenizer,
                 gangs.dp,
                 config.dataset.min_audio_len,
