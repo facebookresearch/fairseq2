@@ -104,7 +104,6 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
             example_shuffle_window = min(
                 options.example_shuffle_window, self.max_num_examples
             )
-            builder = builder.prefetch(int(2 * example_shuffle_window))
             builder = builder.shuffle(example_shuffle_window, seed=seed)
             seed += 1
 
