@@ -447,6 +447,47 @@ def prepare_preference_batch_random_pair(
     return batch, is_bad_batch
 
 
+def prepare_group_dpo_batch(
+    prompt_batch: PromptBatch, reward_output: dict, gangs
+) -> PreferenceBatch:
+    """
+    In group DPO we want to forward all rollouts, and then match all correct vs incorrect options in the loss
+    """
+
+    batch = []
+    prompt_lens = []
+    rewards = []
+    dummy_batch_ids = []  # keep posiitons of dummy pairs here
+
+    batch_size = prompt_batch.batch_size
+
+    # choosing first rollouts with reward 1 as chosen and 0 as rejected (sort of random given that we sample rollouts randomly)
+    for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
+        zip(reward_output["rewards"], reward_output["tokens"])
+    ):
+        if len(set(i_batch_rewards)) == 1:
+            # same reward for all rollouts, we wont be able to use it for pairs
+            dummy_batch_ids.append(i_batch)
+
+        for rollout_tokens in i_batch_tokens:
+            prompt_rollout_tokens = prompt_batch.prompts[i_batch] + list(rollout_tokens)
+            batch.append(prompt_rollout_tokens)
+            prompt_lens.append(len(prompt_batch.prompts[i_batch]))
+        rewards.extend(i_batch_rewards)
+
+    prompt_lens = torch.tensor(prompt_lens)
+
+    batch = [torch.tensor(sequence, device=gangs.dp.device) for sequence in batch]
+    batch = collate_with_target_mask(
+        batch, prompt_lens, device=gangs.dp.device
+    )  # [batch_size * n_rollout]
+    rewards = torch.tensor(rewards, device=gangs.dp.device).view(
+        batch_size, -1
+    )  # [batch_size * n_rollout]
+
+    return batch, rewards, dummy_batch_ids
+
+
 def prepare_grpo_batch(
     prompt_batch: PromptBatch,
     reward_output: dict,
