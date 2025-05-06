@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, cast, final
+from typing import Any, Final, cast
 
 import torch
 from torch import Tensor
