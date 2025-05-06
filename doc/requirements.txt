@@ -9,3 +9,4 @@ nbsphinx~=0.9.6
 ipython~=8.31.0
 pyarrow
 polars
+retrying
