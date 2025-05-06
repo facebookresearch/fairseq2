@@ -16,7 +16,11 @@ from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
+from fairseq2.datasets.asr import (
+    GENERIC_ASR_DATASET_FAMILY,
+    AsrDataset,
+)
+from fairseq2.datasets.speech import SpeechReadOptions
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
 from fairseq2.models.seq2seq import Seq2SeqBatch
@@ -148,6 +152,9 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
 
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
+
+    npc: int = 10
+    """The number of parallel calls to use in the pipeline."""
 
     extras: dict[str, object] = field(default_factory=dict)
     """The dataset-specific extra options."""
@@ -310,7 +317,7 @@ def load_wav2vec2_asr_trainer(
 
     batching = LengthBatching(config.dataset.max_num_elements)
 
-    read_options = AsrReadOptions(
+    read_options = SpeechReadOptions(
         batching=batching,
         dtype=config.trainer.dtype,
         normalize_audio=config.dataset.normalize_audio,
@@ -320,6 +327,7 @@ def load_wav2vec2_asr_trainer(
         num_prefetch=config.dataset.num_prefetch,
         seed=seed,
         extras=config.dataset.extras,
+        npc=config.dataset.npc,
     )
 
     data_reader = dataset.create_reader(
@@ -339,7 +347,7 @@ def load_wav2vec2_asr_trainer(
 
         valid_criterion = AsrCriterion(model, valid_scorer)
 
-        read_options = AsrReadOptions(
+        read_options = SpeechReadOptions(
             batching=batching,
             dtype=config.trainer.dtype,
             normalize_audio=config.dataset.normalize_audio,
