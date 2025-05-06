@@ -50,6 +50,8 @@ class SafeFragment:
 
     def __init__(self, fragment: pa.dataset.ParquetFileFragment):
         self.fragment = fragment
+        pa.jemalloc_set_decay_ms(10)
+        self.je_pool = pa.jemalloc_memory_pool()
 
     def __repr__(self) -> str:
         out = ""
@@ -107,6 +109,7 @@ class SafeFragment:
                 columns=fragment_columns,
                 use_threads=use_threads,
                 filter=filters if can_apply_on_phyiscal_schema else None,
+                memory_pool=self.je_pool,
             )
 
         if add_partitioning_columns:
@@ -142,11 +145,6 @@ class ParquetFragmentLoader:
     def apply(self, fragment_pipeline: DataPipelineBuilder) -> DataPipelineBuilder:
         def load_fn(fragment: pa.dataset.ParquetFileFragment) -> pa.Table | None:
             safe_fragment = SafeFragment(fragment)
-            if np.random.rand() < 0.05:
-                gc.collect()
-                # pa.jemalloc_set_decay_ms(10)
-                pool = pa.default_memory_pool()
-                pool.release_unused()
 
             table = safe_fragment.load(
                 columns=self.columns,
