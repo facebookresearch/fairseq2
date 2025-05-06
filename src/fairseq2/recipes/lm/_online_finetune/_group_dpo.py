@@ -389,6 +389,7 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         loss_to_sum = []
 
         for batch_i in range(batch_size):
+            batch_loss = []
             batch_rewards = reward_tensor[batch_i]
             if torch.all(batch_rewards == 1.0) or torch.all(batch_rewards == 0.0):
                 # we cant form pairs for this one
@@ -416,7 +417,8 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
                     ref_chosen_logps_i[chosen_ii],
                     ref_rejected_logps_i[rejected_ii],
                 )
-                loss_to_sum.append(dpo_single_pair)
+                batch_loss.append(dpo_single_pair)
+            loss_to_sum.append(sum(batch_loss)/len(batch_loss))
 
         if len(loss_to_sum) == 0:
             # dummy batch
@@ -425,7 +427,7 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         else:
             loss_zeroer = 1.0
 
-        return sum(loss_to_sum), loss_zeroer, len(loss_to_sum)
+        return sum(loss_to_sum), loss_zeroer, len(loss_to_sum) 
 
     @override
     def set_step_nr(self, step_nr: int) -> None:
