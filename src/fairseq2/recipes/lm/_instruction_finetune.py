@@ -108,9 +108,9 @@ class InstructionFinetuneConfig:
 
     regime: RegimeSection = field(
         default_factory=lambda: RegimeSection(
-            num_steps=5_000,
+            num_steps=5000,
             validate_every_n_steps=100,
-            checkpoint_every_n_steps=1_000,
+            checkpoint_every_n_steps=1000,
             keep_last_n_checkpoints=1,
             publish_metrics_every_n_steps=10,
         )
@@ -227,7 +227,9 @@ def load_instruction_finetuner(
 
     gangs = setup_training_gangs(context, config.gang, config.trainer)
 
-    checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
+    checkpoint_manager = create_checkpoint_manager(
+        context, config.regime, gangs, output_dir
+    )
 
     seed = config.common.seed
 

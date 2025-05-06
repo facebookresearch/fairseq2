@@ -36,7 +36,7 @@ class ThreadPool(ABC):
 
 
 @final
-class StandardThreadPool(ThreadPool):
+class FuturesThreadPool(ThreadPool):
     _executor: ThreadPoolExecutor
 
     def __init__(self, max_num_workers: int) -> None:
@@ -60,7 +60,7 @@ def get_default_thread_pool() -> ThreadPool:
 
         # Due to GIL, threads in CPython are typically used to overlap I/O with
         # CPU work; therefore, we can slightly oversubscribe here (i.e. +4).
-        _default_pool = StandardThreadPool(max_num_workers=num_threads + 4)
+        _default_pool = FuturesThreadPool(max_num_workers=num_threads + 4)
 
     return _default_pool
 

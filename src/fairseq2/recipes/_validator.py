@@ -533,14 +533,3 @@ class StandardValidator(Validator, Generic[BatchT]):
         self._num_batches_read = 0
 
         self._has_run = False
-
-
-@final
-class NoopValidator(Validator):
-    @override
-    def run(self, train_step_nr: int, train_data_epoch_nr: int) -> float | None:
-        return None
-
-    @override
-    def reset(self) -> None:
-        pass

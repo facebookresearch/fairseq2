@@ -22,11 +22,9 @@ from fairseq2.metrics import MetricDescriptor, UnknownMetricDescriptorError
 from fairseq2.optim.lr_scheduler import LRScheduler
 from fairseq2.recipes import (
     EvalUnit,
-    NoopValidator,
     StandardValidator,
     Trainer,
     TrainUnit,
-    Validator,
 )
 from fairseq2.recipes.config import CommonSection, RegimeSection, TrainerSection
 from fairseq2.utils.gc import (
@@ -84,8 +82,6 @@ def create_trainer(
     if gangs.root.device.type == "cpu":
         log.warning("Based on your environment setup the training will be run on CPU. If this was not intended, check your job options (e.g. pass `--gpus-per-node` on Slurm).")  # fmt: skip
 
-    validator: Validator
-
     if valid_units:
         validator = StandardValidator(
             units=valid_units,
@@ -103,7 +99,7 @@ def create_trainer(
             progress_reporter=context.progress_reporter,
         )
     else:
-        validator = NoopValidator()
+        validator = None
 
     # fmt: off
     return Trainer(

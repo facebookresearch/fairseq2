@@ -784,13 +784,10 @@ def broadcast_flag(gang: Gang, flag: bool, source_rank: int = 0) -> bool:
     return bool(flag_pt)
 
 
-def all_sum(gang: Gang, value: float | int | Tensor) -> Tensor:
+def all_sum(gang: Gang, value: float | int) -> Tensor:
     """Sums ``value`` over all processes in ``gang``."""
-    if isinstance(value, Tensor):
-        output = value
-    else:
-        output = to_tensor(value, device=gang.device)
+    value_pt = to_tensor(value, device=gang.device)
 
-    gang.all_reduce(output, ReduceOperation.SUM)
+    gang.all_reduce(value_pt, ReduceOperation.SUM)
 
-    return output
+    return value_pt

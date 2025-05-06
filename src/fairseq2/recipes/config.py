@@ -266,6 +266,12 @@ class RegimeSection:
 
     keep_checkpoint_every_n_steps: int | None = None
 
+    in_proc_checkpoint: bool = False
+    """
+    If ``True``, saves checkpoints in a background thread instead of a child
+    process.
+    """
+
     publish_metrics_after_n_steps: int = 0
 
     publish_metrics_every_n_steps: int | None = None

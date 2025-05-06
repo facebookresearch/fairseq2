@@ -37,6 +37,5 @@ from fairseq2.recipes._recipe import Recipe as Recipe
 from fairseq2.recipes._recipe import RecipeStopException as RecipeStopException
 from fairseq2.recipes._trainer import Trainer as Trainer
 from fairseq2.recipes._trainer import TrainUnit as TrainUnit
-from fairseq2.recipes._validator import NoopValidator as NoopValidator
 from fairseq2.recipes._validator import StandardValidator as StandardValidator
 from fairseq2.recipes._validator import Validator as Validator

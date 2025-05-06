@@ -9,12 +9,14 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Set
 from concurrent.futures import Future
-from copy import deepcopy
+from multiprocessing.pool import Pool
 from os import scandir
 from pathlib import Path
+from pickle import PickleError
 from shutil import Error
-from typing import Protocol, TypeAlias, cast, final, runtime_checkable
+from typing import ClassVar, Protocol, TypeAlias, cast, final, runtime_checkable
 
+import torch.multiprocessing as mp
 from torch import Tensor
 from typing_extensions import override
 
@@ -29,7 +31,6 @@ from fairseq2.utils.io import (
     TensorLoader,
     TensorLoadError,
 )
-from fairseq2.utils.tensor import to_tensor
 from fairseq2.utils.threading import ThreadPool
 
 
@@ -55,7 +56,7 @@ class CheckpointManager(ABC):
         metadata: dict[str, object] | None = None,
         state_processor: CheckpointStateProcessor | None = None,
         callback: CheckpointCallback | None = None,
-        block: bool = False,
+        blocking: bool = False,
     ) -> None: ...
 
     @abstractmethod
@@ -66,12 +67,12 @@ class CheckpointManager(ABC):
         *,
         state_processor: CheckpointStateProcessor | None = None,
         callback: CheckpointCallback | None = None,
-        block: bool = False,
+        blocking: bool = False,
     ) -> None: ...
 
     @abstractmethod
     def maybe_complete_async_checkpoint(
-        self, *, block: bool = False
+        self, *, blocking: bool = False
     ) -> bool | None: ...
 
     @abstractmethod
@@ -105,20 +106,20 @@ class CheckpointManager(ABC):
     def delete_checkpoint(self, step_nr: int) -> None: ...
 
     @abstractmethod
-    def delete_stale_checkpoints(
-        self,
-        keep_last_n: int | None,
-        keep_best_n: int | None,
-        keep_every_n_steps: int | None,
-    ) -> bool: ...
-
-    @abstractmethod
     def get_step_numbers(self, *, exclude_model_only: bool = False) -> list[int]: ...
 
     @abstractmethod
     def maybe_get_last_step_number(
         self, *, exclude_model_only: bool = False
     ) -> int | None: ...
+
+    @abstractmethod
+    def get_stale_step_numbers(
+        self,
+        keep_last_n: int | None,
+        keep_best_n: int | None,
+        keep_every_n_steps: int | None,
+    ) -> list[int]: ...
 
 
 CheckpointState: TypeAlias = dict[str, tuple[Path, dict[str, object]]]
@@ -139,21 +140,19 @@ class FileCheckpointManager(CheckpointManager):
     _checkpoint_dir: Path
     _gangs: Gangs
     _file_system: FileSystem
+    _saver: CheckpointSaver
     _tensor_loader: TensorLoader
-    _tensor_dumper: TensorDumper
     _thread_pool: ThreadPool
-    _op: Future[Callable[[], None]] | None
+    _save_op: Future[Callable[[], None]] | None
     _step_nr: int | None
-    _f_flag: Tensor
-    _t_flag: Tensor
 
     def __init__(
         self,
         checkpoint_dir: Path,
         gangs: Gangs,
         file_system: FileSystem,
+        saver: CheckpointSaver,
         tensor_loader: TensorLoader,
-        tensor_dumper: TensorDumper,
         thread_pool: ThreadPool,
     ) -> None:
         try:
@@ -167,15 +166,15 @@ class FileCheckpointManager(CheckpointManager):
 
         self._file_system = file_system
 
+        self._saver = saver
+
         self._tensor_loader = tensor_loader
-        self._tensor_dumper = tensor_dumper
 
         self._thread_pool = thread_pool
-        self._op = None
-        self._step_nr = None
 
-        self._f_flag = to_tensor(0, device=gangs.root.device)
-        self._t_flag = to_tensor(1, device=gangs.root.device)
+        self._save_op = None
+
+        self._step_nr = None
 
     @override
     def save_checkpoint(
@@ -189,9 +188,9 @@ class FileCheckpointManager(CheckpointManager):
         metadata: dict[str, object] | None = None,
         state_processor: CheckpointStateProcessor | None = None,
         callback: CheckpointCallback | None = None,
-        block: bool = False,
+        blocking: bool = False,
     ) -> None:
-        self.maybe_complete_async_checkpoint(block=True)
+        self.maybe_complete_async_checkpoint(blocking=True)
 
         state: CheckpointState = {}
 
@@ -207,7 +206,7 @@ class FileCheckpointManager(CheckpointManager):
 
         self._collect_metadata(step_nr, metadata, state)
 
-        self._do_save_checkpoint(step_nr, state, state_processor, callback, block)
+        self._do_save_checkpoint(step_nr, state, state_processor, callback, blocking)
 
     @override
     def save_model_only(
@@ -217,9 +216,9 @@ class FileCheckpointManager(CheckpointManager):
         *,
         state_processor: CheckpointStateProcessor | None = None,
         callback: CheckpointCallback | None = None,
-        block: bool = False,
+        blocking: bool = False,
     ) -> None:
-        self.maybe_complete_async_checkpoint(block=True)
+        self.maybe_complete_async_checkpoint(blocking=True)
 
         state: CheckpointState = {}
 
@@ -227,95 +226,11 @@ class FileCheckpointManager(CheckpointManager):
 
         self._collect_model_state(step_nr, model, state)
 
-        self._do_save_checkpoint(step_nr, state, state_processor, callback, block)
-
-    def _do_save_checkpoint(
-        self,
-        step_nr: int,
-        state: CheckpointState,
-        state_processor: CheckpointStateProcessor | None,
-        callback: CheckpointCallback | None,
-        block: bool,
-    ) -> None:
-        try:
-            self._sync_nfs_cache()
-        except GangError as ex:
-            raise CheckpointSaveError(
-                step_nr, f"The collective barrier within the NFS cache drop operation of step {step_nr} has failed. See the nested exception for details."  # fmt: skip
-            ) from ex
-
-        if not block:
-            try:
-                state = self._move_state_to_cpu(state)
-            except (RuntimeError, ValueError, TypeError) as ex:
-                raise CheckpointSaveError(
-                    step_nr, f"The checkpoint state of step {step_nr} cannot be transferred to the host memory. See the nested exception for details."  # fmt: skip
-                ) from ex
-
-        if state_processor is not None:
-            state_processor(step_nr, state)
-
-        def save() -> Callable[[], None]:
-            self._save_state_files(step_nr, state)
-
-            self._copy_cc(step_nr)
-
-            def commit() -> None:
-                self._commit_checkpoint(step_nr)
-
-                if callback is not None:
-                    callback(step_nr)
-
-            return commit
-
-        if block:
-            committer = save()
-
-            committer()
-        else:
-            self._step_nr = step_nr
-
-            self._op = self._thread_pool.queue(save)
-
-    @classmethod
-    def _move_state_to_cpu(cls, state: CheckpointState) -> CheckpointState:
-        memo: dict[Tensor, Tensor] = {}
-
-        def move_to_cpu(item: object) -> object:
-            if isinstance(item, Tensor):
-                cpu_tensor = memo.get(item)
-                if cpu_tensor is None:
-                    if item.device.type == "cpu":
-                        cpu_tensor = item.detach().clone()
-                    else:
-                        cpu_tensor = item.detach().cpu()
-
-                    memo[item] = cpu_tensor
-
-                return cpu_tensor
-
-            if isinstance(item, (int, float, str)):
-                return item
-
-            if isinstance(item, Mapping):
-                return {move_to_cpu(k): move_to_cpu(v) for k, v in item.items()}
-
-            if isinstance(item, list):
-                return [move_to_cpu(e) for e in item]
-
-            if isinstance(item, tuple):
-                return tuple(move_to_cpu(e) for e in item)
-
-            if isinstance(item, Set):
-                return {move_to_cpu(e) for e in item}
-
-            return deepcopy(item)
-
-        return cast(CheckpointState, move_to_cpu(state))
+        self._do_save_checkpoint(step_nr, state, state_processor, callback, blocking)
 
     @override
-    def maybe_complete_async_checkpoint(self, *, block: bool = False) -> bool | None:
-        if self._op is None:
+    def maybe_complete_async_checkpoint(self, *, blocking: bool = False) -> bool | None:
+        if self._save_op is None:
             return None
 
         if self._step_nr is None:
@@ -325,8 +240,8 @@ class FileCheckpointManager(CheckpointManager):
 
         gangs = self._gangs
 
-        if block:
-            committer = self._op.result()
+        if blocking:
+            committer = self._save_op.result()
 
             try:
                 gangs.root.barrier()
@@ -336,10 +251,10 @@ class FileCheckpointManager(CheckpointManager):
                 ) from ex
         else:
             try:
-                if self._op.running():
-                    num_completed = all_sum(gangs.root, self._f_flag)
+                if self._save_op.running():
+                    num_completed = all_sum(gangs.root, 0)
                 else:
-                    num_completed = all_sum(gangs.root, self._t_flag)
+                    num_completed = all_sum(gangs.root, 1)
             except GangError as ex:
                 raise CheckpointSaveError(
                     self._step_nr, f"The checkpoint completion status of step {self._step_nr} cannot be communicated across processes. See the nested exception for details."  # fmt: skip
@@ -348,9 +263,9 @@ class FileCheckpointManager(CheckpointManager):
             if num_completed != gangs.root.size:
                 return False
 
-            committer = self._op.result()
+            committer = self._save_op.result()
 
-        self._op = None
+        self._save_op = None
 
         self._step_nr = None
 
@@ -359,7 +274,7 @@ class FileCheckpointManager(CheckpointManager):
         return True
 
     def is_saving(self) -> bool:
-        return self._op is not None
+        return self._save_op is not None
 
     def _begin_checkpoint(self, step_nr: int) -> None:
         try:
@@ -510,14 +425,109 @@ class FileCheckpointManager(CheckpointManager):
 
             state["metadata"] = (metadata_file, metadata)
 
-    def _save_state_files(self, step_nr: int, state: CheckpointState) -> None:
-        for kind, (file, state_dict) in state.items():
-            try:
-                self._tensor_dumper.dump(state_dict, file)
-            except TensorDumpError as ex:
-                raise CheckpointSaveError(
-                    step_nr, f"The '{kind}' state of step {step_nr} cannot be saved to the '{ex.path}' file. See the nested exception for details."  # fmt: skip
-                ) from ex
+    def _do_save_checkpoint(
+        self,
+        step_nr: int,
+        state: CheckpointState,
+        state_processor: CheckpointStateProcessor | None,
+        callback: CheckpointCallback | None,
+        blocking: bool,
+    ) -> None:
+        try:
+            self._sync_nfs_cache()
+        except GangError as ex:
+            raise CheckpointSaveError(
+                step_nr, f"The collective barrier within the NFS cache drop operation of step {step_nr} has failed. See the nested exception for details."  # fmt: skip
+            ) from ex
+
+        if not blocking:
+            host_state = {}
+
+            memo: dict[Tensor, Tensor] = {}
+
+            for kind, (file, state_dict) in state.items():
+                try:
+                    state_dict = self._move_state_dict_to_host(state_dict, memo)
+                except (RuntimeError, ValueError, TypeError) as ex:
+                    raise CheckpointSaveError(
+                        step_nr, f"The '{kind}' state of step {step_nr} cannot be transferred to the host memory. See the nested exception for details."  # fmt: skip
+                    ) from ex
+
+                host_state[kind] = (file, state_dict)
+
+            state = host_state
+
+            del memo
+
+        if state_processor is not None:
+            state_processor(step_nr, state)
+
+        def save() -> Callable[[], None]:
+            nonlocal state
+
+            self._saver.save(step_nr, state)
+
+            del state
+
+            self._copy_cc(step_nr)
+
+            def commit() -> None:
+                self._commit_checkpoint(step_nr)
+
+                if callback is not None:
+                    callback(step_nr)
+
+            return commit
+
+        if blocking:
+            committer = save()
+
+            committer()
+        else:
+            self._step_nr = step_nr
+
+            self._save_op = self._thread_pool.queue(save)
+
+    @staticmethod
+    def _move_state_dict_to_host(
+        state_dict: Mapping[str, object], memo: dict[Tensor, Tensor]
+    ) -> dict[str, object]:
+        def move_to_host(item: object) -> object:
+            if item is None:
+                return None
+
+            if isinstance(item, Tensor):
+                cpu_tensor = memo.get(item)
+                if cpu_tensor is None:
+                    if item.device.type == "cpu":
+                        cpu_tensor = item.detach().clone()
+                    else:
+                        cpu_tensor = item.detach().cpu()
+
+                    memo[item] = cpu_tensor
+
+                return cpu_tensor
+
+            if isinstance(item, (bool, int, float, str, Path)):
+                return item
+
+            if isinstance(item, Mapping):
+                return {move_to_host(k): move_to_host(v) for k, v in item.items()}
+
+            if isinstance(item, list):
+                return [move_to_host(e) for e in item]
+
+            if isinstance(item, tuple):
+                return tuple(move_to_host(e) for e in item)
+
+            if isinstance(item, Set):
+                return {move_to_host(e) for e in item}
+
+            raise ValueError(
+                f"`state_dict` must contain only items of types `bool`, `int`, float`, `str`, `Path`, and `Tensor`, but contains at least one item of type `{type(item)}` instead."
+            )
+
+        return cast(dict[str, object], move_to_host(state_dict))
 
     def _copy_cc(self, step_nr: int) -> None:
         gangs = self._gangs
@@ -807,11 +817,11 @@ class FileCheckpointManager(CheckpointManager):
 
     @override
     def load_scores(self) -> list[tuple[float, int]]:
-        step_numbers = self.get_step_numbers()
-        if not step_numbers:
+        step_nrs = self.get_step_numbers()
+        if not step_nrs:
             return []
 
-        return self._do_load_scores(step_numbers)
+        return self._do_load_scores(step_nrs)
 
     @override
     def delete_checkpoint(self, step_nr: int) -> None:
@@ -868,34 +878,76 @@ class FileCheckpointManager(CheckpointManager):
             ) from ex
 
     @override
-    def delete_stale_checkpoints(
+    def get_step_numbers(self, *, exclude_model_only: bool = False) -> list[int]:
+        step_nrs = []
+
+        try:
+            for step_dir in self._file_system.glob(self._checkpoint_dir, "step_*"):
+                if not self._file_system.is_dir(step_dir):
+                    continue
+
+                try:
+                    step_nr = int(step_dir.name[5:])
+                except ValueError:
+                    continue
+
+                if exclude_model_only:
+                    trainer_dir = step_dir.joinpath("trainer")
+
+                    # Make sure that the directory does not only contain the
+                    # model.
+                    if self._file_system.exists(trainer_dir):
+                        step_nrs.append(step_nr)
+                else:
+                    step_nrs.append(step_nr)
+        except OSError as ex:
+            raise CheckpointError(
+                f"The '{self._checkpoint_dir}' checkpoint directory cannot be traversed. See the nested exception for details."
+            ) from ex
+
+        step_nrs.sort()
+
+        return step_nrs
+
+    @override
+    def maybe_get_last_step_number(
+        self, *, exclude_model_only: bool = False
+    ) -> int | None:
+        step_nrs = self.get_step_numbers(exclude_model_only=exclude_model_only)
+        if step_nrs:
+            return step_nrs[-1]
+
+        return None
+
+    @override
+    def get_stale_step_numbers(
         self,
         keep_last_n: int | None,
         keep_best_n: int | None,
         keep_every_n_steps: int | None,
-    ) -> bool:
+    ) -> list[int]:
         if keep_last_n is None and keep_best_n is None and keep_every_n_steps is None:
-            return False
+            return []
 
-        step_numbers = self.get_step_numbers()
-        if not step_numbers:
-            return False
+        step_nrs = self.get_step_numbers()
+        if not step_nrs:
+            return []
 
-        non_stale_steps = {step_numbers[-1]}  # never delete the last checkpoint.
+        non_stale_step_nrs = {step_nrs[-1]}  # never delete the last checkpoint.
 
         if keep_last_n is not None:
             if keep_last_n <= 0:
                 raise ValueError("`keep_last_n` must be greater than or equal to 1.")
 
-            non_stale_steps.update(step_numbers[-keep_last_n:])
+            non_stale_step_nrs.update(step_nrs[-keep_last_n:])
 
         if keep_best_n is not None:
             if keep_best_n <= 0:
                 raise ValueError("`keep_best_n` must be greater than or equal to 1.")
 
-            scores = self._do_load_scores(step_numbers)
+            scores = self._do_load_scores(step_nrs)
 
-            non_stale_steps.update(step_nr for _, step_nr in scores[:keep_best_n])
+            non_stale_step_nrs.update(step_nr for _, step_nr in scores[:keep_best_n])
 
         if keep_every_n_steps is not None:
             if keep_every_n_steps <= 0:
@@ -903,8 +955,8 @@ class FileCheckpointManager(CheckpointManager):
                     "`keep_every_n_steps` must be greater than or equal to 1."
                 )
 
-            non_stale_steps.update(
-                n for n in step_numbers if n % keep_every_n_steps == 0
+            non_stale_step_nrs.update(
+                n for n in step_nrs if n % keep_every_n_steps == 0
             )
 
         try:
@@ -914,22 +966,14 @@ class FileCheckpointManager(CheckpointManager):
                 "The collective barrier before the checkpoint delete operation has failed. See the nested exception for details."
             ) from ex
 
-        deleted = False
+        return [s for s in step_nrs if s not in non_stale_step_nrs]
 
-        for step_nr in step_numbers:
-            if step_nr not in non_stale_steps:
-                self.delete_checkpoint(step_nr)
-
-                deleted = True
-
-        return deleted
-
-    def _do_load_scores(self, step_numbers: list[int]) -> list[tuple[float, int]]:
+    def _do_load_scores(self, step_nrs: list[int]) -> list[tuple[float, int]]:
         scores_dir = self._checkpoint_dir.joinpath("scores")
 
         scores = []
 
-        for step_nr in step_numbers:
+        for step_nr in step_nrs:
             score_file = scores_dir.joinpath(f"step_{step_nr}.txt")
 
             def load_error() -> CheckpointError:
@@ -964,47 +1008,85 @@ class FileCheckpointManager(CheckpointManager):
 
         return scores
 
+
+class CheckpointSaver(ABC):
+    @abstractmethod
+    def save(self, step_nr: int, state: CheckpointState) -> None: ...
+
+
+@final
+class InProcCheckpointSaver(CheckpointSaver):
+    _tensor_dumper: TensorDumper
+
+    def __init__(self, tensor_dumper: TensorDumper) -> None:
+        self._tensor_dumper = tensor_dumper
+
     @override
-    def get_step_numbers(self, *, exclude_model_only: bool = False) -> list[int]:
-        step_numbers = []
+    def save(self, step_nr: int, state: CheckpointState) -> None:
+        _save_state_files(self._tensor_dumper, step_nr, state)
+
+
+@final
+class OutOfProcCheckpointSaver(CheckpointSaver):
+    _pool: Pool | None
+    _tensor_dumper: TensorDumper
+
+    def __init__(self, tensor_dumper: TensorDumper) -> None:
+        self._pool = None
+
+        self._tensor_dumper = tensor_dumper
+
+    @override
+    def save(self, step_nr: int, state: CheckpointState) -> None:
+        if self._pool is None:
+            ctx = mp.get_context("spawn")
+
+            try:
+                self._pool = ctx.Pool(1, _PoolProcess.init, (self._tensor_dumper,))
+            except (RuntimeError, ValueError, PickleError) as ex:
+                raise CheckpointError(
+                    "The checkpoint process pool cannot be initialized. See the nested exception for details."  # fmt: skip
+                ) from ex
 
         try:
-            for step_dir in self._file_system.glob(self._checkpoint_dir, "step_*"):
-                if not self._file_system.is_dir(step_dir):
-                    continue
-
-                try:
-                    step_nr = int(step_dir.name[5:])
-                except ValueError:
-                    continue
-
-                if exclude_model_only:
-                    trainer_dir = step_dir.joinpath("trainer")
-
-                    # Make sure that the directory does not only contain the
-                    # model.
-                    if self._file_system.exists(trainer_dir):
-                        step_numbers.append(step_nr)
-                else:
-                    step_numbers.append(step_nr)
-        except OSError as ex:
+            self._pool.apply(_PoolProcess.save_state_files, (step_nr, state))
+        except RuntimeError as ex:
             raise CheckpointError(
-                f"The '{self._checkpoint_dir}' checkpoint directory cannot be traversed. See the nested exception for details."
+                "The checkpoint process pool has failed to dispatch the save operation. See the nested exception for details."  # fmt: skip
             ) from ex
 
-        step_numbers.sort()
+    def close(self) -> None:
+        if self._pool is not None:
+            self._pool.close()
 
-        return step_numbers
+            self._pool.join()
 
-    @override
-    def maybe_get_last_step_number(
-        self, *, exclude_model_only: bool = False
-    ) -> int | None:
-        step_numbers = self.get_step_numbers(exclude_model_only=exclude_model_only)
-        if step_numbers:
-            return step_numbers[-1]
 
-        return None
+class _PoolProcess:
+    _tensor_dumper: ClassVar[TensorDumper | None] = None
+
+    @staticmethod
+    def init(tensor_dumper: TensorDumper) -> None:
+        _PoolProcess._tensor_dumper = tensor_dumper
+
+    @staticmethod
+    def save_state_files(step_nr: int, state: CheckpointState) -> None:
+        if _PoolProcess._tensor_dumper is None:
+            raise InternalError("`_tensor_dumper` is `None`.")
+
+        _save_state_files(_PoolProcess._tensor_dumper, step_nr, state)
+
+
+def _save_state_files(
+    tensor_dumper: TensorDumper, step_nr: int, state: CheckpointState
+) -> None:
+    for kind, (file, state_dict) in state.items():
+        try:
+            tensor_dumper.dump(state_dict, file)
+        except TensorDumpError as ex:
+            raise CheckpointSaveError(
+                step_nr, f"The '{kind}' state of step {step_nr} cannot be saved to the '{ex.path}' file. See the nested exception for details."  # fmt: skip
+            ) from ex
 
 
 class CheckpointNotFoundError(Exception):
