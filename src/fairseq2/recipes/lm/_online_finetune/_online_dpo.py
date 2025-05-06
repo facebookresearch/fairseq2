@@ -265,9 +265,12 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         tgt_logit_entropy = compute_token_level_entropy(
             chosen_output.logits, chosen_target_batch.target_mask
         )  # [Batch x Rollouts, 1]
+        tgt_logit_entropy_no_norm = compute_token_level_entropy(
+            chosen_output.logits, chosen_target_batch.target_mask, length_normalize=False
+        )  # [Batch x Rollouts, 1]
 
         max_entropy_regularizer = (
-            -tgt_logit_entropy.sum() * self._loss_config.entropy_regularizer_scale
+            -tgt_logit_entropy_no_norm.sum() * self._loss_config.entropy_regularizer_scale
         )
         self.metric_bag.update_logit_entropy(tgt_logit_entropy)
 
@@ -342,7 +345,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         # self._gangs.root.barrier()
 
-        return loss, chosen_target_batch.batch_size
+        return loss, prompt_batch.batch_size
 
     def _gather_lprobs(
         self, output: SequenceModelOutput, target: SequenceBatch
