@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Mapping
 
 from torch import Tensor
 from torch.nn import Module
@@ -18,10 +17,7 @@ from fairseq2.typing import ContextManager
 
 class Model(ABC):
     @abstractmethod
-    def state_dict(self) -> dict[str, object]: ...
-
-    @abstractmethod
-    def load_state_dict(self, state_dict: Mapping[str, object]) -> None: ...
+    def full_state_dict(self) -> dict[str, object]: ...
 
     @abstractmethod
     def no_sync(self) -> ContextManager: ...

@@ -643,7 +643,7 @@ class Trainer(Recipe, Generic[BatchT]):
             self._data_reader.reset()
 
         if self._step_nr == 0:
-            log.info("Dataset empty. Stopping training.")
+            log.info("Dataset is empty or too small to train. Stopping training.")
 
             return _TrainerState.STOPPED
         else:
@@ -915,44 +915,53 @@ class Trainer(Recipe, Generic[BatchT]):
 
         self._maybe_wait_checkpoint()
 
+        try:
+            model_state_dict = self._model.full_state_dict()
+        except RuntimeError as ex:
+            raise RecipeError(
+                f"The consolidated model state cannot be gathered at step {step_nr}. See the nested exception for details."
+            ) from ex
+
+        model_state_dict = {"model": model_state_dict, "fs2": True}
+
         def log_ready(step_nr: int, state: CheckpointState) -> None:
             if blocking:
                 log.info("Checkpoint prepared. Saving.")
             else:
                 log.info("Checkpoint prepared. Saving asynchronously.")
 
-        tmp = self._base_wall_time
-
-        self._base_wall_time += self._wall_watch.get_elapsed_time()
-
-        trainer_state_bag = _TrainerStateBag(self)
-
         try:
             if self._save_model_only:
                 self._checkpoint_manager.save_model_only(
                     step_nr,
-                    self._model,
+                    model_state_dict,
                     state_processor=log_ready,
                     callback=self._complete_checkpoint,
                     blocking=blocking,
                 )
             else:
+                tmp = self._base_wall_time
+
+                self._base_wall_time += self._wall_watch.get_elapsed_time()
+
+                trainer_state = _TrainerStateBag(self)
+
                 self._checkpoint_manager.save_checkpoint(
                     step_nr,
-                    trainer_state_bag,
-                    self._model,
+                    trainer_state,
                     self._optimizer,  # type: ignore[arg-type]
                     self._data_reader,
+                    model_state_dict,
                     state_processor=log_ready,
                     callback=self._complete_checkpoint,
                     blocking=blocking,
                 )
+
+                self._base_wall_time = tmp
         except CheckpointSaveError as ex:
             raise RecipeError(
                 f"The checkpoint of step {ex.step_nr} cannot be saved. See the nested exception for details."
             ) from ex
-
-        self._base_wall_time = tmp
 
     def _complete_checkpoint(self, step_nr: int) -> None:
         log.info("Checkpoint at step {} saved.", step_nr)

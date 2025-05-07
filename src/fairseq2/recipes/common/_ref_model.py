@@ -42,7 +42,7 @@ from fairseq2.registry import Provider
 
 from fairseq2.recipes.common._distributed import broadcast_model
 from fairseq2.recipes.common._error import ModelParallelismNotSupportedError
-from fairseq2.recipes.common._model import BasicModel, compile_model
+from fairseq2.recipes.common._model import LocalModel, compile_model
 
 
 def setup_reference_model(
@@ -175,7 +175,7 @@ class ReferenceModelLoader:
 
         log.info("Model loaded on data parallel rank 0.")
 
-        return BasicModel(model_name, module, model_config, handler)
+        return LocalModel(model_name, module, model_config, handler)
 
 
 def prepare_reference_model(

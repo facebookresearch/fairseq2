@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from collections.abc import Callable, Mapping, Set
-from copy import deepcopy
 from concurrent.futures import Future
+from copy import deepcopy
 from multiprocessing.pool import Pool
 from os import scandir
 from pathlib import Path
@@ -26,7 +26,7 @@ from typing_extensions import override
 from fairseq2.device import CPU
 from fairseq2.error import InternalError, NotSupportedError
 from fairseq2.file_system import FileMode, FileSystem
-from fairseq2.gang import Gang, GangError, Gangs, all_sum
+from fairseq2.gang import GangError, Gangs, all_sum
 from fairseq2.nn.data_parallel import load_with_sdp_gang
 from fairseq2.typing import Closable
 from fairseq2.utils.io import (
@@ -53,9 +53,9 @@ class CheckpointManager(Closable):
         self,
         step_nr: int,
         trainer: Stateful,
-        model: Stateful,
         optimizer: Stateful,
         data_reader: Stateful,
+        model_state_dict: dict[str, object],
         *,
         metadata: dict[str, object] | None = None,
         state_processor: CheckpointStateProcessor | None = None,
@@ -67,7 +67,7 @@ class CheckpointManager(Closable):
     def save_model_only(
         self,
         step_nr: int,
-        model: Stateful,
+        model_state_dict: dict[str, object],
         *,
         state_processor: CheckpointStateProcessor | None = None,
         callback: CheckpointCallback | None = None,
@@ -87,9 +87,6 @@ class CheckpointManager(Closable):
 
     @abstractmethod
     def load_trainer_state(self, step_nr: int, trainer: Stateful) -> None: ...
-
-    @abstractmethod
-    def load_model_state(self, step_nr: int, model: Stateful) -> None: ...
 
     @abstractmethod
     def load_optimizer_state(self, step_nr: int, optimizer: Stateful) -> None: ...
@@ -185,9 +182,9 @@ class FileCheckpointManager(CheckpointManager):
         self,
         step_nr: int,
         trainer: Stateful,
-        model: Stateful,
         optimizer: Stateful,
         data_reader: Stateful,
+        model_state_dict: dict[str, object],
         *,
         metadata: dict[str, object] | None = None,
         state_processor: CheckpointStateProcessor | None = None,
@@ -202,13 +199,13 @@ class FileCheckpointManager(CheckpointManager):
 
         self._collect_trainer_state(step_nr, trainer, state)
 
-        self._collect_model_state(step_nr, model, state)
-
         self._collect_optimizer_state(step_nr, optimizer, state)
 
         self._collect_data_reader_state(step_nr, data_reader, state)
 
-        self._collect_metadata(step_nr, metadata, state)
+        self._add_model_state(step_nr, model_state_dict, state)
+
+        self._add_metadata(step_nr, metadata, state)
 
         self._do_save_checkpoint(step_nr, state, state_processor, callback, blocking)
 
@@ -216,7 +213,7 @@ class FileCheckpointManager(CheckpointManager):
     def save_model_only(
         self,
         step_nr: int,
-        model: Stateful,
+        model_state_dict: dict[str, object],
         *,
         state_processor: CheckpointStateProcessor | None = None,
         callback: CheckpointCallback | None = None,
@@ -228,7 +225,7 @@ class FileCheckpointManager(CheckpointManager):
 
         self._begin_checkpoint(step_nr)
 
-        self._collect_model_state(step_nr, model, state)
+        self._add_model_state(step_nr, model_state_dict, state)
 
         self._do_save_checkpoint(step_nr, state, state_processor, callback, blocking)
 
@@ -307,55 +304,28 @@ class FileCheckpointManager(CheckpointManager):
     ) -> None:
         gangs = self._gangs
 
-        trainer_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp/trainer")
+        pathname = f"step_{step_nr}.tmp/trainer"
 
-        if gangs.root.rank == 0:
-            try:
-                self._file_system.make_directory(trainer_dir)
-            except OSError as ex:
-                raise CheckpointSaveError(
-                    step_nr, f"The '{trainer_dir}' trainer directory of step {step_nr} cannot be created. See the nested exception for details."  # fmt: skip
-                ) from ex
+        if gangs.root.size == 1:
+            pathname = f"{pathname}.pt"
+        else:
+            if gangs.root.rank == 0:
+                trainer_dir = self._checkpoint_dir.joinpath(pathname)
 
-        rank = self._rank_to_str(gangs.root)
+                try:
+                    self._file_system.make_directory(trainer_dir)
+                except OSError as ex:
+                    raise CheckpointSaveError(
+                        step_nr, f"The '{trainer_dir}' trainer directory of step {step_nr} cannot be created. See the nested exception for details."  # fmt: skip
+                    ) from ex
 
-        trainer_file = trainer_dir.joinpath(f"state_{rank}.pt")
+            pathname = f"{pathname}/rank_{gangs.root.rank:02d}.pt"
+
+        file = self._checkpoint_dir.joinpath(pathname)
 
         state_dict = trainer.state_dict()
 
-        state["trainer"] = (trainer_file, state_dict)
-
-    def _collect_model_state(
-        self, step_nr: int, model: Stateful, state: CheckpointState
-    ) -> None:
-        gangs = self._gangs
-
-        if gangs.rdp.rank != 0:
-            return
-
-        if gangs.tp.size == 1:
-            pathname = f"step_{step_nr}.tmp/model.pt"
-        else:
-            pathname = f"step_{step_nr}.tmp/model.{gangs.tp.rank:02d}.pt"
-
-        model_path = self._checkpoint_dir.joinpath(pathname)
-
-        if gangs.sdp.size == 1:
-            model_file = model_path
-        else:
-            if gangs.sdp.rank == 0:
-                try:
-                    self._file_system.make_directory(model_path)
-                except OSError as ex:
-                    raise CheckpointSaveError(
-                        step_nr, f"The '{model_path} model directory of step {step_nr} cannot be created. See the nested exception for details."  # fmt: skip
-                    ) from ex
-
-            model_file = model_path.joinpath(f"shard.{gangs.sdp.rank:02d}.pt")
-
-        state_dict = {"model": model.state_dict(), "fs2": True}
-
-        state["model"] = (model_file, state_dict)
+        state["trainer"] = (file, state_dict)
 
     def _collect_optimizer_state(
         self, step_nr: int, optimizer: Stateful, state: CheckpointState
@@ -366,28 +336,30 @@ class FileCheckpointManager(CheckpointManager):
             return
 
         if gangs.tp.size == 1:
-            pathname = f"step_{step_nr}.tmp/optimizer.pt"
+            pathname = f"step_{step_nr}.tmp/optimizer"
         else:
-            pathname = f"step_{step_nr}.tmp/optimizer.{gangs.tp.rank:02d}.pt"
-
-        optimizer_path = self._checkpoint_dir.joinpath(pathname)
+            pathname = f"step_{step_nr}.tmp/optimizer.{gangs.tp.rank:02d}"
 
         if gangs.sdp.size == 1:
-            optimizer_file = optimizer_path
+            pathname = f"{pathname}.pt"
         else:
             if gangs.sdp.rank == 0:
+                optimizer_dir = self._checkpoint_dir.joinpath(pathname)
+
                 try:
-                    self._file_system.make_directory(optimizer_path)
+                    self._file_system.make_directory(optimizer_dir)
                 except OSError as ex:
                     raise CheckpointSaveError(
-                        step_nr, f"The '{optimizer_path} optimizer directory of step {step_nr} cannot be created. See the nested exception for details."  # fmt: skip
+                        step_nr, f"The '{optimizer_dir} optimizer directory of step {step_nr} cannot be created. See the nested exception for details."  # fmt: skip
                     ) from ex
 
-            optimizer_file = optimizer_path.joinpath(f"shard.{gangs.sdp.rank:02d}.pt")
+            pathname = f"{pathname}/sdp_rank_{gangs.sdp.rank:02d}.pt"
+
+        file = self._checkpoint_dir.joinpath(pathname)
 
         state_dict = optimizer.state_dict()
 
-        state["optimizer"] = (optimizer_file, state_dict)
+        state["optimizer"] = (file, state_dict)
 
     def _collect_data_reader_state(
         self, step_nr: int, data_reader: Stateful, state: CheckpointState
@@ -397,37 +369,56 @@ class FileCheckpointManager(CheckpointManager):
         if gangs.tp.rank != 0:
             return
 
-        data_reader_dir = self._checkpoint_dir.joinpath(
-            f"step_{step_nr}.tmp/data_reader"
-        )
+        pathname = f"step_{step_nr}.tmp/data_reader"
 
-        if gangs.dp.rank == 0:
-            try:
-                self._file_system.make_directory(data_reader_dir)
-            except OSError as ex:
-                raise CheckpointSaveError(
-                    step_nr, f"The '{data_reader_dir}' data reader directory of step {step_nr} cannot be created. See the nested exception for details."  # fmt: skip
-                ) from ex
+        if gangs.dp.size == 1:
+            pathname = f"{pathname}.pt"
+        else:
+            if gangs.dp.rank == 0:
+                data_reader_dir = self._checkpoint_dir.joinpath(pathname)
 
-        rank = self._rank_to_str(gangs.dp)
+                try:
+                    self._file_system.make_directory(data_reader_dir)
+                except OSError as ex:
+                    raise CheckpointSaveError(
+                        step_nr, f"The '{data_reader_dir}' data reader directory of step {step_nr} cannot be created. See the nested exception for details."  # fmt: skip
+                    ) from ex
 
-        data_reader_file = data_reader_dir.joinpath(f"state_{rank}.pt")
+            pathname = f"{pathname}/dp_rank_{gangs.dp.rank:02d}.pt"
+
+        file = self._checkpoint_dir.joinpath(pathname)
 
         state_dict = data_reader.state_dict()
 
-        state["data_reader"] = (data_reader_file, state_dict)
+        state["data_reader"] = (file, state_dict)
 
-    def _collect_metadata(
+    def _add_model_state(
+        self, step_nr: int, state_dict: dict[str, object], state: CheckpointState
+    ) -> None:
+        gangs = self._gangs
+
+        if gangs.dp.rank != 0:
+            return
+
+        if gangs.tp.size == 1:
+            filename = f"step_{step_nr}.tmp/model.pt"
+        else:
+            filename = f"step_{step_nr}.tmp/model.{gangs.tp.rank:02d}.pt"
+
+        file = self._checkpoint_dir.joinpath(filename)
+
+        state["model"] = (file, state_dict)
+
+    def _add_metadata(
         self, step_nr: int, metadata: dict[str, object] | None, state: CheckpointState
     ) -> None:
         gangs = self._gangs
 
-        if gangs.root.rank == 0 and metadata is not None:
-            metadata_file = self._checkpoint_dir.joinpath(
-                f"step_{step_nr}.tmp/metadata.pt"
-            )
+        if gangs.root.rank == 0:
+            if metadata is not None:
+                file = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp/metadata.pt")
 
-            state["metadata"] = (metadata_file, metadata)
+                state["metadata"] = (file, metadata)
 
     def _do_save_checkpoint(
         self,
@@ -451,7 +442,7 @@ class FileCheckpointManager(CheckpointManager):
 
             for kind, (file, state_dict) in state.items():
                 try:
-                    state_dict = self._move_state_dict_to_host(state_dict, memo)
+                    state_dict = self._move_state_dict_to_host(kind, state_dict, memo)
                 except Exception as ex:
                     raise CheckpointSaveError(
                         step_nr, f"The '{kind}' state of step {step_nr} cannot be transferred to the host memory. See the nested exception for details."  # fmt: skip
@@ -465,6 +456,10 @@ class FileCheckpointManager(CheckpointManager):
 
         if state_processor is not None:
             state_processor(step_nr, state)
+
+        # Wait for all non-blocking device-to-host copy operations to complete.
+        if self._gangs.root.device.type == "cuda":
+            torch.cuda.synchronize()
 
         def save() -> Callable[[], None]:
             nonlocal state
@@ -492,37 +487,39 @@ class FileCheckpointManager(CheckpointManager):
 
             self._save_op = self._thread_pool.queue(save)
 
-    @staticmethod
     def _move_state_dict_to_host(
-        state_dict: Mapping[str, object], memo: dict[Tensor, Tensor]
+        self, kind: str, state_dict: Mapping[str, object], memo: dict[Tensor, Tensor]
     ) -> dict[str, object]:
-        has_cuda_tensor = False
+        def move_tensor_to_host(tensor: Tensor) -> Tensor:
+            cpu_tensor = memo.get(tensor)
+            if cpu_tensor is None:
+                if tensor.device == CPU:
+                    # If we are moving the model state dict and the tensor is
+                    # already on the host despite the training being run on a
+                    # device, it means the state was moved beforehand.
+                    if kind == "model" and self._gangs.root.device != CPU:
+                        memo[tensor] = tensor
+
+                        return tensor
+                elif tensor.device.type != "cuda":
+                    raise NotSupportedError(
+                        f"`{FileCheckpointManager}` supports only `cpu` and `cuda` tensors."
+                    )
+
+                cpu_tensor = torch.empty_like(tensor, device=CPU)
+
+                cpu_tensor.copy_(tensor, non_blocking=True)
+
+                memo[tensor] = cpu_tensor
+
+            return cpu_tensor
 
         def move_to_host(item: object) -> object:
-            nonlocal has_cuda_tensor
-
             if item is None:
                 return None
 
             if isinstance(item, Tensor):
-                cpu_tensor = memo.get(item)
-                if cpu_tensor is None:
-                    if item.device.type == "cuda":
-                        has_cuda_tensor = True
-                    elif item.device != CPU:
-                        raise NotSupportedError(
-                            f"`{FileCheckpointManager}` supports only `cpu` and `cuda` tensors."
-                        )
-
-                    cpu_tensor = torch.empty_like(item, device=CPU)
-
-                    cpu_tensor.share_memory_()
-
-                    cpu_tensor.copy_(item, non_blocking=True)
-
-                    memo[item] = cpu_tensor
-
-                return cpu_tensor
+                return move_tensor_to_host(item)
 
             if isinstance(item, (bool, int, float, str, Path)):
                 return item
@@ -541,13 +538,7 @@ class FileCheckpointManager(CheckpointManager):
 
             return deepcopy(item)
 
-        state = cast(dict[str, object], move_to_host(state_dict))
-
-        # Wait for all non-blocking device-to-host copy operations to complete.
-        if has_cuda_tensor:
-            torch.cuda.synchronize()
-
-        return state
+        return cast(dict[str, object], move_to_host(state_dict))
 
     def _copy_cc(self, step_nr: int) -> None:
         gangs = self._gangs
@@ -676,12 +667,15 @@ class FileCheckpointManager(CheckpointManager):
     def load_trainer_state(self, step_nr: int, trainer: Stateful) -> None:
         gangs = self._gangs
 
-        rank = self._rank_to_str(gangs.root)
+        pathname = "trainer"
+
+        if gangs.root.size == 1:
+            pathname = f"{pathname}.pt"
+        else:
+            pathname = f"{pathname}/rank_{gangs.root.rank:02d}.pt"
 
         try:
-            state_dict = self._load_state_dict(
-                step_nr, pathname=f"trainer/state_{rank}.pt"
-            )
+            state_dict = self._load_state_dict(step_nr, pathname)
         except TensorLoadError as ex:
             raise CheckpointLoadError(
                 step_nr, f"The trainer state of step {step_nr} cannot be loaded from the '{ex.path}' file. See the nested exception for details."  # fmt: skip
@@ -695,54 +689,18 @@ class FileCheckpointManager(CheckpointManager):
             ) from ex
 
     @override
-    def load_model_state(self, step_nr: int, model: Stateful) -> None:
-        gangs = self._gangs
-
-        if gangs.tp.size == 1:
-            pathname = "model.pt"
-        else:
-            pathname = f"model.{gangs.tp.rank:02d}.pt"
-
-        if gangs.sdp.size > 1:
-            pathname = f"{pathname}/shard.{gangs.sdp.rank:02d}.pt"
-
-        try:
-            checkpoint = self._load_state_dict(step_nr, pathname)
-        except TensorLoadError as ex:
-            raise CheckpointLoadError(
-                step_nr, f"The model state of step {step_nr} cannot be loaded from the '{ex.path}' file. See the nested exception for details."  # fmt: skip
-            ) from ex
-
-        try:
-            state_dict = checkpoint["model"]
-        except KeyError:
-            raise CheckpointLoadError(
-                step_nr, f"The model state of step {step_nr} is not valid."  # fmt: skip
-            ) from None
-
-        if not isinstance(state_dict, Mapping):
-            raise CheckpointLoadError(
-                step_nr, f"The model state of step {step_nr} is not valid."  # fmt: skip
-            )
-
-        try:
-            model.load_state_dict(state_dict)
-        except (ValueError, TypeError, RuntimeError) as ex:
-            raise CheckpointLoadError(
-                step_nr, f"The model state of step {step_nr} cannot be loaded. See the nested exception for details."  # fmt: skip
-            ) from ex
-
-    @override
     def load_optimizer_state(self, step_nr: int, optimizer: Stateful) -> None:
         gangs = self._gangs
 
         if gangs.tp.size == 1:
-            pathname = "optimizer.pt"
+            pathname = "optimizer"
         else:
-            pathname = f"optimizer.{gangs.tp.rank:02d}.pt"
+            pathname = f"optimizer.{gangs.tp.rank:02d}"
 
-        if gangs.sdp.size > 1:
-            pathname = f"{pathname}/shard.{gangs.sdp.rank:02d}.pt"
+        if gangs.sdp.size == 1:
+            pathname = f"{pathname}.pt"
+        else:
+            pathname = f"{pathname}/sdp_rank_{gangs.sdp.rank:02d}.pt"
 
         try:
             state_dict = self._load_state_dict(step_nr, pathname)
@@ -762,12 +720,15 @@ class FileCheckpointManager(CheckpointManager):
     def load_data_reader_state(self, step_nr: int, data_reader: Stateful) -> None:
         gangs = self._gangs
 
-        rank = self._rank_to_str(gangs.dp)
+        pathname = "data_reader"
+
+        if gangs.dp.size == 1:
+            pathname = f"{pathname}.pt"
+        else:
+            pathname = f"{pathname}/dp_rank_{gangs.dp.rank:02d}.pt"
 
         try:
-            state_dict = self._load_state_dict(
-                step_nr, pathname=f"data_reader/state_{rank}.pt"
-            )
+            state_dict = self._load_state_dict(step_nr, pathname)
         except TensorLoadError as ex:
             raise CheckpointLoadError(
                 step_nr, f"The data reader state of step {step_nr} cannot be loaded from the '{ex.path}' file. See the nested exception for details."  # fmt: skip
@@ -802,38 +763,28 @@ class FileCheckpointManager(CheckpointManager):
             except FileNotFoundError:
                 raise CheckpointNotFoundError(step_nr) from None
 
-    @staticmethod
-    def _rank_to_str(gang: Gang) -> str:
-        if gang.size < 10:
-            return f"{gang.rank}"
-
-        if gang.size < 100:
-            return f"{gang.rank:02d}"
-        else:
-            return f"{gang.rank:03d}"
-
     @override
     def get_model_path(self, step_nr: int) -> Path:
         gangs = self._gangs
 
         if gangs.tp.size == 1:
-            pathname = f"step_{step_nr}/model.pt"
+            filename = f"step_{step_nr}/model.pt"
         else:
-            pathname = f"step_{step_nr}/model.{gangs.tp.rank:02d}.pt"
+            filename = f"step_{step_nr}/model.{gangs.tp.rank:02d}.pt"
 
-        model_path = self._checkpoint_dir.joinpath(pathname)
+        file = self._checkpoint_dir.joinpath(filename)
 
         try:
-            model_path_exists = self._file_system.exists(model_path)
+            file_exists = self._file_system.exists(file)
         except OSError as ex:
             raise CheckpointError(
-                f"The '{model_path}' path cannot be accessed. See the nested exception for details."
+                f"The '{file}' path cannot be accessed. See the nested exception for details."
             ) from ex
 
-        if not model_path_exists:
+        if not file_exists:
             raise CheckpointNotFoundError(step_nr)
 
-        return model_path
+        return file
 
     @override
     def load_scores(self) -> list[tuple[float, int]]:
@@ -911,13 +862,17 @@ class FileCheckpointManager(CheckpointManager):
                 except ValueError:
                     continue
 
+                # Make sure that the checkpoint does not only contain the model.
                 if exclude_model_only:
                     trainer_dir = step_dir.joinpath("trainer")
 
-                    # Make sure that the directory does not only contain the
-                    # model.
                     if self._file_system.exists(trainer_dir):
                         step_nrs.append(step_nr)
+                    else:
+                        trainer_file = step_dir.joinpath("trainer.pt")
+
+                        if self._file_system.exists(trainer_file):
+                            step_nrs.append(step_nr)
                 else:
                     step_nrs.append(step_nr)
         except OSError as ex:

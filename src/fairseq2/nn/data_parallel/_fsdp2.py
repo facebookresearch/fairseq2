@@ -26,6 +26,7 @@ from torch.distributed.tensor import DTensor
 from torch.nn import Module, Parameter, SyncBatchNorm
 
 from fairseq2.data_type import DataType
+from fairseq2.device import CPU
 from fairseq2.error import InvalidOperationError, NotSupportedError
 from fairseq2.gang import Gangs
 from fairseq2.nn.utils.module import apply_to_parameters, broadcast_module, infer_device
@@ -190,7 +191,7 @@ def to_fsdp2(
     return module
 
 
-def fsdp2_local_state_dict(module: Fsdp2Module) -> dict[str, object]:
+def fsdp2_full_state_dict(module: Fsdp2Module) -> dict[str, object]:
     state_dict: dict[str, object] = {}
 
     sharded_state_dict = module.state_dict()
@@ -205,21 +206,32 @@ def fsdp2_local_state_dict(module: Fsdp2Module) -> dict[str, object]:
 
     device_mesh = param_group.mesh_info.mesh
 
-    sdp_mesh_dim_idx = 0 if device_mesh.ndim == 1 else 1
+    sdp_rank = device_mesh.get_local_rank(0 if device_mesh.ndim == 1 else 1)
 
-    sdp_rank = device_mesh.get_local_rank(sdp_mesh_dim_idx)  # sharded
+    memo: dict[Tensor, Tensor] = {}
 
-    for name, item in sharded_state_dict.items():
-        if isinstance(item, DTensor):
-            state_dict[name] = cast(DTensor, item.detach()).to_local()
+    for name, sharded_param in sharded_state_dict.items():
+        if isinstance(sharded_param, DTensor):
+            full_param = cast(DTensor, sharded_param.detach()).full_tensor()
+        else:
+            # If not DTensor, we assume it is replicated.
+            full_param = sharded_param
 
-        # Save replicated items only on the first intra-node (i.e. sharded)
-        # gang.
-        elif sdp_rank == 0:
-            if isinstance(item, Tensor):
-                item = item.detach()
+        cpu_param: Tensor | None
 
-            state_dict[name] = item
+        if sdp_rank == 0:
+            if full_param.device == CPU:
+                cpu_param = full_param
+            else:
+                cpu_param = memo.get(sharded_param)
+                if cpu_param is None:
+                    cpu_param = torch.empty_like(full_param, device=CPU)
+
+                    cpu_param.copy_(full_param, non_blocking=True)
+
+                    memo[sharded_param] = cpu_param
+
+            state_dict[name] = cpu_param
 
     return state_dict
 

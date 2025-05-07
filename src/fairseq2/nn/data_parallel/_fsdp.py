@@ -20,7 +20,7 @@ from fairseq2.utils.version import torch_greater_or_equal
 from fairseq2.nn.data_parallel._common import FsdpApplier, FsdpGranularity
 from fairseq2.nn.data_parallel._fsdp1 import Fsdp1Module as Fsdp1Module
 from fairseq2.nn.data_parallel._fsdp1 import (
-    fsdp1_local_state_dict as fsdp1_local_state_dict,
+    fsdp1_full_state_dict as fsdp1_full_state_dict,
 )
 from fairseq2.nn.data_parallel._fsdp1 import (
     fsdp1_summon_full_parameters as fsdp1_summon_full_parameters,
@@ -30,7 +30,7 @@ from fairseq2.nn.data_parallel._fsdp1 import to_fsdp1 as to_fsdp1
 if not TYPE_CHECKING and torch_greater_or_equal(2, 6):
     from fairseq2.nn.data_parallel._fsdp2 import Fsdp2Module as Fsdp2Module
     from fairseq2.nn.data_parallel._fsdp2 import (
-        fsdp2_local_state_dict as fsdp2_local_state_dict,
+        fsdp2_full_state_dict as fsdp2_full_state_dict,
     )
     from fairseq2.nn.data_parallel._fsdp2 import fsdp2_no_sync as fsdp2_no_sync
     from fairseq2.nn.data_parallel._fsdp2 import (
@@ -40,7 +40,7 @@ if not TYPE_CHECKING and torch_greater_or_equal(2, 6):
 else:
     from fairseq2.nn.data_parallel._fsdp2_compat import Fsdp2Module as Fsdp2Module
     from fairseq2.nn.data_parallel._fsdp2_compat import (
-        fsdp2_local_state_dict as fsdp2_local_state_dict,
+        fsdp2_full_state_dict as fsdp2_full_state_dict,
     )
     from fairseq2.nn.data_parallel._fsdp2_compat import fsdp2_no_sync as fsdp2_no_sync
     from fairseq2.nn.data_parallel._fsdp2_compat import (
@@ -110,19 +110,12 @@ def to_fsdp(
     raise ValueError("`version` must be 'v1' or 'v2'.")
 
 
-def fsdp_local_state_dict(module: Module) -> dict[str, object]:
-    """
-    Returns the sharded parameters of ``module`` on this process using regular
-    tensors (i.e. ``Tensor``) instead of ``DTensor`` or ``ShardedTensor``.
-
-    The returned state dictionary can be loaded in consolidated form using
-    :class:`fairseq2.utils.file.ShardedTensorLoader`.
-    """
+def fsdp_full_state_dict(module: Module) -> dict[str, object]:
     if isinstance(module, Fsdp1Module):
-        return fsdp1_local_state_dict(module)
+        return fsdp1_full_state_dict(module)
 
     if isinstance(module, Fsdp2Module):
-        return fsdp2_local_state_dict(module)
+        return fsdp2_full_state_dict(module)
 
     raise _type_error(module)
 

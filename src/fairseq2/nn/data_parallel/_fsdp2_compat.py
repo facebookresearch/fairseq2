@@ -47,7 +47,7 @@ def to_fsdp2(
     _raise_error()
 
 
-def fsdp2_local_state_dict(fsdp_module: Fsdp2Module) -> dict[str, object]:
+def fsdp2_full_state_dict(fsdp_module: Fsdp2Module) -> dict[str, object]:
     _raise_error()
 
 
