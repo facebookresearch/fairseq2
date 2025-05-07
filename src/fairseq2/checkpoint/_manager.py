@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from collections.abc import Callable, Mapping, Set
+from copy import deepcopy
 from concurrent.futures import Future
 from multiprocessing.pool import Pool
 from os import scandir
@@ -451,7 +452,7 @@ class FileCheckpointManager(CheckpointManager):
             for kind, (file, state_dict) in state.items():
                 try:
                     state_dict = self._move_state_dict_to_host(state_dict, memo)
-                except (RuntimeError, ValueError, TypeError) as ex:
+                except Exception as ex:
                     raise CheckpointSaveError(
                         step_nr, f"The '{kind}' state of step {step_nr} cannot be transferred to the host memory. See the nested exception for details."  # fmt: skip
                     ) from ex
@@ -510,12 +511,12 @@ class FileCheckpointManager(CheckpointManager):
                         has_cuda_tensor = True
                     elif item.device != CPU:
                         raise NotSupportedError(
-                            f"`{CheckpointManager}` supports only `cpu` and `cuda` tensors."
+                            f"`{FileCheckpointManager}` supports only `cpu` and `cuda` tensors."
                         )
 
                     cpu_tensor = torch.empty_like(item, device=CPU)
 
-#                    cpu_tensor.share_memory_()
+                    cpu_tensor.share_memory_()
 
                     cpu_tensor.copy_(item, non_blocking=True)
 
@@ -538,9 +539,7 @@ class FileCheckpointManager(CheckpointManager):
             if isinstance(item, Set):
                 return {move_to_host(e) for e in item}
 
-            raise ValueError(
-                f"`state_dict` must contain only items of types `bool`, `int`, float`, `str`, `Path`, and `Tensor`, but contains at least one item of type `{type(item)}` instead."
-            )
+            return deepcopy(item)
 
         state = cast(dict[str, object], move_to_host(state_dict))
 
@@ -1064,6 +1063,8 @@ class OutOfProcCheckpointSaver(CheckpointSaver):
 
     @staticmethod
     def create(tensor_dumper: TensorDumper) -> OutOfProcCheckpointSaver:
+        mp.set_sharing_strategy("file_system")
+
         ctx = mp.get_context("spawn")
 
         # Do not allow the pool process to handle SIGINT. It will be gracefully
