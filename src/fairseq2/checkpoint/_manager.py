@@ -17,12 +17,13 @@ from shutil import Error
 from signal import SIG_IGN, SIGINT, signal
 from typing import ClassVar, Protocol, TypeAlias, cast, final, runtime_checkable
 
+import torch
 import torch.multiprocessing as mp
 from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.device import CPU
-from fairseq2.error import InternalError
+from fairseq2.error import InternalError, NotSupportedError
 from fairseq2.file_system import FileMode, FileSystem
 from fairseq2.gang import Gang, GangError, Gangs, all_sum
 from fairseq2.nn.data_parallel import load_with_sdp_gang
@@ -494,17 +495,29 @@ class FileCheckpointManager(CheckpointManager):
     def _move_state_dict_to_host(
         state_dict: Mapping[str, object], memo: dict[Tensor, Tensor]
     ) -> dict[str, object]:
+        has_cuda_tensor = False
+
         def move_to_host(item: object) -> object:
+            nonlocal has_cuda_tensor
+
             if item is None:
                 return None
 
             if isinstance(item, Tensor):
                 cpu_tensor = memo.get(item)
                 if cpu_tensor is None:
-                    if item.device.type == "cpu":
-                        cpu_tensor = item.detach().clone()
-                    else:
-                        cpu_tensor = item.detach().cpu()
+                    if item.device.type == "cuda":
+                        has_cuda_tensor = True
+                    elif item.device != CPU:
+                        raise NotSupportedError(
+                            f"`{CheckpointManager}` supports only `cpu` and `cuda` tensors."
+                        )
+
+                    cpu_tensor = torch.empty_like(item, device=CPU)
+
+#                    cpu_tensor.share_memory_()
+
+                    cpu_tensor.copy_(item, non_blocking=True)
 
                     memo[item] = cpu_tensor
 
@@ -529,7 +542,13 @@ class FileCheckpointManager(CheckpointManager):
                 f"`state_dict` must contain only items of types `bool`, `int`, float`, `str`, `Path`, and `Tensor`, but contains at least one item of type `{type(item)}` instead."
             )
 
-        return cast(dict[str, object], move_to_host(state_dict))
+        state = cast(dict[str, object], move_to_host(state_dict))
+
+        # Wait for all non-blocking device-to-host copy operations to complete.
+        if has_cuda_tensor:
+            torch.cuda.synchronize()
+
+        return state
 
     def _copy_cc(self, step_nr: int) -> None:
         gangs = self._gangs
