@@ -544,6 +544,8 @@ class Trainer(Recipe, Generic[BatchT]):
                 f"The last checkpoint at step {ex.step_nr} cannot be loaded. See the nested exception for details."
             ) from ex
 
+        self._reset_non_total_metrics()
+
         try:
             self._gangs.root.barrier()
         except GangError as ex:
@@ -1034,9 +1036,7 @@ class Trainer(Recipe, Generic[BatchT]):
         self._reset_lapse_state()
 
     def _reset_lapse_state(self) -> None:
-        for name, metric in self._metric_bag.metrics.items():
-            if not name.startswith("total_"):
-                metric.reset()
+        self._reset_non_total_metrics()
 
         self._data_watch.reset()
 
@@ -1047,6 +1047,11 @@ class Trainer(Recipe, Generic[BatchT]):
         self._device_stat_tracker.reset()
 
         self._num_batches_read = 0
+
+    def _reset_non_total_metrics(self) -> None:
+        for name, metric in self._metric_bag.metrics.items():
+            if not name.startswith("total_"):
+                metric.reset()
 
     def _maybe_validate(self) -> float | None:
         should_validate = self._should_validate()
@@ -1223,6 +1228,12 @@ class Trainer(Recipe, Generic[BatchT]):
     @override
     def request_stop(self) -> None:
         self._stop_requested = True
+
+    @override
+    def close(self) -> None:
+        self._checkpoint_manager.close()
+
+        self._metric_recorder.close()
 
     @property
     @override

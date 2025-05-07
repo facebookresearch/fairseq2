@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import atexit
 from pathlib import Path
 
 from fairseq2.checkpoint import (
@@ -41,9 +40,7 @@ def create_checkpoint_manager(
     if regime_section.in_proc_checkpoint:
         saver = InProcCheckpointSaver(tensor_dumper)
     else:
-        saver = OutOfProcCheckpointSaver(tensor_dumper)
-
-        atexit.register(saver.close)
+        saver = OutOfProcCheckpointSaver.create(tensor_dumper)
 
     thread_pool = get_default_thread_pool()
 

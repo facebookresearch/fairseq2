@@ -11,6 +11,8 @@ from typing import Any, final
 
 from typing_extensions import Self, override
 
+from fairseq2.typing import Closable
+
 
 class ProgressReporter(ABC):
     @abstractmethod
@@ -25,12 +27,9 @@ class ProgressReporter(ABC):
     def __exit__(self, *ex: Any) -> None: ...
 
 
-class ProgressTask(ABC):
+class ProgressTask(Closable):
     @abstractmethod
     def step(self, value: int) -> None: ...
-
-    @abstractmethod
-    def close(self) -> None: ...
 
     def __enter__(self) -> Self:
         return self

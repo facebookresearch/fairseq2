@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections.abc import Callable, Mapping, Set
 from concurrent.futures import Future
 from multiprocessing.pool import Pool
@@ -14,6 +14,7 @@ from os import scandir
 from pathlib import Path
 from pickle import PickleError
 from shutil import Error
+from signal import SIG_IGN, SIGINT, signal
 from typing import ClassVar, Protocol, TypeAlias, cast, final, runtime_checkable
 
 import torch.multiprocessing as mp
@@ -25,6 +26,7 @@ from fairseq2.error import InternalError
 from fairseq2.file_system import FileMode, FileSystem
 from fairseq2.gang import Gang, GangError, Gangs, all_sum
 from fairseq2.nn.data_parallel import load_with_sdp_gang
+from fairseq2.typing import Closable
 from fairseq2.utils.io import (
     TensorDumper,
     TensorDumpError,
@@ -41,7 +43,7 @@ class Stateful(Protocol):
     def load_state_dict(self, state_dict: Mapping[str, object]) -> None: ...
 
 
-class CheckpointManager(ABC):
+class CheckpointManager(Closable):
     """Saves and loads training checkpoints."""
 
     @abstractmethod
@@ -1008,8 +1010,12 @@ class FileCheckpointManager(CheckpointManager):
 
         return scores
 
+    @override
+    def close(self) -> None:
+        self._saver.close()
 
-class CheckpointSaver(ABC):
+
+class CheckpointSaver(Closable):
     @abstractmethod
     def save(self, step_nr: int, state: CheckpointState) -> None: ...
 
@@ -1025,29 +1031,39 @@ class InProcCheckpointSaver(CheckpointSaver):
     def save(self, step_nr: int, state: CheckpointState) -> None:
         _save_state_files(self._tensor_dumper, step_nr, state)
 
+    @override
+    def close(self) -> None:
+        pass
+
 
 @final
 class OutOfProcCheckpointSaver(CheckpointSaver):
-    _pool: Pool | None
-    _tensor_dumper: TensorDumper
+    _pool: Pool
 
-    def __init__(self, tensor_dumper: TensorDumper) -> None:
-        self._pool = None
+    def __init__(self, pool: Pool) -> None:
+        self._pool = pool
 
-        self._tensor_dumper = tensor_dumper
+    @staticmethod
+    def create(tensor_dumper: TensorDumper) -> OutOfProcCheckpointSaver:
+        ctx = mp.get_context("spawn")
+
+        # Do not allow the pool process to handle SIGINT. It will be gracefully
+        # closed when `close()` is called.
+        sig = signal(SIGINT, SIG_IGN)
+
+        try:
+            pool = ctx.Pool(1, _PoolProcess.init, (tensor_dumper,))
+        except (RuntimeError, ValueError, PickleError) as ex:
+            raise CheckpointError(
+                "The checkpoint process pool cannot be initialized. See the nested exception for details."  # fmt: skip
+            ) from ex
+        finally:
+            signal(SIGINT, sig)
+
+        return OutOfProcCheckpointSaver(pool)
 
     @override
     def save(self, step_nr: int, state: CheckpointState) -> None:
-        if self._pool is None:
-            ctx = mp.get_context("spawn")
-
-            try:
-                self._pool = ctx.Pool(1, _PoolProcess.init, (self._tensor_dumper,))
-            except (RuntimeError, ValueError, PickleError) as ex:
-                raise CheckpointError(
-                    "The checkpoint process pool cannot be initialized. See the nested exception for details."  # fmt: skip
-                ) from ex
-
         try:
             self._pool.apply(_PoolProcess.save_state_files, (step_nr, state))
         except RuntimeError as ex:
@@ -1055,11 +1071,11 @@ class OutOfProcCheckpointSaver(CheckpointSaver):
                 "The checkpoint process pool has failed to dispatch the save operation. See the nested exception for details."  # fmt: skip
             ) from ex
 
+    @override
     def close(self) -> None:
-        if self._pool is not None:
-            self._pool.close()
+        self._pool.close()
 
-            self._pool.join()
+        self._pool.join()
 
 
 class _PoolProcess:

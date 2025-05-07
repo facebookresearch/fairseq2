@@ -251,6 +251,8 @@ class RecipeCommandHandler(CliCommandHandler):
                 log.info("Recipe finished in {:,} second(s)!", elapsed_time)
             else:
                 log.info("Recipe finished in {:,} second(s) after {} step(s)!", elapsed_time, recipe.step_nr)  # fmt: skip
+        finally:
+            recipe.close()
 
     def _print_preset_configs(self, context: RuntimeContext) -> None:
         console = get_console()

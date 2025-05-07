@@ -6,14 +6,16 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections.abc import Mapping, Sequence
 from typing import final
 
 from typing_extensions import override
 
+from fairseq2.typing import Closable
 
-class MetricRecorder(ABC):
+
+class MetricRecorder(Closable):
     """Records metric values."""
 
     @abstractmethod
@@ -32,10 +34,6 @@ class MetricRecorder(ABC):
         :param step_nr: The step number of the run.
         :param flush: If ``True``, flushes any buffers after recording.
         """
-
-    @abstractmethod
-    def close(self) -> None:
-        """Close the recorder."""
 
 
 class MetricRecordError(Exception):
