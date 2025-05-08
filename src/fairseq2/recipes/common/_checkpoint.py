@@ -8,25 +8,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fairseq2.checkpoint import (
-    CheckpointManager,
-    CheckpointSaver,
-    FileCheckpointManager,
-    InProcCheckpointSaver,
-    OutOfProcCheckpointSaver,
-)
+from fairseq2.checkpoint import CheckpointManager, FileCheckpointManager
 from fairseq2.context import RuntimeContext
 from fairseq2.gang import Gangs
-from fairseq2.recipes.config import RegimeSection
 from fairseq2.utils.io import TorchTensorDumper, TorchTensorLoader
 from fairseq2.utils.threading import get_default_thread_pool
 
 
 def create_checkpoint_manager(
-    context: RuntimeContext,
-    regime_section: RegimeSection,
-    gangs: Gangs,
-    output_dir: Path,
+    context: RuntimeContext, gangs: Gangs, output_dir: Path
 ) -> CheckpointManager:
     checkpoint_dir = output_dir.joinpath("checkpoints")
 
@@ -35,15 +25,8 @@ def create_checkpoint_manager(
     tensor_loader = TorchTensorLoader(file_system)
     tensor_dumper = TorchTensorDumper(file_system)
 
-    saver: CheckpointSaver
-
-    if regime_section.in_proc_checkpoint:
-        saver = InProcCheckpointSaver(tensor_dumper)
-    else:
-        saver = OutOfProcCheckpointSaver.create(tensor_dumper)
-
     thread_pool = get_default_thread_pool()
 
     return FileCheckpointManager(
-        checkpoint_dir, gangs, file_system, saver, tensor_loader, thread_pool
+        checkpoint_dir, gangs, file_system, tensor_dumper, tensor_loader, thread_pool
     )

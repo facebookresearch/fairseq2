@@ -222,9 +222,7 @@ def load_wav2vec2_asr_trainer(
 
     gangs = setup_training_gangs(context, config.gang, config.trainer)
 
-    checkpoint_manager = create_checkpoint_manager(
-        context, config.regime, gangs, output_dir
-    )
+    checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
     seed = config.common.seed
 

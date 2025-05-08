@@ -10,16 +10,12 @@ from abc import abstractmethod
 from collections.abc import Callable, Mapping, Set
 from concurrent.futures import Future
 from copy import deepcopy
-from multiprocessing.pool import Pool
 from os import scandir
 from pathlib import Path
-from pickle import PickleError
 from shutil import Error
-from signal import SIG_IGN, SIGINT, signal
-from typing import ClassVar, Protocol, TypeAlias, cast, final, runtime_checkable
+from typing import Protocol, TypeAlias, cast, final, runtime_checkable
 
 import torch
-import torch.multiprocessing as mp
 from torch import Tensor
 from typing_extensions import override
 
@@ -141,7 +137,7 @@ class FileCheckpointManager(CheckpointManager):
     _checkpoint_dir: Path
     _gangs: Gangs
     _file_system: FileSystem
-    _saver: CheckpointSaver
+    _tensor_dumper: TensorDumper
     _tensor_loader: TensorLoader
     _thread_pool: ThreadPool
     _save_op: Future[Callable[[], None]] | None
@@ -152,7 +148,7 @@ class FileCheckpointManager(CheckpointManager):
         checkpoint_dir: Path,
         gangs: Gangs,
         file_system: FileSystem,
-        saver: CheckpointSaver,
+        tensor_dumper: TensorDumper,
         tensor_loader: TensorLoader,
         thread_pool: ThreadPool,
     ) -> None:
@@ -167,8 +163,7 @@ class FileCheckpointManager(CheckpointManager):
 
         self._file_system = file_system
 
-        self._saver = saver
-
+        self._tensor_dumper = tensor_dumper
         self._tensor_loader = tensor_loader
 
         self._thread_pool = thread_pool
@@ -464,7 +459,7 @@ class FileCheckpointManager(CheckpointManager):
         def save() -> Callable[[], None]:
             nonlocal state
 
-            self._saver.save(step_nr, state)
+            self._save_state_files(step_nr, state)
 
             del state
 
@@ -539,6 +534,15 @@ class FileCheckpointManager(CheckpointManager):
             return deepcopy(item)
 
         return cast(dict[str, object], move_to_host(state_dict))
+
+    def _save_state_files(self, step_nr: int, state: CheckpointState) -> None:
+        for kind, (file, state_dict) in state.items():
+            try:
+                self._tensor_dumper.dump(state_dict, file)
+            except TensorDumpError as ex:
+                raise CheckpointSaveError(
+                    step_nr, f"The '{kind}' state of step {step_nr} cannot be saved to the '{ex.path}' file. See the nested exception for details."  # fmt: skip
+                ) from ex
 
     def _copy_cc(self, step_nr: int) -> None:
         gangs = self._gangs
@@ -862,7 +866,6 @@ class FileCheckpointManager(CheckpointManager):
                 except ValueError:
                     continue
 
-                # Make sure that the checkpoint does not only contain the model.
                 if exclude_model_only:
                     trainer_dir = step_dir.joinpath("trainer")
 
@@ -985,99 +988,7 @@ class FileCheckpointManager(CheckpointManager):
 
     @override
     def close(self) -> None:
-        self._saver.close()
-
-
-class CheckpointSaver(Closable):
-    @abstractmethod
-    def save(self, step_nr: int, state: CheckpointState) -> None: ...
-
-
-@final
-class InProcCheckpointSaver(CheckpointSaver):
-    _tensor_dumper: TensorDumper
-
-    def __init__(self, tensor_dumper: TensorDumper) -> None:
-        self._tensor_dumper = tensor_dumper
-
-    @override
-    def save(self, step_nr: int, state: CheckpointState) -> None:
-        _save_state_files(self._tensor_dumper, step_nr, state)
-
-    @override
-    def close(self) -> None:
         pass
-
-
-@final
-class OutOfProcCheckpointSaver(CheckpointSaver):
-    _pool: Pool
-
-    def __init__(self, pool: Pool) -> None:
-        self._pool = pool
-
-    @staticmethod
-    def create(tensor_dumper: TensorDumper) -> OutOfProcCheckpointSaver:
-        mp.set_sharing_strategy("file_system")
-
-        ctx = mp.get_context("spawn")
-
-        # Do not allow the pool process to handle SIGINT. It will be gracefully
-        # closed when `close()` is called.
-        sig = signal(SIGINT, SIG_IGN)
-
-        try:
-            pool = ctx.Pool(1, _PoolProcess.init, (tensor_dumper,))
-        except (RuntimeError, ValueError, PickleError) as ex:
-            raise CheckpointError(
-                "The checkpoint process pool cannot be initialized. See the nested exception for details."  # fmt: skip
-            ) from ex
-        finally:
-            signal(SIGINT, sig)
-
-        return OutOfProcCheckpointSaver(pool)
-
-    @override
-    def save(self, step_nr: int, state: CheckpointState) -> None:
-        try:
-            self._pool.apply(_PoolProcess.save_state_files, (step_nr, state))
-        except RuntimeError as ex:
-            raise CheckpointError(
-                "The checkpoint process pool has failed to dispatch the save operation. See the nested exception for details."  # fmt: skip
-            ) from ex
-
-    @override
-    def close(self) -> None:
-        self._pool.close()
-
-        self._pool.join()
-
-
-class _PoolProcess:
-    _tensor_dumper: ClassVar[TensorDumper | None] = None
-
-    @staticmethod
-    def init(tensor_dumper: TensorDumper) -> None:
-        _PoolProcess._tensor_dumper = tensor_dumper
-
-    @staticmethod
-    def save_state_files(step_nr: int, state: CheckpointState) -> None:
-        if _PoolProcess._tensor_dumper is None:
-            raise InternalError("`_tensor_dumper` is `None`.")
-
-        _save_state_files(_PoolProcess._tensor_dumper, step_nr, state)
-
-
-def _save_state_files(
-    tensor_dumper: TensorDumper, step_nr: int, state: CheckpointState
-) -> None:
-    for kind, (file, state_dict) in state.items():
-        try:
-            tensor_dumper.dump(state_dict, file)
-        except TensorDumpError as ex:
-            raise CheckpointSaveError(
-                step_nr, f"The '{kind}' state of step {step_nr} cannot be saved to the '{ex.path}' file. See the nested exception for details."  # fmt: skip
-            ) from ex
 
 
 class CheckpointNotFoundError(Exception):
