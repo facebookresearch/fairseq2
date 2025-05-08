@@ -146,15 +146,26 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
         # Streaming
         partition_filters = options.extras.get("partition_filters", None)
         parquet_files: List[str] = dataset.files  # type: ignore
+
+        is_train_streaming = "train" in split  # FIXME: make it configurable
+
+        files_circular_shift = options.extras.get("files_circular_shift", False)
+        assert isinstance(files_circular_shift, bool)
+
+        fragment_shuffle_window = options.extras.get(
+            "fragment_shuffle_window", -1 if is_train_streaming else 0
+        )
+        assert isinstance(fragment_shuffle_window, int)
+
         fragment_config = FragmentStreamingConfig(
             parquet_path=parquet_files,
             filesystem=dataset.filesystem,
-            nb_epochs=(None if split == "train" else 1),
+            nb_epochs=(None if is_train_streaming else 1),
             partition_filters=partition_filters,  # type: ignore
             split_to_row_groups=True,
-            files_circular_shift=True,
+            files_circular_shift=files_circular_shift,
             seed=seed,
-            fragment_shuffle_window=-1 if split == "train" else 0,
+            fragment_shuffle_window=fragment_shuffle_window,
         )
         fragment_config = fragment_config.add_partition_filter(
             pa.compute.field("split") == split
