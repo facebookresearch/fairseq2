@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
-from typing import Mapping, final
+from typing import final
 
 from torch import Tensor
 from torch.nn import Module
@@ -15,7 +15,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
-from fairseq2.error import NotSupportedError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.models import ModelHandler
@@ -25,9 +24,9 @@ from fairseq2.nn.data_parallel import (
     Fsdp2Module,
     FsdpGranularity,
     FsdpWrapper,
-    fsdp1_local_state_dict,
+    fsdp1_full_state_dict,
     fsdp1_summon_full_parameters,
-    fsdp2_local_state_dict,
+    fsdp2_full_state_dict,
     fsdp2_no_sync,
     fsdp2_summon_full_parameters,
     to_ddp,
@@ -104,12 +103,12 @@ class DdpModel(Model):
         self._wrapped_model = wrapped_model
 
     @override
-    def state_dict(self) -> dict[str, object]:
-        return self._ddp.module.state_dict()  # type: ignore[no-any-return]
+    def full_state_dict(self) -> dict[str, object]:
+        dp_rank = self._ddp.process_group.rank()
+        if dp_rank != 0:
+            return {}
 
-    @override
-    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
-        self._ddp.module.load_state_dict(state_dict)
+        return self._ddp.module.state_dict()  # type: ignore[no-any-return]
 
     @override
     def no_sync(self) -> ContextManager:
@@ -219,12 +218,8 @@ class Fsdp1Model(Model):
         self._wrapped_model = wrapped_model
 
     @override
-    def state_dict(self) -> dict[str, object]:
-        return fsdp1_local_state_dict(self._fsdp)
-
-    @override
-    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
-        raise NotSupportedError("FSDP1 does not support `load_state_dict()`.")
+    def full_state_dict(self) -> dict[str, object]:
+        return fsdp1_full_state_dict(self._fsdp)
 
     @override
     def no_sync(self) -> ContextManager:
@@ -279,12 +274,8 @@ class Fsdp2Model(Model):
         self._wrapped_model = wrapped_model
 
     @override
-    def state_dict(self) -> dict[str, object]:
-        return fsdp2_local_state_dict(self._fsdp)
-
-    @override
-    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
-        raise NotSupportedError("FSDP2 does not support `load_state_dict()`.")
+    def full_state_dict(self) -> dict[str, object]:
+        return fsdp2_full_state_dict(self._fsdp)
 
     @override
     def no_sync(self) -> ContextManager:

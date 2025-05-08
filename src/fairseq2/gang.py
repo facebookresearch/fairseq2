@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import warnings
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import timedelta
@@ -24,6 +24,7 @@ from typing_extensions import override
 from fairseq2.device import Device
 from fairseq2.error import InternalError, InvalidOperationError, NotSupportedError
 from fairseq2.logging import log
+from fairseq2.typing import Closable
 from fairseq2.utils.env import (
     InvalidEnvironmentVariableError,
     get_world_size,
@@ -42,7 +43,7 @@ class ReduceOperation(Enum):
     MAX = 5
 
 
-class Gang(ABC):
+class Gang(Closable):
     """Represents a set of processes that work collectively."""
 
     _rank: int
@@ -65,10 +66,6 @@ class Gang(ABC):
         self._size = size
 
         self._device = device
-
-    @abstractmethod
-    def close(self) -> None:
-        """Close and destroy the gang."""
 
     @final
     def create_gang(self, ranks: Sequence[int]) -> Gang | None:
@@ -784,13 +781,10 @@ def broadcast_flag(gang: Gang, flag: bool, source_rank: int = 0) -> bool:
     return bool(flag_pt)
 
 
-def all_sum(gang: Gang, value: float | int | Tensor) -> Tensor:
+def all_sum(gang: Gang, value: float | int) -> Tensor:
     """Sums ``value`` over all processes in ``gang``."""
-    if isinstance(value, Tensor):
-        output = value
-    else:
-        output = to_tensor(value, device=gang.device)
+    value_pt = to_tensor(value, device=gang.device)
 
-    gang.all_reduce(output, ReduceOperation.SUM)
+    gang.all_reduce(value_pt, ReduceOperation.SUM)
 
-    return output
+    return value_pt

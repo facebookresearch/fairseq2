@@ -301,6 +301,10 @@ class Generator(Recipe, Generic[BatchT]):
     def request_stop(self) -> None:
         self._stop_requested = True
 
+    @override
+    def close(self) -> None:
+        self._metric_recorder.close()
+
     @property
     @override
     def step_nr(self) -> int:

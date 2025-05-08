@@ -6,10 +6,12 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
+
+from fairseq2.typing import Closable
 
 
-class Recipe(ABC):
+class Recipe(Closable):
     @abstractmethod
     def run(self) -> None: ...
 

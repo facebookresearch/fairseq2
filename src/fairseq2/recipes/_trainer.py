@@ -21,6 +21,7 @@ from torch.profiler import record_function
 from typing_extensions import override
 
 from fairseq2.checkpoint import (
+    CheckpointDeleteError,
     CheckpointError,
     CheckpointLoadError,
     CheckpointManager,
@@ -168,7 +169,6 @@ class Trainer(Recipe, Generic[BatchT]):
         optimizer: Optimizer,
         lr_scheduler: LRScheduler,
         seed: int,
-        validator: Validator,
         checkpoint_manager: CheckpointManager,
         metric_recorder: MetricRecorder,
         garbage_collector: GarbageCollector,
@@ -182,6 +182,7 @@ class Trainer(Recipe, Generic[BatchT]):
         anomaly_detection: bool = False,
         max_num_steps: int | None = None,
         max_num_data_epochs: int | None = None,
+        validator: Validator | None = None,
         validate_at_start: bool = False,
         validate_after_n_steps: int = 0,
         validate_every_n_steps: int | None = None,
@@ -543,6 +544,8 @@ class Trainer(Recipe, Generic[BatchT]):
                 f"The last checkpoint at step {ex.step_nr} cannot be loaded. See the nested exception for details."
             ) from ex
 
+        self._reset_non_total_metrics()
+
         try:
             self._gangs.root.barrier()
         except GangError as ex:
@@ -640,7 +643,7 @@ class Trainer(Recipe, Generic[BatchT]):
             self._data_reader.reset()
 
         if self._step_nr == 0:
-            log.info("Dataset empty. Stopping training.")
+            log.info("Dataset is empty or too small to train. Stopping training.")
 
             return _TrainerState.STOPPED
         else:
@@ -709,6 +712,8 @@ class Trainer(Recipe, Generic[BatchT]):
         if batches is None:
             raise InternalError("`_batches` is `None`.")
 
+        self._batches = None
+
         if self._loss_scaler.is_enabled:
             self._metric_bag.begin_updates()
 
@@ -759,8 +764,6 @@ class Trainer(Recipe, Generic[BatchT]):
                         log.error("CUDA out of memory. Note that CUDA operations are async. Dumping the likely input batch. Use `CUDA_LAUNCH_BLOCKING=1` for debugging:\n{}", s)  # fmt: skip
 
                     raise
-
-            self._batches = None
 
             # This function gathers the total number of logit targets across all
             # processes and divides the gradients by it. This is needed when the
@@ -848,7 +851,7 @@ class Trainer(Recipe, Generic[BatchT]):
         elif self._stop_requested:
             return _TrainerState.STOP_REQUESTED
 
-        self._maybe_checkpoint(block=False)
+        self._maybe_checkpoint(blocking=False)
 
         self._maybe_publish_metrics()
 
@@ -869,13 +872,13 @@ class Trainer(Recipe, Generic[BatchT]):
 
         should_validate = self._should_validate()
         if should_validate:
-            self._maybe_checkpoint(block=False)
+            self._maybe_checkpoint(blocking=False)
 
             self._validate()
 
             self._maybe_wait_checkpoint()
         else:
-            self._maybe_checkpoint(block=True)
+            self._maybe_checkpoint(blocking=True)
 
         return _TrainerState.STOPPED
 
@@ -886,16 +889,16 @@ class Trainer(Recipe, Generic[BatchT]):
 
         should_checkpoint = self._should_checkpoint()
         if should_checkpoint:
-            self._checkpoint(block=True)
+            self._checkpoint(blocking=True)
         else:
             self._maybe_wait_checkpoint()
 
         return _TrainerState.STOPPED
 
-    def _maybe_checkpoint(self, block: bool) -> None:
+    def _maybe_checkpoint(self, blocking: bool) -> None:
         should_checkpoint = self._should_checkpoint()
         if should_checkpoint:
-            self._checkpoint(block)
+            self._checkpoint(blocking)
 
     def _should_checkpoint(self) -> bool:
         return self._should_do(
@@ -905,51 +908,60 @@ class Trainer(Recipe, Generic[BatchT]):
             self._checkpoint_every_n_data_epochs,
         )
 
-    def _checkpoint(self, block: bool) -> None:
+    def _checkpoint(self, blocking: bool) -> None:
         step_nr = self._step_nr
 
         log.info("Preparing checkpoint at step {}.", step_nr)
 
         self._maybe_wait_checkpoint()
 
+        try:
+            model_state_dict = self._model.full_state_dict()
+        except RuntimeError as ex:
+            raise RecipeError(
+                f"The consolidated model state cannot be gathered at step {step_nr}. See the nested exception for details."
+            ) from ex
+
+        model_state_dict = {"model": model_state_dict, "fs2": True}
+
         def log_ready(step_nr: int, state: CheckpointState) -> None:
-            if block:
+            if blocking:
                 log.info("Checkpoint prepared. Saving.")
             else:
                 log.info("Checkpoint prepared. Saving asynchronously.")
-
-        tmp = self._base_wall_time
-
-        self._base_wall_time += self._wall_watch.get_elapsed_time()
-
-        trainer_state_bag = _TrainerStateBag(self)
 
         try:
             if self._save_model_only:
                 self._checkpoint_manager.save_model_only(
                     step_nr,
-                    self._model,
+                    model_state_dict,
                     state_processor=log_ready,
                     callback=self._complete_checkpoint,
-                    block=block,
+                    blocking=blocking,
                 )
             else:
+                tmp = self._base_wall_time
+
+                self._base_wall_time += self._wall_watch.get_elapsed_time()
+
+                trainer_state = _TrainerStateBag(self)
+
                 self._checkpoint_manager.save_checkpoint(
                     step_nr,
-                    trainer_state_bag,
-                    self._model,
+                    trainer_state,
                     self._optimizer,  # type: ignore[arg-type]
                     self._data_reader,
+                    model_state_dict,
                     state_processor=log_ready,
                     callback=self._complete_checkpoint,
-                    block=block,
+                    blocking=blocking,
                 )
+
+                self._base_wall_time = tmp
         except CheckpointSaveError as ex:
             raise RecipeError(
                 f"The checkpoint of step {ex.step_nr} cannot be saved. See the nested exception for details."
             ) from ex
-
-        self._base_wall_time = tmp
 
     def _complete_checkpoint(self, step_nr: int) -> None:
         log.info("Checkpoint at step {} saved.", step_nr)
@@ -1033,9 +1045,7 @@ class Trainer(Recipe, Generic[BatchT]):
         self._reset_lapse_state()
 
     def _reset_lapse_state(self) -> None:
-        for name, metric in self._metric_bag.metrics.items():
-            if not name.startswith("total_"):
-                metric.reset()
+        self._reset_non_total_metrics()
 
         self._data_watch.reset()
 
@@ -1046,6 +1056,11 @@ class Trainer(Recipe, Generic[BatchT]):
         self._device_stat_tracker.reset()
 
         self._num_batches_read = 0
+
+    def _reset_non_total_metrics(self) -> None:
+        for name, metric in self._metric_bag.metrics.items():
+            if not name.startswith("total_"):
+                metric.reset()
 
     def _maybe_validate(self) -> float | None:
         should_validate = self._should_validate()
@@ -1132,7 +1147,7 @@ class Trainer(Recipe, Generic[BatchT]):
         log.info("Waiting for the current checkpoint save operation to complete before continuing.")  # fmt: skip
 
         try:
-            self._checkpoint_manager.maybe_complete_async_checkpoint(block=True)
+            self._checkpoint_manager.maybe_complete_async_checkpoint(blocking=True)
         except CheckpointSaveError as ex:
             raise RecipeError(
                 f"The checkpoint of step {ex.step_nr} cannot be saved. See the nested exception for details."
@@ -1140,18 +1155,30 @@ class Trainer(Recipe, Generic[BatchT]):
 
     def _delete_stale_checkpoints(self) -> None:
         try:
-            deleted = self._checkpoint_manager.delete_stale_checkpoints(
+            stale_step_nrs = self._checkpoint_manager.get_stale_step_numbers(
                 self._keep_last_n_checkpoints,
                 self._keep_best_n_checkpoints,
                 self._keep_checkpoint_every_n_steps,
             )
         except CheckpointError as ex:
             raise RecipeError(
-                "The stale checkpoints cannot be deleted. See the nested exception for details."
+                "The stale checkpoints cannot be determined. See the nested exception for details."
             ) from ex
 
-        if deleted:
-            log.info("Stale checkpoints deleted.")
+        if not stale_step_nrs:
+            return
+
+        log.info("Deleting stale checkpoints.")
+
+        for step_nr in stale_step_nrs:
+            try:
+                self._checkpoint_manager.delete_checkpoint(step_nr)
+            except CheckpointDeleteError as ex:
+                raise RecipeError(
+                    f"The checkpoint of step {ex.step_nr} cannot be deleted. See the nested exception for details."
+                ) from ex
+
+        log.info("Stale checkpoints deleted.")
 
     def _should_do(
         self,
@@ -1210,6 +1237,12 @@ class Trainer(Recipe, Generic[BatchT]):
     @override
     def request_stop(self) -> None:
         self._stop_requested = True
+
+    @override
+    def close(self) -> None:
+        self._checkpoint_manager.close()
+
+        self._metric_recorder.close()
 
     @property
     @override

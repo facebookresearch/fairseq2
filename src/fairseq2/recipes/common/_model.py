@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
 from pathlib import Path
-from typing import Mapping, cast, final
+from typing import cast, final
 
 import torch
 from torch import Tensor
@@ -301,7 +301,7 @@ class CardBasedModelLoader(ModelLoader):
 
         log.info("Model loaded on data parallel rank 0.")
 
-        return BasicModel(model_name, module, model_config, handler)
+        return LocalModel(model_name, module, model_config, handler)
 
 
 @final
@@ -446,7 +446,7 @@ class PathBasedModelLoader(ModelLoader):
 
         log.info("Model loaded on data parallel rank 0.")
 
-        return BasicModel(model_name, module, model_config, handler)
+        return LocalModel(model_name, module, model_config, handler)
 
     @staticmethod
     def _format_as_sharded_path(model_path: Path, gangs: Gangs) -> Path:
@@ -585,7 +585,7 @@ class EmptyModelLoader(ModelLoader):
         if step_nr is not None:
             log.info("Model loaded on data parallel rank 0.")
 
-        return BasicModel(
+        return LocalModel(
             model_name,
             module,
             model_config,
@@ -619,7 +619,7 @@ def apply_config_overrides(config: object, config_overrides: object) -> object:
 
 
 @final
-class BasicModel(Model):
+class LocalModel(Model):
     _name: str
     _module: Module
     _config: object
@@ -641,12 +641,8 @@ class BasicModel(Model):
         self._empty_initialized = empty_initialized
 
     @override
-    def state_dict(self) -> dict[str, object]:
+    def full_state_dict(self) -> dict[str, object]:
         return self._module.state_dict()
-
-    @override
-    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
-        self._module.load_state_dict(state_dict)
 
     @override
     def no_sync(self) -> ContextManager:

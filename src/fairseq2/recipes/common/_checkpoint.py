@@ -28,5 +28,5 @@ def create_checkpoint_manager(
     thread_pool = get_default_thread_pool()
 
     return FileCheckpointManager(
-        checkpoint_dir, gangs, file_system, tensor_loader, tensor_dumper, thread_pool
+        checkpoint_dir, gangs, file_system, tensor_dumper, tensor_loader, thread_pool
     )
