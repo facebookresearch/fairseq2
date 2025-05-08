@@ -10,12 +10,12 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 import torch
+
+from fairseq2.models.sequence import SequenceBatch
+from fairseq2.nn.padding import get_seq_lens, pad_seqs, PaddingMask
 from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import ctc_loss, log_softmax
-
-from fairseq2.models.sequence import SequenceBatch
-from fairseq2.nn.padding import PaddingMask, get_seq_lens, pad_seqs
 
 
 class AsrModel(Module, ABC):
@@ -38,7 +38,10 @@ class AsrModelOutput:
     length."""
 
     def compute_loss(
-        self, targets: Tensor, target_padding_mask: PaddingMask | None
+        self,
+        targets: Tensor,
+        target_padding_mask: PaddingMask | None,
+        reduction: str = "sum",
     ) -> Tensor:
         """Compute the CTC (Connectionist Temporal Classification) loss.
 
@@ -70,7 +73,7 @@ class AsrModelOutput:
             targets,
             seq_lens,
             target_seq_lens,
-            reduction="sum",
+            reduction=reduction,
             zero_infinity=True,
         )
 

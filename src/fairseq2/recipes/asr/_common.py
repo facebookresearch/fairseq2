@@ -7,20 +7,20 @@
 from __future__ import annotations
 
 import math
-from typing import Any, TextIO, final
+from typing import Any, Dict, final, List, TextIO
 
 import torch
-from torch import Tensor
-from typing_extensions import override
 
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
-from fairseq2.gang import Gang
+from fairseq2.gang import Gang, ReduceOperation
 from fairseq2.metrics import Mean
 from fairseq2.metrics.text import WerMetric
 from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes import BaseMetricBag, Model, UnitError
+from torch import Tensor
+from typing_extensions import override
 
 
 @final
@@ -55,6 +55,127 @@ class AsrCriterion:
             self._scorer(batch, output, metric_bag)
 
         return loss, batch.batch_size
+
+    def _forward(self, batch: SequenceBatch) -> AsrModelOutput:
+        return self._model.module(batch)  # type: ignore[no-any-return]
+
+    @property
+    def model(self) -> Model:
+        return self._model
+
+
+@final
+class DROAsrCriterion:
+    _model: Model
+    _scorer: AsrScorer | None
+    _step_size: float = 0.0
+    _smooth_factor: float = 0.0
+
+    def __init__(self, model: Model, scorer: AsrScorer | None = None) -> None:
+        if not isinstance(model.base_module, AsrModel):
+            raise TypeError(
+                f"`model.base_module` must be of type `{AsrModel}`, but is of type `{type(model.base_module)}` instead."
+            )
+
+        self._model = model
+
+        self._scorer = scorer
+
+    def _compute_domain_excess_losses(self, batch: Seq2SeqBatch, gang: Gang):
+        """
+        Returns:
+            Dict[str, Tensor]: A dictionary mapping domain names to their excess losses.
+                                Tensor will be shape (N)
+        """
+        # Compute excess loss for each domain on local batches
+        domain_excess_losses = (
+            {}
+        )  # Dict[str, Tensor] where keys map to domain names and Tensors are excess losses of shape (N),
+        # where there are N examples per domain in the local batch
+
+        # Gather per-domain excess losses from all local batches and reduce (sum) them
+        # NOTE: ensure each rank adds domains in same order + all domains are preset
+        for domain, excess_loss in domain_excess_losses.items():
+            domain_excess_losses[domain] = gang.all_reduce(
+                excess_loss, ReduceOperation.MEAN
+            )
+
+        # Option 2:
+        # gather dicts on rank 0, perform computation, then broadcast the object to all ranks
+
+        raise NotImplementedError()
+
+    def _update_domain_weights(
+        self, domain_weights: Dict[str, float], domain_excess_losses: Dict[str, Tensor]
+    ):
+        raise NotImplementedError()
+
+    def _get_new_domain_weights(
+        self, batch: Seq2SeqBatch, domain_weights: Dict[str, float]
+    ):
+        """
+        Computes the domain excess losses using the *global batch* and then updates the domain weights.
+
+        args:
+            batch: The global batch to compute the domain excess losses on.
+
+        """
+        raise NotImplementedError()
+
+        # LOCAL:
+        # Compute excess loss on each local batch
+
+        # GLOBAL:
+        # Gather per-domain excess losses from all local batches and reduce (average) them
+        # Compute new domain weights (this can happen locally or globally)
+
+        # LOCAL:
+        # Use the new domain weights to compute the weighted loss on the local batch
+
+    def _compute_weighted_loss(
+        self, loss: Tensor, domain_weights: Dict[str, float], domains: List[str]
+    ) -> Tensor:
+        loss_weights = torch.Tensor([domain_weights[d] for d in domains])
+        weighted_loss = (loss * loss_weights).sum()
+
+        return weighted_loss
+
+    def __call__(
+        self,
+        batch: Seq2SeqBatch,
+        metric_bag: AsrMetricBag,
+        domain_weights: Dict[str, float],
+        gang: Gang,
+    ) -> tuple[Tensor, int, Dict[str, float]]:
+
+        assert isinstance(batch.example, dict)
+        assert "lang_fam" in batch.example.keys()
+        domains = batch.example["lang_fam"]  # [N]
+
+        # Compute excess loss for each domain
+
+        # Update domain weights
+        new_domain_weights = domain_weights
+
+        # Compute weighted loss
+
+        input_batch = SequenceBatch(batch.source_seqs, batch.source_padding_mask)
+
+        output = self._forward(input_batch)
+
+        loss = output.compute_loss(
+            batch.target_seqs, batch.target_padding_mask, reduction="none"
+        )
+        weighted_loss = self._compute_weighted_loss(loss, domain_weights, domains)
+
+        metric_bag.update_ctc_loss(batch, weighted_loss)
+
+        metric_bag.update_batch_metrics(batch)
+
+        if self._scorer is not None:
+            self._scorer(batch, output, metric_bag)
+
+        return weighted_loss, batch.batch_size, new_domain_weights
 
     def _forward(self, batch: SequenceBatch) -> AsrModelOutput:
         return self._model.module(batch)  # type: ignore[no-any-return]

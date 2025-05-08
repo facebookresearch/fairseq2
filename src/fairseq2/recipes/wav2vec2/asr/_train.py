@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import cast, final, Literal
+from typing import cast, Dict, final, Final, List, Literal
 
 import torch
 
@@ -24,7 +24,13 @@ from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_dev
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import TRI_STAGE_LR, TriStageLRConfig
 from fairseq2.recipes import Model, RecipeError, Trainer, TrainUnit
-from fairseq2.recipes.asr import AsrCriterion, AsrEvalUnit, AsrMetricBag, AsrScorer
+from fairseq2.recipes.asr import (
+    AsrCriterion,
+    AsrEvalUnit,
+    AsrMetricBag,
+    AsrScorer,
+    DROAsrCriterion,
+)
 from fairseq2.recipes.common import (
     create_checkpoint_manager,
     create_lr_scheduler,
@@ -153,13 +159,23 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
+    infer_lang_family: bool = False
+    """If ``True``, infer the language family from the split name, and language from the audio_path."""
+
     extras: dict[str, object] = field(default_factory=dict)
     """The dataset-specific extra options."""
+
+
+LANGUAGE_FAMILY_MIXING: Final = "language_family_mixing"
+LANGUAGE_MIXING: Final = "language_mixing"
+RESOURCE_MIXING: Final = "resource_mixing"
 
 
 @dataclass(kw_only=True)
 class Wav2Vec2AsrTrainerSection(TrainerSection):
     freeze_encoder_for_n_steps: int = 10_000
+    is_dro: bool = False
+    dro_domains: str = "none"  # TODO: type as literal
     """The encoder will be frozen for this number of steps."""
 
 
@@ -213,6 +229,25 @@ def register_wav2vec2_asr_train_configs(context: RuntimeContext) -> None:
         config.regime.num_steps = 50_000
 
         return config
+
+
+def get_lang_family_from_split_name(split_name: str) -> str:
+    return split_name.replace("train_", "")
+
+
+def construct_domain_weights(config: Wav2Vec2AsrTrainConfig) -> Dict[str, float]:
+    """Constructs the domain weights for DRO automix."""
+    if config.trainer.dro_domains == LANGUAGE_FAMILY_MIXING:
+        train_splits = BatchMixtureDataset.parse_split_config(
+            config.dataset.train_split
+        )
+        domains = [get_lang_family_from_split_name(x[1]) for x in train_splits]
+        domain_weights = {}
+        for domain in domains:
+            domain_weights[domain] = 1.0
+    else:
+        raise NotImplementedError()
+    return domain_weights
 
 
 def load_wav2vec2_asr_trainer(
@@ -306,9 +341,23 @@ def load_wav2vec2_asr_trainer(
     # Initialize the train unit.
     criterion = AsrCriterion(model)
 
-    unit = Wav2Vec2AsrTrainUnit(
-        criterion, gangs.dp, config.trainer.freeze_encoder_for_n_steps
-    )
+    if config.trainer.is_dro:
+        assert config.dataset.family == MIXTURE_DATASET_FAMILY
+        assert config.dataset.infer_lang_family == True
+        domain_weights = construct_domain_weights(config)
+        print(f"SETZLER domains: {domain_weights}")
+        criterion = DROAsrCriterion(model)
+        unit = Wav2Vec2AsrTrainUnit(
+            criterion,
+            gangs.dp,
+            config.trainer.freeze_encoder_for_n_steps,
+            is_dro=True,
+            domain_weights=domain_weights,
+        )
+    else:
+        unit = Wav2Vec2AsrTrainUnit(
+            criterion, gangs.dp, config.trainer.freeze_encoder_for_n_steps
+        )
 
     batching = LengthBatching(config.dataset.max_num_elements)
 
@@ -322,6 +371,7 @@ def load_wav2vec2_asr_trainer(
         num_prefetch=config.dataset.num_prefetch,
         seed=seed,
         extras=config.dataset.extras,
+        infer_lang_family=config.dataset.infer_lang_family,
     )
 
     dataset: AsrDataset | BatchMixtureDataset
@@ -417,13 +467,21 @@ def load_wav2vec2_asr_trainer(
 @final
 class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
     _module: Wav2Vec2AsrModel
-    _criterion: AsrCriterion
+    _criterion: AsrCriterion | DROAsrCriterion
     _freeze_encoder_for_n_steps: int
     _frozen: bool
     _metric_bag: AsrMetricBag
+    _domain_weights: Dict[str, float]
+    _domain_weights_history: List[Dict[str, float]]
+    _is_dro: bool
 
     def __init__(
-        self, criterion: AsrCriterion, gang: Gang, freeze_encoder_for_n_steps: int
+        self,
+        criterion: AsrCriterion | DROAsrCriterion,
+        gang: Gang,
+        freeze_encoder_for_n_steps: int,
+        is_dro: bool = False,
+        domain_weights: Dict[str, float] | None = None,
     ) -> None:
         """
         :param freeze_encoder_for_n_steps: The encoder will be frozen for this
@@ -440,12 +498,31 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
         self._criterion = criterion
         self._freeze_encoder_for_n_steps = freeze_encoder_for_n_steps
         self._frozen = False
+        self._gang = gang
 
         self._metric_bag = AsrMetricBag(gang)
+        self._is_dro = is_dro
+        if self._is_dro:
+            assert (
+                domain_weights is not None
+            ), "domain weights must be provided for DRO automix"
+            self._domain_weights = domain_weights
+            self._domain_weights_history = [domain_weights]
+            print(f"SETZLER domain weights: {self._domain_weights}")
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> tuple[Tensor, int]:
-        return self._criterion(batch, self._metric_bag)
+        if self._is_dro:
+            assert isinstance(self._criterion, DROAsrCriterion)
+            loss, batch_size, new_domain_weights = self._criterion(
+                batch, self._metric_bag, self._domain_weights, self._gang
+            )
+            self._domain_weights = new_domain_weights
+            self._domain_weights_history.append(new_domain_weights)
+        else:
+            assert isinstance(self._criterion, AsrCriterion)
+            loss, batch_size = self._criterion(batch, self._metric_bag)
+        return loss, batch_size
 
     @override
     def set_step_nr(self, step_nr: int) -> None:
