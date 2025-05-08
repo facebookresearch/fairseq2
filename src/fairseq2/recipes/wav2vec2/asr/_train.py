@@ -375,7 +375,8 @@ def load_wav2vec2_asr_trainer(
             # config.dataset.valid_split = "dev,test"
             valid_splits = [s.strip() for s in (config.dataset.valid_split).split(",")]
         for single_vsplit in valid_splits:
-            valid_unit = AsrEvalUnit(valid_criterion, gangs, single_vsplit)
+            name = single_vsplit.replace("=", "_")
+            valid_unit = AsrEvalUnit(valid_criterion, gangs, name)
             valid_units.append(valid_unit)
 
             valid_data_reader = dataset.create_reader(
