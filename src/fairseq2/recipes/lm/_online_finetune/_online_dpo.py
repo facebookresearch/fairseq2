@@ -62,6 +62,7 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
     RewardSection,
     VLLMOutputReward,
     VLLMOutputRewardHandler,
+    MultiVerifier,
 )
 from fairseq2.recipes.lm._preference_finetune._common import (
     POCriterionSection,
@@ -89,8 +90,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     _sync_vllm_model_every_n_steps: int
     _sync_ref_model_every_n_steps: int
     _display_name: str
-    _athene_reward: VLLMOutputReward
-    _math_reward: VLLMOutputReward
+    _reward: dict | VLLMOutputReward
     _reference_offload: bool
 
     def __init__(
@@ -100,8 +100,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         reference_offload: bool,
         vllm_model: RemoteVllmModel,
         vllm_actors: List[RemoteVllmModel],
-        athene_reward: VLLMOutputReward,
-        math_reward: VLLMOutputReward,
+        reward_mapper,
         gangs: Gangs,
         loss_config: DpoLossConfig,
         sync_vllm_model_every_n_steps: int = 1,
@@ -117,8 +116,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._gangs = gangs
         self._sync_vllm_model_every_n_steps = sync_vllm_model_every_n_steps
         self._sync_ref_model_every_n_steps = sync_ref_model_every_n_step
-        self._athene_reward = athene_reward
-        self._math_reward = math_reward
+        self._reward = reward_mapper
         self._metric_bag = OnlineDpoFinetuneMetricBag(gangs.dp)
 
         self._display_name = "online_dpo"
@@ -246,14 +244,16 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             reward_model_type = prompt_batch.meta_info["reward_model"][0]
 
         log.info(f"Reward model type: {reward_model_type}")
-        if reward_model_type in ["athene_verifier", "default"]:
-            batch, is_bad_batch, reward_output = (
-                self._athene_reward.prepare_preference_batch(prompt_batch, rollouts)
+        if type(self._reward) is dict:
+            batch, is_bad_batch, reward_output = self._reward[
+                reward_model_type
+            ].prepare_preference_batch(
+                prompt_batch, rollouts
             )  # loss_zeroer is used when entire batch has no valid prefrence pair
         else:
-            batch, is_bad_batch, reward_output = (
-                self._math_reward.prepare_preference_batch(prompt_batch, rollouts)
-            )
+            batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
+                prompt_batch, rollouts
+            )  # loss_zeroer is used when entire batch has no valid prefrence pair
 
         if is_bad_batch:
             loss_zeroer = 0.0
@@ -589,25 +589,26 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         gangs.root.barrier()
 
         vllm_model = vllm_actors[config.ray_policy_actor_name]
-        reward2 = None
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         if type(config.reward.name) is list:
             vllm_reward_model = vllm_actors.get(config.vllm_reward_model_name, None)
-            for reward_idx, reward_name in enumerate(config.reward.name):
-                if reward_name == "athene_verifier":
-                    reward_handler = reward_registry.get(reward_name)
-                    athene_reward = reward_handler.create(
-                        reward_model=vllm_reward_model,
-                        reward_config=config.reward.config,
-                        gangs=gangs,
-                    )
-                else:
-                    reward_handler = reward_registry.get(reward_name)
-                    math_reward = reward_handler.create(
-                        reward_model=vllm_reward_model,
-                        reward_config=config.reward.config,
-                        gangs=gangs,
-                    )
+            reward = {}
+            for reward_name in config.reward.name:
+                reward_handler = reward_registry.get(reward_name)
+                reward_model = reward_handler.create(
+                    reward_model=vllm_reward_model,
+                    reward_config=config.reward.config,
+                    gangs=gangs,
+                )
+                reward[reward_name] = reward_model
+            # reward = MultiVerifier(reward)
+        else:
+            reward_handler = reward_registry.get(reward_name)
+            reward = reward_handler.create(
+                reward_model=vllm_reward_model,
+                reward_config=config.reward.config,
+                gangs=gangs,
+            )
 
         return OnlineDpoFinetuneUnit(
             model,
@@ -615,8 +616,7 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             reference_offload,
             vllm_model,
             vllm_actors,
-            athene_reward,
-            math_reward,
+            reward,
             gangs,
             config.loss_config,
             config.sync_vllm_model_every_n_steps,

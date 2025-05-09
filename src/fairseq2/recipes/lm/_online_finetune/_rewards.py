@@ -792,10 +792,10 @@ class MultiVerifier(ABC):
 
     def __init__(self, rewards_map):
         self.rewards_map = rewards_map
-        for reward_model_type, reward in rewards_map.items():
-            log.info(
-                f"reward_model_type: {reward_model_type}, reward: {reward}, reward.reward_model: {reward.vllm_reward_model}"
-            )
+        # for reward_model_type, reward in rewards_map.items():
+        #     log.info(
+        #         f"reward_model_type: {reward_model_type}, reward: {reward}, reward.reward_model: {reward.vllm_reward_model}"
+        #     )
 
     def process_rollouts(self, vllm_outputs: List[RequestOutput], reward_model_type):
         reward = self.rewards_map[reward_model_type]
