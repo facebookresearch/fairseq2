@@ -813,7 +813,8 @@ class MultiVerifier(VLLMOutputReward):
     def process_rollouts(
         self, vllm_outputs: List[RequestOutput], prompt_batch: PromptBatch
     ):
-        reward_model_type = self.get_reward_model_type(prompt_batch)
+        # reward_model_type = self.get_reward_model_type(prompt_batch)
+        reward_model_type = "athene_verifier"  # FIXME should have both, but need to send each to its own loggers
         reward = self.rewards_map[reward_model_type]
         return reward.process_rollouts(vllm_outputs, prompt_batch)
 
