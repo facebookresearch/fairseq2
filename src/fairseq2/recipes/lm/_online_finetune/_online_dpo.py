@@ -328,7 +328,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         self._metric_bag.update_avg_reward(avg_reward)
 
-        if self._loss_config._nll_length_normalization:
+        if self._loss_config.nll_length_normalization:
             nll_loss = (
                 nll_loss
                 * chosen_target_batch.batch_size
