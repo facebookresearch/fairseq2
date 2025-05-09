@@ -170,153 +170,6 @@ class GSM8kVerifier(VLLMOutputReward):
         return batch, reward_output
 
 
-class MathVerifyHandler(VLLMOutputRewardHandler):
-    def __init__(self):
-        pass
-
-    @override
-    def create(self, reward_model, reward_config, gangs):
-        return MathVerifyVerifier(
-            answer_key=reward_config.answer_key,
-            prompt_key=reward_config.prompt_key,
-            gangs=gangs,
-            reward_model=reward_model,
-        )
-
-    @property
-    @override
-    def name(self):
-        return "math_verify"
-
-    @property
-    @override
-    def config_kls(self):
-        return None
-
-
-class MathVerifyVerifier(VLLMOutputReward):
-    def __init__(self, answer_key, prompt_key, gangs, reward_model):
-        try:
-            from math_verify.metric import math_metric
-            from math_verify.parser import (
-                LatexExtractionConfig,
-                ExprExtractionConfig,
-                NormalizationConfig,
-            )
-        except ImportError:
-            raise ImportError(
-                "install mathverify from https://github.com/huggingface/Math-Verify"
-            )
-
-        self._gangs = gangs
-        self.answer_key = answer_key
-        self.prompt_key = prompt_key
-        self.reward_model = reward_model
-        self.tokenizer = AutoTokenizer.from_pretrained("Nexusflow/Athene-RM-8B")
-
-        label_normalizer = NormalizationConfig(
-            basic_latex=True,
-            units=True,
-            malformed_operators=True,
-            nits=True,
-            boxed="none",
-            equations=False,
-        )
-        self.verify_func = math_metric(
-            gold_extraction_target=(
-                LatexExtractionConfig(normalization_config=label_normalizer),
-            ),
-            pred_extraction_target=(LatexExtractionConfig(boxed_match_priority=0),),
-            aggregation_function=max,
-            precision=6,
-        )
-
-    def wrap_text(self, prompt_text, rollout_text):
-        wrapped_text = [
-            {"role": "user", "content": prompt_text},
-            {"role": "assistant", "content": rollout_text},
-        ]
-        chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False)
-        chat_str += "<|reserved_special_token_1|>"
-
-        return chat_str
-
-    def verify_answer(self, completion: str, answer: str):
-        # here we add extra $$ to label so that LatexExtractor works as expected
-        if not answer.startswith("$"):
-            answer = f"${answer}$"
-        try:
-            grade, extracted_answers = self.verify_func([answer], [completion])
-        except:
-            grade = 0
-            extracted_answers = None
-        reward = 1.0 if grade == 1 else 0.0
-
-        return reward, extracted_answers
-
-    @override
-    def process_rollouts(
-        self,
-        vllm_outputs: List[RequestOutput],
-        prompt_batch: PromptBatch,
-    ):
-        batch_text = []
-        batch_tokens = []
-        batch_rewards = []
-        vllm_inputs = []  # dummy for vllm syncronization # FIXME
-
-        reference_answers = prompt_batch.meta_info.get(self.answer_key)
-
-        for i, i_batch_request_output in enumerate(vllm_outputs):
-            rollouts_text = []
-            rollouts_tokens = []
-            i_reference_answer = reference_answers[i]
-            rollouts_rewards = []
-            for rollout_output in i_batch_request_output.outputs:
-                rollouts_text.append(rollout_output.text)
-                rollouts_tokens.append(rollout_output.token_ids)
-                predicted_reward, predicted_answer = self.verify_answer(
-                    rollout_output.text, i_reference_answer
-                )
-                rollouts_rewards.append(predicted_reward)
-                vllm_input = self.wrap_text("dummy prompt", "dummy rollout")
-                vllm_inputs.append(vllm_input)
-
-            batch_text.append(rollouts_text)
-            batch_tokens.append(rollouts_tokens)
-            batch_rewards.append(rollouts_rewards)
-
-        if self.reward_model is not None:
-            # dummy vllm call for syncronization # FIXME
-            dummy_rewards = generate_rewards(
-                vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.reward_model
-            )
-
-        return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
-
-    def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts
-    ) -> PreferenceBatch:
-
-        reward_output = self.process_rollouts(rollouts, prompt_batch)
-
-        batch, is_bad_batch = prepare_preference_batch_random_pair(
-            prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs
-        )
-
-        return batch, is_bad_batch, reward_output
-
-    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
-
-        reward_output = self.process_rollouts(rollouts, prompt_batch)
-
-        batch = prepare_grpo_batch(
-            prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs
-        )
-
-        return batch, reward_output
-
-
 class NuminaMathVerifierHandler(VLLMOutputRewardHandler):
     def __init__(self):
         pass
@@ -565,6 +418,161 @@ class SkyworkVerifier(VLLMOutputReward):
         return grpo_batch, reward_output
 
 
+class MathVerifyHandler(VLLMOutputRewardHandler):
+    def __init__(self):
+        pass
+
+    @override
+    def create(self, reward_model, reward_config, gangs):
+        return MathVerifyVerifier(
+            answer_key=reward_config.answer_key,
+            prompt_key=reward_config.prompt_key,
+            gangs=gangs,
+            vllm_math_reward_model=reward_model,
+        )
+
+    @property
+    @override
+    def name(self):
+        return "math_verify"
+
+    @property
+    @override
+    def config_kls(self):
+        return None
+
+
+class MathVerifyVerifier(VLLMOutputReward):
+    def __init__(self, answer_key, prompt_key, gangs, vllm_math_reward_model):
+        try:
+            from math_verify.metric import math_metric
+            from math_verify.parser import (
+                LatexExtractionConfig,
+                ExprExtractionConfig,
+                NormalizationConfig,
+            )
+        except ImportError:
+            raise ImportError(
+                "install mathverify from https://github.com/huggingface/Math-Verify"
+            )
+
+        self._gangs = gangs
+        self.answer_key = answer_key
+        self.prompt_key = prompt_key
+        self.vllm_math_reward_model = vllm_math_reward_model
+        self.tokenizer = AutoTokenizer.from_pretrained("Nexusflow/Athene-RM-8B")
+
+        label_normalizer = NormalizationConfig(
+            basic_latex=True,
+            units=True,
+            malformed_operators=True,
+            nits=True,
+            boxed="none",
+            equations=False,
+        )
+        self.verify_func = math_metric(
+            gold_extraction_target=(
+                LatexExtractionConfig(normalization_config=label_normalizer),
+            ),
+            pred_extraction_target=(LatexExtractionConfig(boxed_match_priority=0),),
+            aggregation_function=max,
+            precision=6,
+        )
+
+    def wrap_text(self, prompt_text, rollout_text):
+        wrapped_text = [
+            {"role": "user", "content": prompt_text},
+            {"role": "assistant", "content": rollout_text},
+        ]
+        chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False)
+        chat_str += "<|reserved_special_token_1|>"
+
+        return chat_str
+
+    def verify_answer(self, completion: str, answer: str):
+        # here we add extra $$ to label so that LatexExtractor works as expected
+        if not answer.startswith("$"):
+            answer = f"${answer}$"
+        try:
+            grade, extracted_answers = self.verify_func([answer], [completion])
+        except:
+            grade = 0
+            extracted_answers = None
+        reward = 1.0 if grade == 1 else 0.0
+
+        return reward, extracted_answers
+
+    @override
+    def process_rollouts(
+        self,
+        vllm_outputs: List[RequestOutput],
+        prompt_batch: PromptBatch,
+    ):
+        log.info("MathVerifyVerifier process_rollouts()")
+        batch_text = []
+        batch_tokens = []
+        batch_rewards = []
+        vllm_inputs = []  # dummy for vllm syncronization # FIXME
+
+        reference_answers = prompt_batch.meta_info.get(self.answer_key)
+
+        for i, i_batch_request_output in enumerate(vllm_outputs):
+            rollouts_text = []
+            rollouts_tokens = []
+            i_reference_answer = reference_answers[i]
+            rollouts_rewards = []
+            for rollout_output in i_batch_request_output.outputs:
+                rollouts_text.append(rollout_output.text)
+                rollouts_tokens.append(rollout_output.token_ids)
+                predicted_reward, predicted_answer = self.verify_answer(
+                    rollout_output.text, i_reference_answer
+                )
+                rollouts_rewards.append(predicted_reward)
+                vllm_input = self.wrap_text("dummy prompt", "dummy rollout")
+                vllm_inputs.append(vllm_input)
+
+            batch_text.append(rollouts_text)
+            batch_tokens.append(rollouts_tokens)
+            batch_rewards.append(rollouts_rewards)
+
+        dummy_rewards = generate_rewards(
+            vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.vllm_math_reward_model
+        )
+        # if self.reward_model is not None:
+        #     log.info("MathVerifyVerifier generate_rewards()")
+        #     # dummy vllm call for syncronization # FIXME
+        #     dummy_rewards = generate_rewards(
+        #         vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.reward_model
+        #     )
+        # else:
+        #     log.info("MathVerifyVerifier no self.reward_model found")
+
+        return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
+
+    def prepare_preference_batch(
+        self, prompt_batch: PromptBatch, rollouts
+    ) -> PreferenceBatch:
+
+        log.info("MathVerifyVerifier prepare_preference_batch()")
+        reward_output = self.process_rollouts(rollouts, prompt_batch)
+
+        batch, is_bad_batch = prepare_preference_batch_random_pair(
+            prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs
+        )
+
+        return batch, is_bad_batch, reward_output
+
+    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
+
+        reward_output = self.process_rollouts(rollouts, prompt_batch)
+
+        batch = prepare_grpo_batch(
+            prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs
+        )
+
+        return batch, reward_output
+
+
 class AtheneVerifierHandler(VLLMOutputRewardHandler):
     def __init__(self):
         pass
@@ -625,6 +633,7 @@ class AtheneVerifier(VLLMOutputReward):
     def process_rollouts(
         self, vllm_outputs: List[RequestOutput], prompt_batch: PromptBatch
     ):
+        log.info("AtheneVerifier process_rollouts()")
         vllm_inputs = []
         batch_text = []
         batch_tokens = []
@@ -649,6 +658,7 @@ class AtheneVerifier(VLLMOutputReward):
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
 
+        log.info("AtheneVerifier generate_rewards()")
         batch_rewards = generate_rewards(
             vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.reward_model
         )
@@ -663,6 +673,7 @@ class AtheneVerifier(VLLMOutputReward):
         self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
 
+        log.info("AtheneVerifier prepare_preference_batch()")
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         chosen_batch = []
@@ -777,13 +788,27 @@ class AtheneVerifier(VLLMOutputReward):
         return grpo_batch, reward_output
 
 
-class MultiVerifier(VLLMOutputReward):
-    """ """
+class MultiVerifier(ABC):
 
-    def __init__(self, gangs): ...
+    def __init__(self, rewards_map):
+        self.rewards_map = rewards_map
+        for reward_model_type, reward in rewards_map.items():
+            log.info(
+                f"reward_model_type: {reward_model_type}, reward: {reward}, reward.reward_model: {reward.vllm_reward_model}"
+            )
+
+    def process_rollouts(self, vllm_outputs: List[RequestOutput], reward_model_type):
+        reward = self.rewards_map[reward_model_type]
+        return reward.process_rollouts(vllm_outputs)
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts
-    ) -> PreferenceBatch: ...
+        self, prompt_batch: PromptBatch, rollouts, reward_model_type
+    ) -> PreferenceBatch:
+        reward = self.rewards_map[reward_model_type]
+        return reward.prepare_preference_batch(prompt_batch, rollouts)
 
-    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts): ...
+    def prepare_grpo_batch(
+        self, prompt_batch: PromptBatch, rollouts, reward_model_type
+    ):
+        reward = self.rewards_map[reward_model_type]
+        return reward.prepare_grpo_batch(prompt_batch, rollouts)
