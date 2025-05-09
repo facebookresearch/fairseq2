@@ -789,6 +789,17 @@ class MultiVerifier(VLLMOutputReward):
     def __init__(self, rewards_map: Dict[VLLMOutputReward]):
         self.rewards_map = rewards_map
 
+    def get_reward_model_type(self, prompt_batch: PromptBatch) -> str:
+        assert (
+            len(set(prompt_batch.meta_info["reward_model"])) == 1
+        ), "Not all batch prompts have the same 'reward_model' value."
+        reward_model_type = prompt_batch.meta_info["reward_model"][0]
+        if reward_model_type is None:
+            raise ValueError("Reward model type not found in meta_info.")
+
+        log.info(f"Reward model type: {reward_model_type}")
+        return reward_model_type
+
     @override
     def process_rollouts(self, vllm_outputs: List[RequestOutput]):
         assert NotImplementedError("not implemented yet")
@@ -799,12 +810,8 @@ class MultiVerifier(VLLMOutputReward):
     def prepare_preference_batch(
         self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
-        assert (
-            len(set(prompt_batch.meta_info["reward_model"])) == 1
-        ), "Not all batch prompts have the same 'reward_model' value."
-        reward_model_type = prompt_batch.meta_info["reward_model"][0]
 
-        log.info(f"Reward model type: {reward_model_type}")
+        reward_model_type = self.get_reward_model_type(prompt_batch)
 
         reward = self.rewards_map[reward_model_type]
         return reward.prepare_preference_batch(prompt_batch, rollouts)

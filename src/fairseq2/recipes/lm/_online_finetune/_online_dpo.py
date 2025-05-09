@@ -573,9 +573,9 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
 
         vllm_model = vllm_actors[config.ray_policy_actor_name]
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
+        vllm_reward_model = vllm_actors.get(config.vllm_reward_model_name, None)
         if type(config.reward.name) is list:
-            vllm_reward_model = vllm_actors.get(config.vllm_reward_model_name, None)
-            reward = {}
+            reward_mapper = {}
             for reward_name in config.reward.name:
                 reward_handler = reward_registry.get(reward_name)
                 reward_model = reward_handler.create(
@@ -583,8 +583,8 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
                     reward_config=config.reward.config,
                     gangs=gangs,
                 )
-                reward[reward_name] = reward_model
-            reward = MultiVerifier(reward)
+                reward_mapper[reward_name] = reward_model
+            reward = MultiVerifier(reward_mapper)
         else:
             reward_handler = reward_registry.get(reward_name)
             reward = reward_handler.create(
