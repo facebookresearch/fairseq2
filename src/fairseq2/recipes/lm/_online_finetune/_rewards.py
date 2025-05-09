@@ -70,9 +70,7 @@ class VLLMOutputReward(ABC):
     def process_rollouts(self, vllm_outputs: List[RequestOutput]): ...
 
     @abstractmethod
-    def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts, reward_model_type: str
-    ): ...
+    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts): ...
 
     @abstractmethod
     def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts): ...
@@ -150,7 +148,7 @@ class GSM8kVerifier(VLLMOutputReward):
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts, reward_model_type=None
+        self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
 
         reward_output = self.process_rollouts(rollouts, prompt_batch)
@@ -304,7 +302,7 @@ class SkyworkVerifier(VLLMOutputReward):
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts, reward_model_type=None
+        self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
 
         reward_output = self.process_rollouts(rollouts, prompt_batch)
@@ -548,7 +546,7 @@ class MathVerifyVerifier(VLLMOutputReward):
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts, reward_model_type=None
+        self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
 
         log.info("MathVerifyVerifier prepare_preference_batch()")
@@ -668,7 +666,7 @@ class AtheneVerifier(VLLMOutputReward):
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts, reward_model_type=None
+        self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
 
         log.info("AtheneVerifier prepare_preference_batch()")
@@ -786,23 +784,33 @@ class AtheneVerifier(VLLMOutputReward):
         return grpo_batch, reward_output
 
 
-class MultiVerifier(ABC):
+class MultiVerifier(VLLMOutputReward):
 
     def __init__(self, rewards_map: Dict[VLLMOutputReward]):
         self.rewards_map = rewards_map
 
-    def process_rollouts(self, vllm_outputs: List[RequestOutput], reward_model_type):
-        reward = self.rewards_map[reward_model_type]
-        return reward.process_rollouts(vllm_outputs)
+    @override
+    def process_rollouts(self, vllm_outputs: List[RequestOutput]):
+        assert NotImplementedError("not implemented yet")
+        # reward = self.rewards_map[reward_model_type]
+        # return reward.process_rollouts(vllm_outputs)
 
+    @override
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts, reward_model_type
+        self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
+        assert (
+            len(set(prompt_batch.meta_info["reward_model"])) == 1
+        ), "Not all batch prompts have the same 'reward_model' value."
+        reward_model_type = prompt_batch.meta_info["reward_model"][0]
+
+        log.info(f"Reward model type: {reward_model_type}")
+
         reward = self.rewards_map[reward_model_type]
         return reward.prepare_preference_batch(prompt_batch, rollouts)
 
-    def prepare_grpo_batch(
-        self, prompt_batch: PromptBatch, rollouts, reward_model_type
-    ):
-        reward = self.rewards_map[reward_model_type]
-        return reward.prepare_grpo_batch(prompt_batch, rollouts)
+    @override
+    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
+        assert NotImplementedError("not implemented yet")
+        # reward = self.rewards_map[reward_model_type]
+        # return reward.prepare_grpo_batch(prompt_batch, rollouts)

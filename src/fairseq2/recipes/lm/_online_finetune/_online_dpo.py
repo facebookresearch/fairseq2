@@ -234,16 +234,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         #     breakpoint()
         # self._gangs.root.barrier()
 
-        reward_model_type = "default"
-        if "reward_model" in prompt_batch.meta_info:
-            assert (
-                len(set(prompt_batch.meta_info["reward_model"])) == 1
-            ), "Not all batch prompts have the same 'reward_model' value."
-            reward_model_type = prompt_batch.meta_info["reward_model"][0]
-
-        log.info(f"Reward model type: {reward_model_type}")
         batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
-            prompt_batch, rollouts, reward_model_type
+            prompt_batch, rollouts
         )  # loss_zeroer is used when entire batch has no valid prefrence pair
 
         if is_bad_batch:
