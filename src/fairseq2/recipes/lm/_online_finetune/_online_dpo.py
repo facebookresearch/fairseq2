@@ -328,12 +328,17 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         self._metric_bag.update_avg_reward(avg_reward)
 
+        if self._loss_config._nll_length_normalization:
+            nll_loss = (
+                nll_loss
+                * chosen_target_batch.batch_size
+                / chosen_target_batch.num_target_elements()
+            )
+
         loss = (
             dpo_loss
             + self._loss_config.nll_scale
             * nll_loss
-            * chosen_target_batch.batch_size
-            / chosen_target_batch.num_target_elements()
             + max_entropy_regularizer
         )  # nll normalization applied locally per-rank
 
@@ -468,6 +473,7 @@ class DpoLossConfig:
     """The coefficient of regularization towards the reference model."""
 
     nll_scale: float = 0.0
+    nll_length_normalization: bool = True
     """The coefficient of NLL loss added to the DPO loss."""
 
     length_normalization: bool = False
