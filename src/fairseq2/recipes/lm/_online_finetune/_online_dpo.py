@@ -52,6 +52,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     find_first_value,
     generate_rollouts,
     log_rollouts,
+    get_rollout_lengths,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_vllm import (
@@ -174,11 +175,18 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         if self._loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Valid")
 
+        rollout_lengths = get_rollout_lengths(rollouts)
+        avg_rollout_length = torch.tensor(rollout_lengths).float().mean()
+
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
 
+        avg_reward_len_norm = avg_reward / avg_rollout_length
+
         self._metric_bag.update_avg_reward(avg_reward)
         self._metric_bag.update_batch_metrics(prompt_batch)
+        self._metric_bag.update_avg_rollout_length(avg_rollout_length)
+        self._metric_bag.update_avg_reward_len_norm(avg_reward_len_norm)
         # returning dummy loss since trainer expects it
         return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
 
@@ -420,6 +428,12 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         )
         self.register_metric("avg_reward", Mean(device=gang.device), persistent=False)
         self.register_metric(
+            "avg_rollout_length", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "avg_reward_len_norm", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
             "avg_loss_zeroer", Mean(device=gang.device), persistent=False
         )
         self.register_metric(
@@ -454,6 +468,14 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
     @torch.inference_mode()
     def update_avg_reward(self, avg_reward):
         self.avg_reward.update(avg_reward, weight=1)
+
+    @torch.inference_mode()
+    def update_avg_rollout_length(self, avg_rollout_length):
+        self.avg_rollout_length.update(avg_rollout_length, weight=1)
+
+    @torch.inference_mode()
+    def update_avg_reward_len_norm(self, avg_reward_len_norm):
+        self.avg_reward_len_norm.update(avg_reward_len_norm, weight=1)
 
     @torch.inference_mode()
     def update_avg_loss_zeroer(self, avg_loss_zeroer):
