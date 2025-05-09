@@ -52,6 +52,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     find_first_value,
     generate_rollouts,
     log_rollouts,
+    get_rollout_lengths,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_vllm import (
@@ -62,6 +63,7 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
     RewardSection,
     VLLMOutputReward,
     VLLMOutputRewardHandler,
+    MultiVerifier,
 )
 from fairseq2.recipes.lm._preference_finetune._common import (
     POCriterionSection,
@@ -89,7 +91,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     _sync_vllm_model_every_n_steps: int
     _sync_ref_model_every_n_steps: int
     _display_name: str
-    _reward: VLLMOutputReward
+    _reward: dict | VLLMOutputReward
     _reference_offload: bool
 
     def __init__(
@@ -116,6 +118,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._sync_vllm_model_every_n_steps = sync_vllm_model_every_n_steps
         self._sync_ref_model_every_n_steps = sync_ref_model_every_n_step
         self._reward = reward
+        # self._reward = reward
         self._metric_bag = OnlineDpoFinetuneMetricBag(gangs.dp)
 
         self._display_name = "online_dpo"
@@ -172,11 +175,18 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         if self._loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Valid")
 
+        rollout_lengths = get_rollout_lengths(rollouts)
+        avg_rollout_length = torch.tensor(rollout_lengths).float().mean()
+
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
 
+        avg_reward_len_norm = avg_reward / avg_rollout_length
+
         self._metric_bag.update_avg_reward(avg_reward)
         self._metric_bag.update_batch_metrics(prompt_batch)
+        self._metric_bag.update_avg_rollout_length(avg_rollout_length)
+        self._metric_bag.update_avg_reward_len_norm(avg_reward_len_norm)
         # returning dummy loss since trainer expects it
         return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
 
@@ -225,9 +235,17 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             log_rollouts(prompt_batch, rollouts, "Train")
 
         batch: PreferenceBatch
+        # Class MultiReward (superclass of current reward)
+        # subrewards AtheneReward, MathReward
+        # this super class should be working as is for 2 validation sets, since validation sets will also have task type in the jsonl, so hypothetically correct reward will also be used for logging
+        # if self._gangs.root.rank == 0:
+        #     breakpoint()
+        # self._gangs.root.barrier()
+
         batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
             prompt_batch, rollouts
         )  # loss_zeroer is used when entire batch has no valid prefrence pair
+
         if is_bad_batch:
             loss_zeroer = 0.0
         else:
@@ -410,6 +428,12 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         )
         self.register_metric("avg_reward", Mean(device=gang.device), persistent=False)
         self.register_metric(
+            "avg_rollout_length", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "avg_reward_len_norm", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
             "avg_loss_zeroer", Mean(device=gang.device), persistent=False
         )
         self.register_metric(
@@ -444,6 +468,14 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
     @torch.inference_mode()
     def update_avg_reward(self, avg_reward):
         self.avg_reward.update(avg_reward, weight=1)
+
+    @torch.inference_mode()
+    def update_avg_rollout_length(self, avg_rollout_length):
+        self.avg_rollout_length.update(avg_rollout_length, weight=1)
+
+    @torch.inference_mode()
+    def update_avg_reward_len_norm(self, avg_reward_len_norm):
+        self.avg_reward_len_norm.update(avg_reward_len_norm, weight=1)
 
     @torch.inference_mode()
     def update_avg_loss_zeroer(self, avg_loss_zeroer):
@@ -562,15 +594,26 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         gangs.root.barrier()
 
         vllm_model = vllm_actors[config.ray_policy_actor_name]
-
-        vllm_reward_model = vllm_actors.get(config.vllm_reward_model_name, None)
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
-        reward_handler = reward_registry.get(config.reward.name)
-        reward = reward_handler.create(
-            reward_model=vllm_reward_model,
-            reward_config=config.reward.config,
-            gangs=gangs,
-        )
+        vllm_reward_model = vllm_actors.get(config.vllm_reward_model_name, None)
+        if type(config.reward.name) is list:
+            reward_mapper = {}
+            for reward_name in config.reward.name:
+                reward_handler = reward_registry.get(reward_name)
+                reward_model = reward_handler.create(
+                    reward_model=vllm_reward_model,
+                    reward_config=config.reward.config,
+                    gangs=gangs,
+                )
+                reward_mapper[reward_name] = reward_model
+            reward = MultiVerifier(reward_mapper)
+        else:
+            reward_handler = reward_registry.get(reward_name)
+            reward = reward_handler.create(
+                reward_model=vllm_reward_model,
+                reward_config=config.reward.config,
+                gangs=gangs,
+            )
 
         return OnlineDpoFinetuneUnit(
             model,
