@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Dict, Tuple
 
 import torch
 from torch import Tensor
@@ -41,7 +42,7 @@ class AsrModelOutput:
 
     def compute_loss(
         self, targets: Tensor, target_padding_mask: PaddingMask | None
-    ) -> Tensor:
+    ) -> Tuple[Tensor, Dict[str, Tensor]]:
         """Compute the CTC (Connectionist Temporal Classification) loss.
 
         :param targets:
@@ -67,13 +68,16 @@ class AsrModelOutput:
         target_seq_lens = get_seq_lens(targets, target_padding_mask)
 
         # ()
-        return ctc_loss(
-            lprobs_t,
-            targets,
-            seq_lens,
-            target_seq_lens,
-            reduction="sum",
-            zero_infinity=True,
+        return (
+            ctc_loss(
+                lprobs_t,
+                targets,
+                seq_lens,
+                target_seq_lens,
+                reduction="sum",
+                zero_infinity=True,
+            ),
+            {},
         )
 
     def generate_hypotheses(
