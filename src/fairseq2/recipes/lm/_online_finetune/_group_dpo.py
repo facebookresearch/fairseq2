@@ -335,6 +335,12 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         loss = loss * loss_zeroer  # zero loss if entire batch was dummy batch
 
+        if self._loss_config.grpo_coeff > 0.0:
+            # GRPO loss
+            grpo_loss = self._compute_grpo_objective(logps, ref_logps, reward_tensor, target_batch)
+            self._metric_bag.update_grpo_loss(batch, grpo_loss)
+            loss = loss + grpo_loss * self._loss_config.grpo_coeff
+
         # if self._gangs.root.rank == 0:
         #     from pudb.remote import set_trace
         #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
@@ -429,6 +435,37 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         return sum(loss_to_sum), loss_zeroer, batch_size
 
+    def _compute_grpo_objective(
+        self,
+        logps,
+        ref_logps,
+        rewards: Tensor,  # outcome based only for now
+        target_batch: SequenceBatch,
+    ) -> tuple[Tensor, Tensor, Tensor]:
+
+        advantages = (rewards - rewards.mean(dim=1, keepdim=True)) / (
+            rewards.std(dim=1, keepdim=True) + 1e-6
+        )  # small epsilon to compensate 0 std
+
+        batch_size = advantages.size(0)
+        num_rollouts = advantages.size(1)
+        logps = logps.view(batch_size, num_rollouts, -1)
+        ref_logps = ref_logps.view(batch_size, num_rollouts, -1)
+
+        # kl penalty
+        kl = (ref_logps - logps).exp() - (ref_logps - logps) - 1.0
+
+        per_token_scaled_advantage = (logps - logps.detach()).exp() * advantages[
+            :, :, None
+        ]
+
+        per_token_loss = per_token_scaled_advantage - self._loss_config.grpo_beta * kl
+
+        target_mask = target_batch.target_mask.view(batch_size, num_rollouts, -1)
+        per_seq_loss = ((per_token_loss * target_mask).sum(dim=-1)).mean(dim=1)
+
+        return per_seq_loss.sum()
+
     @override
     def set_step_nr(self, step_nr: int) -> None:
         self._step_nr = step_nr
@@ -453,6 +490,7 @@ class GroupDpoFinetuneMetricBag(POFinetuneMetricBag):
     avg_loss_zeroer: Mean
     logit_entropy: Mean
     rollout_lengths: Mean
+    grpo_loss: Mean
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
@@ -471,6 +509,7 @@ class GroupDpoFinetuneMetricBag(POFinetuneMetricBag):
         self.register_metric(
             "rollout_lengths", Mean(device=gang.device), persistent=False
         )
+        self.register_metric("grpo_loss", Mean(device=gang.device), persistent=False)
 
     @torch.inference_mode()
     def update_logit_entropy(self, logit_entropy: Tensor):
@@ -488,6 +527,17 @@ class GroupDpoFinetuneMetricBag(POFinetuneMetricBag):
             The DPO loss of ``batch``.
         """
         self.dpo_loss.update(loss / batch.batch_size, weight=batch.batch_size)
+
+    @torch.inference_mode()
+    def update_grpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
+        """Update the GRPO loss metric.
+
+        :param batch:
+            The batch processed by the model.
+        :param loss:
+            The GRPO loss of ``batch``.
+        """
+        self.grpo_loss.update(loss / batch.batch_size, weight=batch.batch_size)
 
     @torch.inference_mode()
     def update_num_dummy_batches(self, batch: PreferenceBatch, num_dummy_batches: int):
@@ -549,6 +599,10 @@ class GroupDpoLossConfig:
 
     validation_vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
     """VLLM sampling params for validation. If not set, the same params as training will be used."""
+
+    grpo_coeff: float = 0.0
+    """The coefficient of an added GRPO loss."""
+    grpo_beta: float = 0.001
 
 
 @dataclass(kw_only=True)
