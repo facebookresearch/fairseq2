@@ -346,6 +346,10 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         self._metric_bag.update_avg_reward(avg_reward)
 
+        if "reward_model" in prompt_batch.meta_info:
+            reward_model_type = prompt_batch.meta_info["reward_model"][0]
+            self._metric_bag.update_avg_task_reward(avg_reward, reward_model_type)
+
         loss = (
             dpo_loss
             + self._loss_config.nll_scale
@@ -418,6 +422,8 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
     avg_reward: Mean
     avg_loss_zeroer: Mean
     logit_entropy: Mean
+    avg_math_reward: Mean
+    avg_wildchat_reward: Mean
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
@@ -438,6 +444,12 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         )
         self.register_metric(
             "logit_entropy", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "avg_math_reward", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "avg_wildchat_reward", Mean(device=gang.device), persistent=False
         )
 
     @torch.inference_mode()
@@ -468,6 +480,14 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
     @torch.inference_mode()
     def update_avg_reward(self, avg_reward):
         self.avg_reward.update(avg_reward, weight=1)
+
+    @torch.inference_mode()
+    def update_avg_task_reward(self, avg_reward, task):
+        # FIXME don't hardcode tasks
+        if task == "math_verify":
+            self.avg_math_reward.update(avg_reward, weight=1)
+        elif task == "athene_verify":
+            self.avg_wildchat_reward.update(avg_reward, weight=1)
 
     @torch.inference_mode()
     def update_avg_rollout_length(self, avg_rollout_length):
