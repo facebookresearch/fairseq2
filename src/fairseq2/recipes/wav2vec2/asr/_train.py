@@ -20,8 +20,11 @@ from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrRea
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
 from fairseq2.models.asr import AsrModel
+from fairseq2.models.llama.lora import get_llama_lora_config
 from fairseq2.models.seq2seq import Seq2SeqBatch
+from fairseq2.models.transformer_lm import TransformerLanguageModel
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
+from fairseq2.nn.lora import wrap_lora
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import TRI_STAGE_LR, TriStageLRConfig
@@ -73,6 +76,12 @@ class Wav2Vec2AsrTrainConfig:
 
     pretrained_model: ReferenceModelSection = field(
         default_factory=lambda: ReferenceModelSection(name="wav2vec2_base")
+    )
+    pretrained_model_full: ReferenceModelSection = field(
+        default_factory=lambda: ReferenceModelSection(name="")
+    )
+    pretrained_decoder: ReferenceModelSection = field(
+        default_factory=lambda: ReferenceModelSection(name="")
     )
 
     dataset: Wav2Vec2AsrTrainDatasetSection = field(
@@ -281,6 +290,65 @@ def load_wav2vec2_asr_trainer(
             raise RecipeError(
                 "The collective barrier after the pretrained model load operation has failed. See the nested exception for details."
             ) from ex
+
+    # Load a full model from checkpoint
+    if config.pretrained_model_full.name:
+        assert not config.pretrained_model.name
+
+        pt_model = load_reference_model(
+            type(model.module),
+            context,
+            config.pretrained_model_full,
+            gangs,
+            config.trainer.dtype,
+            mp=config.trainer.mixed_precision != "off",
+        )
+        pt_module = pt_model.module  # type: ignore[assignment]
+        share_parameters(pt_module, module)
+        del pt_model
+
+        # Make sure that the final projection layer is instantiated along with
+        # the pretrained parameters if it was on the meta device.
+        if gangs.dp.rank == 0:
+            to_device(module, gangs.root.device)
+
+        try:
+            gangs.root.barrier()
+        except GangError as ex:
+            raise RecipeError(
+                "The collective barrier after the pretrained model load operation has failed. See the nested exception for details."
+            ) from ex
+
+    # Load a pretrained decoder model from checkpoint
+    if config.pretrained_decoder.name:
+        assert not config.pretrained_model_full.name
+
+        pt_model = load_reference_model(
+            TransformerLanguageModel,
+            context,
+            config.pretrained_decoder,
+            gangs,
+            config.trainer.dtype,
+            mp=config.trainer.mixed_precision != "off",
+        )
+        pt_module = pt_model.module  # type: ignore[assignment]
+        share_parameters(pt_module.decoder, module.llama_decoder)
+        del pt_model
+
+        # Make sure that the final projection layer is instantiated along with
+        # the pretrained parameters if it was on the meta device.
+        if gangs.dp.rank == 0:
+            to_device(module, gangs.root.device)
+
+        try:
+            gangs.root.barrier()
+        except GangError as ex:
+            raise RecipeError(
+                "The collective barrier after the pretrained model load operation has failed. See the nested exception for details."
+            ) from ex
+
+        # LoRA adapters
+        module = wrap_lora(module, get_llama_lora_config())  # type: ignore[assignment]
 
     # We never train the feature extractor.
     freeze_parameters(module.encoder_frontend.feature_extractor)
