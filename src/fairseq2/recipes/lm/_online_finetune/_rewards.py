@@ -180,6 +180,7 @@ class MathVerifyHandler(VLLMOutputRewardHandler):
             answer_key=reward_config.answer_key,
             prompt_key=reward_config.prompt_key,
             gangs=gangs,
+            reward_model=reward_model,
         )
 
     @property
@@ -194,7 +195,7 @@ class MathVerifyHandler(VLLMOutputRewardHandler):
 
 
 class MathVerifyVerifier(VLLMOutputReward):
-    def __init__(self, answer_key, prompt_key, gangs):
+    def __init__(self, answer_key, prompt_key, gangs, reward_model):
         try:
             from math_verify.metric import math_metric
             from math_verify.parser import (
@@ -210,6 +211,8 @@ class MathVerifyVerifier(VLLMOutputReward):
         self._gangs = gangs
         self.answer_key = answer_key
         self.prompt_key = prompt_key
+        self.reward_model = reward_model
+        self.tokenizer = AutoTokenizer.from_pretrained("Nexusflow/Athene-RM-8B")
 
         label_normalizer = NormalizationConfig(
             basic_latex=True,
@@ -227,6 +230,16 @@ class MathVerifyVerifier(VLLMOutputReward):
             aggregation_function=max,
             precision=6,
         )
+
+    def wrap_text(self, prompt_text, rollout_text):
+        wrapped_text = [
+            {"role": "user", "content": prompt_text},
+            {"role": "assistant", "content": rollout_text},
+        ]
+        chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False)
+        chat_str += "<|reserved_special_token_1|>"
+
+        return chat_str
 
     def verify_answer(self, completion: str, answer: str):
         # here we add extra $$ to label so that LatexExtractor works as expected
@@ -250,6 +263,7 @@ class MathVerifyVerifier(VLLMOutputReward):
         batch_text = []
         batch_tokens = []
         batch_rewards = []
+        vllm_inputs = []  # dummy for vllm syncronization # FIXME
 
         reference_answers = prompt_batch.meta_info.get(self.answer_key)
 
@@ -265,9 +279,18 @@ class MathVerifyVerifier(VLLMOutputReward):
                     rollout_output.text, i_reference_answer
                 )
                 rollouts_rewards.append(predicted_reward)
+                vllm_input = self.wrap_text("dummy prompt", "dummy rollout")
+                vllm_inputs.append(vllm_input)
+
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
             batch_rewards.append(rollouts_rewards)
+
+        if self.reward_model is not None:
+            # dummy vllm call for syncronization # FIXME
+            dummy_rewards = generate_rewards(
+                vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.reward_model
+            )
 
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 

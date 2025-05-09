@@ -603,22 +603,19 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         if type(config.reward.name) is list:
             # reward_handler = reward_registry.get("multi_verifier")
+            vllm_reward_model = vllm_actors.get(config.vllm_reward_model_name, None)
             for reward_idx, reward_name in enumerate(config.reward.name):
                 if reward_idx == 0:
-                    vllm_reward_model = vllm_actors.get(
-                        config.vllm_reward_model_name, None
-                    )
                     reward_handler = reward_registry.get(reward_name)
                     reward = reward_handler.create(
                         reward_model=vllm_reward_model,
                         reward_config=config.reward.config,
                         gangs=gangs,
                     )
-
                 elif reward_idx == 1:
                     reward_handler = reward_registry.get(reward_name)
                     reward2 = reward_handler.create(
-                        reward_model=None,
+                        reward_model=vllm_reward_model,
                         reward_config=config.reward.config,
                         gangs=gangs,
                     )
