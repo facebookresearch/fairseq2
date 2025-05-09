@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any, List, Dict
 
 import torch
 from transformers import AutoTokenizer
@@ -70,7 +70,9 @@ class VLLMOutputReward(ABC):
     def process_rollouts(self, vllm_outputs: List[RequestOutput]): ...
 
     @abstractmethod
-    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts): ...
+    def prepare_preference_batch(
+        self, prompt_batch: PromptBatch, rollouts, reward_model_type: str
+    ): ...
 
     @abstractmethod
     def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts): ...
@@ -148,7 +150,7 @@ class GSM8kVerifier(VLLMOutputReward):
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts
+        self, prompt_batch: PromptBatch, rollouts, reward_model_type=None
     ) -> PreferenceBatch:
 
         reward_output = self.process_rollouts(rollouts, prompt_batch)
@@ -302,7 +304,7 @@ class SkyworkVerifier(VLLMOutputReward):
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts
+        self, prompt_batch: PromptBatch, rollouts, reward_model_type=None
     ) -> PreferenceBatch:
 
         reward_output = self.process_rollouts(rollouts, prompt_batch)
@@ -515,7 +517,6 @@ class MathVerifyVerifier(VLLMOutputReward):
         vllm_inputs = []  # dummy for vllm syncronization # FIXME
 
         reference_answers = prompt_batch.meta_info.get(self.answer_key)
-
         for i, i_batch_request_output in enumerate(vllm_outputs):
             rollouts_text = []
             rollouts_tokens = []
@@ -535,22 +536,19 @@ class MathVerifyVerifier(VLLMOutputReward):
             batch_tokens.append(rollouts_tokens)
             batch_rewards.append(rollouts_rewards)
 
+        # dummy vllm call for syncronization # FIXME
+        # if self.vllm_math_reward_model is not None:
+        log.info("MathVerifyVerifir generate_rewards()")
         dummy_rewards = generate_rewards(
-            vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.vllm_math_reward_model
+            vllm_inputs,
+            dp_gang=self._gangs.dp,
+            vllm_model=self.vllm_math_reward_model,
         )
-        # if self.reward_model is not None:
-        #     log.info("MathVerifyVerifier generate_rewards()")
-        #     # dummy vllm call for syncronization # FIXME
-        #     dummy_rewards = generate_rewards(
-        #         vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.reward_model
-        #     )
-        # else:
-        #     log.info("MathVerifyVerifier no self.reward_model found")
 
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts
+        self, prompt_batch: PromptBatch, rollouts, reward_model_type=None
     ) -> PreferenceBatch:
 
         log.info("MathVerifyVerifier prepare_preference_batch()")
@@ -670,7 +668,7 @@ class AtheneVerifier(VLLMOutputReward):
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts
+        self, prompt_batch: PromptBatch, rollouts, reward_model_type=None
     ) -> PreferenceBatch:
 
         log.info("AtheneVerifier prepare_preference_batch()")
@@ -790,12 +788,8 @@ class AtheneVerifier(VLLMOutputReward):
 
 class MultiVerifier(ABC):
 
-    def __init__(self, rewards_map):
+    def __init__(self, rewards_map: Dict[VLLMOutputReward]):
         self.rewards_map = rewards_map
-        # for reward_model_type, reward in rewards_map.items():
-        #     log.info(
-        #         f"reward_model_type: {reward_model_type}, reward: {reward}, reward.reward_model: {reward.vllm_reward_model}"
-        #     )
 
     def process_rollouts(self, vllm_outputs: List[RequestOutput], reward_model_type):
         reward = self.rewards_map[reward_model_type]

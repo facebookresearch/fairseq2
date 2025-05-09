@@ -100,7 +100,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         reference_offload: bool,
         vllm_model: RemoteVllmModel,
         vllm_actors: List[RemoteVllmModel],
-        reward_mapper,
+        reward,
         gangs: Gangs,
         loss_config: DpoLossConfig,
         sync_vllm_model_every_n_steps: int = 1,
@@ -116,7 +116,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._gangs = gangs
         self._sync_vllm_model_every_n_steps = sync_vllm_model_every_n_steps
         self._sync_ref_model_every_n_steps = sync_ref_model_every_n_step
-        self._reward = reward_mapper
+        self._reward = reward
+        # self._reward = reward
         self._metric_bag = OnlineDpoFinetuneMetricBag(gangs.dp)
 
         self._display_name = "online_dpo"
@@ -226,11 +227,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             log_rollouts(prompt_batch, rollouts, "Train")
 
         batch: PreferenceBatch
-        # check if all promtps in batch have reward tag
         # Class MultiReward (superclass of current reward)
-        # subrewards
-        # AtheneReward
-        # MathReward
+        # subrewards AtheneReward, MathReward
         # this super class should be working as is for 2 validation sets, since validation sets will also have task type in the jsonl, so hypothetically correct reward will also be used for logging
         # if self._gangs.root.rank == 0:
         #     breakpoint()
@@ -244,16 +242,9 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             reward_model_type = prompt_batch.meta_info["reward_model"][0]
 
         log.info(f"Reward model type: {reward_model_type}")
-        if type(self._reward) is dict:
-            batch, is_bad_batch, reward_output = self._reward[
-                reward_model_type
-            ].prepare_preference_batch(
-                prompt_batch, rollouts
-            )  # loss_zeroer is used when entire batch has no valid prefrence pair
-        else:
-            batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
-                prompt_batch, rollouts
-            )  # loss_zeroer is used when entire batch has no valid prefrence pair
+        batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
+            prompt_batch, rollouts, reward_model_type
+        )  # loss_zeroer is used when entire batch has no valid prefrence pair
 
         if is_bad_batch:
             loss_zeroer = 0.0
@@ -601,7 +592,7 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
                     gangs=gangs,
                 )
                 reward[reward_name] = reward_model
-            # reward = MultiVerifier(reward)
+            reward = MultiVerifier(reward)
         else:
             reward_handler = reward_registry.get(reward_name)
             reward = reward_handler.create(
