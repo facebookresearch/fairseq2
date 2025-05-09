@@ -340,6 +340,7 @@ def generate_rewards(
     vllm_model,
     sampling_params=None,
 ):
+    log.info(f"generate_rewards() prompts: {prompts}")
     prompts_to_generate = [None] * dp_gang.size
     if dp_gang.rank == 0:
         dp_gang.gather_object(prompts, prompts_to_generate, 0)

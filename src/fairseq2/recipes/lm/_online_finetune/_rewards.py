@@ -34,6 +34,7 @@ from fairseq2.recipes.lm._online_finetune._math_utils import (
 )
 from fairseq2.recipes.model import Model
 from fairseq2.recipes.trainer import TrainUnit
+from fairseq2.logging import log
 
 
 @dataclass(kw_only=True)
@@ -45,7 +46,7 @@ class RewardModelConfig:
 
 @dataclass(kw_only=True)
 class RewardSection:
-    name: str = "dummy"
+    name: str | List[str] = "dummy"
     config: RewardModelConfig = field(default_factory=lambda: RewardModelConfig())
 
 
@@ -751,3 +752,15 @@ class AtheneVerifier(VLLMOutputReward):
         )
 
         return grpo_batch, reward_output
+
+
+class MultiVerifier(VLLMOutputReward):
+    """ """
+
+    def __init__(self, gangs): ...
+
+    def prepare_preference_batch(
+        self, prompt_batch: PromptBatch, rollouts
+    ) -> PreferenceBatch: ...
+
+    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts): ...

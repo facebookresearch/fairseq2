@@ -100,6 +100,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         vllm_model: RemoteVllmModel,
         vllm_actors: List[RemoteVllmModel],
         reward,
+        reward2,
         gangs: Gangs,
         loss_config: DpoLossConfig,
         sync_vllm_model_every_n_steps: int = 1,
@@ -116,6 +117,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._sync_vllm_model_every_n_steps = sync_vllm_model_every_n_steps
         self._sync_ref_model_every_n_steps = sync_ref_model_every_n_step
         self._reward = reward
+        self._reward2 = reward2
         self._metric_bag = OnlineDpoFinetuneMetricBag(gangs.dp)
 
         self._display_name = "online_dpo"
@@ -225,9 +227,36 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             log_rollouts(prompt_batch, rollouts, "Train")
 
         batch: PreferenceBatch
-        batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
-            prompt_batch, rollouts
-        )  # loss_zeroer is used when entire batch has no valid prefrence pair
+        # check if all promtps in batch have reward tag
+        # Class MultiReward (superclass of current reward)
+        # subrewards
+        # AtheneReward
+        # MathReward
+        # this super class should be working as is for 2 validation sets, since validation sets will also have task type in the jsonl, so hypothetically correct reward will also be used for logging
+        # if self._gangs.root.rank == 0:
+        #     breakpoint()
+        # self._gangs.root.barrier()
+
+        reward_model_type = "default"
+        if "reward_model" in prompt_batch.meta_info:
+            assert (
+                len(set(prompt_batch.meta_info["reward_model"])) == 1
+            ), "Not all batch prompts have the same 'reward_model' value."
+
+            reward_model_type = prompt_batch.meta_info["reward_model"][0]
+
+        log.info(f"Reward model type: {reward_model_type}")
+        if reward_model_type in ["athene_verifier", "default"]:
+            batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
+                prompt_batch, rollouts
+            )  # loss_zeroer is used when entire batch has no valid prefrence pair
+        else:
+            batch, is_bad_batch, reward_output = self._reward2.prepare_preference_batch(
+                prompt_batch, rollouts
+            )  # loss_zeroer is used when entire batch has no valid prefrence pair
+
+        log.info(f"FLAG1")
+
         if is_bad_batch:
             loss_zeroer = 0.0
         else:
@@ -251,6 +280,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             SequenceModelOutput, self._model.module(rejected_input_batch)
         )
 
+        log.info(f"FLAG2")
+
         # if self._gangs.root.rank == 0:
         #     from pudb.remote import set_trace
         #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
@@ -271,6 +302,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             -tgt_logit_entropy.sum() * self._loss_config.entropy_regularizer_scale
         )
         self.metric_bag.update_logit_entropy(tgt_logit_entropy)
+
+        log.info(f"FLAG3")
 
         if self._reference_offload:
             token_ref_chosen_logps = self.compute_reference_logps(batch.chosen)
@@ -309,9 +342,11 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 chosen_logps, ref_chosen_logps, rejected_logps, ref_rejected_logps
             )
 
+        log.info(f"FLAG4")
         nll_loss = chosen_output.compute_loss(
             chosen_target_batch.seqs, loss_mask=chosen_target_batch.target_mask
         )
+        log.info(f"FLAG5")
 
         self._metric_bag.update_dpo_loss(batch, dpo_loss)
 
@@ -344,6 +379,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         #     set_trace(host="submit-0", port=6899, term_size=(80*4, 24*4), reverse=True)
 
         # self._gangs.root.barrier()
+
+        log.info(f"FLAG6")
 
         return loss, prompt_batch.batch_size
 
@@ -562,15 +599,29 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         gangs.root.barrier()
 
         vllm_model = vllm_actors[config.ray_policy_actor_name]
-
-        vllm_reward_model = vllm_actors.get(config.vllm_reward_model_name, None)
+        reward2 = None
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
-        reward_handler = reward_registry.get(config.reward.name)
-        reward = reward_handler.create(
-            reward_model=vllm_reward_model,
-            reward_config=config.reward.config,
-            gangs=gangs,
-        )
+        if type(config.reward.name) is list:
+            # reward_handler = reward_registry.get("multi_verifier")
+            for reward_idx, reward_name in enumerate(config.reward.name):
+                if reward_idx == 0:
+                    vllm_reward_model = vllm_actors.get(
+                        config.vllm_reward_model_name, None
+                    )
+                    reward_handler = reward_registry.get(reward_name)
+                    reward = reward_handler.create(
+                        reward_model=vllm_reward_model,
+                        reward_config=config.reward.config,
+                        gangs=gangs,
+                    )
+
+                elif reward_idx == 1:
+                    reward_handler = reward_registry.get(reward_name)
+                    reward2 = reward_handler.create(
+                        reward_model=None,
+                        reward_config=config.reward.config,
+                        gangs=gangs,
+                    )
 
         return OnlineDpoFinetuneUnit(
             model,
@@ -579,6 +630,7 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             vllm_model,
             vllm_actors,
             reward,
+            reward2,
             gangs,
             config.loss_config,
             config.sync_vllm_model_every_n_steps,
