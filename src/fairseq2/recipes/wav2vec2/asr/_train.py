@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import socket
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast, final, List, Literal
@@ -128,6 +130,7 @@ class Wav2Vec2AsrTrainConfig:
             validate_after_n_steps=10_000,
             validate_every_n_steps=1_000,
             publish_metrics_every_n_steps=200,
+            keep_last_n_checkpoints=1,
         )
     )
 
@@ -272,7 +275,12 @@ def load_wav2vec2_asr_trainer(
 
     # If we start the training with an empty ASR model, use the weights of a
     # pretrained wav2vec 2.0 model.
-    if model.is_empty_initialized:
+    machine_name = socket.gethostname()
+    if (
+        model.is_empty_initialized
+        and config.pretrained_model.name
+        and not machine_name.startswith("devvm")
+    ):
         pt_model = load_reference_model(
             Wav2Vec2Model,
             context,
@@ -422,16 +430,16 @@ def load_wav2vec2_asr_trainer(
         extras=config.dataset.extras,
     )
 
-    dataset: AsrDataset | BatchMixtureDataset
-    if config.dataset.family == MIXTURE_DATASET_FAMILY:
-        log.info(
-            f"Loading dataset {config.dataset.name} with family={config.dataset.family}"
-        )
-        dataset = BatchMixtureDataset.from_configs(
-            AsrDataset, context, config.dataset, gangs
-        )
-    else:
-        dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
+    # dataset: AsrDataset | BatchMixtureDataset
+    # if config.dataset.family == MIXTURE_DATASET_FAMILY:
+    #     log.info(
+    #         f"Loading dataset {config.dataset.name} with family={config.dataset.family}"
+    #     )
+    #     dataset = BatchMixtureDataset.from_configs(
+    #         AsrDataset, context, config.dataset, gangs
+    #     )
+    # else:
+    #     dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
 
     data_reader = dataset.create_reader(
         config.dataset.train_split,
