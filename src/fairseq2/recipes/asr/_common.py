@@ -47,6 +47,15 @@ class AsrCriterion:
                 batch.source_seqs, batch.source_padding_mask
             )
         else:
+            # Convert a SequenceBatch to a Seq2SeqBatch
+            if isinstance(batch, SequenceBatch):
+                batch = Seq2SeqBatch(
+                    source_seqs=batch.seqs,
+                    source_padding_mask=batch.padding_mask,
+                    target_seqs=None,
+                    target_padding_mask=None,
+                    example=batch.example,
+                )
             input_batch = batch
 
         output = self._forward(input_batch)
