@@ -8,26 +8,25 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+
+from functools import partial
 from pathlib import Path
-from typing import Any, Final, cast
+from typing import Any, cast, Final, List
 
 import torch
-from torch import Tensor
-from torch.nn.functional import layer_norm
-from typing_extensions import override
 
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
+    create_bucket_sizes,
     DataPipeline,
     DataPipelineBuilder,
     FileMapper,
-    SequenceData,
-    create_bucket_sizes,
     read_sequence,
+    SequenceData,
 )
 from fairseq2.data.audio import AudioDecoder
-from fairseq2.data.text import StrSplitter, read_text
+from fairseq2.data.text import read_text, StrSplitter
 from fairseq2.data.text.tokenizers import TextTokenizer
 from fairseq2.datasets import (
     DataPipelineReader,
@@ -40,11 +39,15 @@ from fairseq2.datasets import (
     StaticBatching,
     UnknownSplitError,
 )
+from fairseq2.datasets.speech import SpeechDataset, SpeechReadOptions
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import DataType
+from torch import Tensor
+from torch.nn.functional import layer_norm
+from typing_extensions import override
 
 
 @dataclass(kw_only=True)
@@ -134,8 +137,11 @@ class GenericAsrDataset(AsrDataset):
 
         return GenericAsrDataset(name, path, splits)
 
+    def collate_additional_fields(self) -> List[str]:
+        return []
+
     @override
-    def create_reader(
+    def create_pipeline(
         self,
         split: str,
         tokenizer: TextTokenizer,
@@ -247,8 +253,10 @@ class GenericAsrDataset(AsrDataset):
         builder.map(text_encoder, selector="[*].text", num_parallel_calls=npc)
 
         # Collate bucketed examples into a batch.
+        collate_fields = ["text"] + self.collate_additional_fields()
+        collate_fields = ", ".join(collate_fields)
         text_collate_opts = CollateOptionsOverride(
-            "text", pad_value=tokenizer.vocab_info.pad_idx
+            collate_fields, pad_value=tokenizer.vocab_info.pad_idx
         )
 
         collater = Collater(pad_value=0, overrides=[text_collate_opts])
@@ -278,10 +286,24 @@ class GenericAsrDataset(AsrDataset):
                 example,
             )
 
-        pipeline = builder.map(to_batch).and_return()
+        pipeline = builder.map(to_batch)
+        return pipeline
 
+    @override
+    def create_reader(
+        self,
+        split: str,
+        tokenizer: TextTokenizer,
+        gang: Gang,
+        min_audio_len: int,
+        max_audio_len: int,
+        options: AsrReadOptions | None = None,
+    ) -> DataPipelineReader[Seq2SeqBatch]:
+        pipeline = self.create_pipeline(
+            split, tokenizer, gang, min_audio_len, max_audio_len, options
+        )
         return DataPipelineReader[Seq2SeqBatch](
-            self._name, split, pipeline, gang, options
+            self._name, split, pipeline.and_return(), gang, options
         )
 
     def _retrieve_data_directory(self, split: str) -> Path:
@@ -337,6 +359,84 @@ class GenericAsrDataset(AsrDataset):
     @override
     def splits(self) -> set[str]:
         return self._splits
+
+
+from fairseq2.datasets.speech import SpeechDataset
+
+
+class MixingAsrDataset:
+    """Represents a mixture of labeled and unlabeled datasets."""
+
+    def __init__(
+        self,
+        datasets: List[AsrDataset | SpeechDataset],
+        sampling_weights: List[float],
+    ) -> None:
+        """
+        :param datasets:
+            A list of AsrDatset objects.
+        """
+        self._datasets = datasets
+        self._sampling_weights = sampling_weights
+        assert len(datasets) == len(sampling_weights)
+
+    def create_reader(
+        self,
+        split: str,
+        tokenizer: TextTokenizer,
+        gang: Gang,
+        min_audio_len: int,
+        max_audio_len: int,
+        options: AsrReadOptions | None = None,
+    ) -> DataPipelineReader[Seq2SeqBatch]:
+
+        def add_name(name, batch):
+            batch.example = {"ds_name": name}
+            return batch
+
+        pipelines = []
+        # assert not options.normalize_audio
+        speech_options = SpeechReadOptions(
+            batching=options.batching,
+            dtype=options.dtype,
+            normalize_audio=options.normalize_audio,
+            batch_shuffle_window=options.batch_shuffle_window,
+            num_accumulate=options.num_accumulate,
+            num_prefetch=options.num_prefetch,
+            example_shuffle_window=options.example_shuffle_window,
+            use_fbank=False,
+            no_padding=True,
+            npc=10,
+            seed=options.seed,
+            extras=options.extras,
+        )
+        for ds in self._datasets:
+            if isinstance(ds, AsrDataset):
+                pipeline = ds.create_pipeline(
+                    split, tokenizer, gang, min_audio_len, max_audio_len, options
+                )
+            elif isinstance(ds, SpeechDataset):
+                pipeline = ds.create_pipeline(
+                    split, gang, min_audio_len, max_audio_len, speech_options
+                )
+
+            # Add name
+            # pipeline.map(partial(add_name, ds._name))
+
+            # Repeat
+            pipeline = pipeline.repeat().and_return()
+            pipelines.append(pipeline)
+
+        # Mix. Use a different seed in each rank, to make sure batches contain a
+        # variety of data sources.
+        mixing_pipeline = DataPipeline.sample(
+            pipelines, weights=self._sampling_weights, seed=options.seed + gang.rank
+        ).and_return()
+
+        # Return reader
+        return DataPipelineReader[Seq2SeqBatch](
+            "mixing_asr_dataset", split, mixing_pipeline, gang, options
+        )
 
 
 get_asr_dataset_hub = DatasetHubAccessor(AsrDataset)
