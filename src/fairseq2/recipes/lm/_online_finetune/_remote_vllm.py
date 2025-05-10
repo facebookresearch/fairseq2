@@ -28,6 +28,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     NoEnvLLM,
     stateless_init_process_group,
 )
+import time
 
 
 class RemoteModelHandler(ABC):
@@ -232,6 +233,7 @@ class RemoteVllmModel:
                     use_tqdm=False,
                 )
             )
+            time.sleep(1)  # don't overload communication
             chunk_rewards = [o.outputs.data.item() for o in output]
             rewards.extend(chunk_rewards)
         return rewards
