@@ -486,7 +486,7 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         # FIXME don't hardcode tasks
         if task == "math_verify":
             self.avg_math_reward.update(avg_reward, weight=1)
-        elif task == "athene_verify":
+        elif task == "athene_verifier":
             self.avg_wildchat_reward.update(avg_reward, weight=1)
 
     @torch.inference_mode()
