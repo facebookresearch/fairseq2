@@ -225,15 +225,16 @@ class RemoteVllmModel:
     def reward_from_model(self, prompt_list, batch_size=64):
         # NOTE: need to batch inputs to vllm.encode model for current models that aren't supported by vllm
         rewards = []
+        outputs = []
         for i in range(0, len(prompt_list), batch_size):
             prompt_chunk = prompt_list[i : i + batch_size]
-            output = ray.get(
+            outputs.append(
                 self.vllm_model.encode.remote(
                     prompt_chunk,
                     use_tqdm=False,
                 )
             )
-            time.sleep(1)  # don't overload communication
-            chunk_rewards = [o.outputs.data.item() for o in output]
-            rewards.extend(chunk_rewards)
+        ray_outputs = ray.get(outputs)
+        ray_outputs_flat = [o for sublist in ray_outputs for o in sublist]
+        rewards = [o.outputs.data.item() for o in ray_outputs_flat]
         return rewards
