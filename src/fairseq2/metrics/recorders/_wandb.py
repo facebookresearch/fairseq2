@@ -13,7 +13,6 @@ from typing import Final, final
 
 from fairseq2.logging import log
 from fairseq2.metrics import MetricDescriptor
-
 from fairseq2.metrics.recorders._handler import MetricRecorderHandler
 from fairseq2.metrics.recorders._recorder import (
     MetricRecorder,
@@ -22,7 +21,7 @@ from fairseq2.metrics.recorders._recorder import (
 )
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import structure
-from fairseq2.utils.validation import validate, ValidationError, ValidationResult
+from fairseq2.utils.validation import ValidationError, ValidationResult, validate
 
 # isort: split
 

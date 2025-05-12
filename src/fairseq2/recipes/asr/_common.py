@@ -7,9 +7,11 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, final, TextIO
+from typing import Any, Dict, TextIO, final
 
 import torch
+from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
 from fairseq2.gang import Gang
@@ -20,8 +22,6 @@ from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.recipes import BaseMetricBag, Model, UnitError
-from torch import Tensor
-from typing_extensions import override
 
 
 @final
