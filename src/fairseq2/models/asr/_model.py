@@ -24,8 +24,7 @@ class AsrModel(Module, ABC):
     """Represents an Automatic Speech Recognition model."""
 
     @abstractmethod
-    def forward(self, batch: SequenceBatch | Seq2SeqBatch) -> AsrModelOutput:
-        ...
+    def forward(self, batch: SequenceBatch | Seq2SeqBatch) -> AsrModelOutput: ...
 
 
 @dataclass

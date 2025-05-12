@@ -13,9 +13,7 @@ from typing import Dict, Final, List, Tuple
 from fairseq2.context import RuntimeContext
 from fairseq2.data import DataPipeline
 from fairseq2.data.text.tokenizers import TextTokenizer
-from fairseq2.datasets import (
-    DataPipelineReader,
-)
+from fairseq2.datasets import DataPipelineReader
 from fairseq2.datasets.asr import AsrDataset, AsrReadOptions
 from fairseq2.gang import Gang, Gangs
 from fairseq2.models.seq2seq import Seq2SeqBatch
