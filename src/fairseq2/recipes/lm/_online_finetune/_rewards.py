@@ -212,7 +212,6 @@ class MathVerifyVerifier(VLLMOutputReward):
         self.answer_key = answer_key
         self.prompt_key = prompt_key
         self.vllm_math_reward_model = vllm_math_reward_model
-        self.tokenizer = AutoTokenizer.from_pretrained("Nexusflow/Athene-RM-8B")
 
         label_normalizer = NormalizationConfig(
             basic_latex=True,
@@ -230,16 +229,6 @@ class MathVerifyVerifier(VLLMOutputReward):
             aggregation_function=max,
             precision=6,
         )
-
-    def wrap_text(self, prompt_text, rollout_text):
-        wrapped_text = [
-            {"role": "user", "content": prompt_text},
-            {"role": "assistant", "content": rollout_text},
-        ]
-        chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False)
-        chat_str += "<|reserved_special_token_1|>"
-
-        return chat_str
 
     def verify_answer(self, completion: str, answer: str):
         # here we add extra $$ to label so that LatexExtractor works as expected
@@ -265,6 +254,7 @@ class MathVerifyVerifier(VLLMOutputReward):
         batch_tokens = []
         batch_rewards = []
         vllm_inputs = []  # dummy for vllm syncronization # FIXME
+        vllm_input = "<|start_header_id|>user<|end_header_id|>\n\ndummy input<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\ndummy output<|eot_id|><|reserved_special_token_1|>"
 
         reference_answers = prompt_batch.meta_info.get(self.answer_key)
         for i, i_batch_request_output in enumerate(vllm_outputs):
@@ -279,7 +269,6 @@ class MathVerifyVerifier(VLLMOutputReward):
                     rollout_output.text, i_reference_answer
                 )
                 rollouts_rewards.append(predicted_reward)
-                vllm_input = self.wrap_text("dummy prompt", "dummy rollout")
                 vllm_inputs.append(vllm_input)
 
             batch_text.append(rollouts_text)
