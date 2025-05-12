@@ -253,7 +253,7 @@ class MathVerifyVerifier(VLLMOutputReward):
         batch_tokens = []
         batch_rewards = []
         vllm_inputs = []  # dummy for vllm syncronization # FIXME
-        vllm_input = "<|start_header_id|>user<|end_header_id|>\n\ndummy input<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\ndummy output<|eot_id|><|reserved_special_token_1|>"
+        vllm_input = "<|start_header_id|>user<|end_header_id|>\n\ndummy prompt<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\ndummy response<|eot_id|><|reserved_special_token_1|>"
 
         reference_answers = prompt_batch.meta_info.get(self.answer_key)
         for i, i_batch_request_output in enumerate(vllm_outputs):
@@ -653,7 +653,7 @@ class AtheneVerifier(VLLMOutputReward):
     def prepare_preference_batch(
         self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
-        
+
         log.info("AtheneVerifier prepare_preference_batch()")
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
@@ -784,12 +784,19 @@ class MultiVerifier(VLLMOutputReward):
         """
         Get the reward model type from the prompt batch meta info.
         """
-        assert (
-            len(set(prompt_batch.meta_info["reward_model"])) == 1
-        ), "Not all batch prompts have the same 'reward_model' value."
-        reward_model_type = prompt_batch.meta_info["reward_model"][0]
+        reward_model_type = prompt_batch.meta_info.get("reward_model", [None])[0]
         if reward_model_type is None:
             raise ValueError("Reward model type not found in meta_info.")
+
+        # assert (
+        #     len(set(prompt_batch.meta_info.get("reward_model", 0))) == 1
+        # ), "Not all batch prompts have the same 'reward_model' value."
+        if len(set(prompt_batch.meta_info["reward_model"])) != 1:
+            # FIXME temp solution if the whole batch is not the same reward_model type
+            log.warning(
+                "Not all batch prompts have the same 'reward_model' value. Using athene_verifier."
+            )
+            reward_model_type = "athene_verifier"
 
         log.info(f"Reward model type: {reward_model_type}")
         return reward_model_type
