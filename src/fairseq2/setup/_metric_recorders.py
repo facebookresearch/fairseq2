@@ -43,6 +43,6 @@ def register_metric_recorders(context: RuntimeContext) -> None:
     registry.register(handler.name, handler)
 
     # Weights & Biases
-    handler = WandbRecorderHandler(metric_descriptors)
+    handler = WandbRecorderHandler(file_system, metric_descriptors)
 
     registry.register(handler.name, handler)

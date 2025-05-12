@@ -38,7 +38,6 @@ from fairseq2.metrics.recorders._recorder import MetricRecordError as MetricReco
 from fairseq2.metrics.recorders._recorder import (
     NoopMetricRecorder as NoopMetricRecorder,
 )
-from fairseq2.metrics.recorders._recorder import record_metrics as record_metrics
 from fairseq2.metrics.recorders._tensorboard import (
     TENSORBOARD_RECORDER as TENSORBOARD_RECORDER,
 )

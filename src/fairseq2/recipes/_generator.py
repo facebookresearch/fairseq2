@@ -284,7 +284,7 @@ class Generator(Recipe, Generic[BatchT]):
             values["wall_time"] = self._wall_watch.get_elapsed_time()
 
             try:
-                self._metric_recorder.record_metrics("generation", values)
+                self._metric_recorder.record_metric_values("generation", values)
             except MetricRecordError as ex:
                 raise RecipeError(
                     "The generation metric values cannot recorded. See the nested exception for details."

@@ -61,13 +61,8 @@ class JsonlMetricRecorder(MetricRecorder):
         self._streams = {}
 
     @override
-    def record_metrics(
-        self,
-        section: str,
-        values: Mapping[str, object],
-        step_nr: int | None = None,
-        *,
-        flush: bool = True,
+    def record_metric_values(
+        self, section: str, values: Mapping[str, object], step_nr: int | None = None
     ) -> None:
         section = section.strip()
 
@@ -123,8 +118,7 @@ class JsonlMetricRecorder(MetricRecorder):
 
             stream.write("\n")
 
-            if flush:
-                stream.flush()
+            stream.flush()
         except OSError as ex:
             raise MetricRecordError(
                 f"The metric values of the '{section}' cannot be saved to the JSON file. See the nested exception for details."

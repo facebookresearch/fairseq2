@@ -352,7 +352,7 @@ class Evaluator(Recipe, Generic[BatchT]):
                 section = f"{section}/{unit.name}"
 
             try:
-                self._metric_recorder.record_metrics(section, values)
+                self._metric_recorder.record_metric_values(section, values)
             except MetricRecordError as ex:
                 s = "evaluation"
 
