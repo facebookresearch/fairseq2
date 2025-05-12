@@ -337,7 +337,7 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         if self._loss_config.grpo_coeff > 0.0:
             # GRPO loss
-            grpo_loss = self._compute_grpo_objective(logps, ref_logps, reward_tensor, target_batch)
+            grpo_loss = -self._compute_grpo_objective(logps, ref_logps, reward_tensor, target_batch)
             self._metric_bag.update_grpo_loss(batch, grpo_loss)
             loss = loss + grpo_loss * self._loss_config.grpo_coeff
 
