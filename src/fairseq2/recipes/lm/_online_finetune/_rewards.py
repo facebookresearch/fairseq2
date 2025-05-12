@@ -150,7 +150,6 @@ class GSM8kVerifier(VLLMOutputReward):
     def prepare_preference_batch(
         self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
-
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         batch, is_bad_batch = prepare_preference_batch_random_pair(
@@ -288,6 +287,7 @@ class MathVerifyVerifier(VLLMOutputReward):
     def prepare_preference_batch(
         self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
+        log.info("MathVerifyVerifier prepare_preference_batch()")
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         batch, is_bad_batch = prepare_preference_batch_random_pair(
@@ -653,7 +653,8 @@ class AtheneVerifier(VLLMOutputReward):
     def prepare_preference_batch(
         self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
-
+        
+        log.info("AtheneVerifier prepare_preference_batch()")
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         chosen_batch = []
@@ -798,7 +799,6 @@ class MultiVerifier(VLLMOutputReward):
         self, vllm_outputs: List[RequestOutput], prompt_batch: PromptBatch
     ):
         reward_model_type = self.get_reward_model_type(prompt_batch)
-        # reward_model_type = "athene_verifier"  # FIXME should have both, but need to send each to its own loggers
         reward = self.rewards_map[reward_model_type]
         return reward.process_rollouts(vllm_outputs, prompt_batch)
 
