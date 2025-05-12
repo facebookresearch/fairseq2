@@ -15,8 +15,10 @@ from fairseq2.metrics.recorders import (
     CompositeMetricRecorder,
     MetricRecorder,
     MetricRecorderHandler,
+    MetricRecordError,
     UnknownMetricRecorderError,
 )
+from fairseq2.recipes import RecipeError
 from fairseq2.recipes.config import CommonSection
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import StructureError
@@ -68,6 +70,10 @@ class MetricRecorderCreator:
             except StructureError as ex:
                 raise StructureError(
                     f"`common.metric_recorders.{recorder_name}.config` cannot be structured. See the nested exception for details."
+                ) from ex
+            except MetricRecordError as ex:
+                raise RecipeError(
+                    f"The '{recorder_name}' metric recorder cannot be initialized. See the nested exception for details."
                 ) from ex
 
             recorders.append(recorder)

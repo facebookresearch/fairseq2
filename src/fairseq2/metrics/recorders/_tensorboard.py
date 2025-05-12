@@ -60,13 +60,8 @@ class TensorBoardRecorder(MetricRecorder):
         self._writers = {}
 
     @override
-    def record_metrics(
-        self,
-        section: str,
-        values: Mapping[str, object],
-        step_nr: int | None = None,
-        *,
-        flush: bool = True,
+    def record_metric_values(
+        self, section: str, values: Mapping[str, object], step_nr: int | None = None
     ) -> None:
         writer = self._get_writer(section)
         if writer is None:
@@ -86,8 +81,7 @@ class TensorBoardRecorder(MetricRecorder):
 
                 writer.add_scalar(display_name, value, step_nr)
 
-            if flush:
-                writer.flush()
+            writer.flush()
         except RuntimeError as ex:
             raise MetricRecordError(
                 f"The metric values of the '{section}' section cannot be saved to TensorBoard. See the nested exception for details."

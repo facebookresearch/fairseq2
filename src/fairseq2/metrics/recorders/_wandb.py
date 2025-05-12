@@ -20,6 +20,7 @@ except ImportError:
 else:
     _has_wandb = True
 
+from fairseq2.file_system import FileMode, FileSystem
 from fairseq2.logging import log
 from fairseq2.metrics import MetricDescriptor
 from fairseq2.registry import Provider
@@ -34,8 +35,6 @@ from fairseq2.metrics.recorders._recorder import (
     MetricRecordError,
     NoopMetricRecorder,
 )
-
-WandbResume: TypeAlias = Literal["allow", "never", "auto"]
 
 
 @final
@@ -57,13 +56,8 @@ class WandbRecorder(MetricRecorder):
         self._metric_descriptors = metric_descriptors
 
     @override
-    def record_metrics(
-        self,
-        section: str,
-        values: Mapping[str, object],
-        step_nr: int | None = None,
-        *,
-        flush: bool = True,
+    def record_metric_values(
+        self, section: str, values: Mapping[str, object], step_nr: int | None = None
     ) -> None:
         for name, value in values.items():
             try:
@@ -91,13 +85,18 @@ class WandbRecorder(MetricRecorder):
 WANDB_RECORDER: Final = "wandb"
 
 
+WandbResumeMode: TypeAlias = Literal["allow", "never", "must", "auto"]
+
+
 @dataclass(kw_only=True)
 class WandbRecorderConfig:
     enabled: bool = False
 
+    entity: str | None = None
+
     project: str | None = None
 
-    run_id: str | None = None
+    run_id: str | None = "auto"
 
     run_name: str | None = None
 
@@ -105,14 +104,18 @@ class WandbRecorderConfig:
 
     job_type: str | None = None
 
-    resume: WandbResume = "allow"
+    resume_mode: WandbResumeMode = "allow"
 
 
 @final
 class WandbRecorderHandler(MetricRecorderHandler):
+    _file_system: FileSystem
     _metric_descriptors: Provider[MetricDescriptor]
 
-    def __init__(self, metric_descriptors: Provider[MetricDescriptor]) -> None:
+    def __init__(
+        self, file_system: FileSystem, metric_descriptors: Provider[MetricDescriptor]
+    ) -> None:
+        self._file_system = file_system
         self._metric_descriptors = metric_descriptors
 
     @override
@@ -131,28 +134,32 @@ class WandbRecorderHandler(MetricRecorderHandler):
 
             return NoopMetricRecorder()
 
-        try:
-            hyper_params = unstructure(hyper_params)
-        except StructureError as ex:
-            raise ValueError(
-                "`hyper_params` cannot be unstructured. See the nested exception for details."
-            ) from ex
+        if hyper_params is not None:
+            try:
+                hyper_params = unstructure(hyper_params)
+            except StructureError as ex:
+                raise ValueError(
+                    "`hyper_params` cannot be unstructured. See the nested exception for details."
+                ) from ex
 
-        if not isinstance(hyper_params, dict):
-            raise TypeError(
-                f"The unstructured form of `hyper_params` must be of type `dict`, but is of type `{type(hyper_params)}` instead."
-            )
+            if not isinstance(hyper_params, dict):
+                raise TypeError(
+                    f"The unstructured form of `hyper_params` must be of type `dict`, but is of type `{type(hyper_params)}` instead."
+                )
+
+        run_id = self._get_run_id(output_dir, config)
 
         try:
             run = wandb.init(
+                entity=config.entity,
                 project=config.project,
                 dir=output_dir,
-                id=config.run_id,
+                id=run_id,
                 name=config.run_name,
                 config=hyper_params,
                 group=config.group,
                 job_type=config.job_type,
-                resume=config.resume,
+                resume=config.resume_mode,
             )
         except (RuntimeError, ValueError) as ex:
             raise MetricRecordError(
@@ -160,6 +167,43 @@ class WandbRecorderHandler(MetricRecorderHandler):
             ) from ex
 
         return WandbRecorder(run, self._metric_descriptors)
+
+    def _get_run_id(self, output_dir: Path, config: WandbRecorderConfig) -> str:
+        run_id = config.run_id
+
+        if run_id is None:
+            return wandb.util.generate_id()
+
+        if run_id != "auto":
+            return run_id
+
+        wandb_file = output_dir.joinpath("wandb_run_id")
+
+        try:
+            fp = self._file_system.open_text(wandb_file)
+
+            with fp:
+                return fp.read()
+        except FileNotFoundError:
+            pass
+        except OSError as ex:
+            raise MetricRecordError(
+                "The Weights & Biases run ID cannot be loaded. See the nested exception for details."
+            ) from ex
+
+        run_id = wandb.util.generate_id()
+
+        try:
+            fp = self._file_system.open_text(wandb_file, mode=FileMode.WRITE)
+
+            with fp:
+                fp.write(run_id)
+        except OSError as ex:
+            raise MetricRecordError(
+                "The Weights & Biases run ID cannot be saved. See the nested exception for details."
+            ) from ex
+
+        return run_id
 
     @property
     @override

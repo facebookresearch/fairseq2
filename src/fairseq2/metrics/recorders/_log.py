@@ -42,13 +42,8 @@ class LogMetricRecorder(MetricRecorder):
         self._display_names = {"valid": "Validation", "eval": "Evaluation"}
 
     @override
-    def record_metrics(
-        self,
-        section: str,
-        values: Mapping[str, object],
-        step_nr: int | None = None,
-        *,
-        flush: bool = True,
+    def record_metric_values(
+        self, section: str, values: Mapping[str, object], step_nr: int | None = None
     ) -> None:
         if not self._log.is_enabled_for_info():
             return

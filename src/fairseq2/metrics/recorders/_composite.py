@@ -21,16 +21,11 @@ class CompositeMetricRecorder(MetricRecorder):
         self._inner_recorders = recorders
 
     @override
-    def record_metrics(
-        self,
-        section: str,
-        values: Mapping[str, object],
-        step_nr: int | None = None,
-        *,
-        flush: bool = True,
+    def record_metric_values(
+        self, section: str, values: Mapping[str, object], step_nr: int | None = None
     ) -> None:
         for recorder in self._inner_recorders:
-            recorder.record_metrics(section, values, step_nr, flush=flush)
+            recorder.record_metric_values(section, values, step_nr)
 
     @override
     def close(self) -> None:

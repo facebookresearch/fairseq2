@@ -1029,7 +1029,9 @@ class Trainer(Recipe, Generic[BatchT]):
             values["wall_time"] = wall_time
 
             try:
-                self._metric_recorder.record_metrics("train", values, self._step_nr)
+                self._metric_recorder.record_metric_values(
+                    "train", values, self._step_nr
+                )
             except MetricRecordError as ex:
                 raise RecipeError(
                     f"The train metric values of step {self._step_nr} cannot recorded. See the nested exception for details."

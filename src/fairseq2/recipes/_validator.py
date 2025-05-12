@@ -411,7 +411,9 @@ class StandardValidator(Validator, Generic[BatchT]):
                 section = f"{section}/{unit.name}"
 
             try:
-                self._metric_recorder.record_metrics(section, values, train_step_nr)
+                self._metric_recorder.record_metric_values(
+                    section, values, train_step_nr
+                )
             except MetricRecordError as ex:
                 s = "validation"
 
