@@ -235,13 +235,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             log_rollouts(prompt_batch, rollouts, "Train")
 
         batch: PreferenceBatch
-        # Class MultiReward (superclass of current reward)
-        # subrewards AtheneReward, MathReward
-        # this super class should be working as is for 2 validation sets, since validation sets will also have task type in the jsonl, so hypothetically correct reward will also be used for logging
-        # if self._gangs.root.rank == 0:
-        #     breakpoint()
-        # self._gangs.root.barrier()
-
         batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
             prompt_batch, rollouts
         )  # loss_zeroer is used when entire batch has no valid prefrence pair
