@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 import torch
-from torch import Tensor
+from torch import masked, Tensor
 from torch.nn import Module
 from torch.nn.functional import ctc_loss, log_softmax
 
@@ -113,3 +113,22 @@ class AsrModelOutput:
 
         # (N, S), (N, S)
         return pad_seqs(hyp_seq_list, pad_value=pad_idx)
+
+    def generate_hypotheses_with_confidences(
+        self, pad_idx: int, blank_label: int = 0
+    ) -> tuple[Tensor, PaddingMask | None, List[float]]:
+        hypotheses, padding_mask = self.generate_hypotheses(pad_idx, blank_label)
+
+        if isinstance(padding_mask, PaddingMask):
+            # (N, S)
+            conf = self.logits.softmax(dim=2).max(dim=2).values
+            masked_conf = conf.masked_fill(padding_mask.materialize(), 0)
+
+            # (N)
+            mean_conf = masked_conf.sum(dim=1) / (~padding_mask.materialize()).sum(
+                dim=1
+            )
+        else:
+            mean_conf = self.logits.softmax(dim=2).max(dim=2).values.mean(dim=1)  # (N)
+
+        return hypotheses, padding_mask, mean_conf.tolist()

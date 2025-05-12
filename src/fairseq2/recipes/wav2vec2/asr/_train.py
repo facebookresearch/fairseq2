@@ -6,17 +6,24 @@
 
 from __future__ import annotations
 
+import socket
+
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, cast, final
+from typing import cast, final, List, Literal
 
 import torch
-from torch import Tensor
-from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
+
+from fairseq2.datasets.asr import (
+    AsrDataset,
+    AsrReadOptions,
+    GENERIC_ASR_DATASET_FAMILY,
+    MixingAsrDataset,
+)
+from fairseq2.datasets.speech import SpeechDataset, SpeechReadOptions
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
 from fairseq2.models.asr import AsrModel
@@ -59,13 +66,15 @@ from fairseq2.recipes.config import (
 )
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.wav2vec2.batch_weighted_datareader import (
-    MIXTURE_DATASET_FAMILY,
     BatchMixtureDataset,
+    MIXTURE_DATASET_FAMILY,
 )
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+from torch import Tensor
+from typing_extensions import override
 
 
 @dataclass(kw_only=True)
@@ -121,6 +130,7 @@ class Wav2Vec2AsrTrainConfig:
             validate_after_n_steps=10_000,
             validate_every_n_steps=1_000,
             publish_metrics_every_n_steps=200,
+            keep_last_n_checkpoints=1,
         )
     )
 
@@ -132,6 +142,7 @@ class Wav2Vec2AsrTrainConfig:
 @dataclass(kw_only=True)
 class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     name: str | None = "librilight_asr_10h"
+    """Can take comma separated values"""
 
     family: str = GENERIC_ASR_DATASET_FAMILY
 
@@ -140,6 +151,11 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     train_split: str = "train"
 
     valid_split: str | None = "dev_other"
+
+    sampling_weights: List[float] = field(default_factory=lambda: [1.0])
+    """Mixing ratios for training data."""
+
+    is_asr: List[bool] = field(default_factory=lambda: [True])
 
     min_audio_len: int = 1
     """The minimum audio sequence length."""
@@ -259,7 +275,12 @@ def load_wav2vec2_asr_trainer(
 
     # If we start the training with an empty ASR model, use the weights of a
     # pretrained wav2vec 2.0 model.
-    if model.is_empty_initialized:
+    machine_name = socket.gethostname()
+    if (
+        model.is_empty_initialized
+        and config.pretrained_model.name
+        and not machine_name.startswith("devvm")
+    ):
         pt_model = load_reference_model(
             Wav2Vec2Model,
             context,
@@ -369,6 +390,23 @@ def load_wav2vec2_asr_trainer(
         context, config.lr_scheduler, config.regime, optimizer
     )
 
+    # Load the training dataset(s).
+    train_datasets = []
+    train_ds_names = config.dataset.name.split(",")
+    config.dataset.path = None
+    for ds_name, is_asr in zip(train_ds_names, config.dataset.is_asr):
+        config.dataset.name = ds_name
+        if is_asr:
+            train_datasets.append(
+                load_dataset(AsrDataset, context, config.dataset, gangs)
+            )
+        else:
+            train_datasets.append(
+                load_dataset(SpeechDataset | AsrDataset, context, config.dataset, gangs)
+            )
+    dataset = MixingAsrDataset(train_datasets, config.dataset.sampling_weights)
+    valid_dataset = train_datasets[0]
+
     tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the train unit.
@@ -392,16 +430,16 @@ def load_wav2vec2_asr_trainer(
         extras=config.dataset.extras,
     )
 
-    dataset: AsrDataset | BatchMixtureDataset
-    if config.dataset.family == MIXTURE_DATASET_FAMILY:
-        log.info(
-            f"Loading dataset {config.dataset.name} with family={config.dataset.family}"
-        )
-        dataset = BatchMixtureDataset.from_configs(
-            AsrDataset, context, config.dataset, gangs
-        )
-    else:
-        dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
+    # dataset: AsrDataset | BatchMixtureDataset
+    # if config.dataset.family == MIXTURE_DATASET_FAMILY:
+    #     log.info(
+    #         f"Loading dataset {config.dataset.name} with family={config.dataset.family}"
+    #     )
+    #     dataset = BatchMixtureDataset.from_configs(
+    #         AsrDataset, context, config.dataset, gangs
+    #     )
+    # else:
+    #     dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
 
     data_reader = dataset.create_reader(
         config.dataset.train_split,
@@ -447,7 +485,7 @@ def load_wav2vec2_asr_trainer(
             valid_unit = AsrEvalUnit(valid_criterion, gangs, name)
             valid_units.append(valid_unit)
 
-            valid_data_reader = dataset.create_reader(
+            valid_data_reader = valid_dataset.create_reader(
                 single_vsplit,
                 tokenizer,
                 gangs.dp,
