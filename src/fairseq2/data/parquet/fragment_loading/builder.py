@@ -79,8 +79,6 @@ class SafeFragment:
         # adding technical columns for tracking
         if add_fragment_traces:
             fragment_columns = list(fragment_columns) + [
-                "__batch_index",
-                "__fragment_index",
                 "__filename",
             ]
 
