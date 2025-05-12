@@ -277,7 +277,6 @@ class MathVerifyVerifier(VLLMOutputReward):
 
         # dummy vllm call for syncronization # FIXME
         # if self.vllm_math_reward_model is not None:
-        log.info("MathVerifyVerifir generate_rewards()")
         dummy_rewards = generate_rewards(
             vllm_inputs,
             dp_gang=self._gangs.dp,
@@ -289,8 +288,6 @@ class MathVerifyVerifier(VLLMOutputReward):
     def prepare_preference_batch(
         self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
-
-        log.info("MathVerifyVerifier prepare_preference_batch()")
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         batch, is_bad_batch = prepare_preference_batch_random_pair(
@@ -643,7 +640,6 @@ class AtheneVerifier(VLLMOutputReward):
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
 
-        log.info("AtheneVerifier generate_rewards()")
         batch_rewards = generate_rewards(
             vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.reward_model
         )
@@ -658,7 +654,6 @@ class AtheneVerifier(VLLMOutputReward):
         self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
 
-        log.info("AtheneVerifier prepare_preference_batch()")
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         chosen_batch = []
