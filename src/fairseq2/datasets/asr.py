@@ -8,17 +8,19 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from functools import partial
-from typing import Any, cast, Dict, Final
+from typing import Any, Dict, Final, cast
+
+from typing_extensions import override
 
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
     DataPipeline,
     DataPipelineBuilder,
-    read_sequence,
     SequenceData,
+    read_sequence,
 )
-from fairseq2.data.text import read_text, StrSplitter
+from fairseq2.data.text import StrSplitter, read_text
 from fairseq2.data.text.tokenizers import TextTokenizer
 from fairseq2.datasets import (
     DataPipelineReader,
@@ -35,8 +37,6 @@ from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import Device
-
-from typing_extensions import override
 
 
 class AsrDataset(ABC):

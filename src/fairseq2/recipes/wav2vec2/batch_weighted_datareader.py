@@ -13,10 +13,8 @@ from typing import Dict, Final, List, Tuple
 from fairseq2.context import RuntimeContext
 from fairseq2.data import DataPipeline
 from fairseq2.data.text.tokenizers import TextTokenizer
-from fairseq2.datasets import (
-    DataPipelineReader,
-)
-from fairseq2.datasets.asr import AsrDataset, AsrReadOptions
+from fairseq2.datasets import DataPipelineReader
+from fairseq2.datasets.asr import AsrDataset, SpeechReadOptions
 from fairseq2.gang import Gang, Gangs
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.recipes.common import load_dataset
@@ -141,11 +139,11 @@ class BatchMixtureDataset:
         gang: Gang,
         min_audio_len: int,
         max_audio_len: int,
-        options: AsrReadOptions | None = None,
+        options: SpeechReadOptions | None = None,
     ) -> DataPipelineReader[Seq2SeqBatch]:
 
         if options is None:
-            options = AsrReadOptions()
+            options = SpeechReadOptions()
 
         splits = self.parse_split_config(split)
 
