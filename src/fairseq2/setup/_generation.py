@@ -22,7 +22,7 @@ from fairseq2.generation import (
 )
 
 
-def register_seq_generators(context: RuntimeContext) -> None:
+def _register_seq_generators(context: RuntimeContext) -> None:
     registry = context.get_registry(SequenceGeneratorHandler)
 
     handler: SequenceGeneratorHandler
@@ -42,7 +42,7 @@ def register_seq_generators(context: RuntimeContext) -> None:
     registry.register(handler.name, handler)
 
 
-def register_seq2seq_generators(context: RuntimeContext) -> None:
+def _register_seq2seq_generators(context: RuntimeContext) -> None:
     registry = context.get_registry(Seq2SeqGeneratorHandler)
 
     handler: Seq2SeqGeneratorHandler
@@ -62,7 +62,7 @@ def register_seq2seq_generators(context: RuntimeContext) -> None:
     registry.register(handler.name, handler)
 
 
-def register_samplers(context: RuntimeContext) -> None:
+def _register_samplers(context: RuntimeContext) -> None:
     registry = context.get_registry(SamplerHandler)
 
     handler: SamplerHandler
@@ -78,7 +78,7 @@ def register_samplers(context: RuntimeContext) -> None:
     registry.register(handler.name, handler)
 
 
-def register_beam_search_algorithms(context: RuntimeContext) -> None:
+def _register_beam_search_algorithms(context: RuntimeContext) -> None:
     registry = context.get_registry(BeamSearchAlgorithmHandler)
 
     # Standard

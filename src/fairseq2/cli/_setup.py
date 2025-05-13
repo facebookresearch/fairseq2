@@ -9,10 +9,7 @@ from __future__ import annotations
 from fairseq2.chatbots import UnknownChatbotError
 from fairseq2.cli.commands.assets import ListAssetsHandler, ShowAssetHandler
 from fairseq2.cli.commands.chatbot import RunChatbotHandler
-from fairseq2.cli.commands.llama import (
-    ConvertLLaMACheckpointHandler,
-    WriteHFLLaMAConfigHandler,
-)
+from fairseq2.cli.commands.llama import ConvertLLaMACheckpointHandler
 from fairseq2.cli.commands.recipe import RecipeCommandHandler
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import (
@@ -37,7 +34,6 @@ from fairseq2.metrics.recorders import UnknownMetricRecorderError
 from fairseq2.metrics.text import UnknownBleuTokenizerError
 from fairseq2.models import (
     InvalidModelTypeError,
-    ShardedModelLoadError,
     UnknownModelArchitectureError,
     UnknownModelError,
     UnknownModelFamilyError,
@@ -120,7 +116,7 @@ def setup_cli(context: RuntimeContext) -> Cli:
 
     signature = "extension_function(context: RuntimeContext, cli: Cli) -> None"
 
-    run_extensions("fairseq2.cli", signature, context, cli)
+    run_extensions("fairseq2.cli", signature, cli, context)
 
     return cli
 
@@ -177,12 +173,6 @@ def _register_llama_cli(cli: Cli) -> None:
         name="convert_checkpoint",
         handler=ConvertLLaMACheckpointHandler(),
         help="convert fairseq2 LLaMA checkpoints to reference checkpoints",
-    )
-
-    group.add_command(
-        name="write_hf_config",
-        handler=WriteHFLLaMAConfigHandler(),
-        help="write fairseq2 LLaMA configurations in Hugging Face format",
     )
 
 
@@ -357,7 +347,6 @@ def _register_user_error_types(cli: Cli) -> None:
     cli.register_user_error_type(ModelCompilationNotSupportedError)
     cli.register_user_error_type(ModelParallelismNotSupportedError)
     cli.register_user_error_type(ModelPathNotFoundError)
-    cli.register_user_error_type(ShardedModelLoadError)
     cli.register_user_error_type(UnknownBeamSearchAlgorithmError)
     cli.register_user_error_type(UnknownBleuTokenizerError)
     cli.register_user_error_type(UnknownChatbotError)

@@ -18,7 +18,7 @@ from fairseq2.metrics.recorders import (
 )
 
 
-def register_metric_recorders(context: RuntimeContext) -> None:
+def _register_metric_recorders(context: RuntimeContext) -> None:
     registry = context.get_registry(MetricRecorderHandler)
 
     metric_descriptors = context.get_registry(MetricDescriptor)

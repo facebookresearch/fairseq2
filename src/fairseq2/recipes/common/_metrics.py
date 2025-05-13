@@ -33,13 +33,13 @@ def create_metric_recorder(
 ) -> MetricRecorder:
     recorder_handlers = context.get_registry(MetricRecorderHandler)
 
-    creator = MetricRecorderCreator(recorder_handlers)
+    creator = _MetricRecorderCreator(recorder_handlers)
 
     return creator.create(common_section, gangs, output_dir, hyper_params)
 
 
 @final
-class MetricRecorderCreator:
+class _MetricRecorderCreator:
     _metric_recorder_handlers: Provider[MetricRecorderHandler]
 
     def __init__(

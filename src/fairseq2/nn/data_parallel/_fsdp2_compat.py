@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import NoReturn, final
 
 from torch.nn import Module
@@ -41,13 +42,20 @@ def to_fsdp2(
     mixed_precision_dtype: DataType | None = None,
     fp32_reduce: bool = False,
     broadcast_state: bool = False,
+    skip_init: bool = False,
     reshard_after_forward: bool = True,
     cpu_offload: bool = False,
 ) -> Fsdp2Module:
     _raise_error()
 
 
-def fsdp2_full_state_dict(fsdp_module: Fsdp2Module) -> dict[str, object]:
+def fsdp2_local_state_dict(fsdp_module: Fsdp2Module) -> dict[str, object]:
+    _raise_error()
+
+
+def fsdp2_load_local_state_dict(
+    module: Fsdp2Module, state_dict: Mapping[str, object]
+) -> None:
     _raise_error()
 
 

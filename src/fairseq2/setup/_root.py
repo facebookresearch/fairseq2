@@ -22,25 +22,25 @@ from fairseq2.utils.progress import NoopProgressReporter, ProgressReporter
 
 # isort: split
 
-from fairseq2.setup._asset import register_assets
-from fairseq2.setup._chatbots import register_chatbots
-from fairseq2.setup._cluster import register_clusters
-from fairseq2.setup._datasets import register_dataset_families
+from fairseq2.setup._asset import _register_assets
+from fairseq2.setup._chatbots import _register_chatbots
+from fairseq2.setup._cluster import _register_clusters
+from fairseq2.setup._datasets import _register_dataset_families
 from fairseq2.setup._generation import (
-    register_beam_search_algorithms,
-    register_samplers,
-    register_seq2seq_generators,
-    register_seq_generators,
+    _register_beam_search_algorithms,
+    _register_samplers,
+    _register_seq2seq_generators,
+    _register_seq_generators,
 )
-from fairseq2.setup._lr_schedulers import register_lr_schedulers
-from fairseq2.setup._metric_recorders import register_metric_recorders
-from fairseq2.setup._metrics import register_metric_descriptors
-from fairseq2.setup._models import register_model_families
-from fairseq2.setup._optim import register_optimizers
-from fairseq2.setup._po_finetune_units import register_po_finetune_units
-from fairseq2.setup._profilers import register_profilers
-from fairseq2.setup._recipes import register_recipes
-from fairseq2.setup._text_tokenizers import register_text_tokenizer_families
+from fairseq2.setup._lr_schedulers import _register_lr_schedulers
+from fairseq2.setup._metric_recorders import _register_metric_recorders
+from fairseq2.setup._metrics import _register_metric_descriptors
+from fairseq2.setup._models import _register_model_families
+from fairseq2.setup._optim import _register_optimizers
+from fairseq2.setup._po_finetune_units import _register_po_finetune_units
+from fairseq2.setup._profilers import _register_profilers
+from fairseq2.setup._recipes import _register_recipes
+from fairseq2.setup._text_tokenizers import _register_text_tokenizer_families
 
 
 def setup_library(progress_reporter: ProgressReporter | None = None) -> RuntimeContext:
@@ -61,23 +61,23 @@ def setup_library(progress_reporter: ProgressReporter | None = None) -> RuntimeC
 
     context.wall_watch.start()
 
-    register_assets(context)
-    register_beam_search_algorithms(context)
-    register_chatbots(context)
-    register_clusters(context)
-    register_dataset_families(context)
-    register_lr_schedulers(context)
-    register_metric_descriptors(context)
-    register_metric_recorders(context)
-    register_model_families(context)
-    register_optimizers(context)
-    register_po_finetune_units(context)
-    register_profilers(context)
-    register_recipes(context)
-    register_samplers(context)
-    register_seq2seq_generators(context)
-    register_seq_generators(context)
-    register_text_tokenizer_families(context)
+    _register_assets(context)
+    _register_beam_search_algorithms(context)
+    _register_chatbots(context)
+    _register_clusters(context)
+    _register_dataset_families(context)
+    _register_lr_schedulers(context)
+    _register_metric_descriptors(context)
+    _register_metric_recorders(context)
+    _register_model_families(context)
+    _register_optimizers(context)
+    _register_po_finetune_units(context)
+    _register_profilers(context)
+    _register_recipes(context)
+    _register_samplers(context)
+    _register_seq2seq_generators(context)
+    _register_seq_generators(context)
+    _register_text_tokenizer_families(context)
 
     signature = "extension_function(context: RuntimeContext) -> None"
 

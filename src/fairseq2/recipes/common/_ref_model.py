@@ -27,7 +27,6 @@ from fairseq2.models import (
     ModelConfigLoadError,
     ModelHandler,
     ModelLoadError,
-    ShardedModelLoadError,
     UnknownModelError,
     UnknownModelFamilyError,
     model_asset_card_error,
@@ -42,7 +41,7 @@ from fairseq2.registry import Provider
 
 from fairseq2.recipes.common._distributed import broadcast_model
 from fairseq2.recipes.common._error import ModelParallelismNotSupportedError
-from fairseq2.recipes.common._model import LocalModel, compile_model
+from fairseq2.recipes.common._model import _LocalModel, compile_model
 
 
 def setup_reference_model(
@@ -74,12 +73,10 @@ def load_reference_model(
 ) -> Model:
     model_handlers = context.get_registry(ModelHandler)
 
-    loader = ReferenceModelLoader(kls, context.asset_store, model_handlers)
+    loader = _ReferenceModelLoader(kls, context.asset_store, model_handlers)
 
     try:
         return loader.load(model_section, gangs, dtype, mp)
-    except ShardedModelLoadError:
-        raise
     except ModelLoadError as ex:
         raise RecipeError(
             f"The '{ex.model_name}' model cannot be loaded. See the nested exception for details."
@@ -87,7 +84,7 @@ def load_reference_model(
 
 
 @final
-class ReferenceModelLoader:
+class _ReferenceModelLoader:
     _kls: type[Module]
     _asset_store: AssetStore
     _model_handlers: Provider[ModelHandler]
@@ -175,7 +172,7 @@ class ReferenceModelLoader:
 
         log.info("Model loaded on data parallel rank 0.")
 
-        return LocalModel(model_name, module, model_config, handler)
+        return _LocalModel(model_name, module, model_config, handler)
 
 
 def prepare_reference_model(

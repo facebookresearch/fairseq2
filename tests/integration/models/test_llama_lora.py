@@ -28,7 +28,7 @@ def test_lora_wrappers_llama_works() -> None:
         num_attn_heads=8,
         num_key_value_heads=8,
         ffn_inner_dim=1024 * 4,
-        ffn_inner_dim_to_multiple=1,
+        ffn_inner_dim_multiple_of=1,
         dropout_p=0.1,
     )
 

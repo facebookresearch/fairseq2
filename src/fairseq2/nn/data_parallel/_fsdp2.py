@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import warnings
 from collections import OrderedDict
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, TypeAlias, cast, final
 
@@ -26,8 +26,7 @@ from torch.distributed.tensor import DTensor
 from torch.nn import Module, Parameter, SyncBatchNorm
 
 from fairseq2.data_type import DataType
-from fairseq2.device import CPU
-from fairseq2.error import InvalidOperationError, NotSupportedError
+from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gangs
 from fairseq2.nn.utils.module import apply_to_parameters, broadcast_module, infer_device
 
@@ -70,6 +69,7 @@ def to_fsdp2(
     mixed_precision_dtype: DataType | None = None,
     fp32_reduce: bool = False,
     broadcast_state: bool = False,
+    skip_init: bool = False,
     reshard_after_forward: bool = True,
     cpu_offload: bool = False,
 ) -> Fsdp2Module:
@@ -105,7 +105,9 @@ def to_fsdp2(
                 "The specified data parallel gang does not support conversion to a process group."
             ) from None
 
-        device_mesh = DeviceMesh.from_group(process_group, dp_gang.device.type)
+        device_mesh = DeviceMesh.from_group(
+            process_group, dp_gang.device.type, None, mesh_dim_names=("intra",)
+        )
 
     # FSDP2 does not broadcast buffers during training, so ensure that batch
     # normalization works.
@@ -131,8 +133,6 @@ def to_fsdp2(
                 )
 
             skip_init = True
-        else:
-            skip_init = False
 
         param_initializer = FsdpParameterInitializer(dp_gang.device, skip_init)
 
@@ -152,13 +152,13 @@ def to_fsdp2(
         offload_policy = CPUOffloadPolicy()
 
     # Shard the module.
-    reshard_after_forward_ = reshard_after_forward
+    default_reshard_after_forward = reshard_after_forward
 
     sharded_modules: set[Module] = set()
 
     def wrap(module: Module, reshard_after_forward: bool | None = None) -> Fsdp2Module:
         if reshard_after_forward is None:
-            reshard_after_forward = reshard_after_forward_
+            reshard_after_forward = default_reshard_after_forward
 
         if param_initializer is not None:
             param_initializer(module)
@@ -191,49 +191,57 @@ def to_fsdp2(
     return module
 
 
-def fsdp2_full_state_dict(module: Fsdp2Module) -> dict[str, object]:
-    state_dict: dict[str, object] = {}
-
+def fsdp2_local_state_dict(module: Fsdp2Module) -> dict[str, object]:
     sharded_state_dict = module.state_dict()
 
-    fsdp_state = fully_shard.state(module)  # type: ignore[attr-defined]
+    device_mesh = None
 
-    param_group = fsdp_state._fsdp_param_group
-    if param_group is None:
-        raise InvalidOperationError(
-            "`module` does not have an associated FSDP2 parameter group."
-        )
+    for value in sharded_state_dict.values():
+        if isinstance(value, DTensor):
+            device_mesh = value.device_mesh
 
-    device_mesh = param_group.mesh_info.mesh
+            break
 
-    sdp_rank = device_mesh.get_local_rank(0 if device_mesh.ndim == 1 else 1)
+    if device_mesh is not None:
+        try:
+            sdp_rank = device_mesh.get_local_rank(mesh_dim="intra")
+        except KeyError:
+            raise ValueError(
+                "The device mesh of `module` does not have a dimension named 'intra'."
+            ) from None
+    else:
+        sdp_rank = 0
 
-    memo: dict[Tensor, Tensor] = {}
+    state_dict: dict[str, object] = {}
 
-    for name, sharded_param in sharded_state_dict.items():
-        if isinstance(sharded_param, DTensor):
-            full_param = cast(DTensor, sharded_param.detach()).full_tensor()
-        else:
-            # If not DTensor, we assume it is replicated.
-            full_param = sharded_param
+    for key, value in sharded_state_dict.items():
+        if isinstance(value, DTensor):
+            state_dict[key] = cast(DTensor, value.detach()).to_local()
+        # Save replicated items only on the first intra-node (i.e. sharded)
+        # gang.
+        elif sdp_rank == 0:
+            if isinstance(value, Tensor):
+                value = value.detach()
 
-        cpu_param: Tensor | None
-
-        if sdp_rank == 0:
-            if full_param.device == CPU:
-                cpu_param = full_param
-            else:
-                cpu_param = memo.get(sharded_param)
-                if cpu_param is None:
-                    cpu_param = torch.empty_like(full_param, device=CPU)
-
-                    cpu_param.copy_(full_param, non_blocking=True)
-
-                    memo[sharded_param] = cpu_param
-
-            state_dict[name] = cpu_param
+            state_dict[key] = value
 
     return state_dict
+
+
+def fsdp2_load_local_state_dict(
+    module: Fsdp2Module, state_dict: Mapping[str, object]
+) -> None:
+    state_dict = dict(state_dict)
+
+    for key, value in module.state_dict().items():
+        if isinstance(value, DTensor):
+            input_value = state_dict.get(key)
+            if isinstance(input_value, Tensor):
+                cast(DTensor, value.detach()).to_local().copy_(input_value)
+
+                state_dict[key] = value
+
+    module.load_state_dict(state_dict)
 
 
 @contextmanager
@@ -294,16 +302,16 @@ def fsdp2_summon_full_parameters(module: Fsdp2Module) -> Iterator[None]:
         if isinstance(module, Fsdp2Module):
             module.unshard()
 
-            disable_hooks(module, "_forward_hooks")
             disable_hooks(module, "_forward_pre_hooks")
+            disable_hooks(module, "_forward_hooks")
 
     def reshard(module: Module) -> None:
         for child in module.children():
             reshard(child)
 
         if isinstance(module, Fsdp2Module):
-            enable_hooks(module, "_forward_hooks")
             enable_hooks(module, "_forward_pre_hooks")
+            enable_hooks(module, "_forward_hooks")
 
             module.reshard()
 

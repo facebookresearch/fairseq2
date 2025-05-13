@@ -29,6 +29,7 @@ from fairseq2.optim.lr_scheduler import TRI_STAGE_LR, TriStageLRConfig
 from fairseq2.recipes import Model, RecipeError, Trainer, TrainUnit
 from fairseq2.recipes.asr import AsrCriterion, AsrEvalUnit, AsrMetricBag, AsrScorer
 from fairseq2.recipes.common import (
+    check_has_checkpoint,
     create_checkpoint_manager,
     create_lr_scheduler,
     create_optimizer,
@@ -230,6 +231,8 @@ def load_wav2vec2_asr_trainer(
 
     seed += 1
 
+    has_checkpoint = check_has_checkpoint(checkpoint_manager)
+
     model = load_base_model(
         Wav2Vec2AsrModel,
         context,
@@ -237,14 +240,14 @@ def load_wav2vec2_asr_trainer(
         config.trainer,
         output_dir,
         gangs,
-        checkpoint_manager,
+        has_checkpoint,
     )
 
     module = cast(Wav2Vec2AsrModel, model.module)
 
-    # If we start the training with an empty ASR model, use the weights of a
-    # pretrained wav2vec 2.0 model.
-    if model.empty_initialized:
+    # If we start the training with a newly initialized ASR model, use the
+    # weights of a pretrained wav2vec 2.0 model.
+    if model.newly_initialized:
         pt_model = load_reference_model(
             Wav2Vec2Model,
             context,
@@ -284,7 +287,7 @@ def load_wav2vec2_asr_trainer(
     static_graph = config.trainer.freeze_encoder_for_n_steps == 0
 
     model = setup_data_parallel_model(
-        context, config.trainer, model, gangs, static_graph
+        context, config.trainer, model, gangs, has_checkpoint, static_graph
     )
 
     log_model(log, model.module, gangs)

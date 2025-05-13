@@ -36,7 +36,7 @@ def load_text_tokenizer(
 ) -> TextTokenizer:
     tokenizer_handlers = context.get_registry(TextTokenizerHandler)
 
-    loader = TextTokenizerLoader(context.asset_store, tokenizer_handlers)
+    loader = _TextTokenizerLoader(context.asset_store, tokenizer_handlers)
 
     try:
         return loader.load(tokenizer_section)
@@ -47,7 +47,7 @@ def load_text_tokenizer(
 
 
 @final
-class TextTokenizerLoader:
+class _TextTokenizerLoader:
     _asset_store: AssetStore
     _tokenizer_handlers: Provider[TextTokenizerHandler]
 

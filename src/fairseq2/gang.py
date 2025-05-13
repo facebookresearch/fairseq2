@@ -591,7 +591,7 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     mesh = torch.arange(root_gang.size).view(dp_size, tp_size)
 
     # Get the coordinate of this process in the mesh.
-    rank_coords = [x.item() for x in torch.where(mesh == root_gang.rank)]
+    rank_coord = [x.item() for x in torch.where(mesh == root_gang.rank)]
 
     dp_gang: Gang | None = None
 
@@ -619,7 +619,7 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
             else:
                 for i in range(tp_size):
                     sub_gang = root_gang.create_gang(mesh[:, i].tolist())
-                    if i == rank_coords[1]:
+                    if i == rank_coord[1]:
                         dp_gang = sub_gang
 
     if dp_gang is None:
@@ -651,7 +651,7 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
             else:
                 for i in range(dp_size):
                     sub_gang = root_gang.create_gang(mesh[i, :].tolist())
-                    if i == rank_coords[0]:
+                    if i == rank_coord[0]:
                         tp_gang = sub_gang
 
     if tp_gang is None:
@@ -701,7 +701,7 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
     mesh = torch.arange(dp_gang.size).view(inter_node_size, intra_node_size)
 
     # Get the coordinate of this process in the mesh.
-    rank_coords = [x.item() for x in torch.where(mesh == dp_gang.rank)]
+    rank_coord = [x.item() for x in torch.where(mesh == dp_gang.rank)]
 
     inter_gang: Gang | None = None
 
@@ -729,7 +729,7 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
             else:
                 for i in range(intra_node_size):
                     sub_gang = dp_gang.create_gang(mesh[:, i].tolist())
-                    if i == rank_coords[1]:
+                    if i == rank_coord[1]:
                         inter_gang = sub_gang
 
     if inter_gang is None:
@@ -761,7 +761,7 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
             else:
                 for i in range(inter_node_size):
                     sub_gang = dp_gang.create_gang(mesh[i, :].tolist())
-                    if i == rank_coords[0]:
+                    if i == rank_coord[0]:
                         intra_gang = sub_gang
 
     if intra_gang is None:

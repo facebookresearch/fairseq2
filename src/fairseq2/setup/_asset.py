@@ -22,7 +22,7 @@ from fairseq2.utils.yaml import RuamelYamlLoader
 from fairseq2.setup._error import SetupError
 
 
-def register_assets(context: RuntimeContext) -> None:
+def _register_assets(context: RuntimeContext) -> None:
     register_package_metadata_provider(context, "fairseq2.assets.cards")
 
     asset_store = context.asset_store

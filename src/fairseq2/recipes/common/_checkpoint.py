@@ -8,9 +8,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fairseq2.checkpoint import CheckpointManager, FileCheckpointManager
+from fairseq2.checkpoint import (
+    CheckpointError,
+    CheckpointManager,
+    FileCheckpointManager,
+)
 from fairseq2.context import RuntimeContext
 from fairseq2.gang import Gangs
+from fairseq2.recipes import RecipeError
 from fairseq2.utils.io import TorchTensorDumper, TorchTensorLoader
 from fairseq2.utils.threading import get_default_thread_pool
 
@@ -28,5 +33,14 @@ def create_checkpoint_manager(
     thread_pool = get_default_thread_pool()
 
     return FileCheckpointManager(
-        checkpoint_dir, gangs, file_system, tensor_dumper, tensor_loader, thread_pool
+        checkpoint_dir, gangs, file_system, tensor_loader, tensor_dumper, thread_pool
     )
+
+
+def check_has_checkpoint(checkpoint_manager: CheckpointManager) -> bool:
+    try:
+        return checkpoint_manager.has_checkpoint(exclude_model_only=True)
+    except CheckpointError:
+        raise RecipeError(
+            "The last training checkpoint cannot be retrieved. See the nested exception for details."  # fmt: skip
+        )

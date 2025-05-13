@@ -19,7 +19,7 @@ from fairseq2.metrics import (
 )
 
 
-def register_metric_descriptors(context: RuntimeContext) -> None:
+def _register_metric_descriptors(context: RuntimeContext) -> None:
     registry = context.get_registry(MetricDescriptor)
 
     def register(name: str, *args: Any, **kwargs: Any) -> None:

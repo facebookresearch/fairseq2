@@ -8,18 +8,19 @@ from __future__ import annotations
 
 import logging
 import warnings
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from typing import TypeAlias
 
 import torch
+import torch.distributed as dist
 from torch import Tensor
 from torch.distributed import ProcessGroup
+from torch.distributed._shard.sharded_tensor import ShardedTensor
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import (
     BackwardPrefetch,
     CPUOffload,
-    FullStateDictConfig,
     MixedPrecision,
     ShardedOptimStateDictConfig,
     ShardedStateDictConfig,
@@ -62,6 +63,7 @@ def to_fsdp1(
     mixed_precision_dtype: DataType | None = None,
     fp32_reduce: bool = False,
     broadcast_state: bool = False,
+    skip_init: bool = False,
     reshard_after_forward: bool = True,
     cpu_offload: bool = False,
 ) -> Fsdp1Module:
@@ -123,8 +125,6 @@ def to_fsdp1(
                 )
 
             skip_init = True
-        else:
-            skip_init = False
 
         param_initializer = FsdpParameterInitializer(gangs.dp.device, skip_init)
 
@@ -198,18 +198,59 @@ def to_fsdp1(
     return module
 
 
-def fsdp1_full_state_dict(module: Fsdp1Module) -> dict[str, object]:
+def fsdp1_local_state_dict(module: Fsdp1Module) -> dict[str, object]:
+    state_dict: dict[str, object] = {}
+
     with warnings.catch_warnings():
         warnings.filterwarnings(
-            action="ignore", message=r".*FSDP\.state_dict_type\(\) and FSDP\.set_state_dict_type\(\) are being deprecated.*"  # fmt: skip
+            action="ignore", message=r".*`_get_pg_default_device` will be deprecated.*"  # fmt: skip
+        )
+        warnings.filterwarnings(
+            action="ignore", message=r".*Please use DTensor instead.*"
         )
 
-        state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+        sdp_rank = dist.get_rank(module.process_group)
 
-        with FSDP.state_dict_type(
-            module, StateDictType.FULL_STATE_DICT, state_dict_config
-        ):
-            return module.state_dict()
+        for name, item in module.state_dict().items():
+            if isinstance(item, ShardedTensor):
+                local_shards = item.local_shards()
+                if not local_shards:
+                    continue  # means the tensor is sharded unevenly.
+
+                state_dict[name] = item.local_tensor().detach()
+            # Save replicated items only on the first intra-node (i.e. sharded)
+            # gang.
+            elif sdp_rank == 0:
+                if isinstance(item, Tensor):
+                    item = item.detach()
+
+                state_dict[name] = item
+
+    return state_dict
+
+
+def fsdp1_load_local_state_dict(
+    module: Fsdp1Module, state_dict: Mapping[str, object]
+) -> None:
+    state_dict = dict(state_dict)
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            action="ignore", message=r".*`_get_pg_default_device` will be deprecated.*"  # fmt: skip
+        )
+        warnings.filterwarnings(
+            action="ignore", message=r".*Please use DTensor instead.*"
+        )
+
+        for key, value in module.state_dict().items():
+            if isinstance(value, ShardedTensor):
+                input_value = state_dict.get(key)
+                if isinstance(input_value, Tensor):
+                    value.local_tensor().detach().copy_(input_value)
+
+                    state_dict[key] = value
+
+        module.load_state_dict(state_dict)
 
 
 @contextmanager

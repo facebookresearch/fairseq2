@@ -17,6 +17,7 @@ from fairseq2.models import (
     CheckpointConverter,
     DelegatingModelHandler,
     FsdpApplier,
+    HuggingFaceExporter,
     ModelCompiler,
     ModelFactory,
     ModelHandler,
@@ -44,6 +45,7 @@ from fairseq2.models.llama import (
     LLaMAConfig,
     convert_llama_checkpoint,
     create_llama_model,
+    export_llama_checkpoint,
     register_llama_configs,
     shard_llama_model,
 )
@@ -102,7 +104,7 @@ from fairseq2.registry import Registry
 from fairseq2.utils.io import AutoTensorLoader
 
 
-def register_model_families(context: RuntimeContext) -> None:
+def _register_model_families(context: RuntimeContext) -> None:
     registrar = ModelRegistrar(context)
 
     # JEPA
@@ -144,6 +146,7 @@ def register_model_families(context: RuntimeContext) -> None:
         checkpoint_converter=convert_llama_checkpoint,
         sharder=shard_llama_model,
         compiler=compile_transformer_lm,
+        hugging_face_exporter=export_llama_checkpoint,
     )
 
     register_llama_configs(context)
@@ -270,6 +273,7 @@ class ModelRegistrar:
         compiler: ModelCompiler[ModelT] | None = None,
         ac_applier: ActivationCheckpointApplier[ModelT] | None = None,
         fsdp_applier: FsdpApplier[ModelT] | None = None,
+        hugging_face_exporter: HuggingFaceExporter[ModelConfigT] | None = None,
     ) -> None:
         file_system = self._context.file_system
 
@@ -316,6 +320,7 @@ class ModelRegistrar:
             compiler=compiler,
             ac_applier=ac_applier,
             fsdp_applier=fsdp_applier,
+            hugging_face_exporter=hugging_face_exporter,
         )
 
         self._registry.register(handler.family, handler)

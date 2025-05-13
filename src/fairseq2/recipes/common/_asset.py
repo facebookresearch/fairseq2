@@ -35,7 +35,7 @@ def register_extra_asset_paths(
 
     asset_metadata_file_loader = StandardAssetMetadataFileLoader(yaml_loader)
 
-    extra_path_registrar = ExtraPathRegistrar(
+    extra_path_registrar = _ExtraPathRegistrar(
         asset_store, file_system, asset_metadata_file_loader
     )
 
@@ -46,7 +46,7 @@ def register_extra_asset_paths(
             "`common.assets.extra_path` cannot be registered as an asset card path. See the nested exception for details."
         ) from ex
 
-    checkpoint_dir_registrar = CheckpointDirectoryRegistrar(
+    checkpoint_dir_registrar = _CheckpointDirectoryRegistrar(
         asset_store, file_system, asset_metadata_file_loader
     )
 
@@ -59,7 +59,7 @@ def register_extra_asset_paths(
 
 
 @final
-class ExtraPathRegistrar:
+class _ExtraPathRegistrar:
     _asset_store: StandardAssetStore
     _file_system: FileSystem
     _asset_metadata_file_loader: AssetMetadataFileLoader
@@ -101,7 +101,7 @@ class ExtraPathRegistrar:
 
 
 @final
-class CheckpointDirectoryRegistrar:
+class _CheckpointDirectoryRegistrar:
     _asset_store: StandardAssetStore
     _file_system: FileSystem
     _asset_metadata_file_loader: AssetMetadataFileLoader

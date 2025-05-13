@@ -61,7 +61,7 @@ def create_trainer(
     hyper_params: object = None,
     score_metric: str | None = None,
 ) -> Trainer[BatchT]:
-    score_metric_descriptor = get_score_metric_descriptor(context, score_metric)
+    score_metric_descriptor = _get_score_metric_descriptor(context, score_metric)
 
     metric_recorder = create_metric_recorder(
         context, common_section, gangs, output_dir, hyper_params
@@ -69,7 +69,7 @@ def create_trainer(
 
     profiler = create_profiler(context, common_section, gangs, output_dir)
 
-    garbage_collector = create_garbage_collector(context, trainer_section)
+    garbage_collector = _create_garbage_collector(context, trainer_section)
 
     device_stat_tracker = create_device_stat_tracker(gangs)
 
@@ -147,7 +147,7 @@ def create_trainer(
     # fmt: on
 
 
-def get_score_metric_descriptor(
+def _get_score_metric_descriptor(
     context: RuntimeContext, score_metric: str | None
 ) -> MetricDescriptor | None:
     if score_metric is None:
@@ -161,7 +161,7 @@ def get_score_metric_descriptor(
         raise UnknownMetricDescriptorError(score_metric) from None
 
 
-def create_garbage_collector(
+def _create_garbage_collector(
     context: RuntimeContext, trainer_section: TrainerSection
 ) -> GarbageCollector:
     if trainer_section.gc_every_n_steps is None:
