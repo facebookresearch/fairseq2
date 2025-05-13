@@ -8,13 +8,15 @@ from __future__ import annotations
 
 import re
 from copy import deepcopy
-from typing import Dict, Final, List, Tuple
+from typing import Dict, Final, List, Literal, Tuple
 
 from fairseq2.context import RuntimeContext
 from fairseq2.data import DataPipeline
 from fairseq2.data.text.tokenizers import TextTokenizer
 from fairseq2.datasets import DataPipelineReader
-from fairseq2.datasets.asr import AsrDataset, SpeechReadOptions
+from fairseq2.datasets.asr import AsrDataset, GenericAsrDataset
+from fairseq2.datasets.asr_parquet import GenericAsrParquetDataset
+from fairseq2.datasets.speech import SpeechReadOptions
 from fairseq2.gang import Gang, Gangs
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.recipes.common import load_dataset
@@ -37,13 +39,15 @@ class BatchMixtureDataset:
     )
 
     def __init__(
-        self, name: str, datasets: Dict[str, AsrDataset], weights: Dict[str, float]
+        self,
+        name: str,
+        datasets: Dict[str, AsrDataset],
+        weights: Dict[str, float],
     ) -> None:
         self._datasets = datasets
         self._weights = weights
         self._name = name
 
-    @classmethod
     @classmethod
     def parse_split_config_with_multiple_splits(cls, split_config: str) -> List[str]:
         """
@@ -140,18 +144,67 @@ class BatchMixtureDataset:
         min_audio_len: int,
         max_audio_len: int,
         options: SpeechReadOptions | None = None,
+        mixing_level: Literal["batch", "example"] = "batch",
     ) -> DataPipelineReader[Seq2SeqBatch]:
 
         if options is None:
             options = SpeechReadOptions()
 
         splits = self.parse_split_config(split)
+        if mixing_level == "batch":
+            mixed_datapipeline_builder = self._batch_level_sampling(
+                splits,
+                tokenizer,
+                gang,
+                min_audio_len,
+                max_audio_len,
+                options,
+            )
+        elif mixing_level == "example":
+            if isinstance(list(self._datasets.values())[0], GenericAsrParquetDataset):
+                mixed_datapipeline_builder = self._example_level_parquet_sampling(
+                    splits,
+                    tokenizer,
+                    gang,
+                    min_audio_len,
+                    max_audio_len,
+                    options,
+                )
+            else:
+                mixed_datapipeline_builder = self._example_level_manifest_sampling(
+                    splits,
+                    tokenizer,
+                    gang,
+                    min_audio_len,
+                    max_audio_len,
+                    options,
+                )
+        else:
+            raise ValueError(f"Unknown mixing level: {mixing_level}")
 
-        datapipelines = []
+        return DataPipelineReader[Seq2SeqBatch](
+            self._name, split, mixed_datapipeline_builder, gang, options
+        )
+
+    def _batch_level_sampling(
+        self,
+        splits: List[Tuple[str, str]],
+        tokenizer: TextTokenizer,
+        gang: Gang,
+        min_audio_len: int,
+        max_audio_len: int,
+        options: SpeechReadOptions,
+    ) -> DataPipeline:
+        """
+        Create a reader for a batch-level sampling dataset mixture.
+        """
+        datapipelines: List[DataPipeline] = []
         weigths = []
+
         datareader = None
         for dataset_name, dataset_split in splits:
-            datareader = self._datasets[dataset_name].create_reader(
+            dataset = self._datasets[dataset_name]
+            datareader = dataset.create_reader(
                 split=dataset_split,
                 tokenizer=tokenizer,
                 gang=gang,
@@ -163,13 +216,87 @@ class BatchMixtureDataset:
             weigths.append(self._weights[dataset_name])
 
         if len(datapipelines) == 1:
-            assert isinstance(datareader, DataPipelineReader)
-            return datareader
+            return datapipelines[0]
 
         mixed_datapipeline = DataPipeline.sample(
             datapipelines, weights=weigths, seed=options.seed
         ).and_return()
+        return mixed_datapipeline
 
-        return DataPipelineReader[Seq2SeqBatch](
-            self._name, split, mixed_datapipeline, gang, options
+    def _example_level_manifest_sampling(
+        self,
+        splits: List[Tuple[str, str]],
+        tokenizer: TextTokenizer,
+        gang: Gang,
+        min_audio_len: int,
+        max_audio_len: int,
+        options: SpeechReadOptions,
+    ) -> DataPipeline:
+        builders = []
+        weights = []
+        for dataset_name, dataset_split in splits:
+            dataset = self._datasets[dataset_name]
+            assert isinstance(dataset, GenericAsrDataset)
+            options, builder = dataset.build_example_reading_frontend(
+                split=dataset_split,
+                gang=gang,
+                options=options,
+            )
+            builders.append(builder)
+            weights.append(self._weights[dataset_name])
+
+        if len(builders) == 1:
+            mixed_builder = builders[0]
+        else:
+            mixed_builder = DataPipeline.sample(
+                [bb.and_return() for bb in builders], weights=weights, seed=options.seed
+            )
+        mixed_builder = GenericAsrDataset.build_asr_main_pipeline(
+            mixed_builder,
+            options=options,
+            tokenizer=tokenizer,
+            gang=gang,
+            min_audio_len=min_audio_len,
+            max_audio_len=max_audio_len,
         )
+        return mixed_builder.and_return()
+
+    def _example_level_parquet_sampling(
+        self,
+        splits: List[Tuple[str, str]],
+        tokenizer: TextTokenizer,
+        gang: Gang,
+        min_audio_len: int,
+        max_audio_len: int,
+        options: SpeechReadOptions,
+    ) -> DataPipeline:
+        builders = []
+        weights = []
+        for dataset_name, dataset_split in splits:
+            dataset = self._datasets[dataset_name]
+            assert isinstance(dataset, GenericAsrParquetDataset)
+            options, builder = dataset.build_example_reading_frontend(
+                split=dataset_split,
+                gang=gang,
+                min_audio_len=min_audio_len,
+                max_audio_len=max_audio_len,
+                options=options,
+            )
+            builders.append(builder)
+            weights.append(self._weights[dataset_name])
+
+        if len(builders) == 1:
+            mixed_builder = builders[0]
+        else:
+            mixed_builder = DataPipeline.sample(
+                [bb.and_return() for bb in builders], weights=weights, seed=options.seed
+            )
+        mixed_builder = GenericAsrParquetDataset.build_asr_main_pipeline(
+            mixed_builder,
+            options=options,
+            tokenizer=tokenizer,
+            gang=gang,
+            min_audio_len=min_audio_len,
+            max_audio_len=max_audio_len,
+        )
+        return mixed_builder.and_return()
