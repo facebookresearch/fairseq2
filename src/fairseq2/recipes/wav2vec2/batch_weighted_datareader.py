@@ -144,11 +144,12 @@ class BatchMixtureDataset:
         min_audio_len: int,
         max_audio_len: int,
         options: SpeechReadOptions | None = None,
-        mixing_level: Literal["batch", "example"] = "batch",
     ) -> DataPipelineReader[Seq2SeqBatch]:
 
         if options is None:
             options = SpeechReadOptions()
+        mixing_level = options.extras.get("mixing_level", "batch")
+        assert mixing_level in ["batch", "example"]
 
         splits = self.parse_split_config(split)
         if mixing_level == "batch":
