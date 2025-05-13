@@ -15,7 +15,6 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import ctc_loss, log_softmax
 
-from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import PaddingMask, get_seq_lens, pad_seqs
 
@@ -24,8 +23,7 @@ class AsrModel(Module, ABC):
     """Represents an Automatic Speech Recognition model."""
 
     @abstractmethod
-    def forward(self, batch: SequenceBatch | Seq2SeqBatch) -> AsrModelOutput:
-        ...
+    def forward(self, batch: SequenceBatch) -> AsrModelOutput: ...
 
 
 @dataclass

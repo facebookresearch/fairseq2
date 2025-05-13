@@ -43,9 +43,7 @@ class AsrCriterion:
         self, batch: Seq2SeqBatch, metric_bag: AsrMetricBag
     ) -> tuple[Tensor, int]:
         if isinstance(self._model.module, Wav2Vec2AsrModel):
-            input_batch: SequenceBatch | Seq2SeqBatch = SequenceBatch(
-                batch.source_seqs, batch.source_padding_mask
-            )
+            input_batch = SequenceBatch(batch.source_seqs, batch.source_padding_mask)
         else:
             input_batch = batch
 
