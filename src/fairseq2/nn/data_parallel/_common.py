@@ -78,6 +78,9 @@ class FsdpParameterInitializer:
         if module in self._module_memo:
             return
 
+        for child in module.children():
+            self(child)
+
         to_empty(module, self._device, recurse=False, memo=self._memo)
 
         if not self._skip_init:

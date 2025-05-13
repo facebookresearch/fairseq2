@@ -25,6 +25,7 @@ from fairseq2.models._handler import (
 from fairseq2.models._handler import CheckpointConverter as CheckpointConverter
 from fairseq2.models._handler import DelegatingModelHandler as DelegatingModelHandler
 from fairseq2.models._handler import FsdpApplier as FsdpApplier
+from fairseq2.models._handler import HuggingFaceExporter as HuggingFaceExporter
 from fairseq2.models._handler import ModelCompiler as ModelCompiler
 from fairseq2.models._handler import ModelFactory as ModelFactory
 from fairseq2.models._handler import ModelHandler as ModelHandler

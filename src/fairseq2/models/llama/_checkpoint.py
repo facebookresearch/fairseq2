@@ -9,8 +9,9 @@ from __future__ import annotations
 from typing import cast
 
 from torch import Tensor
+from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
-from fairseq2.models.utils.checkpoint import convert_model_state_dict
+from fairseq2.models.utils.checkpoint import convert_checkpoint
 
 # isort: split
 
@@ -20,12 +21,12 @@ from fairseq2.models.llama._config import LLaMAConfig
 def convert_llama_checkpoint(
     checkpoint: dict[str, object], config: LLaMAConfig
 ) -> dict[str, object]:
-    # Check if we have a fairseq2 checkpoint.
-    if "model" in checkpoint:
-        return checkpoint
+    try:
+        checkpoint = cast(dict[str, object], checkpoint["model"])  # legacy
+    except KeyError:
+        pass
 
-    # Check if we have a reference or Hugging Face checkpoint.
-    if "lm_head.weight" in checkpoint:  # HG
+    if "lm_head.weight" in checkpoint:  # Hugging Face
         head_dim = config.model_dim // config.num_attn_heads
 
         def permute_rotary(w: Tensor, num_heads: int) -> Tensor:
@@ -67,7 +68,10 @@ def convert_llama_checkpoint(
             r"^lm_head\.":                                           r"final_proj.",
             # fmt: on
         }
-    else:
+
+        return convert_checkpoint(checkpoint, key_map)
+
+    if "tok_embeddings.weight" in checkpoint:  # reference
         key_map = {
             # fmt: off
             r"^layers\.([0-9]+)\.attention\.wq\.":    r"decoder.layers.\1.self_attn.q_proj.",
@@ -88,6 +92,8 @@ def convert_llama_checkpoint(
         # We do not need the pre-computed 'rope.freqs' buffers.
         checkpoint = {k: v for (k, v) in checkpoint.items() if "rope.freqs" not in k}
 
-    checkpoint = convert_model_state_dict(checkpoint, key_map)
+        return convert_checkpoint(checkpoint, key_map)
 
-    return {"model": checkpoint}
+    consume_prefix_in_state_dict_if_present(checkpoint, prefix="module.")  # legacy
+
+    return checkpoint

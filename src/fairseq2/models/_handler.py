@@ -96,6 +96,11 @@ class ModelHandler(ABC):
         self, model: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
     ) -> None: ...
 
+    @abstractmethod
+    def export_to_hugging_face(
+        self, checkpoint: dict[str, object], config: object
+    ) -> tuple[dict[str, object], dict[str, object]]: ...
+
     @property
     @abstractmethod
     def family(self) -> str: ...
@@ -127,6 +132,10 @@ class ModelHandler(ABC):
     @property
     @abstractmethod
     def supports_fsdp(self) -> bool: ...
+
+    @property
+    @abstractmethod
+    def supports_hugging_face(self) -> bool: ...
 
 
 ModelT_co = TypeVar("ModelT_co", bound=Module, covariant=True)
@@ -167,6 +176,12 @@ class FsdpApplier(Protocol[ModelT_contra]):
     ) -> None: ...
 
 
+class HuggingFaceExporter(Protocol[ModelConfigT_contra]):
+    def __call__(
+        self, checkpoint: dict[str, object], config: ModelConfigT_contra
+    ) -> tuple[dict[str, object], dict[str, object]]: ...
+
+
 ModelT = TypeVar("ModelT", bound=Module)
 
 ModelConfigT = TypeVar("ModelConfigT")
@@ -188,6 +203,7 @@ class DelegatingModelHandler(ModelHandler):
     _compiler: ModelCompiler[Any] | None
     _ac_applier: ActivationCheckpointApplier[Any] | None
     _fsdp_applier: FsdpApplier[Any] | None
+    _hugging_face_exporter: HuggingFaceExporter[Any] | None
 
     def __init__(
         self,
@@ -206,6 +222,7 @@ class DelegatingModelHandler(ModelHandler):
         compiler: ModelCompiler[ModelT] | None = None,
         ac_applier: ActivationCheckpointApplier[ModelT] | None = None,
         fsdp_applier: FsdpApplier[ModelT] | None = None,
+        hugging_face_exporter: HuggingFaceExporter[ModelConfigT] | None = None,
     ) -> None:
         self._family = family
         self._kls = kls
@@ -221,6 +238,7 @@ class DelegatingModelHandler(ModelHandler):
         self._compiler = compiler
         self._ac_applier = ac_applier
         self._fsdp_applier = fsdp_applier
+        self._hugging_face_exporter = hugging_face_exporter
 
     @override
     def get_arch_config(self, arch: str | None) -> object:
@@ -424,12 +442,7 @@ class DelegatingModelHandler(ModelHandler):
                     name, f"The checkpoint of the '{name}' model cannot be loaded. See the nested exception for details."  # fmt: skip
                 ) from ex
 
-        if "fs2" not in checkpoint:
-            if self._checkpoint_converter is None:
-                raise ModelLoadError(
-                    name, f"The checkpoint of the '{name}' model is not fairseq2 compatible."  # fmt: skip
-                )
-
+        if self._checkpoint_converter is not None:
             try:
                 checkpoint = self._checkpoint_converter(checkpoint, config)
             except (KeyError, ValueError) as ex:
@@ -437,28 +450,8 @@ class DelegatingModelHandler(ModelHandler):
                     name, f"The checkpoint of the '{name}' model cannot be converted to a fairseq2 compatible format. See the nested exception for details."  # fmt: skip
                 ) from ex
 
-        # Load the model state.
-        model_key = checkpoint.get("model_key", "model")
-
-        if not isinstance(model_key, str):
-            raise ModelLoadError(
-                name, f"The 'model_key' in the '{name}' checkpoint is expected to be of type `str`, but is of type `{type(model_key)}` instead."  # fmt: skip
-            )
-
         try:
-            state_dict = checkpoint[model_key]
-        except KeyError:
-            raise ModelLoadError(
-                name, f"The '{name}' checkpoint does not contain a '{model_key}' key."  # fmt: skip
-            ) from None
-
-        if not isinstance(state_dict, dict):
-            raise ModelLoadError(
-                name, f"The model state dictionary in the '{name}' checkpoint is expected to be of type `dict`, but is of type `{type(state_dict)}` instead."  # fmt: skip
-            )
-
-        try:
-            load_state_dict(model, state_dict)
+            load_state_dict(model, checkpoint)
         except (KeyError, ValueError) as ex:
             raise ModelLoadError(
                 name, f"The state of the '{name}' model cannot be loaded from the checkpoint. See the nested exception for details."  # fmt: skip
@@ -556,6 +549,22 @@ class DelegatingModelHandler(ModelHandler):
 
         self._fsdp_applier(model, granularity, wrapper)
 
+    @override
+    def export_to_hugging_face(
+        self, checkpoint: dict[str, object], config: object
+    ) -> tuple[dict[str, object], dict[str, object]]:
+        if self._hugging_face_exporter is None:
+            raise NotSupportedError(
+                f"The '{self._family}' model family does not support Hugging Face integration."
+            )
+
+        if not isinstance(config, self._configs.config_kls):
+            raise TypeError(
+                f"`config` must be of type `{self._configs.config_kls}`, but is of type `{type(config)}` instead."
+            )
+
+        return self._hugging_face_exporter(checkpoint, config)
+
     @property
     @override
     def family(self) -> str:
@@ -595,3 +604,8 @@ class DelegatingModelHandler(ModelHandler):
     @override
     def supports_fsdp(self) -> bool:
         return self._fsdp_applier is not None
+
+    @property
+    @override
+    def supports_hugging_face(self) -> bool:
+        return self._hugging_face_exporter is not None

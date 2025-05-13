@@ -37,7 +37,7 @@ from fairseq2.data.text.tokenizers.s2t_transformer import (
 from fairseq2.registry import Registry
 
 
-def register_text_tokenizer_families(context: RuntimeContext) -> None:
+def _register_text_tokenizer_families(context: RuntimeContext) -> None:
     # fmt: off
     registrar = TextTokenizerRegistrar(context)
 
@@ -65,7 +65,6 @@ def register_text_tokenizer_families(context: RuntimeContext) -> None:
     registrar.register_family(
         S2T_TRANSFORMER_TOKENIZER_FAMILY, load_s2t_transformer_tokenizer
     )
-
     # fmt: on
 
 

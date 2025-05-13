@@ -28,7 +28,7 @@ from fairseq2.datasets.text import GENERIC_TEXT_DATASET_FAMILY, GenericTextDatas
 from fairseq2.registry import Registry
 
 
-def register_dataset_families(context: RuntimeContext) -> None:
+def _register_dataset_families(context: RuntimeContext) -> None:
     # fmt: off
     registrar = DatasetRegistrar(context)
 

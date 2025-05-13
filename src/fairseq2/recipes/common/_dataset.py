@@ -50,9 +50,9 @@ def load_dataset(
     dataset_loader: DatasetLoader
 
     if dataset_section.path is not None:
-        dataset_loader = PathBasedDatasetLoader(kls, dataset_handlers)
+        dataset_loader = _PathBasedDatasetLoader(kls, dataset_handlers)
     elif dataset_section.name is not None:
-        dataset_loader = CardBasedDatasetLoader(
+        dataset_loader = _CardBasedDatasetLoader(
             kls, context.asset_store, dataset_handlers
         )
     else:
@@ -76,7 +76,7 @@ class DatasetLoader(ABC):
 
 
 @final
-class CardBasedDatasetLoader(DatasetLoader):
+class _CardBasedDatasetLoader(DatasetLoader):
     _kls: type[object]
     _asset_store: AssetStore
     _dataset_handlers: Provider[DatasetHandler]
@@ -136,7 +136,7 @@ class CardBasedDatasetLoader(DatasetLoader):
 
 
 @final
-class PathBasedDatasetLoader(DatasetLoader):
+class _PathBasedDatasetLoader(DatasetLoader):
     _kls: type[object]
     _dataset_handlers: Provider[DatasetHandler]
 

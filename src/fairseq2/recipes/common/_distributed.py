@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from contextlib import nullcontext
 from typing import final
 
@@ -24,9 +25,11 @@ from fairseq2.nn.data_parallel import (
     Fsdp2Module,
     FsdpGranularity,
     FsdpWrapper,
-    fsdp1_full_state_dict,
+    fsdp1_load_local_state_dict,
+    fsdp1_local_state_dict,
     fsdp1_summon_full_parameters,
-    fsdp2_full_state_dict,
+    fsdp2_load_local_state_dict,
+    fsdp2_local_state_dict,
     fsdp2_no_sync,
     fsdp2_summon_full_parameters,
     to_ddp,
@@ -49,6 +52,7 @@ def setup_data_parallel_model(
     trainer_section: TrainerSection,
     model: Model,
     gangs: Gangs,
+    has_checkpoint: bool,
     static_graph: bool = True,
 ) -> Model:
     data_parallelism = trainer_section.data_parallelism
@@ -61,10 +65,12 @@ def setup_data_parallel_model(
 
     try:
         if data_parallelism == "ddp":
-            return wrap_ddp(model, gangs, static_graph)
+            return _wrap_ddp(model, gangs, static_graph)
 
         if data_parallelism == "fsdp":
-            return wrap_fsdp(trainer_section, model, gangs, static_graph)
+            return _wrap_fsdp(
+                trainer_section, model, gangs, has_checkpoint, static_graph
+            )
     except DistributedSetupError as ex:
         raise RecipeError(
             "The data parallelism cannot be setup. See the nested exception for details."
@@ -75,7 +81,7 @@ def setup_data_parallel_model(
     )
 
 
-def wrap_ddp(model: Model, gangs: Gangs, static_graph: bool) -> Model:
+def _wrap_ddp(model: Model, gangs: Gangs, static_graph: bool) -> Model:
     if gangs.dp.size == 1:
         to_device(model.module, gangs.root.device)
 
@@ -90,11 +96,11 @@ def wrap_ddp(model: Model, gangs: Gangs, static_graph: bool) -> Model:
 
     log.info("Model wrapped with DDP and broadcasted.")
 
-    return DdpModel(ddp_module, model)
+    return _DdpModel(ddp_module, model)
 
 
 @final
-class DdpModel(Model):
+class _DdpModel(Model):
     _ddp: DDP
     _wrapped_model: Model
 
@@ -103,12 +109,12 @@ class DdpModel(Model):
         self._wrapped_model = wrapped_model
 
     @override
-    def full_state_dict(self) -> dict[str, object]:
-        dp_rank = self._ddp.process_group.rank()
-        if dp_rank != 0:
-            return {}
-
+    def state_dict(self) -> dict[str, object]:
         return self._ddp.module.state_dict()  # type: ignore[no-any-return]
+
+    @override
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
+        self._ddp.module.load_state_dict(state_dict)
 
     @override
     def no_sync(self) -> ContextManager:
@@ -149,12 +155,16 @@ class DdpModel(Model):
 
     @property
     @override
-    def empty_initialized(self) -> bool:
-        return self._wrapped_model.empty_initialized
+    def newly_initialized(self) -> bool:
+        return self._wrapped_model.newly_initialized
 
 
-def wrap_fsdp(
-    trainer_section: TrainerSection, model: Model, gangs: Gangs, static_graph: bool
+def _wrap_fsdp(
+    trainer_section: TrainerSection,
+    model: Model,
+    gangs: Gangs,
+    has_checkpoint: bool,
+    static_graph: bool,
 ) -> Model:
     if not model.handler.supports_fsdp:
         raise FsdpNotSupportedError(model.name)
@@ -175,7 +185,10 @@ def wrap_fsdp(
         model.handler.apply_fsdp(module, granularity, wrapper)
 
     if trainer_section.fsdp.version == "v1":
-        log.info("Wrapping the model with FSDP1 and broadcasting to all processes.")  # fmt: skip
+        if has_checkpoint:
+            log.info("Wrapping the model with FSDP1.")  # fmt: skip
+        else:
+            log.info("Wrapping the model with FSDP1 and broadcasting to all processes.")  # fmt: skip
 
         fsdp1_module = to_fsdp1(
             model.module,
@@ -183,15 +196,22 @@ def wrap_fsdp(
             apply_fsdp,
             mixed_precision_dtype=mp_dtype,
             fp32_reduce=trainer_section.fsdp.fp32_reduce,
-            broadcast_state=True,
+            broadcast_state=not has_checkpoint,
+            skip_init=has_checkpoint,
             reshard_after_forward=trainer_section.fsdp.reshard_after_forward,
         )
 
-        log.info("Model wrapped with FSDP1 and broadcasted.")
+        if has_checkpoint:
+            log.info("Model wrapped with FSDP1.")
+        else:
+            log.info("Model wrapped with FSDP1 and broadcasted.")
 
-        return Fsdp1Model(fsdp1_module, model)
+        return _Fsdp1Model(fsdp1_module, model)
     else:
-        log.info("Wrapping the model with FSDP2 and broadcasting to all processes.")  # fmt: skip
+        if has_checkpoint:
+            log.info("Wrapping the model with FSDP2.")  # fmt: skip
+        else:
+            log.info("Wrapping the model with FSDP2 and broadcasting to all processes.")  # fmt: skip
 
         fsdp2_module = to_fsdp2(
             model.module,
@@ -199,17 +219,21 @@ def wrap_fsdp(
             apply_fsdp,
             mixed_precision_dtype=mp_dtype,
             fp32_reduce=trainer_section.fsdp.fp32_reduce,
-            broadcast_state=True,
+            broadcast_state=not has_checkpoint,
+            skip_init=has_checkpoint,
             reshard_after_forward=trainer_section.fsdp.reshard_after_forward,
         )
 
-        log.info("Model wrapped with FSDP2 and broadcasted.")
+        if has_checkpoint:
+            log.info("Model wrapped with FSDP2.")
+        else:
+            log.info("Model wrapped with FSDP2 and broadcasted.")
 
-        return Fsdp2Model(fsdp2_module, model)
+        return _Fsdp2Model(fsdp2_module, model)
 
 
 @final
-class Fsdp1Model(Model):
+class _Fsdp1Model(Model):
     _fsdp: Fsdp1Module
     _wrapped_model: Model
 
@@ -218,8 +242,12 @@ class Fsdp1Model(Model):
         self._wrapped_model = wrapped_model
 
     @override
-    def full_state_dict(self) -> dict[str, object]:
-        return fsdp1_full_state_dict(self._fsdp)
+    def state_dict(self) -> dict[str, object]:
+        return fsdp1_local_state_dict(self._fsdp)
+
+    @override
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
+        fsdp1_load_local_state_dict(self._fsdp, state_dict)
 
     @override
     def no_sync(self) -> ContextManager:
@@ -260,12 +288,12 @@ class Fsdp1Model(Model):
 
     @property
     @override
-    def empty_initialized(self) -> bool:
-        return self._wrapped_model.empty_initialized
+    def newly_initialized(self) -> bool:
+        return self._wrapped_model.newly_initialized
 
 
 @final
-class Fsdp2Model(Model):
+class _Fsdp2Model(Model):
     _fsdp: Fsdp2Module
     _wrapped_model: Model
 
@@ -274,8 +302,12 @@ class Fsdp2Model(Model):
         self._wrapped_model = wrapped_model
 
     @override
-    def full_state_dict(self) -> dict[str, object]:
-        return fsdp2_full_state_dict(self._fsdp)
+    def state_dict(self) -> dict[str, object]:
+        return fsdp2_local_state_dict(self._fsdp)
+
+    @override
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
+        fsdp2_load_local_state_dict(self._fsdp, state_dict)
 
     @override
     def no_sync(self) -> ContextManager:
@@ -316,8 +348,8 @@ class Fsdp2Model(Model):
 
     @property
     @override
-    def empty_initialized(self) -> bool:
-        return self._wrapped_model.empty_initialized
+    def newly_initialized(self) -> bool:
+        return self._wrapped_model.newly_initialized
 
 
 def broadcast_model(model: Model, gangs: Gangs) -> None:
@@ -330,7 +362,7 @@ def broadcast_model(model: Model, gangs: Gangs) -> None:
         broadcast_module(model.module, gangs.dp)
     except GangError as ex:
         raise RecipeError(
-            f"The '{model.name}' model cannot be broadcasted from rank 0 to the rest of the gang. See the nested exception for details."
+            f"The '{model.name}' model cannot be broadcasted from rank 0 to the rest of the data parallel gang. See the nested exception for details."
         ) from ex
 
     log.info("Model broadcasted.")

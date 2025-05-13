@@ -30,13 +30,13 @@ def create_profiler(
 ) -> Profiler:
     profiler_handlers = context.get_registry(ProfilerHandler)
 
-    creator = ProfilerCreator(profiler_handlers)
+    creator = _ProfilerCreator(profiler_handlers)
 
     return creator.create(common_section, gangs, output_dir)
 
 
 @final
-class ProfilerCreator:
+class _ProfilerCreator:
     _profiler_handlers: Provider[ProfilerHandler]
 
     def __init__(self, profiler_handlers: Provider[ProfilerHandler]) -> None:

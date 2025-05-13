@@ -10,7 +10,7 @@ from fairseq2.context import RuntimeContext
 from fairseq2.optim import AdamWHandler, OptimizerHandler
 
 
-def register_optimizers(context: RuntimeContext) -> None:
+def _register_optimizers(context: RuntimeContext) -> None:
     registry = context.get_registry(OptimizerHandler)
 
     # AdamW

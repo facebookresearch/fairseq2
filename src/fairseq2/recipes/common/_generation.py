@@ -37,13 +37,13 @@ def create_seq_generator(
 ) -> SequenceGenerator:
     seq_generator_handlers = context.get_registry(SequenceGeneratorHandler)
 
-    creator = SequenceGeneratorCreator(seq_generator_handlers)
+    creator = _SequenceGeneratorCreator(seq_generator_handlers)
 
     return creator.create(seq_generator_section, model, vocab_info)
 
 
 @final
-class SequenceGeneratorCreator:
+class _SequenceGeneratorCreator:
     _seq_generator_handlers: Provider[SequenceGeneratorHandler]
 
     def __init__(
@@ -85,13 +85,13 @@ def create_seq2seq_generator(
 ) -> Seq2SeqGenerator:
     seq2seq_generator_handlers = context.get_registry(Seq2SeqGeneratorHandler)
 
-    creator = Seq2SeqGeneratorCreator(seq2seq_generator_handlers)
+    creator = _Seq2SeqGeneratorCreator(seq2seq_generator_handlers)
 
     return creator.create(seq2seq_generator_section, model, target_vocab_info)
 
 
 @final
-class Seq2SeqGeneratorCreator:
+class _Seq2SeqGeneratorCreator:
     _seq2seq_generator_handlers: Provider[Seq2SeqGeneratorHandler]
 
     def __init__(

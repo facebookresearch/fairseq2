@@ -129,9 +129,7 @@ class LLaMAFactory:
         config = self._config
 
         if config.use_scaled_rope:
-            freqs_init_fn = partial(
-                init_llama_rope_freqs, rope_scaling=config.rope_scaling
-            )
+            freqs_init_fn = partial(init_llama_rope_freqs, rope_scale=config.rope_scale)
         else:
             freqs_init_fn = None
 
@@ -212,7 +210,7 @@ class LLaMAFactory:
             ffn_inner_dim,
             bias=False,
             inner_dim_scale=config.ffn_inner_dim_scale,
-            inner_dim_to_multiple=config.ffn_inner_dim_to_multiple,
+            inner_dim_to_multiple=config.ffn_inner_dim_multiple_of,
             inner_dropout_p=config.dropout_p,
             proj_init_fn=init_projection,
         )
@@ -278,7 +276,7 @@ class LLaMAFactory:
 
 
 def init_llama_rope_freqs(
-    pos_encoder: RotaryEncoder, rope_scaling: LLaMARoPEScaleConfig
+    pos_encoder: RotaryEncoder, rope_scale: LLaMARoPEScaleConfig
 ) -> Tensor:
     device = pos_encoder.freqs.device
 
@@ -292,11 +290,11 @@ def init_llama_rope_freqs(
     if device.type == "meta":
         return freqs  # type: ignore[no-any-return]
 
-    old_context_len = rope_scaling.original_context_length
+    old_context_len = rope_scale.original_context_length
 
-    scale_factor = rope_scaling.factor
+    scale_factor = rope_scale.factor
 
-    l_freq_factor, h_freq_factor = rope_scaling.frequency_factors
+    l_freq_factor, h_freq_factor = rope_scale.frequency_factors
 
     l_freq_wavelen = old_context_len / l_freq_factor
     h_freq_wavelen = old_context_len / h_freq_factor

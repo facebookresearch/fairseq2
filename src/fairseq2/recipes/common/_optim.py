@@ -33,13 +33,13 @@ def create_optimizer(
 ) -> Optimizer:
     optimizer_handlers = context.get_registry(OptimizerHandler)
 
-    creator = OptimizerCreator(optimizer_handlers)
+    creator = _OptimizerCreator(optimizer_handlers)
 
     return creator.create(optimizer_section, model)
 
 
 @final
-class OptimizerCreator:
+class _OptimizerCreator:
     _optimizer_handlers: Provider[OptimizerHandler]
 
     def __init__(self, optimizer_handlers: Provider[OptimizerHandler]) -> None:
@@ -69,13 +69,13 @@ def create_lr_scheduler(
 ) -> LRScheduler:
     lr_scheduler_handlers = context.get_registry(LRSchedulerHandler)
 
-    creator = LRSchedulerCreator(lr_scheduler_handlers)
+    creator = _LRSchedulerCreator(lr_scheduler_handlers)
 
     return creator.create(lr_scheduler_section, regime_section, optimizer)
 
 
 @final
-class LRSchedulerCreator:
+class _LRSchedulerCreator:
     _lr_scheduler_handlers: Provider[LRSchedulerHandler]
 
     def __init__(self, lr_scheduler_handlers: Provider[LRSchedulerHandler]) -> None:

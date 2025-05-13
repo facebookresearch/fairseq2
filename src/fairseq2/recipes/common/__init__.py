@@ -10,6 +10,9 @@ from fairseq2.recipes.common._asset import (
     register_extra_asset_paths as register_extra_asset_paths,
 )
 from fairseq2.recipes.common._checkpoint import (
+    check_has_checkpoint as check_has_checkpoint,
+)
+from fairseq2.recipes.common._checkpoint import (
     create_checkpoint_manager as create_checkpoint_manager,
 )
 from fairseq2.recipes.common._dataset import load_dataset as load_dataset

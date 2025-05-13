@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import json
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Iterable, final
@@ -18,10 +17,8 @@ from fairseq2.assets import (
     AssetMetadataSaveError,
     CachedAssetMetadataProvider,
 )
-from fairseq2.file_system import FileMode, FileSystem
+from fairseq2.file_system import FileSystem
 from fairseq2.gang import GangError, Gangs
-from fairseq2.models.llama import LLAMA_MODEL_FAMILY, LLaMAConfig
-from fairseq2.models.llama.integ import convert_to_hg_llama_config
 from fairseq2.utils.structured import unstructure
 from fairseq2.utils.yaml import YamlDumper
 
@@ -52,37 +49,7 @@ class FileCheckpointMetadataSaver(CheckpointMetadataSaver):
 
     def save(self, model_family: str, model_config: object) -> None:
         if self._gangs.root.rank == 0:
-            unstructured_config = unstructure(model_config)
-
-            metadata: dict[str, object] = {
-                "name": "checkpoint",
-                "model_family": model_family,
-                "model_config": {
-                    "_set_": unstructured_config,
-                },
-            }
-
-            if self._gangs.tp.size != 1:
-                metadata["num_shards"] = self._gangs.tp.size
-
-            metadata_file = self._checkpoint_dir.joinpath("model.yaml")
-
-            def save_error() -> AssetMetadataSaveError:
-                return AssetMetadataSaveError(
-                    f"The checkpoint metadata cannot be saved to the '{metadata_file}' file. See the nested exception for details."
-                )
-
-            try:
-                self._file_system.make_directory(metadata_file.parent)
-            except OSError as ex:
-                raise save_error() from ex
-
-            try:
-                self._yaml_dumper.dump(metadata, metadata_file)
-            except OSError as ex:
-                raise save_error() from ex
-
-            self._save_huggingface_config(model_family, model_config)
+            self._save_asset_card(model_family, model_config)
 
         try:
             self._gangs.root.barrier()
@@ -91,40 +58,36 @@ class FileCheckpointMetadataSaver(CheckpointMetadataSaver):
                 "The collective barrier after the checkpoint metadata save operation has failed. See the nested exception for details."
             ) from ex
 
-    def _save_huggingface_config(self, model_family: str, model_config: object) -> None:
-        if model_family != LLAMA_MODEL_FAMILY:
-            return
+    def _save_asset_card(self, model_family: str, model_config: object) -> None:
+        unstructured_model_config = unstructure(model_config)
 
-        if not isinstance(model_config, LLaMAConfig):
-            raise TypeError(
-                f"`model_config` must be of type `{LLaMAConfig}`, but is of type `{type(model_config)}` instead."
-            )
+        metadata: dict[str, object] = {
+            "name": "checkpoint",
+            "model_family": model_family,
+            "model_config": {
+                "_set_": unstructured_model_config,
+            },
+        }
 
-        hg_config = convert_to_hg_llama_config(model_config)
+        if self._gangs.tp.size != 1:
+            metadata["num_shards"] = self._gangs.tp.size
 
-        hg_config_file = self._checkpoint_dir.joinpath("cc/config.json")
+        metadata_file = self._checkpoint_dir.joinpath("model.yaml")
 
         def save_error() -> AssetMetadataSaveError:
             return AssetMetadataSaveError(
-                f"The Hugging Face model configuration cannot be saved to the '{hg_config_file}' file. See the nested exception for details."
+                f"The checkpoint metadata cannot be saved to the '{metadata_file}' file. See the nested exception for details."
             )
 
         try:
-            self._file_system.make_directory(hg_config_file.parent)
+            self._file_system.make_directory(metadata_file.parent)
         except OSError as ex:
             raise save_error() from ex
 
         try:
-            fp = self._file_system.open_text(hg_config_file, mode=FileMode.WRITE)
+            self._yaml_dumper.dump(metadata, metadata_file)
         except OSError as ex:
             raise save_error() from ex
-
-        try:
-            json.dump(hg_config, fp, indent=2, sort_keys=True)
-        except OSError as ex:
-            raise save_error() from ex
-        finally:
-            fp.close()
 
 
 @final
@@ -170,23 +133,10 @@ class FileCheckpointMetadataLoader:
                 "The checkpoint metadata does not have a 'checkpoint@' entry."
             ) from None
 
-        num_shards = metadata.get("num_shards", 1)
-
-        if not isinstance(num_shards, int) or num_shards < 1:
-            raise AssetMetadataLoadError(
-                "The 'num_shards' value in the checkpoint metadata is not a positive integer."
-            )
-
-        if num_shards == 1:
-            filename = "model.pt"
-        else:
-            # TODO: Fix once DownloadManager refactoring complete!
-            filename = "model.0{shard_idx}.pt"
-
         def add_checkpoint_metadata(name: str, step_nr: int) -> None:
-            file = self._checkpoint_dir.joinpath(f"step_{step_nr}/{filename}")
+            path = self._checkpoint_dir.joinpath(f"step_{step_nr}")
 
-            cache[name] = {"base": "checkpoint", "checkpoint": str(file)}
+            cache[name] = {"base": "checkpoint", "checkpoint": str(path)}
 
         max_step_nr = -1
 

@@ -7,10 +7,9 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from itertools import chain
-from typing import Protocol, cast, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 import torch
 from torch import Tensor
@@ -20,7 +19,6 @@ from torch.nn.utils import remove_weight_norm  # type: ignore[attr-defined]
 from fairseq2.device import CPU, Device
 from fairseq2.gang import Gang
 from fairseq2.logging import log
-from fairseq2.utils.version import torch_greater_or_equal
 
 
 @runtime_checkable
@@ -239,7 +237,7 @@ def apply_to_parameters(
     """
     if no_memo:
         memo = None
-    elif memo is None and recurse:
+    elif memo is None:
         memo = {}
 
     if recurse:
@@ -276,7 +274,8 @@ def apply_to_parameters(
 
         setattr(module, param_name, new_param)
 
-        if (grad := param.grad) is not None:
+        grad = param.grad
+        if grad is not None:
             with torch.no_grad():
                 new_grad = call_fn(grad, requires_grad=grad.requires_grad)
 
@@ -299,7 +298,7 @@ def freeze_parameters(module: Module | None, value: bool = True) -> None:
 
 def select_parameters(
     module: Module, names: Sequence[str], *, exclude: bool = False
-) -> Iterable[tuple[str, Parameter]]:
+) -> Iterator[tuple[str, Parameter]]:
     """Select the parameters of ``module`` and its descendant modules whose
     names match ``names``.
 
@@ -311,7 +310,7 @@ def select_parameters(
         If ``True``, return the parameters that do not match ``names``.
 
     :returns:
-        An iterable of name-parameter tuples.
+        An iterator of name-parameter tuples.
     """
     for name, param in module.named_parameters():
         matched = any(name == pattern or re.match(pattern, name) for pattern in names)
@@ -534,83 +533,3 @@ def _get_named_modules(
 
     if post_order:
         yield prefix, module
-
-
-@dataclass(kw_only=True)
-class ModuleSizeInfo:
-    """Holds the size information of a module."""
-
-    param_size: int = 0
-    """The total size of all parameters."""
-
-    param_size_bytes: int = 0
-    """The total size of all parameters, in bytes."""
-
-    trainable_param_size: int = 0
-    """The total size of all trainable parameters."""
-
-    trainable_param_size_bytes: int = 0
-    """The total size of all trainable parameters, in bytes."""
-
-    buffer_size: int = 0
-    """The total size of all buffers."""
-
-    buffer_size_bytes: int = 0
-    """The total size of all buffers, in bytes."""
-
-    total_size: int = 0
-    """The total size of the module."""
-
-    total_size_bytes: int = 0
-    """The total size of the module, in bytes."""
-
-
-def get_module_size_info(module: Module) -> ModuleSizeInfo:
-    """Return the size information of ``module`` and its descendant modules."""
-
-    def get_numel(tensor: Tensor) -> int:
-        if torch_greater_or_equal(2, 6):
-            from torch.distributed.tensor import DTensor
-
-            if isinstance(tensor, DTensor):
-                return cast(DTensor, tensor.detach()).to_local().numel()  # type: ignore[no-any-return]
-
-        return tensor.numel()
-
-    info = ModuleSizeInfo()
-
-    param: Tensor | None
-
-    for param in module.parameters():
-        if param is None:
-            continue
-
-        numel = get_numel(param)
-
-        size_bytes = numel * param.element_size()
-
-        info.param_size += numel
-        info.param_size_bytes += size_bytes
-
-        if param.requires_grad:
-            info.trainable_param_size += numel
-            info.trainable_param_size_bytes += size_bytes
-
-        info.total_size += numel
-        info.total_size_bytes += size_bytes
-
-    for buffer in module.buffers():
-        if buffer is None:
-            continue
-
-        numel = buffer.numel()
-
-        size_bytes = numel * buffer.element_size()
-
-        info.buffer_size += numel
-        info.buffer_size_bytes += size_bytes
-
-        info.total_size += numel
-        info.total_size_bytes += size_bytes
-
-    return info

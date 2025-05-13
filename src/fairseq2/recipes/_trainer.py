@@ -528,6 +528,12 @@ class Trainer(Recipe, Generic[BatchT]):
 
             log.info("Trainer state restored.")
 
+            log.info("Restoring the model state.")
+
+            self._checkpoint_manager.load_model_state(step_nr, self._model)
+
+            log.info("Model state restored.")
+
             log.info("Restoring the optimizer state.")
 
             self._checkpoint_manager.load_optimizer_state(step_nr, self._optimizer)  # type: ignore[arg-type]
@@ -915,15 +921,6 @@ class Trainer(Recipe, Generic[BatchT]):
 
         self._maybe_wait_checkpoint()
 
-        try:
-            model_state_dict = self._model.full_state_dict()
-        except RuntimeError as ex:
-            raise RecipeError(
-                f"The consolidated model state cannot be gathered at step {step_nr}. See the nested exception for details."
-            ) from ex
-
-        model_state_dict = {"model": model_state_dict, "fs2": True}
-
         def log_ready(step_nr: int, state: CheckpointState) -> None:
             if blocking:
                 log.info("Checkpoint prepared. Saving.")
@@ -934,7 +931,7 @@ class Trainer(Recipe, Generic[BatchT]):
             if self._save_model_only:
                 self._checkpoint_manager.save_model_only(
                     step_nr,
-                    model_state_dict,
+                    self._model,
                     state_processor=log_ready,
                     callback=self._complete_checkpoint,
                     blocking=blocking,
@@ -949,9 +946,9 @@ class Trainer(Recipe, Generic[BatchT]):
                 self._checkpoint_manager.save_checkpoint(
                     step_nr,
                     trainer_state,
+                    self._model,
                     self._optimizer,  # type: ignore[arg-type]
                     self._data_reader,
-                    model_state_dict,
                     state_processor=log_ready,
                     callback=self._complete_checkpoint,
                     blocking=blocking,
