@@ -263,14 +263,21 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         rejected_logps, average_rejected_logps = _gather_lprobs_avg(
             rejected_output, rejected_target_batch
         )
-        tgt_logit_entropy = compute_token_level_entropy(
+        chosen_tgt_logit_entropy = compute_token_level_entropy(
             chosen_output.logits, chosen_target_batch.target_mask
+        )  # [Batch x Rollouts, 1]
+        rejected_tgt_logit_entropy = compute_token_level_entropy(
+            rejected_output.logits, rejected_target_batch.target_mask
         )  # [Batch x Rollouts, 1]
 
         max_entropy_regularizer = (
-            -tgt_logit_entropy.sum() * self._loss_config.entropy_regularizer_scale
+            -chosen_tgt_logit_entropy.sum()
+            * self._loss_config.entropy_regularizer_scale
         )
-        self.metric_bag.update_logit_entropy(tgt_logit_entropy)
+
+        self.metric_bag.update_logit_entropy(chosen_tgt_logit_entropy)
+        self.metric_bag.update_chosen_logit_entropy(chosen_tgt_logit_entropy)
+        self.metric_bag.update_rejected_logit_entropy(rejected_tgt_logit_entropy)
 
         if self._reference_offload:
             token_ref_chosen_logps = self.compute_reference_logps(batch.chosen)
@@ -404,6 +411,8 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
     num_dummy_batches: Mean
     avg_reward: Mean
     avg_loss_zeroer: Mean
+    chosen_logit_entropy: Mean
+    rejected_logit_entropy: Mean
     logit_entropy: Mean
 
     def __init__(self, gang: Gang) -> None:
@@ -419,6 +428,28 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         )
         self.register_metric(
             "logit_entropy", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "chosen_logit_entropy", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "rejected_logit_entropy", Mean(device=gang.device), persistent=False
+        )
+
+    @torch.inference_mode()
+    def update_chosen_logit_entropy(self, logit_entropy: Tensor):
+        # logit_entropy for chosen sequences
+        batch_size = logit_entropy.size(0)
+        self.chosen_logit_entropy.update(
+            logit_entropy.sum() / batch_size, weight=batch_size
+        )
+
+    @torch.inference_mode()
+    def update_rejected_logit_entropy(self, logit_entropy: Tensor):
+        # logit_entropy for rejected sequences
+        batch_size = logit_entropy.size(0)
+        self.rejected_logit_entropy.update(
+            logit_entropy.sum() / batch_size, weight=batch_size
         )
 
     @torch.inference_mode()
