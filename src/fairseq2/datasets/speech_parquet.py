@@ -55,8 +55,8 @@ class ParquetDatasetInterface:
     _splits: set[str]
     split_column: str = "split"
 
-    max_num_batches: int = 2000
-    max_num_examples: int = 100_000
+    max_num_batches: int = 10_000
+    max_num_examples: int = 400_000
 
     def __init__(self, name: str, dataset: pq.ParquetDataset, splits: set[str]) -> None:
         self._dataset = dataset
@@ -73,23 +73,23 @@ class ParquetDatasetInterface:
 
         # from stopes.fb_config import get_filesystem_from_path
         # path, filesystem = get_filesystem_from_path(path)  # type: ignore
-        datasest = pq.ParquetDataset(path, filesystem=filesystem)  # type: ignore
+        dataset = pq.ParquetDataset(path, filesystem=filesystem)  # type: ignore
 
-        assert isinstance(datasest, pq.ParquetDataset)
+        assert isinstance(dataset, pq.ParquetDataset)
         partition_columns: List[str] = []
-        if datasest.partitioning is not None:
-            partition_columns = datasest.partitioning.schema.names
+        if dataset.partitioning is not None:
+            partition_columns = dataset.partitioning.schema.names
 
         splits: Set[str] = set()
-        if datasest.partitioning is not None and cls.split_column in partition_columns:
+        if dataset.partitioning is not None and cls.split_column in partition_columns:
             idx = partition_columns.index(cls.split_column)
-            _splits = datasest.partitioning.dictionaries[idx]
+            _splits = dataset.partitioning.dictionaries[idx]
             if _splits is None:
                 splits = set()
             else:
                 splits = set(_splits.to_pylist())
 
-        return cls(name, datasest, splits)
+        return cls(name, dataset, splits)
 
     def splits(self) -> set[str]:
         return self._splits
