@@ -9,14 +9,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Final, List, Set, final
+from typing import Any, Dict, Final, final, List, Set
 
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 import torch
-from numpy.typing import NDArray
-from typing_extensions import override
 
 from fairseq2.data import Collater, DataPipelineBuilder, MemoryBlock, read_sequence
 from fairseq2.data.audio import AudioDecoder, AudioDecoderOutput
@@ -27,7 +25,7 @@ from fairseq2.data.parquet import (
     ParquetFragmentLoader,
     ParquetFragmentStreamer,
 )
-from fairseq2.datasets import DataPipelineReader, UnknownSplitError
+from fairseq2.datasets import DataPipelineReader, SyncMode, UnknownSplitError
 from fairseq2.datasets.speech import (
     GenericSpeechDataset,
     SpeechDataset,
@@ -36,6 +34,8 @@ from fairseq2.datasets.speech import (
 from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.models.sequence import SequenceBatch
+from numpy.typing import NDArray
+from typing_extensions import override
 
 PARQUET_SPEECH_DATASET_FAMILY: Final = "generic_parquet_speech"
 
@@ -55,8 +55,8 @@ class ParquetDatasetInterface:
     _splits: set[str]
     split_column: str = "split"
 
-    max_num_batches: int = 10_000
-    max_num_examples: int = 400_000
+    max_num_batches: int = 50_000
+    max_num_examples: int = 1_000_000
 
     def __init__(self, name: str, dataset: pq.ParquetDataset, splits: set[str]) -> None:
         self._dataset = dataset
@@ -136,7 +136,9 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
         partition_filters = options.extras.get("partition_filters", None)
         parquet_files: List[str] = dataset.files  # type: ignore
 
-        is_train_streaming = "train" in split  # FIXME: make it configurable
+        is_train_streaming = (
+            "train" in split and options.sync_mode == SyncMode.UNTIL_FIRST
+        )  # FIXME: make it configurable
 
         files_circular_shift = options.extras.get("files_circular_shift", False)
         assert isinstance(files_circular_shift, bool)
