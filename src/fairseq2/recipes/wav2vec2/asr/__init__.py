@@ -7,20 +7,10 @@
 from __future__ import annotations
 
 from fairseq2.recipes.wav2vec2.asr._train import (
-    Wav2Vec2AsrTrainConfig as Wav2Vec2AsrTrainConfig,
-)
-from fairseq2.recipes.wav2vec2.asr._train import (
-    Wav2Vec2AsrTrainDatasetSection as Wav2Vec2AsrTrainDatasetSection,
-)
-from fairseq2.recipes.wav2vec2.asr._train import (
-    Wav2Vec2AsrTrainerSection as Wav2Vec2AsrTrainerSection,
-)
-from fairseq2.recipes.wav2vec2.asr._train import (
-    Wav2Vec2AsrTrainUnit as Wav2Vec2AsrTrainUnit,
-)
-from fairseq2.recipes.wav2vec2.asr._train import (
     load_wav2vec2_asr_trainer as load_wav2vec2_asr_trainer,
-)
-from fairseq2.recipes.wav2vec2.asr._train import (
     register_wav2vec2_asr_train_configs as register_wav2vec2_asr_train_configs,
+    Wav2Vec2AsrTrainConfig as Wav2Vec2AsrTrainConfig,
+    Wav2Vec2AsrTrainDatasetSection as Wav2Vec2AsrTrainDatasetSection,
+    Wav2Vec2AsrTrainerSection as Wav2Vec2AsrTrainerSection,
+    Wav2Vec2AsrTrainUnit as Wav2Vec2AsrTrainUnit,
 )

@@ -9,25 +9,22 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, cast
+from typing import Any, cast, Final
 
 import torch
-from torch import Tensor
-from torch.nn.functional import layer_norm
-from typing_extensions import override
 
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
+    create_bucket_sizes,
     DataPipeline,
     DataPipelineBuilder,
     FileMapper,
-    SequenceData,
-    create_bucket_sizes,
     read_sequence,
+    SequenceData,
 )
 from fairseq2.data.audio import AudioDecoder
-from fairseq2.data.text import StrSplitter, read_text
+from fairseq2.data.text import read_text, StrSplitter
 from fairseq2.data.text.tokenizers import TextTokenizer
 from fairseq2.datasets import (
     DataPipelineReader,
@@ -45,6 +42,9 @@ from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import DataType
+from torch import Tensor
+from torch.nn.functional import layer_norm
+from typing_extensions import override
 
 
 @dataclass(kw_only=True)
@@ -54,6 +54,9 @@ class AsrReadOptions(DataReadOptions):
 
     normalize_audio: bool = False
     """If ``True``, normalizes audio to have zero mean and unit variance."""
+
+    language: str | None = None
+    """All rows in the dataset must belong to the language specified by this ISO code."""
 
 
 class AsrDataset(ABC):

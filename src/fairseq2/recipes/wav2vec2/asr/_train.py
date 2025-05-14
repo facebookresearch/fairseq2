@@ -8,15 +8,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, cast, final
+from typing import cast, final, Literal
 
 import torch
-from torch import Tensor
-from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
+from fairseq2.datasets.asr import AsrDataset, AsrReadOptions, GENERIC_ASR_DATASET_FAMILY
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
 from fairseq2.models.asr import AsrModel
@@ -59,13 +57,19 @@ from fairseq2.recipes.config import (
 )
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.wav2vec2.batch_weighted_datareader import (
-    MIXTURE_DATASET_FAMILY,
     BatchMixtureDataset,
+    MIXTURE_DATASET_FAMILY,
 )
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+from mms.datasets.language_weighted_asr import (
+    LANGUAGE_MIXTURE_DATASET_FAMILY,
+    LanguageMixtureDataset,
+)
+from torch import Tensor
+from typing_extensions import override
 
 
 @dataclass(kw_only=True)
@@ -161,6 +165,12 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
 
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
+
+    lang_mixing_beta: float | None = None
+    """The beta parameter for the language mixing distribution."""
+
+    language_distribution_tsv: str | None = None
+    """The path to the TSV file containing the language distribution."""
 
     extras: dict[str, object] = field(default_factory=dict)
     """The dataset-specific extra options."""
@@ -392,12 +402,19 @@ def load_wav2vec2_asr_trainer(
         extras=config.dataset.extras,
     )
 
-    dataset: AsrDataset | BatchMixtureDataset
+    dataset: AsrDataset | BatchMixtureDataset | LanguageMixtureDataset
     if config.dataset.family == MIXTURE_DATASET_FAMILY:
         log.info(
             f"Loading dataset {config.dataset.name} with family={config.dataset.family}"
         )
         dataset = BatchMixtureDataset.from_configs(
+            AsrDataset, context, config.dataset, gangs
+        )
+    elif config.dataset.family == LANGUAGE_MIXTURE_DATASET_FAMILY:
+        log.info(
+            f"Loading dataset {config.dataset.name} with family={config.dataset.family}"
+        )
+        dataset = LanguageMixtureDataset.from_configs(
             AsrDataset, context, config.dataset, gangs
         )
     else:
