@@ -194,11 +194,12 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
         builder = ParquetFragmentLoader(config=loading_config).apply(fragement_builder)
 
         # dispatch table into examples
+        memory_pool = pa.default_memory_pool()
         try:
             memory_pool = pa.jemalloc_memory_pool()
             pa.jemalloc_set_decay_ms(0)
         except pa.ArrowNotImplementedError:
-            memory_pool = pa.default_memory_pool()
+            pass
         builder = builder.yield_from(
             lambda table: read_sequence(
                 table.to_pandas(memory_pool=memory_pool, self_destruct=True).to_dict(
