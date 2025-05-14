@@ -46,7 +46,7 @@ class DynamicLossScaler:
         scale_factor: float = 2.0,
         scale_window: int | None = None,
         min_scale: float = 0.0,
-        gradient_accumulation: int = 1,
+        grad_accumulation: int = 1,
         enabled: bool = True,
     ) -> None:
         """
@@ -68,7 +68,7 @@ class DynamicLossScaler:
             method.
         :param min_scale:
             The minimum scale.
-        :param gradient_accumulation:
+        :param grad_accumulation:
             The number of steps to accumulate gradients before an optimizer
             update. Used only when ``scale_window`` is ``None``.
         :param enabled:
@@ -85,7 +85,7 @@ class DynamicLossScaler:
         if scale_window is None:
             if enabled:
                 # The same formula as in fairseq.
-                scale_window = max(int(2**14 / gang.size / gradient_accumulation), 1)
+                scale_window = max(int(2**14 / gang.size / grad_accumulation), 1)
 
                 log.info("fp16 loss scale window set to {}.", scale_window)
             else:
@@ -105,7 +105,7 @@ class DynamicLossScaler:
                     enabled=enabled,
                 )
         else:
-            if not supports_manual_gradient_scaling(optimizer):
+            if not supports_manual_grad_scaling(optimizer):
                 raise ValueError(
                     "`optimizer` must support manual gradient scaling via `torch.amp.GradScaler`, but supports only implicit scaling in its step function (i.e. `_step_supports_amp_scaling == True`) which is not supported in a distributed setting."
                 )
@@ -201,9 +201,9 @@ class DynamicLossScaler:
     def _are_close(a: float, b: float) -> bool:
         return math.isclose(a, b, rel_tol=1.3e-6, abs_tol=1e-5)
 
-    def unscale_gradients_(self) -> None:
+    def unscale_grads_(self) -> None:
         """Unscale the associated optimizer's gradients by the current scale."""
-        if self._enabled and not supports_manual_gradient_scaling(self._optimizer):
+        if self._enabled and not supports_manual_grad_scaling(self._optimizer):
             raise InvalidOperationError(
                 "`optimizer` must support manual gradient scaling via `torch.amp.GradScaler`, but supports only implicit scaling in its step function (i.e. `_step_supports_amp_scaling == True`)."
             )
@@ -241,7 +241,7 @@ class LossScaleResult:
     """If ``True``, the scale has been decreased to its minimum value."""
 
 
-def supports_manual_gradient_scaling(optimizer: Optimizer) -> bool:
+def supports_manual_grad_scaling(optimizer: Optimizer) -> bool:
     """
     Returns ``True`` if ``optimizer`` supports manual gradient scaling.
     """

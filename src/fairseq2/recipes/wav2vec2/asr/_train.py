@@ -48,6 +48,7 @@ from fairseq2.recipes.config import (
     CommonSection,
     DatasetSection,
     GangSection,
+    GradAccumulationSection,
     LRSchedulerSection,
     ModelSection,
     OptimizerSection,
@@ -84,7 +85,8 @@ class Wav2Vec2AsrTrainConfig:
 
     trainer: Wav2Vec2AsrTrainerSection = field(
         default_factory=lambda: Wav2Vec2AsrTrainerSection(
-            dtype=torch.float16, gradient_accumulation=4
+            dtype=torch.float16,
+            grad_accumulation=GradAccumulationSection(num_batches=4),
         )
     )
 
@@ -191,7 +193,7 @@ def register_wav2vec2_asr_train_configs(context: RuntimeContext) -> None:
         config.pretrained_model.name = "wav2vec2_large"
         config.dataset.max_audio_len = 640_000
         config.dataset.max_num_elements = 1_280_000
-        config.trainer.gradient_accumulation = 5
+        config.trainer.grad_accumulation.num_batches = 5
         config.optimizer.config.lr = 0.0001
 
         return config
@@ -317,7 +319,7 @@ def load_wav2vec2_asr_trainer(
         normalize_audio=config.dataset.normalize_audio,
         example_shuffle_window=config.dataset.example_shuffle_window,
         batch_shuffle_window=config.dataset.batch_shuffle_window,
-        num_accumulate=config.trainer.gradient_accumulation,
+        num_accumulate=config.trainer.grad_accumulation.num_batches,
         num_prefetch=config.dataset.num_prefetch,
         seed=seed,
         extras=config.dataset.extras,

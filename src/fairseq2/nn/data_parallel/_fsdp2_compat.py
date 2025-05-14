@@ -29,7 +29,7 @@ class Fsdp2Module(Module):
     def reshard(self) -> None:
         _raise_error()
 
-    def set_requires_gradient_sync(self, value: bool) -> None:
+    def set_requires_grad_sync(self, value: bool) -> None:
         _raise_error()
 
 

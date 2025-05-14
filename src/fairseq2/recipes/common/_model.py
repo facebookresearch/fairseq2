@@ -44,7 +44,7 @@ from fairseq2.models import (
     UnknownModelFamilyError,
     model_asset_card_error,
 )
-from fairseq2.nn.utils.gradient import clip_gradient_norm
+from fairseq2.nn.utils.grad import clip_grad_norm
 from fairseq2.recipes import Model, RecipeError
 from fairseq2.recipes.config import CompileOptionsSection, ModelSection, TrainerSection
 from fairseq2.recipes.utils.log import log_config, log_model
@@ -465,7 +465,10 @@ class _NewModelLoader(_ModelLoader):
         else:
             dtype = torch.float32
 
-        log.info("Initializing the model.")
+        if self._has_checkpoint:
+            log.info("Initializing the model.")
+        else:
+            log.info("Initializing the model on data parallel rank 0.")
 
         try:
             if gangs.dp.rank == 0 and not self._has_checkpoint:
@@ -488,7 +491,10 @@ class _NewModelLoader(_ModelLoader):
 
         self._checkpoint_metadata_saver.save(model_family, model_config)
 
-        log.info("Model initialized.")
+        if self._has_checkpoint:
+            log.info("Model initialized.")
+        else:
+            log.info("Model initialized on data parallel rank 0.")
 
         return _LocalModel(
             model_name,
@@ -558,8 +564,8 @@ class _LocalModel(Model):
         return nullcontext()
 
     @override
-    def clip_gradient_norm(self, max_norm: float | None) -> Tensor:
-        return clip_gradient_norm(self._module, max_norm)
+    def clip_grad_norm(self, max_norm: float | None) -> Tensor:
+        return clip_grad_norm(self._module, max_norm)
 
     @override
     def summon_full_parameters(self) -> ContextManager:
@@ -602,14 +608,16 @@ def prepare_model(
     model_section: ModelSection,
     trainer_section: TrainerSection,
 ) -> Model:
+    ac = trainer_section.activation_checkpointing
+
     # Apply AC before torch.compile() so that min-cut partitioner can see the AC
     # information and avoid recomputing twice.
-    if trainer_section.activation_checkpointing == "layerwise":
+    if ac.mode == "layerwise":
         if not model.handler.supports_activation_checkpointing:
             raise ActivationCheckpointingNotSupportedError(model.name)
 
         model.handler.apply_activation_checkpointing(
-            model.module, every_nth_layer=trainer_section.ac_every_nth_layer
+            model.module, every_nth_layer=ac.every_nth_layer
         )
 
     if model_section.compile:
@@ -622,7 +630,10 @@ def compile_model(model: Model, options_section: CompileOptionsSection) -> None:
     if not model.handler.supports_compilation:
         raise ModelCompilationNotSupportedError(model.name)
 
-    log.info("Applying torch.compile() to '{}' model.", model.name)
+    if model.newly_initialized:
+        log.info("Applying torch.compile() to the model.")
+    else:
+        log.info("Applying torch.compile() to '{}' model.", model.name)
 
     try:
         model.handler.compile(

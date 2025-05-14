@@ -44,7 +44,7 @@ from fairseq2.optim.lr_scheduler import (
     UnspecifiedNumberOfStepsError,
 )
 from fairseq2.profilers import UnknownProfilerError
-from fairseq2.recipes import InconsistentGradientNormError, MinimumLossScaleReachedError
+from fairseq2.recipes import InconsistentGradNormError, MinimumLossScaleReachedError
 from fairseq2.recipes.asr import AsrEvalConfig, load_asr_evaluator
 from fairseq2.recipes.common import (
     ActivationCheckpointingNotSupportedError,
@@ -339,7 +339,7 @@ def _register_user_error_types(cli: Cli) -> None:
     cli.register_user_error_type(DatasetPathNotFoundError)
     cli.register_user_error_type(FsdpNotSupportedError)
     cli.register_user_error_type(HybridShardingNotSupportedError)
-    cli.register_user_error_type(InconsistentGradientNormError)
+    cli.register_user_error_type(InconsistentGradNormError)
     cli.register_user_error_type(InvalidDatasetTypeError)
     cli.register_user_error_type(InvalidModelPathError)
     cli.register_user_error_type(InvalidModelTypeError)

@@ -243,7 +243,7 @@ def load_wav2vec2_trainer(
         dtype=config.trainer.dtype,
         normalize_audio=config.dataset.normalize_audio,
         batch_shuffle_window=config.dataset.batch_shuffle_window,
-        num_accumulate=config.trainer.gradient_accumulation,
+        num_accumulate=config.trainer.grad_accumulation.num_batches,
         num_prefetch=config.dataset.num_prefetch,
         seed=seed,
         extras=config.dataset.extras,

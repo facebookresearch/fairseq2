@@ -163,7 +163,7 @@ def load_po_finetuner(
         batching=batching,
         example_shuffle_window=config.dataset.example_shuffle_window,
         batch_shuffle_window=config.dataset.batch_shuffle_window,
-        num_accumulate=config.trainer.gradient_accumulation,
+        num_accumulate=config.trainer.grad_accumulation.num_batches,
         num_prefetch=config.dataset.num_prefetch,
         mask_source_tokens=config.dataset.mask_source_tokens,
         source_encode_mode=config.dataset.source_encode_mode,

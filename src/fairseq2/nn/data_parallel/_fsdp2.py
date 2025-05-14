@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 
         def reshard(self) -> None: ...
 
-        def set_requires_gradient_sync(self, value: bool) -> None: ...
+        def set_requires_grad_sync(self, value: bool) -> None: ...
 
 else:
     Fsdp2Module: TypeAlias = FSDPModule
@@ -246,12 +246,12 @@ def fsdp2_load_local_state_dict(
 
 @contextmanager
 def fsdp2_no_sync(module: Fsdp2Module) -> Iterator[None]:
-    module.set_requires_gradient_sync(False)
+    module.set_requires_grad_sync(False)
 
     try:
         yield
     finally:
-        module.set_requires_gradient_sync(True)
+        module.set_requires_grad_sync(True)
 
 
 @contextmanager

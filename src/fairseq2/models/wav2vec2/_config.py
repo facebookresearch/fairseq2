@@ -127,7 +127,7 @@ class Wav2Vec2EncoderConfig:
     """If ``True``, applies Layer Normalization to outputs of convolutions in
     feature extraction layers."""
 
-    feature_gradient_scale: float = 0.1
+    feature_grad_scale: float = 0.1
     """The scale factor for gradients of extracted features. Setting to a value
     less than 1.0 allows the feature extractor to learn at a lower rate than the
     rest of the model."""

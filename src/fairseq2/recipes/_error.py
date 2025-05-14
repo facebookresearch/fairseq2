@@ -26,7 +26,7 @@ class MinimumLossScaleReachedError(Exception):
         self.step_nr = step_nr
 
 
-class InconsistentGradientNormError(Exception):
+class InconsistentGradNormError(Exception):
     step_nr: int
 
     def __init__(self, step_nr: int) -> None:

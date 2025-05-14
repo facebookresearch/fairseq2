@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import final
+from typing import ClassVar, final
 
 import torch
 from torch import Tensor
@@ -195,12 +195,15 @@ class BatchLayout:
     def min_seq_len(self) -> int:
         return self._min_seq_len
 
+    compile_max_seq_len: ClassVar[int | None] = None
+
     @property
     def max_seq_len(self) -> int:
         # TODO: As of PyTorch 2.7, integers cannot be marked as dynamic during
         # compilation. This is a workaround till that gets fixed.
         if torch.compiler.is_compiling():
-            return self._width
+            if self.compile_max_seq_len is not None:
+                return self.compile_max_seq_len
 
         return self._max_seq_len
 

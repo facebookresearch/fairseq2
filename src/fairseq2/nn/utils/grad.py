@@ -22,7 +22,7 @@ from fairseq2.nn.data_parallel import Fsdp1Module
 from fairseq2.utils.version import torch_greater_or_equal
 
 
-def normalize_gradients(module: Module, gang: Gang, num_targets: int) -> None:
+def normalize_grads(module: Module, gang: Gang, num_targets: int) -> None:
     """Normalize gradients of ``module`` by ``num_targets``.
 
     :param module:
@@ -35,10 +35,10 @@ def normalize_gradients(module: Module, gang: Gang, num_targets: int) -> None:
     total_num_targets = all_sum(gang, num_targets)
 
     # Both DDP and FSDP divide gradients by the world size which we also undo.
-    scale_gradients(module, gang.size / total_num_targets)
+    scale_grads(module, gang.size / total_num_targets)
 
 
-def scale_gradients(module: Module, value: float | Tensor) -> None:
+def scale_grads(module: Module, value: float | Tensor) -> None:
     """Scale gradients of ``module`` by ``value``.
 
     :param module:
@@ -51,7 +51,7 @@ def scale_gradients(module: Module, value: float | Tensor) -> None:
             param.grad *= value
 
 
-def scale_gradient(x: Tensor, scale: float) -> Tensor:
+def scale_grad(x: Tensor, scale: float) -> Tensor:
     """Scale the gradient of ``x`` during backpropagation.
 
     This is typically used to allow one part of a model to learn at a lower rate
@@ -62,10 +62,10 @@ def scale_gradient(x: Tensor, scale: float) -> Tensor:
     :param scale:
         The scale factor of the gradient.
     """
-    return _GradientScaleFunction.apply(x, scale)  # type: ignore[no-any-return]
+    return _GradScaleFunction.apply(x, scale)  # type: ignore[no-any-return]
 
 
-class _GradientScaleFunction(Function):
+class _GradScaleFunction(Function):
     @staticmethod
     def forward(ctx: Any, x: Tensor, scale: float) -> Tensor:  # type: ignore[override]
         if not x.dtype.is_floating_point:
@@ -82,7 +82,7 @@ class _GradientScaleFunction(Function):
         return grad_output * ctx.scale, None
 
 
-def clip_gradient_norm(
+def clip_grad_norm(
     module: Module, max_norm: float | None, norm_type: float = 2.0
 ) -> Tensor:
     """Clip the gradient norms ``module``.
@@ -103,7 +103,7 @@ def clip_gradient_norm(
 
         # When a large portion of a model's parameters are frozen, some ranks
         # will likely won't get any gradient shards. No need to get a warning
-        # for such use cases as we already have `check_gradient_norms()` as a
+        # for such use cases as we already have `check_grad_norms()` as a
         # safety check.
         with warnings.catch_warnings():
             warnings.filterwarnings(
@@ -127,7 +127,7 @@ def clip_gradient_norm(
     return grad_norm  # type: ignore[no-any-return]
 
 
-def check_gradient_norms(local_norm: Tensor, gang: Gang, step_nr: int) -> bool:
+def check_grad_norms(local_norm: Tensor, gang: Gang, step_nr: int) -> bool:
     """Sanity check the total gradient norm across all processes.
 
     :param local_norm:

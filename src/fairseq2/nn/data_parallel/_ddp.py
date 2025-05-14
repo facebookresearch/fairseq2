@@ -37,7 +37,7 @@ def to_ddp(
     *,
     find_unused_parameters: bool = False,
     static_graph: bool = False,
-    normalize_gradients: bool = True,
+    normalize_grads: bool = True,
 ) -> DdpModule:
     """Wrap ``module`` with DDP.
 
@@ -45,7 +45,7 @@ def to_ddp(
     :param gangs: The gangs over which to replicate the module.
     :param find_unused_parameters: See the corresponding DDP documentation.
     :param static_graph: See the corresponding DDP documentation.
-    :param normalize_gradients: If ``True``, normalizes gradients by the world
+    :param normalize_grads: If ``True``, normalizes gradients by the world
         size of the underlying process group.
     """
     if gangs.sdp.size > 1:
@@ -108,7 +108,7 @@ def to_ddp(
     # DDP, by default, normalizes gradients by the world size of the underlying
     # process group. For sequence-based tasks this is typically not ideal since
     # batch sizes can vary. Here, we disable that behavior if requested.
-    if not normalize_gradients:
+    if not normalize_grads:
         module.register_comm_hook(state=dp_gang, hook=_allreduce_hook)
 
     return module

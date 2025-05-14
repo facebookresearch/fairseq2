@@ -156,7 +156,7 @@ class Wav2Vec2EncoderFactory:
                 config.feature_extractor_layer_descs,
                 config.feature_extractor_bias,
                 layer_norm=config.feature_extractor_layer_norm_convs,
-                gradient_scale=config.feature_gradient_scale,
+                grad_scale=config.feature_grad_scale,
             )
 
     def create_position_encoder(self) -> PositionEncoder:

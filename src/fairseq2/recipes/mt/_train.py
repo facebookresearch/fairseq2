@@ -54,6 +54,7 @@ from fairseq2.recipes.config import (
     DatasetSection,
     FsdpSection,
     GangSection,
+    GradAccumulationSection,
     LRSchedulerSection,
     ModelSection,
     OptimizerSection,
@@ -104,7 +105,7 @@ class MTTrainConfig:
             dtype=torch.float16,
             data_parallelism="fsdp",
             fsdp=FsdpSection(granularity="stack"),
-            gradient_accumulation=2,
+            grad_accumulation=GradAccumulationSection(num_batches=2),
         )
     )
 
@@ -200,7 +201,7 @@ def register_mt_train_configs(context: RuntimeContext) -> None:
         assert isinstance(config.lr_scheduler.config, MyleLRConfig)
 
         config.model.arch = "nllb_dense_300m"
-        config.trainer.gradient_accumulation = 4
+        config.trainer.grad_accumulation.num_batches = 4
         config.lr_scheduler.config.num_warmup_steps = 400
         config.regime.num_steps = 10_000
         config.regime.validate_every_n_steps = 1000
@@ -271,7 +272,7 @@ def load_mt_trainer(
         sample=True,
         example_shuffle_window=config.dataset.example_shuffle_window,
         batch_shuffle_window=config.dataset.batch_shuffle_window,
-        num_accumulate=config.trainer.gradient_accumulation,
+        num_accumulate=config.trainer.grad_accumulation.num_batches,
         num_prefetch=config.dataset.num_prefetch,
         seed=seed,
         extras=config.dataset.extras,

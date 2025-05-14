@@ -36,7 +36,7 @@ from fairseq2.nn.data_parallel import (
     to_fsdp1,
     to_fsdp2,
 )
-from fairseq2.nn.utils.gradient import clip_gradient_norm
+from fairseq2.nn.utils.grad import clip_grad_norm
 from fairseq2.nn.utils.module import broadcast_module, to_device
 from fairseq2.recipes import Model, RecipeError
 from fairseq2.recipes.config import TrainerSection
@@ -121,8 +121,8 @@ class _DdpModel(Model):
         return self._ddp.no_sync()
 
     @override
-    def clip_gradient_norm(self, max_norm: float | None) -> Tensor:
-        return clip_gradient_norm(self._ddp, max_norm)
+    def clip_grad_norm(self, max_norm: float | None) -> Tensor:
+        return clip_grad_norm(self._ddp, max_norm)
 
     @override
     def summon_full_parameters(self) -> ContextManager:
@@ -254,8 +254,8 @@ class _Fsdp1Model(Model):
         return self._fsdp.no_sync()
 
     @override
-    def clip_gradient_norm(self, max_norm: float | None) -> Tensor:
-        return clip_gradient_norm(self._fsdp, max_norm)
+    def clip_grad_norm(self, max_norm: float | None) -> Tensor:
+        return clip_grad_norm(self._fsdp, max_norm)
 
     @override
     def summon_full_parameters(self) -> ContextManager:
@@ -314,8 +314,8 @@ class _Fsdp2Model(Model):
         return fsdp2_no_sync(self._fsdp)
 
     @override
-    def clip_gradient_norm(self, max_norm: float | None) -> Tensor:
-        return clip_gradient_norm(self._fsdp, max_norm)
+    def clip_grad_norm(self, max_norm: float | None) -> Tensor:
+        return clip_grad_norm(self._fsdp, max_norm)
 
     @override
     def summon_full_parameters(self) -> ContextManager:
