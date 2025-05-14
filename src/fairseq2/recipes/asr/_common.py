@@ -7,9 +7,11 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, final, TextIO
+from typing import Any, Dict, TextIO, final
 
 import torch
+from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
 from fairseq2.gang import Gang
@@ -18,10 +20,7 @@ from fairseq2.metrics.text import WerMetric
 from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.recipes import BaseMetricBag, Model, UnitError
-from torch import Tensor
-from typing_extensions import override
 
 
 @final
@@ -42,14 +41,7 @@ class AsrCriterion:
     def __call__(
         self, batch: Seq2SeqBatch, metric_bag: AsrMetricBag
     ) -> tuple[Tensor, int]:
-        if isinstance(self._model.module, Wav2Vec2AsrModel):
-            input_batch: SequenceBatch | Seq2SeqBatch = SequenceBatch(
-                batch.source_seqs, batch.source_padding_mask
-            )
-        else:
-            input_batch = batch
-
-        output = self._forward(input_batch)
+        output = self._forward(batch)
 
         loss, extra_metrics = output.compute_loss(
             batch.target_seqs, batch.target_padding_mask
