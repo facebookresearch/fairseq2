@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import partial, reduce
 from pathlib import Path
-from typing import Any, Dict, Final, List
+from typing import Any, Callable, Dict, Final, List
 
 import numpy as np
 import torch
@@ -18,12 +18,7 @@ from torch import Tensor
 from torch.nn.functional import layer_norm
 from typing_extensions import override
 
-from fairseq2.data import (
-    Collater,
-    DataPipelineBuilder,
-    FileMapper,
-    create_bucket_sizes,
-)
+from fairseq2.data import Collater, DataPipelineBuilder, FileMapper, create_bucket_sizes
 from fairseq2.data.audio import AudioDecoder, WaveformToFbankConverter
 from fairseq2.data.text import StrSplitter, read_text
 from fairseq2.datasets import (
@@ -91,28 +86,6 @@ class AudioCropper:
         return batch
 
 
-def rename_feature(batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    for example in batch:
-        if "fbank" in example["audio"]["data"]:
-            example["audio_feature"] = example["audio"]["data"].pop("fbank")
-        elif "waveform" in example["audio"]["data"]:
-            example["audio_feature"] = example["audio"]["data"].pop("waveform")
-    return batch
-
-
-def to_batch(
-    example: dict[str, Any], no_padding: bool, device: Device
-) -> SequenceBatch:
-    audio_feature = example["audio_feature"]
-    if no_padding:
-        seqs = audio_feature.to(device)
-        padding_mask = None
-    else:
-        seqs, padding_mask = get_seqs_and_padding_mask(audio_feature, device=device)
-
-    return SequenceBatch(seqs, padding_mask, example=example)
-
-
 @dataclass(kw_only=True)
 class SpeechReadOptions(DataReadOptions):
 
@@ -171,8 +144,7 @@ GENERIC_SPEECH_DATASET_FAMILY: Final = "generic_speech"
 get_speech_dataset_hub = DatasetHubAccessor(SpeechDataset)
 
 
-class GenericSpeechDataset(SpeechDataset):
-    """Represents a generic manifest-based Speech dataset."""
+class ManifestDatasetInterface:
 
     _name: str
     _manifest_dir: Path
@@ -189,14 +161,12 @@ class GenericSpeechDataset(SpeechDataset):
         self._manifest_dir = manifest_dir
         self._splits = splits
 
-    @staticmethod
-    def from_path(path: Path, name: str) -> GenericSpeechDataset:
+    @classmethod
+    def from_path(cls, path: Path, name: str) -> "ManifestDatasetInterface":
         path = path.expanduser().resolve()
 
         if not path.is_dir():
-            return GenericSpeechDataset(
-                name, manifest_dir=path.parent, splits={path.stem}
-            )
+            return cls(name, manifest_dir=path.parent, splits={path.stem})
 
         try:
             splits = {f.stem for f in path.glob("*.tsv")}
@@ -205,22 +175,43 @@ class GenericSpeechDataset(SpeechDataset):
                 name, f"The splits under the '{path}' directory of the '{name}' dataset cannot be determined. See the nested exception for details."  # fmt: skip
             ) from ex
 
-        return GenericSpeechDataset(name, path, splits)
+        return cls(name, path, splits)
 
-    @override
     def splits(self) -> set[str]:
         return self._splits
 
-    def add_audio_reading_pipeline(
-        self,
-        builder: DataPipelineBuilder,
-        audio_dir: Path,
-        options: SpeechReadOptions,
-        seed: int,
-        max_audio_len: int,
+
+class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
+    """Represents a generic manifest-based Speech dataset."""
+
+    @staticmethod
+    def to_batch(
+        example: Dict[str, Any], no_padding: bool, device: Device
+    ) -> SequenceBatch:
+        audio_feature = example["audio_feature"]
+        if no_padding:
+            seqs = audio_feature.to(device)
+            padding_mask = None
+        else:
+            seqs, padding_mask = get_seqs_and_padding_mask(audio_feature, device=device)
+
+        return SequenceBatch(seqs, padding_mask, example=example)
+
+    @staticmethod
+    def rename_feature(batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        for example in batch:
+            if "fbank" in example["audio"]["data"]:
+                example["audio_feature"] = example["audio"]["data"].pop("fbank")
+            elif "waveform" in example["audio"]["data"]:
+                example["audio_feature"] = example["audio"]["data"].pop("waveform")
+        return batch
+
+    @staticmethod
+    def add_audio_decoding(
+        builder: DataPipelineBuilder, options: SpeechReadOptions, audio_dir: Path | None
     ) -> DataPipelineBuilder:
         # Memory map audio files.
-        cached_fd_count = options.extras.get("cached_fd_count", 100)
+        cached_fd_count = options.extras.get("cached_fd_count", 1000)
         if not isinstance(cached_fd_count, int):
             raise TypeError(
                 f"`options.extras['cached_fd_count']` must be of type `int`, but is of type `{type(cached_fd_count)}` instead."
@@ -237,7 +228,14 @@ class GenericSpeechDataset(SpeechDataset):
         builder.map(
             audio_decoder, selector="[*].audio.data", num_parallel_calls=options.npc
         )
+        return builder
 
+    @staticmethod
+    def audio_post_process(
+        builder: DataPipelineBuilder,
+        options: SpeechReadOptions,
+        renaming: Callable[[List[Dict[str, Any]]], List[Dict[str, Any]]],
+    ) -> DataPipelineBuilder:
         if options.use_fbank:
             fbank_converter = WaveformToFbankConverter(
                 num_mel_bins=80,
@@ -263,8 +261,16 @@ class GenericSpeechDataset(SpeechDataset):
             )
 
         # select the audio feature at the top level
-        builder.map(rename_feature)
+        builder.map(renaming)
+        return builder
 
+    @staticmethod
+    def add_audio_cropping(
+        builder: DataPipelineBuilder,
+        options: SpeechReadOptions,
+        seed: int,
+        max_audio_len: int,
+    ) -> DataPipelineBuilder:
         # Crop long audios to `max_audio_len`.
         audio_cropper = AudioCropper(
             max_audio_len,
@@ -272,25 +278,33 @@ class GenericSpeechDataset(SpeechDataset):
             crop_to_batch_minimal_size=options.no_padding,
         )
         builder.map(audio_cropper.crop_audios_in_batch)
-
         return builder
 
-    def _retrieve_data_directory(self, split: str) -> Path:
-        manifest_file = self._manifest_dir.joinpath(f"{split}.tsv")
+    @staticmethod
+    def _retrieve_data_directory(
+        manifest_dir: Path, name: str, split: str
+    ) -> Path | None:
+        manifest_file = manifest_dir.joinpath(f"{split}.tsv")
 
         try:
             with manifest_file.open(encoding="utf-8") as fp:
-                line = fp.readline().rstrip()
+                header = fp.readline().rstrip()
         except OSError as ex:
             raise DataReadError(
-                self._name, split, f"The {manifest_file} manifest file cannot be read. See the nested exception for details."  # fmt: skip
+                name, split, f"The {manifest_file} manifest file cannot be read. See the nested exception for details."  # fmt: skip
             ) from ex
 
         try:
-            return Path(line)
+            audio_dir = Path(header)
+            if audio_dir.exists():
+                log.info(f"Using the data directory: {audio_dir}")
+                return audio_dir
+            return None
         except ValueError:
             raise DataReadError(
-                self._name, split, f"The first line of the '{manifest_file}' manifest file must point to a data directory."  # fmt: skip
+                name,
+                split,
+                f"The first line of {manifest_file} must point to a data directory.",
             ) from None
 
     def _read_manifest(
@@ -322,8 +336,17 @@ class GenericSpeechDataset(SpeechDataset):
 
         return builder
 
+    @staticmethod
+    def _get_num_seqs_multiple_of(options: SpeechReadOptions) -> int:
+        num_seqs_multiple_of = options.extras.get("num_seqs_multiple_of", 8)
+        assert isinstance(
+            num_seqs_multiple_of, int
+        ), "num_seqs_multiple_of must be an integer"
+        assert num_seqs_multiple_of > 0, "num_seqs_multiple_of must be positive"
+        return num_seqs_multiple_of
+
+    @staticmethod
     def add_bucketing_pipeline(
-        self,
         builder: DataPipelineBuilder,
         options: SpeechReadOptions,
         max_audio_len: int,
@@ -336,11 +359,6 @@ class GenericSpeechDataset(SpeechDataset):
         if isinstance(batching, LengthBatching):
             # Bucket by the audio length.
             max_num_elements = batching.max_num_elements
-            num_seqs_multiple_of = options.extras.get("num_seqs_multiple_of", 8)
-            assert isinstance(
-                num_seqs_multiple_of, int
-            ), "num_seqs_multiple_of must be an integer"
-            assert num_seqs_multiple_of > 0, "num_seqs_multiple_of must be positive"
 
             if max_num_elements % max_audio_len != 0:
                 max_num_elements = (max_num_elements // max_audio_len) * max_audio_len
@@ -350,7 +368,9 @@ class GenericSpeechDataset(SpeechDataset):
                 min_seq_len=min_audio_len,
                 max_seq_len=max_audio_len,
                 max_num_elements=max_num_elements,
-                num_seqs_multiple_of=num_seqs_multiple_of,
+                num_seqs_multiple_of=GenericSpeechDataset._get_num_seqs_multiple_of(
+                    options
+                ),
             )
 
             builder.bucket_by_length(
@@ -371,6 +391,10 @@ class GenericSpeechDataset(SpeechDataset):
             raise NotSupportedError(f"`{batching}` is not supported.")
 
         # Shuffle buckets.
+        assert (
+            options.batch_shuffle_window > 0
+        ), "can apply full batch shuffling which may result in OOM"
+
         if options.batch_shuffle_window != 1:
             builder.shuffle(options.batch_shuffle_window, seed)
         return builder
@@ -399,7 +423,9 @@ class GenericSpeechDataset(SpeechDataset):
         seed = options.seed
         no_padding = options.no_padding
 
-        audio_dir = self._retrieve_data_directory(split)
+        audio_dir = GenericSpeechDataset._retrieve_data_directory(
+            self._manifest_dir, self._name, split
+        )
         builder = self._read_manifest(split, max_audio_len, min_audio_len, audio_dir)
 
         if options.example_shuffle_window != 1:
@@ -411,13 +437,23 @@ class GenericSpeechDataset(SpeechDataset):
         builder.shard(gang.rank, gang.size, allow_uneven=True)
         seed += gang.rank
 
-        builder = self.add_bucketing_pipeline(
-            builder, options, max_audio_len, min_audio_len, seed, "audio_size"
+        builder = GenericSpeechDataset.add_bucketing_pipeline(
+            builder,
+            options,
+            max_audio_len=max_audio_len,
+            min_audio_len=min_audio_len,
+            seed=seed,
+            columns="audio_size",
         )
         seed += 1
-        builder = self.add_audio_reading_pipeline(
-            builder, audio_dir, options, seed, max_audio_len
+        builder = GenericSpeechDataset.add_audio_decoding(builder, options, audio_dir)
+        builder = GenericSpeechDataset.audio_post_process(
+            builder, options, GenericSpeechDataset.rename_feature
         )
+        builder = GenericSpeechDataset.add_audio_cropping(
+            builder, options, seed=seed, max_audio_len=max_audio_len
+        )
+
         # Collate batched examples into a batch.
         collater = Collater(pad_value=None if no_padding else 0)
         builder.map(collater)
@@ -429,7 +465,7 @@ class GenericSpeechDataset(SpeechDataset):
         builder.prefetch(options.num_prefetch)
 
         pipeline = builder.map(
-            partial(to_batch, no_padding=no_padding, device=gang.device)
+            partial(self.to_batch, no_padding=no_padding, device=gang.device)
         ).and_return()
 
         return DataPipelineReader[SequenceBatch](
