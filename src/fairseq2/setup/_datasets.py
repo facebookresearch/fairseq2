@@ -11,6 +11,10 @@ from typing import final
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import DatasetHandler, DatasetLoader, StandardDatasetHandler
 from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, GenericAsrDataset
+from fairseq2.datasets.asr_parquet import (
+    PARQUET_ASR_DATASET_FAMILY,
+    GenericAsrParquetDataset,
+)
 from fairseq2.datasets.instruction import (
     GENERIC_INSTRUCTION_DATASET_FAMILY,
     GenericInstructionDataset,
@@ -70,6 +74,12 @@ def register_dataset_families(context: RuntimeContext) -> None:
         PARQUET_SPEECH_DATASET_FAMILY,
         GenericSpeechParquetDataset,
         GenericSpeechParquetDataset.from_path,
+    )
+
+    registrar.register_family(
+        PARQUET_ASR_DATASET_FAMILY,
+        GenericAsrParquetDataset,
+        GenericAsrParquetDataset.from_path,
     )
 
     registrar.register_family(

@@ -16,9 +16,7 @@ import pyarrow as pa
 from retrying import retry
 
 from fairseq2.data import DataPipelineBuilder
-from fairseq2.data.parquet.arrow_transform import (
-    apply_filter,
-)
+from fairseq2.data.parquet.arrow_transform import apply_filter
 from fairseq2.data.parquet.fragment_loading.config import FragmentLoadingConfig
 from fairseq2.data.parquet.fragment_streaming.primitives import process_filter
 from fairseq2.data.parquet.utils import (
@@ -48,6 +46,13 @@ class SafeFragment:
 
     def __init__(self, fragment: pa.dataset.ParquetFileFragment):
         self.fragment = fragment
+        self.memory_pool = None
+        try:
+            self.memory_pool = pa.jemalloc_memory_pool()
+            pa.jemalloc_set_decay_ms(10)
+        except pa.ArrowNotImplementedError:
+            log.info("jemalloc not available, skipping memory pool init")
+            pass
 
     def __repr__(self) -> str:
         out = ""
@@ -105,6 +110,7 @@ class SafeFragment:
                 columns=fragment_columns,
                 use_threads=use_threads,
                 filter=filters if can_apply_on_phyiscal_schema else None,
+                memory_pool=self.memory_pool,
             )
 
         if add_partitioning_columns:
@@ -139,13 +145,16 @@ class ParquetFragmentLoader:
 
     def apply(self, fragment_pipeline: DataPipelineBuilder) -> DataPipelineBuilder:
         def load_fn(fragment: pa.dataset.ParquetFileFragment) -> pa.Table | None:
-            return SafeFragment(fragment).load(
+            safe_fragment = SafeFragment(fragment)
+
+            table = safe_fragment.load(
                 columns=self.columns,
                 add_fragment_traces=self.config.add_fragment_traces,
                 use_threads=self.config.use_threads,
                 filters=self.filters,
                 add_partitioning_columns=True,
             )
+            return table
 
         if self.config.non_deterministic_read:
             # keeping if above checks for back-compatibility
