@@ -9,12 +9,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Final, final, List, Set
+from typing import Any, Dict, Final, List, Set, final
 
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 import torch
+from numpy.typing import NDArray
+from typing_extensions import override
 
 from fairseq2.data import Collater, DataPipelineBuilder, MemoryBlock, read_sequence
 from fairseq2.data.audio import AudioDecoder, AudioDecoderOutput
@@ -34,8 +36,6 @@ from fairseq2.datasets.speech import (
 from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.models.sequence import SequenceBatch
-from numpy.typing import NDArray
-from typing_extensions import override
 
 PARQUET_SPEECH_DATASET_FAMILY: Final = "generic_parquet_speech"
 
