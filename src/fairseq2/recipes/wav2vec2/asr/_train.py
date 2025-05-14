@@ -275,11 +275,11 @@ def load_wav2vec2_asr_trainer(
 
         pt_module = cast(Wav2Vec2Model, pt_model.module)
 
-        share_parameters(pt_module.encoder_frontend, module.encoder_frontend)
-        share_parameters(pt_module.encoder, module.encoder)
+        share_parameters(pt_module.encoder_frontend, module.encoder_frontend)  # type: ignore
+        share_parameters(pt_module.encoder, module.encoder)  # type: ignore
 
         if module.masker is not None:
-            share_parameters(pt_module.masker, module.masker)
+            share_parameters(pt_module.masker, module.masker)  # type: ignore
 
         del pt_model
 
@@ -336,7 +336,7 @@ def load_wav2vec2_asr_trainer(
             mp=config.trainer.mixed_precision != "off",
         )
         pt_module = pt_model.module  # type: ignore[assignment]
-        share_parameters(pt_module.decoder, module.llama_decoder)
+        share_parameters(pt_module.decoder, module.llama_decoder)  # type: ignore
         del pt_model
 
         # Make sure that the final projection layer is instantiated along with
@@ -355,7 +355,7 @@ def load_wav2vec2_asr_trainer(
         module = wrap_lora(module, get_llama_lora_config())  # type: ignore[assignment]
 
     # We never train the feature extractor.
-    freeze_parameters(module.encoder_frontend.feature_extractor)
+    freeze_parameters(module.encoder_frontend.feature_extractor)  # type: ignore
 
     prepare_model(context, config.trainer, model)
 
@@ -531,11 +531,11 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
             if step_nr == 1:
                 log.info("Freezing the encoder for the first {} steps.", self._freeze_encoder_for_n_steps)  # fmt: skip
 
-            freeze_parameters(module.encoder_frontend)
-            freeze_parameters(module.encoder)
+            freeze_parameters(module.encoder_frontend)  # type: ignore
+            freeze_parameters(module.encoder)  # type: ignore
 
             if module.masker is not None:
-                freeze_parameters(module.masker)
+                freeze_parameters(module.masker)  # type: ignore
 
             self._frozen = True
         else:
@@ -548,7 +548,7 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
             freeze_parameters(module, False)
 
             # We never train the feature extractor.
-            freeze_parameters(module.encoder_frontend.feature_extractor)
+            freeze_parameters(module.encoder_frontend.feature_extractor)  # type: ignore
 
             self._frozen = False
 
