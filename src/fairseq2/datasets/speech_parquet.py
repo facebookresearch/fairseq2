@@ -18,16 +18,8 @@ import torch
 from numpy.typing import NDArray
 from typing_extensions import override
 
-from fairseq2.data import (
-    Collater,
-    DataPipelineBuilder,
-    MemoryBlock,
-    read_sequence,
-)
-from fairseq2.data.audio import (
-    AudioDecoder,
-    AudioDecoderOutput,
-)
+from fairseq2.data import Collater, DataPipelineBuilder, MemoryBlock, read_sequence
+from fairseq2.data.audio import AudioDecoder, AudioDecoderOutput
 from fairseq2.data.parquet import (
     FragmentLoadingConfig,
     FragmentStreamingConfig,
@@ -35,10 +27,7 @@ from fairseq2.data.parquet import (
     ParquetFragmentLoader,
     ParquetFragmentStreamer,
 )
-from fairseq2.datasets import (
-    DataPipelineReader,
-    UnknownSplitError,
-)
+from fairseq2.datasets import DataPipelineReader, UnknownSplitError
 from fairseq2.datasets.speech import (
     GenericSpeechDataset,
     SpeechDataset,
@@ -184,13 +173,21 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
         columns = options.extras.get("columns", columns)  # type: ignore
         assert columns is None or isinstance(columns, NamedColumns)
 
+        cache = options.extras.get("cache", False)
+        assert isinstance(cache, bool)
+
+        add_fragment_traces = options.extras.get("add_fragment_traces", False)
+        assert isinstance(add_fragment_traces, bool)
+
         loading_config = FragmentLoadingConfig(
             columns=columns,
-            add_fragment_traces=False,
+            add_fragment_traces=add_fragment_traces,
             num_parallel_fragments=num_parallel_fragments,
             nb_prefetch=options.num_prefetch,
-            non_deterministic_read=True,
+            non_deterministic_read=False,
+            cache=cache,
             drop_null=False,
+            filters=None,
         )
 
         # load data in memory

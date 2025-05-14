@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from copy import deepcopy
-from typing import Dict, Final, List, Literal, Tuple
+from typing import Dict, Final, List, Tuple
 
 from fairseq2.context import RuntimeContext
 from fairseq2.data import DataPipeline
