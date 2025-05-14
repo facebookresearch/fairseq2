@@ -8,6 +8,9 @@ from __future__ import annotations
 
 from typing import final
 
+from torch.nn import Dropout
+from typing_extensions import override
+
 from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
@@ -15,9 +18,6 @@ from fairseq2.models.transformer import TransformerEncoder
 from fairseq2.models.wav2vec2 import Wav2Vec2Frontend, Wav2Vec2Masker
 from fairseq2.nn import Projection
 from fairseq2.typing import DataType, Device
-
-from torch.nn import Dropout
-from typing_extensions import override
 
 
 @final
@@ -71,7 +71,13 @@ class Wav2Vec2AsrModel(AsrModel):
         :param batch:
             The batch of sequences to process.
         """
-        assert isinstance(batch, SequenceBatch)
+        if isinstance(batch, Seq2SeqBatch):
+            batch = SequenceBatch(
+                seqs=batch.source_seqs,
+                padding_mask=batch.source_padding_mask,
+                example=batch.example,
+            )
+
         seqs, padding_mask, _ = self.encoder_frontend.extract_features(
             batch.seqs, batch.padding_mask
         )
