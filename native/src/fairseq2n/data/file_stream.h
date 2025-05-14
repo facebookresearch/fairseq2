@@ -30,11 +30,29 @@ public:
     read_chunk() override;
 
     void
+    seek(std::size_t offset) override;
+
+    std::size_t
+    position() const override;
+
+    void
     reset() override;
+
+    void
+    record_position(tape &t) const override;
+
+    void
+    reload_position(tape &t) override;
+
+    bool
+    supports_seek() const noexcept override;
 
 private:
     std::size_t
     fill_chunk(writable_memory_span chunk);
+
+    std::size_t
+    seek(std::size_t offset, bool from_current) const;
 
 private:
     file_desc fd_;
