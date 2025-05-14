@@ -391,6 +391,10 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
             raise NotSupportedError(f"`{batching}` is not supported.")
 
         # Shuffle buckets.
+        assert (
+            options.batch_shuffle_window > 0
+        ), "can apply full batch shuffling which may result in OOM"
+
         if options.batch_shuffle_window != 1:
             builder.shuffle(options.batch_shuffle_window, seed)
         return builder

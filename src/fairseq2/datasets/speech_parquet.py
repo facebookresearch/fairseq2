@@ -249,6 +249,9 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
             example_shuffle_window = min(
                 options.example_shuffle_window, self.max_num_examples
             )
+            assert (
+                example_shuffle_window > 0
+            ), "can apply full example shuffling which may result in OOM"
             builder = builder.shuffle(example_shuffle_window, seed=seed)
             seed += 1
 
