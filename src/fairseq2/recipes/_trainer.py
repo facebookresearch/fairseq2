@@ -13,7 +13,6 @@ from typing import Final, Generic, Mapping, TypeVar, final
 
 import torch
 import torch.distributed
-from rich.pretty import pretty_repr
 from torch import Tensor
 from torch.cuda import OutOfMemoryError
 from torch.optim import Optimizer
@@ -37,7 +36,7 @@ from fairseq2.gang import GangError, Gangs, broadcast_flag
 from fairseq2.logging import log
 from fairseq2.metrics import Mean, MetricBag, MetricBagError, MetricDescriptor
 from fairseq2.metrics.recorders import MetricRecorder, MetricRecordError
-from fairseq2.nn.utils.gradient import check_gradient_norms, normalize_gradients
+from fairseq2.nn.utils.grad import check_grad_norms, normalize_grads
 from fairseq2.optim import DynamicLossScaler
 from fairseq2.optim.lr_scheduler import LRScheduler, get_effective_lr
 from fairseq2.profilers import Profiler
@@ -52,7 +51,7 @@ from fairseq2.utils.stopwatch import Stopwatch
 
 from fairseq2.recipes._early_stopper import EarlyStopper
 from fairseq2.recipes._error import (
-    InconsistentGradientNormError,
+    InconsistentGradNormError,
     MinimumLossScaleReachedError,
     RecipeError,
     UnitError,
@@ -114,8 +113,9 @@ class Trainer(Recipe, Generic[BatchT]):
     _optimizer: Optimizer
     _lr_scheduler: LRScheduler
     _loss_scaler: DynamicLossScaler
-    _max_gradient_norm: float | None
-    _gradient_check: bool
+    _no_sync_grad_accumulation: bool
+    _max_grad_norm: float | None
+    _grad_check: bool
     _anomaly_detection: bool
     _rng_bag: RngBag
     _seed: int
@@ -177,8 +177,9 @@ class Trainer(Recipe, Generic[BatchT]):
         wall_watch: Stopwatch,
         progress_reporter: ProgressReporter,
         fp16_loss_scale: tuple[float, float] = (128.0, 0.0001),
-        max_gradient_norm: float | None = None,
-        gradient_check: bool = False,
+        no_sync_grad_accumulation: bool = False,
+        max_grad_norm: float | None = None,
+        grad_check: bool = False,
         anomaly_detection: bool = False,
         max_num_steps: int | None = None,
         max_num_data_epochs: int | None = None,
@@ -224,7 +225,7 @@ class Trainer(Recipe, Generic[BatchT]):
             If ``True``, enables ``torch.amp``.
         :param fp16_loss_scale:
             The initial and minimum loss scale for fp16 training.
-        :param max_gradient_norm:
+        :param max_grad_norm:
             The maximum gradient norm. If ``None``, no clipping will be applied.
         :param max_num_steps:
             The maximum number of steps to train for.
@@ -299,15 +300,17 @@ class Trainer(Recipe, Generic[BatchT]):
             sharded=gangs.root.size != gangs.rdp.size,
             init_scale=fp16_init_scale,
             min_scale=fp16_min_scale,
-            gradient_accumulation=data_reader.num_accumulate,
+            grad_accumulation=data_reader.num_accumulate,
             enabled=dtype == torch.float16,
         )
 
         self._loss_scaler = loss_scaler
 
-        self._max_gradient_norm = max_gradient_norm
+        self._no_sync_grad_accumulation = no_sync_grad_accumulation
 
-        self._gradient_check = gradient_check
+        self._max_grad_norm = max_grad_norm
+
+        self._grad_check = grad_check
 
         self._anomaly_detection = anomaly_detection
 
@@ -429,7 +432,7 @@ class Trainer(Recipe, Generic[BatchT]):
 
         self._metric_bag = unit.metric_bag
 
-        self._metric_bag.gradient_norm = Mean(device=gangs.root.device)
+        self._metric_bag.grad_norm = Mean(device=gangs.root.device)
 
         self._metric_recorder = metric_recorder
 
@@ -605,7 +608,7 @@ class Trainer(Recipe, Generic[BatchT]):
                     case _TrainerState.POST_STEP:
                         self._state = self._run_post_step()
 
-                    case _TrainerState.GRADIENT_OVERFLOW:
+                    case _TrainerState.GRAD_OVERFLOW:
                         self._state = self._repeat_step(progress_task)
 
                     case _TrainerState.END_OF_TRAINING:
@@ -763,11 +766,10 @@ class Trainer(Recipe, Generic[BatchT]):
 
                         with record_function(f"step_{step_nr}_{batch_nr}_backward"):
                             self._loss_scaler.backward(loss)
-                except OutOfMemoryError:
-                    if log.is_enabled_for_error():
-                        s = pretty_repr(batch, max_width=88, max_string=128)
 
-                        log.error("CUDA out of memory. Note that CUDA operations are async. Dumping the likely input batch. Use `CUDA_LAUNCH_BLOCKING=1` for debugging:\n{}", s)  # fmt: skip
+                        del loss
+                except OutOfMemoryError:
+                    log.error("CUDA out of memory. Note that CUDA operations are async. Dumping the likely input batch. Use `CUDA_LAUNCH_BLOCKING=1` for debugging:\n{}", batch)  # fmt: skip
 
                     raise
 
@@ -776,17 +778,17 @@ class Trainer(Recipe, Generic[BatchT]):
             # batches have varying sizes and we cannot normalize the loss before
             # the backward pass.
             if num_targets > 0:
-                normalize_gradients(self._model.module, gangs.dp, num_targets)
+                normalize_grads(self._model.module, gangs.dp, num_targets)
 
-            self._loss_scaler.unscale_gradients_()
+            self._loss_scaler.unscale_grads_()
 
             # Clip the gradients.
             with record_function(f"step_{step_nr}_grad_norm"):
-                grad_norm = self._model.clip_gradient_norm(self._max_gradient_norm)
+                grad_norm = self._model.clip_grad_norm(self._max_grad_norm)
 
-                if self._gradient_check:
-                    if not check_gradient_norms(grad_norm, gangs.dp, step_nr):
-                        raise InconsistentGradientNormError(step_nr)
+                if self._grad_check:
+                    if not check_grad_norms(grad_norm, gangs.dp, step_nr):
+                        raise InconsistentGradNormError(step_nr)
 
             # Update the parameters.
             with record_function(f"step_{step_nr}_optimizer"):
@@ -800,7 +802,7 @@ class Trainer(Recipe, Generic[BatchT]):
 
             self._metric_bag.rollback_updates()
 
-            return _TrainerState.GRADIENT_OVERFLOW
+            return _TrainerState.GRAD_OVERFLOW
 
         self._last_lr = get_effective_lr(self._lr_scheduler)
 
@@ -809,15 +811,16 @@ class Trainer(Recipe, Generic[BatchT]):
         if self._loss_scaler.is_enabled:
             self._metric_bag.commit_updates()
 
-        self._metric_bag.gradient_norm.update(grad_norm)
+        self._metric_bag.grad_norm.update(grad_norm)
 
         self._num_batches_read += 1
 
         return _TrainerState.POST_STEP
 
     def _maybe_no_sync(self, batch_nr: int, num_batches: int) -> ContextManager:
-        if batch_nr < num_batches - 1:
-            return self._model.no_sync()
+        if self._no_sync_grad_accumulation:
+            if batch_nr < num_batches - 1:
+                return self._model.no_sync()
 
         return nullcontext()
 
@@ -1258,7 +1261,7 @@ class _TrainerState(Enum):
     END_OF_DATA_EPOCH = 5
     END_OF_TRAINING = 6
     END_OF_DATA = 7
-    GRADIENT_OVERFLOW = 8
+    GRAD_OVERFLOW = 8
     EARLY_STOP = 9
     STOP_REQUESTED = 10
     STOPPED = 11

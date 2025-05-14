@@ -18,6 +18,7 @@ from fairseq2.datasets.preference import (
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import COSINE_ANNEALING_LR, CosineAnnealingLRConfig
 from fairseq2.recipes.config import (
+    ActivationCheckpointingSection,
     CommonSection,
     DatasetSection,
     FsdpSection,
@@ -53,7 +54,7 @@ class POFinetuneConfig:
             dtype=torch.bfloat16,
             data_parallelism="fsdp",
             fsdp=FsdpSection(fp32_reduce=True),
-            activation_checkpointing="layerwise",
+            activation_checkpointing=ActivationCheckpointingSection(mode="layerwise"),
         )
     )
 

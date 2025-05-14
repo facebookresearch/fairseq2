@@ -84,7 +84,7 @@ class LMTrainConfig:
             dtype=torch.bfloat16,
             data_parallelism="fsdp",
             fsdp=FsdpSection(version="v2", fp32_reduce=True),
-            max_gradient_norm=1.0,
+            max_grad_norm=1.0,
             gc_every_n_steps=1000,
         )
     )
@@ -219,7 +219,7 @@ def load_lm_trainer(
         batching=batching,
         example_shuffle_window=config.dataset.example_shuffle_window,
         batch_shuffle_window=config.dataset.batch_shuffle_window,
-        num_accumulate=config.trainer.gradient_accumulation,
+        num_accumulate=config.trainer.grad_accumulation.num_batches,
         num_prefetch=config.dataset.num_prefetch,
         seed=seed,
         extras=config.dataset.extras,

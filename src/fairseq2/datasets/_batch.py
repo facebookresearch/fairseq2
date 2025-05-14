@@ -263,6 +263,21 @@ class SequenceBatch(SupportsDeviceTransfer):
     def example(self) -> object:
         return self._example
 
+    def __repr__(self) -> str:
+        s = (
+            f"seqs={self._seqs}, "
+            f"seq_lens={self._seq_lens}, "
+            f"packed={self._packed}, "
+            f"batch_size={self._batch_size}, "
+            f"num_examples={self._num_examples}, "
+            f"num_elements={self._num_elements}, "
+            f"num_target_elements={self._num_target_elements}, "
+            f"padding={self._padding}, "
+            f"example={self._example}"
+        )
+
+        return f"SequenceBatch({s})"
+
 
 @final
 class Seq2SeqBatch(SupportsDeviceTransfer):
@@ -629,3 +644,21 @@ class Seq2SeqBatch(SupportsDeviceTransfer):
     @property
     def example(self) -> object:
         return self._example
+
+    def __repr__(self) -> str:
+        s = (
+            f"source_seqs={self._source_seqs}, "
+            f"source_seq_lens={self._source_seq_lens}, "
+            f"target_seqs={self._target_seqs}, "
+            f"target_seq_lens={self._target_seq_lens}, "
+            f"packed={self._packed}, "
+            f"batch_size={self._batch_size}, "
+            f"num_examples={self._num_examples}, "
+            f"num_elements={self._num_elements}, "
+            f"num_source_elements={self._num_source_elements}, "
+            f"num_target_elements={self._num_target_elements}, "
+            f"padding={self._padding}, "
+            f"example={self._example}"
+        )
+
+        return f"Seq2SeqBatch({s})"

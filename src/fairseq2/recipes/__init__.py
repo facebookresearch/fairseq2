@@ -9,7 +9,7 @@ from __future__ import annotations
 from fairseq2.recipes._early_stopper import EarlyStopper as EarlyStopper
 from fairseq2.recipes._early_stopper import NoopEarlyStopper as NoopEarlyStopper
 from fairseq2.recipes._error import (
-    InconsistentGradientNormError as InconsistentGradientNormError,
+    InconsistentGradNormError as InconsistentGradNormError,
 )
 from fairseq2.recipes._error import (
     MinimumLossScaleReachedError as MinimumLossScaleReachedError,

@@ -49,6 +49,7 @@ from fairseq2.recipes.common import (
     setup_training_gangs,
 )
 from fairseq2.recipes.config import (
+    ActivationCheckpointingSection,
     CommonSection,
     DatasetSection,
     FsdpSection,
@@ -87,7 +88,7 @@ class InstructionFinetuneConfig:
             dtype=torch.bfloat16,
             data_parallelism="fsdp",
             fsdp=FsdpSection(fp32_reduce=True),
-            activation_checkpointing="layerwise",
+            activation_checkpointing=ActivationCheckpointingSection(mode="layerwise"),
         )
     )
 
@@ -271,7 +272,7 @@ def load_instruction_finetuner(
         batching=batching,
         example_shuffle_window=config.dataset.example_shuffle_window,
         batch_shuffle_window=config.dataset.batch_shuffle_window,
-        num_accumulate=config.trainer.gradient_accumulation,
+        num_accumulate=config.trainer.grad_accumulation.num_batches,
         num_prefetch=config.dataset.num_prefetch,
         source_encode_mode=config.dataset.source_encode_mode,
         target_encode_mode=config.dataset.target_encode_mode,

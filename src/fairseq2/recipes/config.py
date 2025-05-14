@@ -154,15 +154,15 @@ class TrainerSection:
     precision.
     """
 
-    gradient_accumulation: int = 1
-    """The number of steps to accumulate gradients before an optimizer update."""
+    grad_accumulation: GradAccumulationSection = field(
+        default_factory=lambda: GradAccumulationSection()
+    )
 
-    activation_checkpointing: Literal["off", "layerwise"] = "off"
-    """If ``True``, uses activation checkpointing."""
+    activation_checkpointing: ActivationCheckpointingSection = field(
+        default_factory=lambda: ActivationCheckpointingSection()
+    )
 
-    ac_every_nth_layer: int = 1
-
-    max_gradient_norm: float | None = None
+    max_grad_norm: float | None = None
     """The maximum gradient norm. If ``None``, no clipping will be applied."""
 
     fp16_loss_scale: tuple[float, float] = (128.0, 0.0001)
@@ -171,7 +171,7 @@ class TrainerSection:
     gc_every_n_steps: int | None = None
     """If specified, calls CPython's ``gc.collect()`` every N steps."""
 
-    gradient_check: bool = False
+    grad_check: bool = False
     """If ``True``, ensures that gradients are in sync across processes."""
 
     anomaly_detection: bool = False
@@ -180,8 +180,15 @@ class TrainerSection:
     def validate(self) -> None:
         result = ValidationResult()
 
-        if self.ac_every_nth_layer <= 0:
-            result.add_error("`ac_every_nth_layer` must be greater than or equal to 1.")
+        if self.grad_accumulation.num_batches <= 0:
+            result.add_error(
+                "`grad_accumulation.num_batches` must be greater than or equal to 1."
+            )
+
+        if self.activation_checkpointing.every_nth_layer <= 0:
+            result.add_error(
+                "`activation_checkpointing.every_nth_layer` must be greater than or equal to 1."
+            )
 
         if self.gc_every_n_steps is not None:
             if self.gc_every_n_steps <= 0:
@@ -210,6 +217,21 @@ class FsdpSection:
     """If ``True``, reshards the parameters only after the backward pass."""
 
     fp32_reduce: bool = False
+
+
+@dataclass(kw_only=True)
+class GradAccumulationSection:
+    num_batches: int = 1
+    """The number of batches to accumulate gradients before an optimizer update."""
+
+    no_sync: bool = False
+
+
+@dataclass(kw_only=True)
+class ActivationCheckpointingSection:
+    mode: Literal["off", "layerwise"] = "off"
+
+    every_nth_layer: int = 1
 
 
 @dataclass(kw_only=True)

@@ -40,7 +40,7 @@ def _register_metric_descriptors(context: RuntimeContext) -> None:
     register("code_perplexity",  "Code Perplexity",       210, format_as_float)
     register("prob_perplexity",  "Prob Perplexity",       210, format_as_float)
     register("temperature",      "Temperature",           220, format_as_float)
-    register("gradient_norm",    "Gradient Norm",         300, format_as_float)
+    register("grad_norm",        "Gradient Norm",         300, format_as_float)
     register("data_epoch",       "Data Epoch",            490, format_as_int)
     register("data_time",        "Data Time",             500, format_as_seconds)
     register("compute_time",     "Compute Time",          501, format_as_seconds)
