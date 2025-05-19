@@ -337,7 +337,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.data_type</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataType</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InternalError</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.tensor</span><span class="w"> </span><span class="kn">import</span> <span class="n">unsqueeze</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">unsqueeze</span>
 
 <span class="c1"># isort: split</span>
 
@@ -395,19 +395,18 @@
 <span class="sd">        :returns: The input sequences with positional information encoded.</span>
 <span class="sd">            *Shape:* Same as ``seqs``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">compiler</span><span class="o">.</span><span class="n">is_compiling</span><span class="p">():</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">and</span> <span class="n">state_bag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">start_step</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step_nr</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">start_step</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">and</span> <span class="n">state_bag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">start_step</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step_nr</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">start_step</span> <span class="o">=</span> <span class="mi">0</span>
 
-                <span class="n">max_seq_len</span> <span class="o">=</span> <span class="n">start_step</span> <span class="o">+</span> <span class="n">seqs_layout</span><span class="o">.</span><span class="n">max_seq_len</span>
+            <span class="n">max_seq_len</span> <span class="o">=</span> <span class="n">start_step</span> <span class="o">+</span> <span class="n">seqs_layout</span><span class="o">.</span><span class="n">max_seq_len</span>
 
-                <span class="k">if</span> <span class="n">max_seq_len</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="si">}</span><span class="s2">), but at least one sequence has a length of </span><span class="si">{</span><span class="n">max_seq_len</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-                    <span class="p">)</span>
+            <span class="k">if</span> <span class="n">max_seq_len</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="si">}</span><span class="s2">), but at least one sequence has a length of </span><span class="si">{</span><span class="n">max_seq_len</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+                <span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_forward</span><span class="p">(</span><span class="n">seqs</span><span class="p">,</span> <span class="n">seqs_layout</span><span class="p">,</span> <span class="n">state_bag</span><span class="p">)</span></div>
 
@@ -1151,7 +1150,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=46ac8045"></script>
+</div><script src="../../../_static/documentation_options.js?v=e9d6e561"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

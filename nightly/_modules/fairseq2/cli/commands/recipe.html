@@ -574,6 +574,8 @@
                 <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Recipe finished in </span><span class="si">{:,}</span><span class="s2"> second(s)!&quot;</span><span class="p">,</span> <span class="n">elapsed_time</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Recipe finished in </span><span class="si">{:,}</span><span class="s2"> second(s) after </span><span class="si">{}</span><span class="s2"> step(s)!&quot;</span><span class="p">,</span> <span class="n">elapsed_time</span><span class="p">,</span> <span class="n">recipe</span><span class="o">.</span><span class="n">step_nr</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">recipe</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_print_preset_configs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">RuntimeContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">console</span> <span class="o">=</span> <span class="n">get_console</span><span class="p">()</span>
@@ -893,7 +895,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=46ac8045"></script>
+</div><script src="../../../../_static/documentation_options.js?v=e9d6e561"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

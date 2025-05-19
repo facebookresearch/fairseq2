@@ -350,27 +350,13 @@
 </section>
 <section id="output-format">
 <h2>Output Format<a class="headerlink" href="#output-format" title="Link to this heading">¶</a></h2>
-<p>The converter produces:</p>
-<ol class="arabic simple">
-<li><p>Model weights in the reference format:
-- Single checkpoint: <code class="docutils literal notranslate"><span class="pre">consolidated.00.pth</span></code>
-- Sharded checkpoints: <code class="docutils literal notranslate"><span class="pre">consolidated.{00,01,02...}.pth</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">params.json</span></code> containing model configuration:</p></li>
-</ol>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;dim&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2048</span><span class="p">,</span><span class="w">                </span><span class="c1">// Model dimension</span>
-<span class="w">        </span><span class="nt">&quot;n_layers&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span><span class="w">             </span><span class="c1">// Number of layers</span>
-<span class="w">        </span><span class="nt">&quot;n_heads&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span><span class="w">              </span><span class="c1">// Number of attention heads</span>
-<span class="w">        </span><span class="nt">&quot;n_kv_heads&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w">            </span><span class="c1">// Number of key/value heads (if different from n_heads)</span>
-<span class="w">        </span><span class="nt">&quot;multiple_of&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">256</span><span class="p">,</span><span class="w">         </span><span class="c1">// FFN dimension multiple</span>
-<span class="w">        </span><span class="nt">&quot;ffn_dim_multiplier&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.5</span><span class="p">,</span><span class="w">  </span><span class="c1">// FFN dimension multiplier (if not 1.0)</span>
-<span class="w">        </span><span class="nt">&quot;rope_theta&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">500000.0</span><span class="p">,</span><span class="w">     </span><span class="c1">// RoPE theta value</span>
-<span class="w">        </span><span class="nt">&quot;norm_eps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1e-5</span><span class="w">            </span><span class="c1">// Layer norm epsilon</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="p">}</span>
-</pre></div>
-</div>
+<dl class="simple">
+<dt>The converter produces model weights in the reference format:</dt><dd><ul class="simple">
+<li><p>Single checkpoint: <code class="docutils literal notranslate"><span class="pre">consolidated.00.pth</span></code></p></li>
+<li><p>Sharded checkpoints: <code class="docutils literal notranslate"><span class="pre">consolidated.{00,01,02...}.pth</span></code></p></li>
+</ul>
+</dd>
+</dl>
 </section>
 <section id="usage-example">
 <h2>Usage Example<a class="headerlink" href="#usage-example" title="Link to this heading">¶</a></h2>
@@ -382,16 +368,6 @@
 <span class="w">    </span>/path/to/output/dir
 </pre></div>
 </div>
-<ol class="arabic simple" start="2">
-<li><p>Convert to HuggingFace format:</p></li>
-</ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>fairseq2<span class="w"> </span>llama<span class="w"> </span>write_hf_config<span class="w"> </span>--model<span class="w"> </span>&lt;architecture&gt;<span class="w"> </span>&lt;fairseq2_checkpoint_dir&gt;
-</pre></div>
-</div>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">&lt;architecture&gt;</span></code>: Specify the architecture of the model – <cite>e.g.</cite>, <code class="docutils literal notranslate"><span class="pre">llama3</span></code> (see <code class="xref py py-mod docutils literal notranslate"><span class="pre">fairseq2.models.llama</span></code>)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">&lt;fairseq2_checkpoint_dir&gt;</span></code>: Path to the directory containing your Fairseq2 checkpoint, where <code class="docutils literal notranslate"><span class="pre">config.json</span></code> will be added.</p></li>
-</ul>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Architecture <code class="docutils literal notranslate"><span class="pre">--model</span></code> must exist and be defined in <cite>e.g.</cite> <code class="xref py py-meth docutils literal notranslate"><span class="pre">fairseq2.models.llama._config.register_llama_configs()</span></code>.</p>
@@ -414,31 +390,6 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.cli.commands.llama.ConvertLLaMACheckpointHandler.run">
 <span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parser</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/cli/commands/llama/_convert_checkpoint.html#ConvertLLaMACheckpointHandler.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.cli.commands.llama.ConvertLLaMACheckpointHandler.run" title="Link to this definition">¶</a></dt>
-<dd><p>Run the command.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="fairseq2.cli.commands.llama.WriteHFLLaMAConfigHandler">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.cli.commands.llama.</span></span><span class="sig-name descname"><span class="pre">WriteHFLLaMAConfigHandler</span></span><a class="reference internal" href="../../../../_modules/fairseq2/cli/commands/llama/_write_hf_config.html#WriteHFLLaMAConfigHandler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.cli.commands.llama.WriteHFLLaMAConfigHandler" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="../index.html#fairseq2.cli.CliCommandHandler" title="fairseq2.cli._cli.CliCommandHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">CliCommandHandler</span></code></a></p>
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.cli.commands.llama.WriteHFLLaMAConfigHandler.init_parser">
-<span class="sig-name descname"><span class="pre">init_parser</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parser</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/cli/commands/llama/_write_hf_config.html#WriteHFLLaMAConfigHandler.init_parser"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.cli.commands.llama.WriteHFLLaMAConfigHandler.init_parser" title="Link to this definition">¶</a></dt>
-<dd><p>Initialize <code class="docutils literal notranslate"><span class="pre">parser</span></code> with command-specific arguments.</p>
-<dl class="field-list simple">
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.cli.commands.llama.WriteHFLLaMAConfigHandler.run">
-<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parser</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/cli/commands/llama/_write_hf_config.html#WriteHFLLaMAConfigHandler.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.cli.commands.llama.WriteHFLLaMAConfigHandler.run" title="Link to this definition">¶</a></dt>
 <dd><p>Run the command.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -532,11 +483,6 @@
 <li><a class="reference internal" href="#fairseq2.cli.commands.llama.ConvertLLaMACheckpointHandler.run"><code class="docutils literal notranslate"><span class="pre">ConvertLLaMACheckpointHandler.run()</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#fairseq2.cli.commands.llama.WriteHFLLaMAConfigHandler"><code class="docutils literal notranslate"><span class="pre">WriteHFLLaMAConfigHandler</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.cli.commands.llama.WriteHFLLaMAConfigHandler.init_parser"><code class="docutils literal notranslate"><span class="pre">WriteHFLLaMAConfigHandler.init_parser()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.cli.commands.llama.WriteHFLLaMAConfigHandler.run"><code class="docutils literal notranslate"><span class="pre">WriteHFLLaMAConfigHandler.run()</span></code></a></li>
-</ul>
-</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#see-also">See Also</a></li>
@@ -551,7 +497,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=46ac8045"></script>
+</div><script src="../../../../_static/documentation_options.js?v=e9d6e561"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

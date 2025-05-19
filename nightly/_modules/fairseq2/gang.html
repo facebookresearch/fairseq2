@@ -323,7 +323,7 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">abstractmethod</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">timedelta</span>
@@ -339,6 +339,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InternalError</span><span class="p">,</span> <span class="n">InvalidOperationError</span><span class="p">,</span> <span class="n">NotSupportedError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">log</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Closable</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.env</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">InvalidEnvironmentVariableError</span><span class="p">,</span>
     <span class="n">get_world_size</span><span class="p">,</span>
@@ -362,7 +363,7 @@
 
 <div class="viewcode-block" id="Gang">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.Gang">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">Gang</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Gang</span><span class="p">(</span><span class="n">Closable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a set of processes that work collectively.&quot;&quot;&quot;</span>
 
     <span class="n">_rank</span><span class="p">:</span> <span class="nb">int</span>
@@ -385,13 +386,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="n">size</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_device</span> <span class="o">=</span> <span class="n">device</span>
-
-<div class="viewcode-block" id="Gang.close">
-<a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.Gang.close">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Close and destroy the gang.&quot;&quot;&quot;</span></div>
-
 
 <div class="viewcode-block" id="Gang.create_gang">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.Gang.create_gang">[docs]</a>
@@ -1010,7 +1004,7 @@
     <span class="n">mesh</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">dp_size</span><span class="p">,</span> <span class="n">tp_size</span><span class="p">)</span>
 
     <span class="c1"># Get the coordinate of this process in the mesh.</span>
-    <span class="n">rank_coords</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mesh</span> <span class="o">==</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">rank</span><span class="p">)]</span>
+    <span class="n">rank_coord</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mesh</span> <span class="o">==</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">rank</span><span class="p">)]</span>
 
     <span class="n">dp_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -1038,7 +1032,7 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">tp_size</span><span class="p">):</span>
                     <span class="n">sub_gang</span> <span class="o">=</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">create_gang</span><span class="p">(</span><span class="n">mesh</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
-                    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coord</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
                         <span class="n">dp_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
 
     <span class="k">if</span> <span class="n">dp_gang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1070,7 +1064,7 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dp_size</span><span class="p">):</span>
                     <span class="n">sub_gang</span> <span class="o">=</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">create_gang</span><span class="p">(</span><span class="n">mesh</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
-                    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coord</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
                         <span class="n">tp_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
 
     <span class="k">if</span> <span class="n">tp_gang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1121,7 +1115,7 @@
     <span class="n">mesh</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">dp_gang</span><span class="o">.</span><span class="n">size</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">inter_node_size</span><span class="p">,</span> <span class="n">intra_node_size</span><span class="p">)</span>
 
     <span class="c1"># Get the coordinate of this process in the mesh.</span>
-    <span class="n">rank_coords</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mesh</span> <span class="o">==</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">rank</span><span class="p">)]</span>
+    <span class="n">rank_coord</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mesh</span> <span class="o">==</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">rank</span><span class="p">)]</span>
 
     <span class="n">inter_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -1149,7 +1143,7 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">intra_node_size</span><span class="p">):</span>
                     <span class="n">sub_gang</span> <span class="o">=</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">create_gang</span><span class="p">(</span><span class="n">mesh</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
-                    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coord</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
                         <span class="n">inter_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
 
     <span class="k">if</span> <span class="n">inter_gang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1181,7 +1175,7 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">inter_node_size</span><span class="p">):</span>
                     <span class="n">sub_gang</span> <span class="o">=</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">create_gang</span><span class="p">(</span><span class="n">mesh</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
-                    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coord</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
                         <span class="n">intra_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
 
     <span class="k">if</span> <span class="n">intra_gang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1206,16 +1200,13 @@
 
 <div class="viewcode-block" id="all_sum">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.all_sum">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">all_sum</span><span class="p">(</span><span class="n">gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">all_sum</span><span class="p">(</span><span class="n">gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Sums ``value`` over all processes in ``gang``.&quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">):</span>
-        <span class="n">output</span> <span class="o">=</span> <span class="n">value</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">output</span> <span class="o">=</span> <span class="n">to_tensor</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">value_pt</span> <span class="o">=</span> <span class="n">to_tensor</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
-    <span class="n">gang</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">ReduceOperation</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>
+    <span class="n">gang</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">value_pt</span><span class="p">,</span> <span class="n">ReduceOperation</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">output</span></div>
+    <span class="k">return</span> <span class="n">value_pt</span></div>
 
 </pre></div>
         </article>
@@ -1253,7 +1244,7 @@
       
     </aside>
   </div>
-</div><script src="../../_static/documentation_options.js?v=46ac8045"></script>
+</div><script src="../../_static/documentation_options.js?v=e9d6e561"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/scripts/furo.js?v=5fa4622c"></script>

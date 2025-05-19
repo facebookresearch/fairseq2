@@ -38,28 +38,9 @@ For the complete list of architectures and their configurations, see :mod:`fairs
 Output Format
 -------------
 
-The converter produces:
-
-1. Model weights in the reference format:
+The converter produces model weights in the reference format:
    - Single checkpoint: ``consolidated.00.pth``
    - Sharded checkpoints: ``consolidated.{00,01,02...}.pth``
-
-2. ``params.json`` containing model configuration:
-
-.. code-block:: json
-
-    {
-        "model": {
-            "dim": 2048,                // Model dimension
-            "n_layers": 16,             // Number of layers
-            "n_heads": 32,              // Number of attention heads
-            "n_kv_heads": 8,            // Number of key/value heads (if different from n_heads)
-            "multiple_of": 256,         // FFN dimension multiple
-            "ffn_dim_multiplier": 1.5,  // FFN dimension multiplier (if not 1.0)
-            "rope_theta": 500000.0,     // RoPE theta value
-            "norm_eps": 1e-5            // Layer norm epsilon
-        }
-    }
 
 Usage Example
 -------------
@@ -72,16 +53,6 @@ Usage Example
         /path/to/fairseq2/checkpoint \
         /path/to/output/dir
 
-2. Convert to HuggingFace format:
-
-.. code-block:: bash
-
-    fairseq2 llama write_hf_config --model <architecture> <fairseq2_checkpoint_dir>
-
-* ``<architecture>``: Specify the architecture of the model -- `e.g.`, ``llama3`` (see :mod:`fairseq2.models.llama`)
-
-* ``<fairseq2_checkpoint_dir>``: Path to the directory containing your Fairseq2 checkpoint, where ``config.json`` will be added.
-
 .. note::
 
     Architecture ``--model`` must exist and be defined in `e.g.` :meth:`fairseq2.models.llama._config.register_llama_configs`.
@@ -90,8 +61,6 @@ API Details
 -----------
 
 .. autoclass:: ConvertLLaMACheckpointHandler
-
-.. autoclass:: WriteHFLLaMAConfigHandler
 
 See Also
 --------
