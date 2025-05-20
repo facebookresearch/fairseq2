@@ -166,11 +166,29 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 policy_sampling_params.__setattr__(k, v)
         else:
             policy_sampling_params = None
+
+        if self._loss_config.mix_lengths:
+            try:
+                reward_model_type = prompt_batch.meta_info.get("reward_model", [None])[
+                    0
+                ]
+                if len(set(prompt_batch.meta_info["reward_model"])) != 1:
+                    reward_model_type = "athene_verifier"
+                if reward_model_type == "math_verify":
+                    max_tokens = 2048
+                elif reward_model_type == "athene_verifier":
+                    max_tokens = 1024
+            except:
+                max_tokens = None
+        else:
+            max_tokens = None
+
         rollouts = generate_rollouts(
             prompt_batch.prompts,
             dp_gang=self._gangs.dp,
             vllm_model=self._vllm_model,
             sampling_params=policy_sampling_params,
+            max_tokens=max_tokens,
         )
         if self._loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Valid")
@@ -228,15 +246,34 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         self.maybe_sync_models()
 
+        if self._loss_config.mix_lengths:
+            try:
+                reward_model_type = prompt_batch.meta_info.get("reward_model", [None])[
+                    0
+                ]
+                if len(set(prompt_batch.meta_info["reward_model"])) != 1:
+                    reward_model_type = "athene_verifier"
+                if reward_model_type == "math_verify":
+                    max_tokens = 2048
+                elif reward_model_type == "athene_verifier":
+                    max_tokens = 1024
+            except:
+                max_tokens = None
+        else:
+            max_tokens = None
+
         rollouts = generate_rollouts(
-            prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
+            prompt_batch.prompts,
+            dp_gang=self._gangs.dp,
+            vllm_model=self._vllm_model,
+            max_tokens=max_tokens,
         )
         if self._loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Train")
 
         batch: PreferenceBatch
         batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
-            prompt_batch, rollouts
+            prompt_batch, rollouts, self._loss_config.reject_longest
         )  # loss_zeroer is used when entire batch has no valid prefrence pair
 
         if is_bad_batch:
@@ -525,6 +562,12 @@ class DpoLossConfig:
 
     validation_vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
     """VLLM sampling params for validation. If not set, the same params as training will be used."""
+
+    reject_longest: bool = False
+    """Longest sequence in the batch will be rejected. This is used to avoid the model to generate long sequences."""
+
+    mix_lengths: bool = False
+    """Mix lengths of the sequences in the batch. This is used to avoid the model to generate long sequences."""
 
 
 @dataclass(kw_only=True)

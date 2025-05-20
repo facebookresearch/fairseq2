@@ -70,7 +70,9 @@ class VLLMOutputReward(ABC):
     def process_rollouts(self, vllm_outputs: List[RequestOutput]): ...
 
     @abstractmethod
-    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts): ...
+    def prepare_preference_batch(
+        self, prompt_batch: PromptBatch, rollouts, reject_longest: bool
+    ): ...
 
     @abstractmethod
     def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts): ...
@@ -148,7 +150,7 @@ class GSM8kVerifier(VLLMOutputReward):
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts
+        self, prompt_batch: PromptBatch, rollouts, reject_longest=False
     ) -> PreferenceBatch:
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
@@ -285,7 +287,7 @@ class MathVerifyVerifier(VLLMOutputReward):
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts
+        self, prompt_batch: PromptBatch, rollouts, reject_longest=False
     ) -> PreferenceBatch:
         log.info("MathVerifyVerifier prepare_preference_batch()")
         reward_output = self.process_rollouts(rollouts, prompt_batch)
@@ -439,7 +441,7 @@ class SkyworkVerifier(VLLMOutputReward):
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts
+        self, prompt_batch: PromptBatch, rollouts, reject_longest=False
     ) -> PreferenceBatch:
 
         reward_output = self.process_rollouts(rollouts, prompt_batch)
@@ -651,7 +653,7 @@ class AtheneVerifier(VLLMOutputReward):
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts
+        self, prompt_batch: PromptBatch, rollouts, reject_longest=False
     ) -> PreferenceBatch:
 
         log.info("AtheneVerifier prepare_preference_batch()")
@@ -668,7 +670,18 @@ class AtheneVerifier(VLLMOutputReward):
         ):
 
             chosen_rollout_position = i_batch_rewards.index(max(i_batch_rewards))
-            rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards))
+            if reject_longest:
+                max_length = -1
+                rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards)) # fallback
+                for idx, tokens in enumerate(i_batch_tokens):
+                    # Only consider rollouts that are *not* the chosen one
+                    if idx != chosen_rollout_position:
+                        current_length = len(tokens)
+                        if current_length > max_length:
+                            max_length = current_length # Update the maximum length
+                            rejected_rollout_position = idx # Update the rejected position
+            else:
+                rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards))
 
             if chosen_rollout_position == rejected_rollout_position:
                 # cant form preference pair when we dont have such rollouts
@@ -811,12 +824,12 @@ class MultiVerifier(VLLMOutputReward):
 
     @override
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts
+        self, prompt_batch: PromptBatch, rollouts, reject_longest=False
     ) -> PreferenceBatch:
 
         reward_model_type = self.get_reward_model_type(prompt_batch)
         reward = self.rewards_map[reward_model_type]
-        return reward.prepare_preference_batch(prompt_batch, rollouts)
+        return reward.prepare_preference_batch(prompt_batch, rollouts, reject_longest)
 
     @override
     def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):

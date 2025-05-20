@@ -208,9 +208,12 @@ class RemoteVllmModel:
             )
             ray.get(handle)
 
-    def rollout_from_model(self, prompt_list, sampling_params=None):
+    def rollout_from_model(self, prompt_list, sampling_params=None, max_tokens=None):
         if sampling_params is None:
             sampling_params = self.sampling_params
+
+        if max_tokens is not None:
+            sampling_params.max_tokens = max_tokens
 
         outputs = ray.get(
             self.vllm_model.generate.remote(
