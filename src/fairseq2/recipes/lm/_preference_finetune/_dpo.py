@@ -53,6 +53,7 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
     _reference_model: Model | None
     _beta: float
     _nll_scale: float
+    _nll_length_normalization: bool
     _metric_bag: DpoFinetuneMetricBag
     _length_normalization: bool
 
@@ -63,12 +64,14 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
         gangs: Gangs,
         beta: float = 0.1,
         nll_scale: float = 1.0,
+        nll_length_normalization: bool = True,
         length_normalization: bool = False,
     ) -> None:
         self._model = model
         self._reference_model = reference_model
         self._beta = beta
         self._nll_scale = nll_scale
+        self._nll_length_normalization = nll_length_normalization
         self._length_normalization = length_normalization
 
         self._metric_bag = DpoFinetuneMetricBag(gangs.dp)
@@ -159,12 +162,16 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
 
         self._metric_bag.update_batch_metrics(chosen_batch)
 
+        if self._nll_length_normalization:
+            nll_loss = (
+                nll_loss
+                * chosen_target_batch.batch_size
+                / chosen_target_batch.num_target_elements()
+            )
         loss = (
             dpo_loss
             + self._nll_scale
             * nll_loss
-            * chosen_target_batch.batch_size
-            / chosen_target_batch.num_target_elements()
         )  # normalization applied locally per-rank
 
         return loss, chosen_target_batch.batch_size
@@ -254,6 +261,7 @@ class DpoFinetuneConfig:
     """The coefficient of regularization towards the reference model."""
 
     nll_scale: float = 0.0
+    nll_length_normalization: bool = True
     """The coefficient of NLL loss added to the DPO loss."""
 
     length_normalization: bool = False
