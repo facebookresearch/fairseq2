@@ -159,13 +159,6 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
 )
 
 from fairseq2.recipes.lm._online_finetune._rewards import (
-    SkyworkVerifier as SkyworkVerifier,
-)
-from fairseq2.recipes.lm._online_finetune._rewards import (
-    SkyworkVerifierHandler as SkyworkVerifierHandler,
-)
-
-from fairseq2.recipes.lm._online_finetune._rewards import (
     AtheneVerifier as AtheneVerifier,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
