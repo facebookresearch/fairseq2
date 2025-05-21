@@ -322,7 +322,7 @@ def load_online_finetuner(
         seed=seed,
         extras=config.dataset.extras,
         src_key=config.dataset.src_key,
-        repeat_batch_n_times=config.trainer.gradient_accumulation,
+        # repeat_batch_n_times=config.trainer.gradient_accumulation,
     )
 
     data_reader = dataset.create_reader(
