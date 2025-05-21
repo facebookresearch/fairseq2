@@ -379,14 +379,15 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         if "reward_model" in prompt_batch.meta_info:
             reward_model_type = prompt_batch.meta_info["reward_model"][0]
             self._metric_bag.update_avg_task_reward(avg_reward, reward_model_type)
+        if self._loss_config.nll_length_normalization:
+            nll_loss = (
+                nll_loss
+                * chosen_target_batch.batch_size
+                / chosen_target_batch.num_target_elements()
+            )
 
         loss = (
-            dpo_loss
-            + self._loss_config.nll_scale
-            * nll_loss
-            * chosen_target_batch.batch_size
-            / chosen_target_batch.num_target_elements()
-            + max_entropy_regularizer
+            dpo_loss + self._loss_config.nll_scale * nll_loss + max_entropy_regularizer
         )  # nll normalization applied locally per-rank
 
         loss = loss * loss_zeroer  # zero loss if entire batch was dummy batch
@@ -550,6 +551,7 @@ class DpoLossConfig:
     """The coefficient of regularization towards the reference model."""
 
     nll_scale: float = 0.0
+    nll_length_normalization: bool = True
     """The coefficient of NLL loss added to the DPO loss."""
 
     length_normalization: bool = False
