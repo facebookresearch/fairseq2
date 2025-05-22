@@ -367,6 +367,38 @@ def generate_rewards(
 
     return rewards_per_rank[0]
 
+def generate_rewards_generative(
+    prompts: List[List[int]],
+    dp_gang,
+    vllm_model
+):
+    prompts_to_generate = [None] * dp_gang.size
+    if dp_gang.rank == 0:
+        dp_gang.gather_object(prompts, prompts_to_generate, 0)
+    else:
+        dp_gang.gather_object(prompts, None, 0)
+    if dp_gang.rank == 0:
+        rank_batch_sizes = [len(l) for l in prompts_to_generate]
+        flat_request_list = []
+        for rank_prompts in prompts_to_generate:
+            flat_request_list.extend(rank_prompts)
+
+        rewards = vllm_model.reward_from_generative_model(flat_request_list)
+
+        rewards_to_scatter = []
+        rewards_per_rank = [None]
+        for dp_rank, rank_batch_size in zip(range(dp_gang.size), rank_batch_sizes):
+            rank_start = sum(rank_batch_sizes[:dp_rank])
+            rank_end = rank_start + rank_batch_size
+            rewards_to_scatter.append(rewards[rank_start:rank_end])
+        dp_gang.scatter_object_list(rewards_per_rank, rewards_to_scatter, source_rank=0)
+    else:
+        rewards_per_rank = [None]
+        dp_gang.scatter_object_list(rewards_per_rank, None, source_rank=0)
+    dp_gang.barrier()
+
+    return rewards_per_rank[0]
+
 
 def prepare_preference_batch_random_pair(
     prompt_batch: PromptBatch, reward_output: dict, gangs

@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict
 
 import ray
+import re
 import torch
 from ray.util.placement_group import placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
@@ -234,4 +235,25 @@ class RemoteVllmModel:
             )
             chunk_rewards = [o.outputs.data.item() for o in output]
             rewards.extend(chunk_rewards)
+        return rewards
+    
+    def extract_score(self, output):
+        matches = re.findall(r"<score>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score>", output)
+        return float(matches[-1]) if matches else 0.0
+    
+    def reward_from_generative_model(self, prompt_list, batch_size=64):
+        rewards = []
+        for i in range(0, len(prompt_list), batch_size):
+            prompt_chunk = prompt_list[i : i + batch_size]
+            output = ray.get(
+                self.vllm_model.generate.remote(
+                    prompt_chunk,
+                    sampling_params=self.sampling_params,
+                    use_tqdm=False,
+                )
+            )
+            
+            chunk_rewards = [self.extract_score(o.outputs[0].text) for o in output]
+            rewards.extend(chunk_rewards)
+        
         return rewards
