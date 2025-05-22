@@ -236,7 +236,7 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         batch, reward_tensor, dummy_batch_ids = prepare_group_dpo_batch(
             prompt_batch, reward_output, self._gangs
         )
-        chosen_rejected_tensor = reward_tensor > 0  # chosen == True
+        # chosen_rejected_tensor = reward_tensor > 0  # chosen == True
 
         # batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
         #     prompt_batch, rollouts
@@ -297,7 +297,7 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         #     target_batch.seqs, loss_mask=chosen_target_batch.target_mask
         # )
 
-        self._metric_bag.update_dpo_loss(batch, dpo_loss)
+        self._metric_bag.update_dpo_loss(num_dpo_pairs, dpo_loss)
 
         # self._metric_bag.update_nll_loss(batch.chosen, nll_loss)
 
@@ -318,7 +318,7 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         self._metric_bag.update_avg_loss_zeroer(torch.tensor(loss_zeroer))
 
-        self._metric_bag.update_batch_metrics(batch)
+        self._metric_bag.update_batch_metrics(num_dpo_pairs)
 
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         self._metric_bag.update_avg_reward(avg_reward)
@@ -479,7 +479,7 @@ class GroupDpoFinetuneMetricBag(POFinetuneMetricBag):
         self.logit_entropy.update(logit_entropy.sum() / batch_size, weight=batch_size)
 
     @torch.inference_mode()
-    def update_dpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
+    def update_dpo_loss(self, batch_size: int, loss: Tensor) -> None:
         """Update the DPO loss metric.
 
         :param batch:
@@ -487,7 +487,7 @@ class GroupDpoFinetuneMetricBag(POFinetuneMetricBag):
         :param loss:
             The DPO loss of ``batch``.
         """
-        self.dpo_loss.update(loss / batch.batch_size, weight=batch.batch_size)
+        self.dpo_loss.update(loss / batch_size, weight=batch_size)
 
     @torch.inference_mode()
     def update_num_dummy_batches(self, batch: PreferenceBatch, num_dummy_batches: int):
@@ -504,8 +504,8 @@ class GroupDpoFinetuneMetricBag(POFinetuneMetricBag):
         self.avg_loss_zeroer.update(avg_loss_zeroer, weight=1)
 
     @torch.inference_mode()
-    def update_batch_metrics(self, batch: PreferenceBatch):
-        num_examples = batch.batch_size
+    def update_batch_metrics(self, num_examples: int):
+        # num_examples = batch.batch_size
         self.num_examples.update(num_examples)
         if self._train:
             assert self.total_num_examples is not None

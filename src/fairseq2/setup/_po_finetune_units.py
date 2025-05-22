@@ -18,7 +18,6 @@ from fairseq2.recipes.lm import (
     GrpoFinetuneUnitHandler,
     OnlineFinetuneUnitHandler,
     GSM8kVerifierHandler,
-    NuminaMathVerifierHandler,
     MathVerifyHandler,
     AtheneVerifierHandler,
     VLLMOutputRewardHandler,
@@ -80,10 +79,6 @@ def register_online_finetune_units(context: RuntimeContext) -> None:
 
     # AtheneVerifier
     handler = AtheneVerifierHandler()
-    registry.register(handler.name, handler)
-
-    # NuminaMathVerifier
-    handler = NuminaMathVerifierHandler()
     registry.register(handler.name, handler)
 
     # MathVerify
