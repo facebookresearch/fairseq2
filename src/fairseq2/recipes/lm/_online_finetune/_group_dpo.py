@@ -418,11 +418,11 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
                     ref_rejected_logps_i[rejected_ii],
                 )
                 batch_loss.append(dpo_single_pair)
-            loss_to_sum.append(sum(batch_loss)/len(batch_loss))
+            loss_to_sum.append(sum(batch_loss) / len(batch_loss))
 
         if len(loss_to_sum) == 0:
             # dummy batch
-            loss_to_sum = [logps.sum()*0.0]  # dummy loss to zero out
+            loss_to_sum = [logps.sum() * 0.0]  # dummy loss to zero out
             loss_zeroer = 0.0
         else:
             loss_zeroer = 1.0

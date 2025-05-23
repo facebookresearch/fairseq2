@@ -296,6 +296,7 @@ def load_online_finetuner(
         raise UnknownOnlineFinetuneUnitError(config.criterion.name) from None
 
     unit = unit_handler.create(model, gangs, config, vllm_actors)
+
     try:
         if unit._sync_vllm_model_every_n_steps >= 0:
             unit.maybe_sync_models(force_sync_vllm=True)
