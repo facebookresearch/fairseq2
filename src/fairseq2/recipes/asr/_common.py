@@ -110,28 +110,6 @@ class DROAsrCriterion:
     ):
         raise NotImplementedError()
 
-    def _get_new_domain_weights(
-        self, batch: Seq2SeqBatch, domain_weights: Dict[str, float]
-    ):
-        """
-        Computes the domain excess losses using the *global batch* and then updates the domain weights.
-
-        args:
-            batch: The global batch to compute the domain excess losses on.
-
-        """
-        raise NotImplementedError()
-
-        # LOCAL:
-        # Compute excess loss on each local batch
-
-        # GLOBAL:
-        # Gather per-domain excess losses from all local batches and reduce (average) them
-        # Compute new domain weights (this can happen locally or globally)
-
-        # LOCAL:
-        # Use the new domain weights to compute the weighted loss on the local batch
-
     def _compute_weighted_loss(
         self, loss: Tensor, domain_weights: Dict[str, float], domains: List[str]
     ) -> Tensor:
