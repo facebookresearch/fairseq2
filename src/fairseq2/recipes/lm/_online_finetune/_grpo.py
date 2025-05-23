@@ -55,6 +55,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     copy_state,
     generate_rollouts,
     prepare_grpo_batch,
+    StatefulRolloutBag,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_vllm import (
@@ -89,6 +90,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     _reward: VLLMOutputReward
     _display_name: str
     _reference_offload: bool
+    _rollout_bag: StatefulRolloutBag
 
     def __init__(
         self,
@@ -115,6 +117,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._reward = reward
         self._reference_offload = reference_offload
         self._metric_bag = GrpoFinetuneMetricBag(gangs.dp)
+        self._rollout_bag = StatefulRolloutBag()
 
         self._display_name = "GRPO"
 
@@ -215,20 +218,35 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         self.maybe_sync_models()
 
-        rollouts = generate_rollouts(
-            prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
-        )
-        if self._loss_config.log_rollouts:
-            log_rollouts(prompt_batch, rollouts, "Train")
+        self._rollout_bag.maybe_reset_bag(self._step_nr)
 
-        reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
+        if len(self._rollout_bag) == 0:
+
+            rollouts = generate_rollouts(
+                prompt_batch.prompts,
+                dp_gang=self._gangs.dp,
+                vllm_model=self._vllm_model,
+            )
+            if self._loss_config.log_rollouts:
+                log_rollouts(prompt_batch, rollouts, "Train")
+
+            reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
+
+            self._rollout_bag.save(rollouts, reward_output)
+
+        else:
+
+            rollouts, reward_output = self._rollout_bag.load()
+            self._rollout_bag.bag_step += 1
 
         grpo_batch: GRPOBatch
         grpo_batch = prepare_grpo_batch(
             prompt_batch=prompt_batch,
             reward_output=reward_output,
             gangs=self._gangs,
-            num_rollout_per_forward=self._loss_config.num_rollout_per_forward,
+            rollout_start_end=self._rollout_bag.get_rollout_start_end(
+                self._loss_config.forward_group_size
+            ),
         )
 
         # grpo_batch, reward_output = self._reward.prepare_grpo_batch(prompt_batch, rollouts)  # loss_zeroer is used when entire batch has no valid prefrence pair
@@ -440,7 +458,8 @@ GRPO_FINETUNE_UNIT: Final = "grpo"
 
 @dataclass(kw_only=True)
 class GrpoLossConfig:
-    num_rollout_per_forward: int = 8
+    group_size: int = 4
+    forward_group_size: int = 4
     beta: float = 0.1
     """The coefficient of regularization towards the reference model."""
     entropy_regularizer_scale: float = 0.0
@@ -535,6 +554,11 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         gangs.root.barrier()
 
         vllm_model = vllm_actors[config.ray_policy_actor_name]
+        if gangs.dp.rank == 0:
+            if vllm_model.sampling_params.n != config.loss_config.group_size:
+                raise RuntimeError(
+                    "GRPO policy sampling n must match loss config group_size"
+                )
 
         vllm_reward_model = vllm_actors.get(config.vllm_reward_model_name, None)
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)

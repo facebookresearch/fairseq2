@@ -492,7 +492,7 @@ def prepare_grpo_batch(
     prompt_batch: PromptBatch,
     reward_output: dict,
     gangs: Gang,
-    num_rollout_per_forward: int,
+    rollout_start_end: tuple[int],
 ):
 
     prompt_rollouts = []
@@ -505,7 +505,7 @@ def prepare_grpo_batch(
         prompt = prompt_batch.prompts[i_batch]
         rollout_tokens = [
             torch.tensor(prompt + list(c), device=gangs.dp.device)
-            for c in i_batch_tokens[:num_rollout_per_forward]
+            for c in i_batch_tokens[rollout_start_end[0] : rollout_start_end[1]]
         ]
 
         prompt_rollouts.extend(rollout_tokens)
@@ -527,7 +527,9 @@ def prepare_grpo_batch(
         rewards.std(dim=1, keepdim=True) + 1e-6
     )  # small epsilon to compensate 0 std
 
-    rewards_normalized = rewards_normalized[:, :num_rollout_per_forward]
+    rewards_normalized = rewards_normalized[
+        :, rollout_start_end[0] : rollout_start_end[1]
+    ]
     prompt_rollout_batch = collate_with_target_mask(
         prompt_rollouts, prompt_lens, device=gangs.dp.device
     )
@@ -598,3 +600,36 @@ def log_rollouts(prompt_batch: PromptBatch, rollouts, split_name, num_rollouts=1
     for rollout in rollouts[0].outputs[:num_rollouts]:
         rollout_text = rollout.text
         log.info(f"{split_name} Rollout: {rollout_text}")
+
+
+class StatefulRolloutBag:
+    bag_step: int = 0
+    _trainer_step: int = None
+
+    def __init__(self):
+        self.rollouts: List = []
+        self.reward_outputs: List = []
+
+    def maybe_reset_bag(self, trainer_step):
+        # this is called every train step to see if we need to reset the bag
+        if self._trainer_step != trainer_step:
+            # new trainer step, reset bag and counters
+            self.rollouts = []
+            self.reward_outputs = []
+            self.bag_step = 0
+            self._trainer_step = trainer_step
+
+    def __len__(self):
+        return len(self.rollouts)
+
+    def save(self, rollouts, reward_outputs):
+        self.rollouts = rollouts
+        self.reward_outputs = reward_outputs
+
+    def load(self):
+        return self.rollouts, self.reward_outputs
+
+    def get_rollout_start_end(self, num_rollout_per_forward: int):
+        start_i = self.bag_step * num_rollout_per_forward
+        end_i = start_i + num_rollout_per_forward
+        return start_i, end_i
