@@ -278,17 +278,20 @@ class RemoteVllmModel:
         return rollouts
 
     def reward_from_model(self, prompt_list, batch_size=64):
-        # TODO: replicas not supported yet!!
         # NOTE: need to batch inputs to vllm.encode model for current models that aren't supported by vllm
         rewards = []
+        outputs = []
+        replica_counter = 0
         for i in range(0, len(prompt_list), batch_size):
             prompt_chunk = prompt_list[i : i + batch_size]
-            output = ray.get(
-                self.vllm_model.encode.remote(
+            outputs.append(
+                self.vllm_workers[replica_counter % self.num_replicas].encode.remote(
                     prompt_chunk,
                     use_tqdm=False,
                 )
             )
-            chunk_rewards = [o.outputs.data.item() for o in output]
-            rewards.extend(chunk_rewards)
+            replica_counter += 1
+        ray_outputs = ray.get(outputs)
+        ray_outputs_flat = [o for sublist in ray_outputs for o in sublist]
+        rewards = [o.outputs.data.item() for o in ray_outputs_flat]
         return rewards
