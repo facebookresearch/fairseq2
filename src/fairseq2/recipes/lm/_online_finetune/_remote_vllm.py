@@ -28,6 +28,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     NoEnvLLM,
     stateless_init_process_group,
 )
+from fairseq2.logging import log
 
 
 class RemoteModelHandler(ABC):
@@ -60,6 +61,7 @@ class VllmEngineArgs:
 @dataclass(kw_only=True)
 class VllmRayActorConfig:
     ray_actor_name: str = "dummy"
+    num_replicas: int = 1
     vllm_engine_args: VllmEngineArgs = field(default_factory=lambda: VllmEngineArgs())
     vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
     init_update_process_group: bool = False
@@ -69,9 +71,10 @@ class RemoteVllmModelHandler(RemoteModelHandler):
     @override
     def create(self, gangs: Gangs, actor_config: VllmRayActorConfig) -> RemoteVllmModel:
         if gangs.dp.rank == 0 and gangs.tp.rank == 0:
-            # vllm worker is only created on the first DP rank (incuding all TP ranks)
+            # vllm worker is only created on the first DP ranks given how many replicas we use
             remote_vllm_model = RemoteVllmModel(
                 actor_config.ray_actor_name,
+                actor_config.num_replicas,
                 actor_config.vllm_engine_args,
                 actor_config.vllm_sampling_params,
                 actor_config.init_update_process_group,
@@ -79,6 +82,8 @@ class RemoteVllmModelHandler(RemoteModelHandler):
             )
         else:
             remote_vllm_model = None
+
+        gangs.root.barrier()
 
         return remote_vllm_model
 
@@ -97,33 +102,54 @@ class RemoteVllmModel:
     def __init__(
         self,
         ray_actor_name: str,
+        num_replicas: int,
         vllm_engine_args: VllmEngineArgs,
         sampling_params: dict,
         init_update_process_group: bool,
         gangs: Gangs,
     ):
+        self._gangs = gangs
+
+        self.num_replicas = num_replicas
+        self.ray_actor_name = ray_actor_name
+
+        self.vllm_workers = []
+        self.update_process_groups = []
+
         if gangs.dp.rank != 0 and gangs.tp.rank != 0:
             raise ValueError("vllm worker should only be initialized on DP & TP rank 0")
 
-        # connection is done on recipe level and at this point we are connected
-        # ray.init(address=f"ray://{ray_cluster_ip_address}:10001", namespace="vllm_workers")
-
-        self._gangs = gangs
-        self.vllm_model = self.setup_vllm_worker(
-            ray_actor_name, vllm_engine_args, gangs
-        )
+        for replica_i in range(self.num_replicas):
+            self.setup_replica(replica_i, vllm_engine_args, init_update_process_group)
+            # gangs.root.barrier()/
 
         # populate sampling params using all values that were passed in the config
         self.sampling_params = SamplingParams(**sampling_params)
 
-        if init_update_process_group:
-            self.update_process_group = self.setup_process_group_for_model_sync(
-                vllm_engine_args.tensor_parallel_size
-            )
-        else:
-            self.update_process_group = None
-
         self._vllm_engine_args = vllm_engine_args
+
+    def setup_replica(
+        self, replica_i: int, vllm_engine_args, init_update_process_group
+    ):
+        if (
+            len(self.vllm_workers) != replica_i
+            or len(self.update_process_groups) != replica_i
+        ):
+            raise RuntimeError(
+                "new replica is being created while previous ones are not setup yet"
+            )
+
+        vllm_worker = self.setup_vllm_worker(
+            f"{self.ray_actor_name}_{replica_i}", vllm_engine_args, self._gangs
+        )
+        self.vllm_workers.append(vllm_worker)
+
+        update_process_group = self.setup_process_group_for_model_sync(
+            replica_i, vllm_engine_args.tensor_parallel_size, init_update_process_group
+        )
+        self.update_process_groups.append(update_process_group)
+
+        log.info(f"Replica {replica_i} setup completed")
 
     def setup_vllm_worker(
         self, ray_actor_name, vllm_engine_args: VllmEngineArgs, gangs: Gangs
@@ -168,14 +194,19 @@ class RemoteVllmModel:
 
         return llm
 
-    def setup_process_group_for_model_sync(self, vllm_tensor_parallel_size):
+    def setup_process_group_for_model_sync(
+        self, replica_i, vllm_tensor_parallel_size, init_update_process_group=True
+    ):
+        if not init_update_process_group:
+            return None
+
         master_port = get_open_port()
         master_address = get_ip()
 
         print(f"{master_port} {master_address}")
 
         print("init pg on vllm host")
-        handle = self.vllm_model.collective_rpc.remote(
+        handle = self.vllm_workers[replica_i].collective_rpc.remote(
             "init_weight_update_group",
             args=(master_address, master_port, 1, vllm_tensor_parallel_size + 1),
         )
@@ -196,32 +227,58 @@ class RemoteVllmModel:
         """
         trainer_process_group must connect training process with vllm_model processes
         """
-        for name, p in train_model.module.named_parameters():
-            name = name.replace("._checkpoint_wrapped_module", "")
-            # print(f'sync call {name}')
-            handle = self.vllm_model.collective_rpc.remote(
-                "update_weight", args=(name, p.dtype, p.shape)
-            )
-            self.update_process_group.broadcast(
-                p, src=0, stream=torch.cuda.current_stream()
-            )
-            ray.get(handle)
+
+        # iterate over all replicas
+        for replica_i in range(self.num_replicas):
+            for name, p in train_model.module.named_parameters():
+                name = name.replace("._checkpoint_wrapped_module", "")
+                # print(f'sync call {name}')
+                handle = self.vllm_workers[replica_i].collective_rpc.remote(
+                    "update_weight", args=(name, p.dtype, p.shape)
+                )
+                self.update_process_groups[replica_i].broadcast(
+                    p, src=0, stream=torch.cuda.current_stream()
+                )
+                ray.get(handle)
 
     def rollout_from_model(self, prompt_list, sampling_params=None):
         if sampling_params is None:
             sampling_params = self.sampling_params
 
-        outputs = ray.get(
-            self.vllm_model.generate.remote(
-                prompt_token_ids=prompt_list,
-                sampling_params=sampling_params,
-                use_tqdm=False,
-            )
-        )
+        # Split prompts evenly across replicas
+        chunk_size = len(prompt_list) // self.num_replicas
+        remainder = len(prompt_list) % self.num_replicas
 
-        return outputs
+        chunks = []
+        start = 0
+        for i in range(self.num_replicas):
+            # Add one extra item to some chunks if division isn't even
+            end = start + chunk_size + (1 if i < remainder else 0)
+            chunks.append(prompt_list[start:end])
+            start = end
+
+        # Process each chunk with a different replica
+        outputs = []
+        for replica_i, chunk in enumerate(chunks):
+            if len(chunk) > 0:  # Only send non-empty chunks
+                output = self.vllm_workers[replica_i].generate.remote(
+                    prompt_token_ids=chunk,
+                    sampling_params=sampling_params,
+                    use_tqdm=False,
+                )
+                outputs.append(output)
+
+        # block till generation is done
+        results = ray.get(outputs)
+
+        rollouts = []
+        for chunk_result in results:
+            rollouts.extend(chunk_result)
+
+        return rollouts
 
     def reward_from_model(self, prompt_list, batch_size=64):
+        # TODO: replicas not supported yet!!
         # NOTE: need to batch inputs to vllm.encode model for current models that aren't supported by vllm
         rewards = []
         for i in range(0, len(prompt_list), batch_size):

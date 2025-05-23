@@ -336,10 +336,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             )
 
         loss = (
-            dpo_loss
-            + self._loss_config.nll_scale
-            * nll_loss
-            + max_entropy_regularizer
+            dpo_loss + self._loss_config.nll_scale * nll_loss + max_entropy_regularizer
         )  # nll normalization applied locally per-rank
 
         loss = loss * loss_zeroer  # zero loss if entire batch was dummy batch
@@ -557,7 +554,7 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             reference_model = vllm_actors[config.reference_model]
             reference_offload = True
             if config.sync_ref_model_every_n_steps != -1:
-                if reference_model and reference_model.update_process_group is None:
+                if reference_model and reference_model.update_process_groups is None:
                     raise ValueError(
                         f"Reference model actor must have update process group if we sync weights"
                     )
