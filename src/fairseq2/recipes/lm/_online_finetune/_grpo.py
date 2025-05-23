@@ -155,11 +155,13 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                     broadcast_model(self._reference_model, self._gangs)
 
     def validate_reward(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
-        policy_sampling_params = copy(self._vllm_model.sampling_params)
-        policy_sampling_params.n = 1
-        for k, v in self._loss_config.validation_vllm_sampling_params.items():
-            policy_sampling_params.__setattr__(k, v)
-
+        if self._gangs.dp.rank == 0:
+            policy_sampling_params = copy(self._vllm_model.sampling_params)
+            policy_sampling_params.n = 1
+            for k, v in self._loss_config.validation_vllm_sampling_params.items():
+                policy_sampling_params.__setattr__(k, v)
+        else:
+            policy_sampling_params = None
         rollouts = generate_rollouts(
             prompt_batch.prompts,
             dp_gang=self._gangs.dp,
