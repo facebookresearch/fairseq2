@@ -11,12 +11,10 @@ from pathlib import Path
 from typing import cast, final
 
 import torch
-from torch import Tensor
-from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
+from fairseq2.datasets.asr import AsrDataset, AsrReadOptions, GENERIC_ASR_DATASET_FAMILY
 from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.models.seq2seq import Seq2SeqBatch
@@ -58,6 +56,8 @@ from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+from torch import Tensor
+from typing_extensions import override
 
 
 @dataclass(kw_only=True)
@@ -206,6 +206,66 @@ def register_wav2vec2_asr_train_configs(context: RuntimeContext) -> None:
         config.dataset.name = "librispeech_asr_100h"
         config.optimizer.config.lr = 0.00003
         config.regime.num_steps = 50_000
+
+        return config
+
+    @preset("mms1_1b_public_bib61")
+    def _mms1_1b_public_bib61() -> Wav2Vec2AsrTrainConfig:
+        config = base_10h()
+
+        # Dataset
+        config.dataset.name = "bible_61"
+        config.text_tokenizer.name = "bible_61"
+        config.dataset.max_num_elements = 3_600_000
+        config.dataset.valid_split = "dev"
+        config.dataset.normalize_audio = True
+
+        # Arch
+
+        config.model.arch = "1b_bib61"
+
+        config.pretrained_model.name = "mms1_1b_public"
+
+        # Optimization
+        assert isinstance(config.optimizer.config, AdamWConfig)
+        config.optimizer.config.lr = 1e-5
+        config.trainer.gradient_accumulation = 1
+        config.trainer.freeze_encoder_for_n_steps = 0
+        config.regime.num_steps = 10_000
+        config.trainer.dtype = torch.bfloat16
+
+        # Validation
+        config.regime.validate_after_n_steps = 0
+        config.regime.validate_every_n_steps = 200
+
+        # Checkpointing
+        config.regime.checkpoint_after_n_steps = 0
+        config.regime.checkpoint_every_n_steps = 200
+        config.regime.keep_best_n_checkpoints = 1
+        config.best_checkpoint_metric = "uer"
+
+        config.regime.publish_metrics_every_n_steps = 50
+
+        return config
+
+    @preset("mms2_base_1000k_bib61_ddp")
+    def _mms2_base_1000k_bib61_ddp() -> Wav2Vec2AsrTrainConfig:
+        config = _mms1_1b_public_bib61()
+
+        # Dataset
+        config.dataset.max_num_elements = 4_000_000
+
+        # Model config
+        config.model.arch = "300m_bib61"
+        config.pretrained_model.name = "mms2_base_1000k"
+
+        # Optimization
+        assert isinstance(config.optimizer.config, AdamWConfig)
+        config.optimizer.config.lr = 1e-4
+        config.trainer.gradient_accumulation = 1
+        config.trainer.freeze_encoder_for_n_steps = 0
+        config.regime.num_steps = 50_000
+        config.trainer.dtype = torch.bfloat16
 
         return config
 

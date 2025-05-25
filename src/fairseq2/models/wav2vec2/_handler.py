@@ -10,9 +10,6 @@ from collections.abc import MutableMapping
 from typing import cast
 
 import torch
-from torch import Tensor
-from torch.nn import Module
-from typing_extensions import override
 
 from fairseq2.models import AbstractModelHandler
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
@@ -21,6 +18,9 @@ from fairseq2.models.wav2vec2._factory import Wav2Vec2Factory
 from fairseq2.models.wav2vec2._model import Wav2Vec2Model
 from fairseq2.nn.transformer import TransformerNormOrder
 from fairseq2.typing import CPU
+from torch import Tensor
+from torch.nn import Module
+from typing_extensions import override
 
 
 class Wav2Vec2ModelHandler(AbstractModelHandler):
@@ -52,7 +52,11 @@ class Wav2Vec2ModelHandler(AbstractModelHandler):
 def convert_wav2vec2_checkpoint(
     checkpoint: dict[str, object], config: Wav2Vec2Config
 ) -> dict[str, object]:
-    state_dict = cast(MutableMapping[str, Tensor], checkpoint["model"])
+    if "model_key" in checkpoint.keys():
+        model_key = checkpoint["model_key"]
+    else:
+        model_key = "model"
+    state_dict = cast(MutableMapping[str, Tensor], checkpoint[model_key])
 
     # Check if we have a fairseq2 checkpoint.
     if "project_q.weight" not in state_dict:

@@ -141,3 +141,23 @@ def register_wav2vec2_asr_configs(context: RuntimeContext) -> None:
         config.max_spatial_mask_prob = 0.55
 
         return config
+
+    @arch("300m_bib61")
+    def bib61_300m() -> Wav2Vec2AsrConfig:
+        config = base_10h()
+
+        w2v2_config = w2v2_registry.get("large_lv60k")
+        config.encoder_config = w2v2_config.encoder_config
+
+        config.encoder_config.feature_gradient_scale = 1.0
+        config.encoder_config.dropout_p = 0.0
+        config.encoder_config.attn_dropout_p = 0.0
+        config.encoder_config.ffn_inner_dropout_p = 0.1
+        config.encoder_config.layer_drop_p = 0.1
+
+        config.use_masking = False
+        config.max_temporal_mask_prob = 0.0
+        config.max_spatial_mask_prob = 0.0
+        config.vocab_info.size = 2475
+
+        return config
