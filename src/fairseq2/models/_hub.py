@@ -6,10 +6,10 @@
 
 from __future__ import annotations
 
-from typing import Generic, TypeVar, cast, final
+from pathlib import Path
+from typing import cast, final, Generic, TypeVar
 
 import torch
-from torch.nn import Module
 
 from fairseq2.assets import (
     AssetCard,
@@ -19,18 +19,19 @@ from fairseq2.assets import (
     AssetStore,
 )
 from fairseq2.context import get_runtime_context
-from fairseq2.gang import Gangs, fake_gangs
+from fairseq2.gang import fake_gangs, Gangs
 from fairseq2.models._error import (
     InvalidModelConfigTypeError,
     InvalidModelTypeError,
+    model_asset_card_error,
     ModelConfigLoadError,
     UnknownModelError,
     UnknownModelFamilyError,
-    model_asset_card_error,
 )
 from fairseq2.models._handler import ModelHandler
 from fairseq2.registry import Provider
 from fairseq2.typing import DataType, Device
+from torch.nn import Module
 
 ModelT = TypeVar("ModelT", bound=Module)
 
@@ -157,6 +158,57 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
             dtype = torch.get_default_dtype()
 
         model = handler.load(card, gangs, dtype, config=config)
+
+        return cast(ModelT, model)
+
+    def load_from_path(
+        self,
+        path: Path,
+        config: ModelConfigT,
+        *,
+        model_family: str | None = None,
+        gangs: Gangs | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
+        restrict: bool = True,
+    ) -> ModelT:
+        if gangs is not None and device is not None:
+            raise ValueError(
+                "`gangs` and `device` must not be specified at the same time."
+            )
+
+        if device is not None:
+            if device.type == "meta":
+                raise ValueError("`device` must be a real device.")
+
+            gangs = fake_gangs(device)
+        elif gangs is None:
+            device = torch.get_default_device()
+
+            gangs = fake_gangs(device)
+        else:
+            if gangs.root.device.type == "meta":
+                raise ValueError("`gangs` must be on a real device.")
+
+        model_name = path.name
+
+        if model_family is None:
+            model_family = "wav2vec2"
+
+        try:
+            handler = self._model_handlers.get(model_family)
+        except LookupError:
+            raise UnknownModelFamilyError(model_family, model_name) from None
+
+        if not issubclass(handler.kls, self._kls):
+            raise InvalidModelTypeError(model_name, handler.kls, self._kls)
+
+        if dtype is None:
+            dtype = torch.get_default_dtype()
+
+        model = handler.load_from_path(
+            path, model_name, config, gangs, dtype, restrict=restrict
+        )
 
         return cast(ModelT, model)
 
