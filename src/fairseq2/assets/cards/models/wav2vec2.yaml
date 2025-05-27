@@ -30,10 +30,3 @@ model_family: wav2vec2_asr
 model_arch: base_10h
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_asr_fs2_base_10h.pt"
 tokenizer_ref: librispeech_asr
-
----
-
-name: mms2_base_1000k
-model_family: wav2vec2
-model_arch: large_lv60k
-checkpoint: "/checkpoint/mms/gilkeren/assets/models/mms2_base/1000k.pt"

@@ -280,6 +280,19 @@ def register_wav2vec2_asr_train_configs(context: RuntimeContext) -> None:
         config.trainer.dtype = torch.bfloat16
 
         return config
+    
+    @preset("mms2_base_1000k_hf_ddp")
+    def _mms2_base_1000k_hf_ddp() -> Wav2Vec2AsrTrainConfig:
+        config = _mms2_base_1000k_bib61_ddp()
+
+        # Dataset
+        config.dataset.family = HUGGING_FACE_ASR_DATASET_FAMILY
+        config.dataset.name = "hugging_face_asr"
+        config.dataset.hugging_face_hub_name = "mozilla-foundation/common_voice_17_0"
+        config.dataset.hugging_face_data_dir = "ia"
+        config.dataset.valid_split = "validation"
+
+        return config
 
 
 def load_wav2vec2_asr_trainer(
@@ -358,7 +371,7 @@ def load_wav2vec2_asr_trainer(
         dataset = HuggingFaceAsrDataset(
             name=config.dataset.name,
             hg_hub_name=config.dataset.hugging_face_hub_name,
-            hg_data_dir=config.dataset.hugging_face_data_dir,
+            hg_hub_data_dir=config.dataset.hugging_face_data_dir,
         )
     else:
         dataset = load_dataset(AsrDataset, context, config.dataset, gangs)

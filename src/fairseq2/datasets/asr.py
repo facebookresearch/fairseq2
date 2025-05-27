@@ -459,7 +459,7 @@ class HuggingFaceAsrDataset(AsrDataset):
 
         # Convert wavs from numpy to torch
         def torchify(waveform: np.ndarray) -> Tensor:
-            return torch.tensor(waveform)
+            return torch.tensor(waveform, dtype=torch.float32)
 
         builder.map(torchify, selector="[*].audio.array")
 
@@ -497,15 +497,19 @@ class HuggingFaceAsrDataset(AsrDataset):
         def to_batch(example: dict[str, Any]) -> Seq2SeqBatch:
             source_data = cast(SequenceData, example["audio"]["array"])
             target_data = cast(SequenceData, example["sentence"])
-
-            source_seqs, source_seq_lens = source_data["seqs"], source_data["seq_lens"]
-            target_seqs, target_seq_lens = target_data["seqs"], target_data["seq_lens"]
+            
+            source_seqs, source_padding_mask = get_seqs_and_padding_mask(
+                source_data, gang.device
+            )
+            target_seqs, target_padding_mask = get_seqs_and_padding_mask(
+                target_data, gang.device
+            )
 
             return Seq2SeqBatch(
                 source_seqs,
-                source_seq_lens,
+                source_padding_mask,
                 target_seqs,
-                target_seq_lens,
+                target_padding_mask,
                 example=example,
             )
 

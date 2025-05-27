@@ -11,8 +11,6 @@ from fairseq2.datasets import DatasetHandler, StandardDatasetHandler
 from fairseq2.datasets.asr import (
     GENERIC_ASR_DATASET_FAMILY,
     GenericAsrDataset,
-    HUGGING_FACE_ASR_DATASET_FAMILY,
-    HuggingFaceAsrDataset,
 )
 from fairseq2.datasets.instruction import (
     GENERIC_INSTRUCTION_DATASET_FAMILY,
@@ -44,16 +42,6 @@ def _register_datasets(context: RuntimeContext) -> None:
         GENERIC_ASR_DATASET_FAMILY,
         GenericAsrDataset,
         GenericAsrDataset.from_path,
-        file_system,
-        asset_download_manager,
-    )
-
-    registry.register(handler.family, handler)
-
-    handler = StandardDatasetHandler(
-        HUGGING_FACE_ASR_DATASET_FAMILY,
-        HuggingFaceAsrDataset,
-        HuggingFaceAsrDataset.from_path,
         file_system,
         asset_download_manager,
     )

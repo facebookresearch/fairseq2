@@ -1,0 +1,4 @@
+name: mms2_base_1000k
+model_family: wav2vec2
+model_arch: large_lv60k
+checkpoint: "/checkpoint/mms/mattsetzler/assets/models/mms2_base/1000k.pt"
