@@ -34,7 +34,13 @@ from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_dev
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import TRI_STAGE_LR, TriStageLRConfig
 from fairseq2.recipes import Model, RecipeError, Trainer, TrainUnit
-from fairseq2.recipes.asr import AsrCriterion, AsrEvalUnit, AsrMetricBag, AsrScorer
+from fairseq2.recipes.asr import (
+    AsrCriterion,
+    AsrEvalUnit,
+    AsrMetricBag,
+    AsrScorer,
+    LlamaAsrOutputRecorder,
+)
 from fairseq2.recipes.common import (
     create_checkpoint_manager,
     create_lr_scheduler,
@@ -68,6 +74,7 @@ from fairseq2.recipes.wav2vec2.batch_weighted_datareader import (
     MIXTURE_DATASET_FAMILY,
 )
 from fairseq2.typing import CPU
+from fairseq2.utils.file import FileMode
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
@@ -90,6 +97,7 @@ class Wav2Vec2AsrTrainConfig:
     pretrained_decoder: ReferenceModelSection = field(
         default_factory=lambda: ReferenceModelSection(name="")
     )
+    record_output_path: str = ""
 
     dataset: Wav2Vec2AsrTrainDatasetSection = field(
         default_factory=lambda: Wav2Vec2AsrTrainDatasetSection()
@@ -446,7 +454,17 @@ def load_wav2vec2_asr_trainer(
 
     # Initialize the validation unit.
     if config.dataset.valid_split is not None:
-        valid_scorer = AsrScorer(tokenizer)
+        recorder = None
+        if config.record_output_path:
+            record_txt_path = output_dir.joinpath(
+                f"{config.record_output_path}/rank_{gangs.dp.rank}.txt"
+            )
+            context.file_system.make_directory(record_txt_path.parent)
+            text_stream = context.file_system.open_text(
+                record_txt_path, mode=FileMode.WRITE
+            )
+            recorder = LlamaAsrOutputRecorder(text_stream)
+        valid_scorer = AsrScorer(tokenizer, recorder=recorder)
 
         valid_criterion = AsrCriterion(model, valid_scorer)
 

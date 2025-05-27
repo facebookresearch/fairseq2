@@ -9,6 +9,8 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, final, TextIO
 
+import Levenshtein
+
 import torch
 
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
@@ -98,6 +100,7 @@ class AsrScorer:
         blank_label: int = 0,
         ref_output_stream: TextIO | None = None,
         hyp_output_stream: TextIO | None = None,
+        recorder: LlamaAsrOutputRecorder | None = None,
     ) -> None:
         """
         :param tokenizer: The tokenizer to encode target text.
@@ -106,6 +109,7 @@ class AsrScorer:
         :param hyp_output_stream: The output stream to dump hypotheses.
         """
         self._text_decoder = tokenizer.create_decoder()
+        self.recorder = recorder
 
         pad_idx = tokenizer.vocab_info.pad_idx
         if pad_idx is None:
@@ -124,7 +128,13 @@ class AsrScorer:
         self, batch: Seq2SeqBatch, output: AsrModelOutput, metric_bag: AsrMetricBag
     ) -> None:
         # (N, S), (N, S)
-        ref_seqs, ref_padding_mask = batch.target_seqs, batch.target_padding_mask
+        if hasattr(batch, "original_target_seqs"):
+            ref_seqs, ref_padding_mask = (
+                batch.original_target_seqs,
+                batch.original_target_padding_mask,
+            )
+        else:
+            ref_seqs, ref_padding_mask = batch.target_seqs, batch.target_padding_mask
 
         # (N, S), (N, S)
         hyp_seqs, hyp_padding_mask = output.generate_hypotheses(
@@ -138,28 +148,30 @@ class AsrScorer:
             refs, ref_seqs, ref_padding_mask, hyps, hyp_seqs, hyp_padding_mask
         )
 
-        try:
-            # Dump references.
-            stream = self._ref_output_stream
-            if stream is not None:
-                for ref in refs:
-                    stream.write(ref)
-                    stream.write("\n")
+        if self.recorder is not None:
+            self.recorder.record(batch, output, refs, hyps)
+        # try:
+        #     # Dump references.
+        #     stream = self._ref_output_stream
+        #     if stream is not None:
+        #         for ref in refs:
+        #             stream.write(ref)
+        #             stream.write("\n")
 
-                stream.flush()
+        #         stream.flush()
 
-            # Dump hypotheses.
-            stream = self._hyp_output_stream
-            if stream is not None:
-                for hyp in hyps:
-                    stream.write(hyp)
-                    stream.write("\n")
+        #     # Dump hypotheses.
+        #     stream = self._hyp_output_stream
+        #     if stream is not None:
+        #         for hyp in hyps:
+        #             stream.write(hyp)
+        #             stream.write("\n")
 
-                stream.flush()
-        except OSError as ex:
-            raise UnitError(
-                "The generator output cannot be written. See the nested exception for details."
-            ) from ex
+        #         stream.flush()
+        # except OSError as ex:
+        #     raise UnitError(
+        #         "The generator output cannot be written. See the nested exception for details."
+        #     ) from ex
 
 
 class AsrMetricBag(BaseMetricBag):
@@ -216,3 +228,56 @@ class AsrMetricBag(BaseMetricBag):
         if uer >= 0.0 and wer >= 0.0:
             values["uer"] = uer
             values["wer"] = wer
+
+
+class LlamaAsrOutputRecorder:
+    def __init__(self, text_output_stream: TextIO) -> None:
+        self.stream = text_output_stream
+
+    def label_hyp_chars(self, hyp, ref):
+        edits = Levenshtein.editops(hyp, ref)
+        labels = ["."] * len(hyp)
+        for tag, i1, _ in edits:
+            assert tag in ["replace", "delete", "insert"], tag
+            if i1 < len(labels):
+                labels[i1] = "e"
+        return "".join(labels)
+
+    def record(
+        self,
+        batch: Seq2SeqBatch,
+        output: AsrModelOutput,
+        refs: list[str],
+        hyps: list[str],
+    ) -> None:
+        ids = batch.example["audio"]["path"]
+        try:
+            audio_sizes = batch.example["audio"]["data"]["waveform"]["seq_lens"]
+        except KeyError:
+            audio_sizes = [0] * len(ids)
+
+        # Get confidence
+        targets, target_padding_mask = output.add_eos(
+            batch.target_seqs, batch.target_padding_mask
+        )
+        logits_no_enc = output.remove_encoder_logits(targets, target_padding_mask)
+        probs = torch.nn.functional.softmax(logits_no_enc / 2, dim=-1)
+        probs = probs.gather(dim=2, index=targets.unsqueeze(2)).squeeze(2)
+        probs = [p[: target_padding_mask.seq_lens[i]] for i, p in enumerate(probs)]
+
+        # Write to stream
+        for idx, ref, hyp, audio_size, prob in zip(ids, refs, hyps, audio_sizes, probs):
+            # Get alignment labels
+            if len(hyp) != prob.size(0) - 1:
+                log.info(
+                    f"Warning: hyp and prob have different lengths: {len(hyp)} {prob.size(0) - 1}"
+                )
+            ali_labels = self.label_hyp_chars(hyp, ref)
+
+            # Conf to string
+            conf = str([round(x, 5) for x in prob.tolist()])
+
+            self.stream.write(
+                f"{idx}\t{ref}\t{hyp}\t{conf}\t{audio_size}\t{ali_labels}\n"
+            )
+        self.stream.flush()

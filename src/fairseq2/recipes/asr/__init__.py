@@ -6,13 +6,16 @@
 
 from __future__ import annotations
 
-from fairseq2.recipes.asr._common import AsrCriterion as AsrCriterion
-from fairseq2.recipes.asr._common import AsrMetricBag as AsrMetricBag
-from fairseq2.recipes.asr._common import AsrScorer as AsrScorer
-from fairseq2.recipes.asr._eval import AsrEvalConfig as AsrEvalConfig
-from fairseq2.recipes.asr._eval import AsrEvalDatasetSection as AsrEvalDatasetSection
-from fairseq2.recipes.asr._eval import AsrEvalUnit as AsrEvalUnit
-from fairseq2.recipes.asr._eval import load_asr_evaluator as load_asr_evaluator
+from fairseq2.recipes.asr._common import (
+    AsrCriterion as AsrCriterion,
+    AsrMetricBag as AsrMetricBag,
+    AsrScorer as AsrScorer,
+    LlamaAsrOutputRecorder as LlamaAsrOutputRecorder,
+)
 from fairseq2.recipes.asr._eval import (
+    AsrEvalConfig as AsrEvalConfig,
+    AsrEvalDatasetSection as AsrEvalDatasetSection,
+    AsrEvalUnit as AsrEvalUnit,
+    load_asr_evaluator as load_asr_evaluator,
     register_asr_eval_configs as register_asr_eval_configs,
 )
