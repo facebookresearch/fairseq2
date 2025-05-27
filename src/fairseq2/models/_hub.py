@@ -207,7 +207,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
             dtype = torch.get_default_dtype()
 
         model = handler.load_from_path(
-            path, model_name, config, gangs, dtype, restrict=restrict
+            path, model_name, config, gangs, dtype
         )
 
         return cast(ModelT, model)
