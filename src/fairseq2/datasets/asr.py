@@ -102,6 +102,7 @@ npc = 10
 
 
 GENERIC_ASR_DATASET_FAMILY: Final = "generic_asr"
+HUGGING_FACE_ASR_DATASET_FAMILY: Final = "hugging_face_asr"
 
 
 # TODO: Work in progress!
@@ -516,10 +517,6 @@ class HuggingFaceAsrDataset(AsrDataset):
 
     def splits(self) -> set[str]:
         return self._splits
-
-    @classmethod
-    def from_path(cls, path: Path, name: str) -> "HuggingFaceAsrDataset":
-        return cls(name)  # TODO: hacky
 
 
 get_asr_dataset_hub = DatasetHubAccessor(AsrDataset)

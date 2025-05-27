@@ -14,7 +14,13 @@ import torch
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import AsrDataset, AsrReadOptions, GENERIC_ASR_DATASET_FAMILY
+from fairseq2.datasets.asr import (
+    AsrDataset,
+    AsrReadOptions,
+    GENERIC_ASR_DATASET_FAMILY,
+    HUGGING_FACE_ASR_DATASET_FAMILY,
+    HuggingFaceAsrDataset,
+)
 from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.models.seq2seq import Seq2SeqBatch
@@ -150,6 +156,12 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
 
     extras: dict[str, object] = field(default_factory=dict)
     """The dataset-specific extra options."""
+
+    hugging_face_hub_name: str | None = None
+    """The name of the dataset on the HuggingFace Hub."""
+
+    hugging_face_data_dir: str | None = None
+    """The name of the data dir within the HuggingFace Hub dataset."""
 
 
 @dataclass(kw_only=True)
@@ -338,7 +350,18 @@ def load_wav2vec2_asr_trainer(
 
     lr_scheduler = create_lr_scheduler(context, config, optimizer)
 
-    dataset = load_dataset(AsrDataset, context, config, gangs)
+    dataset: AsrDataset
+    if config.dataset.family == HUGGING_FACE_ASR_DATASET_FAMILY:
+        log.info(f"Loading dataset {config.dataset.name}")
+        assert config.dataset.hugging_face_hub_name is not None
+        assert config.dataset.hugging_face_data_dir is not None
+        dataset = HuggingFaceAsrDataset(
+            name=config.dataset.name,
+            hg_hub_name=config.dataset.hugging_face_hub_name,
+            hg_data_dir=config.dataset.hugging_face_data_dir,
+        )
+    else:
+        dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
 
     tokenizer = load_text_tokenizer(context, config)
 
