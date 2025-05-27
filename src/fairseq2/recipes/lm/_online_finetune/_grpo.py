@@ -459,10 +459,23 @@ GRPO_FINETUNE_UNIT: Final = "grpo"
 @dataclass(kw_only=True)
 class GrpoLossConfig:
     group_size: int = 4
+    """
+    group size where Group is G in GRPO. In vanilla GRPO we expect to (1) sample group_size 
+    responses from policy. (2) compute advantage over this group. (3) compule loss for each response.
+    """
     forward_group_size: int = 4
-    beta: float = 0.1
+    """
+    computing the loss for each response in the group can be too memory intensive when group_size is large.
+    Setting forward_group_size as multiple of group_size allows to split loss into multiple chunks that is 
+    called a micro-batch. Example: group_size responses sampled and advantages are computed at micro step 0.
+    Then forward_group_size reponse is used over group_size/forward_group_size micro steps to compute the loss. 
+    Gradients are accumulates over group_size/forward_group_size micro steps akin to gradient accumulation logic.
+    """
+
+    beta: float = 0.001
     """The coefficient of regularization towards the reference model."""
     entropy_regularizer_scale: float = 0.0
+
     length_normalization: bool = True
     """Vanilla GRPO is token-level, but setting this to False will make it sequence-level"""
 
