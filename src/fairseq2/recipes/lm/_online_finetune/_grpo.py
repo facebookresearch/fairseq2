@@ -231,13 +231,10 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 log_rollouts(prompt_batch, rollouts, "Train")
 
             reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
-
             self._rollout_bag.save(rollouts, reward_output)
 
         else:
-
             rollouts, reward_output = self._rollout_bag.load()
-            self._rollout_bag.bag_step += 1
 
         grpo_batch: GRPOBatch
         grpo_batch = prepare_grpo_batch(

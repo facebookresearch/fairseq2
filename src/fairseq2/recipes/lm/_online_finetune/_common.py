@@ -618,6 +618,8 @@ class StatefulRolloutBag:
             self.reward_outputs = []
             self.bag_step = 0
             self._trainer_step = trainer_step
+        else:
+            self.bag_step += 1
 
     def __len__(self):
         return len(self.rollouts)
