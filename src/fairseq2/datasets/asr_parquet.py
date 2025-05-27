@@ -8,9 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
-from typing import Final, List, Tuple, final
-
-from typing_extensions import override
+from typing import Final, final, List, Tuple
 
 from fairseq2.data import CollateOptionsOverride, Collater, DataPipelineBuilder
 from fairseq2.data.parquet import NamedColumns
@@ -25,6 +23,8 @@ from fairseq2.datasets.speech_parquet import (
 from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.models.seq2seq import Seq2SeqBatch
+
+from typing_extensions import override
 
 PARQUET_ASR_DATASET_FAMILY: Final = "generic_parquet_asr"
 
@@ -136,6 +136,18 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
             seed=options.seed,
             columns="length",
         )
+        builder = GenericAsrParquetDataset.build_parquet_audio_text_reading(
+            builder, options, tokenizer, gang
+        )
+        return builder
+
+    @staticmethod
+    def build_parquet_audio_text_reading(
+        builder: DataPipelineBuilder,
+        options: SpeechReadOptions,
+        tokenizer: TextTokenizer,
+        gang: Gang,
+    ) -> DataPipelineBuilder:
         builder = GenericSpeechParquetDataset.add_audio_decoding(builder, options)
         builder = GenericSpeechDataset.audio_post_process(
             builder, options, GenericSpeechDataset.rename_feature
