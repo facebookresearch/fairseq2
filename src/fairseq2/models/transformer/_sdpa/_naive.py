@@ -20,6 +20,7 @@ from fairseq2.nn import BatchLayout
 from fairseq2.models.transformer._attention_bias import (
     AttentionBias,
     AttentionBiasCache,
+    maybe_get_attention_bias_tensor,
 )
 from fairseq2.models.transformer._sdpa._base import SDPA
 
@@ -28,13 +29,13 @@ from fairseq2.models.transformer._sdpa._base import SDPA
 class NaiveSDPA(SDPA):
     """Computes scaled dot-product attention using a Python implementation."""
 
+    bias: AttentionBias
     dropout_p: float
 
     def __init__(self, bias: AttentionBias, *, dropout_p: float = 0.0) -> None:
-        """
-        :param dropout_p: The dropout probability on attention weights.
-        """
-        super().__init__(bias)
+        super().__init__()
+
+        self.bias = bias
 
         self.dropout_p = dropout_p
 
@@ -51,8 +52,8 @@ class NaiveSDPA(SDPA):
         needs_weights: bool = False,
     ) -> tuple[Tensor, Tensor | None]:
         # ([[N], H], S, S_kv)
-        bias = self._maybe_get_attention_bias_tensor(
-            seqs, seqs_layout, keys_layout, bias_cache
+        bias = maybe_get_attention_bias_tensor(
+            self.bias, seqs, seqs_layout, keys_layout, bias_cache
         )
 
         if not self.training:
@@ -80,11 +81,10 @@ class NaiveSDPA(SDPA):
 
         return attns, attn_weights
 
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = super().extra_repr()
-
-        return f"{s}, dropout_p={self.dropout_p:G}"
+        return f"bias={self.bias}, dropout_p={self.dropout_p:G}"
 
 
 def naive_scaled_dot_product_attention(

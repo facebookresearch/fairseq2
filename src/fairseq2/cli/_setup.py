@@ -49,7 +49,7 @@ from fairseq2.recipes.asr import AsrEvalConfig, load_asr_evaluator
 from fairseq2.recipes.common import (
     ActivationCheckpointingNotSupportedError,
     DatasetPathNotFoundError,
-    FsdpNotSupportedError,
+    FSDPNotSupportedError,
     HybridShardingNotSupportedError,
     InvalidModelPathError,
     ModelCompilationNotSupportedError,
@@ -57,14 +57,14 @@ from fairseq2.recipes.common import (
     ModelPathNotFoundError,
 )
 from fairseq2.recipes.lm import (
+    CausalLMLossEvalConfig,
+    CausalLMTrainConfig,
     InstructionFinetuneConfig,
-    LMLossEvalConfig,
-    LMTrainConfig,
     POFinetuneConfig,
     TextGenerateConfig,
+    load_clm_loss_evaluator,
+    load_clm_trainer,
     load_instruction_finetuner,
-    load_lm_loss_evaluator,
-    load_lm_trainer,
     load_po_finetuner,
     load_text_generator,
 )
@@ -107,7 +107,7 @@ def setup_cli(context: RuntimeContext) -> Cli:
     _register_asset_cli(cli)
     _register_chatbot_cli(cli)
     _register_llama_cli(cli)
-    _register_lm_cli(cli)
+    _register_clm_cli(cli)
     _register_mt_cli(cli)
     _register_wav2vec2_asr_cli(cli)
     _register_wav2vec2_cli(cli)
@@ -176,19 +176,19 @@ def _register_llama_cli(cli: Cli) -> None:
     )
 
 
-def _register_lm_cli(cli: Cli) -> None:
-    group = cli.add_group("lm", help="language model recipes")
+def _register_clm_cli(cli: Cli) -> None:
+    group = cli.add_group("lm", help="causal language model recipes")
 
     train_handler = RecipeCommandHandler(
-        loader=load_lm_trainer,
-        config_kls=LMTrainConfig,
+        loader=load_clm_trainer,
+        config_kls=CausalLMTrainConfig,
         default_preset="llama3_8b",
     )
 
     group.add_command(
         name="train",
         handler=train_handler,
-        help="trains a language model",
+        help="train a causal language model",
     )
 
     # Instruction Finetune
@@ -201,20 +201,20 @@ def _register_lm_cli(cli: Cli) -> None:
     group.add_command(
         name="instruction_finetune",
         handler=instruction_finetune_handler,
-        help="instruction-finetune a language model",
+        help="instruction-finetune a causal language model",
     )
 
     # Loss Evaluation
     loss_eval_handler = RecipeCommandHandler(
-        loader=load_lm_loss_evaluator,
-        config_kls=LMLossEvalConfig,
+        loader=load_clm_loss_evaluator,
+        config_kls=CausalLMLossEvalConfig,
         default_preset="llama3_1_base_eval",
     )
 
     group.add_command(
-        name="nll_eval",
+        name="loss_eval",
         handler=loss_eval_handler,
-        help="Evaluate the model and compute NLL loss over a given dataset",
+        help="evaluate a causal language model and compute nll loss over a given dataset",
     )
 
     # PO Finetune
@@ -227,7 +227,7 @@ def _register_lm_cli(cli: Cli) -> None:
     group.add_command(
         name="preference_finetune",
         handler=po_finetune_handler,
-        help="preference-finetune a language model (e.g. DPO, SimPO).",
+        help="preference-finetune a causal language model (e.g. DPO, SimPO).",
     )
 
     # Text Generate
@@ -337,7 +337,7 @@ def _register_wav2vec2_asr_cli(cli: Cli) -> None:
 def _register_user_error_types(cli: Cli) -> None:
     cli.register_user_error_type(ActivationCheckpointingNotSupportedError)
     cli.register_user_error_type(DatasetPathNotFoundError)
-    cli.register_user_error_type(FsdpNotSupportedError)
+    cli.register_user_error_type(FSDPNotSupportedError)
     cli.register_user_error_type(HybridShardingNotSupportedError)
     cli.register_user_error_type(InconsistentGradNormError)
     cli.register_user_error_type(InvalidDatasetTypeError)

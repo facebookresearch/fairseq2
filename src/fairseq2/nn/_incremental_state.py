@@ -97,7 +97,7 @@ class IncrementalStateBag:
 
         self._step_nr = step_nr
 
-    def get_state(self, m: Module, kls: type[T]) -> T | None:
+    def maybe_get_state(self, m: Module, kls: type[T]) -> T | None:
         """
         Gets the state of ``m`` if present in the bag.
 

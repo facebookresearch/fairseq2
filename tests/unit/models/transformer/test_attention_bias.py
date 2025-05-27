@@ -8,7 +8,11 @@ from __future__ import annotations
 
 import torch
 
-from fairseq2.models.transformer import ALiBiAttentionBias, CausalAttentionBias
+from fairseq2.models.transformer import (
+    ALiBiAttentionBias,
+    CausalAttentionBias,
+    materialize_attention_bias,
+)
 from fairseq2.nn import BatchLayout
 from tests.common import assert_close, device
 
@@ -20,8 +24,8 @@ class TestCausalAttentionBias:
         q_layout = BatchLayout((1, 4), seq_lens=None, device=device)
         k_layout = BatchLayout((1, 6), seq_lens=None, device=device)
 
-        bias = attn_bias.materialize(
-            q_layout, k_layout, device=device, dtype=torch.float32
+        bias = materialize_attention_bias(
+            attn_bias, q_layout, k_layout, device=device, dtype=torch.float32
         )
 
         assert bias.shape == (4, 6)
@@ -46,8 +50,8 @@ class TestCausalAttentionBias:
         q_layout = BatchLayout((1, 4), seq_lens=None, device=device)
         k_layout = BatchLayout((1, 6), seq_lens=None, device=device)
 
-        bias = attn_bias.materialize(
-            q_layout, k_layout, device=device, dtype=torch.float32
+        bias = materialize_attention_bias(
+            attn_bias, q_layout, k_layout, device=device, dtype=torch.float32
         )
 
         assert bias.shape == (4, 6)
@@ -74,8 +78,8 @@ class TestALiBiAttentionBias:
         q_layout = BatchLayout((1, 4), seq_lens=None, device=device)
         k_layout = BatchLayout((1, 4), seq_lens=None, device=device)
 
-        bias = attn_bias.materialize(
-            q_layout, k_layout, device=device, dtype=torch.float32
+        bias = materialize_attention_bias(
+            attn_bias, q_layout, k_layout, device=device, dtype=torch.float32
         )
 
         assert bias.shape == (4, 4, 4)

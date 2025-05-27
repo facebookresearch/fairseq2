@@ -40,9 +40,9 @@ from fairseq2.nn.utils.module import (
 # isort: split
 
 from fairseq2.nn.data_parallel._common import (
-    FsdpApplier,
-    FsdpGranularity,
-    FsdpParameterInitializer,
+    FSDPApplier,
+    FSDPGranularity,
+    FSDPParameterInitializer,
 )
 from fairseq2.nn.data_parallel._error import DistributedSetupError
 
@@ -51,23 +51,22 @@ from fairseq2.nn.data_parallel._error import DistributedSetupError
 logging.getLogger("torch.distributed.fsdp._runtime_utils").setLevel(logging.ERROR)
 
 
-Fsdp1Module: TypeAlias = FSDP
+FSDP1: TypeAlias = FSDP
 
 
 def to_fsdp1(
     module: Module,
     gangs: Gangs,
-    applier: FsdpApplier,
+    applier: FSDPApplier,
     *,
-    granularity: FsdpGranularity = "layer",
+    granularity: FSDPGranularity = "layer",
     mixed_precision_dtype: DataType | None = None,
     fp32_reduce: bool = False,
     broadcast_state: bool = False,
     skip_init: bool = False,
     reshard_after_forward: bool = True,
     cpu_offload: bool = False,
-) -> Fsdp1Module:
-
+) -> FSDP1:
     if gangs.sdp.size == 1:
         raise NotSupportedError(
             "FSDP1 does not support non-sharded data parallelism. Use DDP instead."
@@ -121,12 +120,12 @@ def to_fsdp1(
         if broadcast_state:
             if gangs.dp.rank == 0:
                 raise DistributedSetupError(
-                    "`broadcast_state` is set, but the coordinator process (i.e. rank 0) is on a meta device."
+                    "`broadcast_state` is `True`, but the coordinator process (i.e. rank 0) is on a meta device."
                 )
 
             skip_init = True
 
-        param_initializer = FsdpParameterInitializer(gangs.dp.device, skip_init)
+        param_initializer = FSDPParameterInitializer(gangs.dp.device, skip_init)
 
     # Set up the data types for mixed precision training.
     if mixed_precision_dtype is None:
@@ -143,7 +142,7 @@ def to_fsdp1(
     else:
         cpu_offload_ = CPUOffload()
 
-    def wrap(module: Module, reshard_after_forward: bool | None = None) -> Fsdp1Module:
+    def wrap(module: Module, reshard_after_forward: bool | None = None) -> FSDP1:
         if reshard_after_forward is None:
             sharding_strategy_ = sharding_strategy
         else:
@@ -158,7 +157,7 @@ def to_fsdp1(
                 else:
                     sharding_strategy_ = ShardingStrategy.HYBRID_SHARD
 
-        return Fsdp1Module(
+        return FSDP1(
             module,
             process_group=process_group,
             sharding_strategy=sharding_strategy_,
@@ -176,7 +175,7 @@ def to_fsdp1(
     try:
         applier(module, granularity, wrap)
 
-        if not isinstance(module, Fsdp1Module):
+        if not isinstance(module, FSDP1):
             module = wrap(module, reshard_after_forward=False)
     except (RuntimeError, ValueError) as ex:
         raise DistributedSetupError(
@@ -198,7 +197,7 @@ def to_fsdp1(
     return module
 
 
-def fsdp1_local_state_dict(module: Fsdp1Module) -> dict[str, object]:
+def fsdp1_local_state_dict(module: FSDP1) -> dict[str, object]:
     state_dict: dict[str, object] = {}
 
     with warnings.catch_warnings():
@@ -230,7 +229,7 @@ def fsdp1_local_state_dict(module: Fsdp1Module) -> dict[str, object]:
 
 
 def fsdp1_load_local_state_dict(
-    module: Fsdp1Module, state_dict: Mapping[str, object]
+    module: FSDP1, state_dict: Mapping[str, object]
 ) -> None:
     state_dict = dict(state_dict)
 
@@ -254,7 +253,7 @@ def fsdp1_load_local_state_dict(
 
 
 @contextmanager
-def fsdp1_summon_full_parameters(module: Fsdp1Module) -> Iterator[None]:
+def fsdp1_summon_full_parameters(module: FSDP1) -> Iterator[None]:
     FORWARD_BACKUP_KEY = "__fs2_forward_backup__"
 
     mp = module.mixed_precision or MixedPrecision()
@@ -264,14 +263,14 @@ def fsdp1_summon_full_parameters(module: Fsdp1Module) -> Iterator[None]:
     # `forward()` methods with the wrapped `__call__()` methods.
     def disable_fsdp_forward(module: Module) -> None:
         for m in module.modules():
-            if isinstance(m, Fsdp1Module):
+            if isinstance(m, FSDP1):
                 setattr(m, FORWARD_BACKUP_KEY, m.forward)
 
                 setattr(m, "forward", m.module.__call__)
 
     def enable_fsdp_forward(module: Module) -> None:
         for m in module.modules():
-            if isinstance(m, Fsdp1Module):
+            if isinstance(m, FSDP1):
                 fwd = getattr(m, FORWARD_BACKUP_KEY)
 
                 setattr(m, "forward", fwd)

@@ -13,51 +13,41 @@ from torch import Tensor
 from torcheval.metrics import Throughput
 
 from fairseq2.datasets import Seq2SeqBatch, SequenceBatch
-from fairseq2.gang import Gang
-from fairseq2.generation import Seq2SeqGeneratorOutput, SequenceGeneratorOutput
+from fairseq2.device import Device
+from fairseq2.generation import SequenceGeneratorOutput
 from fairseq2.metrics import Max, Mean, MetricBag, Sum
 
 
-class RecipeMetricBag(MetricBag):
-    """Holds the base metrics of a machine learning task."""
-
-    num_examples: Sum
-    num_elements: Sum
-    total_num_examples: Sum
-    total_num_elements: Sum
-    padding: Sum
-
-    def __init__(self, gang: Gang) -> None:
-        super().__init__(gang)
-
-        device = gang.device
-
-        self.num_examples = Sum(device=device)
-        self.num_elements = Sum(device=device)
-
-        self.total_num_examples = Sum(device=device)
-        self.total_num_elements = Sum(device=device)
-
-        self.padding = Sum(device=device)
-
-
-class SequenceMetricBag(RecipeMetricBag):
-    """Holds the metrics of a sequence model training or evaluation task."""
+class CausalLMMetricBag(MetricBag):
+    """Holds the metrics of a causal language model training or evaluation task."""
 
     nll_loss: Mean
+    num_examples: Sum
+    num_elements: Sum
     num_target_elements: Sum
+    total_num_examples: Sum
+    total_num_elements: Sum
     total_num_target_elements: Sum
+    padding: Sum
 
-    def __init__(self, gang: Gang) -> None:
-        super().__init__(gang)
-
-        device = gang.device
+    def __init__(self, device: Device) -> None:
+        super().__init__()
 
         self.nll_loss = Mean(device=device)
 
+        self.num_examples = Sum(device=device)
+
+        self.num_elements = Sum(device=device)
+
         self.num_target_elements = Sum(device=device)
 
+        self.total_num_examples = Sum(device=device)
+
+        self.total_num_elements = Sum(device=device)
+
         self.total_num_target_elements = Sum(device=device)
+
+        self.padding = Sum(device=device)
 
     @torch.inference_mode()
     def update_nll_loss(
@@ -75,11 +65,13 @@ class SequenceMetricBag(RecipeMetricBag):
     @torch.inference_mode()
     def update_batch_metrics(self, batch: SequenceBatch) -> None:
         self.num_examples.update(batch.num_examples)
+
         self.num_elements.update(batch.num_elements)
 
         self.num_target_elements.update(batch.num_target_elements)
 
         self.total_num_examples.update(batch.num_examples)
+
         self.total_num_elements.update(batch.num_elements)
 
         self.total_num_target_elements.update(batch.num_target_elements)
@@ -87,27 +79,40 @@ class SequenceMetricBag(RecipeMetricBag):
         self.padding.update(batch.padding)
 
 
-class Seq2SeqMetricBag(RecipeMetricBag):
+class Seq2SeqMetricBag(MetricBag):
     """Holds the metrics of a sequence-to-sequence model training or evaluation task."""
 
     nll_loss: Mean
+    num_examples: Sum
+    num_elements: Sum
     num_source_elements: Sum
     num_target_elements: Sum
+    total_num_examples: Sum
+    total_num_elements: Sum
     total_num_source_elements: Sum
     total_num_target_elements: Sum
+    padding: Sum
 
-    def __init__(self, gang: Gang) -> None:
-        super().__init__(gang)
-
-        device = gang.device
+    def __init__(self, device: Device) -> None:
+        super().__init__()
 
         self.nll_loss = Mean(device=device)
+
+        self.num_examples = Sum(device=device)
+
+        self.num_elements = Sum(device=device)
 
         self.num_source_elements = Sum(device=device)
         self.num_target_elements = Sum(device=device)
 
+        self.total_num_examples = Sum(device=device)
+
+        self.total_num_elements = Sum(device=device)
+
         self.total_num_source_elements = Sum(device=device)
         self.total_num_target_elements = Sum(device=device)
+
+        self.padding = Sum(device=device)
 
     @torch.inference_mode()
     def update_nll_loss(
@@ -125,12 +130,14 @@ class Seq2SeqMetricBag(RecipeMetricBag):
     @torch.inference_mode()
     def update_batch_metrics(self, batch: Seq2SeqBatch) -> None:
         self.num_examples.update(batch.num_examples)
+
         self.num_elements.update(batch.num_elements)
 
         self.num_source_elements.update(batch.num_source_elements)
         self.num_target_elements.update(batch.num_target_elements)
 
         self.total_num_examples.update(batch.num_examples)
+
         self.total_num_elements.update(batch.num_elements)
 
         self.total_num_source_elements.update(batch.num_source_elements)
@@ -139,19 +146,29 @@ class Seq2SeqMetricBag(RecipeMetricBag):
         self.padding.update(batch.padding)
 
 
-class SequenceGenerationMetricBag(RecipeMetricBag):
+class SequenceGenerationMetricBag(MetricBag):
     """Holds the metrics of a sequence generation task."""
 
+    num_examples: Sum
+    num_elements: Sum
+    total_num_examples: Sum
+    total_num_elements: Sum
     generator_prefill_size: Sum
     generator_num_elements: Sum
     generator_elements_per_second: Throughput
     generator_cache_size: Max
     generator_cache_capacity: Max
 
-    def __init__(self, gang: Gang) -> None:
-        super().__init__(gang)
+    def __init__(self, device: Device) -> None:
+        super().__init__()
 
-        device = gang.device
+        self.num_examples = Sum(device=device)
+
+        self.num_elements = Sum(device=device)
+
+        self.total_num_examples = Sum(device=device)
+
+        self.total_num_elements = Sum(device=device)
 
         self.generator_prefill_size = Sum(device=device)
 
@@ -174,7 +191,12 @@ class SequenceGenerationMetricBag(RecipeMetricBag):
         num_elements = prefill_size + num_generated_elements
 
         self.num_examples.update(num_examples)
+
         self.num_elements.update(num_elements)
+
+        self.total_num_examples.update(num_examples)
+
+        self.total_num_elements.update(num_elements)
 
         self.generator_prefill_size.update(prefill_size)
 
@@ -189,22 +211,35 @@ class SequenceGenerationMetricBag(RecipeMetricBag):
         self.generator_cache_capacity.update(output.counters.cache_capacity)
 
 
-class Seq2SeqGenerationMetricBag(RecipeMetricBag):
+class Seq2SeqGenerationMetricBag(MetricBag):
     """Holds the metrics of a sequence-to-sequence generation task."""
 
+    num_examples: Sum
+    num_elements: Sum
     num_source_elements: Sum
+    total_num_examples: Sum
+    total_num_elements: Sum
+    total_num_source_elements: Sum
     generator_prefill_size: Sum
     generator_num_elements: Sum
     generator_elements_per_second: Throughput
     generator_cache_size: Max
     generator_cache_capacity: Max
 
-    def __init__(self, gang: Gang) -> None:
-        super().__init__(gang)
+    def __init__(self, device: Device) -> None:
+        super().__init__()
 
-        device = gang.device
+        self.num_examples = Sum(device=device)
+
+        self.num_elements = Sum(device=device)
 
         self.num_source_elements = Sum(device=device)
+
+        self.total_num_examples = Sum(device=device)
+
+        self.total_num_elements = Sum(device=device)
+
+        self.total_num_source_elements = Sum(device=device)
 
         self.generator_prefill_size = Sum(device=device)
 
@@ -218,7 +253,7 @@ class Seq2SeqGenerationMetricBag(RecipeMetricBag):
 
     @torch.inference_mode()
     def update_batch_metrics(
-        self, output: Seq2SeqGeneratorOutput, num_source_elements: int
+        self, output: SequenceGeneratorOutput, num_source_elements: int
     ) -> None:
         num_examples = len(output.hypotheses)
 
@@ -229,9 +264,16 @@ class Seq2SeqGenerationMetricBag(RecipeMetricBag):
         num_elements = num_source_elements + prefill_size + num_generated_elements
 
         self.num_examples.update(num_examples)
+
         self.num_elements.update(num_elements)
 
         self.num_source_elements.update(num_source_elements)
+
+        self.total_num_examples.update(num_examples)
+
+        self.total_num_elements.update(num_elements)
+
+        self.total_num_source_elements.update(num_source_elements)
 
         self.generator_prefill_size.update(prefill_size)
 

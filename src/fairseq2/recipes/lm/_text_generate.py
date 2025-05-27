@@ -25,10 +25,9 @@ from fairseq2.datasets.instruction import (
 from fairseq2.device import CPU
 from fairseq2.error import InternalError
 from fairseq2.file_system import FileMode
-from fairseq2.gang import Gangs
 from fairseq2.generation import SamplingConfig, SequenceGenerator
 from fairseq2.metrics import MetricBag
-from fairseq2.models.decoder import DecoderModel
+from fairseq2.models.clm import CausalLM
 from fairseq2.recipes import (
     Generator,
     GeneratorUnit,
@@ -169,7 +168,7 @@ def load_text_generator(
     seed += 1
 
     model = setup_reference_model(
-        DecoderModel,
+        CausalLM,
         context,
         config.model,
         gangs,
@@ -227,7 +226,6 @@ def load_text_generator(
         model,
         seq_generator,
         tokenizer,
-        gangs,
         text_output_stream=text_fp,
         json_output_stream=json_fp,
     )
@@ -282,7 +280,6 @@ class TextGenerateUnit(GeneratorUnit[SequenceBatch]):
         model: Model,
         generator: SequenceGenerator,
         tokenizer: TextTokenizer,
-        gangs: Gangs,
         text_output_stream: TextIO | None,
         json_output_stream: TextIO | None,
     ) -> None:
@@ -294,7 +291,7 @@ class TextGenerateUnit(GeneratorUnit[SequenceBatch]):
         self._text_output_stream = text_output_stream
         self._json_output_stream = json_output_stream
 
-        self._metric_bag = SequenceGenerationMetricBag(gangs.dp)
+        self._metric_bag = SequenceGenerationMetricBag(device=model.device)
 
     @override
     def __call__(self, batch: SequenceBatch) -> None:

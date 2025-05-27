@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from collections.abc import Callable, MutableSequence
-from typing import Protocol, final
+from typing import TYPE_CHECKING, Final, Protocol, final
 
 import torch
 import torch.nn as nn
@@ -30,6 +30,7 @@ from fairseq2.nn import (
     Projection,
 )
 from fairseq2.ops import repeat_interleave
+from fairseq2.typing import get_name_or_self
 
 # isort: split
 
@@ -40,22 +41,10 @@ from fairseq2.models.transformer._sdpa._base import SDPA
 class MultiheadAttention(Module, ABC):
     """Represents a Transformer multi-head attention layer."""
 
-    num_heads: int
-    model_dim: int
-
     _attn_weight_hooks: dict[int, AttentionWeightHook]
 
-    def __init__(self, model_dim: int, num_heads: int) -> None:
-        """
-        :param model_dim:
-            The dimensionality of the model.
-        :param num_heads:
-            The number of attention heads.
-        """
+    def __init__(self) -> None:
         super().__init__()
-
-        self.model_dim = model_dim
-        self.num_heads = num_heads
 
         self._attn_weight_hooks = OrderedDict()
 
@@ -93,6 +82,9 @@ class MultiheadAttention(Module, ABC):
             :math:`M` is the dimensionality of the model.
         """
 
+    if TYPE_CHECKING:
+        __call__ = forward
+
     def register_attn_weight_hook(self, hook: AttentionWeightHook) -> RemovableHandle:
         """Register an attention weight hook on the module.
 
@@ -111,10 +103,6 @@ class MultiheadAttention(Module, ABC):
         self._attn_weight_hooks[handle.id] = hook
 
         return handle
-
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        return f"num_heads={self.num_heads}, model_dim={self.model_dim}"
 
 
 class AttentionWeightHook(Protocol):
@@ -150,8 +138,7 @@ class AttentionWeightStoreHook(AttentionWeightHook):
 
     def __init__(self, storage: MutableSequence[tuple[Tensor, Tensor]]) -> None:
         """
-        :param storage:
-            The storage in which to store attention weights.
+        :param storage: The storage in which to store attention weights.
         """
         self._storage = storage
 
@@ -166,8 +153,9 @@ class StandardMultiheadAttention(MultiheadAttention):
     """Represents a Transformer multi-head attention as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
-    kv_dim: int
+    num_heads: int
     num_key_value_heads: int
+    num_query_groups: int
     q_proj: Projection
     k_proj: Projection
     v_proj: Projection
@@ -182,8 +170,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         num_heads: int,
         sdpa: SDPA,
         *,
-        kv_dim: int | None = None,
         num_key_value_heads: int | None = None,
+        kv_dim: int | None = None,
         q_proj: Projection | None = None,
         k_proj: Projection | None = None,
         v_proj: Projection | None = None,
@@ -202,15 +190,15 @@ class StandardMultiheadAttention(MultiheadAttention):
             The dimensionality of the model.
         :param num_heads:
             The number of attention heads.
-        :param kv_dim:
-            The dimensionality of keys and values. May be useful for encoder-
-            decoder attention. If ``None``, ``model_dim`` will be used.
         :param num_key_value_heads:
             The number of key/value heads for Grouped Query Attention as
             described in :cite:t:`https://doi.org/10.48550/arXiv.2305.13245`.
             If ``None`` or set to ``num_heads``, it is equivalent to standard
             Multi Head Attention (MHA); if set to 1, it is equivalent to Multi
             Query Attention (MQA).
+        :param kv_dim:
+            The dimensionality of keys and values. May be useful for encoder-
+            decoder attention. If ``None``, ``model_dim`` will be used.
         :param q_proj:
             The projection to apply to sequences before computing attention. If
             ``None``, a default projection will be used.
@@ -243,10 +231,12 @@ class StandardMultiheadAttention(MultiheadAttention):
             The factory to construct :class:`AttentionState` instances for
             incremental decoding.
         """
-        super().__init__(model_dim, num_heads)
+        super().__init__()
+
+        self.num_heads = num_heads
 
         if num_key_value_heads is None:
-            self.num_key_value_heads = num_heads
+            num_key_value_heads = num_heads
         else:
             if num_heads < num_key_value_heads:
                 raise ValueError(
@@ -258,13 +248,14 @@ class StandardMultiheadAttention(MultiheadAttention):
                     f"`num_heads` must be a multiple of `num_key_value_heads` ({num_key_value_heads}), but is {num_heads} instead."
                 )
 
-            self.num_key_value_heads = num_key_value_heads
+        self.num_key_value_heads = num_key_value_heads
 
-        self.kv_dim = kv_dim or model_dim
+        if kv_dim is None:
+            kv_dim = model_dim
+
+        self.num_query_groups = num_heads // self.num_key_value_heads
 
         head_dim = model_dim // num_heads
-
-        num_query_groups = num_heads // self.num_key_value_heads
 
         if q_proj is None and k_proj is None and v_proj is None:
             q_proj = Linear(
@@ -276,7 +267,7 @@ class StandardMultiheadAttention(MultiheadAttention):
                 dtype=dtype,
             )
             k_proj = Linear(
-                self.kv_dim,
+                kv_dim,
                 head_dim * self.num_key_value_heads,
                 bias,
                 init_fn=qkv_proj_init_fn or init_qkv_projection,
@@ -284,7 +275,7 @@ class StandardMultiheadAttention(MultiheadAttention):
                 dtype=dtype,
             )
             v_proj = Linear(
-                self.kv_dim,
+                kv_dim,
                 head_dim * self.num_key_value_heads,
                 bias,
                 init_fn=qkv_proj_init_fn or init_qkv_projection,
@@ -300,24 +291,25 @@ class StandardMultiheadAttention(MultiheadAttention):
                     "`qkv_proj_init_fn` must not be specified when `q_proj`, `k_proj`, `v_proj` are specified."
                 )
 
-            if q_proj.input_dim != self.kv_dim:
+            if q_proj.input_dim != kv_dim:
                 raise ValueError(
-                    f"`input_dim` of `q_proj` must be equal to `kv_dim` ({self.kv_dim}), but is {q_proj.input_dim} instead."
+                    f"`q_proj.input_dim` must be equal to `kv_dim` ({kv_dim}), but is {q_proj.input_dim} instead."
                 )
 
-            if (k_dim := k_proj.output_dim * num_query_groups) != q_proj.output_dim:
+            k_dim = k_proj.output_dim * self.num_query_groups
+            if k_dim != q_proj.output_dim:
                 raise ValueError(
-                    f"`output_dim` of `q_proj` and `output_dim` of `k_proj` (times the number of query groups when GQA) must be equal, but are {q_proj.output_dim} and {k_dim} instead."
+                    f"`q_proj.output_dim` and `k_proj.output_dim` (or times the number of query groups when GQA) must be equal, but they are {q_proj.output_dim} and {k_dim} instead."
                 )
 
             if k_proj.output_dim % self.num_key_value_heads != 0:
                 raise ValueError(
-                    f"`output_dim` of `k_proj` must be a multiple of `num_key_value_heads` ({self.num_key_value_heads}), but is {k_proj.output_dim} instead."
+                    f"`k_proj.output_dim` must be a multiple of `num_key_value_heads` ({self.num_key_value_heads}), but is {k_proj.output_dim} instead."
                 )
 
             if v_proj.output_dim % self.num_key_value_heads != 0:
                 raise ValueError(
-                    f"`output_dim` of `v_proj` must be a multiple of `num_key_value_heads` ({self.num_key_value_heads}), but is {v_proj.output_dim} instead."
+                    f"`v_proj.output_dim` must be a multiple of `num_key_value_heads` ({self.num_key_value_heads}), but is {v_proj.output_dim} instead."
                 )
 
         self.q_proj = q_proj
@@ -327,22 +319,24 @@ class StandardMultiheadAttention(MultiheadAttention):
         if pos_encoder is not None:
             if head_dim != pos_encoder.encoding_dim:
                 raise ValueError(
-                    f"`encoding_dim` of `pos_encoder` must be equal to the size of the header dimension ({head_dim}), but is {pos_encoder.encoding_dim} instead."
+                    f"`pos_encoder.encoding_dim` must be equal to the size of the head dimension ({head_dim}), but is {pos_encoder.encoding_dim} instead."
                 )
 
-            self.pos_encoder = pos_encoder
+            pos_encoder = pos_encoder
         else:
-            self.register_module("pos_encoder", None)
+            pos_encoder = None
+
+        self.register_module("pos_encoder", pos_encoder)
 
         self.sdpa = sdpa
 
-        v_dim = v_proj.output_dim * num_query_groups
+        v_dim = v_proj.output_dim * self.num_query_groups
 
         if output_proj is None:
             if output_proj_bias is None:
                 output_proj_bias = bias
 
-            self.output_proj = Linear(
+            output_proj = Linear(
                 v_dim,
                 model_dim,
                 output_proj_bias,
@@ -358,15 +352,15 @@ class StandardMultiheadAttention(MultiheadAttention):
 
             if v_dim != output_proj.input_dim:
                 raise ValueError(
-                    f"`output_dim` of `v_proj` (times the number of query groups when GQA) and `input_dim` of `output_proj` must be equal, but are {v_dim} and {output_proj.input_dim} instead."
+                    f"`v_proj.output_dim` (or times the number of query groups when GQA) and `output_proj.input_dim` must be equal, but they are {v_dim} and {output_proj.input_dim} instead."
                 )
 
             if output_proj.output_dim != model_dim:
                 raise ValueError(
-                    f"`output_dim` of `output_proj` must be equal to `model_dim` ({model_dim}), but is {output_proj.output_dim} instead."
+                    f"`output_proj.output_dim` must be equal to `model_dim` ({model_dim}), but is {output_proj.output_dim} instead."
                 )
 
-            self.output_proj = output_proj
+        self.output_proj = output_proj
 
         self.state_factory = state_factory
 
@@ -401,7 +395,7 @@ class StandardMultiheadAttention(MultiheadAttention):
                 # v: (N, S_step, M) -> (N, S_step, H_kv, V_h)
                 k, v = self._project_kv(keys, keys_layout, values, state_bag)
 
-                state = state_bag.get_state(self, AttentionState)
+                state = state_bag.maybe_get_state(self, AttentionState)
                 if state is None:
                     state_factory = self.state_factory or FullAttentionState
 
@@ -419,7 +413,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
                     keys_layout = BatchLayout.of(k)
             else:
-                state = state_bag.get_state(self, AttentionState)
+                state = state_bag.maybe_get_state(self, AttentionState)
                 if state is None:
                     # k: (N, S_kv, M) -> (N, S_kv, H_kv, K_h)
                     # v: (N, S_kv, M) -> (N, S_kv, H_kv, V_h)
@@ -438,11 +432,11 @@ class StandardMultiheadAttention(MultiheadAttention):
                     k, v = state.get()
 
         # With Grouped Query Attention, each key/value head is repeated.
-        if (num_query_groups := self.num_heads // self.num_key_value_heads) > 1:
+        if self.num_query_groups > 1:
             # (N, S_kv, H_kv, K_h) -> (N, S_kv, H, K_h)
-            k = repeat_interleave(k, dim=-2, repeat=num_query_groups)
+            k = repeat_interleave(k, dim=-2, repeat=self.num_query_groups)
             # (N, S_kv, H_kv, K_h) -> (N, S_kv, H, V_h)
-            v = repeat_interleave(v, dim=-2, repeat=num_query_groups)
+            v = repeat_interleave(v, dim=-2, repeat=self.num_query_groups)
 
         needs_weights = len(self._attn_weight_hooks) > 0
 
@@ -452,6 +446,10 @@ class StandardMultiheadAttention(MultiheadAttention):
             q, seqs_layout, k, keys_layout, v, bias_cache, needs_weights=needs_weights
         )
 
+        del q
+        del k
+        del v
+
         if attn_weights is not None:
             for hook in self._attn_weight_hooks.values():
                 hook(self, attns, attn_weights)
@@ -460,7 +458,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         attns = attns.flatten(-2, -1)
 
         # (N, S, V_proj) -> (N, S, M)
-        return self.output_proj(attns)  # type: ignore[no-any-return]
+        return self.output_proj(attns)
 
     def _project_q(
         self,
@@ -477,7 +475,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         if self.pos_encoder is not None:
             q = self.pos_encoder(q, seqs_layout, state_bag=state_bag)
 
-        return q  # type: ignore[no-any-return]
+        return q
 
     def _project_kv(
         self,
@@ -501,15 +499,19 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         return k, v
 
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = super().extra_repr()
+        s = f"num_heads={self.num_heads}, "
 
         if self.num_key_value_heads != self.num_heads:
             s = f"{s}, num_key_value_heads={self.num_key_value_heads}"
 
+        if self.num_query_groups > 1:
+            s = f"{s}, num_query_groups={self.num_query_groups}"
+
         if self.state_factory is not None:
-            state_factory = getattr(self.state_factory, "__name__", self.state_factory)
+            state_factory = get_name_or_self(self.state_factory)
 
             s = f"{s}, state_factory={state_factory}"
 
@@ -848,14 +850,14 @@ class LocalAttentionState(AttentionState):
 class LocalAttentionStateFactory(AttentionStateFactory):
     """Constructs instances of :class:`LocalAttentionState`."""
 
-    _attn_window_len: int
+    attn_window_len: Final[int]
 
     def __init__(self, attn_window_len: int) -> None:
         """
         :param attn_window_len:
             The attention window length.
         """
-        self._attn_window_len = attn_window_len
+        self.attn_window_len = attn_window_len
 
     def __call__(
         self,
@@ -865,11 +867,11 @@ class LocalAttentionStateFactory(AttentionStateFactory):
         capacity_increment: int | None,
     ) -> LocalAttentionState:
         return LocalAttentionState(
-            k, v, max_seq_len, self._attn_window_len, capacity_increment
+            k, v, max_seq_len, self.attn_window_len, capacity_increment
         )
 
     def __repr__(self) -> str:
-        return f"LocalAttentionStateFactory(attn_window_len={self._attn_window_len})"
+        return f"LocalAttentionStateFactory(attn_window_len={self.attn_window_len})"
 
 
 @final

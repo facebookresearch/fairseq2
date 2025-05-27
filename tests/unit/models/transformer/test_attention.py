@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 import torch
 from torch import Tensor
@@ -61,7 +63,7 @@ class TestScaledDotProductAttention:
         assert_close(attn1, attn2)
 
     @staticmethod
-    def _get_sdpa_args(use_padding: bool) -> dict[str, object]:
+    def _get_sdpa_args(use_padding: bool) -> dict[str, Any]:
         batch_size = 2
 
         num_heads = 4

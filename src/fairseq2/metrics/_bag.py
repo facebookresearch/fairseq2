@@ -7,13 +7,14 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any, final
 
 from torcheval.metrics import Metric
 from torcheval.metrics.toolkit import sync_and_compute_collection
 
+from fairseq2.device import Device
 from fairseq2.error import ContractError, InternalError, InvalidOperationError
 from fairseq2.gang import Gang
 
@@ -21,19 +22,16 @@ from fairseq2.gang import Gang
 class MetricBag:
     """Holds a collection of training or validation metrics."""
 
-    _gang: Gang
     _metrics: dict[str, Metric[Any]]
     _original_metrics: dict[str, Metric[Any]] | None
 
-    def __init__(self, gang: Gang) -> None:
+    def __init__(self) -> None:
         """
         :param gang:
             The gang over which to sync metrics.
         """
         super().__setattr__("_metrics", {})
         super().__setattr__("_original_metrics", None)
-
-        self._gang = gang
 
     def __getattr__(self, name: str) -> Any:
         if "_metrics" in self.__dict__ and name in self._metrics:
@@ -70,8 +68,6 @@ class MetricBag:
             raise AttributeError(
                 f"`{type(self).__name__}` object already has an attribute '{name}'."
             )
-
-        metric.to(self._gang.device)
 
         self._metrics[name] = metric
 
@@ -114,11 +110,6 @@ class MetricBag:
         """Resets the metrics to their initial state."""
         for metric in self._metrics.values():
             metric.reset()
-
-    @final
-    def sync_and_compute_metrics(self) -> dict[str, object] | None:
-        """Sync the metrics across all processes and compute their values."""
-        return sync_and_compute_metrics([self])
 
     def process_metric_values(self, values: dict[str, object]) -> None:
         """Process metric ``values``."""
@@ -174,40 +165,25 @@ class MetricBag:
                     f"`state_dict['{name}']` is not a valid `{type(metric)}` state. See the nested exception for details."
                 ) from ex
 
-            metric.to(self._gang.device)
+    def to(self, device: Device) -> None:
+        for metric in self._metrics.values():
+            metric.to(device)
 
 
-def reset_metrics(bags: Sequence[MetricBag]) -> None:
-    """Reset the metrics in ``bags``."""
-    for bag in bags:
-        bag.reset_metrics()
-
-
-def sync_and_compute_metrics(bags: Sequence[MetricBag]) -> dict[str, object] | None:
+def sync_and_compute_metrics(bag: MetricBag, gang: Gang) -> dict[str, object] | None:
     """Sync the metrics across all processes and and compute their values."""
-    if not bags:
-        return None
-
-    gang = bags[0]._gang
-
-    if len(bags) == 1:
-        all_metrics = bags[0]._metrics
-    else:
-        all_metrics = {}
-
-        for bag in bags:
-            if bag._gang is not gang:
-                raise ValueError("All metric bags in `bags` must use the same gang.")
-
-            all_metrics.update(bag._metrics)
-
     try:
+        # TODO: disable torcheval only??
         logging.disable(logging.WARNING)  # Suppress "No calls to update()".
 
         if gang.size == 1:
-            values = {name: m.compute() for name, m in all_metrics.items()}
+            metric_values = {name: m.compute() for name, m in bag.metrics.items()}
         else:
-            values = sync_and_compute_collection(all_metrics, gang.as_process_group())
+            metrics = dict(bag.metrics)
+
+            metric_values = sync_and_compute_collection(
+                metrics, gang.as_process_group()
+            )
     except RuntimeError as ex:
         raise MetricBagError(
             "The metric values cannot be synced. See the nested exception for details."
@@ -216,36 +192,13 @@ def sync_and_compute_metrics(bags: Sequence[MetricBag]) -> dict[str, object] | N
         logging.disable(logging.NOTSET)
 
     if gang.rank == 0:
-        if values is None:
-            raise InternalError("`values` is `None`.")
+        if metric_values is None:
+            raise InternalError("`metric_values` is `None`.")
 
-        def strip_underscore(s: str) -> str:
-            if s.startswith("_"):
-                s = s[1:]
+        bag.process_metric_values(metric_values)
 
-            return s
-
-        values = {strip_underscore(n): v for n, v in values.items()}
-
-        for bag in bags:
-            bag.process_metric_values(values)
-
-    return values
+    return metric_values
 
 
 class MetricBagError(Exception):
     pass
-
-
-def merge_metric_states(
-    sources: Mapping[str, Metric[Any]], targets: Mapping[str, Metric[Any]]
-) -> None:
-    """Merge the states of the same-named metrics from ``sources`` to ``targets``."""
-    for name, target_metric in targets.items():
-        try:
-            source_metric = sources[name]
-        except KeyError:
-            continue
-
-        if type(target_metric) is type(source_metric):
-            target_metric.merge_state([source_metric])

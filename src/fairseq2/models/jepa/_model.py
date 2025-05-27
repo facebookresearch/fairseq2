@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
-from typing import final
+from typing import TYPE_CHECKING, final
 
 from torch import Tensor
 from torch.nn import Module
+from typing_extensions import override
 
 from fairseq2.models.transformer import TransformerEncoder, TransformerFrontend
 from fairseq2.nn import BatchLayout
@@ -32,14 +33,16 @@ class JepaModel(Module):
 
     def __init__(
         self,
+        model_dim: int,
         encoder_frontend: TransformerFrontend,
         encoder: TransformerEncoder,
     ) -> None:
         super().__init__()
 
-        self.model_dim = encoder.model_dim
+        self.model_dim = model_dim
 
         self.encoder_frontend = encoder_frontend
+
         self.encoder = encoder
 
     def forward(
@@ -50,3 +53,11 @@ class JepaModel(Module):
         seqs = self.encoder(seqs, seqs_layout)
 
         return seqs, seqs_layout
+
+    if TYPE_CHECKING:
+        __call__ = forward
+
+    @override
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return f"model_dim={self.model_dim}"

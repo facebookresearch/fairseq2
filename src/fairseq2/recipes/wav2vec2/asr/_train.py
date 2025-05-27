@@ -18,7 +18,7 @@ from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, Seq2SeqBatch, SyncMode
 from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
 from fairseq2.device import CPU
-from fairseq2.gang import Gang, GangError
+from fairseq2.gang import GangError
 from fairseq2.logging import log
 from fairseq2.metrics import MetricBag
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
@@ -284,7 +284,7 @@ def load_wav2vec2_asr_trainer(
     # We never train the feature extractor.
     freeze_parameters(module.encoder_frontend.feature_extractor)
 
-    model = prepare_model(context, model, config.model, config.trainer)
+    prepare_model(context, model, config.model, config.trainer)
 
     static_graph = config.trainer.freeze_encoder_for_n_steps == 0
 
@@ -308,7 +308,7 @@ def load_wav2vec2_asr_trainer(
     criterion = AsrCriterion(model)
 
     unit = Wav2Vec2AsrTrainUnit(
-        criterion, gangs.dp, config.trainer.freeze_encoder_for_n_steps
+        model, criterion, config.trainer.freeze_encoder_for_n_steps
     )
 
     batching = LengthBatching(config.dataset.max_num_elements)
@@ -342,7 +342,7 @@ def load_wav2vec2_asr_trainer(
 
         valid_criterion = AsrCriterion(model, valid_scorer)
 
-        valid_unit = AsrEvalUnit(valid_criterion, gangs)
+        valid_unit = AsrEvalUnit(model, valid_criterion)
 
         read_options = AsrReadOptions(
             batching=batching,
@@ -395,32 +395,28 @@ def load_wav2vec2_asr_trainer(
 
 @final
 class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
-    _module: Wav2Vec2AsrModel
+    _model: Model
     _criterion: AsrCriterion
     _freeze_encoder_for_n_steps: int
     _frozen: bool
     _metric_bag: AsrMetricBag
 
     def __init__(
-        self, criterion: AsrCriterion, gang: Gang, freeze_encoder_for_n_steps: int
+        self, model: Model, criterion: AsrCriterion, freeze_encoder_for_n_steps: int
     ) -> None:
         """
         :param freeze_encoder_for_n_steps: The encoder will be frozen for this
             number of steps.
         """
-        module = criterion.model.base_module
+        self._model = model
 
-        if not isinstance(module, Wav2Vec2AsrModel):
-            raise TypeError(
-                f"`criterion.model.base_module` must be of type `{Wav2Vec2AsrModel}`, but is of type `{type(module)}` instead."
-            )
-
-        self._module = module
         self._criterion = criterion
+
         self._freeze_encoder_for_n_steps = freeze_encoder_for_n_steps
+
         self._frozen = False
 
-        self._metric_bag = AsrMetricBag(gang)
+        self._metric_bag = AsrMetricBag(device=model.device)
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> tuple[Tensor, int]:
@@ -428,7 +424,7 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
 
     @override
     def set_step_nr(self, step_nr: int) -> None:
-        module = self._module
+        base_module = cast(Wav2Vec2AsrModel, self._model.base_module)
 
         if step_nr <= self._freeze_encoder_for_n_steps:
             if self._frozen:
@@ -437,11 +433,11 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
             if step_nr == 1:
                 log.info("Freezing the encoder for the first {} steps.", self._freeze_encoder_for_n_steps)  # fmt: skip
 
-            freeze_parameters(module.encoder_frontend)
-            freeze_parameters(module.encoder)
+            freeze_parameters(base_module.encoder_frontend)
+            freeze_parameters(base_module.encoder)
 
-            if module.masker is not None:
-                freeze_parameters(module.masker)
+            if base_module.masker is not None:
+                freeze_parameters(base_module.masker)
 
             self._frozen = True
         else:
@@ -451,17 +447,17 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
             if step_nr == self._freeze_encoder_for_n_steps + 1:
                 log.info("Unfreezing the encoder after step {}.", step_nr - 1)
 
-            freeze_parameters(module, False)
+            freeze_parameters(base_module, False)
 
             # We never train the feature extractor.
-            freeze_parameters(module.encoder_frontend.feature_extractor)
+            freeze_parameters(base_module.encoder_frontend.feature_extractor)
 
             self._frozen = False
 
     @property
     @override
     def model(self) -> Model:
-        return self._criterion.model
+        return self._model
 
     @property
     @override

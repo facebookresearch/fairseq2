@@ -31,7 +31,7 @@ def _register_metric_descriptors(context: RuntimeContext) -> None:
     register("ctc_loss",         "CTC Loss",              100, format_as_float)
     register("diversity_loss",   "Diversity Loss",        100, format_as_float)
     register("nll_loss",         "NLL Loss",              100, format_as_float)
-    register("feature_penalty",  "Feature Penalty",       110, format_as_float)
+    register("features_penalty", "Features Penalty",      110, format_as_float)
     register("accuracy",         "Accuracy",              200, format_as_float, higher_better=True)
     register("bleu",             "BLEU",                  200, format_as_float, higher_better=True)
     register("chrf",             "chrF++",                200, format_as_float, higher_better=True)

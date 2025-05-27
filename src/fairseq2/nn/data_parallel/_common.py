@@ -23,23 +23,23 @@ from fairseq2.nn.utils.module import (
 )
 from fairseq2.typing import ContextManager
 
-FsdpGranularity: TypeAlias = Literal["layer", "stack"]
+FSDPGranularity: TypeAlias = Literal["layer", "stack"]
 
 
-class FsdpApplier(Protocol):
+class FSDPApplier(Protocol):
     def __call__(
-        self, module: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
+        self, module: Module, granularity: FSDPGranularity, wrapper: FSDPWrapper
     ) -> None: ...
 
 
-class FsdpWrapper(Protocol):
+class FSDPWrapper(Protocol):
     def __call__(
         self, module: Module, reshard_after_forward: bool | None = None
     ) -> Module: ...
 
 
 @final
-class FsdpParameterInitializer:
+class FSDPParameterInitializer:
     """Initializes the parameters and buffers of an FSDP module.
 
     This is a convenience callable to pass to the ``param_init_fn`` parameter of
@@ -51,7 +51,7 @@ class FsdpParameterInitializer:
     >>> model = MyModel(..., device=Device("meta"))
     >>>
     >>> fsdp_model = FullyShardedDataParallel(
-    ...     ..., param_init_fn=FsdpParameterInitializer(Device("cuda:0"))
+    ...     ..., param_init_fn=FSDPParameterInitializer(Device("cuda:0"))
     ... )
     """
 

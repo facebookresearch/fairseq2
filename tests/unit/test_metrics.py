@@ -7,23 +7,21 @@
 from __future__ import annotations
 
 import pytest
-import torch
 from torcheval.metrics import Mean, Sum
 
-from fairseq2.gang import FakeGang
 from fairseq2.metrics import MetricBag
 from tests.common import device
 
 
 class TestMetricBag:
     def test_register_works(self) -> None:
-        bag = MetricBag(gang=FakeGang(device=device))
+        bag = MetricBag()
 
         # Implicit
         bag.test1 = Sum(device=device)
 
         # Explicit
-        bag.register_metric("test2", Mean(device=torch.device("cpu")))
+        bag.register_metric("test2", Mean(device=device))
 
         assert hasattr(bag, "test1")
         assert hasattr(bag, "test2")
@@ -35,7 +33,7 @@ class TestMetricBag:
         assert bag.test2.device == device
 
     def test_getattr_raises_error_when_metric_is_missing(self) -> None:
-        bag = MetricBag(gang=FakeGang(device=device))
+        bag = MetricBag()
 
         with pytest.raises(
             AttributeError, match=r"^`MetricBag` object has no attribute 'foo'\."
@@ -43,7 +41,7 @@ class TestMetricBag:
             bag.foo
 
     def test_state_dict_works(self) -> None:
-        bag = MetricBag(gang=FakeGang(device=device))
+        bag = MetricBag()
 
         # Imlicit
         bag.test1 = Sum(device=device)
@@ -63,7 +61,7 @@ class TestMetricBag:
     def test_load_state_dict_raises_error_when_state_dict_is_corrupt(self) -> None:
         state_dict = {"foo": 0}
 
-        bag = MetricBag(gang=FakeGang(device=device))
+        bag = MetricBag()
 
         bag.test1 = Sum()
         bag.test2 = Sum()

@@ -18,7 +18,7 @@ from torch.nn.utils import clip_grad_norm_  # type: ignore[attr-defined]
 
 from fairseq2.gang import Gang, all_sum
 from fairseq2.logging import log
-from fairseq2.nn.data_parallel import Fsdp1Module
+from fairseq2.nn.data_parallel import FSDP1
 from fairseq2.utils.version import torch_greater_or_equal
 
 
@@ -97,7 +97,7 @@ def clip_grad_norm(
     if max_norm is None:
         max_norm = torch.inf
 
-    if isinstance(module, Fsdp1Module):
+    if isinstance(module, FSDP1):
         if not module.check_is_root():
             raise ValueError("`module` must be the root FSDP module.")
 

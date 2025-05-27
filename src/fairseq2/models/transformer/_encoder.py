@@ -6,54 +6,35 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections import OrderedDict
 from collections.abc import Iterator, Sequence
-from typing import Any, Protocol, final
+from typing import TYPE_CHECKING, Any, Protocol, final
 
 import torch
 from torch import Generator, Tensor
 from torch.autograd import Function
-from torch.nn import Dropout, Module
+from torch.nn import Dropout, Module, ModuleList
 from torch.utils.hooks import RemovableHandle
 from typing_extensions import override
 
-from fairseq2.data_type import DataType
-from fairseq2.device import CPU, Device
+from fairseq2.device import CPU
 from fairseq2.error import InvalidOperationError
-from fairseq2.nn import (
-    BatchLayout,
-    LayerNorm,
-    LayerStack,
-)
+from fairseq2.nn import BatchLayout, LayerNorm, LayerStack
 
 # isort: split
 
 from fairseq2.models.transformer._attention_bias import AttentionBiasCache
 from fairseq2.models.transformer._encoder_layer import TransformerEncoderLayer
-from fairseq2.models.transformer._norm_order import TransformerNormOrder
-from fairseq2.models.transformer._normalization import (
-    LayerNormFactory,
-    create_standard_layer_norm,
-)
 
 
-class TransformerEncoder(LayerStack, ABC):
+class TransformerEncoder(LayerStack):
     """Represents a Transformer encoder."""
-
-    model_dim: int
 
     _layer_hooks: dict[int, TransformerEncoderLayerHook]
 
-    def __init__(
-        self, model_dim: int, layers: Sequence[TransformerEncoderLayer]
-    ) -> None:
-        """
-        :param model_dim: The dimensionality of the model.
-        """
-        super().__init__(layers)
-
-        self.model_dim = model_dim
+    def __init__(self) -> None:
+        super().__init__()
 
         self._layer_hooks = OrderedDict()
 
@@ -69,6 +50,9 @@ class TransformerEncoder(LayerStack, ABC):
 
         :returns: The encoder output. *Shape:* Same as ``seqs``.
         """
+
+    if TYPE_CHECKING:
+        __call__ = forward
 
     def register_layer_hook(self, hook: TransformerEncoderLayerHook) -> RemovableHandle:
         """
@@ -87,10 +71,6 @@ class TransformerEncoder(LayerStack, ABC):
         self._layer_hooks[handle.id] = hook
 
         return handle
-
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        return f"model_dim={self.model_dim}"
 
 
 class TransformerEncoderLayerHook(Protocol):
@@ -126,58 +106,39 @@ class StandardTransformerEncoder(TransformerEncoder):
     layer_drop_p: float
     generator: Generator | None
     layer_norm: LayerNorm | None
-    dropout_p: float
-    norm_order: TransformerNormOrder
+    dropout: Dropout | None
 
     def __init__(
         self,
         layers: Sequence[TransformerEncoderLayer],
+        layer_norm: LayerNorm | None = None,
         *,
         layer_drop_p: float = 0.0,
         generator: Generator | None = None,
         dropout_p: float = 0.0,
-        norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        layer_norm_factory: LayerNormFactory | None = None,
-        device: Device | None = None,
-        dtype: DataType | None = None,
     ) -> None:
         """
-        :param layers: The encoder layers.
         :param layer_drop_p: If greater than zero, applies LayerDrop to the
             encoder layers as described in
             :cite:t:`https://doi.org/10.48550/arxiv.1909.11556`.
-        :param generator: The random number generator for LayerDrop
-            probabilities.
-        :param dropout_p: The dropout probability on encoder outputs.
-        :param norm_order: The Layer Normalization order.
-        :param layer_norm_factory: The factory to construct the Layer
-            Normalization module.
+        :param generator: The random number generator for LayerDrop.
         """
-        if not layers:
-            raise ValueError("`layers` must be non-empty.")
+        super().__init__()
 
-        model_dim = layers[0].model_dim
-
-        super().__init__(model_dim, layers)
-
-        if layer_norm_factory is None:
-            layer_norm_factory = create_standard_layer_norm
+        self.layers = ModuleList(layers)
 
         self.layer_drop_p = layer_drop_p
 
         self.generator = generator
 
-        if norm_order != TransformerNormOrder.POST:
-            self.layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
-        else:
-            self.register_module("layer_norm", None)
+        self.register_module("layer_norm", layer_norm)
 
         if dropout_p > 0.0:
-            self.dropout = Dropout(dropout_p)
+            dropout = Dropout(dropout_p)
         else:
-            self.register_module("dropout", None)
+            dropout = None
 
-        self.norm_order = norm_order
+        self.register_module("dropout", dropout)
 
     @override
     def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> Tensor:
@@ -226,14 +187,13 @@ class StandardTransformerEncoder(TransformerEncoder):
 
             yield m, drop
 
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = super().extra_repr()
-
         if self.layer_drop_p > 0.0:
-            s = f"{s}, layer_drop_p={self.layer_drop_p:G}"
+            return f"layer_drop_p={self.layer_drop_p:G}"
 
-        return f"{s}, norm_order={self.norm_order.name}"
+        return ""
 
 
 def _record_drop_for_backward(x: Tensor, dropped_output: Tensor) -> Tensor:

@@ -13,8 +13,6 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-from fairseq2.data_type import DataType
-from fairseq2.device import Device
 from fairseq2.models.transformer import (
     CausalAttentionBias,
     FeedForwardNetwork,
@@ -29,7 +27,7 @@ from fairseq2.models.transformer import (
 from fairseq2.models.transformer_lm import (
     StandardTransformerLMDecoder,
     StandardTransformerLMDecoderLayer,
-    TransformerLanguageModel,
+    TransformerLM,
     TransformerLMDecoder,
     TransformerLMDecoderLayer,
 )
@@ -51,7 +49,7 @@ from fairseq2.utils.tensor import to_tensor
 from fairseq2.models.llama._config import LLaMAConfig, LLaMARoPEScaleConfig
 
 
-def create_llama_model(config: LLaMAConfig) -> TransformerLanguageModel:
+def create_llama_model(config: LLaMAConfig) -> TransformerLM:
     return LLaMAFactory(config).create_model()
 
 
@@ -61,7 +59,7 @@ class LLaMAFactory:
     def __init__(self, config: LLaMAConfig) -> None:
         self._config = config
 
-    def create_model(self) -> TransformerLanguageModel:
+    def create_model(self) -> TransformerLM:
         config = self._config
 
         embed = self.create_embedding()
@@ -72,12 +70,13 @@ class LLaMAFactory:
 
         final_proj = self.create_final_projection(embed)
 
-        return TransformerLanguageModel(
+        return TransformerLM(
+            config.model_dim,
             decoder_frontend,
             decoder,
             final_proj,
-            pad_idx=config.pad_idx,
-            max_seq_len=config.max_seq_len,
+            config.pad_idx,
+            config.max_seq_len,
         )
 
     def create_embedding(self) -> Embedding:
@@ -90,20 +89,21 @@ class LLaMAFactory:
 
             std = init_std or (embed_dim**-0.5)
 
-            self._init_truncated_normal(embed.weight, bias=None, std=std)
+            _init_truncated_normal(embed.weight, bias=None, std=std)
 
         return StandardEmbedding(
-            config.vocab_size,
-            config.model_dim,
-            pad_idx=config.pad_idx,
-            init_fn=init_embed,
+            config.vocab_size, config.model_dim, config.pad_idx, init_fn=init_embed
         )
 
     def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
         config = self._config
 
         return TransformerEmbeddingFrontend(
-            embed, pos_encoder=None, no_scale=True, dropout_p=config.dropout_p
+            config.model_dim,
+            embed,
+            pos_encoder=None,
+            no_scale=True,
+            dropout_p=config.dropout_p,
         )
 
     def create_decoder(self) -> TransformerLMDecoder:
@@ -118,12 +118,9 @@ class LLaMAFactory:
 
             layers.append(layer)
 
-        return StandardTransformerLMDecoder(
-            layers,
-            dropout_p=config.dropout_p,
-            norm_order=TransformerNormOrder.PRE,
-            layer_norm_factory=self.create_layer_norm,
-        )
+        layer_norm = self.create_layer_norm()
+
+        return StandardTransformerLMDecoder(layers, layer_norm)
 
     def create_position_encoder(self) -> PositionEncoder:
         config = self._config
@@ -133,8 +130,10 @@ class LLaMAFactory:
         else:
             freqs_init_fn = None
 
+        encoding_dim = config.model_dim // config.num_attn_heads
+
         return RotaryEncoder(
-            config.model_dim // config.num_attn_heads,
+            encoding_dim,
             config.max_seq_len,
             theta=config.rope_theta,
             freqs_init_fn=freqs_init_fn,
@@ -143,15 +142,23 @@ class LLaMAFactory:
     def create_decoder_layer(
         self, layer_idx: int, pos_encoder: PositionEncoder
     ) -> TransformerLMDecoderLayer:
+        config = self._config
+
         self_attn = self.create_self_attention(layer_idx, pos_encoder)
+
+        self_attn_layer_norm = self.create_layer_norm()
 
         ffn = self.create_ffn(layer_idx)
 
+        ffn_layer_norm = self.create_layer_norm()
+
         return StandardTransformerLMDecoderLayer(
             self_attn,
+            self_attn_layer_norm,
             ffn,
+            ffn_layer_norm,
             norm_order=TransformerNormOrder.PRE,
-            layer_norm_factory=self.create_layer_norm,
+            dropout_p=config.dropout_p,
         )
 
     def create_self_attention(
@@ -168,13 +175,11 @@ class LLaMAFactory:
 
             std = init_std or (input_dim**-0.5)
 
-            self._init_truncated_normal(
-                proj.weight, proj.bias, std=std / std_scale_factor
-            )
+            _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
 
         attn_bias = CausalAttentionBias()
 
-        sdpa = create_default_sdpa(attn_bias, dropout_p=config.dropout_p)
+        sdpa = create_default_sdpa(attn_bias)
 
         return StandardMultiheadAttention(
             config.model_dim,
@@ -199,9 +204,7 @@ class LLaMAFactory:
 
             std = init_std or (input_dim**-0.5)
 
-            self._init_truncated_normal(
-                proj.weight, proj.bias, std=std / std_scale_factor
-            )
+            _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
 
         ffn_inner_dim = int(config.ffn_inner_dim * config.ffn_inner_dim_multiplier)
 
@@ -211,7 +214,6 @@ class LLaMAFactory:
             bias=False,
             inner_dim_scale=config.ffn_inner_dim_scale,
             inner_dim_to_multiple=config.ffn_inner_dim_multiple_of,
-            inner_dropout_p=config.dropout_p,
             proj_init_fn=init_projection,
         )
 
@@ -238,7 +240,7 @@ class LLaMAFactory:
         if config.tie_embeddings:
             if not isinstance(embed, StandardEmbedding):
                 raise TypeError(
-                    f"`embed` must be of type `{StandardEmbedding}` when `config.tie_embeddings` is set, but is of type `{type(embed)}` instead."
+                    f"`embed` must be of type `{StandardEmbedding}` when `config.tie_embeddings` is `True`, but is of type `{type(embed)}` instead."
                 )
 
             return TiedProjection(embed.weight, bias=None)
@@ -250,7 +252,7 @@ class LLaMAFactory:
 
             std = init_std or (input_dim**-0.5)
 
-            self._init_truncated_normal(proj.weight, proj.bias, std=std)
+            _init_truncated_normal(proj.weight, proj.bias, std=std)
 
         return Linear(
             config.model_dim,
@@ -259,20 +261,19 @@ class LLaMAFactory:
             init_fn=init_projection,
         )
 
-    @staticmethod
-    def create_layer_norm(
-        model_dim: int, *, device: Device | None = None, dtype: DataType | None = None
-    ) -> LayerNorm:
-        return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
+    def create_layer_norm(self) -> LayerNorm:
+        config = self._config
 
-    @staticmethod
-    def _init_truncated_normal(
-        weight: Tensor, bias: Tensor | None, *, std: float = 1.0
-    ) -> None:
-        nn.init.trunc_normal_(weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
+        return RMSNorm(config.model_dim, bias=False)
 
-        if bias is not None:
-            nn.init.zeros_(bias)
+
+def _init_truncated_normal(
+    weight: Tensor, bias: Tensor | None, *, std: float = 1.0
+) -> None:
+    nn.init.trunc_normal_(weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
+
+    if bias is not None:
+        nn.init.zeros_(bias)
 
 
 def init_llama_rope_freqs(

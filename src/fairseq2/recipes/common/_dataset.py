@@ -154,7 +154,7 @@ class _PathBasedDatasetLoader(DatasetLoader):
         if data_path is None:
             raise ValueError("`dataset_section.path` must be specified.")
 
-        dataset_name = "recipe"
+        dataset_name = data_path.name
 
         try:
             handler = self._dataset_handlers.get(dataset_family)
@@ -164,7 +164,7 @@ class _PathBasedDatasetLoader(DatasetLoader):
         if not issubclass(handler.kls, self._kls):
             raise InvalidDatasetTypeError(dataset_name, handler.kls, self._kls)
 
-        log.info("Loading the '{}' dataset.", dataset_name)
+        log.info("Loading the dataset.")
 
         try:
             dataset = handler.load_from_path(data_path, dataset_name)

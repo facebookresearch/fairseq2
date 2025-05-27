@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, final
+from typing import TYPE_CHECKING, Any, final
 
 import torch
 import torch.nn as nn
@@ -25,6 +25,7 @@ from fairseq2.error import InternalError
 from fairseq2.gang import Gang
 from fairseq2.nn.utils.module import to_empty
 from fairseq2.ops.tensor_parallel import gather, reduce, reduce_on_backward, scatter
+from fairseq2.typing import get_name_or_self
 
 
 class Projection(Module, ABC):
@@ -34,13 +35,11 @@ class Projection(Module, ABC):
     output_dim: int
 
     def __init__(self, input_dim: int, output_dim: int) -> None:
-        """
-        :param input_dim: The dimensionality of inputs.
-        :param output_dim: The dimensionality of projected outputs.
-        """
         super().__init__()
 
-        self.input_dim, self.output_dim = input_dim, output_dim
+        self.input_dim = input_dim
+
+        self.output_dim = output_dim
 
     @abstractmethod
     def forward(self, x: Tensor) -> Tensor:
@@ -53,9 +52,8 @@ class Projection(Module, ABC):
             :math:`H_{out}` is the output dimensionality.
         """
 
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        return f"input_dim={self.input_dim}, output_dim={self.output_dim}"
+    if TYPE_CHECKING:
+        __call__ = forward
 
 
 @final
@@ -98,18 +96,17 @@ class Linear(Projection):
         )
 
         if bias:
-            self.bias = Parameter(
-                torch.empty((output_dim,), device=device, dtype=dtype)
-            )
+            bias_ = Parameter(torch.empty((output_dim,), device=device, dtype=dtype))
         else:
-            self.register_parameter("bias", None)
+            bias_ = None
+
+        self.register_parameter("bias", bias_)
 
         self.init_fn = init_fn
 
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Resets the parameters and buffers of the module."""
         if self.init_fn is not None:
             self.init_fn(self)
         else:
@@ -119,14 +116,15 @@ class Linear(Projection):
     def forward(self, x: Tensor) -> Tensor:
         return linear(x, self.weight, self.bias)
 
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = super().extra_repr()
+        bias = self.bias is not None
 
-        s = f"{s}, bias={self.bias is not None}"
+        s = f"input_dim={self.input_dim}, output_dim={self.output_dim}, bias={bias}"
 
         if self.init_fn is not None:
-            init_fn = getattr(self.init_fn, "__name__", self.init_fn)
+            init_fn = get_name_or_self(self.init_fn)
 
             s = f"{s}, init_fn={init_fn}"
 
@@ -139,9 +137,9 @@ class ColumnShardedLinear(Projection):
 
     gang: Gang
     sharded_output_dim: int
+    gather_output: bool
     weight: Parameter
     bias: Parameter | None
-    gather_output: bool
     init_fn: Callable[[Linear], None] | None
 
     @staticmethod
@@ -160,10 +158,10 @@ class ColumnShardedLinear(Projection):
 
         if device != gang.device and device.type != "meta":
             raise ValueError(
-                "The device of `linear` must either match `gang.device` or must be of type `meta`."
+                "The device of `linear` must either be same as `gang.device` or must be of type `meta`."
             )
 
-        sharded = ColumnShardedLinear(
+        sharded_linear = ColumnShardedLinear(
             gang,
             linear.input_dim,
             linear.output_dim,
@@ -175,11 +173,11 @@ class ColumnShardedLinear(Projection):
         )
 
         if device.type != "meta":
-            to_empty(sharded, device)
+            to_empty(sharded_linear, device)
 
-        sharded._copy_weight(linear)
+        sharded_linear._copy_weight(linear)
 
-        return sharded
+        return sharded_linear
 
     def __init__(
         self,
@@ -213,11 +211,13 @@ class ColumnShardedLinear(Projection):
 
         self.sharded_output_dim = output_dim // gang.size
 
+        self.gather_output = gather_output
+
         if device is None:
             device = gang.device
         elif device != gang.device and device.type != "meta":
             raise ValueError(
-                "`device` must either match `gang.device` or must be of type `meta`."
+                "`device` must either be same as `gang.device` or must be of type `meta`."
             )
 
         weight = torch.empty(
@@ -227,13 +227,13 @@ class ColumnShardedLinear(Projection):
         self.weight = Parameter(weight)
 
         if bias:
-            self.bias = Parameter(
+            bias_ = Parameter(
                 torch.empty((self.sharded_output_dim,), device=device, dtype=dtype)
             )
         else:
-            self.register_parameter("bias", None)
+            bias_ = None
 
-        self.gather_output = gather_output
+        self.register_parameter("bias", bias_)
 
         self.init_fn = init_fn
 
@@ -242,7 +242,6 @@ class ColumnShardedLinear(Projection):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
         linear = self._linear_like(self.gang.device)
 
         self._copy_weight(linear)
@@ -253,7 +252,7 @@ class ColumnShardedLinear(Projection):
 
             weight = weight_shards[self.gang.rank]
 
-            self.weight.copy_(weight)
+            self.weight.copy_(weight, non_blocking=True)
 
         if self.bias is not None:
             if linear.bias is None:
@@ -264,7 +263,7 @@ class ColumnShardedLinear(Projection):
 
                 bias = bias_shards[self.gang.rank]
 
-                self.bias.copy_(bias)
+                self.bias.copy_(bias, non_blocking=True)
 
     @staticmethod
     def _pre_load_state_dict_hook(
@@ -279,7 +278,7 @@ class ColumnShardedLinear(Projection):
         if weight is None or not isinstance(weight, Tensor):
             return
 
-        if weight.size(0) == module.output_dim:
+        if weight.size(0) == module._output_dim:
             with torch.no_grad():
                 weight_shards = weight.split(module.sharded_output_dim)
 
@@ -318,7 +317,7 @@ class ColumnShardedLinear(Projection):
         with torch.no_grad():
             weight = gather(self.weight, self.gang, dim=0)
 
-            linear.weight.copy_(weight)
+            linear.weight.copy_(weight, non_blocking=True)
 
         if self.bias is not None:
             if linear.bias is None:
@@ -327,7 +326,7 @@ class ColumnShardedLinear(Projection):
             with torch.no_grad():
                 bias = gather(self.bias, self.gang, dim=0)
 
-                linear.bias.copy_(bias)
+                linear.bias.copy_(bias, non_blocking=True)
 
         return linear
 
@@ -341,25 +340,27 @@ class ColumnShardedLinear(Projection):
             dtype=self.weight.dtype,
         )
 
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = f"input_dim={self.input_dim}"
+        bias = self.bias is not None
 
         if self.gather_output:
-            s = f"{s}, output_dim={self.output_dim}"
+            s = f"output_dim={self.output_dim}"
         else:
-            s = f"{s}, output_dim={self.sharded_output_dim}"
+            s = f"output_dim={self.sharded_output_dim}"
 
         s = (
-            f"{s}, "
-            f"bias={self.bias is not None}, "
-            f"gather_output={self.gather_output}, "
             f"rank={self.gang.rank}, "
-            f"world_size={self.gang.size}"
+            f"world_size={self.gang.size}, "
+            f"input_dim={self.input_dim}"
+            f"{s}, "
+            f"gather_output={self.gather_output}, "
+            f"bias={bias}"
         )
 
         if self.init_fn is not None:
-            init_fn = getattr(self.init_fn, "__name__", self.init_fn)
+            init_fn = get_name_or_self(self.init_fn)
 
             s = f"{s}, init_fn={init_fn}"
 
@@ -372,9 +373,9 @@ class RowShardedLinear(Projection):
 
     gang: Gang
     sharded_input_dim: int
+    scatter_input: bool
     weight: Parameter
     bias: Parameter | None
-    scatter_input: bool
     init_fn: Callable[[Linear], None] | None
 
     @staticmethod
@@ -393,10 +394,10 @@ class RowShardedLinear(Projection):
 
         if device != gang.device and device.type != "meta":
             raise ValueError(
-                "The device of `linear` must either match `gang.device` or must be of type `meta`."
+                "The device of `linear` must either be same as `gang.device` or must be of type `meta`."
             )
 
-        sharded = RowShardedLinear(
+        sharded_linear = RowShardedLinear(
             gang,
             linear.input_dim,
             linear.output_dim,
@@ -408,11 +409,11 @@ class RowShardedLinear(Projection):
         )
 
         if device.type != "meta":
-            to_empty(sharded, device)
+            to_empty(sharded_linear, device)
 
-        sharded._copy_weight(linear)
+        sharded_linear._copy_weight(linear)
 
-        return sharded
+        return sharded_linear
 
     def __init__(
         self,
@@ -446,11 +447,13 @@ class RowShardedLinear(Projection):
 
         self.sharded_input_dim = input_dim // gang.size
 
+        self.scatter_input = scatter_input
+
         if device is None:
             device = gang.device
         elif device != gang.device and device.type != "meta":
             raise ValueError(
-                "`device` must either match `gang.device` or must be of type `meta`."
+                "`device` must either be same as `gang.device` or must be of type `meta`."
             )
 
         weight = torch.empty(
@@ -460,13 +463,11 @@ class RowShardedLinear(Projection):
         self.weight = Parameter(weight)
 
         if bias:
-            self.bias = Parameter(
-                torch.empty((output_dim,), device=device, dtype=dtype)
-            )
+            bias_ = Parameter(torch.empty((output_dim,), device=device, dtype=dtype))
         else:
-            self.register_parameter("bias", None)
+            bias_ = None
 
-        self.scatter_input = scatter_input
+        self.register_parameter("bias", bias_)
 
         self.init_fn = init_fn
 
@@ -475,7 +476,6 @@ class RowShardedLinear(Projection):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Resets the parameters and buffers of the module."""
         linear = self._linear_like(self.gang.device)
 
         self._copy_weight(linear)
@@ -486,14 +486,14 @@ class RowShardedLinear(Projection):
 
             weight = weight_shards[self.gang.rank]
 
-            self.weight.copy_(weight)
+            self.weight.copy_(weight, non_blocking=True)
 
         if self.bias is not None:
             if linear.bias is None:
                 raise InternalError("`linear.bias` is `None`.")
 
             with torch.no_grad():
-                self.bias.copy_(linear.bias)
+                self.bias.copy_(linear.bias, non_blocking=True)
 
     @staticmethod
     def _pre_load_state_dict_hook(
@@ -516,7 +516,7 @@ class RowShardedLinear(Projection):
 
     @override
     def forward(self, x: Tensor) -> Tensor:
-        if self.scatter_input:
+        if self._scatter_input:
             x = scatter(x, self.gang, dim=-1)
 
         x = linear(x, self.weight)
@@ -537,14 +537,14 @@ class RowShardedLinear(Projection):
         with torch.no_grad():
             weight = gather(self.weight, self.gang, dim=1)
 
-            linear.weight.copy_(weight)
+            linear.weight.copy_(weight, non_blocking=True)
 
         if self.bias is not None:
             if linear.bias is None:
                 raise InternalError("`linear.bias` is `None`.")
 
             with torch.no_grad():
-                linear.bias.copy_(self.bias)
+                linear.bias.copy_(self.bias, non_blocking=True)
 
         return linear
 
@@ -558,24 +558,27 @@ class RowShardedLinear(Projection):
             dtype=self.weight.dtype,
         )
 
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        if self.scatter_input:
-            s = f"input_dim={self.input_dim}"
+        bias = self.bias is not None
+
+        if self._scatter_input:
+            s = f"input_dim={self._input_dim}"
         else:
-            s = f"input_dim={self.sharded_input_dim}"
+            s = f"input_dim={self._sharded_input_dim}"
 
         s = (
-            f"{s}, "
-            f"output_dim={self.output_dim}, "
-            f"bias={self.bias is not None}, "
-            f"scatter_input={self.scatter_input}, "
             f"rank={self.gang.rank}, "
-            f"world_size={self.gang.size}"
+            f"world_size={self.gang.size}, "
+            f"{s}, "
+            f"scatter_input={self.scatter_input}, "
+            f"output_dim={self.output_dim}, "
+            f"bias={bias}, "
         )
 
         if self.init_fn is not None:
-            init_fn = getattr(self.init_fn, "__name__", self.init_fn)
+            init_fn = get_name_or_self(self.init_fn)
 
             s = f"{s}, init_fn={init_fn}"
 
@@ -597,9 +600,10 @@ class TiedProjection(Projection):
         :param weight: The shared weights.
         :param bias: The shared bias.
         """
-        super().__init__(weight.size(1), weight.size(0))
+        super().__init__(input_dim=weight.size(1), output_dim=weight.size(0))
 
         self.weight = weight
+
         self.bias = bias
 
     @override
@@ -614,7 +618,7 @@ class IdentityProjection(Projection):
     """
 
     def __init__(self, dim: int) -> None:
-        super().__init__(dim, dim)
+        super().__init__(input_dim=dim, output_dim=dim)
 
     @override
     def forward(self, x: Tensor) -> Tensor:

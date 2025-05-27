@@ -30,13 +30,13 @@ class StandardViTFrontend(TransformerFrontend):
     """Represents a standard Vision Transformer front-end as described in
     :cite:t:`https://doi.org/10.48550/arXiv.2010.11929`."""
 
-    feature_extractor: PatchFeatureExtractor
+    patch_feature_extractor: PatchFeatureExtractor
     pos_encoder: InterpolatedPositionEncoder
     dropout: Dropout | None
 
     def __init__(
         self,
-        feature_extractor: PatchFeatureExtractor,
+        patch_feature_extractor: PatchFeatureExtractor,
         pos_encoder: InterpolatedPositionEncoder,
         *,
         dropout_p: float = 0.0,
@@ -46,23 +46,18 @@ class StandardViTFrontend(TransformerFrontend):
         :param pos_encoder: The interpolated position encoder.
         :param dropout_p: The dropout probability on extracted patch features.
         """
-        feature_dim = feature_extractor.feature_dim
+        super().__init__()
 
-        super().__init__(feature_dim)
-
-        self.feature_extractor = feature_extractor
-
-        if pos_encoder.encoding_dim != feature_dim:
-            raise ValueError(
-                f"`pos_encoder.encoding_dim` must be equal to `feature_extractor.feature_dim` ({feature_dim}), but is {pos_encoder.encoding_dim} instead."
-            )
+        self.patch_feature_extractor = patch_feature_extractor
 
         self.pos_encoder = pos_encoder
 
         if dropout_p > 0.0:
-            self.dropout = Dropout(dropout_p)
+            dropout = Dropout(dropout_p)
         else:
-            self.register_module("dropout", None)
+            dropout = None
+
+        self.register_module("dropout", dropout)
 
     @override
     def forward(
@@ -83,7 +78,7 @@ class StandardViTFrontend(TransformerFrontend):
         if seqs_layout.padded:
             raise ValueError("`seqs` must not be a padded batch.")
 
-        seqs = self.feature_extractor(seqs)
+        seqs = self.patch_feature_extractor(seqs)
 
         seqs = self.pos_encoder(seqs)
 

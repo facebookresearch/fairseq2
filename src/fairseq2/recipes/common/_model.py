@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from contextlib import nullcontext
 from pathlib import Path
-from typing import cast, final
+from typing import Any, cast, final
 
 import torch
 from torch import Tensor
@@ -31,6 +31,7 @@ from fairseq2.checkpoint import (
 )
 from fairseq2.config_registry import ConfigNotFoundError
 from fairseq2.context import RuntimeContext
+from fairseq2.device import Device
 from fairseq2.error import ContractError, NotSupportedError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
@@ -46,7 +47,7 @@ from fairseq2.models import (
 )
 from fairseq2.nn.utils.grad import clip_grad_norm
 from fairseq2.recipes import Model, RecipeError
-from fairseq2.recipes.config import CompileOptionsSection, ModelSection, TrainerSection
+from fairseq2.recipes.config import ModelSection, TrainerSection
 from fairseq2.recipes.utils.log import log_config, log_model
 from fairseq2.registry import Provider
 from fairseq2.typing import ContextManager, DataClass, is_dataclass_instance
@@ -57,11 +58,11 @@ from fairseq2.utils.yaml import RuamelYamlDumper
 # isort: split
 
 from fairseq2.recipes.common._checkpoint import check_has_checkpoint
+from fairseq2.recipes.common._compile import compile_model
 from fairseq2.recipes.common._distributed import setup_data_parallel_model
 from fairseq2.recipes.common._error import (
     ActivationCheckpointingNotSupportedError,
     InvalidModelPathError,
-    ModelCompilationNotSupportedError,
     ModelParallelismNotSupportedError,
     ModelPathNotFoundError,
 )
@@ -89,7 +90,7 @@ def setup_model(
         has_checkpoint,
     )
 
-    model = prepare_model(context, model, model_section, trainer_section)
+    prepare_model(context, model, model_section, trainer_section)
 
     model = setup_data_parallel_model(
         context, trainer_section, model, gangs, has_checkpoint, static_graph
@@ -141,7 +142,7 @@ def load_base_model(
         )
     else:
         raise ValueError(
-            "Either `recipe_config.model.name` or `recipe_config.model.family` must be specified."
+            "Either `model_section.name` or `model_section.family` must be specified."
         )
 
     try:
@@ -191,7 +192,7 @@ class _CardBasedModelLoader(_ModelLoader):
     ) -> Model:
         model_name = model_section.name
         if model_name is None:
-            raise ValueError("`recipe_config.model.name` must be specified.")
+            raise ValueError("`model_section.name` must be specified.")
 
         try:
             card = self._asset_store.retrieve_card(model_name)
@@ -264,6 +265,8 @@ class _CardBasedModelLoader(_ModelLoader):
                 model_name, f"The collective barrier after the '{model_name}' model load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
+        module.train()
+
         self._checkpoint_metadata_saver.save(model_family, model_config)
 
         if self._has_checkpoint:
@@ -271,7 +274,7 @@ class _CardBasedModelLoader(_ModelLoader):
         else:
             log.info("Model loaded on data parallel rank 0.")
 
-        return _LocalModel(model_name, module, model_config, handler)
+        return _LocalModel(model_name, module, gangs.root.device, model_config, handler)
 
 
 @final
@@ -299,11 +302,11 @@ class _PathBasedModelLoader(_ModelLoader):
     ) -> Model:
         model_family = model_section.family
         if model_family is None:
-            raise ValueError("`recipe_config.model.family` must be specified.")
+            raise ValueError("`model_section.family` must be specified.")
 
         model_path = model_section.path
         if model_path is None:
-            raise ValueError("`recipe_config.model.path` must be specified.")
+            raise ValueError("`model_section.path` must be specified.")
 
         model_path = self._format_as_sharded_path(model_path, gangs)
 
@@ -379,6 +382,8 @@ class _PathBasedModelLoader(_ModelLoader):
                 model_name, f"The collective barrier after the '{model_name}' model load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
+        module.train()
+
         self._checkpoint_metadata_saver.save(model_family, model_config)
 
         if self._has_checkpoint:
@@ -386,7 +391,7 @@ class _PathBasedModelLoader(_ModelLoader):
         else:
             log.info("Model loaded on data parallel rank 0.")
 
-        return _LocalModel(model_name, module, model_config, handler)
+        return _LocalModel(model_name, module, gangs.root.device, model_config, handler)
 
     @staticmethod
     def _format_as_sharded_path(model_path: Path, gangs: Gangs) -> Path:
@@ -425,9 +430,9 @@ class _NewModelLoader(_ModelLoader):
     ) -> Model:
         model_family = model_section.family
         if model_family is None:
-            raise ValueError("`recipe_config.model.family` must be specified.")
+            raise ValueError("`model_section.family` must be specified.")
 
-        model_name = "recipe"
+        model_name = "custom"
 
         try:
             handler = self._model_handlers.get(model_family)
@@ -489,6 +494,8 @@ class _NewModelLoader(_ModelLoader):
                 model_name, f"The collective barrier after the '{model_name}' model load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
+        module.train()
+
         self._checkpoint_metadata_saver.save(model_family, model_config)
 
         if self._has_checkpoint:
@@ -499,6 +506,7 @@ class _NewModelLoader(_ModelLoader):
         return _LocalModel(
             model_name,
             module,
+            gangs.root.device,
             model_config,
             handler,
             newly_initialized=not self._has_checkpoint,
@@ -533,6 +541,7 @@ def _apply_config_overrides(config: object, config_overrides: object) -> object:
 class _LocalModel(Model):
     _name: str
     _module: Module
+    _device: Device
     _config: object
     _handler: ModelHandler
     _newly_initialized: bool
@@ -541,15 +550,21 @@ class _LocalModel(Model):
         self,
         name: str,
         module: Module,
+        device: Device,
         config: object,
         handler: ModelHandler,
         newly_initialized: bool = False,
     ) -> None:
         self._name = name
         self._module = module
+        self._device = device
         self._config = config
         self._handler = handler
         self._newly_initialized = newly_initialized
+
+    @override
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        self._module(*args, **kwargs)
 
     @override
     def state_dict(self) -> dict[str, object]:
@@ -573,6 +588,11 @@ class _LocalModel(Model):
 
     @property
     @override
+    def name(self) -> str:
+        return self._name
+
+    @property
+    @override
     def module(self) -> Module:
         return self._module
 
@@ -583,8 +603,8 @@ class _LocalModel(Model):
 
     @property
     @override
-    def name(self) -> str:
-        return self._name
+    def device(self) -> Device:
+        return self._device
 
     @property
     @override
@@ -607,7 +627,7 @@ def prepare_model(
     model: Model,
     model_section: ModelSection,
     trainer_section: TrainerSection,
-) -> Model:
+) -> None:
     ac = trainer_section.activation_checkpointing
 
     # Apply AC before torch.compile() so that min-cut partitioner can see the AC
@@ -622,29 +642,3 @@ def prepare_model(
 
     if model_section.compile:
         compile_model(model, model_section.compile_options)
-
-    return model
-
-
-def compile_model(model: Model, options_section: CompileOptionsSection) -> None:
-    if not model.handler.supports_compilation:
-        raise ModelCompilationNotSupportedError(model.name)
-
-    if model.newly_initialized:
-        log.info("Applying torch.compile() to the model.")
-    else:
-        log.info("Applying torch.compile() to '{}' model.", model.name)
-
-    try:
-        model.handler.compile(
-            model.module,
-            fullgraph=options_section.fullgraph,
-            dynamic=options_section.dynamic,
-            mode=options_section.mode,
-            backend=options_section.backend,
-            options=options_section.backend_options,
-        )
-    except RuntimeError as ex:
-        raise RecipeError(
-            "torch.compile() has failed. See the nested exception for details."
-        ) from ex

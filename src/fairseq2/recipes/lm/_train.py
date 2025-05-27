@@ -23,12 +23,10 @@ from fairseq2.datasets.text import (
     TextReadOptions,
 )
 from fairseq2.device import CPU
-from fairseq2.gang import Gangs
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.sequence import SequenceModelOutput
+from fairseq2.models.clm import CausalLM
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import COSINE_ANNEALING_LR, CosineAnnealingLRConfig
-from fairseq2.recipes import Model, SequenceMetricBag, Trainer, TrainUnit
+from fairseq2.recipes import CausalLMMetricBag, Model, Trainer, TrainUnit
 from fairseq2.recipes.common import (
     create_checkpoint_manager,
     create_lr_scheduler,
@@ -45,7 +43,7 @@ from fairseq2.recipes.config import (
     CommonSection,
     CompileOptionsSection,
     DatasetSection,
-    FsdpSection,
+    FSDPSection,
     GangSection,
     LRSchedulerSection,
     ModelSection,
@@ -61,7 +59,7 @@ from fairseq2.utils.validation import validate
 
 
 @dataclass(kw_only=True)
-class LMTrainConfig:
+class CausalLMTrainConfig:
     model: ModelSection = field(
         default_factory=lambda: ModelSection(
             family="llama",
@@ -83,7 +81,7 @@ class LMTrainConfig:
         default_factory=lambda: TrainerSection(
             dtype=torch.bfloat16,
             data_parallelism="fsdp",
-            fsdp=FsdpSection(version="v2", fp32_reduce=True),
+            fsdp=FSDPSection(version="v2", fp32_reduce=True),
             max_grad_norm=1.0,
             gc_every_n_steps=1000,
         )
@@ -157,20 +155,20 @@ class TextDatasetSection(DatasetSection):
     """The dataset-specific extra options."""
 
 
-def register_lm_train_configs(context: RuntimeContext) -> None:
-    registry = context.get_config_registry(LMTrainConfig)
+def register_clm_train_configs(context: RuntimeContext) -> None:
+    registry = context.get_config_registry(CausalLMTrainConfig)
 
     preset = registry.decorator
 
     @preset("llama3_8b")
-    def llama3_8b() -> LMTrainConfig:
-        return LMTrainConfig()
+    def llama3_8b() -> CausalLMTrainConfig:
+        return CausalLMTrainConfig()
 
 
-def load_lm_trainer(
+def load_clm_trainer(
     context: RuntimeContext, config: object, output_dir: Path
 ) -> Trainer[SequenceBatch]:
-    config = structure(config, LMTrainConfig)
+    config = structure(config, CausalLMTrainConfig)
 
     validate(config)
 
@@ -189,7 +187,7 @@ def load_lm_trainer(
     seed += 1
 
     model = setup_model(
-        DecoderModel,
+        CausalLM,
         context,
         config.model,
         config.trainer,
@@ -209,9 +207,9 @@ def load_lm_trainer(
     tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the unit.
-    criterion = LMTrainCriterion(model)
+    criterion = CausalLMTrainCriterion(model)
 
-    unit = LMTrainUnit(criterion, gangs)
+    unit = CausalLMTrainUnit(model, criterion)
 
     batching = LengthBatching(config.dataset.max_num_tokens)
 
@@ -258,14 +256,17 @@ def load_lm_trainer(
 
 
 @final
-class LMTrainUnit(TrainUnit[SequenceBatch]):
-    _criterion: LMTrainCriterion
-    _metric_bag: SequenceMetricBag
+class CausalLMTrainUnit(TrainUnit[SequenceBatch]):
+    _model: Model
+    _criterion: CausalLMTrainCriterion
+    _metric_bag: CausalLMMetricBag
 
-    def __init__(self, criterion: LMTrainCriterion, gangs: Gangs) -> None:
+    def __init__(self, model: Model, criterion: CausalLMTrainCriterion) -> None:
+        self._model = model
+
         self._criterion = criterion
 
-        self._metric_bag = SequenceMetricBag(gangs.dp)
+        self._metric_bag = CausalLMMetricBag(device=model.device)
 
     @override
     def __call__(self, batch: SequenceBatch) -> tuple[Tensor, None]:
@@ -274,45 +275,34 @@ class LMTrainUnit(TrainUnit[SequenceBatch]):
     @property
     @override
     def model(self) -> Model:
-        return self._criterion.model
+        return self._model
 
     @property
     @override
-    def metric_bag(self) -> SequenceMetricBag:
+    def metric_bag(self) -> CausalLMMetricBag:
         return self._metric_bag
 
 
 @final
-class LMTrainCriterion:
+class CausalLMTrainCriterion:
     _model: Model
 
     def __init__(self, model: Model) -> None:
-        if not isinstance(model.base_module, DecoderModel):
-            raise TypeError(
-                f"`model.base_module` must be of type `{DecoderModel}`, but is of type `{type(model.base_module)}` instead."
-            )
-
         self._model = model
 
     def __call__(
-        self, batch: SequenceBatch, metric_bag: SequenceMetricBag
+        self, batch: SequenceBatch, metric_bag: CausalLMMetricBag
     ) -> tuple[Tensor, None]:
         batch, target_batch = batch.as_auto_regressive()
 
         seqs, seqs_layout = batch.as_input()
 
-        model_output: SequenceModelOutput = self._model.module(seqs, seqs_layout)
-
-        loss = model_output.compute_loss(
-            target_batch.seqs, loss_mask=target_batch.target_mask, reduction="mean"
+        nll_loss = self._model(
+            seqs, seqs_layout, targets=target_batch.seqs, reduction="mean"
         )
 
-        metric_bag.update_nll_loss(target_batch, loss, normalize=False)
+        metric_bag.update_nll_loss(target_batch, nll_loss, normalize=False)
 
         metric_bag.update_batch_metrics(target_batch)
 
-        return loss, None
-
-    @property
-    def model(self) -> Model:
-        return self._model
+        return nll_loss, None

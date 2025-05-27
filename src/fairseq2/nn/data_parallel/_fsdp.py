@@ -18,8 +18,8 @@ from fairseq2.utils.version import torch_greater_or_equal
 
 # isort: split
 
-from fairseq2.nn.data_parallel._common import FsdpApplier, FsdpGranularity
-from fairseq2.nn.data_parallel._fsdp1 import Fsdp1Module as Fsdp1Module
+from fairseq2.nn.data_parallel._common import FSDPApplier, FSDPGranularity
+from fairseq2.nn.data_parallel._fsdp1 import FSDP1 as FSDP1
 from fairseq2.nn.data_parallel._fsdp1 import (
     fsdp1_load_local_state_dict as fsdp1_load_local_state_dict,
 )
@@ -32,7 +32,7 @@ from fairseq2.nn.data_parallel._fsdp1 import (
 from fairseq2.nn.data_parallel._fsdp1 import to_fsdp1 as to_fsdp1
 
 if not TYPE_CHECKING and torch_greater_or_equal(2, 6):
-    from fairseq2.nn.data_parallel._fsdp2 import Fsdp2Module as Fsdp2Module
+    from fairseq2.nn.data_parallel._fsdp2 import FSDP2 as FSDP2
     from fairseq2.nn.data_parallel._fsdp2 import (
         fsdp2_load_local_state_dict as fsdp2_load_local_state_dict,
     )
@@ -45,7 +45,7 @@ if not TYPE_CHECKING and torch_greater_or_equal(2, 6):
     )
     from fairseq2.nn.data_parallel._fsdp2 import to_fsdp2 as to_fsdp2
 else:
-    from fairseq2.nn.data_parallel._fsdp2_compat import Fsdp2Module as Fsdp2Module
+    from fairseq2.nn.data_parallel._fsdp2_compat import FSDP2 as FSDP2
     from fairseq2.nn.data_parallel._fsdp2_compat import (
         fsdp2_load_local_state_dict as fsdp2_load_local_state_dict,
     )
@@ -62,10 +62,10 @@ else:
 def to_fsdp(
     module: Module,
     gangs: Gangs,
-    applier: FsdpApplier,
+    applier: FSDPApplier,
     *,
     version: Literal["v1", "v2"] = "v1",
-    granularity: FsdpGranularity = "layer",
+    granularity: FSDPGranularity = "layer",
     mixed_precision_dtype: DataType | None = None,
     fp32_reduce: bool = False,
     broadcast_state: bool = False,
@@ -122,10 +122,10 @@ def to_fsdp(
 
 
 def fsdp_local_state_dict(module: Module) -> dict[str, object]:
-    if isinstance(module, Fsdp1Module):
+    if isinstance(module, FSDP1):
         return fsdp1_local_state_dict(module)
 
-    if isinstance(module, Fsdp2Module):
+    if isinstance(module, FSDP2):
         return fsdp2_local_state_dict(module)
 
     raise _type_error(module)
@@ -134,20 +134,20 @@ def fsdp_local_state_dict(module: Module) -> dict[str, object]:
 def fsdp_load_local_state_dict(
     module: Module, state_dict: Mapping[str, object]
 ) -> None:
-    if isinstance(module, Fsdp1Module):
+    if isinstance(module, FSDP1):
         fsdp1_load_local_state_dict(module, state_dict)
 
-    if isinstance(module, Fsdp2Module):
+    if isinstance(module, FSDP2):
         fsdp2_load_local_state_dict(module, state_dict)
 
     raise _type_error(module)
 
 
 def fsdp_no_sync(module: Module, *, unsafe: bool = False) -> ContextManager:
-    if isinstance(module, Fsdp1Module):
+    if isinstance(module, FSDP1):
         return module.no_sync()
 
-    if isinstance(module, Fsdp2Module):
+    if isinstance(module, FSDP2):
         return fsdp2_no_sync(module)
 
     raise _type_error(module)
@@ -160,10 +160,10 @@ def fsdp_summon_full_parameters(module: Module) -> ContextManager:
     In addition to unsharding the parameters, this function allows calling the
     module locally. This is useful for online evaluation.
     """
-    if isinstance(module, Fsdp1Module):
+    if isinstance(module, FSDP1):
         return fsdp1_summon_full_parameters(module)
 
-    if isinstance(module, Fsdp2Module):
+    if isinstance(module, FSDP2):
         return fsdp2_summon_full_parameters(module)
 
     raise _type_error(module)
@@ -171,5 +171,5 @@ def fsdp_summon_full_parameters(module: Module) -> ContextManager:
 
 def _type_error(module: Module) -> Exception:
     return TypeError(
-        f"`module` must be of type `Fsdp1Module` or `Fsdp2Module`, but is of type `{type(module)}` instead."
+        f"`module` must be of type `FSDP1` or `FSDP2`, but is of type `{type(module)}` instead."
     )

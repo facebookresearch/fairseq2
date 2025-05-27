@@ -6,20 +6,20 @@
 
 from __future__ import annotations
 
-from fairseq2.nn.data_parallel._common import FsdpApplier as FsdpApplier
-from fairseq2.nn.data_parallel._common import FsdpGranularity as FsdpGranularity
+from fairseq2.nn.data_parallel._common import FSDPApplier as FSDPApplier
+from fairseq2.nn.data_parallel._common import FSDPGranularity as FSDPGranularity
 from fairseq2.nn.data_parallel._common import (
-    FsdpParameterInitializer as FsdpParameterInitializer,
+    FSDPParameterInitializer as FSDPParameterInitializer,
 )
-from fairseq2.nn.data_parallel._common import FsdpWrapper as FsdpWrapper
+from fairseq2.nn.data_parallel._common import FSDPWrapper as FSDPWrapper
 from fairseq2.nn.data_parallel._common import load_with_sdp_gang as load_with_sdp_gang
-from fairseq2.nn.data_parallel._ddp import DdpModule as DdpModule
+from fairseq2.nn.data_parallel._ddp import DDPModule as DDPModule
 from fairseq2.nn.data_parallel._ddp import to_ddp as to_ddp
 from fairseq2.nn.data_parallel._error import (
     DistributedSetupError as DistributedSetupError,
 )
-from fairseq2.nn.data_parallel._fsdp import Fsdp1Module as Fsdp1Module
-from fairseq2.nn.data_parallel._fsdp import Fsdp2Module as Fsdp2Module
+from fairseq2.nn.data_parallel._fsdp import FSDP1 as FSDP1
+from fairseq2.nn.data_parallel._fsdp import FSDP2 as FSDP2
 from fairseq2.nn.data_parallel._fsdp import (
     fsdp1_load_local_state_dict as fsdp1_load_local_state_dict,
 )

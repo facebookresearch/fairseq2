@@ -16,15 +16,13 @@ from fairseq2.models import (
     ActivationCheckpointApplier,
     CheckpointConverter,
     DelegatingModelHandler,
-    FsdpApplier,
+    FSDPApplier,
     HuggingFaceExporter,
     ModelCompiler,
     ModelFactory,
     ModelHandler,
     ModelSharder,
 )
-from fairseq2.models.ac import apply_default_activation_checkpointing
-from fairseq2.models.fsdp import apply_default_fsdp
 from fairseq2.models.jepa import (
     JEPA_MODEL_FAMILY,
     JepaConfig,
@@ -73,9 +71,11 @@ from fairseq2.models.transformer import (
     register_transformer_configs,
 )
 from fairseq2.models.transformer_lm import (
-    TransformerLanguageModel,
+    TransformerLM,
     compile_transformer_lm,
 )
+from fairseq2.models.utils.ac import apply_default_activation_checkpointing
+from fairseq2.models.utils.fsdp import apply_default_fsdp
 from fairseq2.models.w2vbert import (
     W2VBERT_MODEL_FAMILY,
     W2VBertConfig,
@@ -139,7 +139,7 @@ def _register_model_families(context: RuntimeContext) -> None:
 
     registrar.register_family(
         LLAMA_MODEL_FAMILY,
-        TransformerLanguageModel,
+        TransformerLM,
         LLaMAConfig,
         default_llama_arch,
         factory=create_llama_model,
@@ -156,7 +156,7 @@ def _register_model_families(context: RuntimeContext) -> None:
 
     registrar.register_family(
         MISTRAL_MODEL_FAMILY,
-        TransformerLanguageModel,
+        TransformerLM,
         MistralConfig,
         default_mistral_arch,
         factory=create_mistral_model,
@@ -272,7 +272,7 @@ class ModelRegistrar:
         sharder: ModelSharder[ModelT, ModelConfigT] | None = None,
         compiler: ModelCompiler[ModelT] | None = None,
         ac_applier: ActivationCheckpointApplier[ModelT] | None = None,
-        fsdp_applier: FsdpApplier[ModelT] | None = None,
+        fsdp_applier: FSDPApplier[ModelT] | None = None,
         hugging_face_exporter: HuggingFaceExporter[ModelConfigT] | None = None,
     ) -> None:
         file_system = self._context.file_system

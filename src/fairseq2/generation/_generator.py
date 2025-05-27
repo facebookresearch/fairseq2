@@ -13,8 +13,8 @@ from typing import Protocol
 from torch import Tensor
 from torch.utils.hooks import RemovableHandle
 
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
+from fairseq2.models.clm import CausalLM
+from fairseq2.models.seq2seq import Seq2SeqModel
 from fairseq2.nn import BatchLayout
 
 
@@ -47,8 +47,8 @@ class SequenceGenerator(ABC):
 
     @property
     @abstractmethod
-    def model(self) -> DecoderModel:
-        """The associated decoder model."""
+    def model(self) -> CausalLM:
+        """The associated model."""
 
 
 @dataclass
@@ -111,7 +111,7 @@ class Seq2SeqGenerator(ABC):
         source_seqs_layout: BatchLayout,
         prompt_seqs: Tensor,
         prompt_seqs_layout: BatchLayout,
-    ) -> Seq2SeqGeneratorOutput:
+    ) -> SequenceGeneratorOutput:
         """
         :param source_seqs:
             The source sequences. *Shape:* :math:`(N,S,*)`, where :math:`N` is
@@ -138,25 +138,8 @@ class Seq2SeqGenerator(ABC):
 
     @property
     @abstractmethod
-    def model(self) -> EncoderDecoderModel:
-        """The associated encoder-decoder model."""
-
-
-@dataclass
-class Seq2SeqGeneratorOutput:
-    hypotheses: list[list[Hypothesis]]
-    """The list of hypothesis generated per prompt, ordered by score."""
-
-    encoder_output: Tensor
-    """The encoder output used in encoder-decoder attention. *Shape:*
-    :math:`(N,S_{enc},M)`, where :math:`N` is the batch size, :math:`S_{enc}` is
-    the encoder output sequence length, and :math:`M` is the dimensionality of
-    the model."""
-
-    encoder_output_layout: BatchLayout
-
-    counters: GenerationCounters
-    """The performance counters of the call."""
+    def model(self) -> Seq2SeqModel:
+        """The associated model."""
 
 
 class StepHook(Protocol):

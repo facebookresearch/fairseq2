@@ -27,15 +27,17 @@ from fairseq2.recipes.lm._instruction_finetune import (
 from fairseq2.recipes.lm._instruction_finetune import (
     register_instruction_finetune_configs as register_instruction_finetune_configs,
 )
-from fairseq2.recipes.lm._loss_eval import LMLossEvalConfig as LMLossEvalConfig
 from fairseq2.recipes.lm._loss_eval import (
-    LMLossEvalDatasetSection as LMLossEvalDatasetSection,
+    CausalLMLossEvalConfig as CausalLMLossEvalConfig,
 )
 from fairseq2.recipes.lm._loss_eval import (
-    load_lm_loss_evaluator as load_lm_loss_evaluator,
+    CausalLMLossEvalDatasetSection as CausalLMLossEvalDatasetSection,
 )
 from fairseq2.recipes.lm._loss_eval import (
-    register_lm_loss_eval_configs as register_lm_loss_eval_configs,
+    load_clm_loss_evaluator as load_clm_loss_evaluator,
+)
+from fairseq2.recipes.lm._loss_eval import (
+    register_clm_loss_eval_configs as register_clm_loss_eval_configs,
 )
 from fairseq2.recipes.lm._preference_finetune._common import (
     POFinetuneMetricBag as POFinetuneMetricBag,
@@ -132,11 +134,11 @@ from fairseq2.recipes.lm._text_generate import (
 from fairseq2.recipes.lm._text_generate import (
     register_text_generate_configs as register_text_generate_configs,
 )
-from fairseq2.recipes.lm._train import LMTrainConfig as LMTrainConfig
-from fairseq2.recipes.lm._train import LMTrainCriterion as LMTrainCriterion
-from fairseq2.recipes.lm._train import LMTrainUnit as LMTrainUnit
+from fairseq2.recipes.lm._train import CausalLMTrainConfig as CausalLMTrainConfig
+from fairseq2.recipes.lm._train import CausalLMTrainCriterion as CausalLMTrainCriterion
+from fairseq2.recipes.lm._train import CausalLMTrainUnit as CausalLMTrainUnit
 from fairseq2.recipes.lm._train import TextDatasetSection as TextDatasetSection
-from fairseq2.recipes.lm._train import load_lm_trainer as load_lm_trainer
+from fairseq2.recipes.lm._train import load_clm_trainer as load_clm_trainer
 from fairseq2.recipes.lm._train import (
-    register_lm_train_configs as register_lm_train_configs,
+    register_clm_train_configs as register_clm_train_configs,
 )

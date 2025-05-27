@@ -26,11 +26,11 @@ from fairseq2.nn import (
 
 # isort: split
 
-from fairseq2.models.transformer_lm._model import TransformerLanguageModel
+from fairseq2.models.transformer_lm._model import TransformerLM
 
 
 def shard_transformer_lm(
-    model: TransformerLanguageModel, gangs: Gangs, *, shard_embed_dim: bool = False
+    model: TransformerLM, gangs: Gangs, *, shard_embed_dim: bool = False
 ) -> None:
     """
     Shards ``model`` over ``gangs`` for tensor parallelism.

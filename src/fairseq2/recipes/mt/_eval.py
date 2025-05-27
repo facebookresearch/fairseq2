@@ -30,12 +30,11 @@ from fairseq2.datasets.parallel_text import (
 )
 from fairseq2.device import CPU
 from fairseq2.file_system import FileMode
-from fairseq2.gang import Gangs
 from fairseq2.generation import BeamSearchConfig, Seq2SeqGenerator
 from fairseq2.generation.text import SequenceToTextConverter
 from fairseq2.metrics import MetricBag
 from fairseq2.metrics.text import DEFAULT_BLEU_TOKENIZER, BleuMetric, ChrfMetric
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
+from fairseq2.models.seq2seq import Seq2SeqModel
 from fairseq2.recipes import (
     Evaluator,
     EvalUnit,
@@ -70,7 +69,8 @@ from fairseq2.utils.validation import validate
 
 # isort: split
 
-from fairseq2.recipes.mt._common import MTCriterion, MTLossSection
+from fairseq2.recipes.mt._config import MTLossSection
+from fairseq2.recipes.mt._criterion import MTCriterion
 
 
 @dataclass(kw_only=True)
@@ -170,7 +170,7 @@ def load_mt_evaluator(
     seed += 1
 
     model = setup_reference_model(
-        EncoderDecoderModel,
+        Seq2SeqModel,
         context,
         config.model,
         gangs,
@@ -192,14 +192,14 @@ def load_mt_evaluator(
         context, config.seq2seq_generator, model, target_tokenizer.vocab_info
     )
 
-    criterion = MTCriterion(model, label_smoothing=config.loss.label_smoothing)
+    criterion = MTCriterion(model, config.loss.label_smoothing)
 
     units: list[EvalUnit[Seq2SeqBatch]] = []
 
     data_readers = []
 
     for direction in dataset.directions(config.dataset.split):
-        loss_unit = MTLossEvalUnit(criterion, direction, gangs)
+        loss_unit = MTLossEvalUnit(model, criterion, direction)
 
         units.append(loss_unit)
 
@@ -286,7 +286,6 @@ def load_mt_evaluator(
             direction,
             seq2seq_generator,
             target_tokenizer,
-            gangs,
             src_output_stream=src_fp,
             ref_output_stream=ref_fp,
             hyp_output_stream=hyp_fp,
@@ -336,17 +335,20 @@ def load_mt_evaluator(
 @final
 class MTLossEvalUnit(EvalUnit[Seq2SeqBatch]):
     _name: str
+    _model: Model
     _criterion: MTCriterion
     _metric_bag: Seq2SeqMetricBag
 
     def __init__(
-        self, criterion: MTCriterion, direction: Direction, gangs: Gangs
+        self, model: Model, criterion: MTCriterion, direction: Direction
     ) -> None:
         self._name = f"loss/{direction}"
 
+        self._model = model
+
         self._criterion = criterion
 
-        self._metric_bag = Seq2SeqMetricBag(gangs.dp)
+        self._metric_bag = Seq2SeqMetricBag(device=model.device)
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> None:
@@ -360,7 +362,7 @@ class MTLossEvalUnit(EvalUnit[Seq2SeqBatch]):
     @property
     @override
     def model(self) -> Model:
-        return self._criterion.model
+        return self._model
 
     @property
     @override
@@ -386,7 +388,6 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
         direction: Direction,
         generator: Seq2SeqGenerator,
         tokenizer: TextTokenizer,
-        gangs: Gangs,
         *,
         src_output_stream: TextIO | None = None,
         ref_output_stream: TextIO | None = None,
@@ -415,9 +416,9 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
         self._ref_output_stream = ref_output_stream
         self._hyp_output_stream = hyp_output_stream
 
-        self._metric_bag = Seq2SeqGenerationMetricBag(gangs.dp)
+        device = model.device
 
-        device = gangs.root.device
+        self._metric_bag = Seq2SeqGenerationMetricBag(device=device)
 
         bleu_metric = BleuMetric(device=device, tokenizer=bleu_tokenizer)
         chrf_metric = ChrfMetric(device=device)

@@ -132,6 +132,11 @@ class GenericAsrDataset(AsrDataset):
                 name, f"The splits under the '{path}' directory of the '{name}' dataset cannot be determined. See the nested exception for details."  # fmt: skip
             ) from ex
 
+        if not splits:
+            raise DatasetLoadError(
+                name, f"The '{path}' directory of the '{name}' dataset does not contain any splits."  # fmt: skip
+            )
+
         return GenericAsrDataset(name, path, splits)
 
     @override

@@ -6,9 +6,8 @@
 
 from __future__ import annotations
 
-from fairseq2.recipes.wav2vec2._common import Wav2Vec2Criterion as Wav2Vec2Criterion
-from fairseq2.recipes.wav2vec2._common import Wav2Vec2LossSection as Wav2Vec2LossSection
-from fairseq2.recipes.wav2vec2._common import Wav2Vec2MetricBag as Wav2Vec2MetricBag
+from fairseq2.recipes.wav2vec2._config import Wav2Vec2LossSection as Wav2Vec2LossSection
+from fairseq2.recipes.wav2vec2._criterion import Wav2Vec2Criterion as Wav2Vec2Criterion
 from fairseq2.recipes.wav2vec2._eval import Wav2Vec2EvalConfig as Wav2Vec2EvalConfig
 from fairseq2.recipes.wav2vec2._eval import (
     Wav2Vec2EvalDatasetSection as Wav2Vec2EvalDatasetSection,
@@ -20,6 +19,8 @@ from fairseq2.recipes.wav2vec2._eval import (
 from fairseq2.recipes.wav2vec2._eval import (
     register_wav2vec2_eval_configs as register_wav2vec2_eval_configs,
 )
+from fairseq2.recipes.wav2vec2._metrics import Wav2Vec2Loss as Wav2Vec2Loss
+from fairseq2.recipes.wav2vec2._metrics import Wav2Vec2MetricBag as Wav2Vec2MetricBag
 from fairseq2.recipes.wav2vec2._train import Wav2Vec2TrainConfig as Wav2Vec2TrainConfig
 from fairseq2.recipes.wav2vec2._train import (
     Wav2Vec2TrainDatasetSection as Wav2Vec2TrainDatasetSection,

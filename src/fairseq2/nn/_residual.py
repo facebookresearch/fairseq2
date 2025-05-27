@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import final
+from typing import TYPE_CHECKING, final
 
 import torch
 from torch import Tensor
@@ -31,9 +31,12 @@ class ResidualConnect(Module, ABC):
             ``seqs``.
         """
 
+    if TYPE_CHECKING:
+        __call__ = forward
+
 
 @final
-class StandardResidualConnect(ResidualConnect):
+class AdditiveResidualConnect(ResidualConnect):
     """Sums inputs and outputs of a module."""
 
     @override
@@ -61,6 +64,11 @@ class ScaledResidualConnect(ResidualConnect):
         residual = self.scale * residual
 
         return seqs + residual
+
+    @override
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return f"scale={self.scale}"
 
 
 @final
@@ -108,5 +116,6 @@ class DropPathResidualConnect(ResidualConnect):
 
         return (seqs * drop_mask) + residual
 
+    @override
     def extra_repr(self) -> str:
         return f"drop_p={self.drop_p}, scale_by_keep={self.scale_by_keep}"

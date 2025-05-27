@@ -28,7 +28,7 @@ from fairseq2.nn.utils.module import (
 
 from fairseq2.nn.data_parallel._error import DistributedSetupError
 
-DdpModule: TypeAlias = DDP
+DDPModule: TypeAlias = DDP
 
 
 def to_ddp(
@@ -38,7 +38,7 @@ def to_ddp(
     find_unused_parameters: bool = False,
     static_graph: bool = False,
     normalize_grads: bool = True,
-) -> DdpModule:
+) -> DDPModule:
     """Wrap ``module`` with DDP.
 
     :param module: The module to be wrapped with DDP.
@@ -89,7 +89,7 @@ def to_ddp(
         ) from None
 
     try:
-        module = DdpModule(
+        module = DDPModule(
             module,
             broadcast_buffers=False,
             process_group=process_group,
@@ -109,7 +109,7 @@ def to_ddp(
     # process group. For sequence-based tasks this is typically not ideal since
     # batch sizes can vary. Here, we disable that behavior if requested.
     if not normalize_grads:
-        module.register_comm_hook(state=dp_gang, hook=_allreduce_hook)
+        module.register_comm_hook(state=dp_gang, hook=_all_reduce_hook)
 
     return module
 
@@ -147,7 +147,7 @@ def _broadcast_buffers(module: Module, gang: Gang) -> None:
     _broadcast_coalesced(pg, buffers, bucket_size, source_rank)
 
 
-def _allreduce_hook(gang: Gang, bucket: GradBucket) -> Future[Tensor]:
+def _all_reduce_hook(gang: Gang, bucket: GradBucket) -> Future[Tensor]:
     pg = gang.as_process_group()
 
     ft = dist.all_reduce(bucket.buffer(), group=pg, async_op=True).get_future()

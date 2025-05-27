@@ -49,7 +49,7 @@ class MistralConfig:
     ffn_inner_dim: int = 14336
     """The dimensionality of inner projection layers in feed-forward networks."""
 
-    dropout_p: float = 0.1
+    dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""
 
 

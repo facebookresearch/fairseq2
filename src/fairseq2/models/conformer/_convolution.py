@@ -6,11 +6,12 @@
 
 from __future__ import annotations
 
-from typing import Literal, final
+from typing import TYPE_CHECKING, Literal, final
 
 from torch import Tensor
 from torch.nn import GLU, BatchNorm1d, Conv1d, Module, SiLU
 from torch.nn.functional import pad
+from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
@@ -24,7 +25,6 @@ class ConformerConvolution(Module):
     """Represents a Conformer convolution module as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2005.08100`."""
 
-    model_dim: int
     pointwise_conv1: Conv1d
     pointwise_conv1_activation: GLU
     depthwise_conv: Conv1d
@@ -61,8 +61,6 @@ class ConformerConvolution(Module):
         """
         super().__init__()
 
-        self.model_dim = model_dim
-
         # We treat the dimensionality of the model as the number of input
         # channels to the first pointwise convolution.
         self.pointwise_conv1 = Conv1d(
@@ -95,16 +93,20 @@ class ConformerConvolution(Module):
             )
 
         if norm_type == "batch_norm":
-            self.batch_norm = BatchNorm1d(model_dim, device=device, dtype=dtype)
+            batch_norm = BatchNorm1d(model_dim, device=device, dtype=dtype)
         else:
-            self.register_module("batch_norm", None)
+            batch_norm = None
+
+        self.register_module("batch_norm", batch_norm)
 
         if norm_type == "layer_norm":
-            self.layer_norm = StandardLayerNorm(
+            layer_norm = StandardLayerNorm(
                 model_dim, bias=True, device=device, dtype=dtype
             )
         else:
-            self.register_module("layer_norm", None)
+            layer_norm = None
+
+        self.register_module("layer_norm", layer_norm)
 
         if depthwise_activation is None:
             self.depthwise_activation = SiLU()  # a.k.a. swish
@@ -138,7 +140,7 @@ class ConformerConvolution(Module):
         # (N, S, M) -> (N, M, S)
         seqs = seqs.transpose(1, 2)
 
-        # This is mathematically equivalent to a dot-product.
+        # This is mathematically equivalent to dot-product.
         # (N, M, S) -> (N, 2 * M, S)
         seqs = self.pointwise_conv1(seqs)
 
@@ -168,7 +170,7 @@ class ConformerConvolution(Module):
 
         seqs = self.depthwise_activation(seqs)
 
-        # This is mathematically equivalent to a dot-product.
+        # This is mathematically equivalent to dot-product.
         # (N, M, S) -> (N, M, S)
         seqs = self.pointwise_conv2(seqs)
 
@@ -177,6 +179,10 @@ class ConformerConvolution(Module):
 
         return seqs
 
+    if TYPE_CHECKING:
+        __call__ = forward
+
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"model_dim={self.model_dim}"
+        return f"causal_depthwise_conv={self.causal_depthwise_conv}"

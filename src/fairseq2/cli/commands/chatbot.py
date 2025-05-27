@@ -31,7 +31,7 @@ from fairseq2.generation import (
     TopPSampler,
 )
 from fairseq2.logging import log
-from fairseq2.models.decoder import DecoderModel
+from fairseq2.models.clm import CausalLM
 from fairseq2.recipes import RecipeError
 from fairseq2.recipes.common import (
     load_text_tokenizer,
@@ -142,7 +142,7 @@ class RunChatbotHandler(CliCommandHandler):
 
         try:
             model = setup_reference_model(
-                DecoderModel,
+                CausalLM,
                 context,
                 model_section,
                 gangs,
@@ -154,8 +154,6 @@ class RunChatbotHandler(CliCommandHandler):
                 "The chatbot setup has failed. See the nested exception for details."
             ) from ex
 
-        module = cast(DecoderModel, model.module)
-
         tokenizer_section = TextTokenizerSection(name=args.model_name)
 
         try:
@@ -164,6 +162,8 @@ class RunChatbotHandler(CliCommandHandler):
             raise CliCommandError(
                 "The chatbot setup has failed. See the nested exception for details."
             ) from ex
+
+        module = cast(CausalLM, model.module)
 
         sampler = TopPSampler(p=args.top_p)
 

@@ -15,6 +15,8 @@ from fairseq2.recipes.common._checkpoint import (
 from fairseq2.recipes.common._checkpoint import (
     create_checkpoint_manager as create_checkpoint_manager,
 )
+from fairseq2.recipes.common._compile import compile_model as compile_model
+from fairseq2.recipes.common._compile import compile_object as compile_object
 from fairseq2.recipes.common._dataset import load_dataset as load_dataset
 from fairseq2.recipes.common._device import (
     create_device_stat_tracker as create_device_stat_tracker,
@@ -30,7 +32,7 @@ from fairseq2.recipes.common._error import (
     DatasetPathNotFoundError as DatasetPathNotFoundError,
 )
 from fairseq2.recipes.common._error import (
-    FsdpNotSupportedError as FsdpNotSupportedError,
+    FSDPNotSupportedError as FSDPNotSupportedError,
 )
 from fairseq2.recipes.common._error import (
     HybridShardingNotSupportedError as HybridShardingNotSupportedError,
@@ -60,7 +62,6 @@ from fairseq2.recipes.common._generator import create_generator as create_genera
 from fairseq2.recipes.common._metrics import (
     create_metric_recorder as create_metric_recorder,
 )
-from fairseq2.recipes.common._model import compile_model as compile_model
 from fairseq2.recipes.common._model import load_base_model as load_base_model
 from fairseq2.recipes.common._model import prepare_model as prepare_model
 from fairseq2.recipes.common._model import setup_model as setup_model

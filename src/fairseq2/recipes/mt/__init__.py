@@ -6,8 +6,8 @@
 
 from __future__ import annotations
 
-from fairseq2.recipes.mt._common import MTCriterion as MTCriterion
-from fairseq2.recipes.mt._common import MTLossSection as MTLossSection
+from fairseq2.recipes.mt._config import MTLossSection as MTLossSection
+from fairseq2.recipes.mt._criterion import MTCriterion as MTCriterion
 from fairseq2.recipes.mt._eval import MTBleuChrfEvalUnit as MTBleuChrfEvalUnit
 from fairseq2.recipes.mt._eval import MTEvalConfig as MTEvalConfig
 from fairseq2.recipes.mt._eval import MTEvalDatasetSection as MTEvalDatasetSection

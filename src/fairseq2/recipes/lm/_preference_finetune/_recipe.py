@@ -16,7 +16,7 @@ from fairseq2.datasets.preference import (
     PreferenceReadOptions,
 )
 from fairseq2.device import CPU
-from fairseq2.models.decoder import DecoderModel
+from fairseq2.models.clm import CausalLM
 from fairseq2.optim import AdamWConfig
 from fairseq2.optim.lr_scheduler import CosineAnnealingLRConfig
 from fairseq2.recipes import Trainer
@@ -123,7 +123,7 @@ def load_po_finetuner(
     seed += 1
 
     model = setup_model(
-        DecoderModel,
+        CausalLM,
         context,
         config.model,
         config.trainer,

@@ -24,7 +24,7 @@ from fairseq2.data_type import DataType, default_dtype
 from fairseq2.device import CPU, META_DEVICE
 from fairseq2.error import ContractError, NotSupportedError
 from fairseq2.gang import Gangs
-from fairseq2.nn.data_parallel import FsdpGranularity, FsdpWrapper, load_with_sdp_gang
+from fairseq2.nn.data_parallel import FSDPGranularity, FSDPWrapper, load_with_sdp_gang
 from fairseq2.nn.utils.module import (
     load_state_dict,
     reset_non_persistent_buffers,
@@ -84,7 +84,7 @@ class ModelHandler(ABC):
     ) -> Module: ...
 
     @abstractmethod
-    def compile(self, model: Module, **kwargs: Any) -> None: ...
+    def compile(self, model: Module, *args: Any, **kwargs: Any) -> None: ...
 
     @abstractmethod
     def apply_activation_checkpointing(
@@ -93,7 +93,7 @@ class ModelHandler(ABC):
 
     @abstractmethod
     def apply_fsdp(
-        self, model: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
+        self, model: Module, granularity: FSDPGranularity, wrapper: FSDPWrapper
     ) -> None: ...
 
     @abstractmethod
@@ -163,16 +163,16 @@ class ModelSharder(Protocol[ModelT_contra, ModelConfigT_contra]):
 
 
 class ModelCompiler(Protocol[ModelT_contra]):
-    def __call__(self, model: ModelT_contra, **kwargs: Any) -> None: ...
+    def __call__(self, model: ModelT_contra, *args: Any, **kwargs: Any) -> None: ...
 
 
 class ActivationCheckpointApplier(Protocol[ModelT_contra]):
     def __call__(self, model: ModelT_contra, *, every_nth_layer: int = 1) -> None: ...
 
 
-class FsdpApplier(Protocol[ModelT_contra]):
+class FSDPApplier(Protocol[ModelT_contra]):
     def __call__(
-        self, model: ModelT_contra, granularity: FsdpGranularity, wrapper: FsdpWrapper
+        self, model: ModelT_contra, granularity: FSDPGranularity, wrapper: FSDPWrapper
     ) -> None: ...
 
 
@@ -202,7 +202,7 @@ class DelegatingModelHandler(ModelHandler):
     _sharder: ModelSharder[Any, Any] | None
     _compiler: ModelCompiler[Any] | None
     _ac_applier: ActivationCheckpointApplier[Any] | None
-    _fsdp_applier: FsdpApplier[Any] | None
+    _fsdp_applier: FSDPApplier[Any] | None
     _hugging_face_exporter: HuggingFaceExporter[Any] | None
 
     def __init__(
@@ -221,7 +221,7 @@ class DelegatingModelHandler(ModelHandler):
         sharder: ModelSharder[ModelT, ModelConfigT] | None = None,
         compiler: ModelCompiler[ModelT] | None = None,
         ac_applier: ActivationCheckpointApplier[ModelT] | None = None,
-        fsdp_applier: FsdpApplier[ModelT] | None = None,
+        fsdp_applier: FSDPApplier[ModelT] | None = None,
         hugging_face_exporter: HuggingFaceExporter[ModelConfigT] | None = None,
     ) -> None:
         self._family = family
@@ -414,7 +414,7 @@ class DelegatingModelHandler(ModelHandler):
     ) -> Module:
         if gangs.root.device.type == "meta":
             raise ValueError(
-                "`gangs` must be on a real device, but is on the meta device instead."
+                "`gangs.root` must be on a real device, but is on the meta device instead."
             )
 
         config = structure(config, self._configs.config_kls)
@@ -504,7 +504,7 @@ class DelegatingModelHandler(ModelHandler):
         return model
 
     @override
-    def compile(self, model: Module, **kwargs: Any) -> None:
+    def compile(self, model: Module, *args: Any, **kwargs: Any) -> None:
         if self._compiler is None:
             raise NotSupportedError(
                 f"The '{self._family}' model family does not support `torch.compile()`."
@@ -515,7 +515,7 @@ class DelegatingModelHandler(ModelHandler):
                 f"`model` must be of type `{self._kls}`, but is of type `{type(model)}` instead."
             )
 
-        self._compiler(model, **kwargs)
+        self._compiler(model, *args, **kwargs)
 
     @override
     def apply_activation_checkpointing(
@@ -535,7 +535,7 @@ class DelegatingModelHandler(ModelHandler):
 
     @override
     def apply_fsdp(
-        self, model: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
+        self, model: Module, granularity: FSDPGranularity, wrapper: FSDPWrapper
     ) -> None:
         if self._fsdp_applier is None:
             raise NotSupportedError(

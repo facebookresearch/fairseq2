@@ -7,4 +7,3 @@
 from __future__ import annotations
 
 from fairseq2.nn.functional._cross_entropy import cross_entropy as cross_entropy
-from fairseq2.nn.functional._nll_loss import nll_loss as nll_loss

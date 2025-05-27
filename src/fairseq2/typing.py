@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from collections.abc import MutableMapping
 from contextlib import AbstractContextManager
 from dataclasses import Field, is_dataclass
@@ -46,6 +45,13 @@ EMPTY = _EmptyType()
 """A sentinel signifying no value."""
 
 
-class Closable(ABC):
-    @abstractmethod
+def get_name_or_self(obj: object) -> object:
+    return getattr(obj, "__name__", obj)
+
+
+class Closable(Protocol):
     def close(self) -> None: ...
+
+
+class Compilable(Protocol):
+    def compile(self, *args: Any, **kwargs: Any) -> object: ...

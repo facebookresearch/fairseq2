@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import final
+from typing import TYPE_CHECKING, final
 
 import torch
 import torch.nn as nn
@@ -23,6 +23,7 @@ from fairseq2.nn import BatchLayout, StandardEmbedding
 from fairseq2.models.transformer._attention_bias import (
     AttentionBias,
     AttentionBiasCache,
+    maybe_get_attention_bias_tensor,
 )
 from fairseq2.models.transformer._sdpa._base import SDPA
 from fairseq2.models.transformer._sdpa._naive import (
@@ -37,6 +38,7 @@ class ShawRelativePositionSDPA(SDPA):
 
     model_dim: int
     num_heads: int
+    bias: AttentionBias
     max_lhs_rel_pos: int
     max_rhs_rel_pos: int
     rel_k_embed: StandardEmbedding
@@ -46,8 +48,8 @@ class ShawRelativePositionSDPA(SDPA):
         self,
         model_dim: int,
         num_heads: int,
-        max_lhs_rel_pos: int,
         bias: AttentionBias,
+        max_lhs_rel_pos: int,
         *,
         max_rhs_rel_pos: int | None = None,
         use_rel_pos_values: bool = False,
@@ -62,7 +64,7 @@ class ShawRelativePositionSDPA(SDPA):
         :param: use_rel_pos_values: If ``True``, uses relative position values
             to compute attention.
         """
-        super().__init__(bias)
+        super().__init__()
 
         if model_dim % num_heads != 0:
             raise ValueError(
@@ -70,25 +72,27 @@ class ShawRelativePositionSDPA(SDPA):
             )
 
         self.model_dim = model_dim
+
         self.num_heads = num_heads
 
-        head_dim = model_dim // num_heads
-
-        self.max_lhs_rel_pos = max_lhs_rel_pos
+        self.bias = bias
 
         if max_rhs_rel_pos is None:
-            self.max_rhs_rel_pos = max_lhs_rel_pos
-        else:
-            self.max_rhs_rel_pos = max_rhs_rel_pos
+            max_rhs_rel_pos = max_lhs_rel_pos
+
+        self.max_lhs_rel_pos = max_lhs_rel_pos
+        self.max_rhs_rel_pos = max_rhs_rel_pos
 
         num_pos = self.max_lhs_rel_pos + 1 + self.max_rhs_rel_pos
+
+        head_dim = model_dim // num_heads
 
         self.rel_k_embed = StandardEmbedding(
             num_pos, head_dim, init_fn=init_shaw_embedding, device=device, dtype=dtype
         )
 
         if use_rel_pos_values:
-            self.rel_v_embed = StandardEmbedding(
+            rel_v_embed = StandardEmbedding(
                 num_pos,
                 head_dim,
                 init_fn=init_shaw_embedding,
@@ -96,7 +100,9 @@ class ShawRelativePositionSDPA(SDPA):
                 dtype=dtype,
             )
         else:
-            self.register_module("rel_v_embed", None)
+            rel_v_embed = None
+
+        self.register_module("rel_v_embed", rel_v_embed)
 
     @override
     def forward(
@@ -116,8 +122,8 @@ class ShawRelativePositionSDPA(SDPA):
             )
 
         # ([[N], H], S, S_kv)
-        bias = self._maybe_get_attention_bias_tensor(
-            seqs, seqs_layout, keys_layout, bias_cache
+        bias = maybe_get_attention_bias_tensor(
+            self.bias, seqs, seqs_layout, keys_layout, bias_cache
         )
 
         q, k, v = seqs, keys, values
@@ -179,6 +185,9 @@ class ShawRelativePositionSDPA(SDPA):
 
         return attns, attn_weights if needs_weights else None
 
+    if TYPE_CHECKING:
+        __call__ = forward
+
     def _get_relative_indices(self, k: Tensor) -> Tensor:
         # (S, 1)
         indices = torch.arange(k.size(-2), device=k.device).unsqueeze(0)
@@ -192,16 +201,15 @@ class ShawRelativePositionSDPA(SDPA):
 
         return rel_indices + self.max_lhs_rel_pos
 
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = super().extra_repr()
-
         return (
             f"model_dim={self.model_dim}, "
             f"num_heads={self.num_heads}, "
+            f"bias={self.bias}, "
             f"max_lhs_rel_pos={self.max_lhs_rel_pos}, "
-            f"max_rhs_rel_pos={self.max_rhs_rel_pos}, "
-            f"{s}"
+            f"max_rhs_rel_pos={self.max_rhs_rel_pos}"
         )
 
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import final
+from typing import TYPE_CHECKING, final
 
 from torch import Tensor
 from torch.nn import Dropout, Module, ReLU, Sigmoid, SiLU
@@ -22,17 +22,6 @@ from fairseq2.nn import Linear, Projection
 class FeedForwardNetwork(Module, ABC):
     """Represents a Transformer feed-forward network."""
 
-    model_dim: int
-
-    def __init__(self, model_dim: int) -> None:
-        """
-        :param model_dim:
-            The dimensionality of the model.
-        """
-        super().__init__()
-
-        self.model_dim = model_dim
-
     @abstractmethod
     def forward(self, seqs: Tensor) -> Tensor:
         """
@@ -45,9 +34,8 @@ class FeedForwardNetwork(Module, ABC):
             The projected sequences. *Shape:* Same as ``seqs``.
         """
 
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        return f"model_dim={self.model_dim}"
+    if TYPE_CHECKING:
+        __call__ = forward
 
 
 @final
@@ -88,7 +76,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         :param proj_init_fn:
             The callable to initialize the inner and output projections.
         """
-        super().__init__(model_dim)
+        super().__init__()
 
         self.inner_proj = Linear(
             model_dim, inner_dim, bias, init_fn=proj_init_fn, device=device, dtype=dtype
@@ -100,9 +88,11 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
             self.inner_activation = inner_activation
 
         if inner_dropout_p > 0.0:
-            self.inner_dropout = Dropout(inner_dropout_p)
+            inner_dropout = Dropout(inner_dropout_p)
         else:
-            self.register_module("inner_dropout", None)
+            inner_dropout = None
+
+        self.register_module("inner_dropout", inner_dropout)
 
         self.output_proj = Linear(
             inner_dim, model_dim, bias, init_fn=proj_init_fn, device=device, dtype=dtype
@@ -160,7 +150,7 @@ class DauphinFeedForwardNetwork(FeedForwardNetwork):
         :param proj_init_fn:
             The callable to initialize the inner and output projections.
         """
-        super().__init__(model_dim)
+        super().__init__()
 
         self.inner_proj = Linear(
             model_dim,
@@ -177,9 +167,11 @@ class DauphinFeedForwardNetwork(FeedForwardNetwork):
             self.inner_activation = inner_activation
 
         if inner_dropout_p > 0.0:
-            self.inner_dropout = Dropout(inner_dropout_p)
+            inner_dropout = Dropout(inner_dropout_p)
         else:
-            self.register_module("inner_dropout", None)
+            inner_dropout = None
+
+        self.register_module("inner_dropout", inner_dropout)
 
         self.output_proj = Linear(
             inner_dim, model_dim, bias, device=device, dtype=dtype
@@ -249,7 +241,7 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         :param proj_init_fn:
             The callable to initialize the inner, gate, and output projections.
         """
-        super().__init__(model_dim)
+        super().__init__()
 
         self.inner_dim_scale = inner_dim_scale
 
@@ -287,9 +279,11 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         )
 
         if inner_dropout_p > 0.0:
-            self.inner_dropout = Dropout(inner_dropout_p)
+            inner_dropout = Dropout(inner_dropout_p)
         else:
-            self.register_module("inner_dropout", None)
+            inner_dropout = None
+
+        self.register_module("inner_dropout", inner_dropout)
 
         self.output_proj = Linear(
             inner_dim,
@@ -310,6 +304,8 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
 
         seqs = seqs * gate
 
+        del gate
+
         if self.inner_dropout is not None:
             seqs = self.inner_dropout(seqs)
 
@@ -317,12 +313,10 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
 
         return seqs
 
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = super().extra_repr()
-
         return (
-            f"{s}, "
             f"inner_dim_scale={self.inner_dim_scale:G}, "
             f"inner_dim_to_multiple={self.inner_dim_to_multiple}"
         )

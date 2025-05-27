@@ -18,11 +18,11 @@ from fairseq2.typing import ContextManager
 
 # isort: split
 
-from fairseq2.nn.data_parallel._common import FsdpApplier, FsdpGranularity
+from fairseq2.nn.data_parallel._common import FSDPApplier, FSDPGranularity
 
 
 @final
-class Fsdp2Module(Module):
+class FSDP2(Module):
     def unshard(self) -> None:
         _raise_error()
 
@@ -36,34 +36,34 @@ class Fsdp2Module(Module):
 def to_fsdp2(
     module: Module,
     gangs: Gangs,
-    applier: FsdpApplier,
+    applier: FSDPApplier,
     *,
-    granularity: FsdpGranularity = "layer",
+    granularity: FSDPGranularity = "layer",
     mixed_precision_dtype: DataType | None = None,
     fp32_reduce: bool = False,
     broadcast_state: bool = False,
     skip_init: bool = False,
     reshard_after_forward: bool = True,
     cpu_offload: bool = False,
-) -> Fsdp2Module:
+) -> FSDP2:
     _raise_error()
 
 
-def fsdp2_local_state_dict(fsdp_module: Fsdp2Module) -> dict[str, object]:
+def fsdp2_local_state_dict(fsdp_module: FSDP2) -> dict[str, object]:
     _raise_error()
 
 
 def fsdp2_load_local_state_dict(
-    module: Fsdp2Module, state_dict: Mapping[str, object]
+    module: FSDP2, state_dict: Mapping[str, object]
 ) -> None:
     _raise_error()
 
 
-def fsdp2_no_sync(fsdp_module: Fsdp2Module) -> ContextManager:
+def fsdp2_no_sync(fsdp_module: FSDP2) -> ContextManager:
     _raise_error()
 
 
-def fsdp2_summon_full_parameters(fsdp_module: Fsdp2Module) -> ContextManager:
+def fsdp2_summon_full_parameters(fsdp_module: FSDP2) -> ContextManager:
     _raise_error()
 
 

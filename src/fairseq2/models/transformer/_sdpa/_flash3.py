@@ -37,13 +37,13 @@ from fairseq2.models.transformer._sdpa._base import SDPA
 class Flash3SDPA(SDPA):
     """Computes scaled dot-product attention using FlashAttention3."""
 
+    bias: AttentionBias
     dropout_p: float
 
     def __init__(self, bias: AttentionBias, *, dropout_p: float = 0.0) -> None:
-        """
-        :param dropout_p: The dropout probability on attention weights.
-        """
-        super().__init__(bias)
+        super().__init__()
+
+        self.bias = bias
 
         self.dropout_p = dropout_p
 
@@ -112,11 +112,10 @@ class Flash3SDPA(SDPA):
 
         return attns, None
 
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = super().extra_repr()
-
-        return f"{s}, dropout_p={self.dropout_p:G}"
+        return f"bias={self.bias}, dropout_p={self.dropout_p:G}"
 
 
 def flash_attn_3(
