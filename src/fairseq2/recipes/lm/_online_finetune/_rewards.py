@@ -30,6 +30,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
 )
 from fairseq2.recipes.model import Model
 from fairseq2.recipes.trainer import TrainUnit
+import re
 
 
 @dataclass(kw_only=True)
@@ -345,6 +346,47 @@ class AtheneVerifier(VLLMOutputReward):
 
         return chat_str
 
+    def find_sublist_locations(self, token_ids, sublist):
+        n = len(token_ids)
+        m = len(sublist)
+        if m == 0:
+            return None
+        for i in range(n - m + 1):
+            if token_ids[i : i + m] == sublist:
+                start_index = i
+                end_index = i + m - 1  # end is inclusive
+                return (start_index, end_index)
+        return None
+
+    def extract_prompt_response(self, rollout_output):
+        text = rollout_output.text
+        token_ids = rollout_output.token_ids
+        response_start_tokens = self.tokenizer.encode("<|response_start|>")[1:]
+        response_end_tokens = self.tokenizer.encode("<|response_end|>")[1:]
+
+        prompt_pattern = r"<\|prompt_start\|>(.*?)<\|prompt_end\|>"
+        response_pattern = r"<\|response_start\|>(.*?)(?:<\|response_end\|>|$)" # matches end tag, or just end of string
+
+        prompt_match = re.search(prompt_pattern, text, re.DOTALL)
+        response_match = re.search(response_pattern, text, re.DOTALL)
+
+        if prompt_match and response_match:
+            prompt = prompt_match.group(1).strip()
+            response = response_match.group(1).strip()
+
+            # start_b_e = self.find_sublist_locations(token_ids, response_start_tokens)
+            # end_b_e = self.find_sublist_locations(token_ids, response_end_tokens)
+            # if not start_b_e:
+            #     return None, None
+
+            # if self._gangs.dp.rank == 0:
+            #     breakpoint()
+            # self._gangs.root.barrier()
+
+            return prompt, response
+        else:
+            return "dummy_prompt", "dummy_response"
+
     @override
     def process_rollouts(
         self, vllm_outputs: List[RequestOutput], prompt_batch: PromptBatch
@@ -365,9 +407,18 @@ class AtheneVerifier(VLLMOutputReward):
             rollouts_tokens = []
             for rollout_output in i_batch_request_output.outputs:
                 rollout_text = rollout_output.text
+
+                prompt_text, rollout_text = self.extract_prompt_response(rollout_output)
+
+                # if self._gangs.dp.rank == 0:
+                #     # print(self.tokenizer.decode(prompt_batch.prompts[0]))
+                #     print(self.tokenizer.decode(rollout_output.token_ids))
+                #     breakpoint()
+                self._gangs.root.barrier()
+
                 vllm_input = self.wrap_text(prompt_text, rollout_text)
                 vllm_inputs.append(vllm_input)
-                rollouts_text.append(rollout_output.text)
+                rollouts_text.append(rollout_text)
                 rollouts_tokens.append(rollout_output.token_ids)
 
             batch_text.append(rollouts_text)
