@@ -14,13 +14,10 @@ from typing import Any, Callable, Dict, Final, List
 
 import numpy as np
 import torch
-from torch import Tensor
-from torch.nn.functional import layer_norm
-from typing_extensions import override
 
-from fairseq2.data import Collater, DataPipelineBuilder, FileMapper, create_bucket_sizes
+from fairseq2.data import Collater, create_bucket_sizes, DataPipelineBuilder, FileMapper
 from fairseq2.data.audio import AudioDecoder, WaveformToFbankConverter
-from fairseq2.data.text import StrSplitter, read_text
+from fairseq2.data.text import read_text, StrSplitter
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
@@ -38,6 +35,9 @@ from fairseq2.logging import log
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import DataType, Device
+from torch import Tensor
+from torch.nn.functional import layer_norm
+from typing_extensions import override
 
 
 @torch.no_grad()
@@ -105,6 +105,16 @@ class SpeechReadOptions(DataReadOptions):
 
     npc: int = 10
     """The number of parallel calls to use in the pipeline."""
+
+    n_context_examples: int = 0
+    """The number of context examples to use when providing context."""
+
+    bucket_size: int = 2000
+    """Minimum size of pool for choosing context examples."""
+
+    deterministic_context: bool = False
+    """If ``True``, the context examples will be selected deterministically from the \
+    audio path. Should be True for eval sets and False for train sets."""
 
 
 class SpeechDataset(ABC):
@@ -208,7 +218,10 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
 
     @staticmethod
     def add_audio_decoding(
-        builder: DataPipelineBuilder, options: SpeechReadOptions, audio_dir: Path | None
+        builder: DataPipelineBuilder,
+        options: SpeechReadOptions,
+        audio_dir: Path | None,
+        selector: str = "[*].audio",
     ) -> DataPipelineBuilder:
         # Memory map audio files.
         cached_fd_count = options.extras.get("cached_fd_count", 1000)
@@ -219,14 +232,14 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
 
         file_mapper = FileMapper(audio_dir, cached_fd_count=cached_fd_count)
 
-        builder.map(file_mapper, selector="[*].audio")
+        builder.map(file_mapper, selector=selector)
 
         # Decode audio.
         audio_decoder = AudioDecoder(
             dtype=torch.float32 if options.normalize_audio else options.dtype
         )
         builder.map(
-            audio_decoder, selector="[*].audio.data", num_parallel_calls=options.npc
+            audio_decoder, selector=selector + ".data", num_parallel_calls=options.npc
         )
         return builder
 
@@ -234,7 +247,8 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
     def audio_post_process(
         builder: DataPipelineBuilder,
         options: SpeechReadOptions,
-        renaming: Callable[[List[Dict[str, Any]]], List[Dict[str, Any]]],
+        renaming: Callable[[List[Dict[str, Any]]], List[Dict[str, Any]]] | None = None,
+        selector: str = "[*].audio",
     ) -> DataPipelineBuilder:
         if options.use_fbank:
             fbank_converter = WaveformToFbankConverter(
@@ -247,7 +261,7 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
 
             builder.map(
                 fbank_converter,
-                selector="[*].audio.data",
+                selector=selector + ".data",
                 num_parallel_calls=options.npc,
             )
         else:
@@ -257,11 +271,12 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
                     normalize_audio=options.normalize_audio,
                     dtype=options.dtype,
                 ),
-                selector="[*].audio.data.waveform",
+                selector=selector + ".data.waveform",
             )
 
         # select the audio feature at the top level
-        builder.map(renaming)
+        if renaming is not None:
+            builder.map(renaming)
         return builder
 
     @staticmethod

@@ -125,9 +125,9 @@ class AsrScorer:
         hyps = [self._text_decoder(s) for s in hyp_seqs]
 
         for r, h in zip(refs, hyps):
-            if torch.rand([]) < 0.01 or bool(re.search(r"[\u0590-\u05FF]", r)):
-                log.info(f"Reference: {r}")
-                log.info(f"Hypothesis: {h}")
+            # if torch.rand([]) < 0.01 or bool(re.search(r"[\u0590-\u05FF]", r)):
+            log.info(f"Reference: {r}")
+            log.info(f"Hypothesis: {h}")
 
         metric_bag.wer.update(
             refs, ref_seqs, ref_padding_mask, hyps, hyp_seqs, hyp_padding_mask

@@ -172,6 +172,9 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     extras: dict[str, object] = field(default_factory=dict)
     """The dataset-specific extra options."""
 
+    n_context_examples: int = 0
+    """The number of context examples to use when providing context."""
+
 
 @dataclass(kw_only=True)
 class Wav2Vec2AsrTrainerSection(TrainerSection):
@@ -272,8 +275,15 @@ def load_wav2vec2_asr_trainer(
         and config.pretrained_model.name
         and not machine_name.startswith("devvm")
     ):
+        tp = (
+            AsrModel
+            # TODO (gilkeren): find a nicer way to do this
+            if "ctc" in config.pretrained_model.name
+            or "best_checkpoint" in config.pretrained_model.name
+            else Wav2Vec2Model
+        )
         pt_model = load_reference_model(
-            Wav2Vec2Model,
+            tp,
             context,
             config.pretrained_model,
             gangs,
@@ -281,7 +291,7 @@ def load_wav2vec2_asr_trainer(
             mp=config.trainer.mixed_precision != "off",
         )
 
-        pt_module = cast(Wav2Vec2Model, pt_model.module)
+        pt_module = cast(tp, pt_model.module)
 
         share_parameters(pt_module.encoder_frontend, module.encoder_frontend)  # type: ignore
         share_parameters(pt_module.encoder, module.encoder)  # type: ignore
@@ -298,6 +308,7 @@ def load_wav2vec2_asr_trainer(
 
         try:
             gangs.root.barrier()
+            log.info("Pretrained encoder loaded")
         except GangError as ex:
             raise RecipeError(
                 "The collective barrier after the pretrained model load operation has failed. See the nested exception for details."
@@ -403,6 +414,9 @@ def load_wav2vec2_asr_trainer(
         seed=seed,
         extras=config.dataset.extras,
         npc=config.dataset.npc,
+        n_context_examples=config.dataset.n_context_examples,
+        bucket_size=2000,
+        deterministic_context=False,
     )
 
     dataset: AsrDataset | BatchMixtureDataset
@@ -441,6 +455,9 @@ def load_wav2vec2_asr_trainer(
             num_prefetch=config.dataset.num_prefetch,
             seed=seed,
             extras=config.dataset.extras,
+            n_context_examples=config.dataset.n_context_examples,
+            bucket_size=30,
+            deterministic_context=True,
         )
 
         valid_units = []
