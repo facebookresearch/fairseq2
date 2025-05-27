@@ -296,6 +296,8 @@ def load_online_finetuner(
         raise UnknownOnlineFinetuneUnitError(config.criterion.name) from None
 
     unit = unit_handler.create(model, gangs, config, vllm_actors)
+    print(f"rank {gangs.root.rank} here")
+
     try:
         if unit._sync_vllm_model_every_n_steps >= 0:
             unit.maybe_sync_models(force_sync_vllm=True)
@@ -311,18 +313,33 @@ def load_online_finetuner(
     else:
         raise ValueError
 
+    # estimate batch repeat for microbatching
+    repeat_batch_n_times = 1
+    if unit.display_name == "GRPO":
+        if unit._loss_config.group_size > unit._loss_config.forward_group_size:
+            repeat_batch_n_times = int(
+                unit._loss_config.group_size / unit._loss_config.forward_group_size
+            )
+            # adjust grad accum so that it assumed repeated batches
+            gradient_accumulation = (
+                repeat_batch_n_times * config.trainer.gradient_accumulation
+            )
+        elif unit._loss_config.group_size < unit._loss_config.forward_group_size:
+            raise RuntimeError(
+                " GRPO forward_group_size must be smaller than group_size"
+            )
+
     read_options = PromptReadOptions(
         batching=batching,
         example_shuffle_window=config.dataset.example_shuffle_window,
         batch_shuffle_window=config.dataset.batch_shuffle_window,
-        num_accumulate=config.trainer.gradient_accumulation,
+        num_accumulate=gradient_accumulation,
         num_prefetch=config.dataset.num_prefetch,
         source_encode_mode=config.dataset.source_encode_mode,
-        # max_num_batches=4,  ## TODO
         seed=seed,
         extras=config.dataset.extras,
         src_key=config.dataset.src_key,
-        # repeat_batch_n_times=config.trainer.gradient_accumulation,
+        repeat_batch_n_times=repeat_batch_n_times,
     )
 
     data_reader = dataset.create_reader(
