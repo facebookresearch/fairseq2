@@ -6,17 +6,17 @@
 
 from __future__ import annotations
 
+import socket
+
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, cast, final
+from typing import cast, final, Literal
 
 import torch
-from torch import Tensor
-from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset
+from fairseq2.datasets.asr import AsrDataset, GENERIC_ASR_DATASET_FAMILY
 from fairseq2.datasets.speech import SpeechReadOptions
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
@@ -60,13 +60,15 @@ from fairseq2.recipes.config import (
 )
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.wav2vec2.batch_weighted_datareader import (
-    MIXTURE_DATASET_FAMILY,
     BatchMixtureDataset,
+    MIXTURE_DATASET_FAMILY,
 )
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+from torch import Tensor
+from typing_extensions import override
 
 
 @dataclass(kw_only=True)
@@ -122,6 +124,7 @@ class Wav2Vec2AsrTrainConfig:
             validate_after_n_steps=10_000,
             validate_every_n_steps=1_000,
             publish_metrics_every_n_steps=200,
+            keep_last_n_checkpoints=1,
         )
     )
 
@@ -263,7 +266,12 @@ def load_wav2vec2_asr_trainer(
 
     # If we start the training with an empty ASR model, use the weights of a
     # pretrained wav2vec 2.0 model.
-    if model.is_empty_initialized:
+    machine_name = socket.gethostname()
+    if (
+        model.is_empty_initialized
+        and config.pretrained_model.name
+        and not machine_name.startswith("devvm")
+    ):
         pt_model = load_reference_model(
             Wav2Vec2Model,
             context,
