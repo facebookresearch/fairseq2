@@ -136,6 +136,18 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
             seed=options.seed,
             columns="length",
         )
+        builder = GenericAsrParquetDataset.build_parquet_audio_text_reading(
+            builder, options, tokenizer, gang
+        )
+        return builder
+
+    @staticmethod
+    def build_parquet_audio_text_reading(
+        builder: DataPipelineBuilder,
+        options: SpeechReadOptions,
+        tokenizer: TextTokenizer,
+        gang: Gang,
+    ) -> DataPipelineBuilder:
         builder = GenericSpeechParquetDataset.add_audio_decoding(builder, options)
         builder = GenericSpeechDataset.audio_post_process(
             builder, options, GenericSpeechDataset.rename_feature
