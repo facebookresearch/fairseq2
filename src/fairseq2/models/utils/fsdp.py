@@ -11,13 +11,13 @@ from typing import TypeVar
 from torch.nn import Module
 
 from fairseq2.nn import LayerStack
-from fairseq2.nn.data_parallel import FsdpGranularity, FsdpWrapper
+from fairseq2.nn.data_parallel import FSDPGranularity, FSDPWrapper
 
 ModelT_contra = TypeVar("ModelT_contra", bound=Module, contravariant=True)
 
 
 def apply_default_fsdp(
-    model: ModelT_contra, granularity: FsdpGranularity, wrapper: FsdpWrapper
+    model: ModelT_contra, granularity: FSDPGranularity, wrapper: FSDPWrapper
 ) -> None:
     applied = _do_apply_default_fsdp(model, granularity, wrapper)
 
@@ -26,7 +26,7 @@ def apply_default_fsdp(
 
 
 def _do_apply_default_fsdp(
-    module: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
+    module: Module, granularity: FSDPGranularity, wrapper: FSDPWrapper
 ) -> bool:
     applied = False
 
@@ -61,7 +61,7 @@ def _do_apply_default_fsdp(
 
 
 def _do_apply_layerwise_fsdp(
-    stack: LayerStack, granularity: FsdpGranularity, wrapper: FsdpWrapper
+    stack: LayerStack, granularity: FSDPGranularity, wrapper: FSDPWrapper
 ) -> None:
     layers = list(stack.layers.named_children())
 

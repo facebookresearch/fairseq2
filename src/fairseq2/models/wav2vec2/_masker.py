@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import final
+from typing import TYPE_CHECKING, final
 
 import torch
 import torch.nn as nn
@@ -20,6 +20,7 @@ from fairseq2.device import Device
 from fairseq2.error import InternalError
 from fairseq2.nn import BatchLayout
 from fairseq2.nn.utils.mask import RowMaskFactory, compute_row_mask
+from fairseq2.typing import get_name_or_self
 
 
 class Wav2Vec2Masker(Module, ABC):
@@ -40,18 +41,42 @@ class Wav2Vec2Masker(Module, ABC):
               the sequence length.
         """
 
+    if TYPE_CHECKING:
+        __call__ = forward
+
+    @staticmethod
+    def extract_masked_elements(seqs: Tensor, temporal_mask: Tensor) -> Tensor:
+        """
+        Extracts masked elements from ``seqs``.
+
+        :param seqs: The sequences. *Shape:* :math:`(N,S,M)`, where :math:`N` is
+            the batch size, :math:`S` is the sequence length, and :math:`M` is
+            the dimensionality of the model.
+        :param temporal_mask: The temporal mask. *Shape:* :math:`(N,S)`, where
+            :math:`N` is the batch size and :math`S` is the sequence length.
+        """
+        batch_size = seqs.size(0)
+
+        # (N, S, M) -> (N x T, M)
+        seqs = seqs[temporal_mask]
+
+        # (N x T, M) -> (N, T, M)
+        return seqs.unflatten(0, (batch_size, -1))  # type: ignore[no-any-return]
+
 
 @final
 class StandardWav2Vec2Masker(Wav2Vec2Masker):
     """Masks extracted wav2vec 2.0 features as described in Section 3.1 of
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`."""
 
-    mask_factory: RowMaskFactory
+    temporal_mask_embed: Parameter
     temporal_span_len: int
     max_temporal_mask_prob: float
-    temporal_mask_embed: Parameter
+    min_num_temporal_mask_spans: int
     spatial_span_len: int
     max_spatial_mask_prob: float
+    min_num_spatial_mask_spans: int
+    mask_factory: RowMaskFactory
 
     def __init__(
         self,
@@ -87,27 +112,26 @@ class StandardWav2Vec2Masker(Wav2Vec2Masker):
         """
         super().__init__()
 
-        self.mask_factory = mask_factory or compute_row_mask
-
-        if max_temporal_mask_prob == 0.0:
+        if max_temporal_mask_prob <= 0.0:
             raise ValueError("`max_temporal_mask_prob` must be greater than 0.")
-
-        self.temporal_span_len = temporal_span_len
-        self.max_temporal_mask_prob = max_temporal_mask_prob
-        self.min_num_temporal_mask_spans = min_num_temporal_mask_spans
 
         self.temporal_mask_embed = Parameter(
             torch.empty((model_dim,), device=device, dtype=dtype)
         )
 
+        self.temporal_span_len = temporal_span_len
+        self.max_temporal_mask_prob = max_temporal_mask_prob
+        self.min_num_temporal_mask_spans = min_num_temporal_mask_spans
+
         self.spatial_span_len = spatial_span_len
         self.max_spatial_mask_prob = max_spatial_mask_prob
         self.min_num_spatial_mask_spans = min_num_spatial_mask_spans
 
+        self.mask_factory = mask_factory or compute_row_mask
+
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
         nn.init.uniform_(self.temporal_mask_embed)
 
     @override
@@ -153,6 +177,7 @@ class StandardWav2Vec2Masker(Wav2Vec2Masker):
 
         return seqs, temporal_mask
 
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
         s = (
@@ -165,28 +190,8 @@ class StandardWav2Vec2Masker(Wav2Vec2Masker):
         )
 
         if self.mask_factory is not compute_row_mask:
-            mask_factory = getattr(self.mask_factory, "__name__", self.mask_factory)
+            mask_factory = get_name_or_self(self.mask_factory)
 
             s = f"{s}, mask_factory={mask_factory}"
 
         return s
-
-
-def extract_masked_elements(seqs: Tensor, temporal_mask: Tensor) -> Tensor:
-    """Extract masked elements from ``seqs``.
-
-    :param seqs:
-        The sequences. *Shape:* :math:`(N,S,M)`, where :math:`N` is the batch
-        size, :math:`S` is the sequence length, and :math:`M` is the
-        dimensionality of the model.
-    :param temporal_mask:
-        The temporal mask. *Shape:* :math:`(N,S)`, where :math:`N` is the batch
-        size and :math`S` is the sequence length.
-    """
-    batch_size = seqs.size(0)
-
-    # (N, S, M) -> (N x T, M)
-    seqs = seqs[temporal_mask]
-
-    # (N x T, M) -> (N, T, M)
-    return seqs.unflatten(0, (batch_size, -1))  # type: ignore[no-any-return]

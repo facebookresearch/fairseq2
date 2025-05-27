@@ -21,7 +21,7 @@ from fairseq2.recipes.config import (
     ActivationCheckpointingSection,
     CommonSection,
     DatasetSection,
-    FsdpSection,
+    FSDPSection,
     GangSection,
     LRSchedulerSection,
     ModelSection,
@@ -53,7 +53,7 @@ class POFinetuneConfig:
         default_factory=lambda: TrainerSection(
             dtype=torch.bfloat16,
             data_parallelism="fsdp",
-            fsdp=FsdpSection(fp32_reduce=True),
+            fsdp=FSDPSection(fp32_reduce=True),
             activation_checkpointing=ActivationCheckpointingSection(mode="layerwise"),
         )
     )

@@ -79,7 +79,7 @@ class ActivationCheckpointingNotSupportedError(NotSupportedError):
         self.model_name = model_name
 
 
-class FsdpNotSupportedError(NotSupportedError):
+class FSDPNotSupportedError(NotSupportedError):
     model_name: str
 
     def __init__(self, model_name: str) -> None:

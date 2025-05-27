@@ -8,11 +8,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from fairseq2.models.transformer_lm._model import TransformerLanguageModel
+import torch
+
+from fairseq2.models.transformer_lm._decoder import StandardTransformerLMDecoder
+from fairseq2.models.transformer_lm._model import TransformerLM
 
 
-def compile_transformer_lm(model: TransformerLanguageModel, **kwargs: Any) -> None:
+def compile_transformer_lm(model: TransformerLM, *args: Any, **kwargs: Any) -> None:
     for layer in model.decoder.layers:
-        layer.compile(**kwargs)
+        layer.compile(*args, **kwargs)
 
-    model.compile_loss_function(**kwargs)
+    if isinstance(model.decoder, StandardTransformerLMDecoder):
+        if model.decoder.layer_norm is not None:
+            model.decoder.layer_norm.compile(*args, **kwargs)
+
+    model.compute_fused_loss = torch.compile(model.compute_fused_loss, *args, **kwargs)  # type: ignore[method-assign]

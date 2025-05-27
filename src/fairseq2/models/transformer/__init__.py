@@ -17,6 +17,12 @@ from fairseq2.models.transformer._attention_bias import (
     CausalAttentionBias as CausalAttentionBias,
 )
 from fairseq2.models.transformer._attention_bias import IdentityBias as IdentityBias
+from fairseq2.models.transformer._attention_bias import (
+    materialize_attention_bias as materialize_attention_bias,
+)
+from fairseq2.models.transformer._attention_bias import (
+    maybe_get_attention_bias_tensor as maybe_get_attention_bias_tensor,
+)
 from fairseq2.models.transformer._checkpoint import (
     convert_transformer_checkpoint as convert_transformer_checkpoint,
 )
@@ -124,12 +130,6 @@ from fairseq2.models.transformer._multihead_attention import (
 )
 from fairseq2.models.transformer._norm_order import (
     TransformerNormOrder as TransformerNormOrder,
-)
-from fairseq2.models.transformer._normalization import (
-    LayerNormFactory as LayerNormFactory,
-)
-from fairseq2.models.transformer._normalization import (
-    create_standard_layer_norm as create_standard_layer_norm,
 )
 from fairseq2.models.transformer._sdpa._base import SDPA as SDPA
 from fairseq2.models.transformer._sdpa._default import SDPAFactory as SDPAFactory

@@ -15,9 +15,9 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.datasets.preference import PreferenceBatch
-from fairseq2.gang import Gang, Gangs
+from fairseq2.device import Device
+from fairseq2.gang import Gangs
 from fairseq2.metrics import Mean, MetricBag
-from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.recipes import Model, TrainUnit
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
@@ -45,7 +45,6 @@ class SimPOFinetuneUnit(TrainUnit[PreferenceBatch]):
     def __init__(
         self,
         model: Model,
-        gangs: Gangs,
         beta: float = 0.1,
         gamma: float = 0.5,
         nll_scale: float = 1.0,
@@ -55,7 +54,7 @@ class SimPOFinetuneUnit(TrainUnit[PreferenceBatch]):
         self._gamma = gamma
         self._nll_scale = nll_scale
 
-        self._metric_bag = SimPOFinetuneMetricBag(gangs.dp)
+        self._metric_bag = SimPOFinetuneMetricBag(device=model.device)
 
     @override
     def __call__(self, batch: PreferenceBatch) -> tuple[Tensor, int]:
@@ -69,29 +68,27 @@ class SimPOFinetuneUnit(TrainUnit[PreferenceBatch]):
 
         chosen_seqs, chosen_seqs_layout = chosen_input_batch.as_input()
 
-        chosen_output: SequenceModelOutput = self._model.module(
-            chosen_seqs, chosen_seqs_layout
+        nll_loss, chosen_logits = self._model(
+            chosen_seqs,
+            chosen_seqs_layout,
+            targets=chosen_target_batch.seqs,
+            target_mask=chosen_target_batch.target_mask,
+            return_logits=True,
         )
 
         rejected_seqs, rejected_seqs_layout = rejected_input_batch.as_input()
 
-        rejected_output: SequenceModelOutput = self._model.module(
-            rejected_seqs, rejected_seqs_layout
-        )
+        rejected_logits = self._model(rejected_seqs, rejected_seqs_layout)
 
         chosen_logps, average_chosen_logps = _gather_lprobs_avg(
-            chosen_output, chosen_target_batch
+            chosen_logits, chosen_target_batch
         )
         rejected_logps, average_rejected_logps = _gather_lprobs_avg(
-            rejected_output, rejected_target_batch
+            rejected_logits, rejected_target_batch
         )
 
         simpo_loss = self._compute_simpo_loss(
             average_chosen_logps, average_rejected_logps
-        )
-
-        nll_loss = chosen_output.compute_loss(
-            chosen_target_batch.seqs, loss_mask=chosen_target_batch.target_mask
         )
 
         self._metric_bag.update_simpo_loss(batch, simpo_loss)
@@ -138,10 +135,10 @@ class SimPOFinetuneMetricBag(POFinetuneMetricBag):
 
     simpo_loss: Mean
 
-    def __init__(self, gang: Gang) -> None:
-        super().__init__(gang)
+    def __init__(self, device: Device) -> None:
+        super().__init__(device)
 
-        self.simpo_loss = Mean(device=gang.device)
+        self.simpo_loss = Mean(device=device)
 
     @torch.inference_mode()
     def update_simpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
@@ -175,9 +172,7 @@ class SimPOFinetuneUnitHandler(POFinetuneUnitHandler):
 
         validate(config)
 
-        return SimPOFinetuneUnit(
-            model, gangs, config.beta, config.gamma, config.nll_scale
-        )
+        return SimPOFinetuneUnit(model, config.beta, config.gamma, config.nll_scale)
 
     @property
     @override

@@ -20,7 +20,7 @@ from fairseq2.recipes._evaluator import Evaluator as Evaluator
 from fairseq2.recipes._evaluator import EvalUnit as EvalUnit
 from fairseq2.recipes._generator import Generator as Generator
 from fairseq2.recipes._generator import GeneratorUnit as GeneratorUnit
-from fairseq2.recipes._metrics import RecipeMetricBag as RecipeMetricBag
+from fairseq2.recipes._metrics import CausalLMMetricBag as CausalLMMetricBag
 from fairseq2.recipes._metrics import (
     Seq2SeqGenerationMetricBag as Seq2SeqGenerationMetricBag,
 )
@@ -28,7 +28,6 @@ from fairseq2.recipes._metrics import Seq2SeqMetricBag as Seq2SeqMetricBag
 from fairseq2.recipes._metrics import (
     SequenceGenerationMetricBag as SequenceGenerationMetricBag,
 )
-from fairseq2.recipes._metrics import SequenceMetricBag as SequenceMetricBag
 from fairseq2.recipes._metrics import (
     extend_batch_metric_values as extend_batch_metric_values,
 )

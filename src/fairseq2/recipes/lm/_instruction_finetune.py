@@ -29,13 +29,11 @@ from fairseq2.datasets.instruction import (
     InstructionReadOptions,
 )
 from fairseq2.device import CPU
-from fairseq2.gang import Gangs
 from fairseq2.metrics import MetricBag
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.sequence import SequenceModelOutput
+from fairseq2.models.clm import CausalLM
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import COSINE_ANNEALING_LR, CosineAnnealingLRConfig
-from fairseq2.recipes import EvalUnit, Model, SequenceMetricBag, Trainer, TrainUnit
+from fairseq2.recipes import CausalLMMetricBag, EvalUnit, Model, Trainer, TrainUnit
 from fairseq2.recipes.common import (
     create_checkpoint_manager,
     create_lr_scheduler,
@@ -52,7 +50,7 @@ from fairseq2.recipes.config import (
     ActivationCheckpointingSection,
     CommonSection,
     DatasetSection,
-    FsdpSection,
+    FSDPSection,
     GangSection,
     LRSchedulerSection,
     ModelSection,
@@ -87,7 +85,7 @@ class InstructionFinetuneConfig:
         default_factory=lambda: TrainerSection(
             dtype=torch.bfloat16,
             data_parallelism="fsdp",
-            fsdp=FsdpSection(fp32_reduce=True),
+            fsdp=FSDPSection(fp32_reduce=True),
             activation_checkpointing=ActivationCheckpointingSection(mode="layerwise"),
         )
     )
@@ -237,7 +235,7 @@ def load_instruction_finetuner(
     seed += 1
 
     model = setup_model(
-        DecoderModel,
+        CausalLM,
         context,
         config.model,
         config.trainer,
@@ -259,7 +257,7 @@ def load_instruction_finetuner(
     # Initialize the unit.
     criterion = InstructionFinetuneCriterion(model)
 
-    unit = InstructionFinetuneUnit(criterion, gangs)
+    unit = InstructionFinetuneUnit(model, criterion)
 
     batching: Batching
 
@@ -293,7 +291,7 @@ def load_instruction_finetuner(
 
     # Initialize the validation unit.
     if config.dataset.valid_split is not None:
-        valid_unit = InstructionLossEvalUnit(criterion, gangs)
+        valid_unit = InstructionLossEvalUnit(model, criterion)
 
         max_num_tokens = (
             config.dataset.max_num_valid_tokens or config.dataset.max_num_tokens
@@ -351,13 +349,16 @@ def load_instruction_finetuner(
 
 @final
 class InstructionFinetuneUnit(TrainUnit[SequenceBatch]):
+    _model: Model
     _criterion: InstructionFinetuneCriterion
-    _metric_bag: SequenceMetricBag
+    _metric_bag: CausalLMMetricBag
 
-    def __init__(self, criterion: InstructionFinetuneCriterion, gangs: Gangs) -> None:
+    def __init__(self, model: Model, criterion: InstructionFinetuneCriterion) -> None:
+        self._model = model
+
         self._criterion = criterion
 
-        self._metric_bag = SequenceMetricBag(gangs.dp)
+        self._metric_bag = CausalLMMetricBag(device=model.device)
 
     @override
     def __call__(self, batch: SequenceBatch) -> tuple[Tensor, int]:
@@ -366,7 +367,7 @@ class InstructionFinetuneUnit(TrainUnit[SequenceBatch]):
     @property
     @override
     def model(self) -> Model:
-        return self._criterion.model
+        return self._model
 
     @property
     @override
@@ -376,13 +377,16 @@ class InstructionFinetuneUnit(TrainUnit[SequenceBatch]):
 
 @final
 class InstructionLossEvalUnit(EvalUnit[SequenceBatch]):
+    _model: Model
     _criterion: InstructionFinetuneCriterion
-    _metric_bag: SequenceMetricBag
+    _metric_bag: CausalLMMetricBag
 
-    def __init__(self, criterion: InstructionFinetuneCriterion, gangs: Gangs) -> None:
+    def __init__(self, model: Model, criterion: InstructionFinetuneCriterion) -> None:
+        self._model = model
+
         self._criterion = criterion
 
-        self._metric_bag = SequenceMetricBag(gangs.dp)
+        self._metric_bag = CausalLMMetricBag(device=model.device)
 
     @override
     def __call__(self, batch: SequenceBatch) -> None:
@@ -391,7 +395,7 @@ class InstructionLossEvalUnit(EvalUnit[SequenceBatch]):
     @property
     @override
     def model(self) -> Model:
-        return self._criterion.model
+        return self._model
 
     @property
     @override
@@ -404,32 +408,24 @@ class InstructionFinetuneCriterion:
     _model: Model
 
     def __init__(self, model: Model) -> None:
-        if not isinstance(model.base_module, DecoderModel):
-            raise TypeError(
-                f"`model.base_module` must be of type `{DecoderModel}`, but is of type `{type(model.base_module)}` instead."
-            )
-
         self._model = model
 
     def __call__(
-        self, batch: SequenceBatch, metric_bag: SequenceMetricBag
+        self, batch: SequenceBatch, metric_bag: CausalLMMetricBag
     ) -> tuple[Tensor, int]:
         batch, target_batch = batch.as_auto_regressive()
 
         seqs, seqs_layout = batch.as_input()
 
-        model_output: SequenceModelOutput = self._model.module(seqs, seqs_layout)
-
-        loss = model_output.compute_loss(
-            target_batch.seqs, loss_mask=target_batch.target_mask
+        nll_loss = self._model(
+            seqs,
+            seqs_layout,
+            targets=target_batch.seqs,
+            target_mask=target_batch.target_mask,
         )
 
-        metric_bag.update_nll_loss(target_batch, loss)
+        metric_bag.update_nll_loss(target_batch, nll_loss)
 
         metric_bag.update_batch_metrics(target_batch)
 
-        return loss, target_batch.num_target_elements
-
-    @property
-    def model(self) -> Model:
-        return self._model
+        return nll_loss, target_batch.num_target_elements

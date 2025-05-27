@@ -23,11 +23,10 @@ from fairseq2.datasets.text import (
 )
 from fairseq2.device import CPU
 from fairseq2.file_system import FileMode
-from fairseq2.gang import Gangs
 from fairseq2.generation import BeamSearchConfig, Seq2SeqGenerator
 from fairseq2.generation.text import SequenceToTextConverter
 from fairseq2.metrics import MetricBag
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
+from fairseq2.models.seq2seq import Seq2SeqModel
 from fairseq2.recipes import (
     Generator,
     GeneratorUnit,
@@ -154,7 +153,7 @@ def load_text_translator(
     seed += 1
 
     model = setup_reference_model(
-        EncoderDecoderModel,
+        Seq2SeqModel,
         context,
         config.model,
         gangs,
@@ -221,13 +220,7 @@ def load_text_translator(
         hyp_fp = None
 
     unit = TextTranslationUnit(
-        model,
-        seq2seq_generator,
-        target_tokenizer,
-        config.target_lang,
-        gangs,
-        src_fp,
-        hyp_fp,
+        model, seq2seq_generator, target_tokenizer, config.target_lang, src_fp, hyp_fp
     )
 
     text_encoder = source_tokenizer.create_encoder(
@@ -282,7 +275,6 @@ class TextTranslationUnit(GeneratorUnit[SequenceBatch]):
         generator: Seq2SeqGenerator,
         tokenizer: TextTokenizer,
         target_lang: str,
-        gangs: Gangs,
         src_output_stream: TextIO | None,
         hyp_output_stream: TextIO | None,
     ) -> None:
@@ -309,7 +301,7 @@ class TextTranslationUnit(GeneratorUnit[SequenceBatch]):
         self._src_output_stream = src_output_stream
         self._hyp_output_stream = hyp_output_stream
 
-        self._metric_bag = Seq2SeqGenerationMetricBag(gangs.dp)
+        self._metric_bag = Seq2SeqGenerationMetricBag(device=model.device)
 
     @override
     def __call__(self, batch: SequenceBatch) -> None:

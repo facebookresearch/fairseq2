@@ -28,11 +28,10 @@ from fairseq2.datasets.parallel_text import (
     ParallelTextReadOptions,
 )
 from fairseq2.device import CPU
-from fairseq2.gang import Gangs
 from fairseq2.generation import BeamSearchConfig
 from fairseq2.metrics import MetricBag
 from fairseq2.metrics.text import DEFAULT_BLEU_TOKENIZER
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
+from fairseq2.models.seq2seq import Seq2SeqModel
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import MYLE_LR, MyleLRConfig
 from fairseq2.recipes import EvalUnit, Model, Seq2SeqMetricBag, Trainer, TrainUnit
@@ -52,7 +51,7 @@ from fairseq2.recipes.common import (
 from fairseq2.recipes.config import (
     CommonSection,
     DatasetSection,
-    FsdpSection,
+    FSDPSection,
     GangSection,
     GradAccumulationSection,
     LRSchedulerSection,
@@ -69,7 +68,8 @@ from fairseq2.utils.validation import validate
 
 # isort: split
 
-from fairseq2.recipes.mt._common import MTCriterion, MTLossSection
+from fairseq2.recipes.mt._config import MTLossSection
+from fairseq2.recipes.mt._criterion import MTCriterion
 from fairseq2.recipes.mt._eval import MTBleuChrfEvalUnit, MTLossEvalUnit
 
 
@@ -104,7 +104,7 @@ class MTTrainConfig:
         default_factory=lambda: TrainerSection(
             dtype=torch.float16,
             data_parallelism="fsdp",
-            fsdp=FsdpSection(granularity="stack"),
+            fsdp=FSDPSection(granularity="stack"),
             grad_accumulation=GradAccumulationSection(num_batches=2),
         )
     )
@@ -236,7 +236,7 @@ def load_mt_trainer(
     seed += 1
 
     model = setup_model(
-        EncoderDecoderModel,
+        Seq2SeqModel,
         context,
         config.model,
         config.trainer,
@@ -261,9 +261,9 @@ def load_mt_trainer(
         target_tokenizer = load_text_tokenizer(context, config.target_tokenizer)
 
     # Initialize the train unit.
-    criterion = MTCriterion(model, label_smoothing=config.loss.label_smoothing)
+    criterion = MTCriterion(model, config.loss.label_smoothing)
 
-    unit = MTTrainUnit(criterion, gangs)
+    unit = MTTrainUnit(model, criterion)
 
     batching: Batching = LengthBatching(config.dataset.max_num_tokens)
 
@@ -319,7 +319,7 @@ def load_mt_trainer(
     for direction in directions:
         assert valid_split is not None
 
-        valid_loss_unit = MTLossEvalUnit(criterion, direction, gangs)
+        valid_loss_unit = MTLossEvalUnit(model, criterion, direction)
 
         valid_units.append(valid_loss_unit)
 
@@ -356,7 +356,6 @@ def load_mt_trainer(
                 direction,
                 seq2seq_generator,
                 target_tokenizer,
-                gangs,
                 bleu_tokenizer=config.validation.bleu_tokenizer,
             )
 
@@ -408,13 +407,16 @@ def load_mt_trainer(
 
 @final
 class MTTrainUnit(TrainUnit[Seq2SeqBatch]):
+    _model: Model
     _criterion: MTCriterion
     _metric_bag: Seq2SeqMetricBag
 
-    def __init__(self, criterion: MTCriterion, gangs: Gangs) -> None:
+    def __init__(self, model: Model, criterion: MTCriterion) -> None:
+        self._model = model
+
         self._criterion = criterion
 
-        self._metric_bag = Seq2SeqMetricBag(gangs.dp)
+        self._metric_bag = Seq2SeqMetricBag(device=model.device)
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> tuple[Tensor, int]:
@@ -423,7 +425,7 @@ class MTTrainUnit(TrainUnit[Seq2SeqBatch]):
     @property
     @override
     def model(self) -> Model:
-        return self._criterion.model
+        return self._model
 
     @property
     @override

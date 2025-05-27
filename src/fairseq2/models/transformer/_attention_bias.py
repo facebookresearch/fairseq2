@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import TypeVar, final
+from typing import Final, TypeVar, final
 
 import torch
 from torch import Tensor
@@ -20,115 +20,8 @@ from fairseq2.nn import BatchLayout
 
 
 class AttentionBias(ABC):
-    @final
-    def materialize(
-        self,
-        q_layout: BatchLayout,
-        k_layout: BatchLayout,
-        device: Device,
-        dtype: DataType,
-    ) -> Tensor:
-        if q_layout.packed ^ k_layout.packed:
-            raise ValueError("`q_layout` and `k_layout` must be both packed.")
-
-        num_q_seqs = len(q_layout.seq_lens)
-        num_k_seqs = len(k_layout.seq_lens)
-
-        if num_q_seqs != num_k_seqs:
-            raise ValueError(
-                f"`len(q_layout.seq_lens)` and `len(k_layout.seq_lens)` must be equal, but they are {num_q_seqs} and {num_k_seqs} instead."
-            )
-
-        if num_q_seqs == 0:
-            return torch.zeros((), device=device, dtype=dtype)
-
-        q_len = q_layout.width
-        k_len = k_layout.width
-
-        if q_layout.packed:
-            return self._create_block_bias_tensor(
-                q_layout.seq_lens, q_len, k_layout.seq_lens, k_len, device, dtype
-            )
-
-        if not q_layout.padded and not k_layout.padded:
-            return self._create_bias_tensor(q_len, k_len, device, dtype)
-
-        biases = []
-
-        for idx in range(num_q_seqs):
-            q_seq_lens = [q_layout.seq_lens[idx]]
-            k_seq_lens = [k_layout.seq_lens[idx]]
-
-            bias = self._create_block_bias_tensor(
-                q_seq_lens, q_len, k_seq_lens, k_len, device, dtype
-            )
-
-            if bias.ndim == 2:
-                bias = bias.unsqueeze(0)  # add head dim
-
-            biases.append(bias)
-
-        return torch.stack(biases)
-
-    @final
-    def _create_block_bias_tensor(
-        self,
-        q_seq_lens: Sequence[int],
-        q_len: int,
-        k_seq_lens: Sequence[int],
-        k_len: int,
-        device: Device,
-        dtype: DataType,
-    ) -> Tensor:
-        q_seq_ranges = self._get_seq_ranges(q_seq_lens)
-        k_seq_ranges = self._get_seq_ranges(k_seq_lens)
-
-        if len(q_seq_ranges) == 1:
-            q_begin, q_end = q_seq_ranges[0]
-            k_begin, k_end = k_seq_ranges[0]
-
-            if q_begin == 0 and q_end == q_len and k_begin == 0 and k_end == k_len:
-                return self._create_bias_tensor(q_len, k_len, device, dtype)
-
-        bias = torch.full((q_len, k_len), -torch.inf, device=device, dtype=dtype)
-
-        q_seq_ranges.append((q_len, q_len))
-        k_seq_ranges.append((k_len, k_len))
-
-        prev_q_end = 0
-        prev_k_end = 0
-
-        for (q_begin, q_end), (k_begin, k_end) in zip(q_seq_ranges, k_seq_ranges):
-            if prev_q_end != q_begin and prev_k_end != k_begin:  # pad
-                bias[prev_q_end:q_begin, prev_k_end:k_begin] = 0.0
-
-            if q_begin != q_end and k_begin != k_end:
-                bias[q_begin:q_end, k_begin:k_end] = self._create_bias_tensor(
-                    q_end - q_begin, k_end - k_begin, device, dtype
-                )
-
-            prev_q_end = q_end
-            prev_k_end = k_end
-
-        return bias
-
-    @staticmethod
-    def _get_seq_ranges(seq_lens: Sequence[int]) -> list[tuple[int, int]]:
-        seq_ranges = []
-
-        seq_beg = 0
-
-        for seq_len in seq_lens:
-            seq_end = seq_beg + seq_len
-
-            seq_ranges.append((seq_beg, seq_end))
-
-            seq_beg = seq_end
-
-        return seq_ranges
-
     @abstractmethod
-    def _create_bias_tensor(
+    def create_bias_tensor(
         self, q_len: int, k_len: int, device: Device, dtype: DataType
     ) -> Tensor: ...
 
@@ -145,7 +38,7 @@ class IdentityBias(AttentionBias):
         return hash("identity")
 
     @override
-    def _create_bias_tensor(
+    def create_bias_tensor(
         self, q_len: int, k_len: int, device: Device, dtype: DataType
     ) -> Tensor:
         # (S, S_kv)
@@ -159,7 +52,7 @@ class IdentityBias(AttentionBias):
 class CausalAttentionBias(AttentionBias):
     """Represents a causal attention bias."""
 
-    attn_window_len: int | None
+    attn_window_len: Final[int | None]
 
     def __init__(self, *, attn_window_len: int | None = None) -> None:
         """
@@ -181,7 +74,7 @@ class CausalAttentionBias(AttentionBias):
         return hash((self.attn_window_len,))
 
     @override
-    def _create_bias_tensor(
+    def create_bias_tensor(
         self, q_len: int, k_len: int, device: Device, dtype: DataType
     ) -> Tensor:
         if self.attn_window_len is None:
@@ -213,7 +106,7 @@ class ALiBiAttentionBias(AttentionBias):
     :cite:t:`https://doi.org/10.48550/arxiv.2108.12409`.
     """
 
-    num_heads: int
+    num_heads: Final[int]
 
     def __init__(self, num_heads: int) -> None:
         self.num_heads = num_heads
@@ -228,7 +121,7 @@ class ALiBiAttentionBias(AttentionBias):
         return hash((self.num_heads,))
 
     @override
-    def _create_bias_tensor(
+    def create_bias_tensor(
         self, q_len: int, k_len: int, device: Device, dtype: DataType
     ) -> Tensor:
         num_heads = self.num_heads
@@ -297,6 +190,113 @@ def _create_causal_bias_tensor(
     return bias
 
 
+def materialize_attention_bias(
+    bias: AttentionBias,
+    q_layout: BatchLayout,
+    k_layout: BatchLayout,
+    device: Device,
+    dtype: DataType,
+) -> Tensor:
+    if q_layout.packed ^ k_layout.packed:
+        raise ValueError("`q_layout` and `k_layout` must be both packed.")
+
+    num_q_seqs = len(q_layout.seq_lens)
+    num_k_seqs = len(k_layout.seq_lens)
+
+    if num_q_seqs != num_k_seqs:
+        raise ValueError(
+            f"`len(q_layout.seq_lens)` and `len(k_layout.seq_lens)` must be equal, but they are {num_q_seqs} and {num_k_seqs} instead."
+        )
+
+    if num_q_seqs == 0:
+        return torch.zeros((), device=device, dtype=dtype)
+
+    q_len = q_layout.width
+    k_len = k_layout.width
+
+    if q_layout.packed:
+        return _create_block_bias_tensor(
+            bias, q_layout.seq_lens, q_len, k_layout.seq_lens, k_len, device, dtype
+        )
+
+    if not q_layout.padded and not k_layout.padded:
+        return bias.create_bias_tensor(q_len, k_len, device, dtype)
+
+    tensors = []
+
+    for idx in range(num_q_seqs):
+        q_seq_lens = [q_layout.seq_lens[idx]]
+        k_seq_lens = [k_layout.seq_lens[idx]]
+
+        tensor = _create_block_bias_tensor(
+            bias, q_seq_lens, q_len, k_seq_lens, k_len, device, dtype
+        )
+
+        if tensor.ndim == 2:
+            tensor = tensor.unsqueeze(0)  # add head dim
+
+        tensors.append(tensor)
+
+    return torch.stack(tensors)
+
+
+def _create_block_bias_tensor(
+    bias: AttentionBias,
+    q_seq_lens: Sequence[int],
+    q_len: int,
+    k_seq_lens: Sequence[int],
+    k_len: int,
+    device: Device,
+    dtype: DataType,
+) -> Tensor:
+    q_seq_ranges = _get_seq_ranges(q_seq_lens)
+    k_seq_ranges = _get_seq_ranges(k_seq_lens)
+
+    if len(q_seq_ranges) == 1:
+        q_begin, q_end = q_seq_ranges[0]
+        k_begin, k_end = k_seq_ranges[0]
+
+        if q_begin == 0 and q_end == q_len and k_begin == 0 and k_end == k_len:
+            return bias.create_bias_tensor(q_len, k_len, device, dtype)
+
+    tensor = torch.full((q_len, k_len), -torch.inf, device=device, dtype=dtype)
+
+    q_seq_ranges.append((q_len, q_len))
+    k_seq_ranges.append((k_len, k_len))
+
+    prev_q_end = 0
+    prev_k_end = 0
+
+    for (q_begin, q_end), (k_begin, k_end) in zip(q_seq_ranges, k_seq_ranges):
+        if prev_q_end != q_begin and prev_k_end != k_begin:  # pad
+            tensor[prev_q_end:q_begin, prev_k_end:k_begin] = 0.0
+
+        if q_begin != q_end and k_begin != k_end:
+            tensor[q_begin:q_end, k_begin:k_end] = bias.create_bias_tensor(
+                q_end - q_begin, k_end - k_begin, device, dtype
+            )
+
+        prev_q_end = q_end
+        prev_k_end = k_end
+
+    return tensor
+
+
+def _get_seq_ranges(seq_lens: Sequence[int]) -> list[tuple[int, int]]:
+    seq_ranges = []
+
+    seq_beg = 0
+
+    for seq_len in seq_lens:
+        seq_end = seq_beg + seq_len
+
+        seq_ranges.append((seq_beg, seq_end))
+
+        seq_beg = seq_end
+
+    return seq_ranges
+
+
 T = TypeVar("T")
 
 
@@ -324,3 +324,48 @@ class AttentionBiasCache:
 
     def clear(self) -> None:
         self._data.clear()
+
+
+def maybe_get_attention_bias_tensor(
+    bias: AttentionBias,
+    seqs: Tensor,
+    seqs_layout: BatchLayout,
+    keys_layout: BatchLayout,
+    bias_cache: AttentionBiasCache,
+) -> Tensor | None:
+    if isinstance(bias, IdentityBias):
+        full_seqs = not seqs_layout.packed and not seqs_layout.padded
+        full_keys = not keys_layout.packed and not keys_layout.padded
+
+        if full_seqs and full_keys:
+            return None
+
+    if isinstance(bias, CausalAttentionBias):
+        if not seqs_layout.packed:
+            if seqs_layout.max_seq_len == 1:
+                return None
+
+    return _get_attention_bias_tensor(  # type: ignore[no-any-return]
+        bias, seqs, seqs_layout, keys_layout, bias_cache
+    )
+
+
+@torch.compiler.disable
+def _get_attention_bias_tensor(
+    bias: AttentionBias,
+    seqs: Tensor,
+    seqs_layout: BatchLayout,
+    keys_layout: BatchLayout,
+    bias_cache: AttentionBiasCache,
+) -> Tensor:
+    impl = "tensor"
+
+    tensor = bias_cache.maybe_get(bias, impl, kls=Tensor)
+    if tensor is None:
+        tensor = materialize_attention_bias(
+            bias, seqs_layout, keys_layout, seqs.device, seqs.dtype
+        )
+
+        bias_cache.set(bias, impl, tensor)
+
+    return tensor

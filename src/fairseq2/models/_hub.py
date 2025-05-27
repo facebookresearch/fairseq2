@@ -127,7 +127,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
             gangs = fake_gangs(device)
         else:
             if gangs.root.device.type == "meta":
-                raise ValueError("`gangs` must be on a real device.")
+                raise ValueError("`gangs.root` must be on a real device.")
 
         if isinstance(name_or_card, AssetCard):
             card = name_or_card

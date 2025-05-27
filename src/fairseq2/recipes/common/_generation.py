@@ -18,8 +18,8 @@ from fairseq2.generation import (
     UnknownSeq2SeqGeneratorError,
     UnknownSequenceGeneratorError,
 )
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
+from fairseq2.models.clm import CausalLM
+from fairseq2.models.seq2seq import Seq2SeqModel
 from fairseq2.recipes import Model
 from fairseq2.recipes.config import (
     Seq2SeqGeneratorSection,
@@ -57,9 +57,11 @@ class _SequenceGeneratorCreator:
         model: Model,
         vocab_info: VocabularyInfo,
     ) -> SequenceGenerator:
-        if not isinstance(model.base_module, DecoderModel):
+        base_module = model.base_module
+
+        if not isinstance(base_module, CausalLM):
             raise TypeError(
-                f"`model` must be of type `{DecoderModel}`, but is of type `{type(model)}` instead."
+                f"`model.base_module` must be of type `{CausalLM}`, but is of type `{type(base_module)}` instead."
             )
 
         try:
@@ -68,9 +70,7 @@ class _SequenceGeneratorCreator:
             raise UnknownSequenceGeneratorError(seq_generator_section.name) from None
 
         try:
-            return handler.create(
-                model.base_module, vocab_info, seq_generator_section.config
-            )
+            return handler.create(base_module, vocab_info, seq_generator_section.config)
         except StructureError as ex:
             raise StructureError(
                 "`seq_generator.config` cannot be structured. See the nested exception for details."
@@ -105,9 +105,11 @@ class _Seq2SeqGeneratorCreator:
         model: Model,
         target_vocab_info: VocabularyInfo,
     ) -> Seq2SeqGenerator:
-        if not isinstance(model.base_module, EncoderDecoderModel):
+        base_module = model.base_module
+
+        if not isinstance(base_module, Seq2SeqModel):
             raise TypeError(
-                f"`model` must be of type `{EncoderDecoderModel}`, but is of type `{type(model)}` instead."
+                f"`model.base_module` must be of type `{Seq2SeqModel}`, but is of type `{type(base_module)}` instead."
             )
 
         try:
@@ -119,7 +121,7 @@ class _Seq2SeqGeneratorCreator:
 
         try:
             return handler.create(
-                model.base_module, target_vocab_info, seq2seq_generator_section.config
+                base_module, target_vocab_info, seq2seq_generator_section.config
             )
         except StructureError as ex:
             raise StructureError(

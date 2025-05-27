@@ -38,24 +38,33 @@ class JepaClassifierFactory:
         self._config = config
 
     def create_model(self) -> JepaClassifierModel:
-        encoder_frontend, encoder = self.create_encoder()
+        config = self._config
+
+        encoder_frontend = self.create_encoder_frontend()
+
+        encoder = self.create_encoder()
 
         pooler = self.create_pooler()
 
         head = self.create_head()
 
-        return JepaClassifierModel(encoder_frontend, encoder, pooler, head)
+        return JepaClassifierModel(
+            config.encoder_config.model_dim, encoder_frontend, encoder, pooler, head
+        )
 
-    def create_encoder(self) -> tuple[TransformerFrontend, TransformerEncoder]:
+    def create_encoder_frontend(self) -> TransformerFrontend:
         config = self._config
 
         factory = JepaEncoderFactory(config.encoder_config)
 
-        encoder_frontend = factory.create_encoder_frontend()
+        return factory.create_encoder_frontend()
 
-        encoder = factory.create_encoder()
+    def create_encoder(self) -> TransformerEncoder:
+        config = self._config
 
-        return encoder_frontend, encoder
+        factory = JepaEncoderFactory(config.encoder_config)
+
+        return factory.create_encoder()
 
     def create_pooler(self) -> AttentivePooler:
         config = self._config
@@ -68,8 +77,9 @@ class JepaClassifierFactory:
         decoder_layer = self.create_pooler_decoder_layer()
 
         return AttentivePooler(
-            decoder_layer=decoder_layer,
-            encoder=encoder,
+            config.encoder_config.model_dim,
+            decoder_layer,
+            encoder,
             num_queries=config.num_queries,
             init_std=config.encoder_config.init_std,
         )
@@ -88,34 +98,34 @@ class JepaClassifierFactory:
     def create_pooler_decoder_layer(self) -> CrossAttentionDecoderLayer:
         config = self._config
 
+        encoder_factory = JepaEncoderFactory(config.encoder_config)
+
+        cross_attn_layer_norm = encoder_factory.create_layer_norm()
+
         cross_attn = self.create_cross_attention()
 
-        encoder_factory = JepaEncoderFactory(config.encoder_config)
+        ffn_layer_norm = encoder_factory.create_layer_norm()
 
         ffn = encoder_factory.create_ffn(config.pool_depth)
 
         return CrossAttentionDecoderLayer(
-            cross_attn,
-            ffn,
-            layer_norm_factory=encoder_factory.create_layer_norm,
+            cross_attn_layer_norm, cross_attn, ffn_layer_norm, ffn
         )
 
     def create_cross_attention(self) -> MultiheadAttention:
-        config = self._config.encoder_config
-
-        model_dim = config.model_dim
+        encoder_config = self._config.encoder_config
 
         attn_bias = IdentityBias()
 
-        sdpa = create_default_sdpa(attn_bias, dropout_p=config.attn_dropout_p)
+        sdpa = create_default_sdpa(attn_bias, dropout_p=encoder_config.attn_dropout_p)
 
         output_proj = self.create_cross_attention_output_projection()
 
         return StandardMultiheadAttention(
-            model_dim,
-            config.num_encoder_attn_heads,
+            encoder_config.model_dim,
+            encoder_config.num_encoder_attn_heads,
             sdpa=sdpa,
-            bias=config.qkv_bias,
+            bias=encoder_config.qkv_bias,
             output_proj=output_proj,
         )
 

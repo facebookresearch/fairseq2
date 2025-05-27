@@ -6,15 +6,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
 from torch.nn import Module, ModuleList
 
 
 class LayerStack(Module):
     layers: ModuleList
-
-    def __init__(self, layers: Sequence[Module]) -> None:
-        super().__init__()
-
-        self.layers = ModuleList(layers)

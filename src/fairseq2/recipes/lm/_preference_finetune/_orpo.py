@@ -15,9 +15,9 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.datasets.preference import PreferenceBatch
-from fairseq2.gang import Gang, Gangs
+from fairseq2.device import Device
+from fairseq2.gang import Gangs
 from fairseq2.metrics import Mean, MetricBag
-from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.recipes import Model, TrainUnit
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
@@ -44,7 +44,6 @@ class OrpoFinetuneUnit(TrainUnit[PreferenceBatch]):
     def __init__(
         self,
         model: Model,
-        gangs: Gangs,
         orpo_lambda: float = 1.0,
         nll_scale: float = 1.0,
     ) -> None:
@@ -52,7 +51,7 @@ class OrpoFinetuneUnit(TrainUnit[PreferenceBatch]):
         self._lambda = orpo_lambda
         self._nll_scale = nll_scale
 
-        self._metric_bag = OrpoFinetuneMetricBag(gangs.dp)
+        self._metric_bag = OrpoFinetuneMetricBag(device=model.device)
 
     @override
     def __call__(self, batch: PreferenceBatch) -> tuple[Tensor, int]:
@@ -66,24 +65,22 @@ class OrpoFinetuneUnit(TrainUnit[PreferenceBatch]):
 
         chosen_seqs, chosen_seqs_layout = chosen_input_batch.as_input()
 
-        chosen_output: SequenceModelOutput = self._model.module(
-            chosen_seqs, chosen_seqs_layout
+        nll_loss, chosen_logits = self._model(
+            chosen_seqs,
+            chosen_seqs_layout,
+            targets=chosen_target_batch.seqs,
+            target_mask=chosen_target_batch.target_mask,
+            return_logits=True,
         )
 
         rejected_seqs, rejected_seqs_layout = rejected_input_batch.as_input()
 
-        rejected_output: SequenceModelOutput = self._model.module(
-            rejected_seqs, rejected_seqs_layout
-        )
+        rejected_logits = self._model(rejected_seqs, rejected_seqs_layout)
 
-        chosen_logps = _gather_lprobs(chosen_output, chosen_target_batch)
-        rejected_logps = _gather_lprobs(rejected_output, rejected_target_batch)
+        chosen_logps = _gather_lprobs(chosen_logits, chosen_target_batch)
+        rejected_logps = _gather_lprobs(rejected_logits, rejected_target_batch)
 
         orpo_loss = self._compute_orpo_loss(chosen_logps, rejected_logps)
-
-        nll_loss = chosen_output.compute_loss(
-            chosen_target_batch.seqs, loss_mask=chosen_target_batch.target_mask
-        )
 
         self._metric_bag.update_orpo_loss(batch, orpo_loss)
 
@@ -134,10 +131,10 @@ class OrpoFinetuneMetricBag(POFinetuneMetricBag):
 
     orpo_loss: Mean
 
-    def __init__(self, gang: Gang) -> None:
-        super().__init__(gang)
+    def __init__(self, device: Device) -> None:
+        super().__init__(device)
 
-        self.orpo_loss = Mean(device=gang.device)
+        self.orpo_loss = Mean(device=device)
 
     @torch.inference_mode()
     def update_orpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
@@ -168,7 +165,7 @@ class OrpoFinetuneUnitHandler(POFinetuneUnitHandler):
 
         validate(config)
 
-        return OrpoFinetuneUnit(model, gangs, config.orpo_lambda, config.nll_scale)
+        return OrpoFinetuneUnit(model, config.orpo_lambda, config.nll_scale)
 
     @property
     @override

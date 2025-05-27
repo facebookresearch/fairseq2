@@ -19,7 +19,7 @@ from fairseq2.datasets.instruction import (
     InstructionReadOptions,
 )
 from fairseq2.device import CPU
-from fairseq2.models.decoder import DecoderModel
+from fairseq2.models.clm import CausalLM
 from fairseq2.recipes import Evaluator
 from fairseq2.recipes.common import (
     create_evaluator,
@@ -51,13 +51,13 @@ from fairseq2.recipes.lm._instruction_finetune import (
 
 
 @dataclass(kw_only=True)
-class LMLossEvalConfig:
+class CausalLMLossEvalConfig:
     model: ReferenceModelSection = field(
         default_factory=lambda: ReferenceModelSection(name="llama3_1_8b")
     )
 
-    dataset: LMLossEvalDatasetSection = field(
-        default_factory=lambda: LMLossEvalDatasetSection()
+    dataset: CausalLMLossEvalDatasetSection = field(
+        default_factory=lambda: CausalLMLossEvalDatasetSection()
     )
 
     tokenizer: TextTokenizerSection = field(
@@ -74,7 +74,7 @@ class LMLossEvalConfig:
 
 
 @dataclass(kw_only=True)
-class LMLossEvalDatasetSection(DatasetSection):
+class CausalLMLossEvalDatasetSection(DatasetSection):
     name: str = "foo"
 
     family: str = GENERIC_INSTRUCTION_DATASET_FAMILY
@@ -99,21 +99,21 @@ class LMLossEvalDatasetSection(DatasetSection):
     """The dataset-specific extra options."""
 
 
-def register_lm_loss_eval_configs(context: RuntimeContext) -> None:
-    registry = context.get_config_registry(LMLossEvalConfig)
+def register_clm_loss_eval_configs(context: RuntimeContext) -> None:
+    registry = context.get_config_registry(CausalLMLossEvalConfig)
 
     preset = registry.decorator
 
     @preset("llama3_1_base_eval")
-    def llama3_1_base_eval() -> LMLossEvalConfig:
-        return LMLossEvalConfig()
+    def llama3_1_base_eval() -> CausalLMLossEvalConfig:
+        return CausalLMLossEvalConfig()
 
 
 @torch.inference_mode()
-def load_lm_loss_evaluator(
+def load_clm_loss_evaluator(
     context: RuntimeContext, config: object, output_dir: Path
 ) -> Evaluator[SequenceBatch]:
-    config = structure(config, LMLossEvalConfig)
+    config = structure(config, CausalLMLossEvalConfig)
 
     validate(config)
 
@@ -130,7 +130,7 @@ def load_lm_loss_evaluator(
     seed += 1
 
     model = setup_reference_model(
-        DecoderModel,
+        CausalLM,
         context,
         config.model,
         gangs,
@@ -145,7 +145,7 @@ def load_lm_loss_evaluator(
     # Initialize the unit.
     criterion = InstructionFinetuneCriterion(model)
 
-    unit = InstructionLossEvalUnit(criterion, gangs)
+    unit = InstructionLossEvalUnit(model, criterion)
 
     batching = LengthBatching(config.dataset.max_num_elements)
 
@@ -166,6 +166,10 @@ def load_lm_loss_evaluator(
         read_options,
     )
 
+    units = [unit]
+
+    data_readers = [data_reader]
+
     seed += 1
 
     return create_evaluator(
@@ -173,8 +177,8 @@ def load_lm_loss_evaluator(
         config.evaluator,
         config.common,
         output_dir,
-        [unit],
-        [data_reader],
+        units,
+        data_readers,
         gangs,
         seed,
         hyper_params=config,

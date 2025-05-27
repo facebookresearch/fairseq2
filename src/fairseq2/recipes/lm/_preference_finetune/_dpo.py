@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final, cast, final
+from typing import Final, final
 
 import torch
 import torch.distributed
@@ -17,11 +17,11 @@ from typing_extensions import override
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import SequenceBatch
 from fairseq2.datasets.preference import PreferenceBatch
-from fairseq2.gang import Gang, Gangs
+from fairseq2.device import Device
+from fairseq2.gang import Gangs
 from fairseq2.logging import log
 from fairseq2.metrics import Mean, MetricBag
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.sequence import SequenceModelOutput
+from fairseq2.models.clm import CausalLM
 from fairseq2.nn.utils.module import freeze_parameters
 from fairseq2.recipes import Model, TrainUnit
 from fairseq2.recipes.common import setup_reference_model
@@ -54,7 +54,6 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
         self,
         model: Model,
         reference_model: Model | None,
-        gangs: Gangs,
         beta: float = 0.1,
         nll_scale: float = 1.0,
         length_normalization: bool = False,
@@ -65,7 +64,7 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
         self._nll_scale = nll_scale
         self._length_normalization = length_normalization
 
-        self._metric_bag = DpoFinetuneMetricBag(gangs.dp)
+        self._metric_bag = DpoFinetuneMetricBag(device=model.device)
 
     @override
     def __call__(self, batch: PreferenceBatch) -> tuple[Tensor, int]:
@@ -84,36 +83,43 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
 
         chosen_seqs, chosen_seqs_layout = chosen_input_batch.as_input()
 
-        chosen_output: SequenceModelOutput = self._model.module(
-            chosen_seqs, chosen_seqs_layout
+        nll_loss, chosen_logits = self._model(
+            chosen_seqs,
+            chosen_seqs_layout,
+            targets=chosen_target_batch.seqs,
+            target_mask=chosen_target_batch.target_mask,
+            return_logits=True,
         )
 
         rejected_seqs, rejected_seqs_layout = rejected_input_batch.as_input()
 
-        rejected_output: SequenceModelOutput = self._model.module(
-            rejected_seqs, rejected_seqs_layout
-        )
+        rejected_logits = self._model(rejected_seqs, rejected_seqs_layout)
 
         chosen_logps, average_chosen_logps = _gather_lprobs_avg(
-            chosen_output, chosen_target_batch
+            chosen_logits, chosen_target_batch
         )
         rejected_logps, average_rejected_logps = _gather_lprobs_avg(
-            rejected_output, rejected_target_batch
+            rejected_logits, rejected_target_batch
         )
 
         if self._reference_model is not None:
+            chosen_seqs, chosen_seqs_layout = chosen_batch.as_input()
+            rejected_seqs, rejected_seqs_layout = rejected_batch.as_input()
+
             with torch.no_grad():
-                ref_chosen_output = cast(
-                    SequenceModelOutput, self._reference_model.module(chosen_batch)
+                # TODO: fix!
+                ref_chosen_logits = self._reference_model(
+                    chosen_seqs, chosen_seqs_layout
                 )
-                ref_rejected_output = cast(
-                    SequenceModelOutput, self._reference_model.module(rejected_batch)
+                ref_rejected_logits = self._reference_model(
+                    rejected_seqs, rejected_seqs_layout
                 )
+
                 ref_chosen_logps, ref_average_chosen_logps = _gather_lprobs_avg(
-                    ref_chosen_output, chosen_target_batch
+                    ref_chosen_logits, chosen_target_batch
                 )
                 ref_rejected_logps, ref_average_rejected_logps = _gather_lprobs_avg(
-                    ref_rejected_output, rejected_target_batch
+                    ref_rejected_logits, rejected_target_batch
                 )
         elif (
             batch.reference_score_chosen is not None
@@ -145,10 +151,6 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
                 chosen_logps, ref_chosen_logps, rejected_logps, ref_rejected_logps
             )
 
-        nll_loss = chosen_output.compute_loss(
-            chosen_target_batch.seqs, loss_mask=chosen_target_batch.target_mask
-        )
-
         self._metric_bag.update_dpo_loss(batch, dpo_loss)
 
         self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
@@ -170,10 +172,10 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
         return loss, chosen_target_batch.batch_size
 
     def _gather_lprobs(
-        self, output: SequenceModelOutput, target: SequenceBatch
+        self, logits: Tensor, target: SequenceBatch
     ) -> tuple[Tensor, Tensor]:
         assert target.target_mask is not None
-        logprobs = torch.log_softmax(output.logits, dim=-1)
+        logprobs = torch.log_softmax(logits, dim=-1)
         per_token_logps = torch.gather(logprobs, -1, target.seqs.unsqueeze(-1)).squeeze(
             -1
         )
@@ -213,10 +215,10 @@ class DpoFinetuneMetricBag(POFinetuneMetricBag):
 
     dpo_loss: Mean
 
-    def __init__(self, gang: Gang) -> None:
-        super().__init__(gang)
+    def __init__(self, device: Device) -> None:
+        super().__init__(device)
 
-        self.dpo_loss = Mean(device=gang.device)
+        self.dpo_loss = Mean(device=device)
 
     @torch.inference_mode()
     def update_dpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
@@ -269,7 +271,7 @@ class DpoFinetuneUnitHandler(POFinetuneUnitHandler):
             log.info("Setting up DPO with reference model.")
 
             reference_model = setup_reference_model(
-                DecoderModel,
+                CausalLM,
                 self._context,
                 config.reference_model,
                 gangs,
@@ -286,7 +288,6 @@ class DpoFinetuneUnitHandler(POFinetuneUnitHandler):
         return DpoFinetuneUnit(
             model,
             reference_model,
-            gangs,
             config.beta,
             config.nll_scale,
             config.length_normalization,

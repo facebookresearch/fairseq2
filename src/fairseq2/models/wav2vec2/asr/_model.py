@@ -6,15 +6,15 @@
 
 from __future__ import annotations
 
-from typing import final
+from typing import Literal, final, overload
 
+import torch
 from torch import Tensor
 from torch.nn import Dropout
+from torch.nn.functional import ctc_loss, log_softmax
 from typing_extensions import override
 
-from fairseq2.data_type import DataType
-from fairseq2.device import Device
-from fairseq2.models.asr import AsrModel, AsrModelOutput
+from fairseq2.models.asr import AsrModel
 from fairseq2.models.transformer import TransformerEncoder
 from fairseq2.models.wav2vec2 import Wav2Vec2Frontend, Wav2Vec2Masker
 from fairseq2.nn import BatchLayout, Projection
@@ -27,20 +27,20 @@ class Wav2Vec2AsrModel(AsrModel):
 
     model_dim: int
     encoder_frontend: Wav2Vec2Frontend
+    encoder: TransformerEncoder
     masker: Wav2Vec2Masker | None
     final_dropout: Dropout | None
     final_proj: Projection
 
     def __init__(
         self,
+        model_dim: int,
         encoder_frontend: Wav2Vec2Frontend,
         encoder: TransformerEncoder,
         final_proj: Projection,
         *,
         masker: Wav2Vec2Masker | None = None,
         final_dropout_p: float = 0.0,
-        device: Device | None = None,
-        dtype: DataType | None = None,
     ) -> None:
         """
         :param encoder_frontend: The encoder frontend.
@@ -51,26 +51,80 @@ class Wav2Vec2AsrModel(AsrModel):
         """
         super().__init__()
 
-        self.model_dim = encoder.model_dim
+        self.model_dim = model_dim
 
         self.encoder_frontend = encoder_frontend
+
         self.encoder = encoder
 
         self.register_module("masker", masker)
 
         if final_dropout_p > 0.0:
-            self.final_dropout = Dropout(final_dropout_p)
+            final_dropout = Dropout(final_dropout_p)
         else:
-            self.register_module("final_dropout", None)
+            final_dropout = None
+
+        self.register_module("final_dropout", final_dropout)
 
         self.final_proj = final_proj
 
     @override
-    def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> AsrModelOutput:
-        """
-        :param batch:
-            The batch of sequences to process.
-        """
+    @overload
+    def forward(
+        self, seqs: Tensor, seqs_layout: BatchLayout
+    ) -> tuple[Tensor, BatchLayout]: ...
+
+    @overload
+    def forward(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        targets: Tensor,
+        targets_layout: BatchLayout,
+    ) -> Tensor: ...
+
+    @overload
+    def forward(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        targets: Tensor,
+        targets_layout: BatchLayout,
+        *,
+        return_logits: Literal[False],
+    ) -> Tensor: ...
+
+    @overload
+    def forward(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        targets: Tensor,
+        targets_layout: BatchLayout,
+        *,
+        return_logits: Literal[True],
+    ) -> tuple[Tensor, Tensor, BatchLayout]: ...
+
+    @overload
+    def forward(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        targets: Tensor,
+        targets_layout: BatchLayout,
+        *,
+        return_logits: bool = ...,
+    ) -> Tensor | tuple[Tensor, Tensor, BatchLayout]: ...
+
+    def forward(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        targets: Tensor | None = None,
+        targets_layout: BatchLayout | None = None,
+        *,
+        return_logits: bool = False,
+    ) -> Tensor | tuple[Tensor, BatchLayout] | tuple[Tensor, Tensor, BatchLayout]:
         seqs, seqs_layout, _ = self.encoder_frontend.extract_features(seqs, seqs_layout)
 
         seqs, _ = self.encoder_frontend.process_features(
@@ -84,4 +138,40 @@ class Wav2Vec2AsrModel(AsrModel):
 
         logits = self.final_proj(seqs)
 
-        return AsrModelOutput(logits, seqs_layout)
+        if targets is None:
+            return logits, seqs_layout
+
+        if targets_layout is None:
+            raise ValueError(
+                "`targets_layout` must be specified when `targets` is specified."
+            )
+
+        if targets_layout.packed:
+            raise ValueError("`targets` must not be a packed batch.")
+
+        # For numerical stability run in single precision.
+        # (N, S, T)
+        log_probs = log_softmax(logits, dim=-1, dtype=torch.float32)
+
+        # (N, S, T) -> (S, N, T)
+        log_probs_t = log_probs.transpose(0, 1)
+
+        # ()
+        loss = ctc_loss(
+            log_probs=log_probs_t,
+            input_lengths=seqs_layout.seq_lens_pt,
+            targets=targets,
+            target_lengths=targets_layout.seq_lens_pt,
+            reduction="sum",
+            zero_infinity=True,
+        )
+
+        if return_logits:
+            return loss, logits, seqs_layout
+
+        return loss
+
+    @override
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return f"model_dim={self.model_dim}"

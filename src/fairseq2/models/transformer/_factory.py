@@ -10,11 +10,13 @@ import torch.nn as nn
 
 from fairseq2.nn import (
     Embedding,
+    LayerNorm,
     Linear,
     PositionEncoder,
     Projection,
     SinusoidalPositionEncoder,
     StandardEmbedding,
+    StandardLayerNorm,
     TiedProjection,
     init_scaled_embedding,
 )
@@ -55,6 +57,7 @@ from fairseq2.models.transformer._multihead_attention import (
     MultiheadAttention,
     StandardMultiheadAttention,
 )
+from fairseq2.models.transformer._norm_order import TransformerNormOrder
 from fairseq2.models.transformer._sdpa._default import create_default_sdpa
 
 
@@ -82,14 +85,15 @@ class TransformerFactory:
         final_proj = self.create_final_projection(embed)
 
         return TransformerModel(
+            config.model_dim,
             frontend,
             encoder,
             frontend,
             decoder,
             final_proj,
-            pad_idx=config.pad_idx,
-            max_source_seq_len=config.max_seq_len,
-            max_target_seq_len=config.max_seq_len,
+            config.pad_idx,
+            config.max_seq_len,
+            config.max_seq_len,
         )
 
     def create_embedding(self) -> Embedding:
@@ -98,7 +102,7 @@ class TransformerFactory:
         return StandardEmbedding(
             config.vocab_size,
             config.model_dim,
-            pad_idx=config.pad_idx,
+            config.pad_idx,
             init_fn=init_scaled_embedding,
         )
 
@@ -108,7 +112,7 @@ class TransformerFactory:
         pos_encoder = self.create_position_encoder()
 
         return TransformerEmbeddingFrontend(
-            embed, pos_encoder, dropout_p=config.dropout_p
+            config.model_dim, embed, pos_encoder, dropout_p=config.dropout_p
         )
 
     def create_position_encoder(self) -> PositionEncoder:
@@ -128,17 +132,31 @@ class TransformerFactory:
 
             layers.append(layer)
 
-        return StandardTransformerEncoder(layers, norm_order=config.norm_order)
+        if config.norm_order == TransformerNormOrder.PRE:
+            layer_norm = self.create_layer_norm()
+        else:
+            layer_norm = None
+
+        return StandardTransformerEncoder(layers, layer_norm)
 
     def create_encoder_layer(self) -> TransformerEncoderLayer:
         config = self._config
 
         self_attn = self.create_encoder_self_attention()
 
+        self_attn_layer_norm = self.create_layer_norm()
+
         ffn = self.create_ffn()
 
+        ffn_layer_norm = self.create_layer_norm()
+
         return StandardTransformerEncoderLayer(
-            self_attn, ffn, dropout_p=config.dropout_p, norm_order=config.norm_order
+            self_attn,
+            self_attn_layer_norm,
+            ffn,
+            ffn_layer_norm,
+            norm_order=config.norm_order,
+            dropout_p=config.dropout_p,
         )
 
     def create_encoder_self_attention(self) -> MultiheadAttention:
@@ -146,7 +164,7 @@ class TransformerFactory:
 
         attn_bias = IdentityBias()
 
-        sdpa = create_default_sdpa(attn_bias, dropout_p=config.dropout_p)
+        sdpa = create_default_sdpa(attn_bias)
 
         num_heads = config.num_encoder_attn_heads
 
@@ -169,23 +187,37 @@ class TransformerFactory:
 
             layers.append(layer)
 
-        return StandardTransformerDecoder(layers, norm_order=config.norm_order)
+        if config.norm_order == TransformerNormOrder.PRE:
+            layer_norm = self.create_layer_norm()
+        else:
+            layer_norm = None
+
+        return StandardTransformerDecoder(layers, layer_norm)
 
     def create_decoder_layer(self) -> TransformerDecoderLayer:
         config = self._config
 
         self_attn = self.create_decoder_self_attention()
 
+        self_attn_layer_norm = self.create_layer_norm()
+
         encoder_decoder_attn = self.create_encoder_decoder_attention()
+
+        encoder_decoder_attn_layer_norm = self.create_layer_norm()
 
         ffn = self.create_ffn()
 
+        ffn_layer_norm = self.create_layer_norm()
+
         return StandardTransformerDecoderLayer(
             self_attn,
+            self_attn_layer_norm,
             encoder_decoder_attn,
+            encoder_decoder_attn_layer_norm,
             ffn,
-            dropout_p=config.dropout_p,
+            ffn_layer_norm,
             norm_order=config.norm_order,
+            dropout_p=config.dropout_p,
         )
 
     def create_decoder_self_attention(self) -> MultiheadAttention:
@@ -193,7 +225,7 @@ class TransformerFactory:
 
         attn_bias = CausalAttentionBias()
 
-        sdpa = create_default_sdpa(attn_bias, dropout_p=config.dropout_p)
+        sdpa = create_default_sdpa(attn_bias)
 
         num_heads = config.num_decoder_attn_heads
 
@@ -204,11 +236,16 @@ class TransformerFactory:
 
         attn_bias = IdentityBias()
 
-        sdpa = create_default_sdpa(attn_bias, dropout_p=config.dropout_p)
+        sdpa = create_default_sdpa(attn_bias)
 
         num_heads = config.num_decoder_attn_heads
 
         return StandardMultiheadAttention(config.model_dim, num_heads, sdpa=sdpa)
+
+    def create_layer_norm(self) -> LayerNorm:
+        config = self._config
+
+        return StandardLayerNorm(config.model_dim, bias=True)
 
     def create_final_projection(self, embed: Embedding) -> Projection:
         config = self._config

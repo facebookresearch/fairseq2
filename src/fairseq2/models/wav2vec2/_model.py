@@ -7,12 +7,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import final
+from typing import TYPE_CHECKING, final
 
 import torch
 from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import cross_entropy
+from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
@@ -24,10 +25,10 @@ from fairseq2.ops import repeat_interleave
 # isort: split
 
 from fairseq2.models.wav2vec2._frontend import Wav2Vec2Frontend
-from fairseq2.models.wav2vec2._masker import Wav2Vec2Masker, extract_masked_elements
+from fairseq2.models.wav2vec2._masker import Wav2Vec2Masker
 from fairseq2.models.wav2vec2._vector_quantizer import (
-    VectorQuantizer,
-    VectorQuantizerOutput,
+    Wav2Vec2VectorQuantizer,
+    Wav2Vec2VectorQuantizerOutput,
 )
 
 
@@ -40,24 +41,26 @@ class Wav2Vec2Model(Module):
     encoder_frontend: Wav2Vec2Frontend
     encoder: TransformerEncoder
     masker: Wav2Vec2Masker
-    quantizer: VectorQuantizer
     final_proj: Linear
+    quantizer: Wav2Vec2VectorQuantizer
+    quantizer_encoder_grad: bool
     final_target_proj: Linear
     num_distractors: int
     logit_temp: float
 
     def __init__(
         self,
+        model_dim: int,
         encoder_frontend: Wav2Vec2Frontend,
         encoder: TransformerEncoder,
         masker: Wav2Vec2Masker,
-        quantizer: VectorQuantizer,
+        quantizer: Wav2Vec2VectorQuantizer,
         final_dim: int,
         *,
+        quantizer_encoder_grad: bool = True,
         final_proj_bias: bool = True,
         num_distractors: int = 100,
         logit_temp: float = 0.1,
-        quantizer_encoder_grad: bool = True,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -82,21 +85,17 @@ class Wav2Vec2Model(Module):
         """
         super().__init__()
 
-        model_dim = encoder.model_dim
-
         self.model_dim = model_dim
 
         self.encoder_frontend = encoder_frontend
+
         self.encoder = encoder
 
         self.masker = masker
 
-        if quantizer.input_dim != encoder_frontend.feature_dim:
-            raise ValueError(
-                f"`input_dim` of `quantizer` and `feature_dim` of `encoder_frontend` must be equal, but are {quantizer.input_dim} and {encoder_frontend.feature_dim} instead."
-            )
-
         self.quantizer = quantizer
+
+        self.quantizer_encoder_grad = quantizer_encoder_grad
 
         self.final_proj = Linear(
             model_dim, final_dim, final_proj_bias, device=device, dtype=dtype
@@ -111,13 +110,16 @@ class Wav2Vec2Model(Module):
         )
 
         self.num_distractors = num_distractors
+
         self.logit_temp = logit_temp
-        self.quantizer_encoder_grad = quantizer_encoder_grad
 
     def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> Wav2Vec2Output:
         features = self.extract_features(seqs, seqs_layout)
 
         return self.quantize_and_contrast(features)
+
+    if TYPE_CHECKING:
+        __call__ = forward
 
     def extract_features(
         self, seqs: Tensor, seqs_layout: BatchLayout
@@ -159,7 +161,7 @@ class Wav2Vec2Model(Module):
         if temporal_mask is None:
             raise InternalError("`temporal_mask` is `None`.")
 
-        targets = extract_masked_elements(targets, temporal_mask)
+        targets = Wav2Vec2Masker.extract_masked_elements(targets, temporal_mask)
 
         return Wav2Vec2Features(seqs, seqs_layout, targets, temporal_mask, raw_features)
 
@@ -176,7 +178,7 @@ class Wav2Vec2Model(Module):
             features.temporal_mask,
         )
 
-        seqs = extract_masked_elements(encoder_output, temporal_mask)
+        seqs = Wav2Vec2Masker.extract_masked_elements(encoder_output, temporal_mask)
 
         seqs = self.final_proj(seqs)
 
@@ -268,12 +270,42 @@ class Wav2Vec2Model(Module):
 
         return logits
 
+    def compute_contrastive_loss(self, logits: Tensor) -> Tensor:
+        batch_size, seq_len, num_logits = logits.shape
+
+        # (N, S, L) -> (S x N, L)
+        logits = logits.transpose(0, 1).reshape(-1, num_logits)
+
+        # For numerical stability in low-precision.
+        logits = logits.float()
+
+        # The target is always at index 0 in the candidate list.
+        targets = logits.new_zeros((batch_size * seq_len,), dtype=torch.int64)
+
+        return cross_entropy(logits, targets, reduction="sum")
+
+    def compute_diversity_loss(self, logits: Tensor, prob_perplexity: Tensor) -> Tensor:
+        num_entries = self.quantizer.num_codebooks * self.quantizer.num_codebook_entries
+
+        quantizer_loss = (num_entries - prob_perplexity) / num_entries
+
+        batch_size, seq_len = logits.shape[:2]
+
+        return quantizer_loss * batch_size * seq_len  # type: ignore[no-any-return]
+
+    def compute_features_penalty(self, logits: Tensor, raw_features: Tensor) -> Tensor:
+        batch_size, seq_len = logits.shape[:2]
+
+        return raw_features.float().pow(2).mean() * batch_size * seq_len
+
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
         return (
             f"model_dim={self.model_dim}, "
+            f"quantizer_encoder_grad={self.quantizer_encoder_grad}, "
             f"num_distractors={self.num_distractors}, "
-            f"logit_temp={self.logit_temp:G}, "
+            f"logit_temp={self.logit_temp:G}"
         )
 
 
@@ -303,7 +335,6 @@ class Wav2Vec2Features:
     """The raw features returned by the frontend. *Shape*: Same as :attr:`seqs`."""
 
 
-@final
 @dataclass
 class Wav2Vec2Output:
     """Holds the output of a wav2vec 2.0 model."""
@@ -325,7 +356,7 @@ class Wav2Vec2Output:
     targets. *Shape:* :math:`(N,S_{enc})`, where :math:`N` is the batch size and
     :math`S_{enc}` is the encoder output sequence length."""
 
-    quantizer_output: VectorQuantizerOutput
+    quantizer_output: Wav2Vec2VectorQuantizerOutput
     """The output of the vector quantizer."""
 
     encoder_output: Tensor
@@ -338,71 +369,3 @@ class Wav2Vec2Output:
     raw_features: Tensor
     """The raw features returned by the frontend. *Shape*: Same as
     :attr:`encoder_output`."""
-
-    def compute_loss(
-        self, diversity_loss_weight: float = 0.1, feature_penalty_weight: float = 10.0
-    ) -> Wav2Vec2Loss:
-        """Compute the loss.
-
-        :param diversity_loss_weight:
-            The weight of diversity in loss computation.
-        :param feature_penalty_weight:
-            The weight of the feature penalty in loss computation.
-        """
-        contrastive_loss = self.compute_contrastive_loss()
-
-        diversity_loss = self.compute_diversity_loss()
-
-        feature_penalty = self.compute_feature_penalty()
-
-        weighted_diversity_loss = diversity_loss_weight * diversity_loss
-
-        weighted_feature_penalty = feature_penalty_weight * feature_penalty
-
-        loss = contrastive_loss + weighted_diversity_loss + weighted_feature_penalty
-
-        return Wav2Vec2Loss(loss, contrastive_loss, diversity_loss, feature_penalty)
-
-    def compute_contrastive_loss(self) -> Tensor:
-        """Compute the contrastive loss."""
-        batch_size, seq_len, num_logits = self.logits.shape
-
-        # (N, S, L) -> (S x N, L)
-        logits = self.logits.transpose(0, 1).reshape(-1, num_logits)
-
-        # For numerical stability in low-precision.
-        logits = logits.float()
-
-        # The target is always at index 0 in the candidate list.
-        target_indices = logits.new_zeros((batch_size * seq_len,), dtype=torch.int64)
-
-        return cross_entropy(logits, target_indices, reduction="sum")
-
-    def compute_diversity_loss(self) -> Tensor:
-        """Compute the diversity loss."""
-        batch_size, seq_len = self.logits.shape[:2]
-
-        return self.quantizer_output.compute_loss() * batch_size * seq_len
-
-    def compute_feature_penalty(self) -> Tensor:
-        """Compute the feature penalty."""
-        batch_size, seq_len = self.logits.shape[:2]
-
-        return self.raw_features.float().pow(2).mean() * batch_size * seq_len
-
-
-@dataclass
-class Wav2Vec2Loss:
-    """Holds the loss of a wav2vec 2.0 model."""
-
-    total: Tensor
-    """The total loss. *Shape:* :math:`()`."""
-
-    contrastive: Tensor
-    """The contrastive loss. *Shape:* :math:`()`."""
-
-    diversity: Tensor
-    """The diversity loss. *Shape:* :math:`()`."""
-
-    feature_penalty: Tensor
-    """The feature penalty. *Shape:* :math:`()`."""

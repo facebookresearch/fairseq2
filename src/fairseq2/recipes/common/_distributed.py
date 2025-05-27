@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from contextlib import nullcontext
-from typing import final
+from typing import Any, final
 
 from torch import Tensor
 from torch.nn import Module
@@ -16,15 +16,16 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
+from fairseq2.device import Device
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.models import ModelHandler
 from fairseq2.nn.data_parallel import (
+    FSDP1,
+    FSDP2,
     DistributedSetupError,
-    Fsdp1Module,
-    Fsdp2Module,
-    FsdpGranularity,
-    FsdpWrapper,
+    FSDPGranularity,
+    FSDPWrapper,
     fsdp1_load_local_state_dict,
     fsdp1_local_state_dict,
     fsdp1_summon_full_parameters,
@@ -44,7 +45,7 @@ from fairseq2.typing import ContextManager
 
 # isort: split
 
-from fairseq2.recipes.common._error import FsdpNotSupportedError
+from fairseq2.recipes.common._error import FSDPNotSupportedError
 
 
 def setup_data_parallel_model(
@@ -76,9 +77,7 @@ def setup_data_parallel_model(
             "The data parallelism cannot be setup. See the nested exception for details."
         ) from ex
 
-    raise ValueError(
-        "`recipe_config.trainer.data_parallelism` must be 'ddp' or 'fsdp'."
-    )
+    raise ValueError("`trainer_section.data_parallelism` must be 'ddp' or 'fsdp'.")
 
 
 def _wrap_ddp(model: Model, gangs: Gangs, static_graph: bool) -> Model:
@@ -92,21 +91,48 @@ def _wrap_ddp(model: Model, gangs: Gangs, static_graph: bool) -> Model:
     # We do not set DDP's `static_graph` parameter. Unfortunately, support for
     # that feature is finicky in DDP. `find_unused_parameters` is still useful
     # though and can have measurable impact on performance.
-    ddp_module = to_ddp(model.module, gangs, find_unused_parameters=not static_graph)
+    ddp = to_ddp(model.module, gangs, find_unused_parameters=not static_graph)
 
     log.info("Model wrapped with DDP and broadcasted.")
 
-    return _DdpModel(ddp_module, model)
+    return _DDPModel(
+        model.name,
+        ddp,
+        model.device,
+        model.config,
+        model.handler,
+        model.newly_initialized,
+    )
 
 
 @final
-class _DdpModel(Model):
+class _DDPModel(Model):
+    _name: str
     _ddp: DDP
-    _wrapped_model: Model
+    _device: Device
+    _config: object
+    _handler: ModelHandler
+    _newly_initialized: bool
 
-    def __init__(self, ddp: DDP, wrapped_model: Model) -> None:
+    def __init__(
+        self,
+        name: str,
+        ddp: DDP,
+        device: Device,
+        config: object,
+        handler: ModelHandler,
+        newly_initialized: bool,
+    ) -> None:
+        self._name = name
         self._ddp = ddp
-        self._wrapped_model = wrapped_model
+        self._device = device
+        self._config = config
+        self._handler = handler
+        self._newly_initialized = newly_initialized
+
+    @override
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self._ddp(*args, **kwargs)
 
     @override
     def state_dict(self) -> dict[str, object]:
@@ -130,6 +156,11 @@ class _DdpModel(Model):
 
     @property
     @override
+    def name(self) -> str:
+        return self._name
+
+    @property
+    @override
     def module(self) -> Module:
         return self._ddp
 
@@ -140,23 +171,23 @@ class _DdpModel(Model):
 
     @property
     @override
-    def name(self) -> str:
-        return self._wrapped_model.name
+    def device(self) -> Device:
+        return self._device
 
     @property
     @override
     def config(self) -> object:
-        return self._wrapped_model.config
+        return self._config
 
     @property
     @override
     def handler(self) -> ModelHandler:
-        return self._wrapped_model.handler
+        return self._handler
 
     @property
     @override
     def newly_initialized(self) -> bool:
-        return self._wrapped_model.newly_initialized
+        return self._newly_initialized
 
 
 def _wrap_fsdp(
@@ -167,7 +198,7 @@ def _wrap_fsdp(
     static_graph: bool,
 ) -> Model:
     if not model.handler.supports_fsdp:
-        raise FsdpNotSupportedError(model.name)
+        raise FSDPNotSupportedError(model.name)
 
     if gangs.dp.size == 1:
         to_device(model.module, gangs.root.device)
@@ -180,7 +211,7 @@ def _wrap_fsdp(
         mp_dtype = None
 
     def apply_fsdp(
-        module: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
+        module: Module, granularity: FSDPGranularity, wrapper: FSDPWrapper
     ) -> None:
         model.handler.apply_fsdp(module, granularity, wrapper)
 
@@ -190,7 +221,7 @@ def _wrap_fsdp(
         else:
             log.info("Wrapping the model with FSDP1 and broadcasting to all processes.")  # fmt: skip
 
-        fsdp1_module = to_fsdp1(
+        fsdp1 = to_fsdp1(
             model.module,
             gangs,
             apply_fsdp,
@@ -206,14 +237,21 @@ def _wrap_fsdp(
         else:
             log.info("Model wrapped with FSDP1 and broadcasted.")
 
-        return _Fsdp1Model(fsdp1_module, model)
+        return _FSDP1Model(
+            model.name,
+            fsdp1,
+            model.device,
+            model.config,
+            model.handler,
+            model.newly_initialized,
+        )
     else:
         if has_checkpoint:
             log.info("Wrapping the model with FSDP2.")  # fmt: skip
         else:
             log.info("Wrapping the model with FSDP2 and broadcasting to all processes.")  # fmt: skip
 
-        fsdp2_module = to_fsdp2(
+        fsdp2 = to_fsdp2(
             model.module,
             gangs,
             apply_fsdp,
@@ -229,127 +267,184 @@ def _wrap_fsdp(
         else:
             log.info("Model wrapped with FSDP2 and broadcasted.")
 
-        return _Fsdp2Model(fsdp2_module, model)
+        return _FSDP2Model(
+            model.name,
+            fsdp2,
+            model.device,
+            model.config,
+            model.handler,
+            model.newly_initialized,
+        )
 
 
 @final
-class _Fsdp1Model(Model):
-    _fsdp: Fsdp1Module
-    _wrapped_model: Model
+class _FSDP1Model(Model):
+    _name: str
+    _fsdp1: FSDP1
+    _device: Device
+    _config: object
+    _handler: ModelHandler
+    _newly_initialized: bool
 
-    def __init__(self, fsdp: Fsdp1Module, wrapped_model: Model) -> None:
-        self._fsdp = fsdp
-        self._wrapped_model = wrapped_model
+    def __init__(
+        self,
+        name: str,
+        fsdp1: FSDP1,
+        device: Device,
+        config: object,
+        handler: ModelHandler,
+        newly_initialized: bool,
+    ) -> None:
+        self._name = name
+        self._fsdp1 = fsdp1
+        self._device = device
+        self._config = config
+        self._handler = handler
+        self._newly_initialized = newly_initialized
+
+    @override
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self._fsdp1(*args, **kwargs)
 
     @override
     def state_dict(self) -> dict[str, object]:
-        return fsdp1_local_state_dict(self._fsdp)
+        return fsdp1_local_state_dict(self._fsdp1)
 
     @override
     def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
-        fsdp1_load_local_state_dict(self._fsdp, state_dict)
+        fsdp1_load_local_state_dict(self._fsdp1, state_dict)
 
     @override
     def no_sync(self) -> ContextManager:
-        return self._fsdp.no_sync()
+        return self._fsdp1.no_sync()
 
     @override
     def clip_grad_norm(self, max_norm: float | None) -> Tensor:
-        return clip_grad_norm(self._fsdp, max_norm)
+        return clip_grad_norm(self._fsdp1, max_norm)
 
     @override
     def summon_full_parameters(self) -> ContextManager:
-        return fsdp1_summon_full_parameters(self._fsdp)
-
-    @property
-    @override
-    def module(self) -> Module:
-        return self._fsdp
-
-    @property
-    @override
-    def base_module(self) -> Module:
-        return self._fsdp.module
+        return fsdp1_summon_full_parameters(self._fsdp1)
 
     @property
     @override
     def name(self) -> str:
-        return self._wrapped_model.name
-
-    @property
-    @override
-    def config(self) -> object:
-        return self._wrapped_model.config
-
-    @property
-    @override
-    def handler(self) -> ModelHandler:
-        return self._wrapped_model.handler
-
-    @property
-    @override
-    def newly_initialized(self) -> bool:
-        return self._wrapped_model.newly_initialized
-
-
-@final
-class _Fsdp2Model(Model):
-    _fsdp: Fsdp2Module
-    _wrapped_model: Model
-
-    def __init__(self, fsdp: Fsdp2Module, wrapped_model: Model) -> None:
-        self._fsdp = fsdp
-        self._wrapped_model = wrapped_model
-
-    @override
-    def state_dict(self) -> dict[str, object]:
-        return fsdp2_local_state_dict(self._fsdp)
-
-    @override
-    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
-        fsdp2_load_local_state_dict(self._fsdp, state_dict)
-
-    @override
-    def no_sync(self) -> ContextManager:
-        return fsdp2_no_sync(self._fsdp)
-
-    @override
-    def clip_grad_norm(self, max_norm: float | None) -> Tensor:
-        return clip_grad_norm(self._fsdp, max_norm)
-
-    @override
-    def summon_full_parameters(self) -> ContextManager:
-        return fsdp2_summon_full_parameters(self._fsdp)
+        return self._name
 
     @property
     @override
     def module(self) -> Module:
-        return self._fsdp
+        return self._fsdp1
 
     @property
     @override
     def base_module(self) -> Module:
-        return self._fsdp
+        return self._fsdp1.module
 
     @property
     @override
-    def name(self) -> str:
-        return self._wrapped_model.name
+    def device(self) -> Device:
+        return self._device
 
     @property
     @override
     def config(self) -> object:
-        return self._wrapped_model.config
+        return self._config
 
     @property
     @override
     def handler(self) -> ModelHandler:
-        return self._wrapped_model.handler
+        return self._handler
 
     @property
     @override
     def newly_initialized(self) -> bool:
-        return self._wrapped_model.newly_initialized
+        return self._newly_initialized
+
+
+@final
+class _FSDP2Model(Model):
+    _name: str
+    _fsdp2: FSDP2
+    _device: Device
+    _config: object
+    _handler: ModelHandler
+    _newly_initialized: bool
+
+    def __init__(
+        self,
+        name: str,
+        fsdp2: FSDP2,
+        device: Device,
+        config: object,
+        handler: ModelHandler,
+        newly_initialized: bool,
+    ) -> None:
+        self._name = name
+        self._fsdp2 = fsdp2
+        self._device = device
+        self._config = config
+        self._handler = handler
+        self._newly_initialized = newly_initialized
+
+    @override
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self._fsdp2(*args, **kwargs)
+
+    @override
+    def state_dict(self) -> dict[str, object]:
+        return fsdp2_local_state_dict(self._fsdp2)
+
+    @override
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
+        fsdp2_load_local_state_dict(self._fsdp2, state_dict)
+
+    @override
+    def no_sync(self) -> ContextManager:
+        return fsdp2_no_sync(self._fsdp2)
+
+    @override
+    def clip_grad_norm(self, max_norm: float | None) -> Tensor:
+        return clip_grad_norm(self._fsdp2, max_norm)
+
+    @override
+    def summon_full_parameters(self) -> ContextManager:
+        return fsdp2_summon_full_parameters(self._fsdp2)
+
+    @property
+    @override
+    def name(self) -> str:
+        return self._name
+
+    @property
+    @override
+    def module(self) -> Module:
+        return self._fsdp2
+
+    @property
+    @override
+    def base_module(self) -> Module:
+        return self._fsdp2
+
+    @property
+    @override
+    def device(self) -> Device:
+        return self._device
+
+    @property
+    @override
+    def config(self) -> object:
+        return self._config
+
+    @property
+    @override
+    def handler(self) -> ModelHandler:
+        return self._handler
+
+    @property
+    @override
+    def newly_initialized(self) -> bool:
+        return self._newly_initialized
 
 
 def broadcast_model(model: Model, gangs: Gangs) -> None:

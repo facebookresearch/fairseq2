@@ -19,7 +19,6 @@ from fairseq2.data.text.tokenizers import (
 from fairseq2.error import ContractError
 from fairseq2.generation import (
     Seq2SeqGenerator,
-    Seq2SeqGeneratorOutput,
     SequenceGenerator,
     SequenceGeneratorOutput,
 )
@@ -77,7 +76,7 @@ class SequenceToTextConverter:
 
         self._text_decoder = tokenizer.create_decoder()
 
-    def __call__(self, source_seq: Tensor) -> tuple[str, Seq2SeqGeneratorOutput]:
+    def __call__(self, source_seq: Tensor) -> tuple[str, SequenceGeneratorOutput]:
         """
         :param source_seq:
             The source sequence. *Shape:* :math:`(S,*)`, where :math:`S` is the
@@ -101,7 +100,7 @@ class SequenceToTextConverter:
         self,
         source_seqs: Tensor,
         source_seqs_layout: BatchLayout,
-    ) -> tuple[list[str], Seq2SeqGeneratorOutput]:
+    ) -> tuple[list[str], SequenceGeneratorOutput]:
         """
         :param source_seqs:
             The source sequences. *Shape:* :math:`(N,S,*)`, where :math:`N` is
@@ -123,7 +122,7 @@ class SequenceToTextConverter:
         self,
         source_seqs: Tensor,
         source_seqs_layout: BatchLayout,
-    ) -> tuple[list[str], Seq2SeqGeneratorOutput]:
+    ) -> tuple[list[str], SequenceGeneratorOutput]:
         """A subclass should call this method for actual text conversion.
 
         :param source_seqs:
@@ -223,7 +222,7 @@ class TextTranslator:
 
         self._max_source_len = max_source_len
 
-    def __call__(self, source_text: str) -> tuple[str, Seq2SeqGeneratorOutput]:
+    def __call__(self, source_text: str) -> tuple[str, SequenceGeneratorOutput]:
         """
         :param source_text:
             The text in the source language.
@@ -241,7 +240,7 @@ class TextTranslator:
 
     def batch_translate(
         self, source_texts: Sequence[str]
-    ) -> tuple[list[str], Seq2SeqGeneratorOutput]:
+    ) -> tuple[list[str], SequenceGeneratorOutput]:
         """
         :param source_texts:
             The texts in the source language.

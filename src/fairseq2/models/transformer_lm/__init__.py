@@ -24,9 +24,7 @@ from fairseq2.models.transformer_lm._decoder_layer import (
 from fairseq2.models.transformer_lm._decoder_layer import (
     TransformerLMDecoderLayer as TransformerLMDecoderLayer,
 )
-from fairseq2.models.transformer_lm._model import (
-    TransformerLanguageModel as TransformerLanguageModel,
-)
+from fairseq2.models.transformer_lm._model import TransformerLM as TransformerLM
 from fairseq2.models.transformer_lm._sharder import (
     shard_transformer_lm as shard_transformer_lm,
 )

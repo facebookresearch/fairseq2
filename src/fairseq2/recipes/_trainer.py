@@ -34,7 +34,13 @@ from fairseq2.device import CPU, SupportsDeviceTransfer
 from fairseq2.error import InternalError, InvalidOperationError
 from fairseq2.gang import GangError, Gangs, broadcast_flag
 from fairseq2.logging import log
-from fairseq2.metrics import Mean, MetricBag, MetricBagError, MetricDescriptor
+from fairseq2.metrics import (
+    Mean,
+    MetricBag,
+    MetricBagError,
+    MetricDescriptor,
+    sync_and_compute_metrics,
+)
 from fairseq2.metrics.recorders import MetricRecorder, MetricRecordError
 from fairseq2.nn.utils.grad import check_grad_norms, normalize_grads
 from fairseq2.optim import DynamicLossScaler
@@ -104,7 +110,6 @@ class Trainer(Recipe, Generic[BatchT]):
     _state: _TrainerState
     _step_nr: int
     _data_epoch_nr: int
-    _model: Model
     _unit: TrainUnit[BatchT]
     _data_reader: DataReader[BatchT]
     _gangs: Gangs
@@ -275,8 +280,6 @@ class Trainer(Recipe, Generic[BatchT]):
         self._step_nr = 0
 
         self._data_epoch_nr = 1
-
-        self._model = unit.model
 
         self._unit = unit
 
@@ -533,7 +536,7 @@ class Trainer(Recipe, Generic[BatchT]):
 
             log.info("Restoring the model state.")
 
-            self._checkpoint_manager.load_model_state(step_nr, self._model)
+            self._checkpoint_manager.load_model_state(step_nr, self._unit.model)
 
             log.info("Model state restored.")
 
@@ -575,7 +578,7 @@ class Trainer(Recipe, Generic[BatchT]):
         return _TrainerState.DATA_LOAD
 
     def _do_run(self) -> None:
-        self._model.module.train()
+        self._unit.model.module.train()
 
         progress_task = self._progress_reporter.create_task(
             "train", total=self._max_num_steps, completed=self._step_nr
@@ -778,13 +781,13 @@ class Trainer(Recipe, Generic[BatchT]):
             # batches have varying sizes and we cannot normalize the loss before
             # the backward pass.
             if num_targets > 0:
-                normalize_grads(self._model.module, gangs.dp, num_targets)
+                normalize_grads(self._unit.model.module, gangs.dp, num_targets)
 
             self._loss_scaler.unscale_grads_()
 
             # Clip the gradients.
             with record_function(f"step_{step_nr}_grad_norm"):
-                grad_norm = self._model.clip_grad_norm(self._max_grad_norm)
+                grad_norm = self._unit.model.clip_grad_norm(self._max_grad_norm)
 
                 if self._grad_check:
                     if not check_grad_norms(grad_norm, gangs.dp, step_nr):
@@ -820,7 +823,7 @@ class Trainer(Recipe, Generic[BatchT]):
     def _maybe_no_sync(self, batch_nr: int, num_batches: int) -> ContextManager:
         if self._no_sync_grad_accumulation:
             if batch_nr < num_batches - 1:
-                return self._model.no_sync()
+                return self._unit.model.no_sync()
 
         return nullcontext()
 
@@ -934,7 +937,7 @@ class Trainer(Recipe, Generic[BatchT]):
             if self._save_model_only:
                 self._checkpoint_manager.save_model_only(
                     step_nr,
-                    self._model,
+                    self._unit.model,
                     state_processor=log_ready,
                     callback=self._complete_checkpoint,
                     blocking=blocking,
@@ -949,7 +952,7 @@ class Trainer(Recipe, Generic[BatchT]):
                 self._checkpoint_manager.save_checkpoint(
                     step_nr,
                     trainer_state,
-                    self._model,
+                    self._unit.model,
                     self._optimizer,  # type: ignore[arg-type]
                     self._data_reader,
                     state_processor=log_ready,
@@ -988,7 +991,7 @@ class Trainer(Recipe, Generic[BatchT]):
 
         try:
             if gangs.tp.rank == 0:
-                values = self._metric_bag.sync_and_compute_metrics()
+                values = sync_and_compute_metrics(self._metric_bag, gangs.dp)
             else:
                 values = None
         except MetricBagError as ex:
@@ -1097,9 +1100,7 @@ class Trainer(Recipe, Generic[BatchT]):
         else:
             log.info("Starting validation after step {}.", self._step_nr)
 
-        self._model.module.eval()
-
-        with self._model.summon_full_parameters():
+        with self._unit.model.summon_full_parameters():
             score = self._validator.run(self._step_nr, self._data_epoch_nr)
 
         if score is not None:
@@ -1108,7 +1109,7 @@ class Trainer(Recipe, Generic[BatchT]):
 
         self._validator.reset()
 
-        self._model.module.train()
+        self._unit.model.module.train()
 
         # Try to avoid CUDA memory fragmentation after validation.
         if self._gangs.root.device.type == "cuda":

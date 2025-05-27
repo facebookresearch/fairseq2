@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-from fairseq2.data_type import DataType
-from fairseq2.device import Device
 from fairseq2.models.transformer import (
     CausalAttentionBias,
     FeedForwardNetwork,
@@ -24,7 +22,7 @@ from fairseq2.models.transformer import (
 from fairseq2.models.transformer_lm import (
     StandardTransformerLMDecoder,
     StandardTransformerLMDecoderLayer,
-    TransformerLanguageModel,
+    TransformerLM,
     TransformerLMDecoder,
     TransformerLMDecoderLayer,
 )
@@ -44,7 +42,7 @@ from fairseq2.nn import (
 from fairseq2.models.mistral._config import MistralConfig
 
 
-def create_mistral_model(config: MistralConfig) -> TransformerLanguageModel:
+def create_mistral_model(config: MistralConfig) -> TransformerLM:
     return MistralFactory(config).create_model()
 
 
@@ -54,7 +52,7 @@ class MistralFactory:
     def __init__(self, config: MistralConfig) -> None:
         self._config = config
 
-    def create_model(self) -> TransformerLanguageModel:
+    def create_model(self) -> TransformerLM:
         config = self._config
 
         decoder_frontend = self.create_decoder_frontend()
@@ -63,12 +61,13 @@ class MistralFactory:
 
         final_proj = self.create_final_projection()
 
-        return TransformerLanguageModel(
+        return TransformerLM(
+            config.model_dim,
             decoder_frontend,
             decoder,
             final_proj,
-            pad_idx=config.pad_idx,
-            max_seq_len=config.max_seq_len,
+            config.pad_idx,
+            config.max_seq_len,
         )
 
     def create_decoder_frontend(self) -> TransformerFrontend:
@@ -77,15 +76,17 @@ class MistralFactory:
         embed = self.create_embedding()
 
         return TransformerEmbeddingFrontend(
-            embed, pos_encoder=None, no_scale=True, dropout_p=config.dropout_p
+            config.model_dim,
+            embed,
+            pos_encoder=None,
+            no_scale=True,
+            dropout_p=config.dropout_p,
         )
 
     def create_embedding(self) -> Embedding:
         config = self._config
 
-        return StandardEmbedding(
-            config.vocab_size, config.model_dim, pad_idx=config.pad_idx
-        )
+        return StandardEmbedding(config.vocab_size, config.model_dim, config.pad_idx)
 
     def create_decoder(self) -> TransformerLMDecoder:
         config = self._config
@@ -99,18 +100,16 @@ class MistralFactory:
 
             layers.append(layer)
 
-        return StandardTransformerLMDecoder(
-            layers,
-            norm_order=TransformerNormOrder.PRE,
-            layer_norm_factory=self.create_layer_norm,
-        )
+        layer_norm = self.create_layer_norm()
+
+        return StandardTransformerLMDecoder(layers, layer_norm)
 
     def create_position_encoder(self) -> PositionEncoder:
         config = self._config
 
-        return RotaryEncoder(
-            config.model_dim // config.num_attn_heads, config.max_seq_len
-        )
+        encoding_dim = config.model_dim // config.num_attn_heads
+
+        return RotaryEncoder(encoding_dim, config.max_seq_len)
 
     def create_decoder_layer(
         self, pos_encoder: PositionEncoder
@@ -119,14 +118,19 @@ class MistralFactory:
 
         self_attn = self.create_self_attention(pos_encoder)
 
+        self_attn_layer_norm = self.create_layer_norm()
+
         ffn = self.create_ffn()
+
+        ffn_layer_norm = self.create_layer_norm()
 
         return StandardTransformerLMDecoderLayer(
             self_attn,
+            self_attn_layer_norm,
             ffn,
-            dropout_p=config.dropout_p,
+            ffn_layer_norm,
             norm_order=TransformerNormOrder.PRE,
-            layer_norm_factory=self.create_layer_norm,
+            dropout_p=config.dropout_p,
         )
 
     def create_self_attention(self, pos_encoder: PositionEncoder) -> MultiheadAttention:
@@ -134,7 +138,7 @@ class MistralFactory:
 
         attn_bias = CausalAttentionBias(attn_window_len=config.attn_window_len)
 
-        sdpa = create_default_sdpa(attn_bias, dropout_p=config.dropout_p)
+        sdpa = create_default_sdpa(attn_bias)
 
         incremental_state_factory = LocalAttentionStateFactory(config.attn_window_len)
 
@@ -155,6 +159,11 @@ class MistralFactory:
             config.model_dim, config.ffn_inner_dim, bias=False, inner_dim_scale=1.0
         )
 
+    def create_layer_norm(self) -> LayerNorm:
+        config = self._config
+
+        return RMSNorm(config.model_dim, bias=False)
+
     def create_final_projection(self) -> Projection:
         config = self._config
 
@@ -164,9 +173,3 @@ class MistralFactory:
             bias=False,
             init_fn=init_transformer_final_projection,
         )
-
-    @staticmethod
-    def create_layer_norm(
-        model_dim: int, *, device: Device | None = None, dtype: DataType | None = None
-    ) -> LayerNorm:
-        return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)

@@ -42,12 +42,12 @@ class BatchLayout:
         if packed:
             if len(shape) != 1:
                 raise ValueError(
-                    f"`shape` must be one-dimensional, but has {len(shape)} dimension(s) instead."
+                    f"`shape` must be 1 dimensional, but is {len(shape)} dimensional instead."
                 )
 
             batch_width = shape[0]
 
-            if batch_width == 0:
+            if batch_width < 1:
                 raise ValueError("`shape[0]` must be greater than or equal to 1.")
 
             if seq_lens is None:
@@ -97,12 +97,12 @@ class BatchLayout:
         else:
             if len(shape) != 2:
                 raise ValueError(
-                    f"`shape` must be two-dimensional, but has {len(shape)} dimension(s) instead."
+                    f"`shape` must be 2 dimensional, but is {len(shape)} dimensional instead."
                 )
 
             batch_size, batch_width = shape
 
-            if batch_width == 0:
+            if batch_width < 1:
                 raise ValueError("`shape[1]` must be greater than or equal to 1.")
 
             if seq_lens is None:
@@ -195,15 +195,15 @@ class BatchLayout:
     def min_seq_len(self) -> int:
         return self._min_seq_len
 
-    compile_max_seq_len: ClassVar[int | None] = None
+    compiled_max_seq_len: ClassVar[int | None] = None
 
     @property
     def max_seq_len(self) -> int:
         # TODO: As of PyTorch 2.7, integers cannot be marked as dynamic during
         # compilation. This is a workaround till that gets fixed.
         if torch.compiler.is_compiling():
-            if self.compile_max_seq_len is not None:
-                return self.compile_max_seq_len
+            if self.compiled_max_seq_len is not None:
+                return self.compiled_max_seq_len
 
         return self._max_seq_len
 

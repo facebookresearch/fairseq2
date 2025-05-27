@@ -18,7 +18,6 @@ from fairseq2.datasets import LengthBatching, Seq2SeqBatch, SyncMode
 from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
 from fairseq2.device import CPU
 from fairseq2.file_system import FileMode
-from fairseq2.gang import Gangs
 from fairseq2.metrics import MetricBag
 from fairseq2.models.asr import AsrModel
 from fairseq2.recipes import Evaluator, EvalUnit, Model, RecipeError, UnitError
@@ -45,7 +44,9 @@ from fairseq2.utils.validation import validate
 
 # isort: split
 
-from fairseq2.recipes.asr._common import AsrCriterion, AsrMetricBag, AsrScorer
+from fairseq2.recipes.asr._criterion import AsrCriterion
+from fairseq2.recipes.asr._metrics import AsrMetricBag
+from fairseq2.recipes.asr._scorer import AsrScorer
 
 
 @dataclass(kw_only=True)
@@ -185,7 +186,7 @@ def load_asr_evaluator(
 
     criterion = AsrCriterion(model, scorer)
 
-    unit = AsrEvalUnit(criterion, gangs)
+    unit = AsrEvalUnit(model, criterion)
 
     batching = LengthBatching(config.dataset.max_num_elements)
 
@@ -208,6 +209,10 @@ def load_asr_evaluator(
         read_options,
     )
 
+    units = [unit]
+
+    data_readers = [data_reader]
+
     seed += 1
 
     return create_evaluator(
@@ -215,8 +220,8 @@ def load_asr_evaluator(
         config.evaluator,
         config.common,
         output_dir,
-        [unit],
-        [data_reader],
+        units,
+        data_readers,
         gangs,
         seed,
         hyper_params=config,
@@ -225,13 +230,16 @@ def load_asr_evaluator(
 
 @final
 class AsrEvalUnit(EvalUnit[Seq2SeqBatch]):
+    _model: Model
     _criterion: AsrCriterion
     _metric_bag: AsrMetricBag
 
-    def __init__(self, criterion: AsrCriterion, gangs: Gangs) -> None:
+    def __init__(self, model: Model, criterion: AsrCriterion) -> None:
+        self._model = model
+
         self._criterion = criterion
 
-        self._metric_bag = AsrMetricBag(gangs.dp)
+        self._metric_bag = AsrMetricBag(device=model.device)
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> None:
@@ -240,7 +248,7 @@ class AsrEvalUnit(EvalUnit[Seq2SeqBatch]):
     @property
     @override
     def model(self) -> Model:
-        return self._criterion.model
+        return self._model
 
     @property
     @override

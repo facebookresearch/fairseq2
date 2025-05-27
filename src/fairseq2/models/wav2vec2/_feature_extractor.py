@@ -8,19 +8,19 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from typing import final
+from typing import TYPE_CHECKING, final
 
 import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import GELU, Conv1d, Dropout, GroupNorm, Module, Sequential
-from torch.nn.functional import group_norm, layer_norm
+from torch.nn.functional import group_norm
 from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
-from fairseq2.nn import BatchLayout, LayerNorm
+from fairseq2.nn import BatchLayout, LayerNorm, StandardLayerNorm
 from fairseq2.nn.utils.grad import scale_grad
 
 
@@ -65,13 +65,10 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             value less than 1.0 allows the feature extractor to learn at a lower
             rate than the rest of the model.
         """
-        if len(layer_descs) == 0:
-            raise ValueError("`layer_descs` must be non-empty.")
+        super().__init__()
 
-        # The output dimensionality of the last feature extraction layer.
-        feature_dim = layer_descs[-1][0]
-
-        super().__init__(feature_dim)
+        if not layer_descs:
+            raise ValueError("`layer_descs` must not be empty.")
 
         self.layers = Sequential()
 
@@ -89,8 +86,8 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
             # If Layer Normalization is requested, apply it in all layers.
             if layer_norm:
-                layer_norm_ = Float32LayerNorm(
-                    output_dim, bias=True, device=device, dtype=dtype
+                layer_norm_ = StandardLayerNorm(
+                    output_dim, bias=True, cast_fp32=True, device=device, dtype=dtype
                 )
 
                 group_norm_ = None
@@ -191,11 +188,10 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
         return seq_lens
 
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = super().extra_repr()
-
-        return f"{s}, grad_scale={self.grad_scale:G}"
+        return f"grad_scale={self.grad_scale:G}"
 
 
 @final
@@ -236,19 +232,15 @@ class Wav2Vec2FeatureExtractionLayer(Module):
         )
 
         if dropout_p > 0.0:
-            self.dropout = Dropout(dropout_p)
+            dropout = Dropout(dropout_p)
         else:
-            self.register_module("dropout", None)
+            dropout = None
 
-        if group_norm is not None:
-            self.group_norm = group_norm
-        else:
-            self.register_module("group_norm", None)
+        self.register_module("dropout", dropout)
 
-        if layer_norm is not None:
-            self.layer_norm = layer_norm
-        else:
-            self.register_module("layer_norm", None)
+        self.register_module("group_norm", group_norm)
+
+        self.register_module("layer_norm", layer_norm)
 
         self.activation = GELU()
 
@@ -276,6 +268,9 @@ class Wav2Vec2FeatureExtractionLayer(Module):
 
         return seqs
 
+    if TYPE_CHECKING:
+        __call__ = forward
+
 
 @final
 class Wav2Vec2FeatureConv1d(Conv1d):
@@ -301,7 +296,7 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
     def __init__(
         self, num_fbank_channels: int, stride: int, *, sample_every_k: int = 1
     ):
-        super().__init__(feature_dim=num_fbank_channels * stride)
+        super().__init__()
 
         self.num_fbank_channels = num_fbank_channels
         self.stride = stride
@@ -362,6 +357,7 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
 
         return seq_lens
 
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
         return (
@@ -369,23 +365,6 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
             f"stride={self.stride}, "
             f"sample_every_k={self.sample_every_k}"
         )
-
-
-@final
-class Float32LayerNorm(LayerNorm):
-    """Applies Layer Normalization in single-precision."""
-
-    @override
-    def forward(self, x: Tensor) -> Tensor:
-        w, b = self.weight, self.bias
-
-        fp32_x = x.float()
-        fp32_w = w.float() if w is not None else None
-        fp32_b = b.float() if b is not None else None
-
-        y = layer_norm(fp32_x, self.normalized_shape, fp32_w, fp32_b, self.eps)
-
-        return y.type_as(x)
 
 
 @final

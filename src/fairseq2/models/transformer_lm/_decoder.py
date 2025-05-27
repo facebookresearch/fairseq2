@@ -6,24 +6,17 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections import OrderedDict
 from collections.abc import Sequence
-from typing import Protocol, final
+from typing import TYPE_CHECKING, Protocol, final
 
-from torch import Generator, Tensor
-from torch.nn import Dropout
+from torch import Tensor
+from torch.nn import Dropout, ModuleList
 from torch.utils.hooks import RemovableHandle
 from typing_extensions import override
 
-from fairseq2.data_type import DataType
-from fairseq2.device import Device
-from fairseq2.models.transformer import (
-    AttentionBiasCache,
-    LayerNormFactory,
-    TransformerNormOrder,
-    create_standard_layer_norm,
-)
+from fairseq2.models.transformer import AttentionBiasCache
 from fairseq2.nn import BatchLayout, IncrementalStateBag, LayerNorm, LayerStack
 
 # isort: split
@@ -31,22 +24,13 @@ from fairseq2.nn import BatchLayout, IncrementalStateBag, LayerNorm, LayerStack
 from fairseq2.models.transformer_lm._decoder_layer import TransformerLMDecoderLayer
 
 
-class TransformerLMDecoder(LayerStack, ABC):
-    """Represents a Transformer-based language model decoder."""
-
-    model_dim: int
+class TransformerLMDecoder(LayerStack):
+    """Represents a decoder-only Transformer decoder."""
 
     _layer_hooks: dict[int, TransformerLMDecoderLayerHook]
 
-    def __init__(
-        self, model_dim: int, layers: Sequence[TransformerLMDecoderLayer]
-    ) -> None:
-        """
-        :param model_dim: The dimensionality of the model.
-        """
-        super().__init__(layers)
-
-        self.model_dim = model_dim
+    def __init__(self) -> None:
+        super().__init__()
 
         self._layer_hooks = OrderedDict()
 
@@ -67,6 +51,9 @@ class TransformerLMDecoder(LayerStack, ABC):
         :returns: The decoder output. *Shape:* Same as ``seqs``.
         """
 
+    if TYPE_CHECKING:
+        __call__ = forward
+
     def register_layer_hook(
         self, hook: TransformerLMDecoderLayerHook
     ) -> RemovableHandle:
@@ -86,10 +73,6 @@ class TransformerLMDecoder(LayerStack, ABC):
         self._layer_hooks[handle.id] = hook
 
         return handle
-
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        return f"model_dim={self.model_dim}"
 
 
 class TransformerLMDecoderLayerHook(Protocol):
@@ -117,55 +100,28 @@ class TransformerLMDecoderLayerHook(Protocol):
 
 @final
 class StandardTransformerLMDecoder(TransformerLMDecoder):
-    layer_drop_p: float
-    generator: Generator | None
     layer_norm: LayerNorm | None
-    dropout_p: float
-    norm_order: TransformerNormOrder
+    dropout: Dropout | None
 
     def __init__(
         self,
         layers: Sequence[TransformerLMDecoderLayer],
+        layer_norm: LayerNorm | None = None,
         *,
-        generator: Generator | None = None,
         dropout_p: float = 0.0,
-        norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        layer_norm_factory: LayerNormFactory | None = None,
-        device: Device | None = None,
-        dtype: DataType | None = None,
     ) -> None:
-        """
-        :param layers: The decoder layers.
-        :param generator: The random number generator for LayerDrop
-            probabilities.
-        :param dropout_p: The dropout probability on decoder outputs.
-        :param norm_order: The Layer Normalization order.
-        :param layer_norm_factory: The factory to construct the Layer
-            Normalization module.
-        """
-        if not layers:
-            raise ValueError("`layers` must be non-empty.")
+        super().__init__()
 
-        model_dim = layers[0].model_dim
+        self.layers = ModuleList(layers)
 
-        super().__init__(model_dim, layers)
-
-        if layer_norm_factory is None:
-            layer_norm_factory = create_standard_layer_norm
-
-        self.generator = generator
-
-        if norm_order != TransformerNormOrder.POST:
-            self.layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
-        else:
-            self.register_module("layer_norm", None)
+        self.register_module("layer_norm", layer_norm)
 
         if dropout_p > 0.0:
-            self.dropout = Dropout(dropout_p)
+            dropout = Dropout(dropout_p)
         else:
-            self.register_module("dropout", None)
+            dropout = None
 
-        self.norm_order = norm_order
+        self.register_module("dropout", dropout)
 
     @override
     def forward(
@@ -193,9 +149,3 @@ class StandardTransformerLMDecoder(TransformerLMDecoder):
             seqs = self.dropout(seqs)
 
         return seqs
-
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        s = super().extra_repr()
-
-        return f"{s}, norm_order={self.norm_order.name}"

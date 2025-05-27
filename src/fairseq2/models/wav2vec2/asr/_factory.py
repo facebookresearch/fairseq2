@@ -36,7 +36,9 @@ class Wav2Vec2AsrFactory:
     def create_model(self) -> Wav2Vec2AsrModel:
         config = self._config
 
-        encoder_frontend, encoder = self.create_encoder()
+        encoder_frontend = self.create_encoder_frontend()
+
+        encoder = self.create_encoder()
 
         if config.use_masking:
             masker = self.create_masker()
@@ -46,6 +48,7 @@ class Wav2Vec2AsrFactory:
         final_proj = self.create_final_projection()
 
         return Wav2Vec2AsrModel(
+            config.encoder_config.model_dim,
             encoder_frontend,
             encoder,
             final_proj,
@@ -53,16 +56,19 @@ class Wav2Vec2AsrFactory:
             final_dropout_p=config.final_dropout_p,
         )
 
-    def create_encoder(self) -> tuple[Wav2Vec2Frontend, TransformerEncoder]:
+    def create_encoder_frontend(self) -> Wav2Vec2Frontend:
         config = self._config
 
         factory = Wav2Vec2EncoderFactory(config.encoder_config)
 
-        encoder_frontend = factory.create_encoder_frontend()
+        return factory.create_encoder_frontend()
 
-        encoder = factory.create_encoder()
+    def create_encoder(self) -> TransformerEncoder:
+        config = self._config
 
-        return encoder_frontend, encoder
+        factory = Wav2Vec2EncoderFactory(config.encoder_config)
+
+        return factory.create_encoder()
 
     def create_masker(self) -> Wav2Vec2Masker:
         config = self._config

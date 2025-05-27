@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import final
+from typing import TYPE_CHECKING, final
 
 from torch import Tensor
 from torch.nn import Dropout, Module
@@ -16,11 +16,11 @@ from typing_extensions import override
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.nn import (
+    AdditiveResidualConnect,
     BatchLayout,
     IncrementalStateBag,
     LayerNorm,
     ResidualConnect,
-    StandardResidualConnect,
 )
 
 # isort: split
@@ -29,24 +29,10 @@ from fairseq2.models.transformer._attention_bias import AttentionBiasCache
 from fairseq2.models.transformer._ffn import FeedForwardNetwork
 from fairseq2.models.transformer._multihead_attention import MultiheadAttention
 from fairseq2.models.transformer._norm_order import TransformerNormOrder
-from fairseq2.models.transformer._normalization import (
-    LayerNormFactory,
-    create_standard_layer_norm,
-)
 
 
 class TransformerDecoderLayer(Module, ABC):
     """Represents a Transformer decoder layer."""
-
-    model_dim: int
-
-    def __init__(self, model_dim: int) -> None:
-        """
-        :param model_dim: The dimensionality of the model.
-        """
-        super().__init__()
-
-        self.model_dim = model_dim
 
     @abstractmethod
     def forward(
@@ -72,9 +58,8 @@ class TransformerDecoderLayer(Module, ABC):
         :returns: The decoder layer output. *Shape:* Same as ``seqs``.
         """
 
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        return f"model_dim={self.model_dim}"
+    if TYPE_CHECKING:
+        __call__ = forward
 
 
 @final
@@ -99,15 +84,17 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
     def __init__(
         self,
         self_attn: MultiheadAttention,
+        self_attn_layer_norm: LayerNorm,
         encoder_decoder_attn: MultiheadAttention,
+        encoder_decoder_attn_layer_norm: LayerNorm,
         ffn: FeedForwardNetwork,
+        ffn_layer_norm: LayerNorm,
         *,
-        dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        layer_norm_factory: LayerNormFactory | None = None,
         self_attn_residual: ResidualConnect | None = None,
         encoder_decoder_attn_residual: ResidualConnect | None = None,
         ffn_residual: ResidualConnect | None = None,
+        dropout_p: float = 0.0,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -115,8 +102,6 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         :param self_attn: The self attention layer.
         :param encoder_decoder_attn: The encoder-decoder attention layer.
         :param ffn: The feed-forward network.
-        :param dropout_p: The dropout probability on outputs of the attention
-            layers and the feed-forward network.
         :param norm_order: The Layer Normalization order.
         :param layer_norm_factory: The factory to construct the Layer
             Normalization modules.
@@ -126,78 +111,79 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             the input and output of the encoder-decoder attention layer.
         :param ffn_residual: The residual connection between the input and
             output of the feed-forward network.
+        :param dropout_p: The dropout probability on outputs of the attention
+            layers and the feed-forward network.
         """
-        model_dim = self_attn.model_dim
-
-        super().__init__(model_dim)
-
-        if layer_norm_factory is None:
-            layer_norm_factory = create_standard_layer_norm
+        super().__init__()
 
         # Self Attention
-        self_attn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
-
         if norm_order != TransformerNormOrder.POST:
-            self.self_attn_layer_norm = self_attn_layer_norm
+            self.register_module("self_attn_layer_norm", self_attn_layer_norm)
 
         self.self_attn = self_attn
 
         if dropout_p > 0.0:
-            self.self_attn_dropout = Dropout(dropout_p)
+            self_attn_dropout = Dropout(dropout_p)
         else:
-            self.register_module("self_attn_dropout", None)
+            self_attn_dropout = None
+
+        self.register_module("self_attn_dropout", self_attn_dropout)
 
         if self_attn_residual is None:
-            self_attn_residual = StandardResidualConnect()
+            self_attn_residual = AdditiveResidualConnect()
 
         self.self_attn_residual = self_attn_residual
 
         if norm_order == TransformerNormOrder.POST:
-            self.self_attn_layer_norm = self_attn_layer_norm
+            self.register_module("self_attn_layer_norm", self_attn_layer_norm)
 
         # Encoder-Decoder Attention
-        encoder_decoder_attn_layer_norm = layer_norm_factory(
-            model_dim, device=device, dtype=dtype
-        )
-
         if norm_order != TransformerNormOrder.POST:
-            self.encoder_decoder_attn_layer_norm = encoder_decoder_attn_layer_norm
+            self.register_module(
+                "encoder_decoder_attn_layer_norm", encoder_decoder_attn_layer_norm
+            )
 
         self.encoder_decoder_attn = encoder_decoder_attn
 
         if dropout_p > 0.0:
-            self.encoder_decoder_attn_dropout = Dropout(dropout_p)
+            encoder_decoder_attn_dropout = Dropout(dropout_p)
         else:
-            self.register_module("encoder_decoder_attn_dropout", None)
+            encoder_decoder_attn_dropout = None
+
+        self.register_module(
+            "encoder_decoder_attn_dropout", encoder_decoder_attn_dropout
+        )
 
         if encoder_decoder_attn_residual is None:
-            encoder_decoder_attn_residual = StandardResidualConnect()
+            encoder_decoder_attn_residual = AdditiveResidualConnect()
 
         self.encoder_decoder_attn_residual = encoder_decoder_attn_residual
 
         if norm_order == TransformerNormOrder.POST:
-            self.encoder_decoder_attn_layer_norm = encoder_decoder_attn_layer_norm
+            self.register_module(
+                "encoder_decoder_attn_layer_norm", encoder_decoder_attn_layer_norm
+            )
 
         # Feed-Forward Network
-        ffn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
-
         if norm_order != TransformerNormOrder.POST:
-            self.ffn_layer_norm = ffn_layer_norm
+            self.register_module("ffn_layer_norm", ffn_layer_norm)
 
         self.ffn = ffn
 
         if dropout_p > 0.0:
-            self.ffn_dropout = Dropout(dropout_p)
+            ffn_dropout = Dropout(dropout_p)
         else:
-            self.register_module("ffn_dropout", None)
+            ffn_dropout = None
+
+        self.register_module("ffn_dropout", ffn_dropout)
 
         if ffn_residual is None:
-            ffn_residual = StandardResidualConnect()
+            ffn_residual = AdditiveResidualConnect()
 
         self.ffn_residual = ffn_residual
 
         if norm_order == TransformerNormOrder.POST:
-            self.ffn_layer_norm = ffn_layer_norm
+            self.register_module("ffn_layer_norm", ffn_layer_norm)
 
         self.norm_order = norm_order
 
@@ -311,8 +297,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
 
         return seqs
 
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = super().extra_repr()
-
-        return f"{s}, norm_order={self.norm_order.name}"
+        return f"norm_order={self.norm_order.name}"

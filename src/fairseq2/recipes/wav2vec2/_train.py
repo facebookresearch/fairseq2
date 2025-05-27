@@ -22,7 +22,6 @@ from fairseq2.datasets.speech import (
     SpeechReadOptions,
 )
 from fairseq2.device import CPU
-from fairseq2.gang import Gangs
 from fairseq2.metrics import MetricBag
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
@@ -55,12 +54,10 @@ from fairseq2.utils.validation import validate
 
 # isort: split
 
-from fairseq2.recipes.wav2vec2._common import (
-    Wav2Vec2Criterion,
-    Wav2Vec2LossSection,
-    Wav2Vec2MetricBag,
-)
+from fairseq2.recipes.wav2vec2._config import Wav2Vec2LossSection
+from fairseq2.recipes.wav2vec2._criterion import Wav2Vec2Criterion
 from fairseq2.recipes.wav2vec2._eval import Wav2Vec2EvalUnit
+from fairseq2.recipes.wav2vec2._metrics import Wav2Vec2MetricBag
 
 
 @dataclass(kw_only=True)
@@ -231,10 +228,10 @@ def load_wav2vec2_trainer(
 
     # Initialize the train unit.
     criterion = Wav2Vec2Criterion(
-        model, config.loss.diversity_loss_weight, config.loss.feature_penalty_weight
+        model, config.loss.diversity_loss_weight, config.loss.features_penalty_weight
     )
 
-    unit = Wav2Vec2TrainUnit(criterion, gangs)
+    unit = Wav2Vec2TrainUnit(model, criterion)
 
     batching = LengthBatching(config.dataset.max_num_elements)
 
@@ -261,7 +258,7 @@ def load_wav2vec2_trainer(
 
     # Initialize the validation unit.
     if config.dataset.valid_split is not None:
-        valid_unit = Wav2Vec2EvalUnit(criterion, gangs)
+        valid_unit = Wav2Vec2EvalUnit(model, criterion)
 
         read_options = SpeechReadOptions(
             batching=batching,
@@ -312,13 +309,16 @@ def load_wav2vec2_trainer(
 
 @final
 class Wav2Vec2TrainUnit(TrainUnit[SequenceBatch]):
+    _model: Model
     _criterion: Wav2Vec2Criterion
     _metric_bag: Wav2Vec2MetricBag
 
-    def __init__(self, criterion: Wav2Vec2Criterion, gangs: Gangs) -> None:
+    def __init__(self, model: Model, criterion: Wav2Vec2Criterion) -> None:
+        self._model = model
+
         self._criterion = criterion
 
-        self._metric_bag = Wav2Vec2MetricBag(gangs.dp)
+        self._metric_bag = Wav2Vec2MetricBag(device=model.device)
 
     @override
     def __call__(self, batch: SequenceBatch) -> tuple[Tensor, int]:
@@ -327,7 +327,7 @@ class Wav2Vec2TrainUnit(TrainUnit[SequenceBatch]):
     @property
     @override
     def model(self) -> Model:
-        return self._criterion.model
+        return self._model
 
     @property
     @override

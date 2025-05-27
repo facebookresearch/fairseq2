@@ -77,57 +77,49 @@ class Wav2Vec2Frontend(TransformerFrontend):
         :param dropout_p:
             The dropout probability on extracted features.
         """
-        super().__init__(model_dim)
+        super().__init__()
 
         self.feature_dim = feature_dim
 
-        if feature_extractor is not None:
-            if feature_extractor.feature_dim != feature_dim:
-                raise ValueError(
-                    f"`feature_extractor.feature_dim` must be equal to `feature_dim` ({feature_dim}), but is {feature_extractor.feature_dim} instead."
-                )
-
-            self.feature_extractor = feature_extractor
-        else:
-            self.register_module("feature_extractor", None)
+        self.register_module("feature_extractor", feature_extractor)
 
         self.post_extract_layer_norm = StandardLayerNorm(
             feature_dim, bias=True, device=device, dtype=dtype
         )
 
         if feature_dim != model_dim:
-            self.model_dim_proj = Linear(
+            model_dim_proj = Linear(
                 feature_dim, model_dim, bias=True, device=device, dtype=dtype
             )
         else:
-            self.register_module("model_dim_proj", None)
+            model_dim_proj = None
+
+        self.register_module("model_dim_proj", model_dim_proj)
 
         if first_pass_dropout_p > 0.0:
-            self.first_pass_dropout = Dropout(first_pass_dropout_p)
+            first_pass_dropout = Dropout(first_pass_dropout_p)
         else:
-            self.register_module("first_pass_dropout", None)
+            first_pass_dropout = None
 
-        if pos_encoder is not None:
-            if pos_encoder.encoding_dim != model_dim:
-                raise ValueError(
-                    f"`pos_encoder.encoding_dim` must be equal to `model_dim` ({model_dim}), but is {pos_encoder.encoding_dim} instead."
-                )
+        self.register_module("first_pass_dropout", first_pass_dropout)
 
-            self.pos_encoder = pos_encoder
-        else:
-            self.register_module("pos_encoder", None)
+        self.register_module("pos_encoder", pos_encoder)
 
         if layer_norm:
-            self.layer_norm = StandardLayerNorm(
+            layer_norm_ = StandardLayerNorm(
                 model_dim, bias=True, device=device, dtype=dtype
             )
         else:
-            self.register_module("layer_norm", None)
+            layer_norm_ = None
+
+        self.register_module("layer_norm", layer_norm_)
 
         if dropout_p > 0.0:
-            self.dropout = Dropout(dropout_p)
+            dropout = Dropout(dropout_p)
         else:
-            self.register_module("dropout", None)
+            dropout = None
+
+        self.register_module("dropout", dropout)
 
     @override
     def forward(
@@ -226,8 +218,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
 
         return seqs, temporal_mask
 
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = super().extra_repr()
-
-        return f"{s}, feature_dim={self.feature_dim}"
+        return f"feature_dim={self.feature_dim}"

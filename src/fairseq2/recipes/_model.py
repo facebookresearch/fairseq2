@@ -8,15 +8,20 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
+from typing import Any
 
 from torch import Tensor
 from torch.nn import Module
 
+from fairseq2.device import Device
 from fairseq2.models import ModelHandler
 from fairseq2.typing import ContextManager
 
 
 class Model(ABC):
+    @abstractmethod
+    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
+
     @abstractmethod
     def state_dict(self) -> dict[str, object]: ...
 
@@ -34,6 +39,10 @@ class Model(ABC):
 
     @property
     @abstractmethod
+    def name(self) -> str: ...
+
+    @property
+    @abstractmethod
     def module(self) -> Module: ...
 
     @property
@@ -42,7 +51,7 @@ class Model(ABC):
 
     @property
     @abstractmethod
-    def name(self) -> str: ...
+    def device(self) -> Device: ...
 
     @property
     @abstractmethod

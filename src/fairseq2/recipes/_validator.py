@@ -23,7 +23,7 @@ from fairseq2.device import CPU, SupportsDeviceTransfer
 from fairseq2.error import ContractError, InternalError, InvalidOperationError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
-from fairseq2.metrics import MetricBagError, MetricDescriptor
+from fairseq2.metrics import MetricBagError, MetricDescriptor, sync_and_compute_metrics
 from fairseq2.metrics.recorders import MetricRecorder, MetricRecordError
 from fairseq2.profilers import Profiler
 from fairseq2.typing import ContextManager
@@ -364,7 +364,7 @@ class StandardValidator(Validator, Generic[BatchT]):
 
         try:
             if gangs.tp.rank == 0:
-                values = unit.metric_bag.sync_and_compute_metrics()
+                values = sync_and_compute_metrics(unit.metric_bag, gangs.dp)
             else:
                 values = None
         except MetricBagError as ex:

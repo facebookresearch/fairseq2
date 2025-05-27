@@ -7,10 +7,10 @@
 from __future__ import annotations
 
 from fairseq2.models import ModelHubAccessor
-from fairseq2.models.transformer_lm import TransformerLanguageModel
+from fairseq2.models.transformer_lm import TransformerLM
 
 # isort: split
 
 from fairseq2.models.mistral._config import MistralConfig
 
-get_mistral_model_hub = ModelHubAccessor(TransformerLanguageModel, MistralConfig)
+get_mistral_model_hub = ModelHubAccessor(TransformerLM, MistralConfig)

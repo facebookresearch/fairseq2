@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import math
-from typing import final
+from typing import TYPE_CHECKING, final
 
 import torch
 import torch.nn as nn
@@ -26,6 +26,7 @@ from fairseq2.nn import BatchLayout, Linear
 from fairseq2.models.transformer._attention_bias import (
     AttentionBias,
     AttentionBiasCache,
+    maybe_get_attention_bias_tensor,
 )
 from fairseq2.models.transformer._sdpa._base import SDPA
 from fairseq2.models.transformer._sdpa._naive import (
@@ -40,6 +41,7 @@ class RelativePositionSDPA(SDPA):
 
     model_dim: int
     num_heads: int
+    bias: AttentionBias
     pos_encoding: RelativePositionalEncoding
     u_bias: Parameter
     v_bias: Parameter
@@ -55,12 +57,7 @@ class RelativePositionSDPA(SDPA):
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
-        """
-        :param model_dim: The dimensionality of the model.
-        :param: num_heads: The number of attention heads.
-        :param: pos_encoding: The relative positional encoding table.
-        """
-        super().__init__(bias)
+        super().__init__()
 
         if model_dim % num_heads != 0:
             raise ValueError(
@@ -68,12 +65,10 @@ class RelativePositionSDPA(SDPA):
             )
 
         self.model_dim = model_dim
+
         self.num_heads = num_heads
 
-        if pos_encoding.encoding_dim != model_dim:
-            raise ValueError(
-                f"`encoding_dim` of `pos_encoding` must be equal to `model_dim` ({model_dim}), but is {pos_encoding.encoding_dim} instead."
-            )
+        self.bias = bias
 
         self.pos_encoding = pos_encoding
 
@@ -93,7 +88,6 @@ class RelativePositionSDPA(SDPA):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
         nn.init.xavier_normal_(self.u_bias)
         nn.init.xavier_normal_(self.v_bias)
 
@@ -115,8 +109,8 @@ class RelativePositionSDPA(SDPA):
             )
 
         # ([[N], H], S, S_kv)
-        bias = self._maybe_get_attention_bias_tensor(
-            seqs, seqs_layout, keys_layout, bias_cache
+        bias = maybe_get_attention_bias_tensor(
+            self.bias, seqs, seqs_layout, keys_layout, bias_cache
         )
 
         q, k, v = seqs, keys, values
@@ -175,7 +169,7 @@ class RelativePositionSDPA(SDPA):
         # (1, 2 x S - 1, H, K_h) -> (N, H, 2 x S - 1, K_h)
         r = r.transpose(1, 2).expand(batch_size, -1, -1, -1)
 
-        return r  # type: ignore[no-any-return]
+        return r
 
     def _shift_bd(self, bd: Tensor) -> Tensor:
         # (N, H, S, 2 x S - 1) -> (N, H, S, 2 x S)
@@ -198,11 +192,12 @@ class RelativePositionSDPA(SDPA):
 
         return x
 
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = super().extra_repr()
-
-        return f"model_dim={self.model_dim}, num_heads={self.num_heads}, {s}"
+        return (
+            f"model_dim={self.model_dim}, num_heads={self.num_heads}, bias={self.bias}"
+        )
 
 
 @final
@@ -235,6 +230,7 @@ class RelativePositionalEncoding(Module):
             )
 
         self.encoding_dim = encoding_dim
+
         self.max_seq_len = max_seq_len
 
         freqs = torch.empty(
@@ -246,11 +242,9 @@ class RelativePositionalEncoding(Module):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
         self.reset_non_persistent_buffers()
 
     def reset_non_persistent_buffers(self) -> None:
-        """Reset the non-persistent buffers of the module."""
         device, dtype = self.freqs.device, self.freqs.dtype
 
         positive_half = self.freqs[: self.max_seq_len]
@@ -299,13 +293,17 @@ class RelativePositionalEncoding(Module):
 
         if seq_len > max_seq_len:
             raise ValueError(
-                f"The input sequence length must be less than or equal to the maximum sequence length ({max_seq_len}), but is {seq_len} instead."
+                f"The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({max_seq_len}), but at least one sequence is of length {seq_len} instead."
             )
 
         fp32_freqs = self.freqs[max_seq_len - seq_len : max_seq_len + seq_len - 1]
 
         return fp32_freqs.type_as(seqs)
 
+    if TYPE_CHECKING:
+        __call__ = forward
+
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
         return f"encoding_dim={self.encoding_dim}, max_seq_len={self.max_seq_len}"

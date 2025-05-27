@@ -17,10 +17,8 @@ from fairseq2.device import Device
 from fairseq2.models.transformer import (
     AttentionBiasCache,
     FeedForwardNetwork,
-    LayerNormFactory,
     MultiheadAttention,
     TransformerEncoderLayer,
-    create_standard_layer_norm,
 )
 from fairseq2.nn import BatchLayout, LayerNorm
 
@@ -50,13 +48,17 @@ class ConformerBlock(TransformerEncoderLayer):
 
     def __init__(
         self,
+        ffn1_layer_norm: LayerNorm,
         ffn1: FeedForwardNetwork,
+        self_attn_layer_norm: LayerNorm,
         self_attn: MultiheadAttention,
+        conv_layer_norm: LayerNorm,
         conv: ConformerConvolution,
+        ffn2_layer_norm: LayerNorm,
         ffn2: FeedForwardNetwork,
+        layer_norm: LayerNorm,
         *,
         dropout_p: float = 0.0,
-        layer_norm_factory: LayerNormFactory | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -75,52 +77,53 @@ class ConformerBlock(TransformerEncoderLayer):
         :param layer_norm_factory:
             The factory to construct the Layer Normalization modules.
         """
-        model_dim = self_attn.model_dim
+        super().__init__()
 
-        super().__init__(model_dim)
-
-        if layer_norm_factory is None:
-            layer_norm_factory = create_standard_layer_norm
-
-        self.ffn1_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
+        self.ffn1_layer_norm = ffn1_layer_norm
 
         self.ffn1 = ffn1
 
         if dropout_p > 0.0:
-            self.ffn1_dropout = Dropout(dropout_p)
+            ffn1_dropout = Dropout(dropout_p)
         else:
-            self.register_module("ffn1_dropout", None)
+            ffn1_dropout = None
 
-        self.self_attn_layer_norm = layer_norm_factory(
-            model_dim, device=device, dtype=dtype
-        )
+        self.register_module("ffn1_dropout", ffn1_dropout)
+
+        self.self_attn_layer_norm = self_attn_layer_norm
 
         self.self_attn = self_attn
 
         if dropout_p > 0.0:
-            self.self_attn_dropout = Dropout(dropout_p)
+            self_attn_dropout = Dropout(dropout_p)
         else:
-            self.register_module("self_attn_dropout", None)
+            self_attn_dropout = None
 
-        self.conv_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
+        self.register_module("self_attn_dropout", self_attn_dropout)
+
+        self.conv_layer_norm = conv_layer_norm
 
         self.conv = conv
 
         if dropout_p > 0.0:
-            self.conv_dropout = Dropout(dropout_p)
+            conv_dropout = Dropout(dropout_p)
         else:
-            self.register_module("conv_dropout", None)
+            conv_dropout = None
 
-        self.ffn2_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
+        self.register_module("conv_dropout", conv_dropout)
+
+        self.ffn2_layer_norm = ffn2_layer_norm
 
         self.ffn2 = ffn2
 
         if dropout_p > 0.0:
-            self.ffn2_dropout = Dropout(dropout_p)
+            ffn2_dropout = Dropout(dropout_p)
         else:
-            self.register_module("ffn2_dropout", None)
+            ffn2_dropout = None
 
-        self.layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
+        self.register_module("ffn2_dropout", ffn2_dropout)
+
+        self.layer_norm = layer_norm
 
     @override
     def forward(

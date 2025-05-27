@@ -33,9 +33,9 @@ from fairseq2.nn.utils.module import apply_to_parameters, broadcast_module, infe
 # isort: split
 
 from fairseq2.nn.data_parallel._common import (
-    FsdpApplier,
-    FsdpGranularity,
-    FsdpParameterInitializer,
+    FSDPApplier,
+    FSDPGranularity,
+    FSDPParameterInitializer,
 )
 from fairseq2.nn.data_parallel._error import DistributedSetupError
 
@@ -49,7 +49,7 @@ warnings.filterwarnings(
 if TYPE_CHECKING:
 
     @final
-    class Fsdp2Module(Module):
+    class FSDP2(Module):
         def unshard(self) -> None: ...
 
         def reshard(self) -> None: ...
@@ -57,22 +57,22 @@ if TYPE_CHECKING:
         def set_requires_grad_sync(self, value: bool) -> None: ...
 
 else:
-    Fsdp2Module: TypeAlias = FSDPModule
+    FSDP2: TypeAlias = FSDPModule
 
 
 def to_fsdp2(
     module: Module,
     gangs: Gangs,
-    applier: FsdpApplier,
+    applier: FSDPApplier,
     *,
-    granularity: FsdpGranularity = "layer",
+    granularity: FSDPGranularity = "layer",
     mixed_precision_dtype: DataType | None = None,
     fp32_reduce: bool = False,
     broadcast_state: bool = False,
     skip_init: bool = False,
     reshard_after_forward: bool = True,
     cpu_offload: bool = False,
-) -> Fsdp2Module:
+) -> FSDP2:
     if gangs.sdp.size == 1:
         raise NotSupportedError(
             "FSDP2 does not support non-sharded data parallelism. Use DDP instead."
@@ -129,12 +129,12 @@ def to_fsdp2(
         if broadcast_state:
             if dp_gang.rank == 0:
                 raise DistributedSetupError(
-                    "`broadcast_state` is set, but the coordinator process (i.e. rank 0) is on a meta device."
+                    "`broadcast_state` is `True`, but the coordinator process (i.e. rank 0) is on a meta device."
                 )
 
             skip_init = True
 
-        param_initializer = FsdpParameterInitializer(dp_gang.device, skip_init)
+        param_initializer = FSDPParameterInitializer(dp_gang.device, skip_init)
 
     # Set up the data types for mixed precision training.
     if mixed_precision_dtype is None:
@@ -156,7 +156,7 @@ def to_fsdp2(
 
     sharded_modules: set[Module] = set()
 
-    def wrap(module: Module, reshard_after_forward: bool | None = None) -> Fsdp2Module:
+    def wrap(module: Module, reshard_after_forward: bool | None = None) -> FSDP2:
         if reshard_after_forward is None:
             reshard_after_forward = default_reshard_after_forward
 
@@ -176,12 +176,12 @@ def to_fsdp2(
 
         sharded_modules.add(module)
 
-        return cast(Fsdp2Module, module)
+        return cast(FSDP2, module)
 
     try:
         applier(module, granularity, wrap)
 
-        if not isinstance(module, Fsdp2Module):
+        if not isinstance(module, FSDP2):
             module = wrap(module, reshard_after_forward=False)
     except (RuntimeError, ValueError) as ex:
         raise DistributedSetupError(
@@ -191,7 +191,7 @@ def to_fsdp2(
     return module
 
 
-def fsdp2_local_state_dict(module: Fsdp2Module) -> dict[str, object]:
+def fsdp2_local_state_dict(module: FSDP2) -> dict[str, object]:
     sharded_state_dict = module.state_dict()
 
     device_mesh = None
@@ -229,7 +229,7 @@ def fsdp2_local_state_dict(module: Fsdp2Module) -> dict[str, object]:
 
 
 def fsdp2_load_local_state_dict(
-    module: Fsdp2Module, state_dict: Mapping[str, object]
+    module: FSDP2, state_dict: Mapping[str, object]
 ) -> None:
     state_dict = dict(state_dict)
 
@@ -245,7 +245,7 @@ def fsdp2_load_local_state_dict(
 
 
 @contextmanager
-def fsdp2_no_sync(module: Fsdp2Module) -> Iterator[None]:
+def fsdp2_no_sync(module: FSDP2) -> Iterator[None]:
     module.set_requires_grad_sync(False)
 
     try:
@@ -255,7 +255,7 @@ def fsdp2_no_sync(module: Fsdp2Module) -> Iterator[None]:
 
 
 @contextmanager
-def fsdp2_summon_full_parameters(module: Fsdp2Module) -> Iterator[None]:
+def fsdp2_summon_full_parameters(module: FSDP2) -> Iterator[None]:
     state = fully_shard.state(module)  # type: ignore[attr-defined]
 
     try:
@@ -299,7 +299,7 @@ def fsdp2_summon_full_parameters(module: Fsdp2Module) -> Iterator[None]:
         for child in module.children():
             unshard(child)
 
-        if isinstance(module, Fsdp2Module):
+        if isinstance(module, FSDP2):
             module.unshard()
 
             disable_hooks(module, "_forward_pre_hooks")
@@ -309,7 +309,7 @@ def fsdp2_summon_full_parameters(module: Fsdp2Module) -> Iterator[None]:
         for child in module.children():
             reshard(child)
 
-        if isinstance(module, Fsdp2Module):
+        if isinstance(module, FSDP2):
             enable_hooks(module, "_forward_pre_hooks")
             enable_hooks(module, "_forward_hooks")
 

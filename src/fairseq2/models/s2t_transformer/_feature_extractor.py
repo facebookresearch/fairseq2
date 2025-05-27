@@ -27,8 +27,7 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
     :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`.
     """
 
-    # All convolutions use the same stride.
-    stride: Final[int] = 2
+    STRIDE: Final[int] = 2  # All convolutions use the same stride.
 
     layers: Sequential
 
@@ -52,7 +51,7 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
         :param kernel_sizes:
             The kernel size of each 1D convolution.
         """
-        super().__init__(feature_dim)
+        super().__init__()
 
         if kernel_sizes is None:
             kernel_sizes = [3, 3]
@@ -78,13 +77,14 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
                 layer_input_dim,
                 layer_output_dim,
                 kernel_size,
-                stride=self.stride,
+                stride=self.STRIDE,
                 padding=kernel_size // 2,
                 device=device,
                 dtype=dtype,
             )
 
             layer.add_module("conv", conv)
+
             layer.add_module("activation", GLU(dim=1))
 
             self.layers.append(layer)
@@ -130,6 +130,6 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
 
         for _ in range(len(self.layers)):
             for i in range(len(seq_lens)):
-                seq_lens[i] = math.floor(((seq_lens[i] - 1) / self.stride) + 1.0)
+                seq_lens[i] = math.floor(((seq_lens[i] - 1) / self.STRIDE) + 1.0)
 
         return seq_lens

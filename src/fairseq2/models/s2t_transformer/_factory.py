@@ -36,11 +36,13 @@ from fairseq2.models.transformer import (
 )
 from fairseq2.nn import (
     Embedding,
+    LayerNorm,
     Linear,
     PositionEncoder,
     Projection,
     SinusoidalPositionEncoder,
     StandardEmbedding,
+    StandardLayerNorm,
     init_scaled_embedding,
 )
 from fairseq2.utils.lazy import Lazy
@@ -79,14 +81,15 @@ class S2TTransformerFactory:
         final_proj = self.create_final_projection()
 
         return TransformerModel(
+            config.model_dim,
             encoder_frontend,
             encoder,
             decoder_frontend,
             decoder,
             final_proj,
-            pad_idx=config.pad_idx,
-            max_source_seq_len=config.max_source_seq_len,
-            max_target_seq_len=config.max_target_seq_len,
+            config.pad_idx,
+            config.max_source_seq_len,
+            config.max_target_seq_len,
         )
 
     def create_encoder_frontend(self) -> TransformerFrontend:
@@ -104,11 +107,16 @@ class S2TTransformerFactory:
         else:
             pos_encoder = self.create_source_position_encoder()
 
+        if config.use_conformer:
+            proj = Linear(config.model_dim, config.model_dim, bias=True)
+        else:
+            proj = None
+
         return S2TTransformerFrontend(
             config.model_dim,
             feat_extractor,
             pos_encoder,
-            proj=config.use_conformer,
+            proj,
             dropout_p=config.dropout_p,
         )
 
@@ -129,7 +137,9 @@ class S2TTransformerFactory:
 
             layers.append(layer)
 
-        return StandardTransformerEncoder(layers, norm_order=TransformerNormOrder.PRE)
+        layer_norm = self.create_layer_norm()
+
+        return StandardTransformerEncoder(layers, layer_norm)
 
     def create_rel_pos_encoding(self) -> RelativePositionalEncoding:
         config = self._config
@@ -141,10 +151,18 @@ class S2TTransformerFactory:
     ) -> TransformerEncoderLayer:
         self_attn = self.create_encoder_self_attention(lazy_rel_pos_encoding)
 
+        self_attn_layer_norm = self.create_layer_norm()
+
         ffn = self.create_ffn()
 
+        ffn_layer_norm = self.create_layer_norm()
+
         return StandardTransformerEncoderLayer(
-            self_attn, ffn, norm_order=TransformerNormOrder.PRE
+            self_attn,
+            self_attn_layer_norm,
+            ffn,
+            ffn_layer_norm,
+            norm_order=TransformerNormOrder.PRE,
         )
 
     def create_encoder_self_attention(
@@ -175,11 +193,13 @@ class S2TTransformerFactory:
     def create_ffn(self, use_swish: bool = False) -> FeedForwardNetwork:
         config = self._config
 
+        activation = SiLU() if use_swish else None
+
         return StandardFeedForwardNetwork(
             config.model_dim,
             config.ffn_inner_dim,
             bias=True,
-            inner_activation=SiLU() if use_swish else None,
+            inner_activation=activation,
             inner_dropout_p=config.dropout_p,
         )
 
@@ -195,22 +215,43 @@ class S2TTransformerFactory:
 
             layers.append(layer)
 
-        return StandardTransformerEncoder(layers, norm_order=TransformerNormOrder.POST)
+        return StandardTransformerEncoder(layers)
 
     def create_conformer_block(
         self, lazy_rel_pos_encoding: Lazy[RelativePositionalEncoding]
     ) -> ConformerBlock:
         config = self._config
 
+        ffn1_layer_norm = self.create_layer_norm()
+
         ffn1 = self.create_ffn(use_swish=True)
+
+        self_attn_layer_norm = self.create_layer_norm()
 
         self_attn = self.create_encoder_self_attention(lazy_rel_pos_encoding)
 
+        conf_layer_norm = self.create_layer_norm()
+
         conv = self.create_conformer_conv()
+
+        ffn2_layer_norm = self.create_layer_norm()
 
         ffn2 = self.create_ffn(use_swish=True)
 
-        return ConformerBlock(ffn1, self_attn, conv, ffn2, dropout_p=config.dropout_p)
+        layer_norm = self.create_layer_norm()
+
+        return ConformerBlock(
+            ffn1_layer_norm,
+            ffn1,
+            self_attn_layer_norm,
+            self_attn,
+            conf_layer_norm,
+            conv,
+            ffn2_layer_norm,
+            ffn2,
+            layer_norm,
+            dropout_p=config.dropout_p,
+        )
 
     def create_conformer_conv(self) -> ConformerConvolution:
         config = self._config
@@ -225,7 +266,7 @@ class S2TTransformerFactory:
         pos_encoder = self.create_target_position_encoder()
 
         return TransformerEmbeddingFrontend(
-            embed, pos_encoder, dropout_p=config.dropout_p
+            config.model_dim, embed, pos_encoder, dropout_p=config.dropout_p
         )
 
     def create_target_embedding(self) -> Embedding:
@@ -234,7 +275,7 @@ class S2TTransformerFactory:
         return StandardEmbedding(
             config.target_vocab_size,
             config.model_dim,
-            pad_idx=config.pad_idx,
+            config.pad_idx,
             init_fn=init_scaled_embedding,
         )
 
@@ -255,22 +296,30 @@ class S2TTransformerFactory:
 
             layers.append(layer)
 
-        return StandardTransformerDecoder(layers, norm_order=TransformerNormOrder.PRE)
+        layer_norm = self.create_layer_norm()
+
+        return StandardTransformerDecoder(layers, layer_norm)
 
     def create_decoder_layer(self) -> TransformerDecoderLayer:
-        config = self._config
-
         self_attn = self.create_decoder_self_attention()
+
+        self_attn_layer_norm = self.create_layer_norm()
 
         encoder_decoder_attn = self.create_encoder_decoder_attention()
 
+        encoder_decoder_attn_layer_norm = self.create_layer_norm()
+
         ffn = self.create_ffn()
+
+        ffn_layer_norm = self.create_layer_norm()
 
         return StandardTransformerDecoderLayer(
             self_attn,
+            self_attn_layer_norm,
             encoder_decoder_attn,
+            encoder_decoder_attn_layer_norm,
             ffn,
-            dropout_p=config.dropout_p,
+            ffn_layer_norm,
             norm_order=TransformerNormOrder.PRE,
         )
 
@@ -295,6 +344,11 @@ class S2TTransformerFactory:
         return StandardMultiheadAttention(
             config.model_dim, config.num_decoder_attn_heads, sdpa=sdpa
         )
+
+    def create_layer_norm(self) -> LayerNorm:
+        config = self._config
+
+        return StandardLayerNorm(config.model_dim, bias=True)
 
     def create_final_projection(self) -> Projection:
         config = self._config

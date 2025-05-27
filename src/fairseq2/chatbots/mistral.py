@@ -21,7 +21,7 @@ from fairseq2.chatbots import (
 )
 from fairseq2.data.text.tokenizers import TextTokenEncoder, TextTokenizer
 from fairseq2.generation import SequenceGenerator
-from fairseq2.models.decoder import DecoderModel
+from fairseq2.models.clm import CausalLM
 from fairseq2.models.mistral import MISTRAL_MODEL_FAMILY
 from fairseq2.nn.utils.module import infer_device
 from fairseq2.utils.tensor import to_tensor
@@ -33,7 +33,7 @@ class MistralDialogEncoder(ChatDialogEncoder):
     _eos_idx: Tensor
     _text_encoder: TextTokenEncoder
 
-    def __init__(self, model: DecoderModel, tokenizer: TextTokenizer) -> None:
+    def __init__(self, model: CausalLM, tokenizer: TextTokenizer) -> None:
         bos_idx = tokenizer.vocab_info.bos_idx
         eos_idx = tokenizer.vocab_info.eos_idx
 

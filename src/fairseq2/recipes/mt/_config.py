@@ -6,13 +6,10 @@
 
 from __future__ import annotations
 
-from fairseq2.nn.lora import LoRAConfig
+from dataclasses import dataclass
 
 
-def get_llama_lora_config() -> LoRAConfig:
-    return LoRAConfig(
-        r=8,
-        alpha=16.0,
-        dropout_p=0.05,
-        keys=[".*decoder.layers.*.self_attn.*(q_proj|v_proj)$"],
-    )
+@dataclass(kw_only=True)
+class MTLossSection:
+    label_smoothing: float = 0.1
+    """The amount of label smoothing to apply while computing the loss."""

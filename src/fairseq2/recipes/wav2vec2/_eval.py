@@ -21,7 +21,6 @@ from fairseq2.datasets.speech import (
     SpeechReadOptions,
 )
 from fairseq2.device import CPU
-from fairseq2.gang import Gangs
 from fairseq2.metrics import MetricBag
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
 from fairseq2.recipes import Evaluator, EvalUnit, Model
@@ -46,11 +45,9 @@ from fairseq2.utils.validation import validate
 
 # isort: split
 
-from fairseq2.recipes.wav2vec2._common import (
-    Wav2Vec2Criterion,
-    Wav2Vec2LossSection,
-    Wav2Vec2MetricBag,
-)
+from fairseq2.recipes.wav2vec2._config import Wav2Vec2LossSection
+from fairseq2.recipes.wav2vec2._criterion import Wav2Vec2Criterion
+from fairseq2.recipes.wav2vec2._metrics import Wav2Vec2MetricBag
 
 
 @dataclass(kw_only=True)
@@ -144,12 +141,12 @@ def load_wav2vec2_evaluator(
 
     dataset = load_dataset(SpeechDataset, context, config.dataset, gangs)
 
-    # Initialize the unut.
+    # Initialize the unit.
     criterion = Wav2Vec2Criterion(
-        model, config.loss.diversity_loss_weight, config.loss.feature_penalty_weight
+        model, config.loss.diversity_loss_weight, config.loss.features_penalty_weight
     )
 
-    unit = Wav2Vec2EvalUnit(criterion, gangs)
+    unit = Wav2Vec2EvalUnit(model, criterion)
 
     batching = LengthBatching(config.dataset.max_num_elements)
 
@@ -171,6 +168,10 @@ def load_wav2vec2_evaluator(
         read_options,
     )
 
+    units = [unit]
+
+    data_readers = [data_reader]
+
     seed += 1
 
     return create_evaluator(
@@ -178,8 +179,8 @@ def load_wav2vec2_evaluator(
         config.evaluator,
         config.common,
         output_dir,
-        [unit],
-        [data_reader],
+        units,
+        data_readers,
         gangs,
         seed,
         hyper_params=config,
@@ -188,13 +189,16 @@ def load_wav2vec2_evaluator(
 
 @final
 class Wav2Vec2EvalUnit(EvalUnit[SequenceBatch]):
+    _model: Model
     _criterion: Wav2Vec2Criterion
     _metric_bag: Wav2Vec2MetricBag
 
-    def __init__(self, criterion: Wav2Vec2Criterion, gangs: Gangs) -> None:
+    def __init__(self, model: Model, criterion: Wav2Vec2Criterion) -> None:
+        self._model = model
+
         self._criterion = criterion
 
-        self._metric_bag = Wav2Vec2MetricBag(gangs.dp)
+        self._metric_bag = Wav2Vec2MetricBag(device=model.device)
 
     @override
     def __call__(self, batch: SequenceBatch) -> None:
@@ -203,7 +207,7 @@ class Wav2Vec2EvalUnit(EvalUnit[SequenceBatch]):
     @property
     @override
     def model(self) -> Model:
-        return self._criterion.model
+        return self._model
 
     @property
     @override

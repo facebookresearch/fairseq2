@@ -29,7 +29,7 @@ from fairseq2.metrics.recorders import (
     TensorBoardRecorderConfig,
     WandbRecorderConfig,
 )
-from fairseq2.nn.data_parallel import FsdpGranularity
+from fairseq2.nn.data_parallel import FSDPGranularity
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.profilers import TORCH_PROFILER, TorchProfilerConfig
 from fairseq2.utils.validation import ValidationError, ValidationResult
@@ -143,7 +143,7 @@ class TrainerSection:
     data_parallelism: Literal["ddp", "fsdp"] = "ddp"
     """The data parallelism API to use."""
 
-    fsdp: FsdpSection = field(default_factory=lambda: FsdpSection())
+    fsdp: FSDPSection = field(default_factory=lambda: FSDPSection())
 
     mixed_precision: Literal["static", "dynamic", "off"] = "static"
     """
@@ -203,11 +203,11 @@ class TrainerSection:
 
 
 @dataclass(kw_only=True)
-class FsdpSection:
+class FSDPSection:
     version: Literal["v1", "v2"] = "v1"
     """The PyTorch FSDP version."""
 
-    granularity: FsdpGranularity = "layer"
+    granularity: FSDPGranularity = "layer"
     """The granularity at which to wrap the model."""
 
     hybrid: bool = False

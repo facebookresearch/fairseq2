@@ -16,12 +16,17 @@ from fairseq2.device import CPU
 device = CPU
 
 
-def assert_close(a: Tensor, b: Tensor | float | list[float]) -> None:
+def assert_close(
+    a: Tensor,
+    b: Tensor | float | list[float],
+    atol: float = 1.0e-05,
+    rtol: float = 1.3e-06,
+) -> None:
     """Assert that ``a`` and ``b`` are element-wise equal within a tolerance."""
     if not isinstance(b, Tensor):
         b = torch.tensor(b, device=device, dtype=a.dtype)
 
-    torch.testing.assert_close(a, b)  # type: ignore[attr-defined]
+    torch.testing.assert_close(a, b, atol=atol, rtol=rtol)  # type: ignore[attr-defined]
 
 
 def assert_equal(a: Tensor, b: Tensor | int | list[int]) -> None:
@@ -29,7 +34,7 @@ def assert_equal(a: Tensor, b: Tensor | int | list[int]) -> None:
     if not isinstance(b, Tensor):
         b = torch.tensor(b, device=device, dtype=a.dtype)
 
-    torch.testing.assert_close(a, b, rtol=0, atol=0)  # type: ignore[attr-defined]
+    torch.testing.assert_close(a, b, atol=0, rtol=0)  # type: ignore[attr-defined]
 
 
 def has_no_inf(a: Tensor) -> bool:

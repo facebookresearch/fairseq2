@@ -12,8 +12,8 @@ from typing import Final, final
 from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
+from fairseq2.models.clm import CausalLM
+from fairseq2.models.seq2seq import Seq2SeqModel
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import StructureError, structure
 from fairseq2.utils.validation import validate
@@ -94,7 +94,7 @@ class SamplingSequenceGeneratorHandler(SequenceGeneratorHandler):
 
     @override
     def create(
-        self, model: DecoderModel, vocab_info: VocabularyInfo, config: object
+        self, model: CausalLM, vocab_info: VocabularyInfo, config: object
     ) -> SequenceGenerator:
         config = structure(config, SamplingConfig)
 
@@ -159,10 +159,7 @@ class SamplingSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
 
     @override
     def create(
-        self,
-        model: EncoderDecoderModel,
-        target_vocab_info: VocabularyInfo,
-        config: object,
+        self, model: Seq2SeqModel, target_vocab_info: VocabularyInfo, config: object
     ) -> Seq2SeqGenerator:
         config = structure(config, SamplingConfig)
 

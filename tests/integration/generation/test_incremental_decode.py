@@ -58,37 +58,23 @@ def test_incremental_decoding_works() -> None:
     source_seqs, source_seqs_layout = pad_seqs(source_indices, pad_value=pad_idx)
     target_seqs, target_seqs_layout = pad_seqs(target_indices, pad_value=pad_idx)
 
-    # Generate the expected decoder output.
-    encoder_output, encoder_output_layout = model.encode(
-        source_seqs, source_seqs_layout
-    )
-
-    decoder_output, decoder_output_layout = model.decode(
-        target_seqs, target_seqs_layout, encoder_output, encoder_output_layout
+    # Generate the expected logits.
+    expected_logits = model(
+        source_seqs, source_seqs_layout, target_seqs, target_seqs_layout
     )
 
     # Now try to match the decoder output with incremental decoding.
     state_bag = IncrementalStateBag(max_num_steps=256)
-
-    incremental_output = torch.empty(
-        (2, 0, model.model_dim), device=device, dtype=torch.float32
-    )
 
     for idx in range(target_seqs.size(1)):
         seqs = target_seqs[:, idx : idx + 1]
 
         seqs_layout = BatchLayout.of(seqs)
 
-        pos_output, pos_output_layout = model.decode(
-            seqs,
-            seqs_layout,
-            encoder_output,
-            encoder_output_layout,
-            state_bag=state_bag,
+        step_logits = model(
+            source_seqs, source_seqs_layout, seqs, seqs_layout, state_bag=state_bag
         )
 
         state_bag.increment_step_nr()
 
-        incremental_output = torch.cat([incremental_output, pos_output], dim=1)
-
-    assert_close(decoder_output, incremental_output)
+        assert_close(expected_logits[:, idx : idx + 1], step_logits, atol=1.06e-05)

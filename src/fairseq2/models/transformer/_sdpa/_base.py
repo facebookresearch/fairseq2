@@ -7,30 +7,17 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import final
+from typing import TYPE_CHECKING
 
-import torch
 from torch import Tensor
 from torch.nn import Module
 
-from fairseq2.models.transformer._attention_bias import (
-    AttentionBias,
-    AttentionBiasCache,
-    CausalAttentionBias,
-    IdentityBias,
-)
+from fairseq2.models.transformer._attention_bias import AttentionBiasCache
 from fairseq2.nn import BatchLayout
 
 
 class SDPA(Module, ABC):
     """Computes scaled dot-product attention."""
-
-    bias: AttentionBias
-
-    def __init__(self, bias: AttentionBias) -> None:
-        super().__init__()
-
-        self.bias = bias
 
     @abstractmethod
     def forward(
@@ -67,51 +54,5 @@ class SDPA(Module, ABC):
               key/value sequence length.
         """
 
-    @final
-    def _maybe_get_attention_bias_tensor(
-        self,
-        seqs: Tensor,
-        seqs_layout: BatchLayout,
-        keys_layout: BatchLayout,
-        bias_cache: AttentionBiasCache,
-    ) -> Tensor | None:
-        if isinstance(self.bias, IdentityBias):
-            full_seqs = not seqs_layout.packed and not seqs_layout.padded
-            full_keys = not keys_layout.packed and not keys_layout.padded
-
-            if full_seqs and full_keys:
-                return None
-
-        if isinstance(self.bias, CausalAttentionBias):
-            if not seqs_layout.packed:
-                if seqs_layout.max_seq_len == 1:
-                    return None
-
-        return self._get_attention_bias_tensor(  # type: ignore[no-any-return]
-            seqs, seqs_layout, keys_layout, bias_cache
-        )
-
-    @final
-    @torch.compiler.disable
-    def _get_attention_bias_tensor(
-        self,
-        seqs: Tensor,
-        seqs_layout: BatchLayout,
-        keys_layout: BatchLayout,
-        bias_cache: AttentionBiasCache,
-    ) -> Tensor:
-        impl = "tensor"
-
-        bias = bias_cache.maybe_get(self.bias, impl, kls=Tensor)
-        if bias is None:
-            bias = self.bias.materialize(
-                seqs_layout, keys_layout, seqs.device, seqs.dtype
-            )
-
-            bias_cache.set(self.bias, impl, bias)
-
-        return bias
-
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        return f"bias={self.bias}"
+    if TYPE_CHECKING:
+        __call__ = forward
