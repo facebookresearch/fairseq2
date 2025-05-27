@@ -28,7 +28,11 @@ from fairseq2.recipes.lm._online_finetune._common import (
     NoEnvLLM,
     stateless_init_process_group,
 )
+<<<<<<< HEAD
+import time
+=======
 from fairseq2.logging import log
+>>>>>>> 04c40644607acff0fbb1979c01209d3681a27b10
 
 
 class RemoteModelHandler(ABC):
@@ -241,7 +245,7 @@ class RemoteVllmModel:
                 )
                 ray.get(handle)
 
-    def rollout_from_model(self, prompt_list, sampling_params=None):
+    def rollout_from_model(self, prompt_list, sampling_params=None, max_tokens=None):
         if sampling_params is None:
             sampling_params = self.sampling_params
 

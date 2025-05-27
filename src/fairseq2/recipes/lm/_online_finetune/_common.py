@@ -297,11 +297,9 @@ def find_first_value(lst, value):
 
 
 def generate_rollouts(
-    prompts: List[List[int]],
-    dp_gang,
-    vllm_model,
-    sampling_params=None,
+    prompts: List[List[int]], dp_gang, vllm_model, sampling_params=None, max_tokens=None
 ):
+
     prompts_to_generate = [None] * dp_gang.size
     if dp_gang.rank == 0:
         dp_gang.gather_object(prompts, prompts_to_generate, 0)
@@ -314,7 +312,7 @@ def generate_rollouts(
             flat_request_list.extend(rank_prompts)
 
         rollouts = vllm_model.rollout_from_model(
-            flat_request_list, sampling_params=sampling_params
+            flat_request_list, sampling_params=sampling_params, max_tokens=max_tokens
         )
 
         rollouts_to_scatter = []
@@ -598,3 +596,14 @@ def log_rollouts(prompt_batch: PromptBatch, rollouts, split_name, num_rollouts=1
     for rollout in rollouts[0].outputs[:num_rollouts]:
         rollout_text = rollout.text
         log.info(f"{split_name} Rollout: {rollout_text}")
+
+
+def get_rollout_lengths(rollouts: List[SequenceData]):
+    """Get the lengths of the rollouts."""
+    rollout_lengths = []
+    for rollout in rollouts:
+        for sample in rollout.outputs:
+            token_ids = sample.token_ids
+            token_ids_len = len(token_ids)
+            rollout_lengths.append(token_ids_len)
+    return rollout_lengths
