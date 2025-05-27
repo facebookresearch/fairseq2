@@ -16,6 +16,7 @@ from fairseq2.models.transformer import (
     AttentionBias,
     AttentionBiasCache,
     CausalAttentionBias,
+    FlexSDPA,
     IdentityBias,
     NaiveSDPA,
     StandardMultiheadAttention,
@@ -156,3 +157,81 @@ class TestStandardMultiheadAttention:
         )
 
         assert result.shape == seqs.shape
+
+
+class TestFlexScaledDotProductAttention:
+    # fmt: off
+    @pytest.mark.parametrize("use_padding,use_bias,training",
+        [
+            (False, False, True),
+            (True,  True,  True),
+            (False, True,  True),
+            (True,  False, True),
+            (False, False, False),
+            (False, True,  False),
+        ],
+    )
+    # fmt: on
+    def test_torch_flex_sdpa(
+        self, use_padding: bool, use_bias: bool, training: bool
+    ) -> None:
+        attn_bias: AttentionBias
+
+        if use_bias:
+            attn_bias = CausalAttentionBias()
+        else:
+            attn_bias = IdentityBias()
+
+        torch_sdpa = FlexSDPA(attn_bias)
+        naive_sdpa = NaiveSDPA(attn_bias)
+
+        if training:
+            torch_sdpa.eval()
+            naive_sdpa.eval()
+
+        kwargs = self._get_sdpa_args(use_padding)
+
+        attn1, _ = torch_sdpa(**kwargs)
+        attn2, _ = naive_sdpa(**kwargs)
+
+        assert_close(attn1, attn2)
+
+    @staticmethod
+    def _get_sdpa_args(use_padding: bool) -> dict[str, object]:
+        batch_size = 2
+
+        num_heads = 4
+
+        source_seq_len = 3
+        target_seq_len = 2
+
+        k_size = 2
+        v_size = 3
+
+        def random_tensor(*args: int) -> Tensor:
+            return torch.randn(*args, device=device)
+
+        q = random_tensor(batch_size, target_seq_len, num_heads, k_size)
+        k = random_tensor(batch_size, source_seq_len, num_heads, k_size)
+        v = random_tensor(batch_size, source_seq_len, num_heads, v_size)
+
+        target_shape = (batch_size, target_seq_len)
+        source_shape = (batch_size, source_seq_len)
+
+        if use_padding:
+            q_layout = BatchLayout(target_shape, seq_lens=None, device=device)
+            k_layout = BatchLayout(source_shape, seq_lens=[2, 3], device=device)
+        else:
+            q_layout = BatchLayout(target_shape, seq_lens=None, device=device)
+            k_layout = BatchLayout(source_shape, seq_lens=None, device=device)
+
+        bias_cache = AttentionBiasCache()
+
+        return {
+            "seqs": q,
+            "seqs_layout": q_layout,
+            "keys": k,
+            "keys_layout": k_layout,
+            "values": v,
+            "bias_cache": bias_cache,
+        }
