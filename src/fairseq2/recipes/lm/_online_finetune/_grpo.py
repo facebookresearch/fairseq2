@@ -456,61 +456,82 @@ GRPO_FINETUNE_UNIT: Final = "grpo"
 @dataclass(kw_only=True)
 class GrpoLossConfig:
     group_size: int = 4
+    """Number of responses to sample per prompt for advantage computation.
+    
+    This value must match the 'n' parameter in the VLLM sampling params.
     """
-    group size where Group is G in GRPO. In vanilla GRPO we expect to (1) sample group_size 
-    responses from policy. (2) compute advantage over this group. (3) compule loss for each response.
-    """
+    
     forward_group_size: int = 4
-    """
-    computing the loss for each response in the group can be too memory intensive when group_size is large.
-    Setting forward_group_size as multiple of group_size allows to split loss into multiple chunks that is 
-    called a micro-batch. Example: group_size responses sampled and advantages are computed at micro step 0.
-    Then forward_group_size reponse is used over group_size/forward_group_size micro steps to compute the loss. 
-    Gradients are accumulates over group_size/forward_group_size micro steps akin to gradient accumulation logic.
+    """Maximum number of responses to process in a single forward pass.
+    
+    When group_size > forward_group_size, responses are processed in multiple micro-batches
+    to reduce memory usage (similar to gradient accumulation). Each micro-batch processes
+    forward_group_size responses and accumulates gradients until all group_size responses
+    are processed.
     """
 
     beta: float = 0.001
     """The coefficient of regularization towards the reference model."""
+    
     entropy_regularizer_scale: float = 0.0
+    """Scale factor for entropy regularization term."""
 
     length_normalization: bool = True
-    """Vanilla GRPO is token-level, but setting this to False will make it sequence-level"""
+    """If True, normalize loss by sequence length. If False, use sequence-level loss."""
 
     log_rollouts: bool = False
-    """Log rollouts during training/validation"""
+    """Log sample rollouts during training/validation."""
 
     validation_vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
-    """VLLM sampling params for validation. If not set, the same params as training will be used."""
+    """VLLM sampling params for validation. If empty, training params will be used."""
 
 
 @dataclass(kw_only=True)
 class GrpoFinetuneConfig:
+    """Configuration for Generalized Reward-Paired Optimization (GRPO) finetuning.
+    
+    GRPO finetuning uses a policy model to generate diverse responses, which are then
+    evaluated by a reward model. The policy is trained to maximize the expected reward 
+    while maintaining proximity to a reference model.
+    """
+    
     reference_model: ReferenceModelSection | str = field(
         default_factory=lambda: ReferenceModelSection(name="fs2_llama3_1_8b_instruct")
     )
     """
-    The reference model. If set to string, the recipe expects to get reference
-    log-probabilities for rollouts using vllm actor.
+    The reference model for KL regularization. If set to string, reference
+    log-probabilities are obtained from the specified vLLM actor.
     """
 
     loss_config: GrpoLossConfig = field(default_factory=lambda: GrpoLossConfig())
+    """Configuration for GRPO loss computation, including rollout handling and regularization."""
 
     reference_dtype: DataType = torch.bfloat16
-    """The data type of the reference model."""
+    """The data type of the reference model when loaded locally."""
 
     ray_policy_actor_name: str = "vllm_policy"
+    """Name of the Ray vLLM actor used to generate policy rollouts."""
+    
     vllm_reward_model_name: str | None = None
+    """Optional name of the Ray vLLM actor used as a reward model."""
 
     reward: RewardSection = field(
         default_factory=lambda: RewardSection(name="gsm8k_verifier")
     )
+    """Configuration for the reward function that evaluates generated rollouts."""
 
     sync_ref_model_every_n_steps: int = -1
+    """How often to sync the reference model with the policy. -1 disables syncing."""
+    
     sync_vllm_model_every_n_steps: int = -1
+    """How often to sync the vLLM model with the policy. -1 disables syncing."""
 
 
 @final
 class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
+    """
+    Handles creation and configuration of GRPO fine-tuning units.
+    """
     _context: RuntimeContext
 
     def __init__(self, context: RuntimeContext) -> None:

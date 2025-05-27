@@ -603,6 +603,31 @@ def log_rollouts(prompt_batch: PromptBatch, rollouts, split_name, num_rollouts=1
 
 
 class StatefulRolloutBag:
+    """A stateful container for managing and reusing model rollouts across multiple micro-batches.
+    
+    This class enables efficient gradient accumulation in GRPO by:
+    1. Generating rollouts once per training step
+    2. Reusing these rollouts across multiple forward passes (micro-batches)
+    3. Managing the windowing of rollouts for each micro-batch
+    
+    In GRPO training, generating rollouts is computationally expensive. When the group_size
+    is large (many rollouts per prompt), processing all rollouts in a single forward pass
+    may exceed memory limits. This class allows splitting the computation into smaller
+    chunks by tracking which subset of rollouts should be used in each forward pass.
+    
+    Usage in GRPO:
+    - At the beginning of each training step, call `maybe_reset_bag(step_nr)`
+    - If bag is empty (first micro-batch of step), generate rollouts and save them
+    - For subsequent micro-batches, reuse the same rollouts
+    - Use `get_rollout_start_end()` to determine which slice of rollouts to process
+      in the current micro-batch based on forward_group_size
+    
+    Attributes:
+        bag_step: Current micro-batch step within the training step
+        _trainer_step: Current training step
+        rollouts: List of model rollouts generated for the current step
+        reward_outputs: List of reward outputs for the rollouts
+    """
     bag_step: int = 0
     _trainer_step: int = None
 
