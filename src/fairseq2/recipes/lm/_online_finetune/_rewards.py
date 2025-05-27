@@ -28,10 +28,6 @@ from fairseq2.recipes.lm._online_finetune._common import (
     prepare_grpo_batch,
     prepare_preference_batch_random_pair,
 )
-from fairseq2.recipes.lm._online_finetune._math_utils import (
-    last_boxed_only_string,
-    remove_boxed,
-)
 from fairseq2.recipes.model import Model
 from fairseq2.recipes.trainer import TrainUnit
 from fairseq2.logging import log
@@ -307,44 +303,6 @@ class MathVerifyVerifier(VLLMOutputReward):
         )
 
         return batch, reward_output
-
-
-class NuminaMathVerifierHandler(VLLMOutputRewardHandler):
-    def __init__(self):
-        pass
-
-    @override
-    def create(self, reward_model, reward_config, gangs):
-        return NuminaMathVerifier(
-            answer_key=reward_config.answer_key,
-            prompt_key=reward_config.prompt_key,
-            gangs=gangs,
-        )
-
-    @property
-    @override
-    def name(self):
-        return "numinamath_verifier"
-
-    @property
-    @override
-    def config_kls(self):
-        return None
-
-
-class NuminaMathVerifier(GSM8kVerifier):
-    def __init__(self, answer_key, prompt_key, gangs):
-        self.invalid_answer = "[invalid]"
-        self._gangs = gangs
-        self.answer_key = answer_key
-        self.prompt_key = prompt_key
-
-    def extract_answer(self, completion: str):
-        try:
-            parsed_answer = remove_boxed(last_boxed_only_string(completion))
-        except:
-            return self.invalid_answer
-        return parsed_answer
 
 
 class AtheneVerifierHandler(VLLMOutputRewardHandler):

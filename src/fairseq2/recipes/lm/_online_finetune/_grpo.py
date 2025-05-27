@@ -131,7 +131,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             and self._step_nr % self._sync_vllm_model_every_n_steps == 0
         ):
             with self._model.summon_full_parameters():
-                if self._gangs.root.rank == 0:
+                if self._gangs.dp.rank == 0:
                     self._vllm_model.sync_weights_with_vllm(train_model=self._model)
                 self._gangs.root.barrier()
 
@@ -142,7 +142,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
             if self._reference_offload:
                 with self._model.summon_full_parameters():
-                    if self._gangs.root.rank == 0:
+                    if self._gangs.dp.rank == 0:
                         self._reference_model.sync_weights_with_vllm(
                             train_model=self._model
                         )
@@ -356,7 +356,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         # if self._gangs.root.rank == 0:
         #     from pudb.remote import set_trace
-        #     set_trace(host="submit-0", port=6899, term_size=(80*4, 24*4), reverse=True)
+        #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
 
         # self._gangs.root.barrier()
 
@@ -547,7 +547,7 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             reference_model = vllm_actors[config.reference_model]
             reference_offload = True
             if config.sync_ref_model_every_n_steps != -1:
-                if reference_model and reference_model.update_process_group is None:
+                if reference_model and reference_model.update_process_groups is None:
                     raise ValueError(
                         f"Reference model actor must have update process group if we sync weights"
                     )
