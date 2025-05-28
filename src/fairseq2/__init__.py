@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.4.5"
+__version__ = "0.4.6"
 
 import fairseq2n  # Report any fairseq2n initialization error eagerly.
 
