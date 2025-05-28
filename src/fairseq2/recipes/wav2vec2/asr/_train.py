@@ -221,22 +221,20 @@ def register_wav2vec2_asr_train_configs(context: RuntimeContext) -> None:
 
         return config
 
-    @preset("mms1_1b_public_bib61")
-    def _mms1_1b_public_bib61() -> Wav2Vec2AsrTrainConfig:
+    @preset("mms_1b_1143_langs")
+    def mms_1b_1143_langs() -> Wav2Vec2AsrTrainConfig:
         config = base_10h()
 
         # Dataset
-        config.dataset.name = "bible_61"
-        config.text_tokenizer.name = "bible_61"
+        config.dataset.name = "mms_1143_langs"
+        config.text_tokenizer.name = "mms_1143_langs"
         config.dataset.max_num_elements = 3_600_000
         config.dataset.valid_split = "dev"
         config.dataset.normalize_audio = True
 
         # Arch
-
-        config.model.arch = "1b_bib61"
-
-        config.pretrained_model.name = "mms1_1b_public"
+        config.model.arch = "mms_1b_1143_langs"
+        config.pretrained_model.name = "mms_1b"
 
         # Optimization
         assert isinstance(config.optimizer.config, AdamWConfig)
@@ -254,22 +252,22 @@ def register_wav2vec2_asr_train_configs(context: RuntimeContext) -> None:
         config.regime.checkpoint_after_n_steps = 0
         config.regime.checkpoint_every_n_steps = 200
         config.regime.keep_best_n_checkpoints = 1
-        config.best_checkpoint_metric = "uer"
 
         config.regime.publish_metrics_every_n_steps = 50
 
         return config
 
-    @preset("mms2_base_1000k_bib61_ddp")
-    def _mms2_base_1000k_bib61_ddp() -> Wav2Vec2AsrTrainConfig:
-        config = _mms1_1b_public_bib61()
+    @preset("mms_300m_61_langs")
+    def mms_300m_61_langs() -> Wav2Vec2AsrTrainConfig:
+        config = mms_1b_1143_langs()
 
         # Dataset
         config.dataset.max_num_elements = 4_000_000
+        config.dataset.text_tokenizer = "mms_61_langs"
 
         # Model config
-        config.model.arch = "300m_bib61"
-        config.pretrained_model.name = "mms2_base_1000k"
+        config.model.arch = "mms_300m_61_langs"
+        config.pretrained_model.name = "mms_300m_1000k_steps"
 
         # Optimization
         assert isinstance(config.optimizer.config, AdamWConfig)
@@ -280,10 +278,10 @@ def register_wav2vec2_asr_train_configs(context: RuntimeContext) -> None:
         config.trainer.dtype = torch.bfloat16
 
         return config
-    
-    @preset("mms2_base_1000k_hf_ddp")
-    def _mms2_base_1000k_hf_ddp() -> Wav2Vec2AsrTrainConfig:
-        config = _mms2_base_1000k_bib61_ddp()
+
+    @preset("mms_300m_hugging_face")
+    def mms_300m_hugging_face() -> Wav2Vec2AsrTrainConfig:
+        config = mms_300m_61_langs()
 
         # Dataset
         config.dataset.family = HUGGING_FACE_ASR_DATASET_FAMILY
@@ -366,6 +364,7 @@ def load_wav2vec2_asr_trainer(
     dataset: AsrDataset
     if config.dataset.family == HUGGING_FACE_ASR_DATASET_FAMILY:
         log.info(f"Loading dataset {config.dataset.name}")
+        assert config.dataset.name is not None
         assert config.dataset.hugging_face_hub_name is not None
         assert config.dataset.hugging_face_data_dir is not None
         dataset = HuggingFaceAsrDataset(

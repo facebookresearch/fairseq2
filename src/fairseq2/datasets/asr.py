@@ -360,7 +360,7 @@ class HuggingFaceAsrDataset(AsrDataset):
         name: str,
         hg_hub_name: str = "mozilla-foundation/common_voice_17_0",
         hg_hub_data_dir: str = "ia",
-        splits: set = {"train", "validation", "test"},
+        splits: set[str] = {"train", "validation", "test"},
     ) -> None:
         self._name = name
         self._splits = splits
@@ -394,7 +394,7 @@ class HuggingFaceAsrDataset(AsrDataset):
 
         builder = read_sequence(data)
 
-        def get_audio_size(x):
+        def get_audio_size(x: object) -> object:
             x["audio_size"] = x["audio"]["array"].shape[0]
             return x
 

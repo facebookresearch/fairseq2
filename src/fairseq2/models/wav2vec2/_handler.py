@@ -52,10 +52,9 @@ class Wav2Vec2ModelHandler(AbstractModelHandler):
 def convert_wav2vec2_checkpoint(
     checkpoint: dict[str, object], config: Wav2Vec2Config
 ) -> dict[str, object]:
+    model_key: str = "model"
     if "model_key" in checkpoint.keys():
         model_key = checkpoint["model_key"]
-    else:
-        model_key = "model"
     state_dict = cast(MutableMapping[str, Tensor], checkpoint[model_key])
 
     # Check if we have a fairseq2 checkpoint.

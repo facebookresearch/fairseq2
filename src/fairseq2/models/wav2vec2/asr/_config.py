@@ -142,8 +142,8 @@ def register_wav2vec2_asr_configs(context: RuntimeContext) -> None:
 
         return config
 
-    @arch("300m_bib61")
-    def bib61_300m() -> Wav2Vec2AsrConfig:
+    @arch("mms_300m_61_langs")
+    def mms_300m_61_langs() -> Wav2Vec2AsrConfig:
         config = base_10h()
 
         w2v2_config = w2v2_registry.get("large_lv60k")
