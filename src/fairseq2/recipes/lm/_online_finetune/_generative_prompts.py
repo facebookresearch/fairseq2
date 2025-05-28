@@ -18,4 +18,3 @@ Below are the user's question and the assistant's response:
 {response}
 [The End of the Assistant's Answer]
 """
-

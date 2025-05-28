@@ -29,9 +29,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     prepare_grpo_batch,
     prepare_preference_batch_random_pair,
 )
-from fairseq2.recipes.lm._online_finetune._generative_prompts import (
-    POINTWISE_PROMPT
-)
+from fairseq2.recipes.lm._online_finetune._generative_prompts import POINTWISE_PROMPT
 from fairseq2.recipes.model import Model
 from fairseq2.recipes.trainer import TrainUnit
 
@@ -503,24 +501,23 @@ class AtheneVerifier(VLLMOutputReward):
         )
 
         return grpo_batch, reward_output
-    
+
+
 class GenerativePointwiseVerifierHandler(VLLMOutputRewardHandler):
     def __init__(self):
         pass
 
     @override
     def create(self, reward_model, reward_config, gangs):
-        if reward_config.tokenizer is not None:
-            tokenizer = reward_config.tokenizer
-        else:
-            tokenizer = "/datasets/pretrained-llms/Llama-3.1-8B-Instruct"
+        if reward_config.tokenizer is None:
+            raise RuntimeError("Generative pointwise judge requires tokenizer")
 
         return GenerativePointwiseVerifier(
             gangs,
             reward_model,
             answer_key=reward_config.answer_key,
             prompt_key=reward_config.prompt_key,
-            tokenizer=tokenizer,
+            tokenizer=reward_config.tokenizer,
         )
 
     @property
@@ -532,7 +529,8 @@ class GenerativePointwiseVerifierHandler(VLLMOutputRewardHandler):
     @override
     def config_kls(self):
         return None
-    
+
+
 class GenerativePointwiseVerifier(VLLMOutputReward):
     def __init__(self, gangs, reward_model, answer_key, prompt_key, tokenizer):
         self.answer_key = answer_key
@@ -540,15 +538,15 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         self._gangs = gangs
         self.reward_model = reward_model
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
-        
+
     def wrap_text(self, prompt_text, rollout_text):
-        content = POINTWISE_PROMPT.format(instruction=prompt_text, response=rollout_text)
-        wrapped_text = [
-            {"role": "user", "content": content}
-        ]
+        content = POINTWISE_PROMPT.format(
+            instruction=prompt_text, response=rollout_text
+        )
+        wrapped_text = [{"role": "user", "content": content}]
         chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False)
         return chat_str
-    
+
     @override
     def process_rollouts(
         self, vllm_outputs: List[RequestOutput], prompt_batch: PromptBatch
@@ -576,7 +574,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
 
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
-        
+
         batch_rewards = generate_rewards_generative(
             vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.reward_model
         )
@@ -586,7 +584,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         batch_rewards = [batch_rewards[i * R : (i + 1) * R] for i in range(B)]
 
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
-    
+
     def prepare_preference_batch(
         self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
@@ -664,7 +662,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         )
 
         return batch, is_bad_batch, reward_output
-    
+
     def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
         prompt_rollouts = []
         prompt_lens = []
@@ -702,5 +700,3 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         )
 
         return grpo_batch, reward_output
-    
-    

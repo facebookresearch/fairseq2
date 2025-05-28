@@ -242,9 +242,11 @@ class RemoteVllmModel:
                 )
                 ray.get(handle)
 
-    def rollout_from_model(self, prompt_list, sampling_params=None):
+    def rollout_from_model(self, prompt_list, sampling_params=None, string_input=False):
         if sampling_params is None:
             sampling_params = self.sampling_params
+
+        prompt_argname = "prompts" if string_input else "prompt_token_ids"
 
         # Split prompts evenly across replicas
         chunk_size = len(prompt_list) // self.num_replicas
@@ -262,11 +264,12 @@ class RemoteVllmModel:
         outputs = []
         for replica_i, chunk in enumerate(chunks):
             if len(chunk) > 0:  # Only send non-empty chunks
-                output = self.vllm_workers[replica_i].generate.remote(
-                    prompt_token_ids=chunk,
-                    sampling_params=sampling_params,
-                    use_tqdm=False,
-                )
+                generate_args = {
+                    prompt_argname: chunk,
+                    "sampling_params": sampling_params,
+                    "use_tqdm": False,
+                }
+                output = self.vllm_workers[replica_i].generate.remote(**generate_args)
                 outputs.append(output)
 
         # block till generation is done
@@ -296,24 +299,17 @@ class RemoteVllmModel:
         ray_outputs_flat = [o for sublist in ray_outputs for o in sublist]
         rewards = [o.outputs.data.item() for o in ray_outputs_flat]
         return rewards
-    
-    def extract_score(self, output):
-        matches = re.findall(r"<score>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score>", output)
-        return float(matches[-1]) if matches else 0.0
-    
-    def reward_from_generative_model(self, prompt_list, batch_size=64):
-        rewards = []
-        for i in range(0, len(prompt_list), batch_size):
-            prompt_chunk = prompt_list[i : i + batch_size]
-            output = ray.get(
-                self.vllm_model.generate.remote(
-                    prompt_chunk,
-                    sampling_params=self.sampling_params,
-                    use_tqdm=False,
-                )
+
+    def reward_from_generative_model(self, prompt_list):
+
+        def extract_score(output):
+            matches = re.findall(
+                r"<score>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score>", output
             )
-            
-            chunk_rewards = [self.extract_score(o.outputs[0].text) for o in output]
-            rewards.extend(chunk_rewards)
-        
+            return float(matches[-1]) if matches else 0.0
+
+        rewards = []
+        rollouts = self.rollout_from_model(prompt_list=prompt_list, string_input=True)
+        rewards = [extract_score(o.outputs[0].text) for o in rollouts]
+
         return rewards
