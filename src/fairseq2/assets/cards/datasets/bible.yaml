@@ -1,5 +1,0 @@
-name: bible_61
-dataset_family: generic_asr
-data: /checkpoint/mms/shared/assets/datasets/bib_61
-tokenizer: /checkpoint/mms/shared/assets/datasets/bib_61/spm.model
-tokenizer_family: char_tokenizer
