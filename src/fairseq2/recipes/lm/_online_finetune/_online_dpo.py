@@ -120,6 +120,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         self._display_name = "online_dpo"
 
+        self.counter = 0
+
     @property
     @override
     def display_name(self) -> str | None:
@@ -172,7 +174,9 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         if self._loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Valid")
 
-        reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
+        reward_output = self._reward.process_rollouts(
+            rollouts, prompt_batch, generate_synthetic_data=False
+        )
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
 
         self._metric_bag.update_avg_reward(avg_reward)
@@ -221,13 +225,28 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         rollouts = generate_rollouts(
             prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
         )
+        if self.counter % 2 == 0:
+            if self._gangs.dp.rank == 0:
+                breakpoint()
+                rollouts = generate_rollouts(
+                    prompt_batch.prompts,
+                    dp_gang=self._gangs.dp,
+                    vllm_model=self._vllm_model,
+                )
+            batch: PreferenceBatch
+            batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
+                prompt_batch, rollouts, generate_synthetic_data=False
+            )  # loss_zeroer is used when entire batch has no valid prefrence pair
+        else:
+
+            batch: PreferenceBatch
+            batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
+                prompt_batch,
+                rollouts,
+            )  # loss_zeroer is used when entire batch has no valid prefrence pair
+
         if self._loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Train")
-
-        batch: PreferenceBatch
-        batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
-            prompt_batch, rollouts
-        )  # loss_zeroer is used when entire batch has no valid prefrence pair
         if is_bad_batch:
             loss_zeroer = 0.0
         else:
@@ -336,10 +355,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             )
 
         loss = (
-            dpo_loss
-            + self._loss_config.nll_scale
-            * nll_loss
-            + max_entropy_regularizer
+            dpo_loss + self._loss_config.nll_scale * nll_loss + max_entropy_regularizer
         )  # nll normalization applied locally per-rank
 
         loss = loss * loss_zeroer  # zero loss if entire batch was dummy batch
@@ -350,6 +366,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         # self._gangs.root.barrier()
 
+        self.counter += 1
         return loss, prompt_batch.batch_size
 
     def _gather_lprobs(

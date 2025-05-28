@@ -365,7 +365,7 @@ class AtheneVerifier(VLLMOutputReward):
         response_end_tokens = self.tokenizer.encode("<|response_end|>")[1:]
 
         prompt_pattern = r"<\|prompt_start\|>(.*?)<\|prompt_end\|>"
-        response_pattern = r"<\|response_start\|>(.*?)(?:<\|response_end\|>|$)" # matches end tag, or just end of string
+        response_pattern = r"<\|response_start\|>(.*?)(?:<\|response_end\|>|$)"  # matches end tag, or just end of string
 
         prompt_match = re.search(prompt_pattern, text, re.DOTALL)
         response_match = re.search(response_pattern, text, re.DOTALL)
@@ -389,7 +389,10 @@ class AtheneVerifier(VLLMOutputReward):
 
     @override
     def process_rollouts(
-        self, vllm_outputs: List[RequestOutput], prompt_batch: PromptBatch
+        self,
+        vllm_outputs: List[RequestOutput],
+        prompt_batch: PromptBatch,
+        generate_synthetic_data=True,
     ):
         vllm_inputs = []
         batch_text = []
@@ -408,7 +411,10 @@ class AtheneVerifier(VLLMOutputReward):
             for rollout_output in i_batch_request_output.outputs:
                 rollout_text = rollout_output.text
 
-                prompt_text, rollout_text = self.extract_prompt_response(rollout_output)
+                if generate_synthetic_data:
+                    prompt_text, rollout_text = self.extract_prompt_response(
+                        rollout_output
+                    )
 
                 # if self._gangs.dp.rank == 0:
                 #     # print(self.tokenizer.decode(prompt_batch.prompts[0]))
@@ -435,10 +441,12 @@ class AtheneVerifier(VLLMOutputReward):
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts
+        self, prompt_batch: PromptBatch, rollouts, generate_synthetic_data=True
     ) -> PreferenceBatch:
 
-        reward_output = self.process_rollouts(rollouts, prompt_batch)
+        reward_output = self.process_rollouts(
+            rollouts, prompt_batch, generate_synthetic_data=generate_synthetic_data
+        )
 
         chosen_batch = []
         rejected_batch = []
