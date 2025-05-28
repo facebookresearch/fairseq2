@@ -56,6 +56,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     copy_state,
     generate_rollouts,
     prepare_grpo_batch,
+    StatefulRolloutBag,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_vllm import (
@@ -90,6 +91,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     _reward: VLLMOutputReward
     _display_name: str
     _reference_offload: bool
+    _rollout_bag: StatefulRolloutBag
 
     def __init__(
         self,
@@ -116,6 +118,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._reward = reward
         self._reference_offload = reference_offload
         self._metric_bag = GrpoFinetuneMetricBag(gangs.dp)
+        self._rollout_bag = StatefulRolloutBag()
 
         self._display_name = "GRPO"
 
@@ -131,7 +134,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             and self._step_nr % self._sync_vllm_model_every_n_steps == 0
         ):
             with self._model.summon_full_parameters():
-                if self._gangs.root.rank == 0:
+                if self._gangs.dp.rank == 0:
                     self._vllm_model.sync_weights_with_vllm(train_model=self._model)
                 self._gangs.root.barrier()
 
@@ -142,7 +145,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
             if self._reference_offload:
                 with self._model.summon_full_parameters():
-                    if self._gangs.root.rank == 0:
+                    if self._gangs.dp.rank == 0:
                         self._reference_model.sync_weights_with_vllm(
                             train_model=self._model
                         )
@@ -224,20 +227,32 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         self.maybe_sync_models()
 
-        rollouts = generate_rollouts(
-            prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
-        )
-        if self._loss_config.log_rollouts:
-            log_rollouts(prompt_batch, rollouts, "Train")
+        self._rollout_bag.maybe_reset_bag(self._step_nr)
 
-        reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
+        if len(self._rollout_bag) == 0:
+
+            rollouts = generate_rollouts(
+                prompt_batch.prompts,
+                dp_gang=self._gangs.dp,
+                vllm_model=self._vllm_model,
+            )
+            if self._loss_config.log_rollouts:
+                log_rollouts(prompt_batch, rollouts, "Train")
+
+            reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
+            self._rollout_bag.save(rollouts, reward_output)
+
+        else:
+            rollouts, reward_output = self._rollout_bag.load()
 
         grpo_batch: GRPOBatch
         grpo_batch = prepare_grpo_batch(
             prompt_batch=prompt_batch,
             reward_output=reward_output,
             gangs=self._gangs,
-            num_rollout_per_forward=self._loss_config.num_rollout_per_forward,
+            rollout_start_end=self._rollout_bag.get_rollout_start_end(
+                self._loss_config.forward_group_size
+            ),
         )
 
         # grpo_batch, reward_output = self._reward.prepare_grpo_batch(prompt_batch, rollouts)  # loss_zeroer is used when entire batch has no valid prefrence pair
@@ -356,7 +371,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         # if self._gangs.root.rank == 0:
         #     from pudb.remote import set_trace
-        #     set_trace(host="submit-0", port=6899, term_size=(80*4, 24*4), reverse=True)
+        #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
 
         # self._gangs.root.barrier()
 
@@ -463,48 +478,83 @@ GRPO_FINETUNE_UNIT: Final = "grpo"
 
 @dataclass(kw_only=True)
 class GrpoLossConfig:
-    num_rollout_per_forward: int = 8
-    beta: float = 0.1
+    group_size: int = 4
+    """Number of responses to sample per prompt for advantage computation.
+    
+    This value must match the 'n' parameter in the VLLM sampling params.
+    """
+    
+    forward_group_size: int = 4
+    """Maximum number of responses to process in a single forward pass.
+    
+    When group_size > forward_group_size, responses are processed in multiple micro-batches
+    to reduce memory usage (similar to gradient accumulation). Each micro-batch processes
+    forward_group_size responses and accumulates gradients until all group_size responses
+    are processed.
+    """
+
+    beta: float = 0.001
     """The coefficient of regularization towards the reference model."""
+    
     entropy_regularizer_scale: float = 0.0
+    """Scale factor for entropy regularization term."""
+
     length_normalization: bool = True
-    """Vanilla GRPO is token-level, but setting this to False will make it sequence-level"""
+    """If True, normalize loss by sequence length. If False, use sequence-level loss."""
 
     log_rollouts: bool = False
-    """Log rollouts during training/validation"""
+    """Log sample rollouts during training/validation."""
 
     validation_vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
-    """VLLM sampling params for validation. If not set, the same params as training will be used."""
+    """VLLM sampling params for validation. If empty, training params will be used."""
 
 
 @dataclass(kw_only=True)
 class GrpoFinetuneConfig:
+    """Configuration for Generalized Reward-Paired Optimization (GRPO) finetuning.
+    
+    GRPO finetuning uses a policy model to generate diverse responses, which are then
+    evaluated by a reward model. The policy is trained to maximize the expected reward 
+    while maintaining proximity to a reference model.
+    """
+    
     reference_model: ReferenceModelSection | str = field(
         default_factory=lambda: ReferenceModelSection(name="fs2_llama3_1_8b_instruct")
     )
     """
-    The reference model. If set to string, the recipe expects to get reference
-    log-probabilities for rollouts using vllm actor.
+    The reference model for KL regularization. If set to string, reference
+    log-probabilities are obtained from the specified vLLM actor.
     """
 
     loss_config: GrpoLossConfig = field(default_factory=lambda: GrpoLossConfig())
+    """Configuration for GRPO loss computation, including rollout handling and regularization."""
 
     reference_dtype: DataType = torch.bfloat16
-    """The data type of the reference model."""
+    """The data type of the reference model when loaded locally."""
 
     ray_policy_actor_name: str = "vllm_policy"
+    """Name of the Ray vLLM actor used to generate policy rollouts."""
+    
     vllm_reward_model_name: str | None = None
+    """Optional name of the Ray vLLM actor used as a reward model."""
 
     reward: RewardSection = field(
         default_factory=lambda: RewardSection(name="gsm8k_verifier")
     )
+    """Configuration for the reward function that evaluates generated rollouts."""
 
     sync_ref_model_every_n_steps: int = -1
+    """How often to sync the reference model with the policy. -1 disables syncing."""
+    
     sync_vllm_model_every_n_steps: int = -1
+    """How often to sync the vLLM model with the policy. -1 disables syncing."""
 
 
 @final
 class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
+    """
+    Handles creation and configuration of GRPO fine-tuning units.
+    """
     _context: RuntimeContext
 
     def __init__(self, context: RuntimeContext) -> None:
@@ -547,7 +597,7 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             reference_model = vllm_actors[config.reference_model]
             reference_offload = True
             if config.sync_ref_model_every_n_steps != -1:
-                if reference_model and reference_model.update_process_group is None:
+                if reference_model and reference_model.update_process_groups is None:
                     raise ValueError(
                         f"Reference model actor must have update process group if we sync weights"
                     )
@@ -558,6 +608,11 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         gangs.root.barrier()
 
         vllm_model = vllm_actors[config.ray_policy_actor_name]
+        if gangs.dp.rank == 0:
+            if vllm_model.sampling_params.n != config.loss_config.group_size:
+                raise RuntimeError(
+                    "GRPO policy sampling n must match loss config group_size"
+                )
 
         vllm_reward_model = vllm_actors.get(config.vllm_reward_model_name, None)
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)

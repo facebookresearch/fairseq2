@@ -144,6 +144,9 @@ from fairseq2.recipes.lm._online_finetune._recipe import (
 from fairseq2.recipes.lm._online_finetune._online_dpo import (
     OnlineDpoFinetuneUnitHandler as OnlineDpoFinetuneUnitHandler,
 )
+from fairseq2.recipes.lm._online_finetune._group_dpo import (
+    GroupDpoFinetuneUnitHandler as GroupDpoFinetuneUnitHandler,
+)
 from fairseq2.recipes.lm._online_finetune._grpo import (
     GrpoFinetuneUnitHandler as GrpoFinetuneUnitHandler,
 )
@@ -156,27 +159,11 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
 )
 
 from fairseq2.recipes.lm._online_finetune._rewards import (
-    SkyworkVerifier as SkyworkVerifier,
-)
-from fairseq2.recipes.lm._online_finetune._rewards import (
-    SkyworkVerifierHandler as SkyworkVerifierHandler,
-)
-
-from fairseq2.recipes.lm._online_finetune._rewards import (
     AtheneVerifier as AtheneVerifier,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
     AtheneVerifierHandler as AtheneVerifierHandler,
 )
-
-from fairseq2.recipes.lm._online_finetune._rewards import (
-    NuminaMathVerifier as NuminaMathVerifier,
-)
-
-from fairseq2.recipes.lm._online_finetune._rewards import (
-    NuminaMathVerifierHandler as NuminaMathVerifierHandler,
-)
-
 from fairseq2.recipes.lm._online_finetune._rewards import (
     MathVerifyHandler as MathVerifyHandler,
 )
