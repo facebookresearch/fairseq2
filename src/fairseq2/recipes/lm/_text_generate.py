@@ -286,7 +286,7 @@ class TextGenerateUnit(GeneratorUnit[SequenceBatch]):
         self._model = model
         self._generator = generator
 
-        self._text_decoder = tokenizer.create_decoder()
+        self._text_decoder = tokenizer.create_decoder(skip_special_tokens=False)
 
         self._text_output_stream = text_output_stream
         self._json_output_stream = json_output_stream

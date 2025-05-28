@@ -281,7 +281,7 @@ class ChatbotProgram:
     def _receive_reply(self) -> None:
         self._view.print_reply("")
 
-        text_decoder = self._tokenizer.create_decoder()
+        text_decoder = self._tokenizer.create_decoder(skip_special_tokens=True)
 
         hook = _PrintHook(self._view, text_decoder)
 

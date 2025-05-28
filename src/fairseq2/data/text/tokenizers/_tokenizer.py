@@ -58,14 +58,12 @@ class TextTokenizer(ABC):
     ) -> TextTokenEncoder:
         """Constructs a raw token encoder with no control symbols.
 
-        :param device:
-            The device on which to construct tensors.
-        :param pin_memory:
-            If ``True``, uses pinned memory while constructing tensors.
+        :param device: The device on which to construct tensors.
+        :param pin_memory: If ``True``, uses pinned memory for tensors.
         """
 
     @abstractmethod
-    def create_decoder(self) -> TextTokenDecoder:
+    def create_decoder(self, *, skip_special_tokens: bool = False) -> TextTokenDecoder:
         """Constructs a token decoder."""
 
     @property
@@ -80,43 +78,37 @@ class TextTokenEncoder(ABC):
     @abstractmethod
     def __call__(self, text: str) -> Tensor:
         """
-        :param text:
-            The text to encode.
+        :param text: The text to encode.
         """
 
     @abstractmethod
     def encode_as_tokens(self, text: str) -> list[str]:
         """
-        :param text:
-            The text to encode.
+        :param text: The text to encode.
         """
 
     @property
     @abstractmethod
     def prefix_indices(self) -> Tensor | None:
-        """Get the indices of the prefix tokens. *Shape:* :math:`(S)`, where
-        :math:`S` is the number of indices."""
+        """
+        Gets the indices of the prefix tokens. *Shape:* :math:`(S)`, where
+        :math:`S` is the number of indices.
+        """
 
     @property
     @abstractmethod
     def suffix_indices(self) -> Tensor | None:
-        """Get the indices of the suffix tokens. *Shape:* :math:`(S)`, where
-        :math:`S` is the number of indices."""
+        """
+        Gets the indices of the suffix tokens. *Shape:* :math:`(S)`, where
+        :math:`S` is the number of indices.
+        """
 
 
 class TextTokenDecoder(ABC):
     """Decodes text from tokens or token indices."""
 
     @abstractmethod
-    def __call__(self, token_indices: Tensor) -> str:
-        """
-        :param token_indices:
-            The token indices to decode from.
-        """
+    def __call__(self, token_indices: Tensor) -> str: ...
 
     @abstractmethod
-    def decode_from_tokens(self, tokens: Sequence[str]) -> str:
-        """
-        :param tokens:
-            The tokens to decode from.
-        """
+    def decode_from_tokens(self, tokens: Sequence[str]) -> str: ...

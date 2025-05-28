@@ -34,7 +34,7 @@ class TextTokenizerLoader(Protocol):
 
 
 @final
-class StandardTextTokenizerHandler(TextTokenizerHandler):
+class DelegatingTextTokenizerHandler(TextTokenizerHandler):
     _family: str
     _loader: TextTokenizerLoader
     _asset_download_manager: AssetDownloadManager

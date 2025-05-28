@@ -10,7 +10,7 @@ from typing import final
 
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import (
-    StandardTextTokenizerHandler,
+    DelegatingTextTokenizerHandler,
     TextTokenizerHandler,
     TextTokenizerLoader,
 )
@@ -81,6 +81,6 @@ class TextTokenizerRegistrar:
     def register_family(self, family: str, loader: TextTokenizerLoader) -> None:
         asset_download_manager = self._context.asset_download_manager
 
-        handler = StandardTextTokenizerHandler(family, loader, asset_download_manager)
+        handler = DelegatingTextTokenizerHandler(family, loader, asset_download_manager)
 
         self._registry.register(handler.family, handler)

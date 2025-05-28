@@ -158,12 +158,16 @@ class MetricBag:
                     f"`state_dict['{name}']` must be of type `dict`, but is of type `{type(metric_state_dict)}` instead."
                 )
 
+            device = metric.device
+
             try:
                 metric.load_state_dict(metric_state_dict)
             except (RuntimeError, ValueError, TypeError) as ex:
                 raise ValueError(
                     f"`state_dict['{name}']` is not a valid `{type(metric)}` state. See the nested exception for details."
                 ) from ex
+
+            metric.to(device)
 
     def to(self, device: Device) -> None:
         for metric in self._metrics.values():
