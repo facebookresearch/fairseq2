@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast, final, Generic, TypeVar
+from typing import Generic, TypeVar, cast, final
 
 import torch
+from torch.nn import Module
 
 from fairseq2.assets import (
     AssetCard,
@@ -19,19 +20,18 @@ from fairseq2.assets import (
     AssetStore,
 )
 from fairseq2.context import get_runtime_context
-from fairseq2.gang import fake_gangs, Gangs
+from fairseq2.gang import Gangs, fake_gangs
 from fairseq2.models._error import (
     InvalidModelConfigTypeError,
     InvalidModelTypeError,
-    model_asset_card_error,
     ModelConfigLoadError,
     UnknownModelError,
     UnknownModelFamilyError,
+    model_asset_card_error,
 )
 from fairseq2.models._handler import ModelHandler
 from fairseq2.registry import Provider
 from fairseq2.typing import DataType, Device
-from torch.nn import Module
 
 ModelT = TypeVar("ModelT", bound=Module)
 
@@ -206,9 +206,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         if dtype is None:
             dtype = torch.get_default_dtype()
 
-        model = handler.load_from_path(
-            path, model_name, config, gangs, dtype
-        )
+        model = handler.load_from_path(path, model_name, config, gangs, dtype)
 
         return cast(ModelT, model)
 

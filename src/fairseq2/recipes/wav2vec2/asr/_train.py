@@ -11,14 +11,16 @@ from pathlib import Path
 from typing import cast, final
 
 import torch
+from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
 from fairseq2.datasets.asr import (
-    AsrDataset,
-    AsrReadOptions,
     GENERIC_ASR_DATASET_FAMILY,
     HUGGING_FACE_ASR_DATASET_FAMILY,
+    AsrDataset,
+    AsrReadOptions,
     HuggingFaceAsrDataset,
 )
 from fairseq2.gang import Gang
@@ -62,8 +64,6 @@ from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
-from torch import Tensor
-from typing_extensions import override
 
 
 @dataclass(kw_only=True)

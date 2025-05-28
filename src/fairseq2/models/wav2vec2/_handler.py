@@ -10,6 +10,9 @@ from collections.abc import MutableMapping
 from typing import cast
 
 import torch
+from torch import Tensor
+from torch.nn import Module
+from typing_extensions import override
 
 from fairseq2.models import AbstractModelHandler
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
@@ -18,9 +21,6 @@ from fairseq2.models.wav2vec2._factory import Wav2Vec2Factory
 from fairseq2.models.wav2vec2._model import Wav2Vec2Model
 from fairseq2.nn.transformer import TransformerNormOrder
 from fairseq2.typing import CPU
-from torch import Tensor
-from torch.nn import Module
-from typing_extensions import override
 
 
 class Wav2Vec2ModelHandler(AbstractModelHandler):
