@@ -492,7 +492,7 @@ def prepare_grpo_batch(
     prompt_batch: PromptBatch,
     reward_output: dict,
     gangs: Gang,
-    num_rollout_per_forward: int,
+    rollout_start_end: tuple[int],
 ):
 
     prompt_rollouts = []
@@ -505,7 +505,7 @@ def prepare_grpo_batch(
         prompt = prompt_batch.prompts[i_batch]
         rollout_tokens = [
             torch.tensor(prompt + list(c), device=gangs.dp.device)
-            for c in i_batch_tokens[:num_rollout_per_forward]
+            for c in i_batch_tokens[rollout_start_end[0] : rollout_start_end[1]]
         ]
 
         prompt_rollouts.extend(rollout_tokens)
@@ -527,7 +527,9 @@ def prepare_grpo_batch(
         rewards.std(dim=1, keepdim=True) + 1e-6
     )  # small epsilon to compensate 0 std
 
-    rewards_normalized = rewards_normalized[:, :num_rollout_per_forward]
+    rewards_normalized = rewards_normalized[
+        :, rollout_start_end[0] : rollout_start_end[1]
+    ]
     prompt_rollout_batch = collate_with_target_mask(
         prompt_rollouts, prompt_lens, device=gangs.dp.device
     )
@@ -598,3 +600,73 @@ def log_rollouts(prompt_batch: PromptBatch, rollouts, split_name, num_rollouts=1
     for rollout in rollouts[0].outputs[:num_rollouts]:
         rollout_text = rollout.text
         log.info(f"{split_name} Rollout: {rollout_text}")
+
+
+def get_rollout_lengths(rollouts: List[SequenceData]):
+    """Get the lengths of the rollouts."""
+    rollout_lengths = []
+    for rollout in rollouts:
+        for sample in rollout.outputs:
+            token_ids = sample.token_ids
+            token_ids_len = len(token_ids)
+            rollout_lengths.append(token_ids_len)
+    return rollout_lengths
+
+class StatefulRolloutBag:
+    """A stateful container for managing and reusing model rollouts across multiple micro-batches.
+    
+    This class enables efficient gradient accumulation in GRPO by:
+    1. Generating rollouts once per training step
+    2. Reusing these rollouts across multiple forward passes (micro-batches)
+    3. Managing the windowing of rollouts for each micro-batch
+    
+    In GRPO training, generating rollouts is computationally expensive. When the group_size
+    is large (many rollouts per prompt), processing all rollouts in a single forward pass
+    may exceed memory limits. This class allows splitting the computation into smaller
+    chunks by tracking which subset of rollouts should be used in each forward pass.
+    
+    Usage in GRPO:
+    - At the beginning of each training step, call `maybe_reset_bag(step_nr)`
+    - If bag is empty (first micro-batch of step), generate rollouts and save them
+    - For subsequent micro-batches, reuse the same rollouts
+    - Use `get_rollout_start_end()` to determine which slice of rollouts to process
+      in the current micro-batch based on forward_group_size
+    
+    Attributes:
+        bag_step: Current micro-batch step within the training step
+        _trainer_step: Current training step
+        rollouts: List of model rollouts generated for the current step
+        reward_outputs: List of reward outputs for the rollouts
+    """
+    bag_step: int = 0
+    _trainer_step: int = None
+
+    def __init__(self):
+        self.rollouts: List = []
+        self.reward_outputs: List = []
+
+    def maybe_reset_bag(self, trainer_step):
+        # this is called every train step to see if we need to reset the bag
+        if self._trainer_step != trainer_step:
+            # new trainer step, reset bag and counters
+            self.rollouts = []
+            self.reward_outputs = []
+            self.bag_step = 0
+            self._trainer_step = trainer_step
+        else:
+            self.bag_step += 1
+
+    def __len__(self):
+        return len(self.rollouts)
+
+    def save(self, rollouts, reward_outputs):
+        self.rollouts = rollouts
+        self.reward_outputs = reward_outputs
+
+    def load(self):
+        return self.rollouts, self.reward_outputs
+
+    def get_rollout_start_end(self, num_rollout_per_forward: int):
+        start_i = self.bag_step * num_rollout_per_forward
+        end_i = start_i + num_rollout_per_forward
+        return start_i, end_i
