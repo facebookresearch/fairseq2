@@ -161,3 +161,36 @@ def register_wav2vec2_asr_configs(context: RuntimeContext) -> None:
         config.vocab_info.size = 2475
 
         return config
+    
+    @arch("mms_1B_1143_langs")
+    def mms_1B_1143_langs() -> Wav2VecAsrConfig:
+        config = base_10h()
+        
+        def _get_1B_w2v2_encoder_config() -> Wav2Vec2EncoderConfig:
+            w2v2_config = w2v2_registry.get("large_lv60k")
+            w2v2_config.encoder_config.attn_dropout_p = 0.0
+            w2v2_config.encoder_config.feature_gradient_scale = 1.0
+
+            w2v2_config.encoder_config.model_dim = 1280
+            w2v2_config.encoder_config.num_encoder_layers = 48
+            w2v2_config.encoder_config.ffn_inner_dim = 5120
+            w2v2_config.encoder_config.dropout_p = 0.0
+            w2v2_config.quantized_dim = 1024
+            w2v2_config.final_dim = 1024
+            w2v2_config.encoder_config.first_pass_dropout_p = 0.1
+
+            return w2v2_config.encoder_config
+
+        config.encoder_config = _get_1B_w2v2_encoder_config()
+        config.encoder_config.feature_gradient_scale = 1.0
+        config.encoder_config.dropout_p = 0.0
+        config.encoder_config.attn_dropout_p = 0.0
+        config.encoder_config.ffn_inner_dropout_p = 0.1
+        config.encoder_config.layer_drop_p = 0.1
+
+        config.use_masking = False
+        config.max_temporal_mask_prob = 0.0
+        config.max_spatial_mask_prob = 0.0
+        config.vocab_info.size = 3335
+
+        return config
