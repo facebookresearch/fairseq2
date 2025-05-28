@@ -63,6 +63,12 @@ public:
         return is_broken_;
     }
 
+    std::size_t
+    warning_count() const noexcept
+    {
+        return warning_count_;
+    }
+
 private:
     bool
     is_initialized() const noexcept;
