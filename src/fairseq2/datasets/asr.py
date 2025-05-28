@@ -13,6 +13,7 @@ from typing import Any, Final, cast, final
 
 try:
     import datasets  # type: ignore[import-not-found]
+    from datasets import Audio, load_dataset  # type: ignore[import-not-found]
 except ImportError:
     _has_datasets = False
 else:
@@ -20,7 +21,6 @@ else:
 
 import numpy as np
 import torch
-from datasets import Audio, load_dataset
 from torch import Tensor
 from torch.nn.functional import layer_norm
 from typing_extensions import override
