@@ -263,7 +263,7 @@ def register_wav2vec2_asr_train_configs(context: RuntimeContext) -> None:
 
         # Dataset
         config.dataset.max_num_elements = 4_000_000
-        config.dataset.text_tokenizer = "mms_61_langs"
+        config.text_tokenizer.name = "mms_61_langs"
 
         # Model config
         config.model.arch = "mms_300m_61_langs"
