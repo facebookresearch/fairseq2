@@ -11,7 +11,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast, Final, final
 
-import datasets
+try:
+    import datasets  # type: ignore[import-not-found]
+except ImportError:
+    _has_datasets = False
+else:
+    _has_datasets = True
 
 import numpy as np
 
@@ -46,6 +51,7 @@ from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
+from fairseq2.logging import log
 from fairseq2.typing import DataType
 from torch import Tensor
 from torch.nn.functional import layer_norm
@@ -362,13 +368,15 @@ class HuggingFaceAsrDataset(AsrDataset):
         hg_hub_data_dir: str = "ia",
         splits: set[str] = {"train", "validation", "test"},
     ) -> None:
+        assert _has_datasets, "HuggingFace datasets library must be installed!"
+        
         self._name = name
         self._splits = splits
-        print("Loading dataset from HuggingFace Hub...")
+        log.info("Loading dataset from HuggingFace Hub...")
         self._hg_dataset = load_dataset(hg_hub_name, hg_hub_data_dir)
-        print("Done loading HG dataset!")
+        log.info("Done loading HG dataset!")
 
-        print("Formatting dataset...")
+        log.info("Formatting dataset...")
         self._hg_dataset = self._hg_dataset.cast_column(
             "audio", Audio(sampling_rate=16_000)
         )
@@ -376,7 +384,7 @@ class HuggingFaceAsrDataset(AsrDataset):
         all_cols = self._hg_dataset["train"].column_names
         cols_remove = set(all_cols) - set(cols_to_keep)
         self._hg_dataset = self._hg_dataset.remove_columns(cols_remove)
-        print("Done formatting dataset!")
+        log.info("Done formatting dataset!")
 
     def create_reader(
         self,
