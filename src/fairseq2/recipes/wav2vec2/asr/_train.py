@@ -163,6 +163,9 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     hugging_face_data_dir: str | None = None
     """The name of the data dir within the HuggingFace Hub dataset."""
 
+    hugging_face_transcript_key: str = "sentence"
+    """The key mapping to transcript in the HuggingFace ASR dataset; usually 'sentence' or 'text'."""
+
 
 @dataclass(kw_only=True)
 class Wav2Vec2AsrTrainerSection(TrainerSection):
@@ -371,6 +374,7 @@ def load_wav2vec2_asr_trainer(
             name=config.dataset.name,
             hg_hub_name=config.dataset.hugging_face_hub_name,
             hg_hub_data_dir=config.dataset.hugging_face_data_dir,
+            transcript_key=config.dataset.hugging_face_transcript_key,
         )
     else:
         dataset = load_dataset(AsrDataset, context, config.dataset, gangs)

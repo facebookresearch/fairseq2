@@ -161,11 +161,11 @@ def register_wav2vec2_asr_configs(context: RuntimeContext) -> None:
         config.vocab_info.size = 2475
 
         return config
-    
+
     @arch("mms_1B_1143_langs")
-    def mms_1B_1143_langs() -> Wav2VecAsrConfig:
+    def mms_1B_1143_langs() -> Wav2Vec2AsrConfig:
         config = base_10h()
-        
+
         def _get_1B_w2v2_encoder_config() -> Wav2Vec2EncoderConfig:
             w2v2_config = w2v2_registry.get("large_lv60k")
             w2v2_config.encoder_config.attn_dropout_p = 0.0

@@ -49,9 +49,9 @@ from fairseq2.datasets import (
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
+from fairseq2.logging import log
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.logging import log
 from fairseq2.typing import DataType
 from torch import Tensor
 from torch.nn.functional import layer_norm
@@ -360,6 +360,7 @@ class HuggingFaceAsrDataset(AsrDataset):
     _name: str
     _hg_dataset: datasets.dataset_dict.DatasetDict
     _splits: set[str]
+    _transcript_key: str
 
     def __init__(
         self,
@@ -367,11 +368,13 @@ class HuggingFaceAsrDataset(AsrDataset):
         hg_hub_name: str = "mozilla-foundation/common_voice_17_0",
         hg_hub_data_dir: str = "ia",
         splits: set[str] = {"train", "validation", "test"},
+        transcript_key: str = "sentence",
     ) -> None:
         assert _has_datasets, "HuggingFace datasets library must be installed!"
-        
+
         self._name = name
         self._splits = splits
+        self._transcript_key = transcript_key
         log.info("Loading dataset from HuggingFace Hub...")
         self._hg_dataset = load_dataset(hg_hub_name, hg_hub_data_dir)
         log.info("Done loading HG dataset!")
@@ -402,7 +405,7 @@ class HuggingFaceAsrDataset(AsrDataset):
 
         builder = read_sequence(data)
 
-        def get_audio_size(x: object) -> object:
+        def get_audio_size(x: dict[str, Any]) -> dict[str, Any]:
             x["audio_size"] = x["audio"]["array"].shape[0]
             return x
 
@@ -466,7 +469,7 @@ class HuggingFaceAsrDataset(AsrDataset):
         seed += 1
 
         # Convert wavs from numpy to torch
-        def torchify(waveform: np.ndarray) -> Tensor:
+        def torchify(waveform: np.ndarray[Any, Any]) -> Tensor:
             return torch.tensor(waveform, dtype=torch.float32)
 
         builder.map(torchify, selector="[*].audio.array")
@@ -483,11 +486,11 @@ class HuggingFaceAsrDataset(AsrDataset):
 
         # Tokenize target text.
         text_encoder = tokenizer.create_encoder()
-        builder.map(text_encoder, selector="[*].sentence")
+        builder.map(text_encoder, selector=f"[*].{self._transcript_key}")
 
         # Collate bucketed examples into a batch.
         text_collate_opts = CollateOptionsOverride(
-            "sentence", pad_value=tokenizer.vocab_info.pad_idx
+            self._transcript_key, pad_value=tokenizer.vocab_info.pad_idx
         )
 
         collater = Collater(pad_value=0, overrides=[text_collate_opts])
@@ -504,8 +507,8 @@ class HuggingFaceAsrDataset(AsrDataset):
         # Wrap examples with `Seq2SeqBatch`.
         def to_batch(example: dict[str, Any]) -> Seq2SeqBatch:
             source_data = cast(SequenceData, example["audio"]["array"])
-            target_data = cast(SequenceData, example["sentence"])
-            
+            target_data = cast(SequenceData, example[self._transcript_key])
+
             source_seqs, source_padding_mask = get_seqs_and_padding_mask(
                 source_data, gang.device
             )
