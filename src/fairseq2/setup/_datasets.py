@@ -8,10 +8,7 @@ from __future__ import annotations
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import DatasetHandler, StandardDatasetHandler
-from fairseq2.datasets.asr import (
-    GENERIC_ASR_DATASET_FAMILY,
-    GenericAsrDataset,
-)
+from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, GenericAsrDataset
 from fairseq2.datasets.instruction import (
     GENERIC_INSTRUCTION_DATASET_FAMILY,
     GenericInstructionDataset,
