@@ -194,7 +194,7 @@ class LLaMAChatbotHandler(ChatbotHandler):
         else:
             dialog_encoder = LLaMA1DialogEncoder(model, tokenizer)
 
-        text_decoder = tokenizer.create_decoder()
+        text_decoder = tokenizer.create_decoder(skip_special_tokens=True)
 
         return StandardChatbot(
             generator, dialog_encoder, text_decoder, supports_system_prompt=True

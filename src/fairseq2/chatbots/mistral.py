@@ -89,7 +89,7 @@ class MistralChatbotHandler(ChatbotHandler):
     def create(self, generator: SequenceGenerator, tokenizer: TextTokenizer) -> Chatbot:
         dialog_encoder = MistralDialogEncoder(generator.model, tokenizer)
 
-        text_decoder = tokenizer.create_decoder()
+        text_decoder = tokenizer.create_decoder(skip_special_tokens=True)
 
         return StandardChatbot(
             generator, dialog_encoder, text_decoder, supports_system_prompt=False

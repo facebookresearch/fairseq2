@@ -41,6 +41,8 @@ class SequenceToTextConverter:
         tokenizer: TextTokenizer,
         task: str,
         target_lang: str | None = None,
+        *,
+        skip_special_tokens: bool = False,
     ) -> None:
         """
         :param generator:
@@ -74,7 +76,9 @@ class SequenceToTextConverter:
 
         self._target_prefix_seq = target_prefix_seq
 
-        self._text_decoder = tokenizer.create_decoder()
+        self._text_decoder = tokenizer.create_decoder(
+            skip_special_tokens=skip_special_tokens
+        )
 
     def __call__(self, source_seq: Tensor) -> tuple[str, SequenceGeneratorOutput]:
         """
@@ -156,7 +160,9 @@ class SequenceToTextConverter:
                     f"The sequence generator returned no hypothesis at index {idx}."
                 )
 
-            texts.append(self._text_decoder(hypotheses[0].seq))
+            text = self._text_decoder(hypotheses[0].seq)
+
+            texts.append(text)
 
         return texts, generator_output
 
@@ -192,8 +198,14 @@ class TextTranslator:
             The maximum number of tokens above which the source sequence gets
             truncated.
         """
+        task = "translation"
+
         self._converter = SequenceToTextConverter(
-            generator, tokenizer, "translation", target_lang
+            generator,
+            tokenizer,
+            task,
+            target_lang,
+            skip_special_tokens=True,
         )
 
         pad_idx = tokenizer.vocab_info.pad_idx
@@ -274,7 +286,13 @@ class TextCompleter:
     _text_encoder: TextTokenEncoder
     _text_decoder: TextTokenDecoder
 
-    def __init__(self, generator: SequenceGenerator, tokenizer: TextTokenizer) -> None:
+    def __init__(
+        self,
+        generator: SequenceGenerator,
+        tokenizer: TextTokenizer,
+        *,
+        skip_special_tokens: bool = False,
+    ) -> None:
         """
         :param generator:
             The sequence generator.
@@ -291,7 +309,10 @@ class TextCompleter:
             ) from ex
 
         self._text_encoder = tokenizer.create_encoder(mode="prompt", device=device)
-        self._text_decoder = tokenizer.create_decoder()
+
+        self._text_decoder = tokenizer.create_decoder(
+            skip_special_tokens=skip_special_tokens
+        )
 
     def __call__(self, prompt: str) -> tuple[str, SequenceGeneratorOutput]:
         """
@@ -348,6 +369,8 @@ class TextCompleter:
                     f"The sequence generator returned no hypothesis at index {idx}."
                 )
 
-            texts.append(self._text_decoder(hypotheses[0].seq))
+            text = self._text_decoder(hypotheses[0].seq)
+
+            texts.append(text)
 
         return texts, generator_output

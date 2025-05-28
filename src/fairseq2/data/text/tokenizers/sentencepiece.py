@@ -122,10 +122,10 @@ class BasicSentencePieceTokenizer(TextTokenizer):
     _model: SentencePieceModel
     _vocab_info: VocabularyInfo
 
-    def __init__(self, path: Path) -> None:
-        self._model = SentencePieceModel(path)
+    def __init__(self, model: SentencePieceModel) -> None:
+        self._model = model
 
-        self._vocab_info = get_sentencepiece_vocabulary_info(self._model)
+        self._vocab_info = get_sentencepiece_vocabulary_info(model)
 
     @override
     def create_encoder(
@@ -136,7 +136,7 @@ class BasicSentencePieceTokenizer(TextTokenizer):
         mode: str | None = None,
         device: Device | None = None,
         pin_memory: bool = False,
-    ) -> SentencePieceEncoder:
+    ) -> TextTokenEncoder:
         """Constructs a token encoder.
 
         :param task:
@@ -184,11 +184,11 @@ class BasicSentencePieceTokenizer(TextTokenizer):
     @override
     def create_raw_encoder(
         self, *, device: Device | None = None, pin_memory: bool = False
-    ) -> SentencePieceEncoder:
+    ) -> TextTokenEncoder:
         return SentencePieceEncoder(self._model, device=device, pin_memory=pin_memory)
 
     @override
-    def create_decoder(self) -> SentencePieceDecoder:
+    def create_decoder(self, *, skip_special_tokens: bool = False) -> TextTokenDecoder:
         return SentencePieceDecoder(self._model)
 
     @property
@@ -199,11 +199,13 @@ class BasicSentencePieceTokenizer(TextTokenizer):
 
 def load_basic_sentencepiece_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
     try:
-        return BasicSentencePieceTokenizer(path)
-    except RuntimeError as ex:
+        model = SentencePieceModel(path)
+    except (OSError, RuntimeError) as ex:
         raise TextTokenizerLoadError(
-            card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
+            card.name, f"The '{card.name}' text tokenizer model cannot be loaded. See the nested exception for details."  # fmt: skip
         ) from ex
+
+    return BasicSentencePieceTokenizer(model)
 
 
 @final
@@ -213,10 +215,10 @@ class RawSentencePieceTokenizer(TextTokenizer):
     _model: SentencePieceModel
     _vocab_info: VocabularyInfo
 
-    def __init__(self, path: Path) -> None:
-        self._model = SentencePieceModel(path)
+    def __init__(self, model: SentencePieceModel) -> None:
+        self._model = model
 
-        self._vocab_info = get_sentencepiece_vocabulary_info(self._model)
+        self._vocab_info = get_sentencepiece_vocabulary_info(model)
 
     @override
     def create_encoder(
@@ -227,7 +229,7 @@ class RawSentencePieceTokenizer(TextTokenizer):
         mode: str | None = None,
         device: Device | None = None,
         pin_memory: bool = False,
-    ) -> SentencePieceEncoder:
+    ) -> TextTokenEncoder:
         """Constructs a token encoder.
 
         :param task:
@@ -255,11 +257,11 @@ class RawSentencePieceTokenizer(TextTokenizer):
     @override
     def create_raw_encoder(
         self, *, device: Device | None = None, pin_memory: bool = False
-    ) -> SentencePieceEncoder:
+    ) -> TextTokenEncoder:
         return SentencePieceEncoder(self._model, device=device, pin_memory=pin_memory)
 
     @override
-    def create_decoder(self) -> SentencePieceDecoder:
+    def create_decoder(self, *, skip_special_tokens: bool = False) -> TextTokenDecoder:
         return SentencePieceDecoder(self._model)
 
     @property
@@ -270,11 +272,13 @@ class RawSentencePieceTokenizer(TextTokenizer):
 
 def load_raw_sentencepiece_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
     try:
-        return RawSentencePieceTokenizer(path)
-    except RuntimeError as ex:
+        model = SentencePieceModel(path)
+    except (OSError, RuntimeError) as ex:
         raise TextTokenizerLoadError(
-            card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
+            card.name, f"The '{card.name}' text tokenizer model cannot be loaded. See the nested exception for details."  # fmt: skip
         ) from ex
+
+    return RawSentencePieceTokenizer(model)
 
 
 def get_sentencepiece_vocabulary_info(model: SentencePieceModel) -> VocabularyInfo:

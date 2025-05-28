@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import os
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from contextlib import ExitStack
@@ -15,16 +16,17 @@ from pathlib import Path
 from shutil import rmtree
 from tarfile import TarFile, is_tarfile
 from tempfile import NamedTemporaryFile
-from typing import final
+from typing import Final, final
 from urllib.error import HTTPError, URLError
 from urllib.parse import unquote, urlparse
 from urllib.request import Request, urlopen
 from zipfile import BadZipFile, ZipFile
 
+from huggingface_hub import snapshot_download
+from huggingface_hub.errors import HfHubHTTPError
 from tqdm import tqdm  # type: ignore[import]
 from typing_extensions import override
 
-from fairseq2.assets._card import _starts_with_scheme
 from fairseq2.logging import log
 
 
@@ -41,18 +43,15 @@ class AssetDownloadManager(ABC):
         force: bool = False,
         progress: bool = True,
     ) -> Path:
-        """Download the checkpoint at ``uri`` to the asset cache directory.
+        """
+        Downloads the checkpoint at ``uri`` to the asset cache directory.
 
-        :param uri:
-            The URI to download from.
-        :param model_name:
-            The name of the associated model.
-        :param shard_idx:
-            The shard to download if the checkpoint is sharded.
-        :param force:
-            If ``True``, downloads the checkpoint even if it is already in cache.
-        :param progress:
-            If ``True``, displays a progress bar to stderr.
+        :param uri: The URI to download from.
+        :param model_name: The name of the associated model.
+        :param shard_idx: The shard to download if the checkpoint is sharded.
+        :param force: If ``True``, downloads the checkpoint even if it is
+            already in cache.
+        :param progress: If ``True``, displays a progress bar to stderr.
 
         :returns:
             The path to the downloaded checkpoint.
@@ -67,19 +66,16 @@ class AssetDownloadManager(ABC):
         force: bool = False,
         progress: bool = True,
     ) -> Path:
-        """Download the tokenizer at ``uri`` to the asset cache directory.
+        """
+        Downloads the tokenizer at ``uri`` to the asset cache directory.
 
-        :param uri:
-            The URI to download from.
-        :param tokenizer_name:
-            The name of the tokenizer.
-        :param force:
-            If ``True``, downloads the tokenizer even if it is already in cache.
-        :param progress:
-            If ``True``, displays a progress bar to stderr.
+        :param uri: The URI to download from.
+        :param tokenizer_name: The name of the tokenizer.
+        :param force: If ``True``, downloads the tokenizer even if it is already
+            in cache.
+        :param progress: If ``True``, displays a progress bar to stderr.
 
-        :returns:
-            The path to the downloaded tokenizer.
+        :returns: The path to the downloaded tokenizer.
         """
 
     @abstractmethod
@@ -91,24 +87,240 @@ class AssetDownloadManager(ABC):
         force: bool = False,
         progress: bool = True,
     ) -> Path:
-        """Download the dataset at ``uri`` to the asset cache directory.
+        """
+        Downloads the dataset at ``uri`` to the asset cache directory.
 
-        :param uri:
-            The URI to download from.
-        :param data_name:
-            The name of the dataset.
-        :param force:
-            If ``True``, downloads the dataset even if it is already in cache.
-        :param progress:
-            If ``True``, displays a progress bar to stderr.
+        :param uri: The URI to download from.
+        :param data_name: The name of the dataset.
+        :param force: If ``True``, downloads the dataset even if it is already
+            in cache.
+        :param progress: If ``True``, displays a progress bar to stderr.
 
-        :returns:
-            The path to the downloaded dataset.
+        :returns: The path to the downloaded dataset.
         """
 
 
 class AssetDownloadError(Exception):
     pass
+
+
+@final
+class CompositeAssetDownloadManager(AssetDownloadManager):
+    _download_managers: dict[str, AssetDownloadManager]
+
+    def __init__(self, download_managers: dict[str, AssetDownloadManager]) -> None:
+        self._download_managers = download_managers
+
+    @override
+    def download_checkpoint(
+        self,
+        uri: str,
+        model_name: str,
+        *,
+        shard_idx: int = 0,
+        force: bool = False,
+        progress: bool = True,
+    ) -> Path:
+        download_manager = self._get_download_manager(uri)
+
+        return download_manager.download_checkpoint(
+            uri, model_name, shard_idx=shard_idx, force=force, progress=progress
+        )
+
+    @override
+    def download_tokenizer(
+        self,
+        uri: str,
+        tokenizer_name: str,
+        *,
+        force: bool = False,
+        progress: bool = True,
+    ) -> Path:
+        download_manager = self._get_download_manager(uri)
+
+        return download_manager.download_tokenizer(
+            uri, tokenizer_name, force=force, progress=progress
+        )
+
+    @override
+    def download_dataset(
+        self,
+        uri: str,
+        dataset_name: str,
+        *,
+        force: bool = False,
+        progress: bool = True,
+    ) -> Path:
+        download_manager = self._get_download_manager(uri)
+
+        return download_manager.download_dataset(
+            uri, dataset_name, force=force, progress=progress
+        )
+
+    def _get_download_manager(self, uri: str) -> AssetDownloadManager:
+        try:
+            parse_result = urlparse(uri)
+        except ValueError as ex:
+            raise ValueError(
+                f"`uri` must represent a URI, but is '{uri}' instead. See the nested exception for details."
+            ) from ex
+
+        try:
+            return self._download_managers[parse_result.scheme]
+        except KeyError:
+            raise AssetDownloadError(
+                f"The '{parse_result.scheme}' URI scheme does not have a corresponding download manager."
+            ) from None
+
+
+@final
+class NoopAssetDownloadManager(AssetDownloadManager):
+    @override
+    def download_checkpoint(
+        self,
+        uri: str,
+        model_name: str,
+        *,
+        shard_idx: int = 0,
+        force: bool = False,
+        progress: bool = True,
+    ) -> Path:
+        return self._to_path(uri)
+
+    @override
+    def download_tokenizer(
+        self,
+        uri: str,
+        tokenizer_name: str,
+        *,
+        force: bool = False,
+        progress: bool = True,
+    ) -> Path:
+        return self._to_path(uri)
+
+    @override
+    def download_dataset(
+        self,
+        uri: str,
+        dataset_name: str,
+        *,
+        force: bool = False,
+        progress: bool = True,
+    ) -> Path:
+        return self._to_path(uri)
+
+    @staticmethod
+    def _to_path(uri: str) -> Path:
+        try:
+            parse_result = urlparse(uri)
+        except ValueError as ex:
+            raise ValueError(
+                f"`uri` must represent a URI, but is '{uri}' instead. See the nested exception for details."
+            ) from ex
+
+        if parse_result.scheme != "file":
+            raise ValueError(
+                f"`uri` must have the 'file' scheme to be used with `{NoopAssetDownloadManager}`, but has the '{parse_result.scheme}' scheme instead."
+            )
+
+        try:
+            return Path(uri[7:])
+        except ValueError as ex:
+            raise ValueError(
+                f"`uri` must represent a pathname, but is '{uri}' instead. See the nested exception for details."
+            ) from ex
+
+
+@final
+class HuggingFaceHub(AssetDownloadManager):
+    @override
+    def download_checkpoint(
+        self,
+        uri: str,
+        model_name: str,
+        *,
+        shard_idx: int = 0,
+        force: bool = False,
+        progress: bool = True,
+    ) -> Path:
+        repo_id = self._get_repo_id(uri)
+
+        try:
+            path = snapshot_download(
+                repo_id=repo_id,
+                repo_type="model",
+                allow_patterns="*.safetensors",
+                force_download=force,
+            )
+        except (OSError, ValueError, HfHubHTTPError) as ex:
+            raise AssetDownloadError(
+                f"The download of the '{model_name}' checkpoint has failed. See the nested exception for details."
+            ) from ex
+
+        return Path(path)
+
+    @override
+    def download_tokenizer(
+        self,
+        uri: str,
+        tokenizer_name: str,
+        *,
+        force: bool = False,
+        progress: bool = True,
+    ) -> Path:
+        repo_id = self._get_repo_id(uri)
+
+        try:
+            path = snapshot_download(
+                repo_id=repo_id,
+                repo_type="model",
+                allow_patterns="tokenizer*.json",
+                force_download=force,
+            )
+        except (OSError, ValueError, HfHubHTTPError) as ex:
+            raise AssetDownloadError(
+                f"The download of the '{tokenizer_name}' text tokenizer has failed. See the nested exception for details."
+            ) from ex
+
+        return Path(path)
+
+    @override
+    def download_dataset(
+        self,
+        uri: str,
+        dataset_name: str,
+        *,
+        force: bool = False,
+        progress: bool = True,
+    ) -> Path:
+        repo_id = self._get_repo_id(uri)
+
+        try:
+            path = snapshot_download(
+                repo_id=repo_id, repo_type="dataset", force_download=force
+            )
+        except (OSError, ValueError, HfHubHTTPError) as ex:
+            raise AssetDownloadError(
+                f"The download of the '{dataset_name}' dataset has failed. See the nested exception for details."
+            ) from ex
+
+        return Path(path)
+
+    @staticmethod
+    def _get_repo_id(uri: str) -> str:
+        try:
+            parse_result = urlparse(uri)
+        except ValueError as ex:
+            raise ValueError(
+                f"`uri` must represent a URI, but is '{uri}' instead. See the nested exception for details."
+            ) from ex
+
+        if parse_result.scheme != "hg":
+            raise ValueError(
+                f"`uri` must have the 'hg' scheme to be used with `{HuggingFaceHub}`, but has the '{parse_result.scheme}' scheme instead."
+            )
+
+        return uri[5:]
 
 
 @final
@@ -586,3 +798,10 @@ class _AssetDownloadOp:
             )
 
         return asset_path
+
+
+_SCHEME_REGEX: Final = re.compile("^[a-zA-Z0-9]+://")
+
+
+def _starts_with_scheme(s: str) -> bool:
+    return re.match(_SCHEME_REGEX, s) is not None

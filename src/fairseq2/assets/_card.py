@@ -6,11 +6,9 @@
 
 from __future__ import annotations
 
-import os
-import re
 from collections.abc import Mapping, MutableMapping, Set, Sized
 from pathlib import Path
-from typing import Any, Final, final
+from typing import Any, final
 from urllib.parse import urlparse, urlunparse
 
 from fairseq2.error import InternalError
@@ -247,33 +245,33 @@ class AssetCardField:
         value: str = self.as_(str)
 
         try:
-            if not _starts_with_scheme(value):
-                path = Path(value)
-                if not path.is_absolute() and self._card._base_path is not None:
-                    path = self._card._base_path.joinpath(path)
+            parse_result = urlparse(value)
+        except ValueError:
+            parse_result = None
 
-                return path.as_uri()
+        if parse_result is not None and parse_result.scheme != "":
+            return urlunparse(parse_result)
 
-            return urlunparse(urlparse(value))
+        try:
+            path = Path(value)
         except ValueError:
             pathname = ".".join(self._path)
 
             raise AssetCardError(
-                self._card.name, f"The value of the '{pathname}' field of the '{self._card.name}' asset card is expected to be a URI or an absolute pathname, but is '{value}' instead."  # fmt: skip
+                self._card.name, f"The value of the '{pathname}' field of the '{self._card.name}' asset card is expected to be a URI or a pathname, but is '{value}' instead."  # fmt: skip
             ) from None
 
-    def as_filename(self) -> str:
-        """Return the value of this field as a filename."""
-        value: str = self.as_(str)
+        if not path.is_absolute():
+            if self._card._base_path is None:
+                pathname = ".".join(self._path)
 
-        if os.sep in value or (os.altsep and os.altsep in value):
-            pathname = ".".join(self._path)
+                raise AssetCardError(
+                    self._card.name, f"The value of the '{pathname}' field of the '{self._card.name}' asset card is a relative pathname ('{path}') and cannot be converted to a URI."  # fmt: skip
+                )
 
-            raise AssetCardError(
-                self._card.name, f"The value of the '{pathname}' field of the '{self._card.name}' asset card is expected to be a filename, but is '{value}' instead."  # fmt: skip
-            )
+            path = self._card._base_path.joinpath(path)
 
-        return value
+        return path.as_uri()
 
     def set(self, value: object) -> None:
         """Set the value of this field."""
@@ -307,10 +305,3 @@ class AssetCardError(Exception):
 
 class AssetCardFieldNotFoundError(AssetCardError):
     pass
-
-
-_SCHEME_REGEX: Final = re.compile("^[a-zA-Z0-9]+://")
-
-
-def _starts_with_scheme(s: str) -> bool:
-    return re.match(_SCHEME_REGEX, s) is not None

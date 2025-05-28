@@ -224,7 +224,7 @@ class FakeGang(Gang):
         if not output_tensor.is_contiguous():
             raise ValueError("`output_tensor` must be contiguous.")
 
-        if output_tensor.dim() != input_tensor.dim() + 1:
+        if output_tensor.ndim != input_tensor.ndim + 1:
             raise ValueError(
                 "`output_tensor` must have a shape that is compatible with all-gather."
             )

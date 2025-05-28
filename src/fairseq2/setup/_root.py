@@ -12,7 +12,10 @@ from typing import Mapping
 from fairseq2.assets import (
     AssetDirectories,
     AssetDownloadManager,
+    CompositeAssetDownloadManager,
+    HuggingFaceHub,
     InProcAssetDownloadManager,
+    NoopAssetDownloadManager,
     StandardAssetStore,
 )
 from fairseq2.context import RuntimeContext
@@ -93,4 +96,16 @@ def _create_asset_download_manager(
 
     asset_cache_dir = asset_dirs.get_cache_dir()
 
-    return InProcAssetDownloadManager(asset_cache_dir)
+    noop_download_manager = NoopAssetDownloadManager()
+
+    in_proc_download_manager = InProcAssetDownloadManager(asset_cache_dir)
+
+    hg_download_manager = HuggingFaceHub()
+
+    return CompositeAssetDownloadManager(
+        {
+            "file": noop_download_manager,
+            "https": in_proc_download_manager,
+            "hg": hg_download_manager,
+        }
+    )

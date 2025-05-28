@@ -43,7 +43,7 @@ class AsrScorer:
         :param ref_output_stream: The output stream to dump references.
         :param hyp_output_stream: The output stream to dump hypotheses.
         """
-        self._text_decoder = tokenizer.create_decoder()
+        self._text_decoder = tokenizer.create_decoder(skip_special_tokens=True)
 
         pad_idx = tokenizer.vocab_info.pad_idx
         if pad_idx is None:
