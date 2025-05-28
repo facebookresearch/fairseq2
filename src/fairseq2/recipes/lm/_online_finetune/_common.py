@@ -602,6 +602,16 @@ def log_rollouts(prompt_batch: PromptBatch, rollouts, split_name, num_rollouts=1
         log.info(f"{split_name} Rollout: {rollout_text}")
 
 
+def get_rollout_lengths(rollouts: List[SequenceData]):
+    """Get the lengths of the rollouts."""
+    rollout_lengths = []
+    for rollout in rollouts:
+        for sample in rollout.outputs:
+            token_ids = sample.token_ids
+            token_ids_len = len(token_ids)
+            rollout_lengths.append(token_ids_len)
+    return rollout_lengths
+
 class StatefulRolloutBag:
     """A stateful container for managing and reusing model rollouts across multiple micro-batches.
     
