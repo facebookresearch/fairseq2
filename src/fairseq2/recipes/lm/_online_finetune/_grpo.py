@@ -483,7 +483,7 @@ class GrpoLossConfig:
     
     This value must match the 'n' parameter in the VLLM sampling params.
     """
-    
+
     forward_group_size: int = 4
     """Maximum number of responses to process in a single forward pass.
     
@@ -495,7 +495,7 @@ class GrpoLossConfig:
 
     beta: float = 0.001
     """The coefficient of regularization towards the reference model."""
-    
+
     entropy_regularizer_scale: float = 0.0
     """Scale factor for entropy regularization term."""
 
@@ -512,12 +512,12 @@ class GrpoLossConfig:
 @dataclass(kw_only=True)
 class GrpoFinetuneConfig:
     """Configuration for Generalized Reward-Paired Optimization (GRPO) finetuning.
-    
+
     GRPO finetuning uses a policy model to generate diverse responses, which are then
-    evaluated by a reward model. The policy is trained to maximize the expected reward 
+    evaluated by a reward model. The policy is trained to maximize the expected reward
     while maintaining proximity to a reference model.
     """
-    
+
     reference_model: ReferenceModelSection | str = field(
         default_factory=lambda: ReferenceModelSection(name="fs2_llama3_1_8b_instruct")
     )
@@ -534,7 +534,7 @@ class GrpoFinetuneConfig:
 
     ray_policy_actor_name: str = "vllm_policy"
     """Name of the Ray vLLM actor used to generate policy rollouts."""
-    
+
     vllm_reward_model_name: str | None = None
     """Optional name of the Ray vLLM actor used as a reward model."""
 
@@ -545,7 +545,7 @@ class GrpoFinetuneConfig:
 
     sync_ref_model_every_n_steps: int = -1
     """How often to sync the reference model with the policy. -1 disables syncing."""
-    
+
     sync_vllm_model_every_n_steps: int = -1
     """How often to sync the vLLM model with the policy. -1 disables syncing."""
 
@@ -555,6 +555,7 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
     """
     Handles creation and configuration of GRPO fine-tuning units.
     """
+
     _context: RuntimeContext
 
     def __init__(self, context: RuntimeContext) -> None:

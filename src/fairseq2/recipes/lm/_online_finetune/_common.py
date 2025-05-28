@@ -368,6 +368,35 @@ def generate_rewards(
     return rewards_per_rank[0]
 
 
+def generate_rewards_generative(prompts: List[List[int]], dp_gang, vllm_model):
+    prompts_to_generate = [None] * dp_gang.size
+    if dp_gang.rank == 0:
+        dp_gang.gather_object(prompts, prompts_to_generate, 0)
+    else:
+        dp_gang.gather_object(prompts, None, 0)
+    if dp_gang.rank == 0:
+        rank_batch_sizes = [len(l) for l in prompts_to_generate]
+        flat_request_list = []
+        for rank_prompts in prompts_to_generate:
+            flat_request_list.extend(rank_prompts)
+
+        rewards = vllm_model.reward_from_generative_model(flat_request_list)
+
+        rewards_to_scatter = []
+        rewards_per_rank = [None]
+        for dp_rank, rank_batch_size in zip(range(dp_gang.size), rank_batch_sizes):
+            rank_start = sum(rank_batch_sizes[:dp_rank])
+            rank_end = rank_start + rank_batch_size
+            rewards_to_scatter.append(rewards[rank_start:rank_end])
+        dp_gang.scatter_object_list(rewards_per_rank, rewards_to_scatter, source_rank=0)
+    else:
+        rewards_per_rank = [None]
+        dp_gang.scatter_object_list(rewards_per_rank, None, source_rank=0)
+    dp_gang.barrier()
+
+    return rewards_per_rank[0]
+
+
 def prepare_preference_batch_random_pair(
     prompt_batch: PromptBatch, reward_output: dict, gangs
 ) -> PreferenceBatch:
@@ -614,30 +643,31 @@ def get_rollout_lengths(rollouts: List[SequenceData]):
 
 class StatefulRolloutBag:
     """A stateful container for managing and reusing model rollouts across multiple micro-batches.
-    
+
     This class enables efficient gradient accumulation in GRPO by:
     1. Generating rollouts once per training step
     2. Reusing these rollouts across multiple forward passes (micro-batches)
     3. Managing the windowing of rollouts for each micro-batch
-    
+
     In GRPO training, generating rollouts is computationally expensive. When the group_size
     is large (many rollouts per prompt), processing all rollouts in a single forward pass
     may exceed memory limits. This class allows splitting the computation into smaller
     chunks by tracking which subset of rollouts should be used in each forward pass.
-    
+
     Usage in GRPO:
     - At the beginning of each training step, call `maybe_reset_bag(step_nr)`
     - If bag is empty (first micro-batch of step), generate rollouts and save them
     - For subsequent micro-batches, reuse the same rollouts
     - Use `get_rollout_start_end()` to determine which slice of rollouts to process
       in the current micro-batch based on forward_group_size
-    
+
     Attributes:
         bag_step: Current micro-batch step within the training step
         _trainer_step: Current training step
         rollouts: List of model rollouts generated for the current step
         reward_outputs: List of reward outputs for the rollouts
     """
+
     bag_step: int = 0
     _trainer_step: int = None
 
