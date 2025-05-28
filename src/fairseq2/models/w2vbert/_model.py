@@ -85,7 +85,7 @@ class W2VBertModel(Module):
             layer_padding_mask: PaddingMask | None,
             num_layers: int,
         ) -> bool:
-            nonlocal w2v2_features
+            nonlocal w2v2_features  # noqa: F824
 
             if layer_idx == num_layers - self.num_bert_encoder_layers - 1:
                 w2v2_features.seqs = layer_output
