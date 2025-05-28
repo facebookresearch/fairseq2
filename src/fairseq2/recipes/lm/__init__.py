@@ -167,3 +167,11 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
 from fairseq2.recipes.lm._online_finetune._rewards import (
     MathVerifyHandler as MathVerifyHandler,
 )
+
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    GenerativePointwiseVerifier as GenerativePointwiseVerifier,
+)
+
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    GenerativePointwiseVerifierHandler as GenerativePointwiseVerifierHandler,
+)
