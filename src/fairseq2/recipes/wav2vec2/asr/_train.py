@@ -305,7 +305,7 @@ def load_wav2vec2_asr_trainer(
     tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the train unit.
-    criterion = AsrCriterion(model)
+    criterion = AsrCriterion(model.module)
 
     unit = Wav2Vec2AsrTrainUnit(
         model, criterion, config.trainer.freeze_encoder_for_n_steps
@@ -340,7 +340,7 @@ def load_wav2vec2_asr_trainer(
     if config.dataset.valid_split is not None:
         valid_scorer = AsrScorer(tokenizer)
 
-        valid_criterion = AsrCriterion(model, valid_scorer)
+        valid_criterion = AsrCriterion(model.module, valid_scorer)
 
         valid_unit = AsrEvalUnit(model, valid_criterion)
 

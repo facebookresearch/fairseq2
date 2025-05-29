@@ -13,6 +13,7 @@ from typing import final
 import torch
 import torch.distributed
 from torch import Tensor
+from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
@@ -207,7 +208,7 @@ def load_clm_trainer(
     tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the unit.
-    criterion = CausalLMTrainCriterion(model)
+    criterion = CausalLMTrainCriterion(model.module)
 
     unit = CausalLMTrainUnit(model, criterion)
 
@@ -285,10 +286,10 @@ class CausalLMTrainUnit(TrainUnit[SequenceBatch]):
 
 @final
 class CausalLMTrainCriterion:
-    _model: Model
+    _module: Module
 
-    def __init__(self, model: Model) -> None:
-        self._model = model
+    def __init__(self, module: Module) -> None:
+        self._module = module
 
     def __call__(
         self, batch: SequenceBatch, metric_bag: CausalLMMetricBag
@@ -297,7 +298,7 @@ class CausalLMTrainCriterion:
 
         seqs, seqs_layout = batch.as_input()
 
-        nll_loss = self._model(
+        nll_loss = self._module(
             seqs, seqs_layout, targets=target_batch.seqs, reduction="mean"
         )
 

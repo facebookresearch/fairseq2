@@ -143,7 +143,7 @@ def load_wav2vec2_evaluator(
 
     # Initialize the unit.
     criterion = Wav2Vec2Criterion(
-        model, config.loss.diversity_loss_weight, config.loss.features_penalty_weight
+        model.module, config.loss.diversity_weight, config.loss.features_penalty_weight
     )
 
     unit = Wav2Vec2EvalUnit(model, criterion)

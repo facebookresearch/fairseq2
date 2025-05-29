@@ -228,7 +228,7 @@ def load_wav2vec2_trainer(
 
     # Initialize the train unit.
     criterion = Wav2Vec2Criterion(
-        model, config.loss.diversity_loss_weight, config.loss.features_penalty_weight
+        model.module, config.loss.diversity_weight, config.loss.features_penalty_weight
     )
 
     unit = Wav2Vec2TrainUnit(model, criterion)

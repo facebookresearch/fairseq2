@@ -261,7 +261,7 @@ def load_mt_trainer(
         target_tokenizer = load_text_tokenizer(context, config.target_tokenizer)
 
     # Initialize the train unit.
-    criterion = MTCriterion(model, config.loss.label_smoothing)
+    criterion = MTCriterion(model.module, config.loss.label_smoothing)
 
     unit = MTTrainUnit(model, criterion)
 

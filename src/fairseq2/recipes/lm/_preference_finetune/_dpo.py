@@ -83,7 +83,7 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
 
         chosen_seqs, chosen_seqs_layout = chosen_input_batch.as_input()
 
-        nll_loss, chosen_logits = self._model(
+        nll_loss, chosen_logits = self._model.module(
             chosen_seqs,
             chosen_seqs_layout,
             targets=chosen_target_batch.seqs,
@@ -93,7 +93,7 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
 
         rejected_seqs, rejected_seqs_layout = rejected_input_batch.as_input()
 
-        rejected_logits = self._model(rejected_seqs, rejected_seqs_layout)
+        rejected_logits = self._model.module(rejected_seqs, rejected_seqs_layout)
 
         chosen_logps, average_chosen_logps = _gather_lprobs_avg(
             chosen_logits, chosen_target_batch
@@ -108,10 +108,10 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
 
             with torch.no_grad():
                 # TODO: fix!
-                ref_chosen_logits = self._reference_model(
+                ref_chosen_logits = self._reference_model.module(
                     chosen_seqs, chosen_seqs_layout
                 )
-                ref_rejected_logits = self._reference_model(
+                ref_rejected_logits = self._reference_model.module(
                     rejected_seqs, rejected_seqs_layout
                 )
 

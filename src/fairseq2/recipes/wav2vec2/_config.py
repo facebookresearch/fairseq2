@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 @dataclass(kw_only=True)
 class Wav2Vec2LossSection:
-    diversity_loss_weight: float = 0.1
+    diversity_weight: float = 0.1
     """The weight of the diversity loss."""
 
     features_penalty_weight: float = 10.0

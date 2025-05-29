@@ -113,10 +113,25 @@ class Wav2Vec2Model(Module):
 
         self.logit_temp = logit_temp
 
-    def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> Wav2Vec2Output:
+    def forward(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        *,
+        diversity_weight: float = 0.1,
+        features_penalty_weight: float = 10.0,
+    ) -> tuple[Wav2Vec2Loss, Wav2Vec2Output]:
         features = self.extract_features(seqs, seqs_layout)
 
-        return self.quantize_and_contrast(features)
+        output = self.quantize_and_contrast(features)
+
+        loss = self.compute_loss(
+            output,
+            diversity_weight=diversity_weight,
+            features_penalty_weight=features_penalty_weight,
+        )
+
+        return loss, output
 
     if TYPE_CHECKING:
         __call__ = forward
@@ -190,9 +205,14 @@ class Wav2Vec2Model(Module):
 
         logits = self._compute_logits(seqs, targets, distractors)
 
+        batch_size, seq_len = logits.shape[:2]
+
+        num_targets = batch_size * seq_len
+
         return Wav2Vec2Output(
             logits,
             targets,
+            num_targets,
             temporal_mask,
             quantizer_output,
             encoder_output,
@@ -269,6 +289,35 @@ class Wav2Vec2Model(Module):
             logits[:, :, 1:][distractor_is_target] = -torch.inf
 
         return logits
+
+    def compute_loss(
+        self,
+        output: Wav2Vec2Output,
+        *,
+        diversity_weight: float = 0.1,
+        features_penalty_weight: float = 10.0,
+    ) -> Wav2Vec2Loss:
+        contrastive_loss = self.compute_contrastive_loss(output.logits)
+
+        diversity_loss = self.compute_diversity_loss(
+            output.logits, output.quantizer_output.prob_perplexity
+        )
+
+        features_penalty = self.compute_features_penalty(
+            output.logits, output.raw_features
+        )
+
+        weighted_diversity_loss = diversity_weight * diversity_loss
+
+        weighted_features_penalty = features_penalty_weight * features_penalty
+
+        aggregate_loss = (
+            contrastive_loss + weighted_diversity_loss + weighted_features_penalty
+        )
+
+        return Wav2Vec2Loss(
+            aggregate_loss, contrastive_loss, diversity_loss, features_penalty
+        )
 
     def compute_contrastive_loss(self, logits: Tensor) -> Tensor:
         batch_size, seq_len, num_logits = logits.shape
@@ -351,6 +400,9 @@ class Wav2Vec2Output:
     batch size, :math:`S_{msk}` is the masked sequence length, and :math:`M` is
     the dimensionality of the model."""
 
+    num_targets: int
+    """The number of targets."""
+
     temporal_mask: Tensor
     """The temporal mask that has been applied to extract the context network
     targets. *Shape:* :math:`(N,S_{enc})`, where :math:`N` is the batch size and
@@ -369,3 +421,11 @@ class Wav2Vec2Output:
     raw_features: Tensor
     """The raw features returned by the frontend. *Shape*: Same as
     :attr:`encoder_output`."""
+
+
+@dataclass
+class Wav2Vec2Loss:
+    aggregate: Tensor
+    contrastive: Tensor
+    diversity: Tensor
+    features_penalty: Tensor
