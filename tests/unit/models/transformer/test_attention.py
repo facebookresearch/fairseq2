@@ -25,6 +25,10 @@ from fairseq2.models.transformer import (
 from fairseq2.nn import BatchLayout
 from tests.common import assert_close, device
 
+import os
+os.environ["TORCH_LOGS"] = "+dynamo"
+os.environ["TORCHDYNAMO_VERBOSE"] = "1"
+
 
 class TestScaledDotProductAttention:
     # fmt: off
@@ -206,7 +210,7 @@ class TestFlexScaledDotProductAttention:
         target_seq_len = 2
 
         k_size = 2
-        v_size = 3
+        v_size = 4
 
         def random_tensor(*args: int) -> Tensor:
             return torch.randn(*args, device=device)

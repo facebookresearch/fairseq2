@@ -10,7 +10,8 @@ from typing import Callable, cast, final
 
 import torch
 from torch import Tensor
-from torch.nn.attention.flex_attention import flex_attention, or_masks
+from torch.nn.attention.flex_attention import and_masks, create_block_mask, flex_attention, BlockMask
+
 from typing_extensions import override
 
 from fairseq2.error import NotSupportedError
@@ -36,7 +37,18 @@ def _sliding_window_causal_mask_fn(window_size: int) -> Callable:
     """Creates a sliding window causal mask function."""
     def mask_fn(b: int, h: int, q_idx: int, kv_idx: int) -> bool:
         return (q_idx >= kv_idx) and (q_idx - kv_idx <= window_size)
+
     return mask_fn
+
+
+def _create_padding_mask_fn(seq_lens: Tensor, value_seq_lens: Tensor):
+    """Creates a padding mask function that masks out padding tokens."""
+    def padding_mask_fn(b: int, h: int, q_idx: int, kv_idx: int) -> bool:
+        q_valid = q_idx < seq_lens[b].item()
+        kv_valid = kv_idx < value_seq_lens[b].item()
+        return q_valid and kv_valid
+
+    return padding_mask_fn
 
 
 def _dropout_mask_fn(dropout_p: float, training: bool = True) -> Callable | None:
@@ -45,22 +57,25 @@ def _dropout_mask_fn(dropout_p: float, training: bool = True) -> Callable | None
         return None
    
     def dropout_fn(b: int, h: int, q_idx: int, kv_idx: int) -> bool:
-        # Generate deterministic random number based on position
-        generator = torch.Generator()
-        generator.manual_seed(hash((b, h, q_idx, kv_idx)) % (2**32))
+        generator = torch.Generator()  # TODO: How to set seed?
         rand_val = torch.rand(1, generator=generator).item()
-       
+
         # Return True to keep, False to mask (opposite of dropout probability)
         return rand_val >= dropout_p
    
     return dropout_fn
 
 
-def _create_composed_mask(bias: AttentionBias, dropout_p: float = 0.0, training: bool = True) -> Callable | None:
+def _create_composed_mask(
+    bias: AttentionBias,
+    seqs_layout: BatchLayout,
+    keys_layout: BatchLayout,
+    dropout_p: float = 0.0,
+    training: bool = True,
+) -> BlockMask | None:
     """Creates a composed mask using or_mask for combining multiple mask functions."""
-   
     masks = []
-   
+
     # Add attention bias mask
     if isinstance(bias, CausalAttentionBias):
         attn_window_len = bias.attn_window_len
@@ -70,20 +85,34 @@ def _create_composed_mask(bias: AttentionBias, dropout_p: float = 0.0, training:
             masks.append(_causal_mask_fn)
     elif not isinstance(bias, IdentityBias):
         raise NotSupportedError(f"Unsupported bias type: {bias}")
-   
+
+    if seqs_layout.seq_lens_pt is not None and keys_layout.seq_lens_pt is not None:
+        # Add padding mask if sequence lengths are provided
+        masks.append(_create_padding_mask_fn(seqs_layout.seq_lens_pt, keys_layout.seq_lens_pt))
+
     # Add dropout mask if needed
     dropout_mask = _dropout_mask_fn(dropout_p, training)
     if dropout_mask is not None:
         masks.append(dropout_mask)
-   
+
     # Compose masks using or_mask
+    mask_fn = None
     if len(masks) == 0:
         return None
     elif len(masks) == 1:
-        return masks[0]
+        mask_fn = masks[0]
     else:
-        # Use or_mask to combine multiple masks
-        return or_masks(*masks)
+        # Use and_mask to combine multiple mask functions
+        mask_fn = and_masks(*masks)
+
+    block_mask = create_block_mask(
+        mask_fn,
+        B=seqs_layout.width,
+        H=None,
+        Q_LEN=seqs_layout.max_seq_len,
+        KV_LEN=keys_layout.max_seq_len,
+    )
+    return block_mask
 
 
 @final
@@ -94,8 +123,9 @@ class FlexSDPA(SDPA):
     dropout_p: float
 
     def __init__(self, bias: AttentionBias, *, dropout_p: float = 0.0) -> None:
-        super().__init__(bias)
+        super().__init__()
 
+        self.bias = bias
         self.dropout_p = dropout_p
 
     @override
@@ -110,9 +140,6 @@ class FlexSDPA(SDPA):
         *,
         needs_weights: bool = False,
     ) -> tuple[Tensor, Tensor | None]:
-        if seqs_layout.padded or keys_layout.padded:
-            raise NotSupportedError(f"`{FlexSDPA}` does not support padded batches.")
-
         if seqs_layout.packed ^ keys_layout.packed:
             raise ValueError("`seqs_layout` and `keys_layout` must be both packed.")
 
@@ -123,7 +150,16 @@ class FlexSDPA(SDPA):
             dropout_p = self.dropout_p
 
         # Create the composed mask using or_mask for clean composition
-        mask_fn = _create_composed_mask(self.bias, dropout_p, self.training)
+        block_mask = _create_composed_mask(
+            self.bias, seqs_layout, keys_layout, dropout_p, self.training
+        )
+
+        import pytest
+        pytest.set_trace()
+
+        seqs = seqs.transpose(1, 2)
+        keys = keys.transpose(1, 2)
+        values = values.transpose(1, 2)
 
         if seqs_layout.packed:
             # For packed sequences, we need to handle variable length sequences
@@ -152,9 +188,11 @@ class FlexSDPA(SDPA):
            
             # Apply flex attention with composed mask
             attns_batch = flex_attention(
-                seqs_batch, keys_batch, values_batch,
-                score_mod=mask_fn,
-                enable_gqa=False
+                seqs_batch,
+                keys_batch,
+                values_batch,
+                block_mask=block_mask,
+                enable_gqa=False,
             )
            
             # Convert back to packed format
@@ -173,10 +211,11 @@ class FlexSDPA(SDPA):
                 seqs,
                 keys,
                 values,
-                score_mod=mask_fn,
-                enable_gqa=False
+                block_mask=block_mask,
+                enable_gqa=False,
             )
 
+        attns = attns.transpose(1, 2)
         attns = cast(Tensor, attns)
 
         return attns, None
