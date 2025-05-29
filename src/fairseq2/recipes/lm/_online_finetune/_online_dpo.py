@@ -59,6 +59,9 @@ from fairseq2.recipes.lm._online_finetune._remote_vllm import (
     RemoteVllmModel,
     RemoteVllmModelHandler,
 )
+from fairseq2.recipes.lm._online_finetune._remote_hf import (
+    RemoteHFModel,
+)
 from fairseq2.recipes.lm._online_finetune._rewards import (
     RewardSection,
     VLLMOutputReward,
@@ -81,9 +84,9 @@ from fairseq2.utils.validation import validate
 class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     """Represents the language model DPO-finetuning unit with online generations. Paper: https://arxiv.org/abs/2305.18290."""
 
-    _reference_model: Module | RemoteVllmModel | None
-    _vllm_model: RemoteVllmModel
-    _vllm_actors: Dict[str, RemoteVllmModel]
+    _reference_model: Module | RemoteHFModel | None
+    _vllm_model: RemoteHFModel
+    _vllm_actors: Dict[str, RemoteHFModel]
     _metric_bag: OnlineDpoFinetuneMetricBag
     _loss_config: DpoLossConfig
     _model_update_group: PyNcclCommunicator
@@ -96,10 +99,10 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     def __init__(
         self,
         model: Module,
-        reference_model: Module | RemoteVllmModel,
+        reference_model: Module | RemoteHFModel,
         reference_offload: bool,
-        vllm_model: RemoteVllmModel,
-        vllm_actors: List[RemoteVllmModel],
+        vllm_model: RemoteHFModel,
+        vllm_actors: List[RemoteHFModel],
         reward,
         gangs: Gangs,
         loss_config: DpoLossConfig,

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 import ray
 import torch
@@ -79,6 +79,10 @@ from fairseq2.recipes.lm._online_finetune._remote_vllm import (
     VllmEngineArgs,
     VllmRayActorConfig,
 )
+from fairseq2.recipes.lm._online_finetune._remote_hf import (
+    RemoteHFModelHandler,
+    HFRayActorConfig,
+)
 from fairseq2.recipes.trainer import Trainer
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
@@ -141,7 +145,8 @@ class OnlineFinetuneConfig:
 @dataclass(kw_only=True)
 class VllmActorsSection:
     ray_cluster_ip_address: str | None = None
-    ray_actors: List[VllmRayActorConfig] | None = None
+    # ray_actors: List[VllmRayActorConfig] | None = None
+    ray_actors: List[Union[VllmRayActorConfig, HFRayActorConfig]] | None = None
 
 
 @dataclass(kw_only=True)
@@ -284,7 +289,16 @@ def load_online_finetuner(
     # go over actor configs and initialize all of them
     for actor_config in config.vllm.ray_actors:
         log.info(f"Setting up '{actor_config.ray_actor_name}' vllm actor")
-        actor = RemoteVllmModelHandler().create(gangs=gangs, actor_config=actor_config)
+        # check if hf_engine_args is var in actor_config
+        if isinstance(actor_config, HFRayActorConfig):
+            actor = RemoteHFModelHandler().create(
+                gangs=gangs, actor_config=actor_config
+            )
+        else:
+            actor = RemoteVllmModelHandler().create(
+                gangs=gangs, actor_config=actor_config
+            )
+        # actor = RemoteHFModelHandler().create(gangs=gangs, actor_config=actor_config)
         vllm_actors[actor_config.ray_actor_name] = actor
 
     # Initialize the train unit.
@@ -315,6 +329,7 @@ def load_online_finetuner(
 
     # estimate batch repeat for microbatching
     repeat_batch_n_times = 1
+    gradient_accumulation = 1
     if unit.display_name == "GRPO":
         if unit._loss_config.group_size > unit._loss_config.forward_group_size:
             repeat_batch_n_times = int(

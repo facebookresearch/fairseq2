@@ -28,9 +28,19 @@ from fairseq2.recipes.config import get_config_section
 from fairseq2.recipes.lm._online_finetune._common import (
     MyWorker,
     NoEnvLLM,
+    NoEnvPipeline,
     stateless_init_process_group,
 )
 from fairseq2.logging import log
+from transformers import (
+    LlamaModel,
+    LlamaPreTrainedModel,
+    TextClassificationPipeline,
+    AutoTokenizer,
+)
+from torch import nn
+import torch
+from typing import Dict
 
 
 class RemoteModelHandler(ABC):
@@ -64,7 +74,7 @@ class HFEngineArgs:
 class HFRayActorConfig:
     ray_actor_name: str = "dummy"
     num_replicas: int = 1
-    hf_engine_args: HFArgs = field(default_factory=lambda: HFArgs())
+    hf_engine_args: HFEngineArgs = field(default_factory=lambda: HFEngineArgs())
     hf_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
     init_update_process_group: bool = False
 
@@ -98,6 +108,28 @@ class RemoteHFModelHandler(RemoteModelHandler):
     @override
     def config_kls(self) -> type[object]:
         return HFRayActorConfig
+
+
+# Make a pipeline to handle pre and post-processing
+class AtheneRewardPipeline(TextClassificationPipeline):
+
+    def preprocess(self, inputs, **tokenizer_kwargs) -> Dict[str, torch.Tensor]:
+        return_tensors = self.framework
+
+        formatted = self.tokenizer.apply_chat_template(inputs, tokenize=False)
+
+        formatted = formatted + self.tokenizer.cls_token
+
+        return self.tokenizer(
+            formatted,
+            return_tensors=return_tensors,
+            max_length=4096,
+            padding="longest",
+            truncation=True,
+        )
+
+    def postprocess(self, model_outputs, function_to_apply=None, top_k=1, _legacy=True):
+        return model_outputs["scores"].cpu().float().item()
 
 
 class RemoteHFModel:
@@ -168,26 +200,19 @@ class RemoteHFModel:
             placement_group_bundle_index=0,
         )
 
-        llm = NoEnvLLM.options(
+        # Initialize the model
+        # model = AtheneForSequenceClassification.from_pretrained(
+        #     "Nexusflow/Athene-RM-8B", torch_dtype="bfloat16"
+        # )
+        # tokenizer = AutoTokenizer.from_pretrained("Nexusflow/Athene-RM-8B")
+
+        llm = NoEnvPipeline.options(
             name=ray_actor_name,
             num_cpus=0,
             num_gpus=0,
             scheduling_strategy=scheduling_inference,
             get_if_exists=True,
-        ).remote(
-            model=hf_engine_args.model,
-            tokenizer=hf_engine_args.tokenizer,
-            enforce_eager=hf_engine_args.enforce_eager,
-            worker_cls=MyWorker,
-            tensor_parallel_size=hf_engine_args.tensor_parallel_size,
-            task=hf_engine_args.task,
-            trust_remote_code=hf_engine_args.trust_remote_code,
-            model_impl=hf_engine_args.model_impl,
-            hf_overrides=hf_engine_args.hf_overrides,
-            override_pooler_config=hf_engine_args.override_pooler_config,
-            dtype=hf_engine_args.dtype,
-            distributed_executor_backend="ray",
-        )
+        ).remote()
 
         # we block here until the engine is initialized
         ray.get(llm.is_ready.remote())
@@ -287,17 +312,26 @@ class RemoteHFModel:
         replica_counter = 0
         for i in range(0, len(prompt_list), batch_size):
             prompt_chunk = prompt_list[i : i + batch_size]
+
+            messages = [
+                {
+                    "role": "user",
+                    "content": "What is an Athene Noctura? Explain one sentence.",
+                },
+                {
+                    "role": "assistant",
+                    "content": "The Athene noctua, also known as the little owl, is a small, nocturnal owl species native to Europe, Asia, and North Africa, characterized by its distinctive facial disk and piercing yellow eyes.",
+                },
+            ]
+
             outputs.append(
-                self.hf_workers[replica_counter % self.num_replicas].encode.remote(
-                    prompt_chunk,
-                    use_tqdm=False,
-                )
+                self.hf_workers[replica_counter % self.num_replicas].remote([messages])
             )
             replica_counter += 1
         ray_outputs = ray.get(outputs)
         ray_outputs_flat = [o for sublist in ray_outputs for o in sublist]
-        rewards = [o.outputs.data.item() for o in ray_outputs_flat]
-        return rewards
+        # rewards = [o.outputs.data.item() for o in ray_outputs_flat]
+        return ray_outputs_flat
 
     def reward_from_generative_model(self, prompt_list):
 
