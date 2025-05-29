@@ -33,10 +33,7 @@ class BleuMetric(Metric[Tensor]):
     total_ngrams: Tensor
 
     def __init__(
-        self,
-        *,
-        tokenizer: str = DEFAULT_BLEU_TOKENIZER,
-        device: Device | None = None,
+        self, tokenizer: str = DEFAULT_BLEU_TOKENIZER, *, device: Device | None = None
     ) -> None:
         super().__init__(device=device)
 

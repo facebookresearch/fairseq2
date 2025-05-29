@@ -55,10 +55,10 @@ class AsrCriterion:
         return ctc_loss, batch.batch_size
 
     def process_metric_values(self, values: MutableMapping[str, object]) -> None:
-        value = values.pop("wer")
+        value = values.pop("wer", None)
+        if value is not None:
+            uer, wer = cast(tuple[Tensor, Tensor], value)
 
-        uer, wer = cast(tuple[Tensor, Tensor], value)
-
-        if uer >= 1.0 and wer >= 1.0:
-            values["uer"] = uer
-            values["wer"] = wer
+            if uer >= 1.0 and wer >= 1.0:
+                values["uer"] = uer
+                values["wer"] = wer
