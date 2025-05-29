@@ -45,7 +45,7 @@ from fairseq2.utils.validation import validate
 
 # isort: split
 
-from fairseq2.recipes.asr._criterion import AsrCriterion
+from fairseq2.recipes.asr._metrics import update_asr_batch_metrics, update_ctc_loss
 from fairseq2.recipes.asr._scorer import AsrScorer
 
 
@@ -184,9 +184,7 @@ def load_asr_evaluator(
 
     scorer = AsrScorer(tokenizer, ref_output_stream=ref_fp, hyp_output_stream=hyp_fp)
 
-    criterion = AsrCriterion(model.module, scorer)
-
-    unit = AsrEvalUnit(model, criterion)
+    unit = AsrEvalUnit(model, scorer)
 
     batching = LengthBatching(config.dataset.max_num_elements)
 
@@ -231,20 +229,35 @@ def load_asr_evaluator(
 @final
 class AsrEvalUnit(EvalUnit[Seq2SeqBatch]):
     _model: Model
-    _criterion: AsrCriterion
+    _scorer: AsrScorer
 
-    def __init__(self, model: Model, criterion: AsrCriterion) -> None:
+    def __init__(self, model: Model, scorer: AsrScorer) -> None:
         self._model = model
 
-        self._criterion = criterion
+        self._scorer = scorer
 
     @override
     def __call__(self, batch: Seq2SeqBatch, metric_bag: MetricBag) -> None:
-        self._criterion(batch, metric_bag)
+        source_seqs, source_seqs_layout = batch.as_source_input()
+        target_seqs, target_seqs_layout = batch.as_target_input()
+
+        ctc_loss, logits, logits_layout = self._model.module(
+            source_seqs,
+            source_seqs_layout,
+            target_seqs,
+            target_seqs_layout,
+            return_logits=True,
+        )
+
+        update_ctc_loss(metric_bag, ctc_loss, batch.batch_size)
+
+        update_asr_batch_metrics(metric_bag, batch)
+
+        self._scorer(batch, logits, logits_layout, metric_bag)
 
     @override
     def process_metric_values(self, values: MutableMapping[str, object]) -> None:
-        self._criterion.process_metric_values(values)
+        self._scorer.process_metric_values(values)
 
     @property
     @override

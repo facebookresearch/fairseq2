@@ -18,7 +18,7 @@ from fairseq2.datasets import DataReader
 from fairseq2.device import SupportsDeviceTransfer
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
-from fairseq2.metrics import MetricDescriptor, UnknownMetricDescriptorError
+from fairseq2.metrics.recorders import MetricDescriptor, UnknownMetricDescriptorError
 from fairseq2.optim.lr_scheduler import LRScheduler
 from fairseq2.recipes import EvalUnit, Trainer, TrainUnit, Validator
 from fairseq2.recipes.config import CommonSection, RegimeSection, TrainerSection

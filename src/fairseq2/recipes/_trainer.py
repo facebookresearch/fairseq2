@@ -39,10 +39,13 @@ from fairseq2.metrics import (
     Mean,
     MetricBag,
     MetricBagError,
-    MetricDescriptor,
     sync_and_compute_metrics,
 )
-from fairseq2.metrics.recorders import MetricRecorder, MetricRecordError
+from fairseq2.metrics.recorders import (
+    MetricDescriptor,
+    MetricRecorder,
+    MetricRecordError,
+)
 from fairseq2.nn.utils.grad import check_grad_norms, normalize_grads
 from fairseq2.optim import DynamicLossScaler
 from fairseq2.optim.lr_scheduler import LRScheduler, get_effective_lr

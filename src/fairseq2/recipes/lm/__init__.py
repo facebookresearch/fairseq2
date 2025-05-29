@@ -120,7 +120,6 @@ from fairseq2.recipes.lm._text_generate import (
     register_text_generate_configs as register_text_generate_configs,
 )
 from fairseq2.recipes.lm._train import CausalLMTrainConfig as CausalLMTrainConfig
-from fairseq2.recipes.lm._train import CausalLMTrainCriterion as CausalLMTrainCriterion
 from fairseq2.recipes.lm._train import CausalLMTrainUnit as CausalLMTrainUnit
 from fairseq2.recipes.lm._train import TextDatasetSection as TextDatasetSection
 from fairseq2.recipes.lm._train import load_clm_trainer as load_clm_trainer

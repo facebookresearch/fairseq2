@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from collections.abc import MutableMapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast, final
@@ -28,7 +27,12 @@ from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_dev
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import TRI_STAGE_LR, TriStageLRConfig
 from fairseq2.recipes import Model, RecipeError, Trainer, TrainUnit
-from fairseq2.recipes.asr import AsrCriterion, AsrEvalUnit, AsrScorer
+from fairseq2.recipes.asr import (
+    AsrEvalUnit,
+    AsrScorer,
+    update_asr_batch_metrics,
+    update_ctc_loss,
+)
 from fairseq2.recipes.common import (
     check_has_checkpoint,
     create_checkpoint_manager,
@@ -306,11 +310,7 @@ def load_wav2vec2_asr_trainer(
     tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the train unit.
-    criterion = AsrCriterion(model.module)
-
-    unit = Wav2Vec2AsrTrainUnit(
-        model, criterion, config.trainer.freeze_encoder_for_n_steps
-    )
+    unit = Wav2Vec2AsrTrainUnit(model, config.trainer.freeze_encoder_for_n_steps)
 
     batching = LengthBatching(config.dataset.max_num_elements)
 
@@ -339,11 +339,9 @@ def load_wav2vec2_asr_trainer(
 
     # Initialize the validation unit.
     if config.dataset.valid_split is not None:
-        valid_scorer = AsrScorer(tokenizer)
+        scorer = AsrScorer(tokenizer)
 
-        valid_criterion = AsrCriterion(model.module, valid_scorer)
-
-        valid_unit = AsrEvalUnit(model, valid_criterion)
+        valid_unit = AsrEvalUnit(model, scorer)
 
         read_options = AsrReadOptions(
             batching=batching,
@@ -397,20 +395,15 @@ def load_wav2vec2_asr_trainer(
 @final
 class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
     _model: Model
-    _criterion: AsrCriterion
     _freeze_encoder_for_n_steps: int
     _frozen: bool
 
-    def __init__(
-        self, model: Model, criterion: AsrCriterion, freeze_encoder_for_n_steps: int
-    ) -> None:
+    def __init__(self, model: Model, freeze_encoder_for_n_steps: int) -> None:
         """
         :param freeze_encoder_for_n_steps: The encoder will be frozen for this
             number of steps.
         """
         self._model = model
-
-        self._criterion = criterion
 
         self._freeze_encoder_for_n_steps = freeze_encoder_for_n_steps
 
@@ -452,11 +445,18 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
     def __call__(
         self, batch: Seq2SeqBatch, metric_bag: MetricBag
     ) -> tuple[Tensor, int]:
-        return self._criterion(batch, metric_bag)
+        source_seqs, source_seqs_layout = batch.as_source_input()
+        target_seqs, target_seqs_layout = batch.as_target_input()
 
-    @override
-    def process_metric_values(self, values: MutableMapping[str, object]) -> None:
-        self._criterion.process_metric_values(values)
+        ctc_loss = self._model.module(
+            source_seqs, source_seqs_layout, target_seqs, target_seqs_layout
+        )
+
+        update_ctc_loss(metric_bag, ctc_loss, batch.batch_size)
+
+        update_asr_batch_metrics(metric_bag, batch)
+
+        return ctc_loss, batch.batch_size
 
     @property
     @override

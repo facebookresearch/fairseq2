@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-from typing import TextIO, final
+from collections.abc import MutableMapping
+from typing import TextIO, cast, final
 
 from torch import Tensor
 
@@ -116,3 +117,12 @@ class AsrScorer:
 
         # (N, S), (N, S)
         return pad_seqs(hyp_seqs, pad_value=self._pad_idx)
+
+    def process_metric_values(self, values: MutableMapping[str, object]) -> None:
+        value = values.pop("wer", None)
+        if value is not None:
+            uer, wer = cast(tuple[Tensor, Tensor], value)
+
+            if uer >= 1.0 and wer >= 1.0:
+                values["uer"] = uer
+                values["wer"] = wer

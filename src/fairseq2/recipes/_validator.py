@@ -24,10 +24,13 @@ from fairseq2.logging import log
 from fairseq2.metrics import (
     MetricBag,
     MetricBagError,
-    MetricDescriptor,
     sync_and_compute_metrics,
 )
-from fairseq2.metrics.recorders import MetricRecorder, MetricRecordError
+from fairseq2.metrics.recorders import (
+    MetricDescriptor,
+    MetricRecorder,
+    MetricRecordError,
+)
 from fairseq2.profilers import Profiler
 from fairseq2.recipes.metrics import extend_batch_metric_values
 from fairseq2.typing import ContextManager

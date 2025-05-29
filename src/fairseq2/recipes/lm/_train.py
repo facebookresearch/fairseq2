@@ -13,7 +13,6 @@ from typing import final
 import torch
 import torch.distributed
 from torch import Tensor
-from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
@@ -210,9 +209,7 @@ def load_clm_trainer(
     tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the unit.
-    criterion = CausalLMTrainCriterion(model.module)
-
-    unit = CausalLMTrainUnit(model, criterion)
+    unit = CausalLMTrainUnit(model)
 
     batching = LengthBatching(config.dataset.max_num_tokens)
 
@@ -261,32 +258,11 @@ def load_clm_trainer(
 @final
 class CausalLMTrainUnit(TrainUnit[SequenceBatch]):
     _model: Model
-    _criterion: CausalLMTrainCriterion
 
-    def __init__(self, model: Model, criterion: CausalLMTrainCriterion) -> None:
+    def __init__(self, model: Model) -> None:
         self._model = model
 
-        self._criterion = criterion
-
     @override
-    def __call__(
-        self, batch: SequenceBatch, metric_bag: MetricBag
-    ) -> tuple[Tensor, None]:
-        return self._criterion(batch, metric_bag)
-
-    @property
-    @override
-    def model(self) -> Model:
-        return self._model
-
-
-@final
-class CausalLMTrainCriterion:
-    _module: Module
-
-    def __init__(self, module: Module) -> None:
-        self._module = module
-
     def __call__(
         self, batch: SequenceBatch, metric_bag: MetricBag
     ) -> tuple[Tensor, None]:
@@ -294,7 +270,7 @@ class CausalLMTrainCriterion:
 
         seqs, seqs_layout = batch.as_input()
 
-        nll_loss = self._module(
+        nll_loss = self._model.module(
             seqs, seqs_layout, targets=target_batch.seqs, reduction="mean"
         )
 
@@ -303,3 +279,8 @@ class CausalLMTrainCriterion:
         update_seq_batch_metrics(metric_bag, batch)
 
         return nll_loss, None
+
+    @property
+    @override
+    def model(self) -> Model:
+        return self._model

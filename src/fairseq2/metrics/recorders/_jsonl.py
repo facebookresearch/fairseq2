@@ -18,13 +18,14 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.file_system import FileMode, FileSystem
-from fairseq2.metrics import MetricDescriptor, format_as_int
+from fairseq2.metrics import format_as_int
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
 # isort: split
 
+from fairseq2.metrics.recorders._descriptor import MetricDescriptor
 from fairseq2.metrics.recorders._handler import MetricRecorderHandler
 from fairseq2.metrics.recorders._recorder import (
     MetricRecorder,

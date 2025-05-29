@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from fairseq2.recipes.asr._criterion import AsrCriterion as AsrCriterion
 from fairseq2.recipes.asr._eval import AsrEvalConfig as AsrEvalConfig
 from fairseq2.recipes.asr._eval import AsrEvalDatasetSection as AsrEvalDatasetSection
 from fairseq2.recipes.asr._eval import AsrEvalUnit as AsrEvalUnit
