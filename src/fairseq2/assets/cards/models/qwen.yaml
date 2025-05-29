@@ -4,8 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from __future__ import annotations
-
-from fairseq2.cli.commands.qwen._convert_to_hf_checkpoint import (
-    ConvertQwenCheckpointHandler as ConvertQwenCheckpointHandler,
-)
+name: qwen25_7b_instruct
+model_family: qwen
+model_arch: qwen25_7b_instruct
+checkpoint: "hg://Qwen/Qwen2.5-7B-Instruct"
+tokenizer: "hg://Qwen/Qwen2.5-7B-Instruct"
+tokenizer_family: qwen
+use_im_end: true

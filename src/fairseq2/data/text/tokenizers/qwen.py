@@ -11,44 +11,35 @@ from typing import Final, final
 
 from typing_extensions import override
 
-from fairseq2.assets import AssetCard
+from fairseq2.assets import AssetCard, AssetCardError, AssetCardFieldNotFoundError
 from fairseq2.data import VocabularyInfo
 from fairseq2.data.text.tokenizers import (
+    TextTokenDecoder,
+    TextTokenEncoder,
     TextTokenizer,
     TextTokenizerLoadError,
+    text_tokenizer_asset_card_error,
 )
-from fairseq2.data.text.tokenizers.tiktoken import (
-    TiktokenDecoder,
-    TiktokenEncoder,
+from fairseq2.data.text.tokenizers.hg import (
+    HuggingFaceTokenDecoder,
+    HuggingFaceTokenEncoder,
+    HuggingFaceTokenModel,
+    load_hg_token_model,
 )
-from fairseq2.data.text.tokenizers.huggingface_tokenizer import (
-    HuggingfaceTokenizerEncoder,
-    HuggingfaceTokenizerDecoder,
-)
-from fairseq2.typing import Device
-
-try:
-    from transformers import AutoTokenizer
-except ImportError:
-    raise RuntimeError(
-        "transformers library is required to use HF tokenizers. Install it via `pip install transformers`."
-    )
+from fairseq2.device import Device
 
 
 @final
-class QwenTokenizerHuggingFace(TextTokenizer):
-    """Represents a HuggingFace version of LLama 3 tokenizer"""
+class QwenTokenizer(TextTokenizer):
+    """Represents a Qwen tokenizer"""
 
-    _tokenizer: AutoTokenizer
-    _bos_token: str
+    _model: HuggingFaceTokenModel
     _eos_token: str
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, model: HuggingFaceTokenModel, eos_token: str) -> None:
+        self._model = model
 
-        self._tokenizer = AutoTokenizer.from_pretrained(path)
-
-        self._eos_token = self._tokenizer.special_tokens_map["eos_token"]
-        self._bos_token = None
+        self._eos_token = eos_token
 
     @override
     def create_encoder(
@@ -59,7 +50,7 @@ class QwenTokenizerHuggingFace(TextTokenizer):
         mode: str | None = None,
         device: Device | None = None,
         pin_memory: bool = False,
-    ) -> TiktokenEncoder:
+    ) -> TextTokenEncoder:
         if task is not None:
             raise ValueError(f"`task` must be `None`, but is '{task}' instead.")
 
@@ -68,26 +59,22 @@ class QwenTokenizerHuggingFace(TextTokenizer):
 
         match mode:
             case None | "default":
-                prefix_tokens = []
                 suffix_tokens = [self._eos_token]
             case "prompt":
-                prefix_tokens = []
                 # In prompt mode, we expect the generator to finish the sequence.
                 suffix_tokens = []
             case "prompt_response":
-                prefix_tokens = []
                 suffix_tokens = [self._eos_token]
             case "as_is":
-                prefix_tokens = []
                 suffix_tokens = []
             case _:
                 raise ValueError(
                     f"`mode` must be one of the following values, but is '{mode}' instead: default, prompt, prompt_response, as_is"
                 )
 
-        return HuggingfaceTokenizerEncoder(
-            self._tokenizer,
-            prefix_tokens=prefix_tokens,
+        return HuggingFaceTokenEncoder(
+            self._model,
+            prefix_tokens=[],
             suffix_tokens=suffix_tokens,
             device=device,
             pin_memory=pin_memory,
@@ -96,27 +83,21 @@ class QwenTokenizerHuggingFace(TextTokenizer):
     @override
     def create_raw_encoder(
         self, *, device: Device | None = None, pin_memory: bool = False
-    ) -> TiktokenEncoder:
-        return HuggingfaceTokenizerEncoder(
-            self._tokenizer, device=device, pin_memory=pin_memory
+    ) -> TextTokenEncoder:
+        return HuggingFaceTokenEncoder(
+            self._model, device=device, pin_memory=pin_memory
         )
 
     @override
-    def create_decoder(self) -> TiktokenDecoder:
-        return HuggingfaceTokenizerDecoder(self._tokenizer)
+    def create_decoder(self, *, skip_special_tokens: bool = False) -> TextTokenDecoder:
+        return HuggingFaceTokenDecoder(
+            self._model, skip_special_tokens=skip_special_tokens
+        )
 
     @property
     @override
     def vocab_info(self) -> VocabularyInfo:
-        eos_idx = self._tokenizer.convert_tokens_to_ids(self._eos_token)
-        vocab_info = VocabularyInfo(
-            size=len(self._tokenizer),
-            bos_idx=None,
-            eos_idx=eos_idx,
-            unk_idx=None,
-            pad_idx=None,
-        )
-        return vocab_info
+        return self._model.vocab_info
 
 
 QWEN_TOKENIZER_FAMILY: Final = "qwen"
@@ -124,12 +105,27 @@ QWEN_TOKENIZER_FAMILY: Final = "qwen"
 
 def load_qwen_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
     try:
-        return QwenTokenizerHuggingFace(path)
-    except ValueError as ex:
+        use_im_end = card.field("use_im_end").as_(bool)
+    except AssetCardFieldNotFoundError:
+        use_im_end = False
+    except AssetCardError as ex:
+        raise text_tokenizer_asset_card_error(card.name) from ex
+
+    eos_token = "<|im_end|>" if use_im_end else "<|endoftext|>"
+
+    try:
+        model = load_hg_token_model(
+            path,
+            unk_token=None,
+            bos_token=None,
+            eos_token=eos_token,
+            pad_token="<|endoftext|>",
+            boh_token=None,
+            eoh_token=None,
+        )
+    except (OSError, RuntimeError) as ex:
         raise TextTokenizerLoadError(
-            card.name, f"The '{card.name}' asset card does not contain a valid text tokenizer configuration of the '{QWEN_TOKENIZER_FAMILY}' family. See the nested exception for details."  # fmt: skip
+            card.name, f"The '{card.name}' text tokenizer model cannot be loaded. See the nested exception for details."  # fmt: skip
         ) from ex
-    except RuntimeError as ex:
-        raise TextTokenizerLoadError(
-            card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
-        ) from ex
+
+    return QwenTokenizer(model, eos_token)

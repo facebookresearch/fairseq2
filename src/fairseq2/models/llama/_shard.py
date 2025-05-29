@@ -18,6 +18,4 @@ from fairseq2.models.llama._config import LLaMAConfig
 
 
 def shard_llama_model(model: TransformerLM, config: LLaMAConfig, gangs: Gangs) -> None:
-    shard_embed_dim = config.max_seq_len < 8192  # LLaMA 1 or 2
-
-    shard_transformer_lm(model, gangs, shard_embed_dim=shard_embed_dim)
+    shard_transformer_lm(model, gangs, shard_embed_dim=config.shard_embed_dim)

@@ -79,6 +79,9 @@ class LLaMAConfig:
     encoder, aiming to increase the context length.
     """
 
+    dropout_p: float = 0.0
+    """The dropout probability on outputs of Transformer layers."""
+
     init_std: float | None = None
     """
     If not ``None``, the standard deviation to initialize input embeddings and
@@ -93,8 +96,8 @@ class LLaMAConfig:
     the decoder.
     """
 
-    dropout_p: float = 0.0
-    """The dropout probability on outputs of Transformer layers."""
+    shard_embed_dim: bool = True
+    """If ``True``, shards the embedding dimension for tensor parallelism."""
 
 
 @dataclass
@@ -201,6 +204,7 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config.ffn_inner_dim_multiplier = 1.3
         config.ffn_inner_dim_multiple_of = 1024
         config.rope_theta = 500_000.0
+        config.shard_embed_dim = False
 
         return config
 
@@ -212,6 +216,7 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config.vocab_size = 128_256
         config.pad_idx = 128_004
         config.rope_theta = 500_000.0
+        config.shard_embed_dim = False
 
         return config
 

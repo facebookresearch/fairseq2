@@ -47,14 +47,6 @@ from fairseq2.models.llama import (
     register_llama_configs,
     shard_llama_model,
 )
-from fairseq2.models.qwen import (
-    QWEN_MODEL_FAMILY,
-    QwenConfig,
-    convert_qwen_checkpoint,
-    create_qwen_model,
-    register_qwen_configs,
-    shard_qwen_model,
-)
 from fairseq2.models.mistral import (
     MISTRAL_MODEL_FAMILY,
     MistralConfig,
@@ -63,6 +55,15 @@ from fairseq2.models.mistral import (
     register_mistral_configs,
 )
 from fairseq2.models.nllb import register_nllb_configs
+from fairseq2.models.qwen import (
+    QWEN_MODEL_FAMILY,
+    QwenConfig,
+    convert_qwen_checkpoint,
+    create_qwen_model,
+    export_qwen_checkpoint,
+    register_qwen_configs,
+    shard_qwen_model,
+)
 from fairseq2.models.s2t_transformer import (
     S2T_TRANSFORMER_MODEL_FAMILY,
     S2TTransformerConfig,
@@ -159,21 +160,6 @@ def _register_model_families(context: RuntimeContext) -> None:
 
     register_llama_configs(context)
 
-    # Qwen
-    default_arch = "qwen_7b"
-
-    registrar.register_family(
-        QWEN_MODEL_FAMILY,
-        TransformerDecoderModel,
-        QwenConfig,
-        default_arch,
-        create_qwen_model,
-        checkpoint_converter=convert_qwen_checkpoint,
-        sharder=shard_qwen_model,
-    )
-
-    register_qwen_configs(context)
-
     # Mistral
     default_mistral_arch = "7b"
 
@@ -191,6 +177,23 @@ def _register_model_families(context: RuntimeContext) -> None:
 
     # NLLB
     register_nllb_configs(context)
+
+    # Qwen
+    default_qwen_arch = "qwen25_7b"
+
+    registrar.register_family(
+        QWEN_MODEL_FAMILY,
+        TransformerLM,
+        QwenConfig,
+        default_qwen_arch,
+        factory=create_qwen_model,
+        checkpoint_converter=convert_qwen_checkpoint,
+        sharder=shard_qwen_model,
+        compiler=compile_transformer_lm,
+        hugging_face_exporter=export_qwen_checkpoint,
+    )
+
+    register_qwen_configs(context)
 
     # S2T Transformer
     default_s2t_transformer_arch = "medium"

@@ -6,16 +6,11 @@
 
 from __future__ import annotations
 
-from fairseq2.gang import Gangs
-from fairseq2.models.transformer_lm import (
-    TransformerLM,
-    shard_transformer_lm,
-)
+from fairseq2.models import ModelHubAccessor
+from fairseq2.models.transformer_lm import TransformerLM
 
 # isort: split
 
 from fairseq2.models.qwen._config import QwenConfig
 
-
-def shard_qwen_model(model: TransformerLM, config: QwenConfig, gangs: Gangs) -> None:
-    shard_transformer_lm(model, gangs)
+get_qwen_model_hub = ModelHubAccessor(TransformerLM, QwenConfig)

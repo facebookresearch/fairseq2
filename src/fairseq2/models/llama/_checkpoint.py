@@ -69,7 +69,13 @@ def convert_llama_checkpoint(
             # fmt: on
         }
 
-        return convert_checkpoint(checkpoint, key_map)
+        checkpoint = convert_checkpoint(checkpoint, key_map)
+
+        # Safetensors does not support shared tensors.
+        if config.tie_embeddings:
+            checkpoint["final_proj.weight"] = checkpoint["decoder_frontend.embed.weight"]  # fmt: skip
+
+        return checkpoint
 
     if "tok_embeddings.weight" in checkpoint:  # reference
         key_map = {

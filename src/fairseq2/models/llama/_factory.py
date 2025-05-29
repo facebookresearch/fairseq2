@@ -166,9 +166,13 @@ class LLaMAFactory:
     ) -> MultiheadAttention:
         config = self._config
 
+        attn_bias = CausalAttentionBias()
+
+        sdpa = create_default_sdpa(attn_bias)
+
         init_std = config.init_std
 
-        std_scale_factor = self._get_std_scale_factor(layer_idx)
+        std_scale_factor = self.get_std_scale_factor(layer_idx)
 
         def init_projection(proj: Linear) -> None:
             input_dim = proj.weight.shape[1]
@@ -176,10 +180,6 @@ class LLaMAFactory:
             std = init_std or (input_dim**-0.5)
 
             _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
-
-        attn_bias = CausalAttentionBias()
-
-        sdpa = create_default_sdpa(attn_bias)
 
         return StandardMultiheadAttention(
             config.model_dim,
@@ -197,7 +197,7 @@ class LLaMAFactory:
 
         init_std = config.init_std
 
-        std_scale_factor = self._get_std_scale_factor(layer_idx)
+        std_scale_factor = self.get_std_scale_factor(layer_idx)
 
         def init_projection(proj: Linear) -> None:
             input_dim = proj.weight.shape[1]
@@ -216,23 +216,6 @@ class LLaMAFactory:
             inner_dim_to_multiple=config.ffn_inner_dim_multiple_of,
             proj_init_fn=init_projection,
         )
-
-    def _get_std_scale_factor(self, layer_idx: int) -> float:
-        config = self._config
-
-        match config.init_std_scale:
-            case "layer":
-                n = layer_idx
-            case "stack":
-                n = config.num_layers
-            case "none":
-                return 1.0
-            case _:
-                raise ValueError(
-                    f"`config.init_std_scale` must be 'none', 'layer', or 'stack', but is '{config.init_std_scale}' instead."
-                )
-
-        return (2 * (n + 1)) ** 0.5  # type: ignore[no-any-return]
 
     def create_final_projection(self, embed: Embedding) -> Projection:
         config = self._config
@@ -255,16 +238,30 @@ class LLaMAFactory:
             _init_truncated_normal(proj.weight, proj.bias, std=std)
 
         return Linear(
-            config.model_dim,
-            config.vocab_size,
-            bias=False,
-            init_fn=init_projection,
+            config.model_dim, config.vocab_size, bias=False, init_fn=init_projection
         )
 
     def create_layer_norm(self) -> LayerNorm:
         config = self._config
 
         return RMSNorm(config.model_dim, bias=False)
+
+    def get_std_scale_factor(self, layer_idx: int) -> float:
+        config = self._config
+
+        match config.init_std_scale:
+            case "layer":
+                n = layer_idx
+            case "stack":
+                n = config.num_layers
+            case "none":
+                return 1.0
+            case _:
+                raise ValueError(
+                    f"`config.init_std_scale` must be 'none', 'layer', or 'stack', but is '{config.init_std_scale}' instead."
+                )
+
+        return (2 * (n + 1)) ** 0.5  # type: ignore[no-any-return]
 
 
 def _init_truncated_normal(

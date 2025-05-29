@@ -22,10 +22,6 @@ from fairseq2.data.text.tokenizers.llama import (
     LLAMA_TOKENIZER_FAMILY,
     load_llama_tokenizer,
 )
-from fairseq2.data.text.tokenizers.qwen import (
-    QWEN_TOKENIZER_FAMILY,
-    load_qwen_tokenizer,
-)
 from fairseq2.data.text.tokenizers.mistral import (
     MISTRAL_TOKENIZER_FAMILY,
     load_mistral_tokenizer,
@@ -33,6 +29,10 @@ from fairseq2.data.text.tokenizers.mistral import (
 from fairseq2.data.text.tokenizers.nllb import (
     NLLB_TOKENIZER_FAMILY,
     load_nllb_tokenizer,
+)
+from fairseq2.data.text.tokenizers.qwen import (
+    QWEN_TOKENIZER_FAMILY,
+    load_qwen_tokenizer,
 )
 from fairseq2.data.text.tokenizers.s2t_transformer import (
     S2T_TRANSFORMER_TOKENIZER_FAMILY,
@@ -55,11 +55,6 @@ def _register_text_tokenizer_families(context: RuntimeContext) -> None:
         LLAMA_TOKENIZER_FAMILY, load_llama_tokenizer
     )
 
-    # Qwen
-    registrar.register_family(
-        QWEN_TOKENIZER_FAMILY, load_qwen_tokenizer
-    )
-
     # NLLB
     registrar.register_family(
         NLLB_TOKENIZER_FAMILY, load_nllb_tokenizer
@@ -68,6 +63,11 @@ def _register_text_tokenizer_families(context: RuntimeContext) -> None:
     # Mistral
     registrar.register_family(
         MISTRAL_TOKENIZER_FAMILY, load_mistral_tokenizer
+    )
+
+    # Qwen
+    registrar.register_family(
+        QWEN_TOKENIZER_FAMILY, load_qwen_tokenizer
     )
 
     # S2T Transformer
