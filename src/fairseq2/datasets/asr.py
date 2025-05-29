@@ -11,6 +11,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, cast, final
 
+try:
+    import datasets  # type: ignore[import-not-found]
+    from datasets import Audio, load_dataset  # type: ignore[import-not-found]
+except ImportError:
+    _has_datasets = False
+else:
+    _has_datasets = True
+
+import numpy as np
 import torch
 from torch import Tensor
 from torch.nn.functional import layer_norm
@@ -42,6 +51,7 @@ from fairseq2.datasets import (
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
+from fairseq2.logging import log
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import DataType
@@ -97,6 +107,7 @@ npc = 10
 
 
 GENERIC_ASR_DATASET_FAMILY: Final = "generic_asr"
+HUGGING_FACE_ASR_DATASET_FAMILY: Final = "hugging_face_asr"
 
 
 # TODO: Work in progress!
@@ -340,6 +351,184 @@ class GenericAsrDataset(AsrDataset):
         return read_sequence(manifest)
 
     @override
+    def splits(self) -> set[str]:
+        return self._splits
+
+
+class HuggingFaceAsrDataset(AsrDataset):
+    _name: str
+    _hg_dataset: datasets.dataset_dict.DatasetDict
+    _splits: set[str]
+    _transcript_key: str
+
+    def __init__(
+        self,
+        name: str,
+        hg_hub_name: str = "mozilla-foundation/common_voice_17_0",
+        hg_hub_data_dir: str = "ia",
+        splits: set[str] = {"train", "validation", "test"},
+        transcript_key: str = "sentence",
+    ) -> None:
+        assert _has_datasets, "HuggingFace datasets library must be installed!"
+
+        self._name = name
+        self._splits = splits
+        self._transcript_key = transcript_key
+        log.info("Loading dataset from HuggingFace Hub...")
+        self._hg_dataset = load_dataset(hg_hub_name, hg_hub_data_dir)
+        log.info("Done loading HG dataset!")
+
+        log.info("Formatting dataset...")
+        self._hg_dataset = self._hg_dataset.cast_column(
+            "audio", Audio(sampling_rate=16_000)
+        )
+        cols_to_keep = ["sentence", "audio"]
+        all_cols = self._hg_dataset["train"].column_names
+        cols_remove = set(all_cols) - set(cols_to_keep)
+        self._hg_dataset = self._hg_dataset.remove_columns(cols_remove)
+        log.info("Done formatting dataset!")
+
+    def create_reader(
+        self,
+        split: str,
+        tokenizer: TextTokenizer,
+        gang: Gang,
+        min_audio_len: int,
+        max_audio_len: int,
+        options: AsrReadOptions | None = None,
+    ) -> DataPipelineReader[Seq2SeqBatch]:
+        if options is None:
+            options = AsrReadOptions()
+
+        data = self._hg_dataset[split]
+
+        builder = read_sequence(data)
+
+        def get_audio_size(x: dict[str, Any]) -> dict[str, Any]:
+            x["audio_size"] = x["audio"]["array"].shape[0]
+            return x
+
+        builder = builder.map(get_audio_size)
+
+        # filtering
+        builder = builder.filter(
+            lambda x: (x["audio_size"] >= min_audio_len)
+            & (x["audio_size"] <= max_audio_len)
+        )
+
+        # Shuffle examples. Must be consistent across all processes.
+        if options.example_shuffle_window != 1:
+            builder.shuffle(options.example_shuffle_window, options.seed)
+
+        seed = options.seed
+        seed += 1
+
+        # Shard.
+        builder.shard(gang.rank, gang.size, allow_uneven=True)
+
+        seed += gang.rank
+
+        batching = options.batching
+
+        if isinstance(batching, LengthBatching):
+            # Bucket by the audio length.
+            bucket_sizes = create_bucket_sizes(
+                min_seq_len=min_audio_len,
+                max_seq_len=max_audio_len,
+                max_num_elements=batching.max_num_elements,
+                num_seqs_multiple_of=8,
+            )
+
+            builder.bucket_by_length(
+                bucket_sizes,
+                selector="audio_size",
+                min_data_len=min_audio_len,
+                skip_below_min_examples=True,
+                skip_above_max_examples=True,
+                drop_remainder=options.drop_remainder,
+            )
+        elif isinstance(batching, StaticBatching):
+            # Filter out out-of-range audios.
+            def skip(example: dict[str, object]) -> bool:
+                audio_len = cast(int, example["audio_size"])
+
+                return audio_len >= min_audio_len and audio_len <= max_audio_len
+
+            builder.filter(skip)
+
+            # Bucket `batch_size` examples.
+            builder.bucket(batching.batch_size, drop_remainder=options.drop_remainder)
+        else:
+            raise NotSupportedError(f"`{batching}` is not supported.")
+
+        # Shuffle buckets.
+        if options.batch_shuffle_window != 1:
+            builder.shuffle(options.batch_shuffle_window, seed)
+
+        seed += 1
+
+        # Convert wavs from numpy to torch
+        def torchify(waveform: np.ndarray[Any, Any]) -> Tensor:
+            return torch.tensor(waveform, dtype=torch.float32)
+
+        builder.map(torchify, selector="[*].audio.array")
+
+        # Normalize audio if requested.
+        def normalize(waveform: Tensor) -> Tensor:
+            with torch.no_grad():
+                waveform = layer_norm(waveform, waveform.shape)
+
+            return waveform.to(options.dtype)
+
+        if options.normalize_audio:
+            builder.map(normalize, selector="[*].audio.array")
+
+        # Tokenize target text.
+        text_encoder = tokenizer.create_encoder()
+        builder.map(text_encoder, selector=f"[*].{self._transcript_key}")
+
+        # Collate bucketed examples into a batch.
+        text_collate_opts = CollateOptionsOverride(
+            self._transcript_key, pad_value=tokenizer.vocab_info.pad_idx
+        )
+
+        collater = Collater(pad_value=0, overrides=[text_collate_opts])
+
+        builder.map(collater)
+
+        # Return only the first `max_num_batches`.
+        if options.max_num_batches is not None:
+            builder.take(options.max_num_batches)
+
+        # Prefetch `num_prefetch` batches in background.
+        builder.prefetch(options.num_prefetch)
+
+        # Wrap examples with `Seq2SeqBatch`.
+        def to_batch(example: dict[str, Any]) -> Seq2SeqBatch:
+            source_data = cast(SequenceData, example["audio"]["array"])
+            target_data = cast(SequenceData, example[self._transcript_key])
+
+            source_seqs, source_padding_mask = get_seqs_and_padding_mask(
+                source_data, gang.device
+            )
+            target_seqs, target_padding_mask = get_seqs_and_padding_mask(
+                target_data, gang.device
+            )
+
+            return Seq2SeqBatch(
+                source_seqs,
+                source_padding_mask,
+                target_seqs,
+                target_padding_mask,
+                example=example,
+            )
+
+        pipeline = builder.map(to_batch).and_return()
+
+        return DataPipelineReader[Seq2SeqBatch](
+            self._name, split, pipeline, gang, options
+        )
+
     def splits(self) -> set[str]:
         return self._splits
 

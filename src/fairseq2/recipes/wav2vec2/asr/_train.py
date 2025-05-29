@@ -16,7 +16,13 @@ from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
+from fairseq2.datasets.asr import (
+    GENERIC_ASR_DATASET_FAMILY,
+    HUGGING_FACE_ASR_DATASET_FAMILY,
+    AsrDataset,
+    AsrReadOptions,
+    HuggingFaceAsrDataset,
+)
 from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.models.seq2seq import Seq2SeqBatch
@@ -151,6 +157,15 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     extras: dict[str, object] = field(default_factory=dict)
     """The dataset-specific extra options."""
 
+    hugging_face_hub_name: str | None = None
+    """The name of the dataset on the HuggingFace Hub."""
+
+    hugging_face_data_dir: str | None = None
+    """The name of the data dir within the HuggingFace Hub dataset."""
+
+    hugging_face_transcript_key: str = "sentence"
+    """The key mapping to transcript in the HuggingFace ASR dataset; usually 'sentence' or 'text'."""
+
 
 @dataclass(kw_only=True)
 class Wav2Vec2AsrTrainerSection(TrainerSection):
@@ -206,6 +221,77 @@ def register_wav2vec2_asr_train_configs(context: RuntimeContext) -> None:
         config.dataset.name = "librispeech_asr_100h"
         config.optimizer.config.lr = 0.00003
         config.regime.num_steps = 50_000
+
+        return config
+
+    @preset("mms_1b_1143_langs")
+    def mms_1b_1143_langs() -> Wav2Vec2AsrTrainConfig:
+        config = base_10h()
+
+        # Dataset
+        config.dataset.name = "mms_1143_langs"
+        config.text_tokenizer.name = "mms_1143_langs"
+        config.dataset.max_num_elements = 3_600_000
+        config.dataset.valid_split = "dev"
+        config.dataset.normalize_audio = True
+
+        # Arch
+        config.model.arch = "mms_1b_1143_langs"
+        config.pretrained_model.name = "mms_1b"
+
+        # Optimization
+        assert isinstance(config.optimizer.config, AdamWConfig)
+        config.optimizer.config.lr = 1e-5
+        config.trainer.gradient_accumulation = 1
+        config.trainer.freeze_encoder_for_n_steps = 0
+        config.regime.num_steps = 10_000
+        config.trainer.dtype = torch.bfloat16
+
+        # Validation
+        config.regime.validate_after_n_steps = 0
+        config.regime.validate_every_n_steps = 200
+
+        # Checkpointing
+        config.regime.checkpoint_after_n_steps = 0
+        config.regime.checkpoint_every_n_steps = 200
+        config.regime.keep_best_n_checkpoints = 1
+
+        config.regime.publish_metrics_every_n_steps = 50
+
+        return config
+
+    @preset("mms_300m_61_langs")
+    def mms_300m_61_langs() -> Wav2Vec2AsrTrainConfig:
+        config = mms_1b_1143_langs()
+
+        # Dataset
+        config.dataset.max_num_elements = 4_000_000
+        config.text_tokenizer.name = "mms_61_langs"
+
+        # Model config
+        config.model.arch = "mms_300m_61_langs"
+        config.pretrained_model.name = "mms_300m_1000k_steps"
+
+        # Optimization
+        assert isinstance(config.optimizer.config, AdamWConfig)
+        config.optimizer.config.lr = 1e-4
+        config.trainer.gradient_accumulation = 1
+        config.trainer.freeze_encoder_for_n_steps = 0
+        config.regime.num_steps = 50_000
+        config.trainer.dtype = torch.bfloat16
+
+        return config
+
+    @preset("mms_300m_hugging_face")
+    def mms_300m_hugging_face() -> Wav2Vec2AsrTrainConfig:
+        config = mms_300m_61_langs()
+
+        # Dataset
+        config.dataset.family = HUGGING_FACE_ASR_DATASET_FAMILY
+        config.dataset.name = "hugging_face_asr"
+        config.dataset.hugging_face_hub_name = "mozilla-foundation/common_voice_17_0"
+        config.dataset.hugging_face_data_dir = "ia"
+        config.dataset.valid_split = "validation"
 
         return config
 
@@ -278,7 +364,20 @@ def load_wav2vec2_asr_trainer(
 
     lr_scheduler = create_lr_scheduler(context, config, optimizer)
 
-    dataset = load_dataset(AsrDataset, context, config, gangs)
+    dataset: AsrDataset
+    if config.dataset.family == HUGGING_FACE_ASR_DATASET_FAMILY:
+        log.info(f"Loading dataset {config.dataset.name}")
+        assert config.dataset.name is not None
+        assert config.dataset.hugging_face_hub_name is not None
+        assert config.dataset.hugging_face_data_dir is not None
+        dataset = HuggingFaceAsrDataset(
+            name=config.dataset.name,
+            hg_hub_name=config.dataset.hugging_face_hub_name,
+            hg_hub_data_dir=config.dataset.hugging_face_data_dir,
+            transcript_key=config.dataset.hugging_face_transcript_key,
+        )
+    else:
+        dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
 
     tokenizer = load_text_tokenizer(context, config)
 
