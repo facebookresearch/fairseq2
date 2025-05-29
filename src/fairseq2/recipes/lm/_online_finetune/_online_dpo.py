@@ -225,7 +225,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         rollouts = generate_rollouts(
             prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
         )
-        if self.counter % 2 == 0:
+        # if self.counter % 2 == 0:
+        if False:
             if self._gangs.dp.rank == 0:
                 breakpoint()
                 rollouts = generate_rollouts(
