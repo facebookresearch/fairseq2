@@ -12,13 +12,11 @@ from torch import Tensor
 
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
 from fairseq2.datasets import Seq2SeqBatch
+from fairseq2.metrics import MetricBag
+from fairseq2.metrics.text import WerMetric
 from fairseq2.nn import BatchLayout
 from fairseq2.nn.utils.padding import pad_seqs
 from fairseq2.recipes import UnitError
-
-# isort: split
-
-from fairseq2.recipes.asr._metrics import AsrMetricBag
 
 
 @final
@@ -63,7 +61,7 @@ class AsrScorer:
         batch: Seq2SeqBatch,
         logits: Tensor,
         logits_layout: BatchLayout,
-        metric_bag: AsrMetricBag,
+        metric_bag: MetricBag,
     ) -> None:
         # (N, S)
         ref_seqs, ref_seqs_layout = batch.as_target_input()
@@ -74,7 +72,7 @@ class AsrScorer:
         refs = [self._text_decoder(s) for s in ref_seqs]
         hyps = [self._text_decoder(s) for s in hyp_seqs]
 
-        metric_bag.wer.update(
+        metric_bag.get(WerMetric, "wer").update(
             refs, ref_seqs, ref_seqs_layout, hyps, hyp_seqs, hyp_seqs_layout
         )
 

@@ -6,16 +6,18 @@
 
 from __future__ import annotations
 
-from typing import final
+from collections.abc import MutableMapping
+from typing import cast, final
 
 from torch import Tensor
 from torch.nn import Module
 
 from fairseq2.datasets import Seq2SeqBatch
+from fairseq2.metrics import MetricBag
 
 # isort: split
 
-from fairseq2.recipes.asr._metrics import AsrMetricBag
+from fairseq2.recipes.asr._metrics import update_asr_batch_metrics, update_ctc_loss
 from fairseq2.recipes.asr._scorer import AsrScorer
 
 
@@ -30,7 +32,7 @@ class AsrCriterion:
         self._scorer = scorer
 
     def __call__(
-        self, batch: Seq2SeqBatch, metric_bag: AsrMetricBag
+        self, batch: Seq2SeqBatch, metric_bag: MetricBag
     ) -> tuple[Tensor, int]:
         source_seqs, source_seqs_layout = batch.as_source_input()
         target_seqs, target_seqs_layout = batch.as_target_input()
@@ -43,11 +45,20 @@ class AsrCriterion:
             return_logits=True,
         )
 
-        metric_bag.update_ctc_loss(batch, ctc_loss)
+        update_ctc_loss(metric_bag, ctc_loss, batch.batch_size)
 
-        metric_bag.update_batch_metrics(batch)
+        update_asr_batch_metrics(metric_bag, batch)
 
         if self._scorer is not None:
             self._scorer(batch, logits, logits_layout, metric_bag)
 
         return ctc_loss, batch.batch_size
+
+    def process_metric_values(self, values: MutableMapping[str, object]) -> None:
+        value = values.pop("wer")
+
+        uer, wer = cast(tuple[Tensor, Tensor], value)
+
+        if uer >= 1.0 and wer >= 1.0:
+            values["uer"] = uer
+            values["wer"] = wer

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import MutableMapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import final
@@ -45,7 +46,6 @@ from fairseq2.utils.validation import validate
 # isort: split
 
 from fairseq2.recipes.asr._criterion import AsrCriterion
-from fairseq2.recipes.asr._metrics import AsrMetricBag
 from fairseq2.recipes.asr._scorer import AsrScorer
 
 
@@ -114,7 +114,7 @@ def register_asr_eval_configs(context: RuntimeContext) -> None:
 @torch.inference_mode()
 def load_asr_evaluator(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Evaluator[Seq2SeqBatch]:
+) -> Evaluator:
     config = structure(config, AsrEvalConfig)
 
     validate(config)
@@ -232,25 +232,21 @@ def load_asr_evaluator(
 class AsrEvalUnit(EvalUnit[Seq2SeqBatch]):
     _model: Model
     _criterion: AsrCriterion
-    _metric_bag: AsrMetricBag
 
     def __init__(self, model: Model, criterion: AsrCriterion) -> None:
         self._model = model
 
         self._criterion = criterion
 
-        self._metric_bag = AsrMetricBag(device=model.device)
+    @override
+    def __call__(self, batch: Seq2SeqBatch, metric_bag: MetricBag) -> None:
+        self._criterion(batch, metric_bag)
 
     @override
-    def __call__(self, batch: Seq2SeqBatch) -> None:
-        self._criterion(batch, self._metric_bag)
+    def process_metric_values(self, values: MutableMapping[str, object]) -> None:
+        self._criterion.process_metric_values(values)
 
     @property
     @override
     def model(self) -> Model:
         return self._model
-
-    @property
-    @override
-    def metric_bag(self) -> MetricBag:
-        return self._metric_bag

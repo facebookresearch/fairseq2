@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Mapping, TextIO, final
+from typing import TextIO, final
 
 import torch
 from typing_extensions import override
@@ -32,7 +33,6 @@ from fairseq2.recipes import (
     GeneratorUnit,
     Model,
     RecipeError,
-    Seq2SeqGenerationMetricBag,
     UnitError,
 )
 from fairseq2.recipes.common import (
@@ -54,6 +54,7 @@ from fairseq2.recipes.config import (
     Seq2SeqGeneratorSection,
     TextTokenizerSection,
 )
+from fairseq2.recipes.metrics import update_seq2seq_generator_metrics
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
@@ -135,7 +136,7 @@ def register_text_translate_configs(context: RuntimeContext) -> None:
 @torch.inference_mode()
 def load_text_translator(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Generator[SequenceBatch]:
+) -> Generator:
     config = structure(config, TextTranslateConfig)
 
     validate(config)
@@ -267,7 +268,6 @@ class TextTranslationUnit(GeneratorUnit[SequenceBatch]):
     _converter: SequenceToTextConverter
     _src_output_stream: TextIO | None
     _hyp_output_stream: TextIO | None
-    _metric_bag: Seq2SeqGenerationMetricBag
 
     def __init__(
         self,
@@ -301,10 +301,8 @@ class TextTranslationUnit(GeneratorUnit[SequenceBatch]):
         self._src_output_stream = src_output_stream
         self._hyp_output_stream = hyp_output_stream
 
-        self._metric_bag = Seq2SeqGenerationMetricBag(device=model.device)
-
     @override
-    def __call__(self, batch: SequenceBatch) -> None:
+    def __call__(self, batch: SequenceBatch, metric_bag: MetricBag) -> None:
         if batch.example is None:
             raise ValueError("`batch.example` must not be `None`.")
 
@@ -318,16 +316,16 @@ class TextTranslationUnit(GeneratorUnit[SequenceBatch]):
         except KeyError:
             raise ValueError("`batch.example` must contain a 'text' item.") from None
 
-        if not isinstance(srcs, Iterable):
+        if not isinstance(srcs, Sequence):
             raise TypeError(
-                f"`batch.example['text'] must be an iterable of strings, but is of type `{type(srcs)}` instead."
+                f"`batch.example['text'] must be a sequence of strings, but is of type `{type(srcs)}` instead."
             )
 
         seqs, seqs_layout = batch.as_input()
 
         hyps, output = self._converter.batch_convert(seqs, seqs_layout)
 
-        self._metric_bag.update_batch_metrics(output, batch.num_elements)
+        update_seq2seq_generator_metrics(metric_bag, output, batch.num_elements)
 
         try:
             # Dump source sentences.
@@ -356,8 +354,3 @@ class TextTranslationUnit(GeneratorUnit[SequenceBatch]):
     @override
     def model(self) -> Model:
         return self._model
-
-    @property
-    @override
-    def metric_bag(self) -> MetricBag:
-        return self._metric_bag

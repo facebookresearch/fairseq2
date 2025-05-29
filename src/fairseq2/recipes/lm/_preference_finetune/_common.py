@@ -12,8 +12,7 @@ from torcheval.metrics import Mean
 
 from fairseq2.datasets import SequenceBatch
 from fairseq2.datasets.preference import PreferenceBatch
-from fairseq2.device import Device
-from fairseq2.recipes import CausalLMMetricBag
+from fairseq2.metrics import MetricBag
 
 
 def _gather_lprobs(logits: Tensor, target: SequenceBatch) -> Tensor:
@@ -36,56 +35,50 @@ def _gather_lprobs_avg(logits: Tensor, target: SequenceBatch) -> tuple[Tensor, T
     return total_logps, average_logps
 
 
-class POFinetuneMetricBag(CausalLMMetricBag):
-    chosen_logps: Mean
-    rejected_logps: Mean
-    chosen_lengths: Mean
-    rejected_lengths: Mean
+@torch.inference_mode()
+def update_logps_metrics(
+    metric_bag: MetricBag,
+    batch: PreferenceBatch,
+    chosen_logps: Tensor,
+    rejected_logps: Tensor,
+) -> None:
+    """Update the Chosen Sequence Log Probabilities and Rejected Sequence Log Probabilities metrics.
 
-    def __init__(self, device: Device) -> None:
-        super().__init__(device)
+    :param batch:
+        The batch processed by the model.
+    :param chosen_logps:
+        The log probabilities for each sequence in ``batch.chosen``.
+    :param rejected_logps:
+        The log probabilities for each sequence in ``batch.rejected``.
+    """
+    chosen_logps = chosen_logps.detach()
 
-        self.chosen_logps = Mean(device=device)
+    metric_bag.get(Mean, "chosen_logps").update(
+        chosen_logps.sum() / batch.chosen.batch_size, weight=batch.chosen.batch_size
+    )
 
-        self.rejected_logps = Mean(device=device)
+    rejected_logps = rejected_logps.detach()
 
-        self.chosen_lengths = Mean(device=device)
+    metric_bag.get(Mean, "rejected_logps").update(
+        rejected_logps.sum() / batch.rejected.batch_size,
+        weight=batch.rejected.batch_size,
+    )
 
-        self.rejected_lengths = Mean(device=device)
 
-    @torch.inference_mode()
-    def update_logps(
-        self, batch: PreferenceBatch, chosen_logps: Tensor, rejected_logps: Tensor
-    ) -> None:
-        """Update the Chosen Sequence Log Probabilities and Rejected Sequence Log Probabilities metrics.
+@torch.inference_mode()
+def update_sequence_length_metrics(
+    metric_bag: MetricBag, batch: PreferenceBatch
+) -> None:
+    """Update the Chosen Sequence Length and Rejected Sequence Length metrics.
 
-        :param batch:
-            The batch processed by the model.
-        :param chosen_logps:
-            The log probabilities for each sequence in ``batch.chosen``.
-        :param rejected_logps:
-            The log probabilities for each sequence in ``batch.rejected``.
-        """
-        self.chosen_logps.update(
-            chosen_logps.sum() / batch.chosen.batch_size, weight=batch.chosen.batch_size
-        )
-        self.rejected_logps.update(
-            rejected_logps.sum() / batch.rejected.batch_size,
-            weight=batch.rejected.batch_size,
-        )
-
-    @torch.inference_mode()
-    def update_sequence_lengths(self, batch: PreferenceBatch) -> None:
-        """Update the Chosen Sequence Length and Rejected Sequence Length metrics.
-
-        :param batch:
-            The batch processed by the model.
-        """
-        self.chosen_lengths.update(
-            Tensor([batch.chosen.num_target_elements / batch.chosen.batch_size]),
-            weight=batch.chosen.batch_size,
-        )
-        self.rejected_lengths.update(
-            Tensor([batch.rejected.num_target_elements / batch.rejected.batch_size]),
-            weight=batch.rejected.batch_size,
-        )
+    :param batch:
+        The batch processed by the model.
+    """
+    metric_bag.get(Mean, "chosen_lengths").update(
+        Tensor([batch.chosen.num_target_elements / batch.chosen.batch_size]),
+        weight=batch.chosen.batch_size,
+    )
+    metric_bag.get(Mean, "rejected_lengths").update(
+        Tensor([batch.rejected.num_target_elements / batch.rejected.batch_size]),
+        weight=batch.rejected.batch_size,
+    )

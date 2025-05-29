@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import MutableMapping
 from contextlib import nullcontext
 from enum import Enum
-from typing import Final, Generic, Mapping, TypeVar, final
+from typing import Any, Final, Generic, Mapping, TypeVar, final
 
 import torch
 import torch.distributed
@@ -46,6 +47,7 @@ from fairseq2.nn.utils.grad import check_grad_norms, normalize_grads
 from fairseq2.optim import DynamicLossScaler
 from fairseq2.optim.lr_scheduler import LRScheduler, get_effective_lr
 from fairseq2.profilers import Profiler
+from fairseq2.recipes.metrics import extend_batch_metric_values
 from fairseq2.typing import ContextManager
 from fairseq2.utils.device_stat import DeviceStatTracker
 from fairseq2.utils.gc import GarbageCollector
@@ -62,7 +64,6 @@ from fairseq2.recipes._error import (
     RecipeError,
     UnitError,
 )
-from fairseq2.recipes._metrics import extend_batch_metric_values
 from fairseq2.recipes._model import Model
 from fairseq2.recipes._recipe import Recipe, RecipeStopException
 from fairseq2.recipes._validator import Validator
@@ -82,7 +83,9 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
         pass
 
     @abstractmethod
-    def __call__(self, batch: BatchT_contra) -> tuple[Tensor, int | None]:
+    def __call__(
+        self, batch: BatchT_contra, metric_bag: MetricBag
+    ) -> tuple[Tensor, int | None]:
         """Process ``batch``.
 
         :returns:
@@ -91,27 +94,26 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
               model gradients won't be normalized.
         """
 
-    @property
-    @abstractmethod
-    def model(self) -> Model: ...
+    def process_metric_values(self, values: MutableMapping[str, object]) -> None:
+        pass
 
     @property
     @abstractmethod
-    def metric_bag(self) -> MetricBag: ...
+    def model(self) -> Model: ...
 
 
 BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
 
 
 @final
-class Trainer(Recipe, Generic[BatchT]):
+class Trainer(Recipe):
     """Trains a machine learning model."""
 
     _state: _TrainerState
     _step_nr: int
     _data_epoch_nr: int
-    _unit: TrainUnit[BatchT]
-    _data_reader: DataReader[BatchT]
+    _unit: TrainUnit[Any]
+    _data_reader: DataReader[Any]
     _gangs: Gangs
     _dtype: DataType
     _amp: bool
@@ -158,7 +160,7 @@ class Trainer(Recipe, Generic[BatchT]):
     _base_wall_time: float
     _progress_reporter: ProgressReporter
     _first_iter: bool
-    _batches: list[BatchT] | None
+    _batches: list[Any] | None
     _stop_requested: bool
     _num_batches_read: int
     _last_lr: float
@@ -433,9 +435,7 @@ class Trainer(Recipe, Generic[BatchT]):
 
         self._keep_checkpoint_every_n_steps = keep_checkpoint_every_n_steps
 
-        self._metric_bag = unit.metric_bag
-
-        self._metric_bag.grad_norm = Mean(device=gangs.root.device)
+        self._metric_bag = MetricBag(device=gangs.root.device)
 
         self._metric_recorder = metric_recorder
 
@@ -814,7 +814,7 @@ class Trainer(Recipe, Generic[BatchT]):
         if self._loss_scaler.is_enabled:
             self._metric_bag.commit_updates()
 
-        self._metric_bag.grad_norm.update(grad_norm)
+        self._metric_bag.get(Mean, "grad_norm").update(grad_norm)
 
         self._num_batches_read += 1
 
@@ -827,10 +827,10 @@ class Trainer(Recipe, Generic[BatchT]):
 
         return nullcontext()
 
-    def _compute_loss(self, batch: BatchT) -> tuple[Tensor, int | None]:
+    def _compute_loss(self, batch: Any) -> tuple[Tensor, int | None]:
         with self._maybe_autocast():
             try:
-                return self._unit(batch)
+                return self._unit(batch, self._metric_bag)
             except UnitError as ex:
                 raise RecipeError(
                     "The train unit has failed. See the nested exception for details."
@@ -1003,6 +1003,8 @@ class Trainer(Recipe, Generic[BatchT]):
             if values is None:
                 raise InternalError("`values` is `None`.")
 
+            self._unit.process_metric_values(values)
+
             values["lr"] = self._last_lr
 
             values["data_epoch"] = self._data_epoch_nr
@@ -1101,7 +1103,7 @@ class Trainer(Recipe, Generic[BatchT]):
             log.info("Starting validation after step {}.", self._step_nr)
 
         with self._unit.model.summon_full_parameters():
-            score = self._validator.run(self._step_nr, self._data_epoch_nr)
+            score = self._validator.run(self._step_nr)
 
         if score is not None:
             if self._should_checkpoint():
@@ -1271,7 +1273,7 @@ class _TrainerState(Enum):
 T = TypeVar("T")
 
 
-class _TrainerStateBag(Stateful, Generic[BatchT]):
+class _TrainerStateBag(Stateful):
     _KEYS: Final = [
         "_step_nr",
         "_data_epoch_nr",
@@ -1282,9 +1284,9 @@ class _TrainerStateBag(Stateful, Generic[BatchT]):
         "_base_wall_time",
     ]
 
-    _trainer: Trainer[BatchT]
+    _trainer: Trainer
 
-    def __init__(self, trainer: Trainer[BatchT]) -> None:
+    def __init__(self, trainer: Trainer) -> None:
         self._trainer = trainer
 
     @override

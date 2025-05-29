@@ -36,7 +36,7 @@ def create_generator(
     seed: int,
     *,
     hyper_params: object = None,
-) -> Generator[BatchT]:
+) -> Generator:
     metric_recorder = create_metric_recorder(
         context, common_section, gangs, output_dir, hyper_params
     )
@@ -45,7 +45,7 @@ def create_generator(
 
     device_stat_tracker = create_device_stat_tracker(gangs)
 
-    return Generator[BatchT](
+    return Generator(
         unit=unit,
         data_reader=data_reader,
         gangs=gangs,

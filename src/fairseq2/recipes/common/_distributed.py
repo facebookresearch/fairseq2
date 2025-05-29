@@ -16,7 +16,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
-from fairseq2.device import Device
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.models import ModelHandler
@@ -96,12 +95,7 @@ def _wrap_ddp(model: Model, gangs: Gangs, static_graph: bool) -> Model:
     log.info("Model wrapped with DDP and broadcasted.")
 
     return _DDPModel(
-        model.name,
-        ddp,
-        model.device,
-        model.config,
-        model.handler,
-        model.newly_initialized,
+        model.name, ddp, model.config, model.handler, model.newly_initialized
     )
 
 
@@ -109,7 +103,6 @@ def _wrap_ddp(model: Model, gangs: Gangs, static_graph: bool) -> Model:
 class _DDPModel(Model):
     _name: str
     _ddp: DDP
-    _device: Device
     _config: object
     _handler: ModelHandler
     _newly_initialized: bool
@@ -118,14 +111,12 @@ class _DDPModel(Model):
         self,
         name: str,
         ddp: DDP,
-        device: Device,
         config: object,
         handler: ModelHandler,
         newly_initialized: bool,
     ) -> None:
         self._name = name
         self._ddp = ddp
-        self._device = device
         self._config = config
         self._handler = handler
         self._newly_initialized = newly_initialized
@@ -164,11 +155,6 @@ class _DDPModel(Model):
     @override
     def base_module(self) -> Module:
         return self._ddp.module  # type: ignore[no-any-return]
-
-    @property
-    @override
-    def device(self) -> Device:
-        return self._device
 
     @property
     @override
@@ -234,12 +220,7 @@ def _wrap_fsdp(
             log.info("Model wrapped with FSDP1 and broadcasted.")
 
         return _FSDP1Model(
-            model.name,
-            fsdp1,
-            model.device,
-            model.config,
-            model.handler,
-            model.newly_initialized,
+            model.name, fsdp1, model.config, model.handler, model.newly_initialized
         )
     else:
         if has_checkpoint:
@@ -264,12 +245,7 @@ def _wrap_fsdp(
             log.info("Model wrapped with FSDP2 and broadcasted.")
 
         return _FSDP2Model(
-            model.name,
-            fsdp2,
-            model.device,
-            model.config,
-            model.handler,
-            model.newly_initialized,
+            model.name, fsdp2, model.config, model.handler, model.newly_initialized
         )
 
 
@@ -277,7 +253,6 @@ def _wrap_fsdp(
 class _FSDP1Model(Model):
     _name: str
     _fsdp1: FSDP1
-    _device: Device
     _config: object
     _handler: ModelHandler
     _newly_initialized: bool
@@ -286,14 +261,12 @@ class _FSDP1Model(Model):
         self,
         name: str,
         fsdp1: FSDP1,
-        device: Device,
         config: object,
         handler: ModelHandler,
         newly_initialized: bool,
     ) -> None:
         self._name = name
         self._fsdp1 = fsdp1
-        self._device = device
         self._config = config
         self._handler = handler
         self._newly_initialized = newly_initialized
@@ -335,11 +308,6 @@ class _FSDP1Model(Model):
 
     @property
     @override
-    def device(self) -> Device:
-        return self._device
-
-    @property
-    @override
     def config(self) -> object:
         return self._config
 
@@ -358,7 +326,6 @@ class _FSDP1Model(Model):
 class _FSDP2Model(Model):
     _name: str
     _fsdp2: FSDP2
-    _device: Device
     _config: object
     _handler: ModelHandler
     _newly_initialized: bool
@@ -367,14 +334,12 @@ class _FSDP2Model(Model):
         self,
         name: str,
         fsdp2: FSDP2,
-        device: Device,
         config: object,
         handler: ModelHandler,
         newly_initialized: bool,
     ) -> None:
         self._name = name
         self._fsdp2 = fsdp2
-        self._device = device
         self._config = config
         self._handler = handler
         self._newly_initialized = newly_initialized
@@ -413,11 +378,6 @@ class _FSDP2Model(Model):
     @override
     def base_module(self) -> Module:
         return self._fsdp2
-
-    @property
-    @override
-    def device(self) -> Device:
-        return self._device
 
     @property
     @override

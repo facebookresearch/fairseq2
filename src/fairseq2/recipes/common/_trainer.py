@@ -20,12 +20,7 @@ from fairseq2.gang import Gangs
 from fairseq2.logging import log
 from fairseq2.metrics import MetricDescriptor, UnknownMetricDescriptorError
 from fairseq2.optim.lr_scheduler import LRScheduler
-from fairseq2.recipes import (
-    EvalUnit,
-    StandardValidator,
-    Trainer,
-    TrainUnit,
-)
+from fairseq2.recipes import EvalUnit, Trainer, TrainUnit, Validator
 from fairseq2.recipes.config import CommonSection, RegimeSection, TrainerSection
 from fairseq2.utils.gc import (
     CPythonGarbageCollector,
@@ -60,7 +55,7 @@ def create_trainer(
     *,
     hyper_params: object = None,
     score_metric: str | None = None,
-) -> Trainer[BatchT]:
+) -> Trainer:
     score_metric_descriptor = _get_score_metric_descriptor(context, score_metric)
 
     metric_recorder = create_metric_recorder(
@@ -83,7 +78,7 @@ def create_trainer(
         log.warning("Based on your environment setup the training will be run on CPU. If this was not intended, check your job options (e.g. pass `--gpus-per-node` on Slurm).")  # fmt: skip
 
     if valid_units:
-        validator = StandardValidator(
+        validator = Validator(
             units=valid_units,
             data_readers=valid_data_readers,
             gangs=gangs,

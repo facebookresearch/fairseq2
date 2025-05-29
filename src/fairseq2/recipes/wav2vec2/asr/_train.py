@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import MutableMapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast, final
@@ -27,7 +28,7 @@ from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_dev
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import TRI_STAGE_LR, TriStageLRConfig
 from fairseq2.recipes import Model, RecipeError, Trainer, TrainUnit
-from fairseq2.recipes.asr import AsrCriterion, AsrEvalUnit, AsrMetricBag, AsrScorer
+from fairseq2.recipes.asr import AsrCriterion, AsrEvalUnit, AsrScorer
 from fairseq2.recipes.common import (
     check_has_checkpoint,
     create_checkpoint_manager,
@@ -214,7 +215,7 @@ def register_wav2vec2_asr_train_configs(context: RuntimeContext) -> None:
 
 def load_wav2vec2_asr_trainer(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Trainer[Seq2SeqBatch]:
+) -> Trainer:
     config = structure(config, Wav2Vec2AsrTrainConfig)
 
     validate(config)
@@ -399,7 +400,6 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
     _criterion: AsrCriterion
     _freeze_encoder_for_n_steps: int
     _frozen: bool
-    _metric_bag: AsrMetricBag
 
     def __init__(
         self, model: Model, criterion: AsrCriterion, freeze_encoder_for_n_steps: int
@@ -415,12 +415,6 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
         self._freeze_encoder_for_n_steps = freeze_encoder_for_n_steps
 
         self._frozen = False
-
-        self._metric_bag = AsrMetricBag(device=model.device)
-
-    @override
-    def __call__(self, batch: Seq2SeqBatch) -> tuple[Tensor, int]:
-        return self._criterion(batch, self._metric_bag)
 
     @override
     def set_step_nr(self, step_nr: int) -> None:
@@ -454,12 +448,17 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
 
             self._frozen = False
 
+    @override
+    def __call__(
+        self, batch: Seq2SeqBatch, metric_bag: MetricBag
+    ) -> tuple[Tensor, int]:
+        return self._criterion(batch, metric_bag)
+
+    @override
+    def process_metric_values(self, values: MutableMapping[str, object]) -> None:
+        self._criterion.process_metric_values(values)
+
     @property
     @override
     def model(self) -> Model:
         return self._model
-
-    @property
-    @override
-    def metric_bag(self) -> MetricBag:
-        return self._metric_bag

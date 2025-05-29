@@ -34,7 +34,7 @@ from fairseq2.metrics.text import DEFAULT_BLEU_TOKENIZER
 from fairseq2.models.seq2seq import Seq2SeqModel
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import MYLE_LR, MyleLRConfig
-from fairseq2.recipes import EvalUnit, Model, Seq2SeqMetricBag, Trainer, TrainUnit
+from fairseq2.recipes import EvalUnit, Model, Trainer, TrainUnit
 from fairseq2.recipes.common import (
     create_checkpoint_manager,
     create_lr_scheduler,
@@ -216,7 +216,7 @@ def register_mt_train_configs(context: RuntimeContext) -> None:
 
 def load_mt_trainer(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Trainer[Seq2SeqBatch]:
+) -> Trainer:
     config = structure(config, MTTrainConfig)
 
     validate(config)
@@ -409,25 +409,19 @@ def load_mt_trainer(
 class MTTrainUnit(TrainUnit[Seq2SeqBatch]):
     _model: Model
     _criterion: MTCriterion
-    _metric_bag: Seq2SeqMetricBag
 
     def __init__(self, model: Model, criterion: MTCriterion) -> None:
         self._model = model
 
         self._criterion = criterion
 
-        self._metric_bag = Seq2SeqMetricBag(device=model.device)
-
     @override
-    def __call__(self, batch: Seq2SeqBatch) -> tuple[Tensor, int]:
-        return self._criterion(batch, self._metric_bag)
+    def __call__(
+        self, batch: Seq2SeqBatch, metric_bag: MetricBag
+    ) -> tuple[Tensor, int]:
+        return self._criterion(batch, metric_bag)
 
     @property
     @override
     def model(self) -> Model:
         return self._model
-
-    @property
-    @override
-    def metric_bag(self) -> MetricBag:
-        return self._metric_bag

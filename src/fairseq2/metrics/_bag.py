@@ -9,67 +9,47 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping
 from copy import deepcopy
-from typing import Any, final
+from typing import Any, TypeVar, final
 
 from torcheval.metrics import Metric
 from torcheval.metrics.toolkit import sync_and_compute_collection
 
 from fairseq2.device import Device
-from fairseq2.error import ContractError, InternalError, InvalidOperationError
+from fairseq2.error import ContractError, InvalidOperationError
 from fairseq2.gang import Gang
+
+MetricT = TypeVar("MetricT", bound=Metric[Any])
 
 
 class MetricBag:
     """Holds a collection of training or validation metrics."""
 
+    _device: Device
     _metrics: dict[str, Metric[Any]]
     _original_metrics: dict[str, Metric[Any]] | None
 
-    def __init__(self) -> None:
-        """
-        :param gang:
-            The gang over which to sync metrics.
-        """
-        super().__setattr__("_metrics", {})
-        super().__setattr__("_original_metrics", None)
+    def __init__(self, device: Device) -> None:
+        self._device = device
 
-    def __getattr__(self, name: str) -> Any:
-        if "_metrics" in self.__dict__ and name in self._metrics:
-            return self._metrics[name]
+        self._metrics = {}
 
-        raise AttributeError(
-            f"`{type(self).__name__}` object has no attribute '{name}'."
-        )
+        self._original_metrics = None
 
-    def __setattr__(self, name: str, value: Any) -> None:
-        if isinstance(value, Metric):
-            self.register_metric(name, value)
-        else:
-            if name in self._metrics:
-                del self._metrics[name]
+    def get(self, kls: type[MetricT], name: str, *args: Any, **kwargs: Any) -> MetricT:
+        metric = self._metrics.get(name)
+        if metric is not None:
+            if not isinstance(metric, kls):
+                raise TypeError(
+                    f"The '{name}' metric must be of type `{kls}`, but is of type `{type(metric)}` instead."
+                )
 
-            super().__setattr__(name, value)
+            return metric
 
-    def __delattr__(self, name: str) -> None:
-        if name in self._metrics:
-            del self._metrics[name]
-        else:
-            super().__delattr__(name)
-
-    @final
-    def register_metric(self, name: str, metric: Metric[Any]) -> None:
-        """
-        Adds ``metric`` to the bag.
-
-        :param name: The attribute name to refer to ``metric``.
-        :param metric: The metric to add.
-        """
-        if hasattr(self, name):
-            raise AttributeError(
-                f"`{type(self).__name__}` object already has an attribute '{name}'."
-            )
+        metric = kls(*args, **kwargs, device=self._device)
 
         self._metrics[name] = metric
+
+        return metric
 
     @final
     def begin_updates(self) -> None:
@@ -110,9 +90,6 @@ class MetricBag:
         """Resets the metrics to their initial state."""
         for metric in self._metrics.values():
             metric.reset()
-
-    def process_metric_values(self, values: dict[str, object]) -> None:
-        """Process metric ``values``."""
 
     @property
     def metrics(self) -> Mapping[str, Metric[Any]]:
@@ -158,8 +135,6 @@ class MetricBag:
                     f"`state_dict['{name}']` must be of type `dict`, but is of type `{type(metric_state_dict)}` instead."
                 )
 
-            device = metric.device
-
             try:
                 metric.load_state_dict(metric_state_dict)
             except (RuntimeError, ValueError, TypeError) as ex:
@@ -167,11 +142,11 @@ class MetricBag:
                     f"`state_dict['{name}']` is not a valid `{type(metric)}` state. See the nested exception for details."
                 ) from ex
 
-            metric.to(device)
+            metric.to(self.device)
 
-    def to(self, device: Device) -> None:
-        for metric in self._metrics.values():
-            metric.to(device)
+    @property
+    def device(self) -> Device:
+        return self._device
 
 
 def sync_and_compute_metrics(bag: MetricBag, gang: Gang) -> dict[str, object] | None:
@@ -194,12 +169,6 @@ def sync_and_compute_metrics(bag: MetricBag, gang: Gang) -> dict[str, object] | 
         ) from ex
     finally:
         logging.disable(logging.NOTSET)
-
-    if gang.rank == 0:
-        if metric_values is None:
-            raise InternalError("`metric_values` is `None`.")
-
-        bag.process_metric_values(metric_values)
 
     return metric_values
 

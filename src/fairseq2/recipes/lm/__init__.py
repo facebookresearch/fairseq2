@@ -39,9 +39,6 @@ from fairseq2.recipes.lm._loss_eval import (
 from fairseq2.recipes.lm._loss_eval import (
     register_clm_loss_eval_configs as register_clm_loss_eval_configs,
 )
-from fairseq2.recipes.lm._preference_finetune._common import (
-    POFinetuneMetricBag as POFinetuneMetricBag,
-)
 from fairseq2.recipes.lm._preference_finetune._config import (
     POCriterionSection as POCriterionSection,
 )
@@ -58,9 +55,6 @@ from fairseq2.recipes.lm._preference_finetune._cpo import (
     CpoFinetuneConfig as CpoFinetuneConfig,
 )
 from fairseq2.recipes.lm._preference_finetune._cpo import (
-    CpoFinetuneMetricBag as CpoFinetuneMetricBag,
-)
-from fairseq2.recipes.lm._preference_finetune._cpo import (
     CpoFinetuneUnit as CpoFinetuneUnit,
 )
 from fairseq2.recipes.lm._preference_finetune._cpo import (
@@ -71,9 +65,6 @@ from fairseq2.recipes.lm._preference_finetune._dpo import (
 )
 from fairseq2.recipes.lm._preference_finetune._dpo import (
     DpoFinetuneConfig as DpoFinetuneConfig,
-)
-from fairseq2.recipes.lm._preference_finetune._dpo import (
-    DpoFinetuneMetricBag as DpoFinetuneMetricBag,
 )
 from fairseq2.recipes.lm._preference_finetune._dpo import (
     DpoFinetuneUnit as DpoFinetuneUnit,
@@ -94,9 +85,6 @@ from fairseq2.recipes.lm._preference_finetune._orpo import (
     OrpoFinetuneConfig as OrpoFinetuneConfig,
 )
 from fairseq2.recipes.lm._preference_finetune._orpo import (
-    OrpoFinetuneMetricBag as OrpoFinetuneMetricBag,
-)
-from fairseq2.recipes.lm._preference_finetune._orpo import (
     OrpoFinetuneUnit as OrpoFinetuneUnit,
 )
 from fairseq2.recipes.lm._preference_finetune._orpo import (
@@ -113,9 +101,6 @@ from fairseq2.recipes.lm._preference_finetune._simpo import (
 )
 from fairseq2.recipes.lm._preference_finetune._simpo import (
     SimPOFinetuneConfig as SimPOFinetuneConfig,
-)
-from fairseq2.recipes.lm._preference_finetune._simpo import (
-    SimPOFinetuneMetricBag as SimPOFinetuneMetricBag,
 )
 from fairseq2.recipes.lm._preference_finetune._simpo import (
     SimPOFinetuneUnit as SimPOFinetuneUnit,

@@ -7,8 +7,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import MutableMapping
 from contextlib import nullcontext
-from typing import Generic, TypeVar, final
+from typing import Any, Generic, TypeVar, final
 
 import torch
 from torch.profiler import record_function
@@ -23,16 +24,16 @@ from fairseq2.logging import log
 from fairseq2.metrics import MetricBag, MetricBagError, sync_and_compute_metrics
 from fairseq2.metrics.recorders import MetricRecorder, MetricRecordError
 from fairseq2.profilers import Profiler
+from fairseq2.recipes.metrics import extend_batch_metric_values
 from fairseq2.typing import ContextManager
 from fairseq2.utils.device_stat import DeviceStatTracker
-from fairseq2.utils.progress import ProgressReporter, ProgressTask
+from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.stopwatch import Stopwatch
 
 # isort: split
 
 from fairseq2.recipes._error import RecipeError, UnitError
-from fairseq2.recipes._metrics import extend_batch_metric_values
 from fairseq2.recipes._model import Model
 from fairseq2.recipes._recipe import Recipe, RecipeStopException
 
@@ -45,32 +46,35 @@ class GeneratorUnit(ABC, Generic[BatchT_contra]):
     """Represents a unit to be used with :class:`Generator`."""
 
     @abstractmethod
-    def __call__(self, batch: BatchT_contra) -> None: ...
+    def __call__(self, batch: BatchT_contra, metric_bag: MetricBag) -> None: ...
+
+    def finalize(self, metric_bag: MetricBag) -> None:
+        pass
+
+    def process_metric_values(self, values: MutableMapping[str, object]) -> None:
+        pass
 
     @property
     @abstractmethod
     def model(self) -> Model: ...
-
-    @property
-    @abstractmethod
-    def metric_bag(self) -> MetricBag: ...
 
 
 BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
 
 
 @final
-class Generator(Recipe, Generic[BatchT]):
+class Generator(Recipe):
     """Generates output using a machine learning model."""
 
     _step_nr: int
-    _unit: GeneratorUnit[BatchT]
-    _data_reader: DataReader[BatchT]
+    _unit: GeneratorUnit[Any]
+    _data_reader: DataReader[Any]
     _gangs: Gangs
     _dtype: DataType
     _amp: bool
     _rng_bag: RngBag
     _seed: int
+    _metric_bag: MetricBag
     _metric_recorder: MetricRecorder
     _profiler: Profiler
     _device_stat_tracker: DeviceStatTracker
@@ -121,6 +125,8 @@ class Generator(Recipe, Generic[BatchT]):
         self._rng_bag = RngBag.from_device_defaults(CPU, gangs.root.device)
 
         self._seed = seed
+
+        self._metric_bag = MetricBag(device=gangs.root.device)
 
         self._metric_recorder = metric_recorder
 
@@ -176,12 +182,25 @@ class Generator(Recipe, Generic[BatchT]):
                 batches = self._read_next_batches()
                 if batches is None:
                     eod = True
-                else:
-                    self._run_step(batches, progress_task)
+
+                    continue
+
+                self._step_nr += 1
+
+                progress_task.step(1)
+
+                with record_function(f"step_{self._step_nr}"):
+                    self._run_step(batches)
+
+                self._profiler.step()
+
+            with self._compute_watch:
+                with record_function("finalize"):
+                    self._call_unit_finalize()
 
         self._publish_metrics()
 
-    def _read_next_batches(self) -> list[BatchT] | None:
+    def _read_next_batches(self) -> list[Any] | None:
         with self._data_watch:
             try:
                 batches = next(self._data_reader)
@@ -197,17 +216,7 @@ class Generator(Recipe, Generic[BatchT]):
 
         return batches
 
-    def _run_step(self, batches: list[BatchT], progress_task: ProgressTask) -> None:
-        self._step_nr += 1
-
-        progress_task.step(1)
-
-        with record_function(f"step_{self._step_nr}"):
-            self._do_run_step(batches)
-
-        self._profiler.step()
-
-    def _do_run_step(self, batches: list[BatchT]) -> None:
+    def _run_step(self, batches: list[Any]) -> None:
         log.debug("Running step {}.", self._step_nr)
 
         with self._compute_watch:
@@ -218,20 +227,29 @@ class Generator(Recipe, Generic[BatchT]):
             for batch_nr in range(num_batches):
                 batch = batches.pop()
 
-                batch.to(self._gangs.root.device)
+                batch.to(self._gangs.root.device, non_blocking=True)
 
                 with record_function(f"step_{self._step_nr}_{batch_nr}"):
                     self._call_unit(batch)
 
         self._num_batches_read += 1
 
-    def _call_unit(self, batch: BatchT) -> None:
+    def _call_unit(self, batch: Any) -> None:
         with self._maybe_autocast():
             try:
-                self._unit(batch)
+                self._unit(batch, self._metric_bag)
             except UnitError as ex:
                 raise RecipeError(
                     "The generator unit has failed. See the nested exception for details."
+                ) from ex
+
+    def _call_unit_finalize(self) -> None:
+        with self._maybe_autocast():
+            try:
+                self._unit.finalize(self._metric_bag)
+            except UnitError as ex:
+                raise RecipeError(
+                    "The generator unit has failed to finalize. See the nested exception for details."
                 ) from ex
 
     def _maybe_autocast(self) -> ContextManager:
@@ -249,7 +267,7 @@ class Generator(Recipe, Generic[BatchT]):
 
         try:
             if gangs.tp.rank == 0:
-                values = sync_and_compute_metrics(self._unit.metric_bag, gangs.dp)
+                values = sync_and_compute_metrics(self._metric_bag, gangs.dp)
             else:
                 values = None
         except MetricBagError as ex:
@@ -262,6 +280,8 @@ class Generator(Recipe, Generic[BatchT]):
                 raise InternalError("`values` is `None`.")
 
             values = {k: v for k, v in values.items() if not k.startswith("total_")}
+
+            self._unit.process_metric_values(values)
 
             device_stats = self._device_stat_tracker.get_stats()
 

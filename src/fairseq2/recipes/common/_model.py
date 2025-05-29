@@ -31,7 +31,6 @@ from fairseq2.checkpoint import (
 )
 from fairseq2.config_registry import ConfigNotFoundError
 from fairseq2.context import RuntimeContext
-from fairseq2.device import Device
 from fairseq2.error import ContractError, NotSupportedError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
@@ -274,7 +273,7 @@ class _CardBasedModelLoader(_ModelLoader):
         else:
             log.info("Model loaded on data parallel rank 0.")
 
-        return _LocalModel(model_name, module, gangs.root.device, model_config, handler)
+        return _LocalModel(model_name, module, model_config, handler)
 
 
 @final
@@ -391,7 +390,7 @@ class _PathBasedModelLoader(_ModelLoader):
         else:
             log.info("Model loaded on data parallel rank 0.")
 
-        return _LocalModel(model_name, module, gangs.root.device, model_config, handler)
+        return _LocalModel(model_name, module, model_config, handler)
 
     @staticmethod
     def _format_as_sharded_path(model_path: Path, gangs: Gangs) -> Path:
@@ -506,7 +505,6 @@ class _NewModelLoader(_ModelLoader):
         return _LocalModel(
             model_name,
             module,
-            gangs.root.device,
             model_config,
             handler,
             newly_initialized=not self._has_checkpoint,
@@ -541,7 +539,6 @@ def _apply_config_overrides(config: object, config_overrides: object) -> object:
 class _LocalModel(Model):
     _name: str
     _module: Module
-    _device: Device
     _config: object
     _handler: ModelHandler
     _newly_initialized: bool
@@ -550,14 +547,12 @@ class _LocalModel(Model):
         self,
         name: str,
         module: Module,
-        device: Device,
         config: object,
         handler: ModelHandler,
         newly_initialized: bool = False,
     ) -> None:
         self._name = name
         self._module = module
-        self._device = device
         self._config = config
         self._handler = handler
         self._newly_initialized = newly_initialized
@@ -596,11 +591,6 @@ class _LocalModel(Model):
     @override
     def base_module(self) -> Module:
         return self._module
-
-    @property
-    @override
-    def device(self) -> Device:
-        return self._device
 
     @property
     @override

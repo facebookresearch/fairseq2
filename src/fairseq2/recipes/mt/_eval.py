@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Mapping, TextIO, final
+from typing import TextIO, final
 
 import torch
 from typing_extensions import override
@@ -35,15 +36,7 @@ from fairseq2.generation.text import SequenceToTextConverter
 from fairseq2.metrics import MetricBag
 from fairseq2.metrics.text import DEFAULT_BLEU_TOKENIZER, BleuMetric, ChrfMetric
 from fairseq2.models.seq2seq import Seq2SeqModel
-from fairseq2.recipes import (
-    Evaluator,
-    EvalUnit,
-    Model,
-    RecipeError,
-    Seq2SeqGenerationMetricBag,
-    Seq2SeqMetricBag,
-    UnitError,
-)
+from fairseq2.recipes import Evaluator, EvalUnit, Model, RecipeError, UnitError
 from fairseq2.recipes.common import (
     create_evaluator,
     create_seq2seq_generator,
@@ -63,6 +56,7 @@ from fairseq2.recipes.config import (
     Seq2SeqGeneratorSection,
     TextTokenizerSection,
 )
+from fairseq2.recipes.metrics import update_seq2seq_generator_metrics
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
@@ -152,7 +146,7 @@ def register_mt_eval_configs(context: RuntimeContext) -> None:
 @torch.inference_mode()
 def load_mt_evaluator(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Evaluator[Seq2SeqBatch]:
+) -> Evaluator:
     config = structure(config, MTEvalConfig)
 
     validate(config)
@@ -337,7 +331,6 @@ class MTLossEvalUnit(EvalUnit[Seq2SeqBatch]):
     _name: str
     _model: Model
     _criterion: MTCriterion
-    _metric_bag: Seq2SeqMetricBag
 
     def __init__(
         self, model: Model, criterion: MTCriterion, direction: Direction
@@ -348,11 +341,9 @@ class MTLossEvalUnit(EvalUnit[Seq2SeqBatch]):
 
         self._criterion = criterion
 
-        self._metric_bag = Seq2SeqMetricBag(device=model.device)
-
     @override
-    def __call__(self, batch: Seq2SeqBatch) -> None:
-        self._criterion(batch, self._metric_bag)
+    def __call__(self, batch: Seq2SeqBatch, metric_bag: MetricBag) -> None:
+        self._criterion(batch, metric_bag)
 
     @property
     @override
@@ -363,11 +354,6 @@ class MTLossEvalUnit(EvalUnit[Seq2SeqBatch]):
     @override
     def model(self) -> Model:
         return self._model
-
-    @property
-    @override
-    def metric_bag(self) -> MetricBag:
-        return self._metric_bag
 
 
 @final
@@ -380,7 +366,7 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
     _src_output_stream: TextIO | None
     _ref_output_stream: TextIO | None
     _hyp_output_stream: TextIO | None
-    _metric_bag: Seq2SeqGenerationMetricBag
+    _bleu_tokenizer: str
 
     def __init__(
         self,
@@ -416,18 +402,10 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
         self._ref_output_stream = ref_output_stream
         self._hyp_output_stream = hyp_output_stream
 
-        device = model.device
-
-        self._metric_bag = Seq2SeqGenerationMetricBag(device=device)
-
-        bleu_metric = BleuMetric(device=device, tokenizer=bleu_tokenizer)
-        chrf_metric = ChrfMetric(device=device)
-
-        self._metric_bag.bleu = bleu_metric
-        self._metric_bag.chrf = chrf_metric
+        self._bleu_tokenizer = bleu_tokenizer
 
     @override
-    def __call__(self, batch: Seq2SeqBatch) -> None:
+    def __call__(self, batch: Seq2SeqBatch, metric_bag: MetricBag) -> None:
         if batch.example is None:
             raise ValueError("`batch.example` must not be `None`.")
 
@@ -443,9 +421,9 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
                 "`batch.example` must contain a 'source_text' item."
             ) from None
 
-        if not isinstance(srcs, Iterable):
+        if not isinstance(srcs, Sequence):
             raise TypeError(
-                f"`batch.example['source_text'] must be an iterable of strings, but is of type `{type(srcs)}` instead."
+                f"`batch.example['source_text'] must be a sequence of strings, but is of type `{type(srcs)}` instead."
             )
 
         try:
@@ -455,19 +433,22 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
                 "`batch.example` must contain a 'target_text' item."
             ) from None
 
-        if not isinstance(refs, Iterable):
+        if not isinstance(refs, Sequence):
             raise TypeError(
-                f"`batch.example['target_text'] must be an iterable of strings, but is of type `{type(refs)}` instead."
+                f"`batch.example['target_text'] must be a sequence of strings, but is of type `{type(refs)}` instead."
             )
 
         source_seqs, source_seqs_layout = batch.as_source_input()
 
         hyps, output = self._converter.batch_convert(source_seqs, source_seqs_layout)
 
-        self._metric_bag.bleu.update(refs, hyps)
-        self._metric_bag.chrf.update(refs, hyps)
+        bleu_metric = metric_bag.get(BleuMetric, "bleu", self._bleu_tokenizer)
+        chrf_metric = metric_bag.get(ChrfMetric, "chrf")
 
-        self._metric_bag.update_batch_metrics(output, batch.num_source_elements)
+        bleu_metric.update(refs, hyps)
+        chrf_metric.update(refs, hyps)
+
+        update_seq2seq_generator_metrics(metric_bag, output, batch.num_source_elements)
 
         try:
             # Dump source sentences.
@@ -510,8 +491,3 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
     @override
     def model(self) -> Model:
         return self._model
-
-    @property
-    @override
-    def metric_bag(self) -> MetricBag:
-        return self._metric_bag
