@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import IO, TypeAlias, final
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from typing_extensions import override
 from yaml import YAMLError
 

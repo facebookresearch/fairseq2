@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Final, cast, final
 
 try:
-    import datasets  # type: ignore[import-not-found]
+    import datasets  # type: ignore[import-not-found, import-untyped]
     from datasets import Audio, load_dataset  # type: ignore[import-not-found]
 except ImportError:
     _has_datasets = False
