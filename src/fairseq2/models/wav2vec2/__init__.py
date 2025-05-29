@@ -41,6 +41,7 @@ from fairseq2.models.wav2vec2._masker import (
 )
 from fairseq2.models.wav2vec2._masker import Wav2Vec2Masker as Wav2Vec2Masker
 from fairseq2.models.wav2vec2._model import Wav2Vec2Features as Wav2Vec2Features
+from fairseq2.models.wav2vec2._model import Wav2Vec2Loss as Wav2Vec2Loss
 from fairseq2.models.wav2vec2._model import Wav2Vec2Model as Wav2Vec2Model
 from fairseq2.models.wav2vec2._model import Wav2Vec2Output as Wav2Vec2Output
 from fairseq2.models.wav2vec2._position_encoder import (

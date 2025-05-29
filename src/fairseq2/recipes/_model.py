@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from typing import Any
 
 from torch import Tensor
 from torch.nn import Module
@@ -19,9 +18,6 @@ from fairseq2.typing import ContextManager
 
 
 class Model(ABC):
-    @abstractmethod
-    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
-
     @abstractmethod
     def state_dict(self) -> dict[str, object]: ...
 

@@ -9,9 +9,9 @@ from __future__ import annotations
 from typing import final
 
 from torch import Tensor
+from torch.nn import Module
 
 from fairseq2.datasets import Seq2SeqBatch
-from fairseq2.recipes import Model
 
 # isort: split
 
@@ -21,11 +21,11 @@ from fairseq2.recipes.asr._scorer import AsrScorer
 
 @final
 class AsrCriterion:
-    _model: Model
+    _module: Module
     _scorer: AsrScorer | None
 
-    def __init__(self, model: Model, scorer: AsrScorer | None = None) -> None:
-        self._model = model
+    def __init__(self, module: Module, scorer: AsrScorer | None = None) -> None:
+        self._module = module
 
         self._scorer = scorer
 
@@ -35,7 +35,7 @@ class AsrCriterion:
         source_seqs, source_seqs_layout = batch.as_source_input()
         target_seqs, target_seqs_layout = batch.as_target_input()
 
-        ctc_loss, logits, logits_layout = self._model(
+        ctc_loss, logits, logits_layout = self._module(
             source_seqs,
             source_seqs_layout,
             target_seqs,

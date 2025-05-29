@@ -19,7 +19,6 @@ from fairseq2.recipes.wav2vec2._eval import (
 from fairseq2.recipes.wav2vec2._eval import (
     register_wav2vec2_eval_configs as register_wav2vec2_eval_configs,
 )
-from fairseq2.recipes.wav2vec2._metrics import Wav2Vec2Loss as Wav2Vec2Loss
 from fairseq2.recipes.wav2vec2._metrics import Wav2Vec2MetricBag as Wav2Vec2MetricBag
 from fairseq2.recipes.wav2vec2._train import Wav2Vec2TrainConfig as Wav2Vec2TrainConfig
 from fairseq2.recipes.wav2vec2._train import (

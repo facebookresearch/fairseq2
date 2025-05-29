@@ -60,7 +60,7 @@ class CpoFinetuneUnit(TrainUnit[PreferenceBatch]):
 
         chosen_seqs, chosen_seqs_layout = chosen_input_batch.as_input()
 
-        nll_loss, chosen_logits = self._model(
+        nll_loss, chosen_logits = self._model.module(
             chosen_seqs,
             chosen_seqs_layout,
             targets=chosen_target_batch.seqs,
@@ -70,7 +70,7 @@ class CpoFinetuneUnit(TrainUnit[PreferenceBatch]):
 
         rejected_seqs, rejected_seqs_layout = rejected_input_batch.as_input()
 
-        rejected_logits = self._model(rejected_seqs, rejected_seqs_layout)
+        rejected_logits = self._model.module(rejected_seqs, rejected_seqs_layout)
 
         chosen_logps = _gather_lprobs(chosen_logits, chosen_target_batch)
         rejected_logps = _gather_lprobs(rejected_logits, rejected_target_batch)

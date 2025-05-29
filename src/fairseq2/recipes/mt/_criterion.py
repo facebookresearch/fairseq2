@@ -9,18 +9,19 @@ from __future__ import annotations
 from typing import final
 
 from torch import Tensor
+from torch.nn import Module
 
 from fairseq2.datasets import Seq2SeqBatch
-from fairseq2.recipes import Model, Seq2SeqMetricBag
+from fairseq2.recipes import Seq2SeqMetricBag
 
 
 @final
 class MTCriterion:
-    _model: Model
+    _module: Module
     _label_smoothing: float
 
-    def __init__(self, model: Model, label_smoothing: float = 0.0) -> None:
-        self._model = model
+    def __init__(self, module: Module, label_smoothing: float = 0.0) -> None:
+        self._module = module
 
         self._label_smoothing = label_smoothing
 
@@ -32,7 +33,7 @@ class MTCriterion:
         source_seqs, source_seqs_layout = batch.as_source_input()
         target_seqs, target_seqs_layout = batch.as_target_input()
 
-        nll_loss = self._model(
+        nll_loss = self._module(
             source_seqs,
             source_seqs_layout,
             target_seqs,

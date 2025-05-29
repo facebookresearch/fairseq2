@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from contextlib import nullcontext
 from pathlib import Path
-from typing import Any, cast, final
+from typing import cast, final
 
 import torch
 from torch import Tensor
@@ -561,10 +561,6 @@ class _LocalModel(Model):
         self._config = config
         self._handler = handler
         self._newly_initialized = newly_initialized
-
-    @override
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        self._module(*args, **kwargs)
 
     @override
     def state_dict(self) -> dict[str, object]:

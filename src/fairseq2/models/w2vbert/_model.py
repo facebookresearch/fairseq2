@@ -16,12 +16,14 @@ from typing_extensions import override
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.models.wav2vec2 import (
+    Wav2Vec2Loss,
     Wav2Vec2Masker,
     Wav2Vec2Model,
     Wav2Vec2Output,
     Wav2Vec2VectorQuantizerOutput,
 )
 from fairseq2.nn import BatchLayout, Linear
+from fairseq2.nn.functional import cross_entropy
 
 
 @final
@@ -72,11 +74,17 @@ class W2VBertModel(Module):
 
         self.num_target_codebooks = num_target_codebooks
 
-    def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> W2VBertOutput:
-        """
-        :param batch:
-            The batch of sequences to process.
-        """
+    def forward(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        *,
+        bert_weight: float = 1.0,
+        bert_label_smoothing: float = 0.0,
+        w2v2_weight: float = 1.0,
+        w2v2_diversity_weight: float = 0.1,
+        w2v2_features_penalty_weight: float = 10.0,
+    ) -> tuple[W2VBertLoss, W2VBertOutput]:
         w2v2_features = self.w2v2_model.run_frontend(seqs, seqs_layout)
 
         def hook(
@@ -112,7 +120,21 @@ class W2VBertModel(Module):
 
         bert_targets = self._get_target_indices(w2v2_output.quantizer_output)
 
-        return W2VBertOutput(w2v2_output, bert_logits, bert_targets)
+        output = W2VBertOutput(w2v2_output, bert_logits, bert_targets)
+
+        loss = self.compute_loss(
+            output,
+            bert_weight=bert_weight,
+            bert_label_smoothing=bert_label_smoothing,
+            w2v2_weight=w2v2_weight,
+            w2v2_diversity_weight=w2v2_diversity_weight,
+            w2v2_features_penalty_weight=w2v2_features_penalty_weight,
+        )
+
+        return loss, output
+
+    if TYPE_CHECKING:
+        __call__ = forward
 
     def _get_target_indices(
         self, quantizer_output: Wav2Vec2VectorQuantizerOutput
@@ -129,8 +151,36 @@ class W2VBertModel(Module):
 
         return indices.detach()
 
-    if TYPE_CHECKING:
-        __call__ = forward
+    def compute_loss(
+        self,
+        output: W2VBertOutput,
+        *,
+        bert_weight: float = 1.0,
+        bert_label_smoothing: float = 0.0,
+        w2v2_weight: float = 1.0,
+        w2v2_diversity_weight: float = 0.1,
+        w2v2_features_penalty_weight: float = 10.0,
+    ) -> W2VBertLoss:
+        bert_loss = cross_entropy(
+            output.bert_logits,
+            output.bert_targets,
+            pad_idx=None,
+            reduction="sum",
+            label_smoothing=bert_label_smoothing,
+        )
+
+        w2v2_loss = self.w2v2_model.compute_loss(
+            output.w2v2_output,
+            diversity_weight=w2v2_diversity_weight,
+            features_penalty_weight=w2v2_features_penalty_weight,
+        )
+
+        weighted_bert_loss = bert_weight * bert_loss
+        weighted_w2v2_loss = w2v2_weight * w2v2_loss.aggregate
+
+        return W2VBertLoss(
+            weighted_bert_loss + weighted_w2v2_loss, bert_loss, w2v2_loss
+        )
 
     @override
     def extra_repr(self) -> str:
@@ -161,3 +211,10 @@ class W2VBertOutput:
     :math:`(NxS_{msk},G_{tgt})`, where :math:`N` is the batch size,
     :math:`S_{msk}` is the masked sequence length, and :math:`G_{tgt}` is the
     number of target codebooks."""
+
+
+@dataclass
+class W2VBertLoss:
+    aggregate: Tensor
+    bert: Tensor
+    w2v2: Wav2Vec2Loss

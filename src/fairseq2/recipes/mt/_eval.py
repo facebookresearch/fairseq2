@@ -192,7 +192,7 @@ def load_mt_evaluator(
         context, config.seq2seq_generator, model, target_tokenizer.vocab_info
     )
 
-    criterion = MTCriterion(model, config.loss.label_smoothing)
+    criterion = MTCriterion(model.module, config.loss.label_smoothing)
 
     units: list[EvalUnit[Seq2SeqBatch]] = []
 

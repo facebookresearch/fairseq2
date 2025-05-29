@@ -143,7 +143,7 @@ def load_clm_loss_evaluator(
     tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the unit.
-    criterion = InstructionFinetuneCriterion(model)
+    criterion = InstructionFinetuneCriterion(model.module)
 
     unit = InstructionLossEvalUnit(model, criterion)
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from contextlib import nullcontext
-from typing import Any, final
+from typing import final
 
 from torch import Tensor
 from torch.nn import Module
@@ -91,7 +91,7 @@ def _wrap_ddp(model: Model, gangs: Gangs, static_graph: bool) -> Model:
     # We do not set DDP's `static_graph` parameter. Unfortunately, support for
     # that feature is finicky in DDP. `find_unused_parameters` is still useful
     # though and can have measurable impact on performance.
-    ddp = to_ddp(model.module, gangs, find_unused_parameters=not static_graph)
+    ddp = to_ddp(model.base_module, gangs, find_unused_parameters=not static_graph)
 
     log.info("Model wrapped with DDP and broadcasted.")
 
@@ -129,10 +129,6 @@ class _DDPModel(Model):
         self._config = config
         self._handler = handler
         self._newly_initialized = newly_initialized
-
-    @override
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        return self._ddp(*args, **kwargs)
 
     @override
     def state_dict(self) -> dict[str, object]:
@@ -222,7 +218,7 @@ def _wrap_fsdp(
             log.info("Wrapping the model with FSDP1 and broadcasting to all processes.")  # fmt: skip
 
         fsdp1 = to_fsdp1(
-            model.module,
+            model.base_module,
             gangs,
             apply_fsdp,
             mixed_precision_dtype=mp_dtype,
@@ -252,7 +248,7 @@ def _wrap_fsdp(
             log.info("Wrapping the model with FSDP2 and broadcasting to all processes.")  # fmt: skip
 
         fsdp2 = to_fsdp2(
-            model.module,
+            model.base_module,
             gangs,
             apply_fsdp,
             mixed_precision_dtype=mp_dtype,
@@ -301,10 +297,6 @@ class _FSDP1Model(Model):
         self._config = config
         self._handler = handler
         self._newly_initialized = newly_initialized
-
-    @override
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        return self._fsdp1(*args, **kwargs)
 
     @override
     def state_dict(self) -> dict[str, object]:
@@ -386,10 +378,6 @@ class _FSDP2Model(Model):
         self._config = config
         self._handler = handler
         self._newly_initialized = newly_initialized
-
-    @override
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        return self._fsdp2(*args, **kwargs)
 
     @override
     def state_dict(self) -> dict[str, object]:

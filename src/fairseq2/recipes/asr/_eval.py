@@ -184,7 +184,7 @@ def load_asr_evaluator(
 
     scorer = AsrScorer(tokenizer, ref_output_stream=ref_fp, hyp_output_stream=hyp_fp)
 
-    criterion = AsrCriterion(model, scorer)
+    criterion = AsrCriterion(model.module, scorer)
 
     unit = AsrEvalUnit(model, criterion)
 

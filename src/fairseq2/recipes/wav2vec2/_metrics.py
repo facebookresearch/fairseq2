@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
 
 import torch
 from torch import Tensor
@@ -16,15 +15,7 @@ from torcheval.metrics import MulticlassAccuracy
 from fairseq2.datasets import SequenceBatch
 from fairseq2.device import Device
 from fairseq2.metrics import Mean, MetricBag, Sum
-from fairseq2.models.wav2vec2 import Wav2Vec2VectorQuantizerOutput
-
-
-@dataclass
-class Wav2Vec2Loss:
-    aggregate: Tensor
-    contrastive: Tensor
-    diversity: Tensor
-    features_penalty: Tensor
+from fairseq2.models.wav2vec2 import Wav2Vec2Loss, Wav2Vec2VectorQuantizerOutput
 
 
 class Wav2Vec2MetricBag(MetricBag):
