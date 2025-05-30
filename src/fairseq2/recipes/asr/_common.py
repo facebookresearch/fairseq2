@@ -47,21 +47,16 @@ class AsrCriterion:
     def __call__(
         self, batch: Seq2SeqBatch, metric_bag: AsrMetricBag
     ) -> tuple[Tensor, int]:
-        if isinstance(self._model.module, Wav2Vec2AsrModel):
-            input_batch: SequenceBatch | Seq2SeqBatch = SequenceBatch(
-                batch.source_seqs, batch.source_padding_mask
+        # Convert a SequenceBatch to a Seq2SeqBatch
+        if isinstance(batch, SequenceBatch):
+            batch = Seq2SeqBatch(
+                source_seqs=batch.seqs,
+                source_padding_mask=batch.padding_mask,
+                target_seqs=None,
+                target_padding_mask=None,
+                example=batch.example,
             )
-        else:
-            # Convert a SequenceBatch to a Seq2SeqBatch
-            if isinstance(batch, SequenceBatch):
-                batch = Seq2SeqBatch(
-                    source_seqs=batch.seqs,
-                    source_padding_mask=batch.padding_mask,
-                    target_seqs=None,
-                    target_padding_mask=None,
-                    example=batch.example,
-                )
-            input_batch = batch
+        input_batch = batch
 
         log.info(f"s3: calling forward")
         output = self._forward(input_batch)

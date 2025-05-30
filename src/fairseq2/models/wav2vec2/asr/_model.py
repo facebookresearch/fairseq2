@@ -71,7 +71,13 @@ class Wav2Vec2AsrModel(AsrModel):
         :param batch:
             The batch of sequences to process.
         """
-        assert isinstance(batch, SequenceBatch)
+        if isinstance(batch, Seq2SeqBatch):
+            batch = SequenceBatch(
+                seqs=batch.source_seqs,
+                padding_mask=batch.source_padding_mask,
+                example=batch.example,
+            )
+
         seqs, padding_mask, _ = self.encoder_frontend.extract_features(
             batch.seqs, batch.padding_mask
         )
