@@ -104,9 +104,7 @@ class RemoteHFModel:
 
         log.info(f"Replica {replica_i} setup completed")
 
-    def setup_hf_worker(
-        self, ray_actor_name, hf_engine_args: HFEngineArgs, gangs: Gangs
-    ):
+    def setup_hf_worker(self, ray_actor_name, hf_engine_args, gangs: Gangs):
 
         pg_inference = placement_group(
             [{"GPU": 1, "CPU": 0}] * hf_engine_args.tensor_parallel_size,
