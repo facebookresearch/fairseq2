@@ -328,6 +328,7 @@ def load_online_finetuner(
     # estimate batch repeat for microbatching
     repeat_batch_n_times = 1
     gradient_accumulation = 1
+    gradient_accumulation = config.trainer.gradient_accumulation
     if unit.display_name == "GRPO":
         if unit._loss_config.group_size > unit._loss_config.forward_group_size:
             repeat_batch_n_times = int(
