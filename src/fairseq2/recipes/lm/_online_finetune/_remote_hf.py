@@ -58,16 +58,8 @@ class RemoteModelHandler(ABC):
 
 @dataclass(kw_only=True)
 class HFEngineArgs:
-    model: str = "/checkpoint/ram/kulikov/gsm8k_8b_sft/checkpoints/step_20"
-    tokenizer: str = "/datasets/pretrained-llms/Llama-3.1-8B-Instruct"
-    task: str = "generate"
     tensor_parallel_size: int = 4
-    trust_remote_code: bool = False
-    model_impl: str = "auto"
-    enforce_eager: bool = True
-    hf_overrides: object = None
     dtype: str = "auto"
-    override_pooler_config: PoolerConfig = field(default_factory=lambda: PoolerConfig())
 
 
 @dataclass(kw_only=True)
@@ -199,12 +191,6 @@ class RemoteHFModel:
             placement_group_capture_child_tasks=True,
             placement_group_bundle_index=0,
         )
-
-        # Initialize the model
-        # model = AtheneForSequenceClassification.from_pretrained(
-        #     "Nexusflow/Athene-RM-8B", torch_dtype="bfloat16"
-        # )
-        # tokenizer = AutoTokenizer.from_pretrained("Nexusflow/Athene-RM-8B")
 
         llm = NoEnvPipeline.options(
             name=ray_actor_name,
