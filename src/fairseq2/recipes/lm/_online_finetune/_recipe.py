@@ -75,8 +75,7 @@ from fairseq2.recipes.lm._online_finetune._grpo import (
 )
 
 from fairseq2.recipes.lm._online_finetune._remote_vllm import (
-    RemoteVllmModelHandler,
-    VllmEngineArgs,
+    RemoteRayModelHandler,
     VllmRayActorConfig,
 )
 from fairseq2.recipes.lm._online_finetune._remote_hf import (
@@ -289,14 +288,7 @@ def load_online_finetuner(
     for actor_config in config.vllm.ray_actors:
         log.info(f"Setting up '{actor_config.ray_actor_name}' vllm actor")
         # check if actor_config is a HFRayActorConfig
-        if isinstance(actor_config, HFRayActorConfig):
-            actor = RemoteHFModelHandler().create(
-                gangs=gangs, actor_config=actor_config
-            )
-        else:
-            actor = RemoteVllmModelHandler().create(
-                gangs=gangs, actor_config=actor_config
-            )
+        actor = RemoteRayModelHandler().create(gangs=gangs, actor_config=actor_config)
         vllm_actors[actor_config.ray_actor_name] = actor
 
     # Initialize the train unit.

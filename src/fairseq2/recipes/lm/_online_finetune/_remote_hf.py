@@ -43,85 +43,19 @@ import torch
 from typing import Dict
 
 
-class RemoteModelHandler(ABC):
-    @abstractmethod
-    def create(self, gangs: Gangs, unit_config: object) -> RemoteHFModel: ...
-
-    @property
-    @abstractmethod
-    def name(self) -> str: ...
-
-    @property
-    @abstractmethod
-    def config_kls(self) -> type[object]: ...
+# @dataclass(kw_only=True)
+# class HFEngineArgs:
+#     tensor_parallel_size: int = 4
+#     dtype: str = "auto"
 
 
-@dataclass(kw_only=True)
-class HFEngineArgs:
-    tensor_parallel_size: int = 4
-    dtype: str = "auto"
-
-
-@dataclass(kw_only=True)
-class HFRayActorConfig:
-    ray_actor_name: str = "dummy"
-    num_replicas: int = 1
-    hf_engine_args: HFEngineArgs = field(default_factory=lambda: HFEngineArgs())
-    hf_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
-    init_update_process_group: bool = False
-
-
-class RemoteHFModelHandler(RemoteModelHandler):
-    @override
-    def create(self, gangs: Gangs, actor_config: HFRayActorConfig) -> RemoteHFModel:
-        if gangs.dp.rank == 0 and gangs.tp.rank == 0:
-            # hf worker is only created on the first DP ranks given how many replicas we use
-            remote_hf_model = RemoteHFModel(
-                actor_config.ray_actor_name,
-                actor_config.num_replicas,
-                actor_config.hf_engine_args,
-                actor_config.hf_sampling_params,
-                actor_config.init_update_process_group,
-                gangs,
-            )
-        else:
-            remote_hf_model = None
-
-        gangs.root.barrier()
-
-        return remote_hf_model
-
-    @property
-    @override
-    def name(self) -> str:
-        "hf_model"
-
-    @property
-    @override
-    def config_kls(self) -> type[object]:
-        return HFRayActorConfig
-
-
-# Make a pipeline to handle pre and post-processing
-class AtheneRewardPipeline(TextClassificationPipeline):
-
-    def preprocess(self, inputs, **tokenizer_kwargs) -> Dict[str, torch.Tensor]:
-        return_tensors = self.framework
-
-        formatted = self.tokenizer.apply_chat_template(inputs, tokenize=False)
-
-        formatted = formatted + self.tokenizer.cls_token
-
-        return self.tokenizer(
-            formatted,
-            return_tensors=return_tensors,
-            max_length=4096,
-            padding="longest",
-            truncation=True,
-        )
-
-    def postprocess(self, model_outputs, function_to_apply=None, top_k=1, _legacy=True):
-        return model_outputs["scores"].cpu().float().item()
+# @dataclass(kw_only=True)
+# class HFRayActorConfig:
+#     ray_actor_name: str = "dummy"
+#     num_replicas: int = 1
+#     hf_engine_args: HFEngineArgs = field(default_factory=lambda: HFEngineArgs())
+#     hf_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
+#     init_update_process_group: bool = False
 
 
 class RemoteHFModel:
@@ -129,7 +63,7 @@ class RemoteHFModel:
         self,
         ray_actor_name: str,
         num_replicas: int,
-        hf_engine_args: HFEngineArgs,
+        hf_engine_args,
         sampling_params: dict,
         init_update_process_group: bool,
         gangs: Gangs,
@@ -168,11 +102,6 @@ class RemoteHFModel:
         )
         self.hf_workers.append(hf_worker)
 
-        update_process_group = self.setup_process_group_for_model_sync(
-            replica_i, hf_engine_args.tensor_parallel_size, init_update_process_group
-        )
-        self.update_process_groups.append(update_process_group)
-
         log.info(f"Replica {replica_i} setup completed")
 
     def setup_hf_worker(
@@ -204,53 +133,6 @@ class RemoteHFModel:
         ray.get(llm.is_ready.remote())
 
         return llm
-
-    def setup_process_group_for_model_sync(
-        self, replica_i, hf_tensor_parallel_size, init_update_process_group=True
-    ):
-        if not init_update_process_group:
-            return None
-
-        master_port = get_open_port()
-        master_address = get_ip()
-
-        print(f"{master_port} {master_address}")
-
-        print("init pg on hf host")
-        handle = self.hf_workers[replica_i].collective_rpc.remote(
-            "init_weight_update_group",
-            args=(master_address, master_port, 1, hf_tensor_parallel_size + 1),
-        )
-
-        print("init pg on train host")
-        model_update_group = stateless_init_process_group(
-            master_address,
-            master_port,
-            0,
-            hf_tensor_parallel_size + 1,
-            self._gangs.dp.device,
-        )
-        ray.get(handle)
-
-        return model_update_group
-
-    def sync_weights_with_hf(self, train_model):
-        """
-        trainer_process_group must connect training process with hf_model processes
-        """
-
-        # iterate over all replicas
-        for replica_i in range(self.num_replicas):
-            for name, p in train_model.module.named_parameters():
-                name = name.replace("._checkpoint_wrapped_module", "")
-                # print(f'sync call {name}')
-                handle = self.hf_workers[replica_i].collective_rpc.remote(
-                    "update_weight", args=(name, p.dtype, p.shape)
-                )
-                self.update_process_groups[replica_i].broadcast(
-                    p, src=0, stream=torch.cuda.current_stream()
-                )
-                ray.get(handle)
 
     def rollout_from_model(self, prompt_list, sampling_params=None, string_input=False):
         if sampling_params is None:

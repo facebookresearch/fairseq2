@@ -30,6 +30,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     stateless_init_process_group,
 )
 from fairseq2.logging import log
+from fairseq2.recipes.lm._online_finetune._remote_hf import RemoteHFModel
 
 
 class RemoteModelHandler(ABC):
@@ -61,6 +62,7 @@ class VllmEngineArgs:
 
 @dataclass(kw_only=True)
 class VllmRayActorConfig:
+    backend: str = "vllm"  # vllm or hf
     ray_actor_name: str = "dummy"
     num_replicas: int = 1
     vllm_engine_args: VllmEngineArgs = field(default_factory=lambda: VllmEngineArgs())
@@ -68,19 +70,29 @@ class VllmRayActorConfig:
     init_update_process_group: bool = False
 
 
-class RemoteVllmModelHandler(RemoteModelHandler):
+class RemoteRayModelHandler(RemoteModelHandler):
     @override
     def create(self, gangs: Gangs, actor_config: VllmRayActorConfig) -> RemoteVllmModel:
         if gangs.dp.rank == 0 and gangs.tp.rank == 0:
             # vllm worker is only created on the first DP ranks given how many replicas we use
-            remote_vllm_model = RemoteVllmModel(
-                actor_config.ray_actor_name,
-                actor_config.num_replicas,
-                actor_config.vllm_engine_args,
-                actor_config.vllm_sampling_params,
-                actor_config.init_update_process_group,
-                gangs,
-            )
+            if actor_config.backend == "vllm":
+                remote_vllm_model = RemoteVllmModel(
+                    actor_config.ray_actor_name,
+                    actor_config.num_replicas,
+                    actor_config.vllm_engine_args,
+                    actor_config.vllm_sampling_params,
+                    actor_config.init_update_process_group,
+                    gangs,
+                )
+            else:
+                remote_vllm_model = RemoteHFModel(
+                    actor_config.ray_actor_name,
+                    actor_config.num_replicas,
+                    actor_config.vllm_engine_args,
+                    actor_config.vllm_sampling_params,
+                    actor_config.init_update_process_group,
+                    gangs,
+                )
         else:
             remote_vllm_model = None
 
