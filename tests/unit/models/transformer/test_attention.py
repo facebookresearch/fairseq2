@@ -41,7 +41,8 @@ class TestScaledDotProductAttention:
     )
     # fmt: on
     def test_torch_sdpa(
-        self, use_padding: bool,
+        self,
+        use_padding: bool,
         use_packing: bool,
         use_bias: bool,
         training: bool,
@@ -86,16 +87,20 @@ class TestScaledDotProductAttention:
             # For packing, we need 1D tensors with total sequence length
             total_target_len = sum([2, 3])  # seq_lens for target
             total_source_len = sum([2, 3])  # seq_lens for source
-            
+
             q = random_tensor(total_target_len, num_heads, k_size)
             k = random_tensor(total_source_len, num_heads, k_size)
             v = random_tensor(total_source_len, num_heads, v_size)
-            
+
             target_shape = (total_target_len,)
             source_shape = (total_source_len,)
-            
-            q_layout = BatchLayout(target_shape, seq_lens=[2, 3], packed=True, device=device)
-            k_layout = BatchLayout(source_shape, seq_lens=[2, 3], packed=True, device=device)
+
+            q_layout = BatchLayout(
+                target_shape, seq_lens=[2, 3], packed=True, device=device
+            )
+            k_layout = BatchLayout(
+                source_shape, seq_lens=[2, 3], packed=True, device=device
+            )
         else:
             # For non-packing cases (regular 2D tensors)
             q = random_tensor(batch_size, target_seq_len, num_heads, k_size)
@@ -195,7 +200,8 @@ class TestFlexScaledDotProductAttention:
     )
     # fmt: on
     def test_flex_sdpa(
-        self, use_padding: bool,
+        self,
+        use_padding: bool,
         use_packing: bool,
         use_bias: bool,
         training: bool,
@@ -240,16 +246,20 @@ class TestFlexScaledDotProductAttention:
             # For packing, we need 1D tensors with total sequence length
             total_target_len = sum([2, 3])  # seq_lens for target
             total_source_len = sum([2, 3])  # seq_lens for source
-            
+
             q = random_tensor(1, total_target_len, num_heads, k_size)
             k = random_tensor(1, total_source_len, num_heads, k_size)
             v = random_tensor(1, total_source_len, num_heads, v_size)
-            
+
             target_shape = (total_target_len,)
             source_shape = (total_source_len,)
-            
-            q_layout = BatchLayout(target_shape, seq_lens=[2, 3], packed=True, device=device)
-            k_layout = BatchLayout(source_shape, seq_lens=[2, 3], packed=True, device=device)
+
+            q_layout = BatchLayout(
+                target_shape, seq_lens=[2, 3], packed=True, device=device
+            )
+            k_layout = BatchLayout(
+                source_shape, seq_lens=[2, 3], packed=True, device=device
+            )
         else:
             # For non-packing cases (regular 2D tensors)
             q = random_tensor(batch_size, target_seq_len, num_heads, k_size)
@@ -276,4 +286,3 @@ class TestFlexScaledDotProductAttention:
             "values": v,
             "bias_cache": bias_cache,
         }
-

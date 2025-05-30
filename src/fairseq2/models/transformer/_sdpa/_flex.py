@@ -6,12 +6,16 @@
 
 from __future__ import annotations
 
-from typing import Callable, cast, final
+from typing import Callable, TypeAlias, cast, final
 
 import torch
 from torch import Tensor
-from torch.nn.attention.flex_attention import and_masks, create_block_mask, flex_attention, BlockMask
-
+from torch.nn.attention.flex_attention import (
+    BlockMask,
+    and_masks,
+    create_block_mask,
+    flex_attention,
+)
 from typing_extensions import override
 
 from fairseq2.device import Device
@@ -28,21 +32,24 @@ from fairseq2.models.transformer._attention_bias import (
 )
 from fairseq2.models.transformer._sdpa._base import SDPA
 
+MaskFunction: TypeAlias = Callable[[Tensor, Tensor, Tensor, Tensor], Tensor]
 
-def _causal_mask_fn(b: int, h: int, q_idx: int, kv_idx: int) -> bool:
+
+def _causal_mask_fn(b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor) -> Tensor:
     """Standard causal attention mask."""
     return q_idx >= kv_idx
 
 
-def _sliding_window_causal_mask_fn(window_size: int) -> Callable:
+def _sliding_window_causal_mask_fn(window_size: int) -> MaskFunction:
     """Creates a sliding window causal mask function."""
-    def mask_fn(b: int, h: int, q_idx: int, kv_idx: int) -> bool:
+
+    def mask_fn(b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor) -> Tensor:
         return (q_idx >= kv_idx) and (q_idx - kv_idx <= window_size)
 
     return mask_fn
 
 
-def _offsets_to_doc_ids_tensor(offsets):
+def _offsets_to_doc_ids_tensor(offsets: Tensor) -> Tensor:
     """Convert offsets to document IDs for packed sequences."""
     device = offsets.device
     counts = offsets[1:] - offsets[:-1]
@@ -53,39 +60,38 @@ def _offsets_to_doc_ids_tensor(offsets):
 
 def _create_packed_mask_fn(
     seq_begin_indices: Tensor,
-    seq_lens: Tensor,
     keys_begin_indices: Tensor,
-    keys_seq_lens: Tensor,
-    base_mask_fn: Callable | None = None
-):
+    base_mask_fn: MaskFunction | None = None,
+) -> MaskFunction:
     """Creates a mask function for packed sequences using document-based masking."""
     # Create document IDs for queries and keys
     query_doc_ids = _offsets_to_doc_ids_tensor(seq_begin_indices)
     key_doc_ids = _offsets_to_doc_ids_tensor(keys_begin_indices)
-    
-    def packed_mask_fn(b: int, h: int, q_idx: int, kv_idx: int) -> bool:
+
+    def packed_mask_fn(b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor) -> Tensor:
         # Check if query and key belong to the same document
         same_doc = query_doc_ids[q_idx] == key_doc_ids[kv_idx]
-        
+
         # Convert global indices to logical positions within documents
         q_doc_id = query_doc_ids[q_idx]
         kv_doc_id = key_doc_ids[kv_idx]
         q_logical = q_idx - seq_begin_indices[q_doc_id]
         kv_logical = kv_idx - keys_begin_indices[kv_doc_id]
-        
+
         # Apply base mask (e.g., causal) to logical positions
         if base_mask_fn is not None:
             inner_mask = base_mask_fn(b, h, q_logical, kv_logical)
             return same_doc & inner_mask
         else:
             return same_doc
-    
+
     return packed_mask_fn
 
 
-def _create_padding_mask_fn(seq_lens: Tensor, value_seq_lens: Tensor):
+def _create_padding_mask_fn(seq_lens: Tensor, value_seq_lens: Tensor) -> MaskFunction:
     """Creates a padding mask function that masks out padding tokens."""
-    def padding_mask_fn(b: int, h: int, q_idx: int, kv_idx: int) -> bool:
+
+    def padding_mask_fn(b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor) -> Tensor:
         q_valid = q_idx < seq_lens[b]
         kv_valid = kv_idx < value_seq_lens[b]
         return q_valid & kv_valid
@@ -93,18 +99,18 @@ def _create_padding_mask_fn(seq_lens: Tensor, value_seq_lens: Tensor):
     return padding_mask_fn
 
 
-def _dropout_mask_fn(dropout_p: float, training: bool = True) -> Callable | None:
+def _dropout_mask_fn(dropout_p: float, training: bool = True) -> MaskFunction | None:
     """Creates a dropout mask function."""
     if not training or dropout_p == 0.0:
         return None
-   
-    def dropout_fn(b: int, h: int, q_idx: int, kv_idx: int) -> bool:
+
+    def dropout_fn(b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor) -> Tensor:
         generator = torch.Generator()  # TODO: How to set seed?
-        rand_val = torch.rand(1, generator=generator).item()
+        rand_val = torch.rand(1, generator=generator)
 
         # Return True to keep, False to mask (opposite of dropout probability)
         return rand_val >= dropout_p
-   
+
     return dropout_fn
 
 
@@ -123,7 +129,7 @@ def _create_composed_mask(
     if packed:
         # For packed sequences, create the base mask function first
         base_mask_fn = None
-        
+
         # Add attention bias mask as base mask
         if isinstance(bias, CausalAttentionBias):
             attn_window_len = bias.attn_window_len
@@ -133,17 +139,14 @@ def _create_composed_mask(
                 base_mask_fn = _causal_mask_fn
         elif not isinstance(bias, IdentityBias):
             raise NotSupportedError(f"Unsupported bias type: {bias}")
-        
+
         # Create the packed sequence mask that incorporates the base mask
         packed_mask = _create_packed_mask_fn(
             seqs_layout.seq_begin_indices_pt,
-            seqs_layout.seq_lens_pt,
             keys_layout.seq_begin_indices_pt,
-            keys_layout.seq_lens_pt,
-            base_mask_fn
+            base_mask_fn,
         )
         masks.append(packed_mask)
-        
     else:
         # Standard batch format - handle bias and padding separately
         if isinstance(bias, CausalAttentionBias):
@@ -155,9 +158,10 @@ def _create_composed_mask(
         elif not isinstance(bias, IdentityBias):
             raise NotSupportedError(f"Unsupported bias type: {bias}")
 
-        if seqs_layout.seq_lens_pt is not None and keys_layout.seq_lens_pt is not None:
-            # Add padding mask if sequence lengths are provided
-            masks.append(_create_padding_mask_fn(seqs_layout.seq_lens_pt, keys_layout.seq_lens_pt))
+        # Add padding mask
+        masks.append(
+            _create_padding_mask_fn(seqs_layout.seq_lens_pt, keys_layout.seq_lens_pt)
+        )
 
     # Add dropout mask if needed
     dropout_mask = _dropout_mask_fn(dropout_p, training)
@@ -175,8 +179,8 @@ def _create_composed_mask(
 
     # For packed sequences, use the total sequence length
     if packed:
-        total_seq_len = seqs_layout.seq_begin_indices_pt[-1].item()
-        total_keys_len = keys_layout.seq_begin_indices_pt[-1].item()
+        total_seq_len = int(seqs_layout.seq_begin_indices_pt[-1].item())
+        total_keys_len = int(keys_layout.seq_begin_indices_pt[-1].item())
         batch_size = 1  # Packed format treats everything as one big batch
     else:
         total_seq_len = seqs_layout.max_seq_len
@@ -189,7 +193,7 @@ def _create_composed_mask(
         H=None,
         Q_LEN=total_seq_len,
         KV_LEN=total_keys_len,
-        device=device,
+        device=str(device),
     )
     return block_mask
 
@@ -230,11 +234,11 @@ class FlexSDPA(SDPA):
 
         # Create the composed block mask using and_mask
         block_mask = _create_composed_mask(
-            self.bias, 
-            seqs_layout, 
-            keys_layout, 
-            seqs.device, 
-            dropout_p, 
+            self.bias,
+            seqs_layout,
+            keys_layout,
+            seqs.device,
+            dropout_p,
             self.training,
             packed=seqs_layout.packed,
         )
@@ -251,8 +255,10 @@ class FlexSDPA(SDPA):
             enable_gqa=False,
         )
 
+        if isinstance(attns, tuple):
+            attns, _ = attns
+
         attns = attns.transpose(1, 2)
-        attns = cast(Tensor, attns)
 
         return attns, None
 
