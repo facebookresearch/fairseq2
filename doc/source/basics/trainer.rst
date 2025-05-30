@@ -26,7 +26,6 @@ It is probably the most complex system in fairseq2, but also the most powerful.
 
         %% TrainUnit Components
         B --> F[Model]
-        B --> G[MetricBag]
 
         %% Gang System
         I --> J[Root Gang]
@@ -75,11 +74,6 @@ The ``TrainUnit`` is an abstract class that encapsulates model-specific training
         def model(self) -> Module:
             """The underlying model."""
 
-        @property
-        @abstractmethod
-        def metric_bag(self) -> MetricBag:
-            """Training-related metrics."""
-
 .. dropdown:: Example implementation
    :icon: code
    :animate: fade-in
@@ -89,8 +83,6 @@ The ``TrainUnit`` is an abstract class that encapsulates model-specific training
       class TransformerTrainUnit(TrainUnit[TransformerBatch]):
         def __init__(self, model: TransformerModel) -> None:
             super().__init__(model)
-            self._metric_bag = MetricBag()
-            self._metric_bag.register_metric("loss", Mean())
             
         def __call__(self, batch: TransformerBatch) -> tuple[Tensor, int]:
             outputs = self._model(**batch)
