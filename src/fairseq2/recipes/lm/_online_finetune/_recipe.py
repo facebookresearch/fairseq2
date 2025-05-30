@@ -288,7 +288,7 @@ def load_online_finetuner(
     # go over actor configs and initialize all of them
     for actor_config in config.vllm.ray_actors:
         log.info(f"Setting up '{actor_config.ray_actor_name}' vllm actor")
-        # check if hf_engine_args is var in actor_config
+        # check if actor_config is a HFRayActorConfig
         if isinstance(actor_config, HFRayActorConfig):
             actor = RemoteHFModelHandler().create(
                 gangs=gangs, actor_config=actor_config
@@ -297,7 +297,6 @@ def load_online_finetuner(
             actor = RemoteVllmModelHandler().create(
                 gangs=gangs, actor_config=actor_config
             )
-        # actor = RemoteHFModelHandler().create(gangs=gangs, actor_config=actor_config)
         vllm_actors[actor_config.ray_actor_name] = actor
 
     # Initialize the train unit.
