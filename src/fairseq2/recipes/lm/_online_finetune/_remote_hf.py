@@ -133,43 +133,9 @@ class RemoteHFModel:
         return llm
 
     def rollout_from_model(self, prompt_list, sampling_params=None, string_input=False):
-        if sampling_params is None:
-            sampling_params = self.sampling_params
-
-        prompt_argname = "prompts" if string_input else "prompt_token_ids"
-
-        # Split prompts evenly across replicas
-        chunk_size = len(prompt_list) // self.num_replicas
-        remainder = len(prompt_list) % self.num_replicas
-
-        chunks = []
-        start = 0
-        for i in range(self.num_replicas):
-            # Add one extra item to some chunks if division isn't even
-            end = start + chunk_size + (1 if i < remainder else 0)
-            chunks.append(prompt_list[start:end])
-            start = end
-
-        # Process each chunk with a different replica
-        outputs = []
-        for replica_i, chunk in enumerate(chunks):
-            if len(chunk) > 0:  # Only send non-empty chunks
-                generate_args = {
-                    prompt_argname: chunk,
-                    "sampling_params": sampling_params,
-                    "use_tqdm": False,
-                }
-                output = self.hf_workers[replica_i].generate.remote(**generate_args)
-                outputs.append(output)
-
-        # block till generation is done
-        results = ray.get(outputs)
-
-        rollouts = []
-        for chunk_result in results:
-            rollouts.extend(chunk_result)
-
-        return rollouts
+        raise NotImplementedError(
+            "RemoteHFModel.rollout_from_model is not implemented. "
+        )
 
     def reward_from_model(self, prompt_list, batch_size=64):
         # NOTE: need to batch inputs to hf.encode model for current models that aren't supported by hf
@@ -195,14 +161,6 @@ class RemoteHFModel:
 
     def reward_from_generative_model(self, prompt_list):
 
-        def extract_score(output):
-            matches = re.findall(
-                r"<score>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score>", output
-            )
-            return float(matches[-1]) if matches else 0.0
-
-        rewards = []
-        rollouts = self.rollout_from_model(prompt_list=prompt_list, string_input=True)
-        rewards = [extract_score(o.outputs[0].text) for o in rollouts]
-
-        return rewards
+        raise NotImplementedError(
+            "RemoteHFModel.reward_from_generative_model is not implemented. "
+        )
