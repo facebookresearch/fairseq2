@@ -139,11 +139,11 @@ def update_seq2seq_generator_metrics(
 
 
 def extend_batch_metric_values(
-    metric_values: MutableMapping[str, object], num_batches: int, elapsed_time: float
+    values: MutableMapping[str, object], num_batches: int, elapsed_time: float
 ) -> None:
     def get_value(name: str) -> int | float | Tensor | None:
         try:
-            value = metric_values[name]
+            value = values[name]
         except KeyError:
             return None
 
@@ -155,23 +155,23 @@ def extend_batch_metric_values(
     num_examples = get_value("num_examples")
     if num_examples is not None:
         if num_batches > 0:
-            metric_values["batch_size"] = num_examples // num_batches
+            values["batch_size"] = num_examples // num_batches
         else:
-            metric_values["batch_size"] = 0
+            values["batch_size"] = 0
 
     num_elements = get_value("num_elements")
     if num_elements is not None:
         if num_batches > 0:
-            metric_values["elements_per_batch"] = num_elements // num_batches
+            values["elements_per_batch"] = num_elements // num_batches
         else:
-            metric_values["elements_per_batch"] = 0
+            values["elements_per_batch"] = 0
 
         if elapsed_time > 0.0:
-            metric_values["elements_per_second"] = num_elements / elapsed_time
+            values["elements_per_second"] = num_elements / elapsed_time
         else:
-            metric_values["elements_per_second"] = 0.0
+            values["elements_per_second"] = 0.0
 
         if num_elements > 0:
             padding = get_value("padding")
             if padding is not None:
-                metric_values["padding_ratio"] = padding / (num_elements + padding)
+                values["padding_ratio"] = padding / (num_elements + padding)

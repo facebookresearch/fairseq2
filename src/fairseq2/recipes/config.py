@@ -341,11 +341,23 @@ class RegimeSection:
                     "`checkpoint_every_n_steps` must be greater than or equal to 1."
                 )
 
+            if self.publish_metrics_every_n_steps is not None:
+                if self.checkpoint_every_n_steps % self.publish_metrics_every_n_steps != 0:  # fmt: skip
+                    result.add_error(
+                        f"`checkpoint_every_n_steps` must be a multiple of `publish_metrics_every_n_steps` ({self.publish_metrics_every_n_steps}), but is {self.checkpoint_every_n_steps} instead."
+                    )
+
         if self.checkpoint_every_n_data_epochs is not None:
             if self.checkpoint_every_n_data_epochs <= 0:
                 result.add_error(
                     "`checkpoint_every_n_data_epochs` must be greater than or equal to 1."
                 )
+
+            if self.publish_metrics_every_n_data_epochs is not None:
+                if self.checkpoint_every_n_data_epochs % self.publish_metrics_every_n_data_epochs != 0:  # fmt: skip
+                    result.add_error(
+                        f"`checkpoint_every_n_data_epochs` must be a multiple of `publish_metrics_every_n_data_epochs` ({self.publish_metrics_every_n_data_epochs}), but is {self.checkpoint_every_n_data_epochs} instead."
+                    )
 
         if self.keep_last_n_checkpoints is not None:
             if self.keep_last_n_checkpoints <= 0:

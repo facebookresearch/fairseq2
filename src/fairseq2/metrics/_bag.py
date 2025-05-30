@@ -101,48 +101,64 @@ class MetricBag:
         state_dict: dict[str, object] = {}
 
         for name, metric in self._metrics.items():
-            state_dict[name] = metric.state_dict()
+            state_dict[name] = metric
 
         return state_dict
 
     @final
     def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
-        state_keys = set(state_dict.keys())
+        self._metrics.clear()
 
-        metric_names = set(self._metrics.keys())
+        for name, metric in state_dict.items():
+            self._metrics[name] = metric
 
-        if metric_names != state_keys:
-            missing_metrics = metric_names - state_keys
-            if missing_metrics:
-                s = ", ".join(sorted(missing_metrics))
-
-                raise ValueError(
-                    f"`state_dict` must contain the states of the following metric(s): {s}"
-                )
-
-            extra_keys = state_keys - metric_names
-            if extra_keys:
-                s = ", ".join(sorted(extra_keys))
-
-                raise ValueError(
-                    f"`state_dict` must contain only the states of the metrics of this bag, but it contains the following unexpected key(s): {s}"
-                )
-
-        for name, metric in self._metrics.items():
-            metric_state_dict = state_dict[name]
-            if not isinstance(metric_state_dict, dict):
-                raise TypeError(
-                    f"`state_dict['{name}']` must be of type `dict`, but is of type `{type(metric_state_dict)}` instead."
-                )
-
-            try:
-                metric.load_state_dict(metric_state_dict)
-            except (RuntimeError, ValueError, TypeError) as ex:
-                raise ValueError(
-                    f"`state_dict['{name}']` is not a valid `{type(metric)}` state. See the nested exception for details."
-                ) from ex
-
-            metric.to(self.device)
+#    @final
+#    def state_dict(self) -> dict[str, object]:
+#        state_dict: dict[str, object] = {}
+#
+#        for name, metric in self._metrics.items():
+#            state_dict[name] = metric.state_dict()
+#
+#        return state_dict
+#
+#    @final
+#    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
+#        state_keys = set(state_dict.keys())
+#
+#        metric_names = set(self._metrics.keys())
+#
+#        if metric_names != state_keys:
+#            missing_metrics = metric_names - state_keys
+#            if missing_metrics:
+#                s = ", ".join(sorted(missing_metrics))
+#
+#                raise ValueError(
+#                    f"`state_dict` must contain the states of the following metric(s): {s}"
+#                )
+#
+#            extra_keys = state_keys - metric_names
+#            if extra_keys:
+#                s = ", ".join(sorted(extra_keys))
+#
+#                raise ValueError(
+#                    f"`state_dict` must contain only the states of the metrics of this bag, but it contains the following unexpected key(s): {s}"
+#                )
+#
+#        for name, metric in self._metrics.items():
+#            metric_state_dict = state_dict[name]
+#            if not isinstance(metric_state_dict, dict):
+#                raise TypeError(
+#                    f"`state_dict['{name}']` must be of type `dict`, but is of type `{type(metric_state_dict)}` instead."
+#                )
+#
+#            try:
+#                metric.load_state_dict(metric_state_dict)
+#            except (RuntimeError, ValueError, TypeError) as ex:
+#                raise ValueError(
+#                    f"`state_dict['{name}']` is not a valid `{type(metric)}` state. See the nested exception for details."
+#                ) from ex
+#
+#            metric.to(self.device)
 
     @property
     def device(self) -> Device:
@@ -151,6 +167,9 @@ class MetricBag:
 
 def sync_and_compute_metrics(bag: MetricBag, gang: Gang) -> dict[str, object] | None:
     """Sync the metrics across all processes and and compute their values."""
+    if gang.device != bag.device:
+        raise ValueError("`bag.device` and `gang.device` must be same.")
+
     try:
         # TODO: disable torcheval only??
         logging.disable(logging.WARNING)  # Suppress "No calls to update()".

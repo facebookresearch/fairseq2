@@ -384,6 +384,12 @@ class Trainer(Recipe):
                     "`checkpoint_every_n_steps` must be greater than or equal to 1."
                 )
 
+            if publish_metrics_every_n_steps is not None:
+                if checkpoint_every_n_steps % publish_metrics_every_n_steps != 0:
+                    raise ValueError(
+                        f"`checkpoint_every_n_steps` must be a multiple of `publish_metrics_every_n_steps` ({publish_metrics_every_n_steps}), but is {checkpoint_every_n_steps} instead."
+                    )
+
         self._checkpoint_after_n_steps = checkpoint_after_n_steps
         self._checkpoint_every_n_steps = checkpoint_every_n_steps
 
@@ -392,6 +398,12 @@ class Trainer(Recipe):
                 raise ValueError(
                     "`checkpoint_every_n_data_epochs` must be greater than or equal to 1."
                 )
+
+            if publish_metrics_every_n_data_epochs is not None:
+                if checkpoint_every_n_data_epochs % publish_metrics_every_n_data_epochs != 0:  # fmt: skip
+                    raise ValueError(
+                        f"`checkpoint_every_n_data_epochs` must be a multiple of `publish_metrics_every_n_data_epochs` ({publish_metrics_every_n_data_epochs}), but is {checkpoint_every_n_data_epochs} instead."
+                    )
 
         self._checkpoint_after_n_data_epochs = checkpoint_after_n_data_epochs
         self._checkpoint_every_n_data_epochs = checkpoint_every_n_data_epochs
