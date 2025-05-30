@@ -63,6 +63,8 @@ class NaiveSDPA(SDPA):
 
         q, k, v = seqs, keys, values
 
+        import pytest; pytest.set_trace()
+
         # (N, S, H, K) -> (N, H, S, K)
         q = q.transpose(-2, -3)
 

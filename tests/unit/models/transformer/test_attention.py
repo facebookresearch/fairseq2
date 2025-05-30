@@ -25,26 +25,26 @@ from fairseq2.models.transformer import (
 from fairseq2.nn import BatchLayout
 from tests.common import assert_close, device
 
-import os
-os.environ["TORCH_LOGS"] = "+dynamo"
-os.environ["TORCHDYNAMO_VERBOSE"] = "1"
-
 
 class TestScaledDotProductAttention:
     # fmt: off
-    @pytest.mark.parametrize("use_padding,use_bias,training",
+    @pytest.mark.parametrize("use_padding,use_packing,use_bias,training",
         [
-            (False, False, True),
-            (True,  True,  True),
-            (False, True,  True),
-            (True,  False, True),
-            (False, False, False),
-            (False, True,  False),
+            (False, False, False, True),
+            (True,  False, True,  True),
+            (False, False, True,  True),
+            (True,  False, False, True),
+            (False,  True, False, True),
+            (False, False, False, False),
+            (False, False, True,  False),
         ],
     )
     # fmt: on
     def test_torch_sdpa(
-        self, use_padding: bool, use_bias: bool, training: bool
+        self, use_padding: bool,
+        use_packing: bool,
+        use_bias: bool,
+        training: bool,
     ) -> None:
         attn_bias: AttentionBias
 
@@ -60,7 +60,7 @@ class TestScaledDotProductAttention:
             torch_sdpa.eval()
             naive_sdpa.eval()
 
-        kwargs = self._get_sdpa_args(use_padding)
+        kwargs = self._get_sdpa_args(use_padding, use_packing)
 
         attn1, _ = torch_sdpa(**kwargs)
         attn2, _ = naive_sdpa(**kwargs)
@@ -68,7 +68,7 @@ class TestScaledDotProductAttention:
         assert_close(attn1, attn2)
 
     @staticmethod
-    def _get_sdpa_args(use_padding: bool) -> dict[str, Any]:
+    def _get_sdpa_args(use_padding: bool, use_packing: bool) -> dict[str, Any]:
         batch_size = 2
 
         num_heads = 4
@@ -82,19 +82,35 @@ class TestScaledDotProductAttention:
         def random_tensor(*args: int) -> Tensor:
             return torch.randn(*args, device=device)
 
-        q = random_tensor(batch_size, target_seq_len, num_heads, k_size)
-        k = random_tensor(batch_size, source_seq_len, num_heads, k_size)
-        v = random_tensor(batch_size, source_seq_len, num_heads, v_size)
-
-        target_shape = (batch_size, target_seq_len)
-        source_shape = (batch_size, source_seq_len)
-
-        if use_padding:
-            q_layout = BatchLayout(target_shape, seq_lens=None, device=device)
-            k_layout = BatchLayout(source_shape, seq_lens=[2, 3], device=device)
+        if use_packing:
+            # For packing, we need 1D tensors with total sequence length
+            total_target_len = sum([2, 3])  # seq_lens for target
+            total_source_len = sum([2, 3])  # seq_lens for source
+            
+            q = random_tensor(total_target_len, num_heads, k_size)
+            k = random_tensor(total_source_len, num_heads, k_size)
+            v = random_tensor(total_source_len, num_heads, v_size)
+            
+            target_shape = (total_target_len,)
+            source_shape = (total_source_len,)
+            
+            q_layout = BatchLayout(target_shape, seq_lens=[2, 3], packed=True, device=device)
+            k_layout = BatchLayout(source_shape, seq_lens=[2, 3], packed=True, device=device)
         else:
-            q_layout = BatchLayout(target_shape, seq_lens=None, device=device)
-            k_layout = BatchLayout(source_shape, seq_lens=None, device=device)
+            # For non-packing cases (regular 2D tensors)
+            q = random_tensor(batch_size, target_seq_len, num_heads, k_size)
+            k = random_tensor(batch_size, source_seq_len, num_heads, k_size)
+            v = random_tensor(batch_size, source_seq_len, num_heads, v_size)
+
+            target_shape = (batch_size, target_seq_len)
+            source_shape = (batch_size, source_seq_len)
+
+            if use_padding:
+                q_layout = BatchLayout(target_shape, seq_lens=None, device=device)
+                k_layout = BatchLayout(source_shape, seq_lens=[2, 3], device=device)
+            else:
+                q_layout = BatchLayout(target_shape, seq_lens=None, device=device)
+                k_layout = BatchLayout(source_shape, seq_lens=None, device=device)
 
         bias_cache = AttentionBiasCache()
 
@@ -165,19 +181,24 @@ class TestStandardMultiheadAttention:
 
 class TestFlexScaledDotProductAttention:
     # fmt: off
-    @pytest.mark.parametrize("use_padding,use_bias,training",
+    @pytest.mark.parametrize("use_padding,use_packing,use_bias,training",
         [
-            (False, False, True),
-            (True,  True,  True),
-            (False, True,  True),
-            (True,  False, True),
-            (False, False, False),
-            (False, True,  False),
+            (False, False, False, True),
+            (True,  False, True,  True),
+            (False, False, True,  True),
+            (True,  False, False, True),
+            (False,  True, False, True),
+            (False,  True, True, True),
+            (False, False, False, False),
+            (False, False, True,  False),
         ],
     )
     # fmt: on
-    def test_torch_flex_sdpa(
-        self, use_padding: bool, use_bias: bool, training: bool
+    def test_flex_sdpa(
+        self, use_padding: bool,
+        use_packing: bool,
+        use_bias: bool,
+        training: bool,
     ) -> None:
         attn_bias: AttentionBias
 
@@ -186,22 +207,22 @@ class TestFlexScaledDotProductAttention:
         else:
             attn_bias = IdentityBias()
 
-        torch_sdpa = FlexSDPA(attn_bias)
+        flex_sdpa = FlexSDPA(attn_bias)
         naive_sdpa = NaiveSDPA(attn_bias)
 
         if training:
-            torch_sdpa.eval()
+            flex_sdpa.eval()
             naive_sdpa.eval()
 
-        kwargs = self._get_sdpa_args(use_padding)
+        kwargs = self._get_sdpa_args(use_padding, use_packing)
 
-        attn1, _ = torch_sdpa(**kwargs)
+        attn1, _ = flex_sdpa(**kwargs)
         attn2, _ = naive_sdpa(**kwargs)
 
         assert_close(attn1, attn2)
 
     @staticmethod
-    def _get_sdpa_args(use_padding: bool) -> dict[str, object]:
+    def _get_sdpa_args(use_padding: bool, use_packing: bool) -> dict[str, object]:
         batch_size = 2
 
         num_heads = 4
@@ -215,19 +236,35 @@ class TestFlexScaledDotProductAttention:
         def random_tensor(*args: int) -> Tensor:
             return torch.randn(*args, device=device)
 
-        q = random_tensor(batch_size, target_seq_len, num_heads, k_size)
-        k = random_tensor(batch_size, source_seq_len, num_heads, k_size)
-        v = random_tensor(batch_size, source_seq_len, num_heads, v_size)
-
-        target_shape = (batch_size, target_seq_len)
-        source_shape = (batch_size, source_seq_len)
-
-        if use_padding:
-            q_layout = BatchLayout(target_shape, seq_lens=None, device=device)
-            k_layout = BatchLayout(source_shape, seq_lens=[2, 3], device=device)
+        if use_packing:
+            # For packing, we need 1D tensors with total sequence length
+            total_target_len = sum([2, 3])  # seq_lens for target
+            total_source_len = sum([2, 3])  # seq_lens for source
+            
+            q = random_tensor(1, total_target_len, num_heads, k_size)
+            k = random_tensor(1, total_source_len, num_heads, k_size)
+            v = random_tensor(1, total_source_len, num_heads, v_size)
+            
+            target_shape = (total_target_len,)
+            source_shape = (total_source_len,)
+            
+            q_layout = BatchLayout(target_shape, seq_lens=[2, 3], packed=True, device=device)
+            k_layout = BatchLayout(source_shape, seq_lens=[2, 3], packed=True, device=device)
         else:
-            q_layout = BatchLayout(target_shape, seq_lens=None, device=device)
-            k_layout = BatchLayout(source_shape, seq_lens=None, device=device)
+            # For non-packing cases (regular 2D tensors)
+            q = random_tensor(batch_size, target_seq_len, num_heads, k_size)
+            k = random_tensor(batch_size, source_seq_len, num_heads, k_size)
+            v = random_tensor(batch_size, source_seq_len, num_heads, v_size)
+
+            target_shape = (batch_size, target_seq_len)
+            source_shape = (batch_size, source_seq_len)
+
+            if use_padding:
+                q_layout = BatchLayout(target_shape, seq_lens=None, device=device)
+                k_layout = BatchLayout(source_shape, seq_lens=[2, 3], device=device)
+            else:
+                q_layout = BatchLayout(target_shape, seq_lens=None, device=device)
+                k_layout = BatchLayout(source_shape, seq_lens=None, device=device)
 
         bias_cache = AttentionBiasCache()
 
@@ -239,3 +276,4 @@ class TestFlexScaledDotProductAttention:
             "values": v,
             "bias_cache": bias_cache,
         }
+
