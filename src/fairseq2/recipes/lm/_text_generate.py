@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Mapping, TextIO, final
+from typing import TextIO, final
 
 import torch
 from typing_extensions import override
@@ -33,7 +34,6 @@ from fairseq2.recipes import (
     GeneratorUnit,
     Model,
     RecipeError,
-    SequenceGenerationMetricBag,
     UnitError,
 )
 from fairseq2.recipes.common import (
@@ -55,6 +55,7 @@ from fairseq2.recipes.config import (
     SequenceGeneratorSection,
     TextTokenizerSection,
 )
+from fairseq2.recipes.metrics import update_seq_generator_metrics
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
@@ -150,7 +151,7 @@ def register_text_generate_configs(context: RuntimeContext) -> None:
 @torch.inference_mode()
 def load_text_generator(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Generator[SequenceBatch]:
+) -> Generator:
     config = structure(config, TextGenerateConfig)
 
     validate(config)
@@ -273,7 +274,6 @@ class TextGenerateUnit(GeneratorUnit[SequenceBatch]):
     _text_decoder: TextTokenDecoder
     _text_output_stream: TextIO | None
     _json_output_stream: TextIO | None
-    _metric_bag: SequenceGenerationMetricBag
 
     def __init__(
         self,
@@ -291,10 +291,8 @@ class TextGenerateUnit(GeneratorUnit[SequenceBatch]):
         self._text_output_stream = text_output_stream
         self._json_output_stream = json_output_stream
 
-        self._metric_bag = SequenceGenerationMetricBag(device=model.device)
-
     @override
-    def __call__(self, batch: SequenceBatch) -> None:
+    def __call__(self, batch: SequenceBatch, metric_bag: MetricBag) -> None:
         if batch.example is None:
             raise ValueError("`batch.example` must not be `None`.")
 
@@ -308,9 +306,9 @@ class TextGenerateUnit(GeneratorUnit[SequenceBatch]):
         except KeyError:
             raise ValueError("`batch.example` must contain a 'prompt' item.") from None
 
-        if not isinstance(prompts, Iterable):
+        if not isinstance(prompts, Sequence):
             raise TypeError(
-                f"`batch.example['prompt'] must be an iterable of strings, but is of type `{type(prompts)}` instead."
+                f"`batch.example['prompt'] must be a sequence of strings, but is of type `{type(prompts)}` instead."
             )
 
         ids = batch.example["id"]
@@ -319,7 +317,7 @@ class TextGenerateUnit(GeneratorUnit[SequenceBatch]):
 
         output = self._generator(prompt_seqs, prompt_seqs_layout)
 
-        self._metric_bag.update_batch_metrics(output)
+        update_seq_generator_metrics(metric_bag, output)
 
         # Check if we are in the first tensor parallel group.
         if self._text_output_stream is None and self._json_output_stream is None:
@@ -419,8 +417,3 @@ class TextGenerateUnit(GeneratorUnit[SequenceBatch]):
     @override
     def model(self) -> Model:
         return self._model
-
-    @property
-    @override
-    def metric_bag(self) -> MetricBag:
-        return self._metric_bag

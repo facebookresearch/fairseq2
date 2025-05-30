@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import MutableMapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import final
@@ -44,8 +45,7 @@ from fairseq2.utils.validation import validate
 
 # isort: split
 
-from fairseq2.recipes.asr._criterion import AsrCriterion
-from fairseq2.recipes.asr._metrics import AsrMetricBag
+from fairseq2.recipes.asr._metrics import update_asr_batch_metrics, update_ctc_loss
 from fairseq2.recipes.asr._scorer import AsrScorer
 
 
@@ -114,7 +114,7 @@ def register_asr_eval_configs(context: RuntimeContext) -> None:
 @torch.inference_mode()
 def load_asr_evaluator(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Evaluator[Seq2SeqBatch]:
+) -> Evaluator:
     config = structure(config, AsrEvalConfig)
 
     validate(config)
@@ -184,9 +184,7 @@ def load_asr_evaluator(
 
     scorer = AsrScorer(tokenizer, ref_output_stream=ref_fp, hyp_output_stream=hyp_fp)
 
-    criterion = AsrCriterion(model.module, scorer)
-
-    unit = AsrEvalUnit(model, criterion)
+    unit = AsrEvalUnit(model, scorer)
 
     batching = LengthBatching(config.dataset.max_num_elements)
 
@@ -231,26 +229,37 @@ def load_asr_evaluator(
 @final
 class AsrEvalUnit(EvalUnit[Seq2SeqBatch]):
     _model: Model
-    _criterion: AsrCriterion
-    _metric_bag: AsrMetricBag
+    _scorer: AsrScorer
 
-    def __init__(self, model: Model, criterion: AsrCriterion) -> None:
+    def __init__(self, model: Model, scorer: AsrScorer) -> None:
         self._model = model
 
-        self._criterion = criterion
-
-        self._metric_bag = AsrMetricBag(device=model.device)
+        self._scorer = scorer
 
     @override
-    def __call__(self, batch: Seq2SeqBatch) -> None:
-        self._criterion(batch, self._metric_bag)
+    def __call__(self, batch: Seq2SeqBatch, metric_bag: MetricBag) -> None:
+        source_seqs, source_seqs_layout = batch.as_source_input()
+        target_seqs, target_seqs_layout = batch.as_target_input()
+
+        ctc_loss, logits, logits_layout = self._model.module(
+            source_seqs,
+            source_seqs_layout,
+            target_seqs,
+            target_seqs_layout,
+            return_logits=True,
+        )
+
+        update_ctc_loss(metric_bag, ctc_loss, batch.batch_size)
+
+        update_asr_batch_metrics(metric_bag, batch)
+
+        self._scorer(batch, logits, logits_layout, metric_bag)
+
+    @override
+    def process_metric_values(self, values: MutableMapping[str, object]) -> None:
+        self._scorer.process_metric_values(values)
 
     @property
     @override
     def model(self) -> Model:
         return self._model
-
-    @property
-    @override
-    def metric_bag(self) -> MetricBag:
-        return self._metric_bag

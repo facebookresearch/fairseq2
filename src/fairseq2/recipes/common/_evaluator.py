@@ -37,7 +37,7 @@ def create_evaluator(
     seed: int,
     *,
     hyper_params: object = None,
-) -> Evaluator[BatchT]:
+) -> Evaluator:
     metric_recorder = create_metric_recorder(
         context, common_section, gangs, output_dir, hyper_params
     )
@@ -46,7 +46,7 @@ def create_evaluator(
 
     device_stat_tracker = create_device_stat_tracker(gangs)
 
-    return Evaluator[BatchT](
+    return Evaluator(
         units=units,
         data_readers=data_readers,
         gangs=gangs,

@@ -12,10 +12,16 @@ from torch import Tensor
 from torch.nn import Module
 
 from fairseq2.datasets import SequenceBatch
+from fairseq2.metrics import MetricBag
 
 # isort: split
 
-from fairseq2.recipes.wav2vec2._metrics import Wav2Vec2MetricBag
+from fairseq2.recipes.wav2vec2._metrics import (
+    update_wav2vec2_accuracy,
+    update_wav2vec2_batch_metrics,
+    update_wav2vec2_loss,
+    update_wav2vec2_quantizer_metrics,
+)
 
 
 @final
@@ -34,7 +40,7 @@ class Wav2Vec2Criterion:
         self._features_penalty_weight = features_penalty_weight
 
     def __call__(
-        self, batch: SequenceBatch, metric_bag: Wav2Vec2MetricBag
+        self, batch: SequenceBatch, metric_bag: MetricBag
     ) -> tuple[Tensor, int]:
         seqs, seqs_layout = batch.as_input()
 
@@ -45,12 +51,12 @@ class Wav2Vec2Criterion:
             features_penalty_weight=self._features_penalty_weight,
         )
 
-        metric_bag.update_loss(w2v2_loss, w2v2_output.num_targets)
+        update_wav2vec2_loss(metric_bag, w2v2_loss, w2v2_output.num_targets)
 
-        metric_bag.update_accuracy(w2v2_output.logits)
+        update_wav2vec2_accuracy(metric_bag, w2v2_output.logits)
 
-        metric_bag.update_quantizer_metrics(w2v2_output.quantizer_output)
+        update_wav2vec2_quantizer_metrics(metric_bag, w2v2_output.quantizer_output)
 
-        metric_bag.update_batch_metrics(batch)
+        update_wav2vec2_batch_metrics(metric_bag, batch)
 
         return w2v2_loss.aggregate, w2v2_output.num_targets

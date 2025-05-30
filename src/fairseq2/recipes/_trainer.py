@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import MutableMapping
 from contextlib import nullcontext
 from enum import Enum
-from typing import Final, Generic, Mapping, TypeVar, final
+from typing import Any, Final, Generic, Mapping, TypeVar, final
 
 import torch
 import torch.distributed
@@ -38,14 +39,18 @@ from fairseq2.metrics import (
     Mean,
     MetricBag,
     MetricBagError,
-    MetricDescriptor,
     sync_and_compute_metrics,
 )
-from fairseq2.metrics.recorders import MetricRecorder, MetricRecordError
+from fairseq2.metrics.recorders import (
+    MetricDescriptor,
+    MetricRecorder,
+    MetricRecordError,
+)
 from fairseq2.nn.utils.grad import check_grad_norms, normalize_grads
 from fairseq2.optim import DynamicLossScaler
 from fairseq2.optim.lr_scheduler import LRScheduler, get_effective_lr
 from fairseq2.profilers import Profiler
+from fairseq2.recipes.metrics import extend_batch_metric_values
 from fairseq2.typing import ContextManager
 from fairseq2.utils.device_stat import DeviceStatTracker
 from fairseq2.utils.gc import GarbageCollector
@@ -62,7 +67,6 @@ from fairseq2.recipes._error import (
     RecipeError,
     UnitError,
 )
-from fairseq2.recipes._metrics import extend_batch_metric_values
 from fairseq2.recipes._model import Model
 from fairseq2.recipes._recipe import Recipe, RecipeStopException
 from fairseq2.recipes._validator import Validator
@@ -82,7 +86,9 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
         pass
 
     @abstractmethod
-    def __call__(self, batch: BatchT_contra) -> tuple[Tensor, int | None]:
+    def __call__(
+        self, batch: BatchT_contra, metric_bag: MetricBag
+    ) -> tuple[Tensor, int | None]:
         """Process ``batch``.
 
         :returns:
@@ -91,27 +97,26 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
               model gradients won't be normalized.
         """
 
-    @property
-    @abstractmethod
-    def model(self) -> Model: ...
+    def process_metric_values(self, values: MutableMapping[str, object]) -> None:
+        pass
 
     @property
     @abstractmethod
-    def metric_bag(self) -> MetricBag: ...
+    def model(self) -> Model: ...
 
 
 BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
 
 
 @final
-class Trainer(Recipe, Generic[BatchT]):
+class Trainer(Recipe):
     """Trains a machine learning model."""
 
     _state: _TrainerState
     _step_nr: int
     _data_epoch_nr: int
-    _unit: TrainUnit[BatchT]
-    _data_reader: DataReader[BatchT]
+    _unit: TrainUnit[Any]
+    _data_reader: DataReader[Any]
     _gangs: Gangs
     _dtype: DataType
     _amp: bool
@@ -158,7 +163,7 @@ class Trainer(Recipe, Generic[BatchT]):
     _base_wall_time: float
     _progress_reporter: ProgressReporter
     _first_iter: bool
-    _batches: list[BatchT] | None
+    _batches: list[Any] | None
     _stop_requested: bool
     _num_batches_read: int
     _last_lr: float
@@ -379,6 +384,12 @@ class Trainer(Recipe, Generic[BatchT]):
                     "`checkpoint_every_n_steps` must be greater than or equal to 1."
                 )
 
+            if publish_metrics_every_n_steps is not None:
+                if checkpoint_every_n_steps % publish_metrics_every_n_steps != 0:
+                    raise ValueError(
+                        f"`checkpoint_every_n_steps` must be a multiple of `publish_metrics_every_n_steps` ({publish_metrics_every_n_steps}), but is {checkpoint_every_n_steps} instead."
+                    )
+
         self._checkpoint_after_n_steps = checkpoint_after_n_steps
         self._checkpoint_every_n_steps = checkpoint_every_n_steps
 
@@ -387,6 +398,12 @@ class Trainer(Recipe, Generic[BatchT]):
                 raise ValueError(
                     "`checkpoint_every_n_data_epochs` must be greater than or equal to 1."
                 )
+
+            if publish_metrics_every_n_data_epochs is not None:
+                if checkpoint_every_n_data_epochs % publish_metrics_every_n_data_epochs != 0:  # fmt: skip
+                    raise ValueError(
+                        f"`checkpoint_every_n_data_epochs` must be a multiple of `publish_metrics_every_n_data_epochs` ({publish_metrics_every_n_data_epochs}), but is {checkpoint_every_n_data_epochs} instead."
+                    )
 
         self._checkpoint_after_n_data_epochs = checkpoint_after_n_data_epochs
         self._checkpoint_every_n_data_epochs = checkpoint_every_n_data_epochs
@@ -433,9 +450,7 @@ class Trainer(Recipe, Generic[BatchT]):
 
         self._keep_checkpoint_every_n_steps = keep_checkpoint_every_n_steps
 
-        self._metric_bag = unit.metric_bag
-
-        self._metric_bag.grad_norm = Mean(device=gangs.root.device)
+        self._metric_bag = MetricBag(device=gangs.root.device)
 
         self._metric_recorder = metric_recorder
 
@@ -814,7 +829,7 @@ class Trainer(Recipe, Generic[BatchT]):
         if self._loss_scaler.is_enabled:
             self._metric_bag.commit_updates()
 
-        self._metric_bag.grad_norm.update(grad_norm)
+        self._metric_bag.get(Mean, "grad_norm").update(grad_norm)
 
         self._num_batches_read += 1
 
@@ -827,10 +842,10 @@ class Trainer(Recipe, Generic[BatchT]):
 
         return nullcontext()
 
-    def _compute_loss(self, batch: BatchT) -> tuple[Tensor, int | None]:
+    def _compute_loss(self, batch: Any) -> tuple[Tensor, int | None]:
         with self._maybe_autocast():
             try:
-                return self._unit(batch)
+                return self._unit(batch, self._metric_bag)
             except UnitError as ex:
                 raise RecipeError(
                     "The train unit has failed. See the nested exception for details."
@@ -943,15 +958,11 @@ class Trainer(Recipe, Generic[BatchT]):
                     blocking=blocking,
                 )
             else:
-                tmp = self._base_wall_time
-
-                self._base_wall_time += self._wall_watch.get_elapsed_time()
-
-                trainer_state = _TrainerStateBag(self)
+                shim_trainer = _TrainerStateBag(self)
 
                 self._checkpoint_manager.save_checkpoint(
                     step_nr,
-                    trainer_state,
+                    shim_trainer,
                     self._unit.model,
                     self._optimizer,  # type: ignore[arg-type]
                     self._data_reader,
@@ -959,8 +970,6 @@ class Trainer(Recipe, Generic[BatchT]):
                     callback=self._complete_checkpoint,
                     blocking=blocking,
                 )
-
-                self._base_wall_time = tmp
         except CheckpointSaveError as ex:
             raise RecipeError(
                 f"The checkpoint of step {ex.step_nr} cannot be saved. See the nested exception for details."
@@ -1002,6 +1011,8 @@ class Trainer(Recipe, Generic[BatchT]):
         if gangs.root.rank == 0:
             if values is None:
                 raise InternalError("`values` is `None`.")
+
+            self._unit.process_metric_values(values)
 
             values["lr"] = self._last_lr
 
@@ -1101,7 +1112,7 @@ class Trainer(Recipe, Generic[BatchT]):
             log.info("Starting validation after step {}.", self._step_nr)
 
         with self._unit.model.summon_full_parameters():
-            score = self._validator.run(self._step_nr, self._data_epoch_nr)
+            score = self._validator.run(self._step_nr)
 
         if score is not None:
             if self._should_checkpoint():
@@ -1271,79 +1282,76 @@ class _TrainerState(Enum):
 T = TypeVar("T")
 
 
-class _TrainerStateBag(Stateful, Generic[BatchT]):
-    _KEYS: Final = [
+class _TrainerStateBag(Stateful):
+    _ATTR_NAMES: Final = [
         "_step_nr",
         "_data_epoch_nr",
         "_lr_scheduler",
         "_loss_scaler",
         "_rng_bag",
         "_metric_bag",
-        "_base_wall_time",
     ]
 
-    _trainer: Trainer[BatchT]
+    _trainer: Trainer
 
-    def __init__(self, trainer: Trainer[BatchT]) -> None:
+    def __init__(self, trainer: Trainer) -> None:
         self._trainer = trainer
 
     @override
     def state_dict(self) -> dict[str, object]:
         state_dict: dict[str, object] = {}
 
-        def save_stateful(key: str, obj: object) -> None:
-            if isinstance(obj, (bool, int, float)):
-                state_dict[key] = obj
-            elif isinstance(obj, Stateful):
-                state_dict[key] = obj.state_dict()
+        def save_stateful(name: str, value: object) -> None:
+            if isinstance(value, Stateful):
+                state_dict[name] = value.state_dict()
             else:
-                raise InternalError(f"`Trainer.{key}` has no state.")
+                state_dict[name] = value
 
-        for key in self._KEYS:
-            save_stateful(key, getattr(self._trainer, key))
+        for name in self._ATTR_NAMES:
+            value = getattr(self._trainer, name)
+
+            save_stateful(name, value)
+
+        wall_time = self._trainer._wall_watch.get_elapsed_time()
+
+        state_dict["_base_wall_time"] = self._trainer._base_wall_time + wall_time
 
         return state_dict
 
     @override
     def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
-        def load_stateful(key: str) -> None:
-            try:
-                obj = getattr(self._trainer, key)
-            except AttributeError:
-                raise InternalError(f"`{key}` is not a `Trainer` attribute.") from None
+        def load_stateful(name: str) -> None:
+            value = getattr(self._trainer, name)
 
             try:
-                state = state_dict[key]
+                state = state_dict[name]
             except KeyError:
-                raise ValueError(f"`state_dict` must contain a key named '{key}'.")
+                raise ValueError(f"`state_dict` must contain a key named '{name}'.")
 
             def type_error(kls: type) -> TypeError:
                 raise TypeError(
-                    f"`state_dict['{key}']` must be of type `{kls}`, but is of type `{type(state)}` instead."
+                    f"`state_dict['{name}']` must be of type `{kls}`, but is of type `{type(state)}` instead."
                 )
 
-            if isinstance(obj, (bool, int, float)):
-                if type(state) != type(obj):
-                    raise type_error(type(obj))
+            kls = type(value)
 
-                setattr(self._trainer, key, state)
-
-                return
-
-            if isinstance(obj, Stateful):
+            if isinstance(value, Stateful):
                 if not isinstance(state, Mapping):
                     raise type_error(Mapping)
 
                 try:
-                    obj.load_state_dict(state)
+                    value.load_state_dict(state)
                 except (RuntimeError, ValueError, TypeError) as ex:
                     raise ValueError(
-                        f"`state_dict['{key}']` is not a valid `{type(obj)}` state. See the nested exception for details."
+                        f"`state_dict['{name}']` is not a valid `{kls}` state. See the nested exception for details."
                     ) from ex
+            else:
+                if type(state) != kls:
+                    raise type_error(kls)
 
-                return
+                setattr(self._trainer, name, state)
 
-            raise InternalError(f"`Trainer.{key}` has no state.")
+        for name in self._ATTR_NAMES:
+            load_stateful(name)
 
-        for key in self._KEYS:
-            load_stateful(key)
+        load_stateful("_base_wall_time")

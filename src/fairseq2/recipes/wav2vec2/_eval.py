@@ -47,7 +47,6 @@ from fairseq2.utils.validation import validate
 
 from fairseq2.recipes.wav2vec2._config import Wav2Vec2LossSection
 from fairseq2.recipes.wav2vec2._criterion import Wav2Vec2Criterion
-from fairseq2.recipes.wav2vec2._metrics import Wav2Vec2MetricBag
 
 
 @dataclass(kw_only=True)
@@ -113,7 +112,7 @@ def register_wav2vec2_eval_configs(context: RuntimeContext) -> None:
 @torch.inference_mode()
 def load_wav2vec2_evaluator(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Evaluator[SequenceBatch]:
+) -> Evaluator:
     config = structure(config, Wav2Vec2EvalConfig)
 
     validate(config)
@@ -191,25 +190,17 @@ def load_wav2vec2_evaluator(
 class Wav2Vec2EvalUnit(EvalUnit[SequenceBatch]):
     _model: Model
     _criterion: Wav2Vec2Criterion
-    _metric_bag: Wav2Vec2MetricBag
 
     def __init__(self, model: Model, criterion: Wav2Vec2Criterion) -> None:
         self._model = model
 
         self._criterion = criterion
 
-        self._metric_bag = Wav2Vec2MetricBag(device=model.device)
-
     @override
-    def __call__(self, batch: SequenceBatch) -> None:
-        self._criterion(batch, self._metric_bag)
+    def __call__(self, batch: SequenceBatch, metric_bag: MetricBag) -> None:
+        self._criterion(batch, metric_bag)
 
     @property
     @override
     def model(self) -> Model:
         return self._model
-
-    @property
-    @override
-    def metric_bag(self) -> MetricBag:
-        return self._metric_bag

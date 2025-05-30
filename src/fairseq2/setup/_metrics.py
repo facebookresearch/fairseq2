@@ -10,13 +10,13 @@ from typing import Any
 
 from fairseq2.context import RuntimeContext
 from fairseq2.metrics import (
-    MetricDescriptor,
     format_as_byte_size,
     format_as_float,
     format_as_int,
     format_as_percentage,
     format_as_seconds,
 )
+from fairseq2.metrics.recorders import MetricDescriptor
 
 
 def _register_metric_descriptors(context: RuntimeContext) -> None:

@@ -12,7 +12,8 @@ from torch import Tensor
 from torch.nn import Module
 
 from fairseq2.datasets import Seq2SeqBatch
-from fairseq2.recipes import Seq2SeqMetricBag
+from fairseq2.metrics import MetricBag
+from fairseq2.recipes.metrics import update_nll_loss, update_seq2seq_batch_metrics
 
 
 @final
@@ -26,7 +27,7 @@ class MTCriterion:
         self._label_smoothing = label_smoothing
 
     def __call__(
-        self, batch: Seq2SeqBatch, metric_bag: Seq2SeqMetricBag
+        self, batch: Seq2SeqBatch, metric_bag: MetricBag
     ) -> tuple[Tensor, int]:
         batch, target_batch = batch.as_auto_regressive()
 
@@ -42,8 +43,8 @@ class MTCriterion:
             label_smoothing=self._label_smoothing,
         )
 
-        metric_bag.update_nll_loss(batch, nll_loss)
+        update_nll_loss(metric_bag, nll_loss, batch.num_target_elements)
 
-        metric_bag.update_batch_metrics(batch)
+        update_seq2seq_batch_metrics(metric_bag, batch)
 
         return nll_loss, batch.num_target_elements

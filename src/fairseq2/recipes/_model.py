@@ -12,7 +12,6 @@ from collections.abc import Mapping
 from torch import Tensor
 from torch.nn import Module
 
-from fairseq2.device import Device
 from fairseq2.models import ModelHandler
 from fairseq2.typing import ContextManager
 
@@ -44,10 +43,6 @@ class Model(ABC):
     @property
     @abstractmethod
     def base_module(self) -> Module: ...
-
-    @property
-    @abstractmethod
-    def device(self) -> Device: ...
 
     @property
     @abstractmethod

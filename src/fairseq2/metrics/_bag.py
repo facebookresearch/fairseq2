@@ -6,72 +6,51 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Mapping
 from copy import deepcopy
-from typing import Any, final
+from typing import Any, TypeVar, final
 
 from torcheval.metrics import Metric
 from torcheval.metrics.toolkit import sync_and_compute_collection
 
 from fairseq2.device import Device
-from fairseq2.error import ContractError, InternalError, InvalidOperationError
+from fairseq2.error import ContractError, InvalidOperationError
 from fairseq2.gang import Gang
 
+MetricT = TypeVar("MetricT", bound=Metric[Any])
 
+
+@final
 class MetricBag:
     """Holds a collection of training or validation metrics."""
 
+    _device: Device
     _metrics: dict[str, Metric[Any]]
     _original_metrics: dict[str, Metric[Any]] | None
 
-    def __init__(self) -> None:
-        """
-        :param gang:
-            The gang over which to sync metrics.
-        """
-        super().__setattr__("_metrics", {})
-        super().__setattr__("_original_metrics", None)
+    def __init__(self, device: Device) -> None:
+        self._device = device
 
-    def __getattr__(self, name: str) -> Any:
-        if "_metrics" in self.__dict__ and name in self._metrics:
-            return self._metrics[name]
+        self._metrics = {}
 
-        raise AttributeError(
-            f"`{type(self).__name__}` object has no attribute '{name}'."
-        )
+        self._original_metrics = None
 
-    def __setattr__(self, name: str, value: Any) -> None:
-        if isinstance(value, Metric):
-            self.register_metric(name, value)
-        else:
-            if name in self._metrics:
-                del self._metrics[name]
+    def get(self, kls: type[MetricT], name: str, *args: Any, **kwargs: Any) -> MetricT:
+        metric = self._metrics.get(name)
+        if metric is not None:
+            if not isinstance(metric, kls):
+                raise TypeError(
+                    f"The '{name}' metric must be of type `{kls}`, but is of type `{type(metric)}` instead."
+                )
 
-            super().__setattr__(name, value)
+            return metric
 
-    def __delattr__(self, name: str) -> None:
-        if name in self._metrics:
-            del self._metrics[name]
-        else:
-            super().__delattr__(name)
-
-    @final
-    def register_metric(self, name: str, metric: Metric[Any]) -> None:
-        """
-        Adds ``metric`` to the bag.
-
-        :param name: The attribute name to refer to ``metric``.
-        :param metric: The metric to add.
-        """
-        if hasattr(self, name):
-            raise AttributeError(
-                f"`{type(self).__name__}` object already has an attribute '{name}'."
-            )
+        metric = kls(*args, **kwargs, device=self._device)
 
         self._metrics[name] = metric
 
-    @final
+        return metric
+
     def begin_updates(self) -> None:
         """
         Begins a transactional update of multiple metrics.
@@ -89,7 +68,6 @@ class MetricBag:
                 "The metrics in the bag cannot be copied. See the nested exception for details."
             ) from ex
 
-    @final
     def commit_updates(self) -> None:
         """Commits pending metric updates."""
         if self._original_metrics is None:
@@ -97,7 +75,6 @@ class MetricBag:
 
         self._original_metrics = None
 
-    @final
     def rollback_updates(self) -> None:
         """Discards pending metric updates and rollback to the original state."""
         if self._original_metrics is None:
@@ -105,81 +82,48 @@ class MetricBag:
 
         self._metrics, self._original_metrics = self._original_metrics, None
 
-    @final
     def reset_metrics(self) -> None:
         """Resets the metrics to their initial state."""
         for metric in self._metrics.values():
             metric.reset()
-
-    def process_metric_values(self, values: dict[str, object]) -> None:
-        """Process metric ``values``."""
 
     @property
     def metrics(self) -> Mapping[str, Metric[Any]]:
         """The metrics contained in this bag."""
         return self._metrics
 
-    @final
     def state_dict(self) -> dict[str, object]:
         state_dict: dict[str, object] = {}
 
         for name, metric in self._metrics.items():
-            state_dict[name] = metric.state_dict()
+            state_dict[name] = metric
 
         return state_dict
 
-    @final
     def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
-        state_keys = set(state_dict.keys())
+        self._metrics.clear()
 
-        metric_names = set(self._metrics.keys())
-
-        if metric_names != state_keys:
-            missing_metrics = metric_names - state_keys
-            if missing_metrics:
-                s = ", ".join(sorted(missing_metrics))
-
+        for name, metric in state_dict.items():
+            if not isinstance(metric, Metric):
                 raise ValueError(
-                    f"`state_dict` must contain the states of the following metric(s): {s}"
+                    f"`state_dict['{name}']` must be of type `{Metric}`, but is of type `{type(metric)}` instead."
                 )
 
-            extra_keys = state_keys - metric_names
-            if extra_keys:
-                s = ", ".join(sorted(extra_keys))
+            metric.to(self._device)
 
-                raise ValueError(
-                    f"`state_dict` must contain only the states of the metrics of this bag, but it contains the following unexpected key(s): {s}"
-                )
+            self._metrics[name] = metric
 
-        for name, metric in self._metrics.items():
-            metric_state_dict = state_dict[name]
-            if not isinstance(metric_state_dict, dict):
-                raise TypeError(
-                    f"`state_dict['{name}']` must be of type `dict`, but is of type `{type(metric_state_dict)}` instead."
-                )
-
-            device = metric.device
-
-            try:
-                metric.load_state_dict(metric_state_dict)
-            except (RuntimeError, ValueError, TypeError) as ex:
-                raise ValueError(
-                    f"`state_dict['{name}']` is not a valid `{type(metric)}` state. See the nested exception for details."
-                ) from ex
-
-            metric.to(device)
-
-    def to(self, device: Device) -> None:
-        for metric in self._metrics.values():
-            metric.to(device)
+    @property
+    def device(self) -> Device:
+        return self._device
 
 
 def sync_and_compute_metrics(bag: MetricBag, gang: Gang) -> dict[str, object] | None:
     """Sync the metrics across all processes and and compute their values."""
-    try:
-        # TODO: disable torcheval only??
-        logging.disable(logging.WARNING)  # Suppress "No calls to update()".
+    if gang.device != bag.device:
+        raise ValueError("`bag.device` and `gang.device` must be same.")
 
+    try:
         if gang.size == 1:
             metric_values = {name: m.compute() for name, m in bag.metrics.items()}
         else:
@@ -192,14 +136,6 @@ def sync_and_compute_metrics(bag: MetricBag, gang: Gang) -> dict[str, object] | 
         raise MetricBagError(
             "The metric values cannot be synced. See the nested exception for details."
         ) from ex
-    finally:
-        logging.disable(logging.NOTSET)
-
-    if gang.rank == 0:
-        if metric_values is None:
-            raise InternalError("`metric_values` is `None`.")
-
-        bag.process_metric_values(metric_values)
 
     return metric_values
 

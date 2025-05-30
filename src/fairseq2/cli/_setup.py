@@ -29,8 +29,10 @@ from fairseq2.generation import (
     UnknownSeq2SeqGeneratorError,
     UnknownSequenceGeneratorError,
 )
-from fairseq2.metrics import UnknownMetricDescriptorError
-from fairseq2.metrics.recorders import UnknownMetricRecorderError
+from fairseq2.metrics.recorders import (
+    UnknownMetricDescriptorError,
+    UnknownMetricRecorderError,
+)
 from fairseq2.metrics.text import UnknownBleuTokenizerError
 from fairseq2.models import (
     InvalidModelTypeError,

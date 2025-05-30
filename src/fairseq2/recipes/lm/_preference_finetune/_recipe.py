@@ -10,11 +10,7 @@ from pathlib import Path
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import Batching, LengthBatching, StaticBatching
-from fairseq2.datasets.preference import (
-    PreferenceBatch,
-    PreferenceDataset,
-    PreferenceReadOptions,
-)
+from fairseq2.datasets.preference import PreferenceDataset, PreferenceReadOptions
 from fairseq2.device import CPU
 from fairseq2.models.clm import CausalLM
 from fairseq2.optim import AdamWConfig
@@ -103,7 +99,7 @@ def register_po_finetune_configs(context: RuntimeContext) -> None:
 
 def load_po_finetuner(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Trainer[PreferenceBatch]:
+) -> Trainer:
     config = structure(config, POFinetuneConfig)
 
     validate(config)

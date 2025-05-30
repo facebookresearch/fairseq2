@@ -6,15 +6,13 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from contextlib import nullcontext
-from typing import Generic, TypeVar, final
+from typing import Any, TypeVar, final
 
 import torch
 from torch import Tensor
 from torch.profiler import record_function
-from typing_extensions import override
 
 from fairseq2.checkpoint import CheckpointError, CheckpointManager, CheckpointSaveError
 from fairseq2.data_type import DataType
@@ -23,12 +21,21 @@ from fairseq2.device import CPU, SupportsDeviceTransfer
 from fairseq2.error import ContractError, InternalError, InvalidOperationError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
-from fairseq2.metrics import MetricBagError, MetricDescriptor, sync_and_compute_metrics
-from fairseq2.metrics.recorders import MetricRecorder, MetricRecordError
+from fairseq2.metrics import (
+    MetricBag,
+    MetricBagError,
+    sync_and_compute_metrics,
+)
+from fairseq2.metrics.recorders import (
+    MetricDescriptor,
+    MetricRecorder,
+    MetricRecordError,
+)
 from fairseq2.profilers import Profiler
+from fairseq2.recipes.metrics import extend_batch_metric_values
 from fairseq2.typing import ContextManager
 from fairseq2.utils.device_stat import DeviceStatTracker
-from fairseq2.utils.progress import ProgressReporter, ProgressTask
+from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.stopwatch import Stopwatch
 
@@ -36,25 +43,15 @@ from fairseq2.utils.stopwatch import Stopwatch
 
 from fairseq2.recipes._error import RecipeError, UnitError
 from fairseq2.recipes._evaluator import EvalUnit
-from fairseq2.recipes._metrics import extend_batch_metric_values
-
-
-class Validator(ABC):
-    @abstractmethod
-    def run(self, train_step_nr: int, train_data_epoch_nr: int) -> float | None: ...
-
-    @abstractmethod
-    def reset(self) -> None: ...
-
 
 BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
 
 
 @final
-class StandardValidator(Validator, Generic[BatchT]):
+class Validator:
     _step_nr: int
-    _units: Sequence[EvalUnit[BatchT]]
-    _data_readers: Sequence[DataReader[BatchT]]
+    _units: Sequence[EvalUnit[Any]]
+    _data_readers: Sequence[DataReader[Any]]
     _gangs: Gangs
     _dtype: DataType
     _amp: bool
@@ -153,9 +150,8 @@ class StandardValidator(Validator, Generic[BatchT]):
 
         self._best_step_nr = -1
 
-    @override
     @torch.inference_mode()
-    def run(self, train_step_nr: int, train_data_epoch_nr: int) -> float | None:
+    def run(self, train_step_nr: int) -> float | None:
         if self._has_run:
             raise InvalidOperationError("The validator has already been run.")
 
@@ -165,7 +161,7 @@ class StandardValidator(Validator, Generic[BatchT]):
 
         with self._rng_bag.temporary_manual_seed(self._seed):
             with self._profiler:
-                return self._do_run(train_step_nr, train_data_epoch_nr)
+                return self._do_run(train_step_nr)
 
     def _maybe_restore_best_score_and_step(self) -> None:
         if self._score_metric_descriptor is None:
@@ -196,16 +192,14 @@ class StandardValidator(Validator, Generic[BatchT]):
         else:
             self._best_step_nr = 0
 
-    def _do_run(self, train_step_nr: int, train_data_epoch_nr: int) -> float | None:
+    def _do_run(self, train_step_nr: int) -> float | None:
         scores = []
 
         for unit, data_reader in zip(self._units, self._data_readers):
             if unit.name:
                 log.info("Validating {}.", unit.name)
 
-            score = self._run_unit(
-                train_step_nr, train_data_epoch_nr, unit, data_reader
-            )
+            score = self._run_unit(train_step_nr, unit, data_reader)
 
             if score is not None:
                 scores.append(score)
@@ -217,13 +211,11 @@ class StandardValidator(Validator, Generic[BatchT]):
         return score
 
     def _run_unit(
-        self,
-        train_step_nr: int,
-        train_data_epoch_nr: int,
-        unit: EvalUnit[BatchT],
-        data_reader: DataReader[BatchT],
+        self, train_step_nr: int, unit: EvalUnit[Any], data_reader: DataReader[Any]
     ) -> float | None:
         unit.model.module.eval()
+
+        metric_bag = MetricBag(device=self._gangs.root.device)
 
         progress_task = self._progress_reporter.create_task("valid", total=None)
 
@@ -255,20 +247,29 @@ class StandardValidator(Validator, Generic[BatchT]):
                 batches = self._read_next_batches(unit, data_reader)
                 if batches is None:
                     eod = True
-                else:
-                    self._run_step(unit, batches, progress_task)
+
+                    continue
+
+                self._step_nr += 1
+
+                progress_task.step(1)
+
+                with record_function(f"step_{self._step_nr}"):
+                    self._run_step(unit, batches, metric_bag)
+
+                self._profiler.step()
 
             with self._compute_watch:
                 with record_function("finalize"):
-                    self._call_unit_finalize(unit)
+                    self._call_unit_finalize(unit, metric_bag)
 
-        metric_values = self._publish_metrics(train_step_nr, train_data_epoch_nr, unit)
+        metric_values = self._publish_metrics(train_step_nr, unit, metric_bag)
 
         return self._maybe_get_unit_score(metric_values)
 
     def _read_next_batches(
-        self, unit: EvalUnit[BatchT], data_reader: DataReader[BatchT]
-    ) -> list[BatchT] | None:
+        self, unit: EvalUnit[Any], data_reader: DataReader[Any]
+    ) -> list[Any] | None:
         with self._data_watch:
             try:
                 batches = next(data_reader)
@@ -290,18 +291,8 @@ class StandardValidator(Validator, Generic[BatchT]):
         return batches
 
     def _run_step(
-        self, unit: EvalUnit[BatchT], batches: list[BatchT], progress_task: ProgressTask
+        self, unit: EvalUnit[Any], batches: list[Any], metric_bag: MetricBag
     ) -> None:
-        self._step_nr += 1
-
-        progress_task.step(1)
-
-        with record_function(f"step_{self._step_nr}"):
-            self._do_run_step(unit, batches)
-
-        self._profiler.step()
-
-    def _do_run_step(self, unit: EvalUnit[BatchT], batches: list[BatchT]) -> None:
         log.debug("Running validation step {}.", self._step_nr)
 
         with self._compute_watch:
@@ -312,17 +303,19 @@ class StandardValidator(Validator, Generic[BatchT]):
             for batch_nr in range(num_batches):
                 batch = batches.pop()
 
-                batch.to(self._gangs.root.device)
+                batch.to(self._gangs.root.device, non_blocking=True)
 
                 with record_function(f"step_{self._step_nr}_{batch_nr}"):
-                    self._call_unit(unit, batch)
+                    self._call_unit(unit, batch, metric_bag)
 
         self._num_batches_read += 1
 
-    def _call_unit(self, unit: EvalUnit[BatchT], batch: BatchT) -> None:
+    def _call_unit(
+        self, unit: EvalUnit[Any], batch: Any, metric_bag: MetricBag
+    ) -> None:
         with self._maybe_autocast():
             try:
-                unit(batch)
+                unit(batch, metric_bag)
             except UnitError as ex:
                 s = "validator"
 
@@ -333,10 +326,10 @@ class StandardValidator(Validator, Generic[BatchT]):
                     f"The {s} unit has failed. See the nested exception for details."
                 ) from ex
 
-    def _call_unit_finalize(self, unit: EvalUnit[BatchT]) -> None:
+    def _call_unit_finalize(self, unit: EvalUnit[Any], metric_bag: MetricBag) -> None:
         with self._maybe_autocast():
             try:
-                unit.finalize()
+                unit.finalize(metric_bag)
             except UnitError as ex:
                 s = "validator"
 
@@ -356,7 +349,7 @@ class StandardValidator(Validator, Generic[BatchT]):
         return torch.autocast(device_type=device_type, dtype=self._dtype)
 
     def _publish_metrics(
-        self, train_step_nr: int, train_data_epoch_nr: int, unit: EvalUnit[BatchT]
+        self, train_step_nr: int, unit: EvalUnit[Any], metric_bag: MetricBag
     ) -> dict[str, object]:
         log.debug("Syncing validation metrics.")
 
@@ -364,7 +357,7 @@ class StandardValidator(Validator, Generic[BatchT]):
 
         try:
             if gangs.tp.rank == 0:
-                values = sync_and_compute_metrics(unit.metric_bag, gangs.dp)
+                values = sync_and_compute_metrics(metric_bag, gangs.dp)
             else:
                 values = None
         except MetricBagError as ex:
@@ -383,7 +376,7 @@ class StandardValidator(Validator, Generic[BatchT]):
 
             values = {k: v for k, v in values.items() if not k.startswith("total_")}
 
-            values["data_epoch"] = train_data_epoch_nr
+            unit.process_metric_values(values)
 
             device_stats = self._device_stat_tracker.get_stats()
 
@@ -407,7 +400,7 @@ class StandardValidator(Validator, Generic[BatchT]):
 
             section = "valid"
 
-            if unit.name:
+            if unit.name is not None:
                 section = f"{section}/{unit.name}"
 
             try:
@@ -431,16 +424,14 @@ class StandardValidator(Validator, Generic[BatchT]):
                 "The collective barrier after the metric sync operation has failed. See the nested exception for details."
             ) from ex
 
-        self._reset_lapse_state(unit)
+        self._reset_lapse_state()
 
         if values is None:
             values = {}
 
         return values
 
-    def _reset_lapse_state(self, unit: EvalUnit[BatchT]) -> None:
-        unit.metric_bag.reset_metrics()
-
+    def _reset_lapse_state(self) -> None:
         self._data_watch.reset()
 
         self._compute_watch.reset()
@@ -516,12 +507,8 @@ class StandardValidator(Validator, Generic[BatchT]):
 
         log.info("Score - Metric: {} | Last: {} (step {}) | Best: {} (step {})", metric_descriptor.display_name, v1, train_step_nr, v2, self._best_step_nr)  # fmt: skip
 
-    @override
     def reset(self) -> None:
         self._step_nr = 0
-
-        for unit in self._units:
-            unit.metric_bag.reset_metrics()
 
         for data_reader in self._data_readers:
             data_reader.reset()

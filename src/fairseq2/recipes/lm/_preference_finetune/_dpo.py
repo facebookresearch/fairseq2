@@ -17,7 +17,6 @@ from typing_extensions import override
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import SequenceBatch
 from fairseq2.datasets.preference import PreferenceBatch
-from fairseq2.device import Device
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
 from fairseq2.metrics import Mean, MetricBag
@@ -26,14 +25,16 @@ from fairseq2.nn.utils.module import freeze_parameters
 from fairseq2.recipes import Model, TrainUnit
 from fairseq2.recipes.common import setup_reference_model
 from fairseq2.recipes.config import ReferenceModelSection
+from fairseq2.recipes.metrics import update_nll_loss, update_seq_batch_metrics
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
 # isort: split
 
 from fairseq2.recipes.lm._preference_finetune._common import (
-    POFinetuneMetricBag,
     _gather_lprobs_avg,
+    update_logps_metrics,
+    update_sequence_length_metrics,
 )
 from fairseq2.recipes.lm._preference_finetune._config import POFinetuneConfig
 from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
@@ -47,7 +48,6 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
     _reference_model: Model | None
     _beta: float
     _nll_scale: float
-    _metric_bag: DpoFinetuneMetricBag
     _length_normalization: bool
 
     def __init__(
@@ -64,10 +64,10 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
         self._nll_scale = nll_scale
         self._length_normalization = length_normalization
 
-        self._metric_bag = DpoFinetuneMetricBag(device=model.device)
-
     @override
-    def __call__(self, batch: PreferenceBatch) -> tuple[Tensor, int]:
+    def __call__(
+        self, batch: PreferenceBatch, metric_bag: MetricBag
+    ) -> tuple[Tensor, int]:
         chosen_batch = batch.chosen
         chosen_input_batch, chosen_target_batch = chosen_batch.as_auto_regressive()
 
@@ -151,15 +151,15 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
                 chosen_logps, ref_chosen_logps, rejected_logps, ref_rejected_logps
             )
 
-        self._metric_bag.update_dpo_loss(batch, dpo_loss)
+        update_dpo_loss(metric_bag, dpo_loss, batch)
 
-        self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
+        update_nll_loss(metric_bag, nll_loss, chosen_batch.num_target_elements)
 
-        self._metric_bag.update_sequence_lengths(batch)
+        update_sequence_length_metrics(metric_bag, batch)
 
-        self._metric_bag.update_logps(batch, chosen_logps, rejected_logps)
+        update_logps_metrics(metric_bag, batch, chosen_logps, rejected_logps)
 
-        self._metric_bag.update_batch_metrics(chosen_batch)
+        update_seq_batch_metrics(metric_bag, chosen_batch)
 
         loss = (
             dpo_loss
@@ -204,27 +204,14 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
     def model(self) -> Model:
         return self._model
 
-    @property
-    @override
-    def metric_bag(self) -> MetricBag:
-        return self._metric_bag
 
-
-class DpoFinetuneMetricBag(POFinetuneMetricBag):
-    """Holds the metrics of a DPO preference finetuning task."""
-
-    dpo_loss: Mean
-
-    def __init__(self, device: Device) -> None:
-        super().__init__(device)
-
-        self.dpo_loss = Mean(device=device)
-
-    @torch.inference_mode()
-    def update_dpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
-        self.dpo_loss.update(
-            loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
-        )
+@torch.inference_mode()
+def update_dpo_loss(
+    metric_bag: MetricBag, loss: Tensor, batch: PreferenceBatch
+) -> None:
+    metric_bag.get(Mean, "dpo_loss").update(
+        loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
+    )
 
 
 DPO_FINETUNE_UNIT: Final = "dpo"

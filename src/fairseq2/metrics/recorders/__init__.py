@@ -9,6 +9,11 @@ from __future__ import annotations
 from fairseq2.metrics.recorders._composite import (
     CompositeMetricRecorder as CompositeMetricRecorder,
 )
+from fairseq2.metrics.recorders._descriptor import MetricDescriptor as MetricDescriptor
+from fairseq2.metrics.recorders._descriptor import MetricFormatter as MetricFormatter
+from fairseq2.metrics.recorders._descriptor import (
+    UnknownMetricDescriptorError as UnknownMetricDescriptorError,
+)
 from fairseq2.metrics.recorders._handler import (
     MetricRecorderHandler as MetricRecorderHandler,
 )

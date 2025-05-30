@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from fairseq2.context import RuntimeContext
 from fairseq2.logging import log
-from fairseq2.metrics import MetricDescriptor
 from fairseq2.metrics.recorders import (
     JsonlMetricRecorderHandler,
     LogMetricRecorderHandler,
+    MetricDescriptor,
     MetricRecorderHandler,
     TensorBoardRecorderHandler,
     WandbRecorderHandler,

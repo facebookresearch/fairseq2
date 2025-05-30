@@ -12,7 +12,7 @@ from pathlib import Path
 import torch
 
 from fairseq2.context import RuntimeContext
-from fairseq2.datasets import LengthBatching, SequenceBatch, SyncMode
+from fairseq2.datasets import LengthBatching, SyncMode
 from fairseq2.datasets.instruction import (
     GENERIC_INSTRUCTION_DATASET_FAMILY,
     InstructionDataset,
@@ -112,7 +112,7 @@ def register_clm_loss_eval_configs(context: RuntimeContext) -> None:
 @torch.inference_mode()
 def load_clm_loss_evaluator(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Evaluator[SequenceBatch]:
+) -> Evaluator:
     config = structure(config, CausalLMLossEvalConfig)
 
     validate(config)
