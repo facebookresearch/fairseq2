@@ -104,7 +104,7 @@ class QwenFactory:
     def create_decoder(self) -> TransformerLMDecoder:
         config = self._config
 
-        pos_encoder = self.create_position_encoder(config.head_dim)
+        pos_encoder = self.create_position_encoder()
 
         layers = []
 
@@ -117,11 +117,11 @@ class QwenFactory:
 
         return StandardTransformerLMDecoder(layers, layer_norm)
 
-    def create_position_encoder(self, head_dim: int | None = None) -> PositionEncoder:
+    def create_position_encoder(self) -> PositionEncoder:
         config = self._config
 
-        if head_dim:
-            encoding_dim = head_dim
+        if config.head_dim is not None:
+            encoding_dim = config.head_dim
         else:
             encoding_dim = config.model_dim // config.num_attn_heads
 
@@ -162,18 +162,18 @@ class QwenFactory:
 
         std_scale_factor = self.get_std_scale_factor(layer_idx)
 
-        if config.head_dim is None:
-            head_dim = config.model_dim // config.num_attn_heads
-        else:
+        if config.head_dim is not None:
             head_dim = config.head_dim
+        else:
+            head_dim = config.model_dim // config.num_attn_heads
 
         if config.k_norm:
-            k_norm = RMSNorm(head_dim, bias=False, eps=1e-06)
+            k_norm = self.create_layer_norm(head_dim)
         else:
             k_norm = None
 
         if config.q_norm:
-            q_norm = RMSNorm(head_dim, bias=False, eps=1e-06)
+            q_norm = self.create_layer_norm(head_dim)
         else:
             q_norm = None
 
@@ -187,15 +187,15 @@ class QwenFactory:
         return StandardMultiheadAttention(
             config.model_dim,
             config.num_attn_heads,
+            sdpa,
             head_dim=config.head_dim,
             num_key_value_heads=config.num_key_value_heads,
             qkv_proj_init_fn=init_projection,
-            sdpa=sdpa,
+            bias=config.qkv_proj_bias,
             q_norm=q_norm,
             k_norm=k_norm,
             pos_encoder=pos_encoder,
             output_proj_init_fn=init_projection,
-            bias=config.attention_bias,
             output_proj_bias=False,
         )
 
@@ -241,10 +241,13 @@ class QwenFactory:
             config.model_dim, config.vocab_size, bias=False, init_fn=init_projection
         )
 
-    def create_layer_norm(self) -> LayerNorm:
+    def create_layer_norm(self, dim: int | None = None) -> LayerNorm:
         config = self._config
 
-        return RMSNorm(config.model_dim, bias=False, eps=1e-06)
+        if dim is None:
+            dim = config.model_dim
+
+        return RMSNorm(dim, bias=False, eps=1e-06)
 
     def get_std_scale_factor(self, layer_idx: int) -> float:
         config = self._config

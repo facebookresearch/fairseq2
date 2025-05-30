@@ -184,9 +184,9 @@ class LLaMAFactory:
         return StandardMultiheadAttention(
             config.model_dim,
             config.num_attn_heads,
+            sdpa,
             num_key_value_heads=config.num_key_value_heads,
             qkv_proj_init_fn=init_projection,
-            sdpa=sdpa,
             pos_encoder=pos_encoder,
             output_proj_init_fn=init_projection,
             bias=False,

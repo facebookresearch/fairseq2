@@ -124,7 +124,7 @@ class JepaClassifierFactory:
         return StandardMultiheadAttention(
             encoder_config.model_dim,
             encoder_config.num_encoder_attn_heads,
-            sdpa=sdpa,
+            sdpa,
             bias=encoder_config.qkv_bias,
             output_proj=output_proj,
         )

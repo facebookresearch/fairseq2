@@ -275,9 +275,9 @@ class Wav2Vec2EncoderFactory:
         return StandardMultiheadAttention(
             config.model_dim,
             config.num_encoder_attn_heads,
+            sdpa,
             qkv_proj_init_fn=init_bert_projection,
             pos_encoder=pos_encoder,
-            sdpa=sdpa,
             output_proj_init_fn=init_bert_projection,
         )
 

@@ -187,7 +187,7 @@ class S2TTransformerFactory:
             sdpa = create_default_sdpa(attn_bias, dropout_p=config.dropout_p)
 
         return StandardMultiheadAttention(
-            config.model_dim, config.num_encoder_attn_heads, sdpa=sdpa
+            config.model_dim, config.num_encoder_attn_heads, sdpa
         )
 
     def create_ffn(self, use_swish: bool = False) -> FeedForwardNetwork:
@@ -331,7 +331,7 @@ class S2TTransformerFactory:
         sdpa = create_default_sdpa(attn_bias, dropout_p=config.dropout_p)
 
         return StandardMultiheadAttention(
-            config.model_dim, config.num_decoder_attn_heads, sdpa=sdpa
+            config.model_dim, config.num_decoder_attn_heads, sdpa
         )
 
     def create_encoder_decoder_attention(self) -> MultiheadAttention:
@@ -342,7 +342,7 @@ class S2TTransformerFactory:
         sdpa = create_default_sdpa(attn_bias, dropout_p=config.dropout_p)
 
         return StandardMultiheadAttention(
-            config.model_dim, config.num_decoder_attn_heads, sdpa=sdpa
+            config.model_dim, config.num_decoder_attn_heads, sdpa
         )
 
     def create_layer_norm(self) -> LayerNorm:

@@ -145,8 +145,8 @@ class MistralFactory:
         return StandardMultiheadAttention(
             config.model_dim,
             config.num_attn_heads,
+            sdpa,
             num_key_value_heads=config.num_key_value_heads,
-            sdpa=sdpa,
             pos_encoder=pos_encoder,
             bias=False,
             state_factory=incremental_state_factory,
