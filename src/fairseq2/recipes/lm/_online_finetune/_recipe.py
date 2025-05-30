@@ -145,7 +145,6 @@ class OnlineFinetuneConfig:
 @dataclass(kw_only=True)
 class VllmActorsSection:
     ray_cluster_ip_address: str | None = None
-    # ray_actors: List[VllmRayActorConfig] | None = None
     ray_actors: List[Union[VllmRayActorConfig, HFRayActorConfig]] | None = None
 
 
