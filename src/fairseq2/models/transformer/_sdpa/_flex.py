@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Callable, TypeAlias, cast, final
+from typing import Callable, TypeAlias, final
 
 import torch
 from torch import Tensor
@@ -44,7 +44,7 @@ def _sliding_window_causal_mask_fn(window_size: int) -> MaskFunction:
     """Creates a sliding window causal mask function."""
 
     def mask_fn(b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor) -> Tensor:
-        return (q_idx >= kv_idx) and (q_idx - kv_idx <= window_size)
+        return (q_idx >= kv_idx) & (q_idx - kv_idx <= window_size)
 
     return mask_fn
 
