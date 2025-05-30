@@ -242,7 +242,57 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         return config
 
     @arch("qwen3_8b_instruct")
-    def qwen3_4b_instruct() -> QwenConfig:
+    def qwen3_8b_instruct() -> QwenConfig:
         config = qwen3_8b()
+
+        return config
+
+    @arch("qwen3_14b")
+    def qwen3_14b() -> QwenConfig:
+        config = QwenConfig()
+
+        config.model_dim = 5120
+        config.num_layers = 40
+        config.num_attn_heads = 40
+        config.num_key_value_heads = 8
+        config.ffn_inner_dim = 17408
+        config.vocab_size = 151936
+        config.rope_theta = 1000000
+        config.max_seq_len = 40960
+        config.q_norm = True
+        config.k_norm = True
+        config.attention_bias = False
+        config.head_dim = 128
+
+        return config
+
+    @arch("qwen3_14b_instruct")
+    def qwen3_14b_instruct() -> QwenConfig:
+        config = qwen3_14b()
+
+        return config
+
+    @arch("qwen3_32b")
+    def qwen3_32b() -> QwenConfig:
+        config = QwenConfig()
+
+        config.model_dim = 5120
+        config.num_layers = 64
+        config.num_attn_heads = 64
+        config.num_key_value_heads = 8
+        config.ffn_inner_dim = 25600
+        config.vocab_size = 151936
+        config.rope_theta = 1000000
+        config.max_seq_len = 40960
+        config.q_norm = True
+        config.k_norm = True
+        config.attention_bias = False
+        config.head_dim = 128
+
+        return config
+
+    @arch("qwen3_32b_instruct")
+    def qwen3_32b_instruct() -> QwenConfig:
+        config = qwen3_32b()
 
         return config

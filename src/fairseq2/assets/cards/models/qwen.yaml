@@ -134,3 +134,32 @@ checkpoint: "hg://Qwen/Qwen3-0.6B"
 tokenizer: "hg://Qwen/Qwen3-0.6B"
 tokenizer_family: qwen
 use_im_end: true
+
+---
+
+name: qwen3_14b
+model_family: qwen
+model_arch: qwen3_14b
+checkpoint: "hg://Qwen/Qwen3-14B-Base"
+tokenizer: "hg://Qwen/Qwen3-14B-Base"
+tokenizer_family: qwen
+
+---
+
+name: qwen3_14b_instruct
+model_family: qwen
+model_arch: qwen3_14b_instruct
+checkpoint: "hg://Qwen/Qwen3-14B"
+tokenizer: "hg://Qwen/Qwen3-14B"
+tokenizer_family: qwen
+use_im_end: true
+
+---
+
+name: qwen3_32b_instruct
+model_family: qwen
+model_arch: qwen3_32b_instruct
+checkpoint: "hg://Qwen/Qwen3-32B"
+tokenizer: "hg://Qwen/Qwen3-32B"
+tokenizer_family: qwen
+use_im_end: true
