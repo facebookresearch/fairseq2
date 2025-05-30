@@ -14,6 +14,7 @@ from torch.nn.attention.flex_attention import and_masks, create_block_mask, flex
 
 from typing_extensions import override
 
+from fairseq2.device import Device
 from fairseq2.error import NotSupportedError
 from fairseq2.nn import BatchLayout
 
@@ -41,12 +42,53 @@ def _sliding_window_causal_mask_fn(window_size: int) -> Callable:
     return mask_fn
 
 
+def _offsets_to_doc_ids_tensor(offsets):
+    """Convert offsets to document IDs for packed sequences."""
+    device = offsets.device
+    counts = offsets[1:] - offsets[:-1]
+    return torch.repeat_interleave(
+        torch.arange(len(counts), device=device, dtype=torch.int32), counts
+    )
+
+
+def _create_packed_mask_fn(
+    seq_begin_indices: Tensor,
+    seq_lens: Tensor,
+    keys_begin_indices: Tensor,
+    keys_seq_lens: Tensor,
+    base_mask_fn: Callable | None = None
+):
+    """Creates a mask function for packed sequences using document-based masking."""
+    # Create document IDs for queries and keys
+    query_doc_ids = _offsets_to_doc_ids_tensor(seq_begin_indices)
+    key_doc_ids = _offsets_to_doc_ids_tensor(keys_begin_indices)
+    
+    def packed_mask_fn(b: int, h: int, q_idx: int, kv_idx: int) -> bool:
+        # Check if query and key belong to the same document
+        same_doc = query_doc_ids[q_idx] == key_doc_ids[kv_idx]
+        
+        # Convert global indices to logical positions within documents
+        q_doc_id = query_doc_ids[q_idx]
+        kv_doc_id = key_doc_ids[kv_idx]
+        q_logical = q_idx - seq_begin_indices[q_doc_id]
+        kv_logical = kv_idx - keys_begin_indices[kv_doc_id]
+        
+        # Apply base mask (e.g., causal) to logical positions
+        if base_mask_fn is not None:
+            inner_mask = base_mask_fn(b, h, q_logical, kv_logical)
+            return same_doc & inner_mask
+        else:
+            return same_doc
+    
+    return packed_mask_fn
+
+
 def _create_padding_mask_fn(seq_lens: Tensor, value_seq_lens: Tensor):
     """Creates a padding mask function that masks out padding tokens."""
     def padding_mask_fn(b: int, h: int, q_idx: int, kv_idx: int) -> bool:
-        q_valid = q_idx < seq_lens[b].item()
-        kv_valid = kv_idx < value_seq_lens[b].item()
-        return q_valid and kv_valid
+        q_valid = q_idx < seq_lens[b]
+        kv_valid = kv_idx < value_seq_lens[b]
+        return q_valid & kv_valid
 
     return padding_mask_fn
 
@@ -70,47 +112,84 @@ def _create_composed_mask(
     bias: AttentionBias,
     seqs_layout: BatchLayout,
     keys_layout: BatchLayout,
+    device: Device,
     dropout_p: float = 0.0,
     training: bool = True,
+    packed: bool = False,
 ) -> BlockMask | None:
-    """Creates a composed mask using or_mask for combining multiple mask functions."""
+    """Creates a composed mask using and_mask for combining multiple mask functions."""
     masks = []
 
-    # Add attention bias mask
-    if isinstance(bias, CausalAttentionBias):
-        attn_window_len = bias.attn_window_len
-        if attn_window_len is not None:
-            masks.append(_sliding_window_causal_mask_fn(attn_window_len))
-        else:
-            masks.append(_causal_mask_fn)
-    elif not isinstance(bias, IdentityBias):
-        raise NotSupportedError(f"Unsupported bias type: {bias}")
+    if packed:
+        # For packed sequences, create the base mask function first
+        base_mask_fn = None
+        
+        # Add attention bias mask as base mask
+        if isinstance(bias, CausalAttentionBias):
+            attn_window_len = bias.attn_window_len
+            if attn_window_len is not None:
+                base_mask_fn = _sliding_window_causal_mask_fn(attn_window_len)
+            else:
+                base_mask_fn = _causal_mask_fn
+        elif not isinstance(bias, IdentityBias):
+            raise NotSupportedError(f"Unsupported bias type: {bias}")
+        
+        # Create the packed sequence mask that incorporates the base mask
+        packed_mask = _create_packed_mask_fn(
+            seqs_layout.seq_begin_indices_pt,
+            seqs_layout.seq_lens_pt,
+            keys_layout.seq_begin_indices_pt,
+            keys_layout.seq_lens_pt,
+            base_mask_fn
+        )
+        masks.append(packed_mask)
+        
+    else:
+        # Standard batch format - handle bias and padding separately
+        if isinstance(bias, CausalAttentionBias):
+            attn_window_len = bias.attn_window_len
+            if attn_window_len is not None:
+                masks.append(_sliding_window_causal_mask_fn(attn_window_len))
+            else:
+                masks.append(_causal_mask_fn)
+        elif not isinstance(bias, IdentityBias):
+            raise NotSupportedError(f"Unsupported bias type: {bias}")
 
-    if seqs_layout.seq_lens_pt is not None and keys_layout.seq_lens_pt is not None:
-        # Add padding mask if sequence lengths are provided
-        masks.append(_create_padding_mask_fn(seqs_layout.seq_lens_pt, keys_layout.seq_lens_pt))
+        if seqs_layout.seq_lens_pt is not None and keys_layout.seq_lens_pt is not None:
+            # Add padding mask if sequence lengths are provided
+            masks.append(_create_padding_mask_fn(seqs_layout.seq_lens_pt, keys_layout.seq_lens_pt))
 
     # Add dropout mask if needed
     dropout_mask = _dropout_mask_fn(dropout_p, training)
     if dropout_mask is not None:
         masks.append(dropout_mask)
 
-    # Compose masks using or_mask
+    # Compose masks using and_mask
     mask_fn = None
     if len(masks) == 0:
         return None
     elif len(masks) == 1:
         mask_fn = masks[0]
     else:
-        # Use and_mask to combine multiple mask functions
         mask_fn = and_masks(*masks)
+
+    # For packed sequences, use the total sequence length
+    if packed:
+        total_seq_len = seqs_layout.seq_begin_indices_pt[-1].item()
+        total_keys_len = keys_layout.seq_begin_indices_pt[-1].item()
+        batch_size = 1  # Packed format treats everything as one big batch
+    else:
+        total_seq_len = seqs_layout.max_seq_len
+        total_keys_len = keys_layout.max_seq_len
+        batch_size = seqs_layout.width
 
     block_mask = create_block_mask(
         mask_fn,
-        B=seqs_layout.width,
+        B=batch_size,
         H=None,
-        Q_LEN=seqs_layout.max_seq_len,
-        KV_LEN=keys_layout.max_seq_len,
+        Q_LEN=total_seq_len,
+        KV_LEN=total_keys_len,
+        device=device,
     )
     return block_mask
 
@@ -149,71 +228,28 @@ class FlexSDPA(SDPA):
         else:
             dropout_p = self.dropout_p
 
-        # Create the composed mask using or_mask for clean composition
+        # Create the composed block mask using and_mask
         block_mask = _create_composed_mask(
-            self.bias, seqs_layout, keys_layout, dropout_p, self.training
+            self.bias, 
+            seqs_layout, 
+            keys_layout, 
+            seqs.device, 
+            dropout_p, 
+            self.training,
+            packed=seqs_layout.packed,
         )
-
-        import pytest
-        pytest.set_trace()
 
         seqs = seqs.transpose(1, 2)
         keys = keys.transpose(1, 2)
         values = values.transpose(1, 2)
 
-        if seqs_layout.packed:
-            # For packed sequences, we need to handle variable length sequences
-            # This is more complex with Flex Attention and may require custom handling
-            # For now, we'll reshape and use the standard flex_attention
-            batch_size = len(seqs_layout.seq_begin_indices_pt) - 1
-            max_seq_len = seqs_layout.max_seq_len
-            num_heads = seqs.size(1)
-            head_dim = seqs.size(-1)
-           
-            # Reshape from packed format to batch format
-            # This is a simplified approach - in practice you'd need more sophisticated
-            # handling of variable length sequences
-            seqs_batch = seqs.new_zeros(batch_size, num_heads, max_seq_len, head_dim)
-            keys_batch = keys.new_zeros(batch_size, num_heads, max_seq_len, head_dim)
-            values_batch = values.new_zeros(batch_size, num_heads, max_seq_len, head_dim)
-           
-            for i in range(batch_size):
-                start_idx = seqs_layout.seq_begin_indices_pt[i]
-                end_idx = seqs_layout.seq_begin_indices_pt[i + 1]
-                seq_len = end_idx - start_idx
-               
-                seqs_batch[i, :, :seq_len] = seqs[start_idx:end_idx].transpose(0, 1)
-                keys_batch[i, :, :seq_len] = keys[start_idx:end_idx].transpose(0, 1)
-                values_batch[i, :, :seq_len] = values[start_idx:end_idx].transpose(0, 1)
-           
-            # Apply flex attention with composed mask
-            attns_batch = flex_attention(
-                seqs_batch,
-                keys_batch,
-                values_batch,
-                block_mask=block_mask,
-                enable_gqa=False,
-            )
-           
-            # Convert back to packed format
-            total_len = seqs.size(0)
-            attns = seqs.new_zeros(total_len, num_heads, head_dim)
-           
-            for i in range(batch_size):
-                start_idx = seqs_layout.seq_begin_indices_pt[i]
-                end_idx = seqs_layout.seq_begin_indices_pt[i + 1]
-                seq_len = end_idx - start_idx
-               
-                attns[start_idx:end_idx] = attns_batch[i, :, :seq_len].transpose(0, 1)
-        else:
-            # Standard batch format
-            attns = flex_attention(
-                seqs,
-                keys,
-                values,
-                block_mask=block_mask,
-                enable_gqa=False,
-            )
+        attns = flex_attention(
+            seqs,
+            keys,
+            values,
+            block_mask=block_mask,
+            enable_gqa=False,
+        )
 
         attns = attns.transpose(1, 2)
         attns = cast(Tensor, attns)

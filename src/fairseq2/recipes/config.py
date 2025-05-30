@@ -463,6 +463,7 @@ SDPAVariant: TypeAlias = Literal[
     "torch_flash",
     "flash2",
     "flash3",
+    "flex",
     "naive",
 ]
 
