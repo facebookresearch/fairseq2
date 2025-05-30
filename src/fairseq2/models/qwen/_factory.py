@@ -104,7 +104,7 @@ class QwenFactory:
     def create_decoder(self) -> TransformerLMDecoder:
         config = self._config
 
-        pos_encoder = self.create_position_encoder()
+        pos_encoder = self.create_position_encoder(config.head_dim)
 
         layers = []
 
@@ -117,10 +117,13 @@ class QwenFactory:
 
         return StandardTransformerLMDecoder(layers, layer_norm)
 
-    def create_position_encoder(self) -> PositionEncoder:
+    def create_position_encoder(self, head_dim: int | None = None) -> PositionEncoder:
         config = self._config
 
-        encoding_dim = config.model_dim // config.num_attn_heads
+        if head_dim:
+            encoding_dim = head_dim
+        else:
+            encoding_dim = config.model_dim // config.num_attn_heads
 
         return ReferenceRotaryEncoder(
             encoding_dim, config.max_seq_len, theta=config.rope_theta
@@ -159,6 +162,21 @@ class QwenFactory:
 
         std_scale_factor = self.get_std_scale_factor(layer_idx)
 
+        if config.head_dim is None:
+            head_dim = config.model_dim // config.num_attn_heads
+        else:
+            head_dim = config.head_dim
+
+        if config.k_norm:
+            k_norm = RMSNorm(head_dim, bias=False, eps=1e-06)
+        else:
+            k_norm = None
+
+        if config.q_norm:
+            q_norm = RMSNorm(head_dim, bias=False, eps=1e-06)
+        else:
+            q_norm = None
+
         def init_projection(proj: Linear) -> None:
             input_dim = proj.weight.shape[1]
 
@@ -169,12 +187,15 @@ class QwenFactory:
         return StandardMultiheadAttention(
             config.model_dim,
             config.num_attn_heads,
+            head_dim=config.head_dim,
             num_key_value_heads=config.num_key_value_heads,
             qkv_proj_init_fn=init_projection,
             sdpa=sdpa,
+            q_norm=q_norm,
+            k_norm=k_norm,
             pos_encoder=pos_encoder,
             output_proj_init_fn=init_projection,
-            bias=True,
+            bias=config.attention_bias,
             output_proj_bias=False,
         )
 

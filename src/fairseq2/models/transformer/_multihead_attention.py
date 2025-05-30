@@ -28,6 +28,7 @@ from fairseq2.nn import (
     Linear,
     PositionEncoder,
     Projection,
+    LayerNorm,
 )
 from fairseq2.ops import repeat_interleave
 from fairseq2.typing import get_name_or_self
@@ -154,11 +155,14 @@ class StandardMultiheadAttention(MultiheadAttention):
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     num_heads: int
+    head_dim: int | None
     num_key_value_heads: int
     num_query_groups: int
     q_proj: Projection
     k_proj: Projection
     v_proj: Projection
+    q_norm: LayerNorm
+    k_norm: LayerNorm
     pos_encoder: PositionEncoder | None
     sdpa: SDPA
     output_proj: Projection
@@ -167,14 +171,17 @@ class StandardMultiheadAttention(MultiheadAttention):
     def __init__(
         self,
         model_dim: int,
-        num_heads: int,
+        num_heads: int | None,
         sdpa: SDPA,
         *,
+        head_dim: int | None = None,
         num_key_value_heads: int | None = None,
         kv_dim: int | None = None,
         q_proj: Projection | None = None,
         k_proj: Projection | None = None,
         v_proj: Projection | None = None,
+        q_norm: LayerNorm | None = None,
+        k_norm: LayerNorm | None = None,
         qkv_proj_init_fn: Callable[[Linear], None] | None = None,
         pos_encoder: PositionEncoder | None = None,
         output_proj: Projection | None = None,
@@ -255,12 +262,13 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         self.num_query_groups = num_heads // self.num_key_value_heads
 
-        head_dim = model_dim // num_heads
+        if head_dim is None:
+            head_dim = model_dim // num_heads
 
         if q_proj is None and k_proj is None and v_proj is None:
             q_proj = Linear(
                 model_dim,
-                model_dim,
+                head_dim * self.num_heads,
                 bias,
                 init_fn=qkv_proj_init_fn or init_qkv_projection,
                 device=device,
@@ -315,6 +323,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         self.q_proj = q_proj
         self.k_proj = k_proj
         self.v_proj = v_proj
+        self.q_norm = q_norm
+        self.k_norm = k_norm
 
         if pos_encoder is not None:
             if head_dim != pos_encoder.encoding_dim:
@@ -471,6 +481,8 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         # (N, S, K_proj) -> (N, S, H, K_h)
         q = q.unflatten(-1, (self.num_heads, -1))
+        if self.q_norm:
+            q = self.q_norm(q)
 
         if self.pos_encoder is not None:
             q = self.pos_encoder(q, seqs_layout, state_bag=state_bag)
@@ -491,6 +503,8 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         # (N, S, K_proj) -> (N, S, H, K_h)
         k = k.unflatten(-1, (self.num_key_value_heads, -1))
+        if self.k_norm:
+            k = self.k_norm(k)
         # (N, S, V_proj) -> (N, S, H, V_h)
         v = v.unflatten(-1, (self.num_key_value_heads, -1))
 

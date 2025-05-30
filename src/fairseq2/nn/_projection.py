@@ -278,7 +278,7 @@ class ColumnShardedLinear(Projection):
         if weight is None or not isinstance(weight, Tensor):
             return
 
-        if weight.size(0) == module._output_dim:
+        if weight.size(0) == module.output_dim:
             with torch.no_grad():
                 weight_shards = weight.split(module.sharded_output_dim)
 
@@ -516,7 +516,7 @@ class RowShardedLinear(Projection):
 
     @override
     def forward(self, x: Tensor) -> Tensor:
-        if self._scatter_input:
+        if self.scatter_input:
             x = scatter(x, self.gang, dim=-1)
 
         x = linear(x, self.weight)
@@ -563,10 +563,10 @@ class RowShardedLinear(Projection):
         """:meta private:"""
         bias = self.bias is not None
 
-        if self._scatter_input:
-            s = f"input_dim={self._input_dim}"
+        if self.scatter_input:
+            s = f"input_dim={self.input_dim}"
         else:
-            s = f"input_dim={self._sharded_input_dim}"
+            s = f"input_dim={self.sharded_input_dim}"
 
         s = (
             f"rank={self.gang.rank}, "
