@@ -958,15 +958,11 @@ class Trainer(Recipe):
                     blocking=blocking,
                 )
             else:
-                tmp = self._base_wall_time
-
-                self._base_wall_time += self._wall_watch.get_elapsed_time()
-
-                trainer_state = _TrainerStateBag(self)
+                shim_trainer = _TrainerStateBag(self)
 
                 self._checkpoint_manager.save_checkpoint(
                     step_nr,
-                    trainer_state,
+                    shim_trainer,
                     self._unit.model,
                     self._optimizer,  # type: ignore[arg-type]
                     self._data_reader,
@@ -974,8 +970,6 @@ class Trainer(Recipe):
                     callback=self._complete_checkpoint,
                     blocking=blocking,
                 )
-
-                self._base_wall_time = tmp
         except CheckpointSaveError as ex:
             raise RecipeError(
                 f"The checkpoint of step {ex.step_nr} cannot be saved. See the nested exception for details."
@@ -1289,14 +1283,13 @@ T = TypeVar("T")
 
 
 class _TrainerStateBag(Stateful):
-    _KEYS: Final = [
+    _ATTR_NAMES: Final = [
         "_step_nr",
         "_data_epoch_nr",
         "_lr_scheduler",
         "_loss_scaler",
         "_rng_bag",
         "_metric_bag",
-        "_base_wall_time",
     ]
 
     _trainer: Trainer
@@ -1308,59 +1301,57 @@ class _TrainerStateBag(Stateful):
     def state_dict(self) -> dict[str, object]:
         state_dict: dict[str, object] = {}
 
-        def save_stateful(key: str, obj: object) -> None:
-            if isinstance(obj, (bool, int, float)):
-                state_dict[key] = obj
-            elif isinstance(obj, Stateful):
-                state_dict[key] = obj.state_dict()
+        def save_stateful(name: str, value: object) -> None:
+            if isinstance(value, Stateful):
+                state_dict[name] = value.state_dict()
             else:
-                raise InternalError(f"`Trainer.{key}` has no state.")
+                state_dict[name] = value
 
-        for key in self._KEYS:
-            save_stateful(key, getattr(self._trainer, key))
+        for name in self._ATTR_NAMES:
+            value = getattr(self._trainer, name)
+
+            save_stateful(name, value)
+
+        wall_time = self._trainer._wall_watch.get_elapsed_time()
+
+        state_dict["_base_wall_time"] = self._trainer._base_wall_time + wall_time
 
         return state_dict
 
     @override
     def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
-        def load_stateful(key: str) -> None:
-            try:
-                obj = getattr(self._trainer, key)
-            except AttributeError:
-                raise InternalError(f"`{key}` is not a `Trainer` attribute.") from None
+        def load_stateful(name: str) -> None:
+            value = getattr(self._trainer, name)
 
             try:
-                state = state_dict[key]
+                state = state_dict[name]
             except KeyError:
-                raise ValueError(f"`state_dict` must contain a key named '{key}'.")
+                raise ValueError(f"`state_dict` must contain a key named '{name}'.")
 
             def type_error(kls: type) -> TypeError:
                 raise TypeError(
-                    f"`state_dict['{key}']` must be of type `{kls}`, but is of type `{type(state)}` instead."
+                    f"`state_dict['{name}']` must be of type `{kls}`, but is of type `{type(state)}` instead."
                 )
 
-            if isinstance(obj, (bool, int, float)):
-                if type(state) != type(obj):
-                    raise type_error(type(obj))
+            kls = type(value)
 
-                setattr(self._trainer, key, state)
-
-                return
-
-            if isinstance(obj, Stateful):
+            if isinstance(value, Stateful):
                 if not isinstance(state, Mapping):
                     raise type_error(Mapping)
 
                 try:
-                    obj.load_state_dict(state)
+                    value.load_state_dict(state)
                 except (RuntimeError, ValueError, TypeError) as ex:
                     raise ValueError(
-                        f"`state_dict['{key}']` is not a valid `{type(obj)}` state. See the nested exception for details."
+                        f"`state_dict['{name}']` is not a valid `{kls}` state. See the nested exception for details."
                     ) from ex
+            else:
+                if type(state) != kls:
+                    raise type_error(kls)
 
-                return
+                setattr(self._trainer, name, state)
 
-            raise InternalError(f"`Trainer.{key}` has no state.")
+        for name in self._ATTR_NAMES:
+            load_stateful(name)
 
-        for key in self._KEYS:
-            load_stateful(key)
+        load_stateful("_base_wall_time")
