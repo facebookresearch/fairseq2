@@ -313,23 +313,17 @@ class RemoteHFModel:
         for i in range(0, len(prompt_list), batch_size):
             prompt_chunk = prompt_list[i : i + batch_size]
 
-            messages = [
-                {
-                    "role": "user",
-                    "content": "What is an Athene Noctura? Explain one sentence.",
-                },
-                {
-                    "role": "assistant",
-                    "content": "The Athene noctua, also known as the little owl, is a small, nocturnal owl species native to Europe, Asia, and North Africa, characterized by its distinctive facial disk and piercing yellow eyes.",
-                },
-            ]
-
             outputs.append(
-                self.hf_workers[replica_counter % self.num_replicas].remote([messages])
+                self.hf_workers[replica_counter % self.num_replicas].__call__.remote(
+                    prompt_chunk
+                )
             )
             replica_counter += 1
+
         ray_outputs = ray.get(outputs)
+
         ray_outputs_flat = [o for sublist in ray_outputs for o in sublist]
+
         # rewards = [o.outputs.data.item() for o in ray_outputs_flat]
         return ray_outputs_flat
 

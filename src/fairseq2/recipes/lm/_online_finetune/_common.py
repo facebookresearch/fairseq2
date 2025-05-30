@@ -142,8 +142,12 @@ class AtheneForSequenceClassification(LlamaPreTrainedModel):
 
         for i in range(bs):
             c_inds = (input_ids[i] == self.CLS_ID).nonzero()
-            c_ind = c_inds[-1].item()
-            scores.append(rewards[i, c_ind])
+            if len(c_inds) == 0:
+                # FIXME why is this happening? should always be a CLS_ID token
+                scores.append(torch.Tensor([0.0]))
+            else:
+                c_ind = c_inds[-1].item()
+                scores.append(rewards[i, c_ind])
         scores = torch.stack(scores)
         return {"scores": scores}
 
@@ -157,10 +161,12 @@ class AtheneRewardPipeline(TextClassificationPipeline):
 
         formatted = formatted + self.tokenizer.cls_token
 
+        log.info(f"added self.tokenizer.cls_token")
+
         return self.tokenizer(
             formatted,
             return_tensors=return_tensors,
-            max_length=4096,
+            max_length=4096,  # FIXME use config len
             padding="longest",
             truncation=True,
         )
@@ -175,19 +181,15 @@ class NoEnvPipeline(AtheneRewardPipeline):
         # stop ray from manipulating CUDA_VISIBLE_DEVICES
         # at the top-level
         del os.environ["CUDA_VISIBLE_DEVICES"]
-        # model = AtheneForSequenceClassification.from_pretrained(
-        #     "Nexusflow/Athene-RM-8B", torch_dtype=bfloat16
-        # )
-        # Initialize the model
-        self.model = AtheneForSequenceClassification.from_pretrained(
+        model = AtheneForSequenceClassification.from_pretrained(
             "Nexusflow/Athene-RM-8B", torch_dtype="bfloat16"
         )
-        self.tokenizer = AutoTokenizer.from_pretrained("Nexusflow/Athene-RM-8B")
+        tokenizer = AutoTokenizer.from_pretrained("Nexusflow/Athene-RM-8B")
 
         super().__init__(
             task="text-classification",
-            model=self.model,
-            tokenizer=self.tokenizer,
+            model=model,
+            tokenizer=tokenizer,
             device_map="auto",
         )
         self.ready = True  # Set a flag or return a signal
