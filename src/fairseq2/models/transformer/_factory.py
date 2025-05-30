@@ -168,7 +168,7 @@ class TransformerFactory:
 
         num_heads = config.num_encoder_attn_heads
 
-        return StandardMultiheadAttention(config.model_dim, num_heads, sdpa=sdpa)
+        return StandardMultiheadAttention(config.model_dim, num_heads, sdpa)
 
     def create_ffn(self) -> FeedForwardNetwork:
         config = self._config
@@ -229,7 +229,7 @@ class TransformerFactory:
 
         num_heads = config.num_decoder_attn_heads
 
-        return StandardMultiheadAttention(config.model_dim, num_heads, sdpa=sdpa)
+        return StandardMultiheadAttention(config.model_dim, num_heads, sdpa)
 
     def create_encoder_decoder_attention(self) -> MultiheadAttention:
         config = self._config
@@ -240,7 +240,7 @@ class TransformerFactory:
 
         num_heads = config.num_decoder_attn_heads
 
-        return StandardMultiheadAttention(config.model_dim, num_heads, sdpa=sdpa)
+        return StandardMultiheadAttention(config.model_dim, num_heads, sdpa)
 
     def create_layer_norm(self) -> LayerNorm:
         config = self._config

@@ -254,10 +254,6 @@ def load_llama3_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
             eoh_token="<|end_header_id|>",
             special_tokens=special_tokens,
         )
-    except ValueError as ex:
-        raise TextTokenizerLoadError(
-            card.name, f"The '{card.name}' asset card does not contain a valid text tokenizer configuration of the '{LLAMA_TOKENIZER_FAMILY}' family. See the nested exception for details."  # fmt: skip
-        ) from ex
     except (OSError, RuntimeError) as ex:
         raise TextTokenizerLoadError(
             card.name, f"The '{card.name}' text tokenizer model cannot be loaded. See the nested exception for details."  # fmt: skip
@@ -286,10 +282,6 @@ def load_llama3_hg_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
             boh_token="<|start_header_id|>",
             eoh_token="<|end_header_id|>",
         )
-    except ValueError as ex:
-        raise TextTokenizerLoadError(
-            card.name, f"The '{card.name}' asset card does not contain a valid text tokenizer configuration of the '{LLAMA_TOKENIZER_FAMILY}' family. See the nested exception for details."  # fmt: skip
-        ) from ex
     except (OSError, RuntimeError) as ex:
         raise TextTokenizerLoadError(
             card.name, f"The '{card.name}' text tokenizer model cannot be loaded. See the nested exception for details."  # fmt: skip

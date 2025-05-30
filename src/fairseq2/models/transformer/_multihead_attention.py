@@ -25,6 +25,7 @@ from fairseq2.nn import (
     BatchLayout,
     IncrementalState,
     IncrementalStateBag,
+    LayerNorm,
     Linear,
     PositionEncoder,
     Projection,
@@ -154,11 +155,14 @@ class StandardMultiheadAttention(MultiheadAttention):
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     num_heads: int
+    head_dim: int
     num_key_value_heads: int
     num_query_groups: int
     q_proj: Projection
     k_proj: Projection
     v_proj: Projection
+    q_norm: LayerNorm
+    k_norm: LayerNorm
     pos_encoder: PositionEncoder | None
     sdpa: SDPA
     output_proj: Projection
@@ -170,12 +174,15 @@ class StandardMultiheadAttention(MultiheadAttention):
         num_heads: int,
         sdpa: SDPA,
         *,
+        head_dim: int | None = None,
         num_key_value_heads: int | None = None,
         kv_dim: int | None = None,
         q_proj: Projection | None = None,
         k_proj: Projection | None = None,
         v_proj: Projection | None = None,
         qkv_proj_init_fn: Callable[[Linear], None] | None = None,
+        q_norm: LayerNorm | None = None,
+        k_norm: LayerNorm | None = None,
         pos_encoder: PositionEncoder | None = None,
         output_proj: Projection | None = None,
         output_proj_init_fn: Callable[[Linear], None] | None = None,
@@ -210,6 +217,10 @@ class StandardMultiheadAttention(MultiheadAttention):
             ``None``, a default projection will be used.
         :param qkv_proj_init_fn:
             The callable to initialize the q, k, v projections.
+        :param q_norm:
+            If ``True``, applies Layer Normalization to projected queries.
+        :param k_norm:
+            If ``True``, applies Layer Normalization to projected keys.
         :param pos_encoder:
             The position encoder to apply to sequences and keys after projection.
         :param sdpa:
@@ -235,6 +246,9 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         self.num_heads = num_heads
 
+        if head_dim is None:
+            head_dim = model_dim // num_heads
+
         if num_key_value_heads is None:
             num_key_value_heads = num_heads
         else:
@@ -255,12 +269,10 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         self.num_query_groups = num_heads // self.num_key_value_heads
 
-        head_dim = model_dim // num_heads
-
         if q_proj is None and k_proj is None and v_proj is None:
             q_proj = Linear(
                 model_dim,
-                model_dim,
+                head_dim * self.num_heads,
                 bias,
                 init_fn=qkv_proj_init_fn or init_qkv_projection,
                 device=device,
@@ -315,6 +327,9 @@ class StandardMultiheadAttention(MultiheadAttention):
         self.q_proj = q_proj
         self.k_proj = k_proj
         self.v_proj = v_proj
+
+        self.register_module("q_norm", q_norm)
+        self.register_module("k_norm", k_norm)
 
         if pos_encoder is not None:
             if head_dim != pos_encoder.encoding_dim:
@@ -472,6 +487,9 @@ class StandardMultiheadAttention(MultiheadAttention):
         # (N, S, K_proj) -> (N, S, H, K_h)
         q = q.unflatten(-1, (self.num_heads, -1))
 
+        if self.q_norm is not None:
+            q = self.q_norm(q)
+
         if self.pos_encoder is not None:
             q = self.pos_encoder(q, seqs_layout, state_bag=state_bag)
 
@@ -493,6 +511,9 @@ class StandardMultiheadAttention(MultiheadAttention):
         k = k.unflatten(-1, (self.num_key_value_heads, -1))
         # (N, S, V_proj) -> (N, S, H, V_h)
         v = v.unflatten(-1, (self.num_key_value_heads, -1))
+
+        if self.k_norm is not None:
+            k = self.k_norm(k)
 
         if self.pos_encoder is not None:
             k = self.pos_encoder(k, keys_layout, state_bag=state_bag)

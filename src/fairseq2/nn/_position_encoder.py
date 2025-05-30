@@ -147,7 +147,6 @@ class SinusoidalPositionEncoder(PositionEncoder):
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
-        """:meta private:"""
         if not self.training and state_bag is not None:
             start_step = state_bag.step_nr
         else:
@@ -270,7 +269,6 @@ class LearnedPositionEncoder(PositionEncoder):
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
-        """:meta private:"""
         if not self.training and state_bag is not None:
             start_step = state_bag.step_nr
         else:
@@ -397,7 +395,6 @@ class RotaryEncoder(PositionEncoder):
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
-        """:meta private:"""
         if not self.training and state_bag is not None:
             start_step = state_bag.step_nr
         else:
@@ -465,6 +462,171 @@ class RotaryEncoder(PositionEncoder):
             s = f"{s}, freqs_init_fn={freqs_init_fn}"
 
         return s
+
+
+@final
+class ReferenceRotaryEncoder(PositionEncoder):
+    """
+    Encodes sequences with relative positional information as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.2104.09864`.
+    """
+
+    cos_freqs: Tensor
+    sin_freqs: Tensor
+    max_seq_len: int
+    theta: float
+
+    def __init__(
+        self,
+        encoding_dim: int,
+        max_seq_len: int,
+        *,
+        theta: float = 10_000.0,
+        device: Device | None = None,
+    ) -> None:
+        """
+        :param encoding_dim: The dimensionality of positional encodings. The
+            last dimension of input sequences is expected to have the same
+            dimensionality.
+        :param max_seq_len: The maximum allowed length for input sequences.
+            Sequences longer than ``max_seq_len`` will cause a :class:`ValueError`.
+        :param theta: The coefficient of the long-term decay as described in
+            section 3.3 of the reference paper.
+
+        :raise ValueError: when ``encoding_dim`` is not even.
+        """
+        super().__init__(encoding_dim)
+
+        if encoding_dim % 2 != 0:
+            raise ValueError(
+                f"`encoding_dim` must be even, but is {encoding_dim} instead."
+            )
+
+        cos_freqs = torch.empty(
+            (max_seq_len + 1, encoding_dim), device=device, dtype=torch.float32
+        )
+
+        sin_freqs = torch.empty(
+            (max_seq_len + 1, encoding_dim), device=device, dtype=torch.float32
+        )
+
+        self.register_buffer("cos_freqs", cos_freqs, persistent=False)
+        self.register_buffer("sin_freqs", sin_freqs, persistent=False)
+
+        self.max_seq_len = max_seq_len
+
+        self.theta = theta
+
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        self.reset_non_persistent_buffers()
+
+    def reset_non_persistent_buffers(self) -> None:
+        self.cos_freqs[0] = 0.0  # pad
+        self.sin_freqs[0] = 0.0  # pad
+
+        dtype = torch.float32
+
+        device = self.cos_freqs.device
+
+        encoding_dim = self.encoding_dim
+
+        # (E)
+        indices = torch.arange(encoding_dim // 2, device=device, dtype=dtype)
+
+        # (E) -> (1, E)
+        indices = indices.unsqueeze(0)
+
+        # (S)
+        steps = torch.arange(self.max_seq_len, device=device, dtype=dtype)
+
+        # (S, 1)
+        steps = steps.unsqueeze(1)
+
+        # (S, 1) x (1, E) -> (S, E)
+        table = torch.matmul(steps, self.theta ** (-2.0 * indices / encoding_dim))
+
+        cos = torch.cos(table)
+        sin = torch.sin(table)
+
+        self.cos_freqs[1:, : encoding_dim // 2] = cos
+        self.cos_freqs[1:, encoding_dim // 2 :] = cos
+
+        self.sin_freqs[1:, : encoding_dim // 2] = sin
+        self.sin_freqs[1:, encoding_dim // 2 :] = sin
+
+    @override
+    def forward(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        *,
+        state_bag: IncrementalStateBag | None = None,
+    ) -> Tensor:
+        if not self.training and state_bag is not None:
+            start_step = state_bag.step_nr
+        else:
+            start_step = 0
+
+        max_seq_len = start_step + seqs_layout.max_seq_len
+
+        if max_seq_len > self.max_seq_len:
+            raise ValueError(
+                f"The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence is of length {max_seq_len} instead."
+            )
+
+        if seqs_layout.packed or seqs_layout.padded:
+            indices = seqs_layout.position_indices + 1  # +1 for padding
+
+            if not self.training and state_bag is not None:
+                indices = state_bag.step_nr + indices
+
+            # ([N], S, E)
+            cos_freqs = self.cos_freqs[indices]
+            sin_freqs = self.sin_freqs[indices]
+        else:
+            batch_width = seqs_layout.width
+
+            if not self.training and state_bag is not None:
+                start_step = 1 + state_bag.step_nr
+            else:
+                start_step = 1
+
+            # (S, E)
+            cos_freqs = self.cos_freqs[start_step : start_step + batch_width]
+            sin_freqs = self.sin_freqs[start_step : start_step + batch_width]
+
+            # (S, E) -> (1, S, E)
+            cos_freqs = cos_freqs.unsqueeze(0)
+            sin_freqs = sin_freqs.unsqueeze(0)
+
+        if d := seqs.ndim - cos_freqs.ndim:
+            cos_freqs = unsqueeze(cos_freqs, dim=-2, count=d)
+            sin_freqs = unsqueeze(sin_freqs, dim=-2, count=d)
+
+        fp32_seqs = seqs.float()
+
+        fp32_rotated_seqs = self._rotate_half_way(fp32_seqs)
+
+        fp32_seqs = (fp32_seqs * cos_freqs) + (fp32_rotated_seqs * sin_freqs)
+
+        return fp32_seqs.type_as(seqs)
+
+    def _rotate_half_way(self, seqs: Tensor) -> Tensor:
+        half1 = seqs[..., : self.encoding_dim // 2]
+        half2 = seqs[..., self.encoding_dim // 2 :]
+
+        return torch.cat((-half2, half1), dim=-1)
+
+    @override
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return (
+            f"encoding_dim={self.encoding_dim}, "
+            f"max_seq_len={self.max_seq_len}, "
+            f"theta={self.theta}"
+        )
 
 
 class InterpolatedPositionEncoder(Module, ABC):

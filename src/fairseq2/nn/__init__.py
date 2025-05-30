@@ -25,6 +25,9 @@ from fairseq2.nn._position_encoder import (
     LearnedPositionEncoder as LearnedPositionEncoder,
 )
 from fairseq2.nn._position_encoder import PositionEncoder as PositionEncoder
+from fairseq2.nn._position_encoder import (
+    ReferenceRotaryEncoder as ReferenceRotaryEncoder,
+)
 from fairseq2.nn._position_encoder import RotaryEncoder as RotaryEncoder
 from fairseq2.nn._position_encoder import (
     Sinusoidal2dPositionEncoder as Sinusoidal2dPositionEncoder,

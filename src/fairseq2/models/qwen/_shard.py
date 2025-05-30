@@ -14,8 +14,8 @@ from fairseq2.models.transformer_lm import (
 
 # isort: split
 
-from fairseq2.models.llama._config import LLaMAConfig
+from fairseq2.models.qwen._config import QwenConfig
 
 
-def shard_llama_model(model: TransformerLM, config: LLaMAConfig, gangs: Gangs) -> None:
-    shard_transformer_lm(model, gangs, shard_embed_dim=config.shard_embed_dim)
+def shard_qwen_model(model: TransformerLM, config: QwenConfig, gangs: Gangs) -> None:
+    shard_transformer_lm(model, gangs)

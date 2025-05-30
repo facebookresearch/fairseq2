@@ -226,7 +226,7 @@ class JepaEncoderFactory:
         return StandardMultiheadAttention(
             config.model_dim,
             config.num_encoder_attn_heads,
-            sdpa=sdpa,
+            sdpa,
             bias=config.qkv_bias,
             output_proj=output_proj,
         )

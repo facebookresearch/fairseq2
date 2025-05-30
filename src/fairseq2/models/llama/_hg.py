@@ -54,7 +54,6 @@ def _convert_config(config: LLaMAConfig) -> dict[str, object]:
 
     # We only specify the parameters made explicit in the Hugging Face converter.
     return {
-        "architectures": ["Fairseq2LlamaForCausalLM"],
         "bos_token_id": bos_idx,
         "eos_token_id": eos_idx,
         "hidden_size": config.model_dim,
@@ -117,4 +116,9 @@ def _convert_checkpoint(
         # fmt: on
     }
 
-    return convert_checkpoint(checkpoint, key_map)
+    checkpoint = convert_checkpoint(checkpoint, key_map)
+
+    if config.tie_embeddings:
+        del checkpoint["lm_head.weight"]
+
+    return checkpoint
