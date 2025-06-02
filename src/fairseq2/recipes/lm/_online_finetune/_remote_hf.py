@@ -40,28 +40,12 @@ import torch
 from typing import Dict
 
 
-# @dataclass(kw_only=True)
-# class HFEngineArgs:
-#     tensor_parallel_size: int = 4
-#     dtype: str = "auto"
-
-
-# @dataclass(kw_only=True)
-# class HFRayActorConfig:
-#     ray_actor_name: str = "dummy"
-#     num_replicas: int = 1
-#     hf_engine_args: HFEngineArgs = field(default_factory=lambda: HFEngineArgs())
-#     hf_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
-#     init_update_process_group: bool = False
-
-
 class RemoteHFModel:
     def __init__(
         self,
         ray_actor_name: str,
         num_replicas: int,
         tensor_parallel_size: int,
-        init_update_process_group: bool,
         gangs: Gangs,
     ):
         self._gangs = gangs
@@ -76,15 +60,11 @@ class RemoteHFModel:
             raise ValueError("hf worker should only be initialized on DP & TP rank 0")
 
         for replica_i in range(self.num_replicas):
-            self.setup_replica(
-                replica_i, tensor_parallel_size, init_update_process_group
-            )
+            self.setup_replica(replica_i, tensor_parallel_size)
 
         self._tensor_parallel_size = tensor_parallel_size
 
-    def setup_replica(
-        self, replica_i: int, tensor_parallel_size, init_update_process_group
-    ):
+    def setup_replica(self, replica_i: int, tensor_parallel_size):
         if (
             len(self.hf_workers) != replica_i
             or len(self.update_process_groups) != replica_i

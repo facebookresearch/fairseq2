@@ -77,6 +77,7 @@ from fairseq2.recipes.lm._online_finetune._grpo import (
 from fairseq2.recipes.lm._online_finetune._remote_vllm import (
     RemoteRayModelHandler,
     VllmRayActorConfig,
+    HFRayActorConfig,
 )
 from fairseq2.recipes.trainer import Trainer
 from fairseq2.typing import CPU
@@ -140,7 +141,7 @@ class OnlineFinetuneConfig:
 @dataclass(kw_only=True)
 class VllmActorsSection:
     ray_cluster_ip_address: str | None = None
-    ray_actors: List[Union[VllmRayActorConfig]] | None = None
+    ray_actors: List[Union[VllmRayActorConfig, HFRayActorConfig]] | None = None
 
 
 @dataclass(kw_only=True)
@@ -283,7 +284,6 @@ def load_online_finetuner(
     # go over actor configs and initialize all of them
     for actor_config in config.vllm.ray_actors:
         log.info(f"Setting up '{actor_config.ray_actor_name}' vllm actor")
-        # check if actor_config is a HFRayActorConfig
         actor = RemoteRayModelHandler().create(gangs=gangs, actor_config=actor_config)
         vllm_actors[actor_config.ray_actor_name] = actor
 

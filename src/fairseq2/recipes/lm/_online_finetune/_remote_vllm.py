@@ -31,6 +31,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
 )
 from fairseq2.logging import log
 from fairseq2.recipes.lm._online_finetune._remote_hf import RemoteHFModel
+from fairseq2.utils.structured import StructureError, structure
 
 
 class RemoteModelHandler(ABC):
@@ -61,21 +62,31 @@ class VllmEngineArgs:
 
 
 @dataclass(kw_only=True)
-class VllmRayActorConfig:
-    backend: str = "vllm"  # vllm or hf
+class RayActorConfig(ABC):
     ray_actor_name: str = "dummy"
+    backend: str = "vllm"  # vllm or hf
     num_replicas: int = 1
+    init_update_process_group: bool = False
+
+
+@dataclass(kw_only=True)
+class VllmRayActorConfig(RayActorConfig):
     vllm_engine_args: VllmEngineArgs = field(default_factory=lambda: VllmEngineArgs())
     vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
-    init_update_process_group: bool = False
+
+
+@dataclass(kw_only=True)
+class HFRayActorConfig(RayActorConfig):
+    tensor_parallel_size: int = 4
 
 
 class RemoteRayModelHandler(RemoteModelHandler):
     @override
-    def create(self, gangs: Gangs, actor_config: VllmRayActorConfig) -> RemoteVllmModel:
+    def create(self, gangs: Gangs, actor_config: RayActorConfig) -> RemoteVllmModel:
         if gangs.dp.rank == 0 and gangs.tp.rank == 0:
             # vllm worker is only created on the first DP ranks given how many replicas we use
             if actor_config.backend == "vllm":
+                actor_config = structure(actor_config, VllmRayActorConfig)
                 remote_vllm_model = RemoteVllmModel(
                     actor_config.ray_actor_name,
                     actor_config.num_replicas,
@@ -85,11 +96,11 @@ class RemoteRayModelHandler(RemoteModelHandler):
                     gangs,
                 )
             else:
+                actor_config = structure(actor_config, HFRayActorConfig)
                 remote_vllm_model = RemoteHFModel(
                     actor_config.ray_actor_name,
                     actor_config.num_replicas,
-                    actor_config.vllm_engine_args.tensor_parallel_size,
-                    actor_config.init_update_process_group,
+                    actor_config.tensor_parallel_size,
                     gangs,
                 )
         else:
@@ -107,7 +118,7 @@ class RemoteRayModelHandler(RemoteModelHandler):
     @property
     @override
     def config_kls(self) -> type[object]:
-        return VllmRayActorConfig
+        return RayActorConfig
 
 
 class RemoteVllmModel:
