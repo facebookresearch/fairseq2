@@ -18,9 +18,6 @@ from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 from torch.nn import Module
 from typing_extensions import override
 
-from vllm import SamplingParams
-from vllm.engine.arg_utils import PoolerConfig
-from vllm.utils import get_ip, get_open_port
 
 from fairseq2.gang import Gangs
 from fairseq2.models.sequence import SequenceBatch
@@ -63,8 +60,7 @@ class RemoteHFModel:
         self,
         ray_actor_name: str,
         num_replicas: int,
-        hf_engine_args,
-        sampling_params: dict,
+        tensor_parallel_size: int,
         init_update_process_group: bool,
         gangs: Gangs,
     ):
@@ -80,15 +76,15 @@ class RemoteHFModel:
             raise ValueError("hf worker should only be initialized on DP & TP rank 0")
 
         for replica_i in range(self.num_replicas):
-            self.setup_replica(replica_i, hf_engine_args, init_update_process_group)
-            # gangs.root.barrier()/
+            self.setup_replica(
+                replica_i, tensor_parallel_size, init_update_process_group
+            )
 
-        # populate sampling params using all values that were passed in the config
-        self.sampling_params = SamplingParams(**sampling_params)
+        self._tensor_parallel_size = tensor_parallel_size
 
-        self._hf_engine_args = hf_engine_args
-
-    def setup_replica(self, replica_i: int, hf_engine_args, init_update_process_group):
+    def setup_replica(
+        self, replica_i: int, tensor_parallel_size, init_update_process_group
+    ):
         if (
             len(self.hf_workers) != replica_i
             or len(self.update_process_groups) != replica_i
@@ -98,16 +94,16 @@ class RemoteHFModel:
             )
 
         hf_worker = self.setup_hf_worker(
-            f"{self.ray_actor_name}_{replica_i}", hf_engine_args, self._gangs
+            f"{self.ray_actor_name}_{replica_i}", tensor_parallel_size, self._gangs
         )
         self.hf_workers.append(hf_worker)
 
         log.info(f"Replica {replica_i} setup completed")
 
-    def setup_hf_worker(self, ray_actor_name, hf_engine_args, gangs: Gangs):
+    def setup_hf_worker(self, ray_actor_name, tensor_parallel_size, gangs: Gangs):
 
         pg_inference = placement_group(
-            [{"GPU": 1, "CPU": 0}] * hf_engine_args.tensor_parallel_size,
+            [{"GPU": 1, "CPU": 0}] * tensor_parallel_size,
             strategy="STRICT_PACK",
         )
 

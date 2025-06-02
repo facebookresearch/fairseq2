@@ -88,8 +88,7 @@ class RemoteRayModelHandler(RemoteModelHandler):
                 remote_vllm_model = RemoteHFModel(
                     actor_config.ray_actor_name,
                     actor_config.num_replicas,
-                    actor_config.vllm_engine_args,
-                    actor_config.vllm_sampling_params,
+                    actor_config.vllm_engine_args.tensor_parallel_size,
                     actor_config.init_update_process_group,
                     gangs,
                 )
