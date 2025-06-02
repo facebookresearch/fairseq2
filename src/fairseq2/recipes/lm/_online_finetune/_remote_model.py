@@ -9,26 +9,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, Union
-
-import ray
-import re
-import torch
-from ray.util.placement_group import placement_group
-from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
-from torch.nn import Module
 from typing_extensions import override
-from vllm import SamplingParams
 from vllm.engine.arg_utils import PoolerConfig
-from vllm.utils import get_ip, get_open_port
-
 from fairseq2.gang import Gangs
-from fairseq2.models.sequence import SequenceBatch
-from fairseq2.recipes.config import get_config_section
-from fairseq2.recipes.lm._online_finetune._common import (
-    MyWorker,
-    NoEnvLLM,
-    stateless_init_process_group,
-)
 from fairseq2.logging import log
 from fairseq2.recipes.lm._online_finetune._remote_hf import RemoteHFModel
 from fairseq2.recipes.lm._online_finetune._remote_vllm import RemoteVllmModel
