@@ -24,6 +24,14 @@ from fairseq2.recipes.lm._online_finetune._remote_vllm import (
 from fairseq2.utils.structured import StructureError, structure
 
 
+@dataclass(kw_only=True)
+class RayActorConfig(ABC):
+    ray_actor_name: str = "dummy"
+    backend: str = "vllm"  # vllm or hf
+    num_replicas: int = 1
+    init_update_process_group: bool = False
+
+
 class RemoteModelHandler(ABC):
     @abstractmethod
     def create(self, gangs: Gangs, unit_config: object) -> RemoteVllmModel: ...
@@ -35,14 +43,6 @@ class RemoteModelHandler(ABC):
     @property
     @abstractmethod
     def config_kls(self) -> type[object]: ...
-
-
-@dataclass(kw_only=True)
-class RayActorConfig(ABC):
-    ray_actor_name: str = "dummy"
-    backend: str = "vllm"  # vllm or hf
-    num_replicas: int = 1
-    init_update_process_group: bool = False
 
 
 class RemoteRayModelHandler(RemoteModelHandler):
