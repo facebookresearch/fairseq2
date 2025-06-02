@@ -30,8 +30,6 @@ from fairseq2.recipes.lm._online_finetune._common import (
     stateless_init_process_group,
 )
 from fairseq2.logging import log
-import random
-random.seed(42)
 
 
 class RemoteModelHandler(ABC):
