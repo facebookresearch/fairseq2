@@ -13,6 +13,7 @@ from typing import Any, Dict
 import ray
 import re
 import torch
+from fairseq2.recipes.lm._online_finetune import RayActorConfig
 from ray.util.placement_group import placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 from torch.nn import Module
@@ -28,6 +29,10 @@ from fairseq2.recipes.lm._online_finetune._common import (
     NoEnvPipeline,
     stateless_init_process_group,
 )
+
+@dataclass(kw_only=True)
+class HFRayActorConfig(RayActorConfig):
+    tensor_parallel_size: int = 4
 from fairseq2.logging import log
 from transformers import (
     LlamaModel,

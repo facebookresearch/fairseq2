@@ -13,8 +13,8 @@ from typing_extensions import override
 from vllm.engine.arg_utils import PoolerConfig
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
-from fairseq2.recipes.lm._online_finetune._remote_hf import RemoteHFModel
-from fairseq2.recipes.lm._online_finetune._remote_vllm import RemoteVllmModel
+from fairseq2.recipes.lm._online_finetune._remote_hf import RemoteHFModel, HFRayActorConfig
+from fairseq2.recipes.lm._online_finetune._remote_vllm import RemoteVllmModel, VllmRayActorConfig
 from fairseq2.utils.structured import StructureError, structure
 
 

@@ -13,6 +13,7 @@ from typing import Any, Dict
 import ray
 import re
 import torch
+from fairseq2.recipes.lm._online_finetune import RayActorConfig, VllmEngineArgs
 from ray.util.placement_group import placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 from torch.nn import Module
@@ -30,6 +31,11 @@ from fairseq2.recipes.lm._online_finetune._common import (
     stateless_init_process_group,
 )
 from fairseq2.logging import log
+
+@dataclass(kw_only=True)
+class VllmRayActorConfig(RayActorConfig):
+    vllm_engine_args: VllmEngineArgs = field(default_factory=lambda: VllmEngineArgs())
+    vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
 
 
 class RemoteVllmModel:
