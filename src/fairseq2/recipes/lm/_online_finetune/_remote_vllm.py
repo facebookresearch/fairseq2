@@ -30,6 +30,8 @@ from fairseq2.recipes.lm._online_finetune._common import (
     stateless_init_process_group,
 )
 from fairseq2.logging import log
+import random
+random.seed(42)
 
 
 class RemoteModelHandler(ABC):
@@ -307,9 +309,28 @@ class RemoteVllmModel:
                 r"<score>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score>", output
             )
             return float(matches[-1]) if matches else 0.0
+        
+        def get_len_norm_avg_score(scores, lengths):
+            avg_score = 0.0
+            for score, length in zip(scores, lengths):
+                avg_score += score/length
+            
+            return round(avg_score/len(scores), 4)
+        
+        def get_avg_score(scores):
+            avg_score = 0.0
+            for score in scores:
+                avg_score += score
+            
+            return round(avg_score/len(scores), 4)
 
         rewards = []
-        rollouts = self.rollout_from_model(prompt_list=prompt_list, string_input=True)
-        rewards = [extract_score(o.outputs[0].text) for o in rollouts]
-
+        judgments = self.rollout_from_model(prompt_list=prompt_list, string_input=True)
+        
+        rewards = []
+        for per_rollout_judgments in judgments:
+            per_rollout_scores = [extract_score(judgment.text) for judgment in per_rollout_judgments.outputs]
+            per_rollout_lengths = [len(judgment.token_ids) for judgment in per_rollout_judgments.outputs]
+            rewards.append(get_avg_score(per_rollout_scores))
+            
         return rewards
