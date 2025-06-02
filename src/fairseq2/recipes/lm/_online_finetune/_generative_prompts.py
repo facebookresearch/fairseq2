@@ -18,3 +18,28 @@ Below are the user's question and the assistant's response:
 {response}
 [The End of the Assistant's Answer]
 """
+
+PAIRWISE_PROMPT = """
+You are given a user question and two responses from two AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer.
+
+First, provide your reasoning within <think> and </think> tags. This should include your evaluation criteria for a high-quality response, a detailed comparison of the two responses, and when helpful, a reference answer as part of your evaluation. Be explicit in your thought process, referencing your criteria and explaining how each response aligns with or deviates from them.
+
+Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
+
+Finally, provide your verdict within <answer> and </answer> tags, strictly following this format:
+- <answer> [[A]] </answer> if Assistant A is better
+- <answer> [[B]] </answer> if Assistant B is better
+
+Below are the user's question and the two responses:
+
+[User Question]
+{instruction}
+
+[The Start of Assistant A's Answer]
+{response_A}
+[The End of Assistant A's Answer]
+
+[The Start of Assistant B's Answer]
+{response_B}
+[The End of Assistant B's Answer]
+"""
