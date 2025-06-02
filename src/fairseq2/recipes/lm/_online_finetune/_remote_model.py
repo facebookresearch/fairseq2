@@ -13,8 +13,14 @@ from typing_extensions import override
 from vllm.engine.arg_utils import PoolerConfig
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
-from fairseq2.recipes.lm._online_finetune._remote_hf import RemoteHFModel, HFRayActorConfig
-from fairseq2.recipes.lm._online_finetune._remote_vllm import RemoteVllmModel, VllmRayActorConfig
+from fairseq2.recipes.lm._online_finetune._remote_hf import (
+    RemoteHFModel,
+    HFRayActorConfig,
+)
+from fairseq2.recipes.lm._online_finetune._remote_vllm import (
+    RemoteVllmModel,
+    VllmRayActorConfig,
+)
 from fairseq2.utils.structured import StructureError, structure
 
 
@@ -32,36 +38,11 @@ class RemoteModelHandler(ABC):
 
 
 @dataclass(kw_only=True)
-class VllmEngineArgs:
-    model: str = "/checkpoint/ram/kulikov/gsm8k_8b_sft/checkpoints/step_20"
-    tokenizer: str = "/datasets/pretrained-llms/Llama-3.1-8B-Instruct"
-    task: str = "generate"
-    tensor_parallel_size: int = 4
-    trust_remote_code: bool = False
-    model_impl: str = "auto"
-    enforce_eager: bool = True
-    hf_overrides: object = None
-    dtype: str = "auto"
-    override_pooler_config: PoolerConfig = field(default_factory=lambda: PoolerConfig())
-
-
-@dataclass(kw_only=True)
 class RayActorConfig(ABC):
     ray_actor_name: str = "dummy"
     backend: str = "vllm"  # vllm or hf
     num_replicas: int = 1
     init_update_process_group: bool = False
-
-
-@dataclass(kw_only=True)
-class VllmRayActorConfig(RayActorConfig):
-    vllm_engine_args: VllmEngineArgs = field(default_factory=lambda: VllmEngineArgs())
-    vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
-
-
-@dataclass(kw_only=True)
-class HFRayActorConfig(RayActorConfig):
-    tensor_parallel_size: int = 4
 
 
 class RemoteRayModelHandler(RemoteModelHandler):

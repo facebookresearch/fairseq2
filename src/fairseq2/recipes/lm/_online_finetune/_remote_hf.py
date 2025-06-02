@@ -16,33 +16,17 @@ import torch
 from fairseq2.recipes.lm._online_finetune import RayActorConfig
 from ray.util.placement_group import placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
-from torch.nn import Module
-from typing_extensions import override
-
-
 from fairseq2.gang import Gangs
-from fairseq2.models.sequence import SequenceBatch
-from fairseq2.recipes.config import get_config_section
-from fairseq2.recipes.lm._online_finetune._common import (
-    MyWorker,
-    NoEnvLLM,
-    NoEnvPipeline,
-    stateless_init_process_group,
-)
+from fairseq2.recipes.lm._online_finetune._common import NoEnvPipeline
+from fairseq2.logging import log
+from torch import nn
+import torch
+from typing import Dict
+
 
 @dataclass(kw_only=True)
 class HFRayActorConfig(RayActorConfig):
     tensor_parallel_size: int = 4
-from fairseq2.logging import log
-from transformers import (
-    LlamaModel,
-    LlamaPreTrainedModel,
-    TextClassificationPipeline,
-    AutoTokenizer,
-)
-from torch import nn
-import torch
-from typing import Dict
 
 
 class RemoteHFModel:

@@ -9,11 +9,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict
-
 import ray
 import re
 import torch
-from fairseq2.recipes.lm._online_finetune import RayActorConfig, VllmEngineArgs
+from fairseq2.recipes.lm._online_finetune import RayActorConfig
 from ray.util.placement_group import placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 from torch.nn import Module
@@ -21,7 +20,6 @@ from typing_extensions import override
 from vllm import SamplingParams
 from vllm.engine.arg_utils import PoolerConfig
 from vllm.utils import get_ip, get_open_port
-
 from fairseq2.gang import Gangs
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes.config import get_config_section
@@ -31,6 +29,21 @@ from fairseq2.recipes.lm._online_finetune._common import (
     stateless_init_process_group,
 )
 from fairseq2.logging import log
+
+
+@dataclass(kw_only=True)
+class VllmEngineArgs:
+    model: str = "/checkpoint/ram/kulikov/gsm8k_8b_sft/checkpoints/step_20"
+    tokenizer: str = "/datasets/pretrained-llms/Llama-3.1-8B-Instruct"
+    task: str = "generate"
+    tensor_parallel_size: int = 4
+    trust_remote_code: bool = False
+    model_impl: str = "auto"
+    enforce_eager: bool = True
+    hf_overrides: object = None
+    dtype: str = "auto"
+    override_pooler_config: PoolerConfig = field(default_factory=lambda: PoolerConfig())
+
 
 @dataclass(kw_only=True)
 class VllmRayActorConfig(RayActorConfig):
