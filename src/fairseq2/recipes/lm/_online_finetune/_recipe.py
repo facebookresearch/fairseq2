@@ -78,10 +78,6 @@ from fairseq2.recipes.lm._online_finetune._remote_vllm import (
     RemoteRayModelHandler,
     VllmRayActorConfig,
 )
-from fairseq2.recipes.lm._online_finetune._remote_hf import (
-    RemoteHFModelHandler,
-    HFRayActorConfig,
-)
 from fairseq2.recipes.trainer import Trainer
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
@@ -144,7 +140,7 @@ class OnlineFinetuneConfig:
 @dataclass(kw_only=True)
 class VllmActorsSection:
     ray_cluster_ip_address: str | None = None
-    ray_actors: List[Union[VllmRayActorConfig, HFRayActorConfig]] | None = None
+    ray_actors: List[Union[VllmRayActorConfig]] | None = None
 
 
 @dataclass(kw_only=True)

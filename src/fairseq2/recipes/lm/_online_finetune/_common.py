@@ -18,13 +18,7 @@ from ray.util.placement_group import placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 from torch import Tensor
 from torcheval.metrics import Mean
-from transformers import (
-    AutoModelForCausalLM,
-    LlamaModel,
-    LlamaPreTrainedModel,
-    TextClassificationPipeline,
-    AutoTokenizer,
-)
+from transformers import AutoTokenizer
 from vllm import LLM, CompletionOutput, RequestOutput, SamplingParams
 from vllm.utils import get_ip, get_open_port
 from vllm.worker.worker import Worker
