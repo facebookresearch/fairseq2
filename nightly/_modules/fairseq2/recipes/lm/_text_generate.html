@@ -322,9 +322,10 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Sequence</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">TextIO</span><span class="p">,</span> <span class="n">final</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TextIO</span><span class="p">,</span> <span class="n">final</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
@@ -340,16 +341,14 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InternalError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.file_system</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileMode</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gangs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.generation</span><span class="w"> </span><span class="kn">import</span> <span class="n">SamplingConfig</span><span class="p">,</span> <span class="n">SequenceGenerator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricBag</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.decoder</span><span class="w"> </span><span class="kn">import</span> <span class="n">DecoderModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.clm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CausalLM</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">Generator</span><span class="p">,</span>
     <span class="n">GeneratorUnit</span><span class="p">,</span>
     <span class="n">Model</span><span class="p">,</span>
     <span class="n">RecipeError</span><span class="p">,</span>
-    <span class="n">SequenceGenerationMetricBag</span><span class="p">,</span>
     <span class="n">UnitError</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.common</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -371,6 +370,7 @@
     <span class="n">SequenceGeneratorSection</span><span class="p">,</span>
     <span class="n">TextTokenizerSection</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">update_seq_generator_metrics</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.rng</span><span class="w"> </span><span class="kn">import</span> <span class="n">manual_seed</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.structured</span><span class="w"> </span><span class="kn">import</span> <span class="n">structure</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.validation</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate</span>
@@ -474,7 +474,7 @@
 <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load_text_generator</span><span class="p">(</span>
     <span class="n">context</span><span class="p">:</span> <span class="n">RuntimeContext</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">SequenceBatch</span><span class="p">]:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">:</span>
     <span class="n">config</span> <span class="o">=</span> <span class="n">structure</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">TextGenerateConfig</span><span class="p">)</span>
 
     <span class="n">validate</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
@@ -492,7 +492,7 @@
     <span class="n">seed</span> <span class="o">+=</span> <span class="mi">1</span>
 
     <span class="n">model</span> <span class="o">=</span> <span class="n">setup_reference_model</span><span class="p">(</span>
-        <span class="n">DecoderModel</span><span class="p">,</span>
+        <span class="n">CausalLM</span><span class="p">,</span>
         <span class="n">context</span><span class="p">,</span>
         <span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
         <span class="n">gangs</span><span class="p">,</span>
@@ -550,7 +550,6 @@
         <span class="n">model</span><span class="p">,</span>
         <span class="n">seq_generator</span><span class="p">,</span>
         <span class="n">tokenizer</span><span class="p">,</span>
-        <span class="n">gangs</span><span class="p">,</span>
         <span class="n">text_output_stream</span><span class="o">=</span><span class="n">text_fp</span><span class="p">,</span>
         <span class="n">json_output_stream</span><span class="o">=</span><span class="n">json_fp</span><span class="p">,</span>
     <span class="p">)</span>
@@ -601,29 +600,25 @@
     <span class="n">_text_decoder</span><span class="p">:</span> <span class="n">TextTokenDecoder</span>
     <span class="n">_text_output_stream</span><span class="p">:</span> <span class="n">TextIO</span> <span class="o">|</span> <span class="kc">None</span>
     <span class="n">_json_output_stream</span><span class="p">:</span> <span class="n">TextIO</span> <span class="o">|</span> <span class="kc">None</span>
-    <span class="n">_metric_bag</span><span class="p">:</span> <span class="n">SequenceGenerationMetricBag</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span>
         <span class="n">generator</span><span class="p">:</span> <span class="n">SequenceGenerator</span><span class="p">,</span>
         <span class="n">tokenizer</span><span class="p">:</span> <span class="n">TextTokenizer</span><span class="p">,</span>
-        <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">,</span>
         <span class="n">text_output_stream</span><span class="p">:</span> <span class="n">TextIO</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">json_output_stream</span><span class="p">:</span> <span class="n">TextIO</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_generator</span> <span class="o">=</span> <span class="n">generator</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_text_decoder</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">create_decoder</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_text_decoder</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">create_decoder</span><span class="p">(</span><span class="n">skip_special_tokens</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_text_output_stream</span> <span class="o">=</span> <span class="n">text_output_stream</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_json_output_stream</span> <span class="o">=</span> <span class="n">json_output_stream</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span> <span class="o">=</span> <span class="n">SequenceGenerationMetricBag</span><span class="p">(</span><span class="n">gangs</span><span class="o">.</span><span class="n">dp</span><span class="p">)</span>
-
     <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">,</span> <span class="n">metric_bag</span><span class="p">:</span> <span class="n">MetricBag</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">batch</span><span class="o">.</span><span class="n">example</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`batch.example` must not be `None`.&quot;</span><span class="p">)</span>
 
@@ -637,9 +632,9 @@
         <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`batch.example` must contain a &#39;prompt&#39; item.&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">prompts</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">prompts</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;`batch.example[&#39;prompt&#39;] must be an iterable of strings, but is of type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">prompts</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;`batch.example[&#39;prompt&#39;] must be a sequence of strings, but is of type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">prompts</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
             <span class="p">)</span>
 
         <span class="n">ids</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">example</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
@@ -648,7 +643,7 @@
 
         <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generator</span><span class="p">(</span><span class="n">prompt_seqs</span><span class="p">,</span> <span class="n">prompt_seqs_layout</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span><span class="o">.</span><span class="n">update_batch_metrics</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+        <span class="n">update_seq_generator_metrics</span><span class="p">(</span><span class="n">metric_bag</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
 
         <span class="c1"># Check if we are in the first tensor parallel group.</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_text_output_stream</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_json_output_stream</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -747,12 +742,7 @@
     <span class="nd">@property</span>
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Model</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span>
-
-    <span class="nd">@property</span>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">metric_bag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricBag</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span></div>
 
 </pre></div>
         </article>
@@ -790,7 +780,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=74668342"></script>
+</div><script src="../../../../_static/documentation_options.js?v=ab410d54"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

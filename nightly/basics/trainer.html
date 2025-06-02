@@ -340,7 +340,6 @@ It is probably the most complex system in fairseq2, but also the most powerful.<
 
     %% TrainUnit Components
     B --&gt; F[Model]
-    B --&gt; G[MetricBag]
 
     %% Gang System
     I --&gt; J[Root Gang]
@@ -382,11 +381,6 @@ It is probably the most complex system in fairseq2, but also the most powerful.<
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Module</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The underlying model.&quot;&quot;&quot;</span>
-
-    <span class="nd">@property</span>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">metric_bag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricBag</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Training-related metrics.&quot;&quot;&quot;</span>
 </pre></div>
 </div>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
@@ -399,8 +393,6 @@ It is probably the most complex system in fairseq2, but also the most powerful.<
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">TransformerTrainUnit</span><span class="p">(</span><span class="n">TrainUnit</span><span class="p">[</span><span class="n">TransformerBatch</span><span class="p">]):</span>
   <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">TransformerModel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span> <span class="o">=</span> <span class="n">MetricBag</span><span class="p">()</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span><span class="o">.</span><span class="n">register_metric</span><span class="p">(</span><span class="s2">&quot;loss&quot;</span><span class="p">,</span> <span class="n">Mean</span><span class="p">())</span>
 
   <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">TransformerBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
       <span class="n">outputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">(</span><span class="o">**</span><span class="n">batch</span><span class="p">)</span>
@@ -736,7 +728,7 @@ It is probably the most complex system in fairseq2, but also the most powerful.<
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=74668342"></script>
+</div><script src="../_static/documentation_options.js?v=ab410d54"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>

@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../genindex.html" /><link rel="search" title="Search" href="../../../../search.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
-        <title>fairseq2.recipes.wav2vec2._common - fairseq2 Documentation</title>
+        <title>fairseq2.recipes.wav2vec2._criterion - fairseq2 Documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
@@ -312,7 +312,7 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <h1>Source code for fairseq2.recipes.wav2vec2._common</h1><div class="highlight"><pre>
+          <h1>Source code for fairseq2.recipes.wav2vec2._criterion</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
 <span class="c1"># All rights reserved.</span>
 <span class="c1">#</span>
@@ -321,162 +321,62 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">final</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">torcheval.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">MulticlassAccuracy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceBatch</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gang</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mean</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.wav2vec2</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">GumbelVectorQuantizerOutput</span><span class="p">,</span>
-    <span class="n">VectorQuantizerOutput</span><span class="p">,</span>
-    <span class="n">Wav2Vec2Loss</span><span class="p">,</span>
-    <span class="n">Wav2Vec2Model</span><span class="p">,</span>
-    <span class="n">Wav2Vec2Output</span><span class="p">,</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricBag</span>
+
+<span class="c1"># isort: split</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.wav2vec2._metrics</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">update_wav2vec2_accuracy</span><span class="p">,</span>
+    <span class="n">update_wav2vec2_batch_metrics</span><span class="p">,</span>
+    <span class="n">update_wav2vec2_loss</span><span class="p">,</span>
+    <span class="n">update_wav2vec2_quantizer_metrics</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Model</span><span class="p">,</span> <span class="n">RecipeMetricBag</span>
-
-
-<span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">Wav2Vec2LossSection</span><span class="p">:</span>
-    <span class="n">diversity_loss_weight</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;The weight of the diversity loss.&quot;&quot;&quot;</span>
-
-    <span class="n">feature_penalty_weight</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;The weight of the regularization penalty applied to the extracted features.&quot;&quot;&quot;</span>
 
 
 <div class="viewcode-block" id="Wav2Vec2Criterion">
 <a class="viewcode-back" href="../../../../reference/api/fairseq2.recipes/wav2vec2/index.html#fairseq2.recipes.wav2vec2.Wav2Vec2Criterion">[docs]</a>
 <span class="nd">@final</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Wav2Vec2Criterion</span><span class="p">:</span>
-    <span class="n">_model</span><span class="p">:</span> <span class="n">Model</span>
-    <span class="n">_diversity_loss_weight</span><span class="p">:</span> <span class="nb">float</span>
-    <span class="n">_feature_penalty_weight</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">_module</span><span class="p">:</span> <span class="n">Module</span>
+    <span class="n">_diversity_weight</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">_features_penalty_weight</span><span class="p">:</span> <span class="nb">float</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span> <span class="n">diversity_loss_weight</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">feature_penalty_weight</span><span class="p">:</span> <span class="nb">float</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span> <span class="n">diversity_weight</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">features_penalty_weight</span><span class="p">:</span> <span class="nb">float</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">base_module</span><span class="p">,</span> <span class="n">Wav2Vec2Model</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;`model.base_module` must be of type `</span><span class="si">{</span><span class="n">Wav2Vec2Model</span><span class="si">}</span><span class="s2">`, but is of type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">base_module</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
-            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_module</span> <span class="o">=</span> <span class="n">module</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_diversity_weight</span> <span class="o">=</span> <span class="n">diversity_weight</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_diversity_loss_weight</span> <span class="o">=</span> <span class="n">diversity_loss_weight</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_feature_penalty_weight</span> <span class="o">=</span> <span class="n">feature_penalty_weight</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_features_penalty_weight</span> <span class="o">=</span> <span class="n">features_penalty_weight</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">,</span> <span class="n">metric_bag</span><span class="p">:</span> <span class="n">Wav2Vec2MetricBag</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">,</span> <span class="n">metric_bag</span><span class="p">:</span> <span class="n">MetricBag</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
         <span class="n">seqs</span><span class="p">,</span> <span class="n">seqs_layout</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">as_input</span><span class="p">()</span>
 
-        <span class="n">model_output</span><span class="p">:</span> <span class="n">Wav2Vec2Output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">module</span><span class="p">(</span><span class="n">seqs</span><span class="p">,</span> <span class="n">seqs_layout</span><span class="p">)</span>
-
-        <span class="n">loss</span> <span class="o">=</span> <span class="n">model_output</span><span class="o">.</span><span class="n">compute_loss</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_diversity_loss_weight</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature_penalty_weight</span>
+        <span class="n">w2v2_loss</span><span class="p">,</span> <span class="n">w2v2_output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="p">(</span>
+            <span class="n">seqs</span><span class="p">,</span>
+            <span class="n">seqs_layout</span><span class="p">,</span>
+            <span class="n">diversity_weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_diversity_weight</span><span class="p">,</span>
+            <span class="n">features_penalty_weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_features_penalty_weight</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="n">batch_size</span><span class="p">,</span> <span class="n">seq_len</span> <span class="o">=</span> <span class="n">model_output</span><span class="o">.</span><span class="n">logits</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">update_wav2vec2_loss</span><span class="p">(</span><span class="n">metric_bag</span><span class="p">,</span> <span class="n">w2v2_loss</span><span class="p">,</span> <span class="n">w2v2_output</span><span class="o">.</span><span class="n">num_targets</span><span class="p">)</span>
 
-        <span class="n">num_targets</span> <span class="o">=</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">seq_len</span>
+        <span class="n">update_wav2vec2_accuracy</span><span class="p">(</span><span class="n">metric_bag</span><span class="p">,</span> <span class="n">w2v2_output</span><span class="o">.</span><span class="n">logits</span><span class="p">)</span>
 
-        <span class="n">metric_bag</span><span class="o">.</span><span class="n">update_losses</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">num_targets</span><span class="p">)</span>
+        <span class="n">update_wav2vec2_quantizer_metrics</span><span class="p">(</span><span class="n">metric_bag</span><span class="p">,</span> <span class="n">w2v2_output</span><span class="o">.</span><span class="n">quantizer_output</span><span class="p">)</span>
 
-        <span class="n">metric_bag</span><span class="o">.</span><span class="n">update_accuracy</span><span class="p">(</span><span class="n">model_output</span><span class="p">)</span>
+        <span class="n">update_wav2vec2_batch_metrics</span><span class="p">(</span><span class="n">metric_bag</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
 
-        <span class="n">metric_bag</span><span class="o">.</span><span class="n">update_quantizer_metrics</span><span class="p">(</span><span class="n">model_output</span><span class="o">.</span><span class="n">quantizer_output</span><span class="p">)</span>
-
-        <span class="n">metric_bag</span><span class="o">.</span><span class="n">update_batch_metrics</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">loss</span><span class="o">.</span><span class="n">total</span><span class="p">,</span> <span class="n">num_targets</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Model</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span></div>
-
-
-
-<div class="viewcode-block" id="Wav2Vec2MetricBag">
-<a class="viewcode-back" href="../../../../reference/api/fairseq2.recipes/wav2vec2/index.html#fairseq2.recipes.wav2vec2.Wav2Vec2MetricBag">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">Wav2Vec2MetricBag</span><span class="p">(</span><span class="n">RecipeMetricBag</span><span class="p">):</span>
-    <span class="n">loss</span><span class="p">:</span> <span class="n">Mean</span>
-    <span class="n">contrastive_loss</span><span class="p">:</span> <span class="n">Mean</span>
-    <span class="n">diversity_loss</span><span class="p">:</span> <span class="n">Mean</span>
-    <span class="n">feature_penalty</span><span class="p">:</span> <span class="n">Mean</span>
-    <span class="n">accuracy</span><span class="p">:</span> <span class="n">MulticlassAccuracy</span>
-    <span class="n">code_perplexity</span><span class="p">:</span> <span class="n">Mean</span>
-    <span class="n">prob_perplexity</span><span class="p">:</span> <span class="n">Mean</span>
-    <span class="n">temperature</span><span class="p">:</span> <span class="n">Mean</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">gang</span><span class="p">)</span>
-
-        <span class="n">device</span> <span class="o">=</span> <span class="n">gang</span><span class="o">.</span><span class="n">device</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">loss</span> <span class="o">=</span> <span class="n">Mean</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">contrastive_loss</span> <span class="o">=</span> <span class="n">Mean</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">diversity_loss</span> <span class="o">=</span> <span class="n">Mean</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">feature_penalty</span> <span class="o">=</span> <span class="n">Mean</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">accuracy</span> <span class="o">=</span> <span class="n">MulticlassAccuracy</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">code_perplexity</span> <span class="o">=</span> <span class="n">Mean</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">prob_perplexity</span> <span class="o">=</span> <span class="n">Mean</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span> <span class="o">=</span> <span class="n">Mean</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
-
-    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">update_losses</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loss</span><span class="p">:</span> <span class="n">Wav2Vec2Loss</span><span class="p">,</span> <span class="n">num_targets</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">n</span> <span class="o">=</span> <span class="n">num_targets</span>
-
-        <span class="n">d</span> <span class="o">=</span> <span class="n">num_targets</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">loss</span><span class="o">.</span><span class="n">total</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span> <span class="o">/</span> <span class="n">d</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">contrastive_loss</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">loss</span><span class="o">.</span><span class="n">contrastive</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span> <span class="o">/</span> <span class="n">d</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">diversity_loss</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">loss</span><span class="o">.</span><span class="n">diversity</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span> <span class="o">/</span> <span class="n">d</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">feature_penalty</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">loss</span><span class="o">.</span><span class="n">feature_penalty</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span> <span class="o">/</span> <span class="n">d</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
-
-    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">update_accuracy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="n">Wav2Vec2Output</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="c1"># (N x S)</span>
-        <span class="n">predictions</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">logits</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-
-        <span class="c1"># wav2vec2 treats logit at index 0 as the target.</span>
-        <span class="n">targets</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">predictions</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">accuracy</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">predictions</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
-
-    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">update_quantizer_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="n">VectorQuantizerOutput</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">GumbelVectorQuantizerOutput</span><span class="p">):</span>
-            <span class="k">return</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">code_perplexity</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">code_perplexity</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">prob_perplexity</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">prob_perplexity</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">temperature</span><span class="p">)</span>
-
-    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">update_batch_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">num_examples</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">num_examples</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">num_elements</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">num_elements</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">total_num_examples</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">num_examples</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">total_num_elements</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">num_elements</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">w2v2_loss</span><span class="o">.</span><span class="n">aggregate</span><span class="p">,</span> <span class="n">w2v2_output</span><span class="o">.</span><span class="n">num_targets</span></div>
 
 </pre></div>
         </article>
@@ -514,7 +414,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=74668342"></script>
+</div><script src="../../../../_static/documentation_options.js?v=ab410d54"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

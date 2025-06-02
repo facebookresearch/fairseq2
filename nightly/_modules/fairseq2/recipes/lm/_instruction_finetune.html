@@ -328,6 +328,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch.distributed</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">RuntimeContext</span>
@@ -344,13 +345,11 @@
     <span class="n">InstructionReadOptions</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gangs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricBag</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.decoder</span><span class="w"> </span><span class="kn">import</span> <span class="n">DecoderModel</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.sequence</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceModelOutput</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.clm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CausalLM</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.optim</span><span class="w"> </span><span class="kn">import</span> <span class="n">ADAMW_OPTIMIZER</span><span class="p">,</span> <span class="n">AdamWConfig</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.optim.lr_scheduler</span><span class="w"> </span><span class="kn">import</span> <span class="n">COSINE_ANNEALING_LR</span><span class="p">,</span> <span class="n">CosineAnnealingLRConfig</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvalUnit</span><span class="p">,</span> <span class="n">Model</span><span class="p">,</span> <span class="n">SequenceMetricBag</span><span class="p">,</span> <span class="n">Trainer</span><span class="p">,</span> <span class="n">TrainUnit</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvalUnit</span><span class="p">,</span> <span class="n">Model</span><span class="p">,</span> <span class="n">Trainer</span><span class="p">,</span> <span class="n">TrainUnit</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.common</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">create_checkpoint_manager</span><span class="p">,</span>
     <span class="n">create_lr_scheduler</span><span class="p">,</span>
@@ -367,7 +366,7 @@
     <span class="n">ActivationCheckpointingSection</span><span class="p">,</span>
     <span class="n">CommonSection</span><span class="p">,</span>
     <span class="n">DatasetSection</span><span class="p">,</span>
-    <span class="n">FsdpSection</span><span class="p">,</span>
+    <span class="n">FSDPSection</span><span class="p">,</span>
     <span class="n">GangSection</span><span class="p">,</span>
     <span class="n">LRSchedulerSection</span><span class="p">,</span>
     <span class="n">ModelSection</span><span class="p">,</span>
@@ -377,6 +376,7 @@
     <span class="n">TorchSection</span><span class="p">,</span>
     <span class="n">TrainerSection</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">update_nll_loss</span><span class="p">,</span> <span class="n">update_seq_batch_metrics</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.rng</span><span class="w"> </span><span class="kn">import</span> <span class="n">manual_seed</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.structured</span><span class="w"> </span><span class="kn">import</span> <span class="n">structure</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.validation</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate</span>
@@ -404,7 +404,7 @@
         <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">TrainerSection</span><span class="p">(</span>
             <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span><span class="p">,</span>
             <span class="n">data_parallelism</span><span class="o">=</span><span class="s2">&quot;fsdp&quot;</span><span class="p">,</span>
-            <span class="n">fsdp</span><span class="o">=</span><span class="n">FsdpSection</span><span class="p">(</span><span class="n">fp32_reduce</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+            <span class="n">fsdp</span><span class="o">=</span><span class="n">FSDPSection</span><span class="p">(</span><span class="n">fp32_reduce</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
             <span class="n">activation_checkpointing</span><span class="o">=</span><span class="n">ActivationCheckpointingSection</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;layerwise&quot;</span><span class="p">),</span>
         <span class="p">)</span>
     <span class="p">)</span>
@@ -540,7 +540,7 @@
 <a class="viewcode-back" href="../../../../reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.load_instruction_finetuner">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">load_instruction_finetuner</span><span class="p">(</span>
     <span class="n">context</span><span class="p">:</span> <span class="n">RuntimeContext</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Trainer</span><span class="p">[</span><span class="n">SequenceBatch</span><span class="p">]:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Trainer</span><span class="p">:</span>
     <span class="n">config</span> <span class="o">=</span> <span class="n">structure</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">InstructionFinetuneConfig</span><span class="p">)</span>
 
     <span class="n">validate</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
@@ -560,7 +560,7 @@
     <span class="n">seed</span> <span class="o">+=</span> <span class="mi">1</span>
 
     <span class="n">model</span> <span class="o">=</span> <span class="n">setup_model</span><span class="p">(</span>
-        <span class="n">DecoderModel</span><span class="p">,</span>
+        <span class="n">CausalLM</span><span class="p">,</span>
         <span class="n">context</span><span class="p">,</span>
         <span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
         <span class="n">config</span><span class="o">.</span><span class="n">trainer</span><span class="p">,</span>
@@ -580,9 +580,9 @@
     <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">load_text_tokenizer</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">tokenizer</span><span class="p">)</span>
 
     <span class="c1"># Initialize the unit.</span>
-    <span class="n">criterion</span> <span class="o">=</span> <span class="n">InstructionFinetuneCriterion</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+    <span class="n">criterion</span> <span class="o">=</span> <span class="n">InstructionFinetuneCriterion</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">module</span><span class="p">)</span>
 
-    <span class="n">unit</span> <span class="o">=</span> <span class="n">InstructionFinetuneUnit</span><span class="p">(</span><span class="n">criterion</span><span class="p">,</span> <span class="n">gangs</span><span class="p">)</span>
+    <span class="n">unit</span> <span class="o">=</span> <span class="n">InstructionFinetuneUnit</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">criterion</span><span class="p">)</span>
 
     <span class="n">batching</span><span class="p">:</span> <span class="n">Batching</span>
 
@@ -616,7 +616,7 @@
 
     <span class="c1"># Initialize the validation unit.</span>
     <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">valid_split</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">valid_unit</span> <span class="o">=</span> <span class="n">InstructionLossEvalUnit</span><span class="p">(</span><span class="n">criterion</span><span class="p">,</span> <span class="n">gangs</span><span class="p">)</span>
+        <span class="n">valid_unit</span> <span class="o">=</span> <span class="n">InstructionLossEvalUnit</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">criterion</span><span class="p">)</span>
 
         <span class="n">max_num_tokens</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">config</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">max_num_valid_tokens</span> <span class="ow">or</span> <span class="n">config</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">max_num_tokens</span>
@@ -677,27 +677,24 @@
 <a class="viewcode-back" href="../../../../reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.InstructionFinetuneUnit">[docs]</a>
 <span class="nd">@final</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">InstructionFinetuneUnit</span><span class="p">(</span><span class="n">TrainUnit</span><span class="p">[</span><span class="n">SequenceBatch</span><span class="p">]):</span>
+    <span class="n">_model</span><span class="p">:</span> <span class="n">Model</span>
     <span class="n">_criterion</span><span class="p">:</span> <span class="n">InstructionFinetuneCriterion</span>
-    <span class="n">_metric_bag</span><span class="p">:</span> <span class="n">SequenceMetricBag</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">criterion</span><span class="p">:</span> <span class="n">InstructionFinetuneCriterion</span><span class="p">,</span> <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span> <span class="n">criterion</span><span class="p">:</span> <span class="n">InstructionFinetuneCriterion</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">model</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">_criterion</span> <span class="o">=</span> <span class="n">criterion</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span> <span class="o">=</span> <span class="n">SequenceMetricBag</span><span class="p">(</span><span class="n">gangs</span><span class="o">.</span><span class="n">dp</span><span class="p">)</span>
-
     <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_criterion</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">,</span> <span class="n">metric_bag</span><span class="p">:</span> <span class="n">MetricBag</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_criterion</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">metric_bag</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Model</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_criterion</span><span class="o">.</span><span class="n">model</span>
-
-    <span class="nd">@property</span>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">metric_bag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricBag</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span></div>
 
 
 
@@ -705,27 +702,22 @@
 <a class="viewcode-back" href="../../../../reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.InstructionLossEvalUnit">[docs]</a>
 <span class="nd">@final</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">InstructionLossEvalUnit</span><span class="p">(</span><span class="n">EvalUnit</span><span class="p">[</span><span class="n">SequenceBatch</span><span class="p">]):</span>
+    <span class="n">_model</span><span class="p">:</span> <span class="n">Model</span>
     <span class="n">_criterion</span><span class="p">:</span> <span class="n">InstructionFinetuneCriterion</span>
-    <span class="n">_metric_bag</span><span class="p">:</span> <span class="n">SequenceMetricBag</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">criterion</span><span class="p">:</span> <span class="n">InstructionFinetuneCriterion</span><span class="p">,</span> <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span> <span class="n">criterion</span><span class="p">:</span> <span class="n">InstructionFinetuneCriterion</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">model</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">_criterion</span> <span class="o">=</span> <span class="n">criterion</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span> <span class="o">=</span> <span class="n">SequenceMetricBag</span><span class="p">(</span><span class="n">gangs</span><span class="o">.</span><span class="n">dp</span><span class="p">)</span>
-
     <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_criterion</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">,</span> <span class="n">metric_bag</span><span class="p">:</span> <span class="n">MetricBag</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_criterion</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">metric_bag</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Model</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_criterion</span><span class="o">.</span><span class="n">model</span>
-
-    <span class="nd">@property</span>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">metric_bag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricBag</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span></div>
 
 
 
@@ -733,38 +725,32 @@
 <a class="viewcode-back" href="../../../../reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.InstructionFinetuneCriterion">[docs]</a>
 <span class="nd">@final</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">InstructionFinetuneCriterion</span><span class="p">:</span>
-    <span class="n">_model</span><span class="p">:</span> <span class="n">Model</span>
+    <span class="n">_module</span><span class="p">:</span> <span class="n">Module</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">base_module</span><span class="p">,</span> <span class="n">DecoderModel</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;`model.base_module` must be of type `</span><span class="si">{</span><span class="n">DecoderModel</span><span class="si">}</span><span class="s2">`, but is of type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">base_module</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
-            <span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">model</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">Module</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_module</span> <span class="o">=</span> <span class="n">module</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">,</span> <span class="n">metric_bag</span><span class="p">:</span> <span class="n">SequenceMetricBag</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">,</span> <span class="n">metric_bag</span><span class="p">:</span> <span class="n">MetricBag</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
         <span class="n">batch</span><span class="p">,</span> <span class="n">target_batch</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">as_auto_regressive</span><span class="p">()</span>
 
         <span class="n">seqs</span><span class="p">,</span> <span class="n">seqs_layout</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">as_input</span><span class="p">()</span>
 
-        <span class="n">model_output</span><span class="p">:</span> <span class="n">SequenceModelOutput</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">module</span><span class="p">(</span><span class="n">seqs</span><span class="p">,</span> <span class="n">seqs_layout</span><span class="p">)</span>
-
-        <span class="n">loss</span> <span class="o">=</span> <span class="n">model_output</span><span class="o">.</span><span class="n">compute_loss</span><span class="p">(</span>
-            <span class="n">target_batch</span><span class="o">.</span><span class="n">seqs</span><span class="p">,</span> <span class="n">loss_mask</span><span class="o">=</span><span class="n">target_batch</span><span class="o">.</span><span class="n">target_mask</span>
+        <span class="n">nll_loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="p">(</span>
+            <span class="n">seqs</span><span class="p">,</span>
+            <span class="n">seqs_layout</span><span class="p">,</span>
+            <span class="n">targets</span><span class="o">=</span><span class="n">target_batch</span><span class="o">.</span><span class="n">seqs</span><span class="p">,</span>
+            <span class="n">target_mask</span><span class="o">=</span><span class="n">target_batch</span><span class="o">.</span><span class="n">target_mask</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="n">metric_bag</span><span class="o">.</span><span class="n">update_nll_loss</span><span class="p">(</span><span class="n">target_batch</span><span class="p">,</span> <span class="n">loss</span><span class="p">)</span>
+        <span class="n">update_nll_loss</span><span class="p">(</span>
+            <span class="n">metric_bag</span><span class="p">,</span> <span class="n">nll_loss</span><span class="p">,</span> <span class="n">num_targets</span><span class="o">=</span><span class="n">target_batch</span><span class="o">.</span><span class="n">num_target_elements</span>
+        <span class="p">)</span>
 
-        <span class="n">metric_bag</span><span class="o">.</span><span class="n">update_batch_metrics</span><span class="p">(</span><span class="n">target_batch</span><span class="p">)</span>
+        <span class="n">update_seq_batch_metrics</span><span class="p">(</span><span class="n">metric_bag</span><span class="p">,</span> <span class="n">target_batch</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">loss</span><span class="p">,</span> <span class="n">target_batch</span><span class="o">.</span><span class="n">num_target_elements</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Model</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span></div>
+        <span class="k">return</span> <span class="n">nll_loss</span><span class="p">,</span> <span class="n">target_batch</span><span class="o">.</span><span class="n">num_target_elements</span></div>
 
 </pre></div>
         </article>
@@ -802,7 +788,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=74668342"></script>
+</div><script src="../../../../_static/documentation_options.js?v=ab410d54"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

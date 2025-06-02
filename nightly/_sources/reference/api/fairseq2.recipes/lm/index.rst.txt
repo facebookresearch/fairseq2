@@ -47,8 +47,6 @@ Classes (PO)
 
 .. autoclass:: POFinetuneConfig
 
-.. autoclass:: POFinetuneMetricBag
-
 .. autoclass:: POCriterionSection
 
 .. autoclass:: POFinetuneDatasetSection
@@ -60,16 +58,12 @@ Classes (PO)
 
 .. autoclass:: CpoFinetuneUnitHandler
 
-.. autoclass:: CpoFinetuneMetricBag
-
 
 .. autoclass:: DpoFinetuneConfig
 
 .. autoclass:: DpoFinetuneUnit
 
 .. autoclass:: DpoFinetuneUnitHandler
-
-.. autoclass:: DpoFinetuneMetricBag
 
 
 .. autoclass:: OrpoFinetuneConfig
@@ -78,16 +72,12 @@ Classes (PO)
 
 .. autoclass:: OrpoFinetuneUnitHandler
 
-.. autoclass:: OrpoFinetuneMetricBag
-
 
 .. autoclass:: SimPOFinetuneConfig
 
 .. autoclass:: SimPOFinetuneUnit
 
 .. autoclass:: SimPOFinetuneUnitHandler
-
-.. autoclass:: SimPOFinetuneMetricBag
 
 Functions (PO)
 ~~~~~~~~~~~~~~

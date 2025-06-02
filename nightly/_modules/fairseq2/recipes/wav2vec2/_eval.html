@@ -336,7 +336,6 @@
     <span class="n">SpeechReadOptions</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gangs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricBag</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.wav2vec2</span><span class="w"> </span><span class="kn">import</span> <span class="n">Wav2Vec2Model</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Evaluator</span><span class="p">,</span> <span class="n">EvalUnit</span><span class="p">,</span> <span class="n">Model</span>
@@ -361,11 +360,8 @@
 
 <span class="c1"># isort: split</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.wav2vec2._common</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Wav2Vec2Criterion</span><span class="p">,</span>
-    <span class="n">Wav2Vec2LossSection</span><span class="p">,</span>
-    <span class="n">Wav2Vec2MetricBag</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.wav2vec2._config</span><span class="w"> </span><span class="kn">import</span> <span class="n">Wav2Vec2LossSection</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.wav2vec2._criterion</span><span class="w"> </span><span class="kn">import</span> <span class="n">Wav2Vec2Criterion</span>
 
 
 <div class="viewcode-block" id="Wav2Vec2EvalConfig">
@@ -436,7 +432,7 @@
 <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load_wav2vec2_evaluator</span><span class="p">(</span>
     <span class="n">context</span><span class="p">:</span> <span class="n">RuntimeContext</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Evaluator</span><span class="p">[</span><span class="n">SequenceBatch</span><span class="p">]:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Evaluator</span><span class="p">:</span>
     <span class="n">config</span> <span class="o">=</span> <span class="n">structure</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">Wav2Vec2EvalConfig</span><span class="p">)</span>
 
     <span class="n">validate</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
@@ -464,12 +460,12 @@
 
     <span class="n">dataset</span> <span class="o">=</span> <span class="n">load_dataset</span><span class="p">(</span><span class="n">SpeechDataset</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">dataset</span><span class="p">,</span> <span class="n">gangs</span><span class="p">)</span>
 
-    <span class="c1"># Initialize the unut.</span>
+    <span class="c1"># Initialize the unit.</span>
     <span class="n">criterion</span> <span class="o">=</span> <span class="n">Wav2Vec2Criterion</span><span class="p">(</span>
-        <span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">diversity_loss_weight</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">feature_penalty_weight</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">module</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">diversity_weight</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">features_penalty_weight</span>
     <span class="p">)</span>
 
-    <span class="n">unit</span> <span class="o">=</span> <span class="n">Wav2Vec2EvalUnit</span><span class="p">(</span><span class="n">criterion</span><span class="p">,</span> <span class="n">gangs</span><span class="p">)</span>
+    <span class="n">unit</span> <span class="o">=</span> <span class="n">Wav2Vec2EvalUnit</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">criterion</span><span class="p">)</span>
 
     <span class="n">batching</span> <span class="o">=</span> <span class="n">LengthBatching</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">max_num_elements</span><span class="p">)</span>
 
@@ -491,6 +487,10 @@
         <span class="n">read_options</span><span class="p">,</span>
     <span class="p">)</span>
 
+    <span class="n">units</span> <span class="o">=</span> <span class="p">[</span><span class="n">unit</span><span class="p">]</span>
+
+    <span class="n">data_readers</span> <span class="o">=</span> <span class="p">[</span><span class="n">data_reader</span><span class="p">]</span>
+
     <span class="n">seed</span> <span class="o">+=</span> <span class="mi">1</span>
 
     <span class="k">return</span> <span class="n">create_evaluator</span><span class="p">(</span>
@@ -498,8 +498,8 @@
         <span class="n">config</span><span class="o">.</span><span class="n">evaluator</span><span class="p">,</span>
         <span class="n">config</span><span class="o">.</span><span class="n">common</span><span class="p">,</span>
         <span class="n">output_dir</span><span class="p">,</span>
-        <span class="p">[</span><span class="n">unit</span><span class="p">],</span>
-        <span class="p">[</span><span class="n">data_reader</span><span class="p">],</span>
+        <span class="n">units</span><span class="p">,</span>
+        <span class="n">data_readers</span><span class="p">,</span>
         <span class="n">gangs</span><span class="p">,</span>
         <span class="n">seed</span><span class="p">,</span>
         <span class="n">hyper_params</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
@@ -509,27 +509,22 @@
 
 <span class="nd">@final</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Wav2Vec2EvalUnit</span><span class="p">(</span><span class="n">EvalUnit</span><span class="p">[</span><span class="n">SequenceBatch</span><span class="p">]):</span>
+    <span class="n">_model</span><span class="p">:</span> <span class="n">Model</span>
     <span class="n">_criterion</span><span class="p">:</span> <span class="n">Wav2Vec2Criterion</span>
-    <span class="n">_metric_bag</span><span class="p">:</span> <span class="n">Wav2Vec2MetricBag</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">criterion</span><span class="p">:</span> <span class="n">Wav2Vec2Criterion</span><span class="p">,</span> <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span> <span class="n">criterion</span><span class="p">:</span> <span class="n">Wav2Vec2Criterion</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">model</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">_criterion</span> <span class="o">=</span> <span class="n">criterion</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span> <span class="o">=</span> <span class="n">Wav2Vec2MetricBag</span><span class="p">(</span><span class="n">gangs</span><span class="o">.</span><span class="n">dp</span><span class="p">)</span>
-
     <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_criterion</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">,</span> <span class="n">metric_bag</span><span class="p">:</span> <span class="n">MetricBag</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_criterion</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">metric_bag</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Model</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_criterion</span><span class="o">.</span><span class="n">model</span>
-
-    <span class="nd">@property</span>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">metric_bag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricBag</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span>
 </pre></div>
         </article>
       </div>
@@ -566,7 +561,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=74668342"></script>
+</div><script src="../../../../_static/documentation_options.js?v=ab410d54"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

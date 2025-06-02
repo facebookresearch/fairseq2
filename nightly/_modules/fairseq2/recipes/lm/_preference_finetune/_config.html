@@ -336,7 +336,7 @@
     <span class="n">ActivationCheckpointingSection</span><span class="p">,</span>
     <span class="n">CommonSection</span><span class="p">,</span>
     <span class="n">DatasetSection</span><span class="p">,</span>
-    <span class="n">FsdpSection</span><span class="p">,</span>
+    <span class="n">FSDPSection</span><span class="p">,</span>
     <span class="n">GangSection</span><span class="p">,</span>
     <span class="n">LRSchedulerSection</span><span class="p">,</span>
     <span class="n">ModelSection</span><span class="p">,</span>
@@ -370,7 +370,7 @@
         <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">TrainerSection</span><span class="p">(</span>
             <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span><span class="p">,</span>
             <span class="n">data_parallelism</span><span class="o">=</span><span class="s2">&quot;fsdp&quot;</span><span class="p">,</span>
-            <span class="n">fsdp</span><span class="o">=</span><span class="n">FsdpSection</span><span class="p">(</span><span class="n">fp32_reduce</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+            <span class="n">fsdp</span><span class="o">=</span><span class="n">FSDPSection</span><span class="p">(</span><span class="n">fp32_reduce</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
             <span class="n">activation_checkpointing</span><span class="o">=</span><span class="n">ActivationCheckpointingSection</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;layerwise&quot;</span><span class="p">),</span>
         <span class="p">)</span>
     <span class="p">)</span>
@@ -502,7 +502,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../../_static/documentation_options.js?v=74668342"></script>
+</div><script src="../../../../../_static/documentation_options.js?v=ab410d54"></script>
     <script src="../../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/scripts/furo.js?v=5fa4622c"></script>
