@@ -59,9 +59,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     StatefulRolloutBag,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
-from fairseq2.recipes.lm._online_finetune._remote_vllm import (
-    RemoteVllmModel
-)
+from fairseq2.recipes.lm._online_finetune._remote_model import RemoteVllmModel
 from fairseq2.recipes.lm._online_finetune._rewards import (
     RewardSection,
     VLLMOutputReward,

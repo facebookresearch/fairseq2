@@ -55,8 +55,10 @@ from fairseq2.recipes.lm._online_finetune._common import (
     get_rollout_lengths,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
-from fairseq2.recipes.lm._online_finetune._remote_vllm import RemoteVllmModel
-from fairseq2.recipes.lm._online_finetune._remote_hf import RemoteHFModel
+from fairseq2.recipes.lm._online_finetune._remote_model import (
+    RemoteVllmModel,
+    RemoteHFModel,
+)
 from fairseq2.recipes.lm._online_finetune._rewards import (
     RewardSection,
     VLLMOutputReward,

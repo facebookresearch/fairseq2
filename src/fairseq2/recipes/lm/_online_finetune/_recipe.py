@@ -74,7 +74,7 @@ from fairseq2.recipes.lm._online_finetune._grpo import (
     GrpoFinetuneConfig,
 )
 
-from fairseq2.recipes.lm._online_finetune._remote_vllm import (
+from fairseq2.recipes.lm._online_finetune._remote_model import (
     RemoteRayModelHandler,
     VllmRayActorConfig,
     HFRayActorConfig,
