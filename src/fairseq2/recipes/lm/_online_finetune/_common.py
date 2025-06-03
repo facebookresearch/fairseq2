@@ -124,23 +124,6 @@ class NoEnvAtheneRewardPipeline(AtheneRewardPipeline):
         return "athene_reward_pipeline"
 
 
-# @ray.remote
-# class NoEnvPipeline:
-#     def __init__(self, *args, **kwargs):
-#         # stop ray from manipulating CUDA_VISIBLE_DEVICES
-#         # at the top-level
-#         del os.environ["CUDA_VISIBLE_DEVICES"]
-#         if kwargs.get("model") == "athene":
-#             self.pipeline = AtheneRewardPipeline(*args, **kwargs)
-#         self.ready = True  # Set a flag or return a signal
-
-#     def __call__(self, *args, **kwargs):
-#         return self.pipeline(*args, **kwargs)
-
-#     def is_ready(self):
-#         return self.ready
-
-
 class MyWorker(Worker):
     """
     The `MyWorker` class inherits from `Worker` to provide custom functions.
