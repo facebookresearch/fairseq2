@@ -304,7 +304,7 @@ class RemoteVllmModel:
 
 @dataclass(kw_only=True)
 class HFRayActorConfig(RayActorConfig):
-    pipline_name: str = ""
+    pipeline_name: str = ""
     tensor_parallel_size: int = 4
 
 
