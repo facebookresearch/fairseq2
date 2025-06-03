@@ -83,7 +83,7 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     """Represents the language model DPO-finetuning unit with online generations. Paper: https://arxiv.org/abs/2305.18290."""
 
     _reference_model: Module | RemoteVllmModel | None
-    _rollout_model: RemoteVllmModel
+    _vllm_model: RemoteVllmModel
     _vllm_actors: Dict[str, Union[RemoteVllmModel, RemoteHFModel]]
     _metric_bag: GroupDpoFinetuneMetricBag
     _loss_config: GroupDpoLossConfig
@@ -99,7 +99,7 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         model: Module,
         reference_model: Module | RemoteVllmModel,
         reference_offload: bool,
-        rollout_model: RemoteVllmModel,
+        vllm_model: RemoteVllmModel,
         vllm_actors: List[Union[RemoteVllmModel, RemoteHFModel]],
         reward,
         gangs: Gangs,
@@ -113,7 +113,7 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._reference_offload = reference_offload
         self._vllm_actors = vllm_actors
         self._loss_config = loss_config
-        self._rollout_model = rollout_model
+        self._vllm_model = vllm_model
         self._gangs = gangs
         self._sync_vllm_model_every_n_steps = sync_vllm_model_every_n_steps
         self._sync_ref_model_every_n_steps = sync_ref_model_every_n_step
@@ -134,7 +134,7 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         ):
             with self._model.summon_full_parameters():
                 if self._gangs.root.rank == 0:
-                    self._rollout_model.sync_weights_with_vllm(train_model=self._model)
+                    self._vllm_model.sync_weights_with_vllm(train_model=self._model)
                 self._gangs.root.barrier()
 
         if hasattr(self, "_step_nr") and (
@@ -159,7 +159,7 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
     def validate_reward(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
         if self._gangs.dp.rank == 0:
-            policy_sampling_params = copy(self._rollout_model.sampling_params)
+            policy_sampling_params = copy(self._vllm_model.sampling_params)
             policy_sampling_params.n = 1
             for k, v in self._loss_config.validation_vllm_sampling_params.items():
                 policy_sampling_params.__setattr__(k, v)
@@ -168,7 +168,7 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         rollouts = generate_rollouts(
             prompt_batch.prompts,
             dp_gang=self._gangs.dp,
-            vllm_model=self._rollout_model,
+            vllm_model=self._vllm_model,
             sampling_params=policy_sampling_params,
         )
         if self._loss_config.log_rollouts:
@@ -221,7 +221,7 @@ class GroupDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self.maybe_sync_models()
 
         rollouts = generate_rollouts(
-            prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._rollout_model
+            prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
         )
         if self._loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Train")
