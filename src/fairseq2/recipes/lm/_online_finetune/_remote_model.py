@@ -26,7 +26,7 @@ from fairseq2.gang import Gangs
 from fairseq2.recipes.lm._online_finetune._common import (
     MyWorker,
     NoEnvLLM,
-    NoEnvPipeline,
+    NoEnvAtheneRewardPipeline,
     stateless_init_process_group,
 )
 from fairseq2.logging import log
@@ -310,6 +310,7 @@ class RemoteHFModel:
         ray_actor_name: str,
         num_replicas: int,
         tensor_parallel_size: int,
+        model: str,
         gangs: Gangs,
     ):
         self._gangs = gangs
@@ -324,11 +325,11 @@ class RemoteHFModel:
             raise ValueError("hf worker should only be initialized on DP & TP rank 0")
 
         for replica_i in range(self.num_replicas):
-            self.setup_replica(replica_i, tensor_parallel_size)
+            self.setup_replica(replica_i, tensor_parallel_size, model)
 
         self._tensor_parallel_size = tensor_parallel_size
 
-    def setup_replica(self, replica_i: int, tensor_parallel_size):
+    def setup_replica(self, replica_i: int, tensor_parallel_size, model):
         if (
             len(self.hf_workers) != replica_i
             or len(self.update_process_groups) != replica_i
@@ -338,13 +339,18 @@ class RemoteHFModel:
             )
 
         hf_worker = self.setup_hf_worker(
-            f"{self.ray_actor_name}_{replica_i}", tensor_parallel_size, self._gangs
+            f"{self.ray_actor_name}_{replica_i}",
+            tensor_parallel_size,
+            model,
+            self._gangs,
         )
         self.hf_workers.append(hf_worker)
 
         log.info(f"Replica {replica_i} setup completed")
 
-    def setup_hf_worker(self, ray_actor_name, tensor_parallel_size, gangs: Gangs):
+    def setup_hf_worker(
+        self, ray_actor_name, tensor_parallel_size, model, gangs: Gangs
+    ):
 
         pg_inference = placement_group(
             [{"GPU": 1, "CPU": 0}] * tensor_parallel_size,
@@ -359,13 +365,13 @@ class RemoteHFModel:
             placement_group_bundle_index=0,
         )
 
-        llm = NoEnvPipeline.options(
+        llm = NoEnvAtheneRewardPipeline.options(
             name=ray_actor_name,
             num_cpus=0,
             num_gpus=0,
             scheduling_strategy=scheduling_inference,
             get_if_exists=True,
-        ).remote()
+        ).remote(model=model)
 
         # we block here until the engine is initialized
         ray.get(llm.is_ready.remote())
@@ -443,6 +449,7 @@ class RemoteRayModelHandler(RemoteModelHandler):
                     actor_config.ray_actor_name,
                     actor_config.num_replicas,
                     actor_config.tensor_parallel_size,
+                    actor_config.model,
                     gangs,
                 )
         else:
