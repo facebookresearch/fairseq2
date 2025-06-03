@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import ray
 from fairseq2.context import RuntimeContext
 from fairseq2.recipes.lm import (
     CpoFinetuneUnitHandler,
@@ -92,5 +93,5 @@ def register_online_finetune_units(context: RuntimeContext) -> None:
     registry.register(handler.name, handler)
 
     # NoEnvAtheneRewardPipeline
-    handler = NoEnvAtheneRewardPipeline()
+    handler = NoEnvAtheneRewardPipeline
     registry.register(handler.name, handler)

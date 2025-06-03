@@ -31,6 +31,9 @@ from fairseq2.recipes.lm._online_finetune._common import (
 )
 from fairseq2.logging import log
 from fairseq2.context import RuntimeContext
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    VLLMOutputRewardHandler,
+)
 
 
 @dataclass(kw_only=True)
@@ -301,7 +304,7 @@ class RemoteVllmModel:
 
 @dataclass(kw_only=True)
 class HFRayActorConfig(RayActorConfig):
-    model: str = ""
+    pipline_name: str = ""
     tensor_parallel_size: int = 4
 
 
@@ -311,7 +314,7 @@ class RemoteHFModel:
         ray_actor_name: str,
         num_replicas: int,
         tensor_parallel_size: int,
-        model: str,
+        pipeline_name: str,
         context: RuntimeContext,
         gangs: Gangs,
     ):
@@ -327,11 +330,17 @@ class RemoteHFModel:
             raise ValueError("hf worker should only be initialized on DP & TP rank 0")
 
         for replica_i in range(self.num_replicas):
-            self.setup_replica(replica_i, tensor_parallel_size, model, context)
+            self.setup_replica(replica_i, tensor_parallel_size, pipeline_name, context)
 
         self._tensor_parallel_size = tensor_parallel_size
 
-    def setup_replica(self, replica_i: int, tensor_parallel_size, model, context):
+    def setup_replica(
+        self,
+        replica_i: int,
+        tensor_parallel_size: int,
+        pipeline_name: str,
+        context: RuntimeContext,
+    ):
         if (
             len(self.hf_workers) != replica_i
             or len(self.update_process_groups) != replica_i
@@ -343,7 +352,7 @@ class RemoteHFModel:
         hf_worker = self.setup_hf_worker(
             f"{self.ray_actor_name}_{replica_i}",
             tensor_parallel_size,
-            model,
+            pipeline_name,
             context,
             self._gangs,
         )
@@ -352,7 +361,12 @@ class RemoteHFModel:
         log.info(f"Replica {replica_i} setup completed")
 
     def setup_hf_worker(
-        self, ray_actor_name, tensor_parallel_size, model, context, gangs: Gangs
+        self,
+        ray_actor_name,
+        tensor_parallel_size,
+        pipeline_name: str,
+        context: RuntimeContext,
+        gangs: Gangs,
     ):
 
         pg_inference = placement_group(
@@ -368,7 +382,9 @@ class RemoteHFModel:
             placement_group_bundle_index=0,
         )
 
-        llm = NoEnvAtheneRewardPipeline.options(
+        unit_handlers = context.get_registry(VLLMOutputRewardHandler)
+        pipeline = unit_handlers.get(pipeline_name)
+        llm = pipeline.options(
             name=ray_actor_name,
             num_cpus=0,
             num_gpus=0,
@@ -452,7 +468,7 @@ class RemoteRayModelHandler(RemoteModelHandler):
                     actor_config.ray_actor_name,
                     actor_config.num_replicas,
                     actor_config.tensor_parallel_size,
-                    actor_config.model,
+                    actor_config.pipeline_name,
                     context,
                     gangs,
                 )
