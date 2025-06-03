@@ -119,6 +119,10 @@ class NoEnvAtheneRewardPipeline(AtheneRewardPipeline):
     def is_ready(self):
         return self.ready
 
+    @property
+    def name(self):
+        return "athene_reward_pipeline"
+
 
 # @ray.remote
 # class NoEnvPipeline:

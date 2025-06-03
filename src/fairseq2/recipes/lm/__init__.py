@@ -175,3 +175,7 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
 from fairseq2.recipes.lm._online_finetune._rewards import (
     GenerativePointwiseVerifierHandler as GenerativePointwiseVerifierHandler,
 )
+
+from fairseq2.recipes.lm._online_finetune._common import (
+    NoEnvAtheneRewardPipeline as NoEnvAtheneRewardPipeline,
+)

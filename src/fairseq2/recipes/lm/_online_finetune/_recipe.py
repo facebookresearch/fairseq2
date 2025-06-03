@@ -284,7 +284,9 @@ def load_online_finetuner(
     # go over actor configs and initialize all of them
     for actor_config in config.vllm.ray_actors:
         log.info(f"Setting up '{actor_config.ray_actor_name}' vllm actor")
-        actor = RemoteRayModelHandler().create(gangs=gangs, actor_config=actor_config)
+        actor = RemoteRayModelHandler().create(
+            gangs=gangs, actor_config=actor_config, context=context
+        )
         vllm_actors[actor_config.ray_actor_name] = actor
 
     # Initialize the train unit.

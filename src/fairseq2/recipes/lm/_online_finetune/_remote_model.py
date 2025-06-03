@@ -30,6 +30,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     stateless_init_process_group,
 )
 from fairseq2.logging import log
+from fairseq2.context import RuntimeContext
 
 
 @dataclass(kw_only=True)
@@ -311,6 +312,7 @@ class RemoteHFModel:
         num_replicas: int,
         tensor_parallel_size: int,
         model: str,
+        context: RuntimeContext,
         gangs: Gangs,
     ):
         self._gangs = gangs
@@ -325,11 +327,11 @@ class RemoteHFModel:
             raise ValueError("hf worker should only be initialized on DP & TP rank 0")
 
         for replica_i in range(self.num_replicas):
-            self.setup_replica(replica_i, tensor_parallel_size, model)
+            self.setup_replica(replica_i, tensor_parallel_size, model, context)
 
         self._tensor_parallel_size = tensor_parallel_size
 
-    def setup_replica(self, replica_i: int, tensor_parallel_size, model):
+    def setup_replica(self, replica_i: int, tensor_parallel_size, model, context):
         if (
             len(self.hf_workers) != replica_i
             or len(self.update_process_groups) != replica_i
@@ -342,6 +344,7 @@ class RemoteHFModel:
             f"{self.ray_actor_name}_{replica_i}",
             tensor_parallel_size,
             model,
+            context,
             self._gangs,
         )
         self.hf_workers.append(hf_worker)
@@ -349,7 +352,7 @@ class RemoteHFModel:
         log.info(f"Replica {replica_i} setup completed")
 
     def setup_hf_worker(
-        self, ray_actor_name, tensor_parallel_size, model, gangs: Gangs
+        self, ray_actor_name, tensor_parallel_size, model, context, gangs: Gangs
     ):
 
         pg_inference = placement_group(
@@ -371,7 +374,7 @@ class RemoteHFModel:
             num_gpus=0,
             scheduling_strategy=scheduling_inference,
             get_if_exists=True,
-        ).remote(model=model)
+        ).remote()
 
         # we block here until the engine is initialized
         ray.get(llm.is_ready.remote())
@@ -428,7 +431,7 @@ class RemoteModelHandler(ABC):
 class RemoteRayModelHandler(RemoteModelHandler):
     @override
     def create(
-        self, gangs: Gangs, actor_config: RayActorConfig
+        self, gangs: Gangs, actor_config: RayActorConfig, context: RuntimeContext
     ) -> Union["RemoteVllmModel", "RemoteHFModel"]:
 
         if gangs.dp.rank == 0 and gangs.tp.rank == 0:
@@ -450,6 +453,7 @@ class RemoteRayModelHandler(RemoteModelHandler):
                     actor_config.num_replicas,
                     actor_config.tensor_parallel_size,
                     actor_config.model,
+                    context,
                     gangs,
                 )
         else:
