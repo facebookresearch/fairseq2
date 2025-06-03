@@ -107,24 +107,30 @@ class NoEnvLLM(LLM):
         return self.ready
 
 
+# @ray.remote
+# class NoEnvPipeline(AtheneRewardPipeline):
+#     def __init__(self, *args, **kwargs):
+#         # stop ray from manipulating CUDA_VISIBLE_DEVICES
+#         # at the top-level
+#         del os.environ["CUDA_VISIBLE_DEVICES"]
+#         super().__init__(*args, **kwargs)
+#         self.ready = True  # Set a flag or return a signal
+
+#     def is_ready(self):
+#         return self.ready
+
+
 @ray.remote
-class NoEnvPipeline(AtheneRewardPipeline):
+class NoEnvPipeline:
     def __init__(self, *args, **kwargs):
         # stop ray from manipulating CUDA_VISIBLE_DEVICES
         # at the top-level
         del os.environ["CUDA_VISIBLE_DEVICES"]
-        model = AtheneForSequenceClassification.from_pretrained(
-            "Nexusflow/Athene-RM-8B", torch_dtype="bfloat16"
-        )
-        tokenizer = AutoTokenizer.from_pretrained("Nexusflow/Athene-RM-8B")
-
-        super().__init__(
-            task="text-classification",
-            model=model,
-            tokenizer=tokenizer,
-            device_map="auto",
-        )
+        self.pipeline = AtheneRewardPipeline(*args, **kwargs)
         self.ready = True  # Set a flag or return a signal
+
+    def __call__(self, *args, **kwargs):
+        return self.pipeline(*args, **kwargs)
 
     def is_ready(self):
         return self.ready

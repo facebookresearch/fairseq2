@@ -55,6 +55,19 @@ class AtheneForSequenceClassification(LlamaPreTrainedModel):
 
 class AtheneRewardPipeline(TextClassificationPipeline):
 
+    def __init__(self, *args, **kwargs):
+        model = AtheneForSequenceClassification.from_pretrained(
+            "Nexusflow/Athene-RM-8B", torch_dtype="bfloat16"
+        )
+        tokenizer = AutoTokenizer.from_pretrained("Nexusflow/Athene-RM-8B")
+
+        super().__init__(
+            task="text-classification",
+            model=model,
+            tokenizer=tokenizer,
+            device_map="auto",
+        )
+
     def preprocess(self, inputs, **tokenizer_kwargs) -> Dict[str, torch.Tensor]:
         return_tensors = self.framework
 
