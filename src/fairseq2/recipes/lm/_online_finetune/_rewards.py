@@ -338,14 +338,18 @@ class AtheneVerifier(VLLMOutputReward):
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
 
     def wrap_text(self, prompt_text, rollout_text):
-        wrapped_text = [
-            {"role": "user", "content": prompt_text},
-            {"role": "assistant", "content": rollout_text},
+        messages = [
+            {
+                "role": "user",
+                "content": prompt_text,
+            },
+            {
+                "role": "assistant",
+                "content": rollout_text,
+            },
         ]
-        chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False)
-        chat_str += "<|reserved_special_token_1|>"
 
-        return chat_str
+        return messages
 
     @override
     def process_rollouts(

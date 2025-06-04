@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from copy import copy
 from dataclasses import dataclass, field
-from typing import Dict, Final, List, cast, final, Any
+from typing import Dict, Final, List, cast, final, Any, Union
 
 import ray
 import torch
@@ -59,9 +59,9 @@ from fairseq2.recipes.lm._online_finetune._common import (
     StatefulRolloutBag,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
-from fairseq2.recipes.lm._online_finetune._remote_vllm import (
+from fairseq2.recipes.lm._online_finetune._remote_model import (
     RemoteVllmModel,
-    RemoteVllmModelHandler,
+    RemoteHFModel,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
     RewardSection,
@@ -82,7 +82,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
     _reference_model: Module | RemoteVllmModel | None
     _vllm_model: RemoteVllmModel
-    _vllm_actors: Dict[str, RemoteVllmModel]
+    _vllm_actors: Dict[str, Union[RemoteVllmModel, RemoteHFModel]]
     _loss_config: GrpoLossConfig
     _metric_bag: GrpoFinetuneMetricBag
     _model_update_group: PyNcclCommunicator
@@ -99,7 +99,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         reference_model: Module | RemoteVllmModel,
         reference_offload: bool,
         vllm_model: RemoteVllmModel,
-        vllm_actors: List[RemoteVllmModel],
+        vllm_actors: List[Union[RemoteVllmModel, RemoteHFModel]],
         reward,
         gangs: Gangs,
         loss_config: GrpoLossConfig,
