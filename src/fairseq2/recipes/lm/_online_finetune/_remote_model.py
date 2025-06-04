@@ -32,9 +32,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
 import time
 from fairseq2.logging import log
 from fairseq2.context import RuntimeContext
-from fairseq2.recipes.lm._online_finetune._rewards import (
-    VLLMOutputRewardHandler,
-
+from fairseq2.recipes.lm._online_finetune._rewards import VLLMOutputRewardHandler
 
 
 @dataclass(kw_only=True)
