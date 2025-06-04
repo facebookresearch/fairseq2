@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
-from typing import Any, List, cast
+from typing import Any, List, cast, Dict
 
 import ray
 import torch
@@ -18,7 +18,7 @@ from ray.util.placement_group import placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 from torch import Tensor
 from torcheval.metrics import Mean
-from transformers import AutoModelForCausalLM
+from transformers import AutoTokenizer
 from vllm import LLM, CompletionOutput, RequestOutput, SamplingParams
 from vllm.utils import get_ip, get_open_port
 from vllm.worker.worker import Worker
@@ -39,6 +39,10 @@ from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.recipes.metrics import SequenceMetricBag
 from fairseq2.logging import log
+from fairseq2.recipes.lm._online_finetune.third_party.athene import (
+    AtheneRewardPipeline,
+    AtheneForSequenceClassification,
+)
 
 
 @dataclass
@@ -101,6 +105,23 @@ class NoEnvLLM(LLM):
 
     def is_ready(self):
         return self.ready
+
+
+@ray.remote
+class NoEnvAtheneRewardPipeline(AtheneRewardPipeline):
+    def __init__(self, *args, **kwargs):
+        # stop ray from manipulating CUDA_VISIBLE_DEVICES
+        # at the top-level
+        del os.environ["CUDA_VISIBLE_DEVICES"]
+        super().__init__(*args, **kwargs)
+        self.ready = True  # Set a flag or return a signal
+
+    def is_ready(self):
+        return self.ready
+
+    @property
+    def name(self):
+        return "athene_reward_pipeline"
 
 
 class MyWorker(Worker):
@@ -640,6 +661,7 @@ def get_rollout_lengths(rollouts: List[SequenceData]):
             token_ids_len = len(token_ids)
             rollout_lengths.append(token_ids_len)
     return rollout_lengths
+
 
 class StatefulRolloutBag:
     """A stateful container for managing and reusing model rollouts across multiple micro-batches.

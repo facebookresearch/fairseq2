@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import ray
 from fairseq2.context import RuntimeContext
 from fairseq2.recipes.lm import (
     CpoFinetuneUnitHandler,
@@ -22,6 +23,8 @@ from fairseq2.recipes.lm import (
     AtheneVerifierHandler,
     GenerativePointwiseVerifierHandler,
     VLLMOutputRewardHandler,
+    RemoteModelHandler,
+    NoEnvAtheneRewardPipeline,
 )
 
 
@@ -85,7 +88,13 @@ def register_online_finetune_units(context: RuntimeContext) -> None:
     # MathVerify
     handler = MathVerifyHandler()
     registry.register(handler.name, handler)
-    
+
     # GenerativePointwiseVerifier
     handler = GenerativePointwiseVerifierHandler()
+    registry.register(handler.name, handler)
+
+    registry = context.get_registry(RemoteModelHandler)
+
+    # NoEnvAtheneRewardPipeline
+    handler = NoEnvAtheneRewardPipeline
     registry.register(handler.name, handler)

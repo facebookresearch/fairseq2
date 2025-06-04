@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 import ray
 import torch
@@ -74,10 +74,10 @@ from fairseq2.recipes.lm._online_finetune._grpo import (
     GrpoFinetuneConfig,
 )
 
-from fairseq2.recipes.lm._online_finetune._remote_vllm import (
-    RemoteVllmModelHandler,
-    VllmEngineArgs,
+from fairseq2.recipes.lm._online_finetune._remote_model import (
+    RemoteRayModelHandler,
     VllmRayActorConfig,
+    HFRayActorConfig,
 )
 from fairseq2.recipes.trainer import Trainer
 from fairseq2.typing import CPU
@@ -141,7 +141,7 @@ class OnlineFinetuneConfig:
 @dataclass(kw_only=True)
 class VllmActorsSection:
     ray_cluster_ip_address: str | None = None
-    ray_actors: List[VllmRayActorConfig] | None = None
+    ray_actors: List[Union[VllmRayActorConfig, HFRayActorConfig]] | None = None
 
 
 @dataclass(kw_only=True)
@@ -284,7 +284,9 @@ def load_online_finetuner(
     # go over actor configs and initialize all of them
     for actor_config in config.vllm.ray_actors:
         log.info(f"Setting up '{actor_config.ray_actor_name}' vllm actor")
-        actor = RemoteVllmModelHandler().create(gangs=gangs, actor_config=actor_config)
+        actor = RemoteRayModelHandler().create(
+            gangs=gangs, actor_config=actor_config, context=context
+        )
         vllm_actors[actor_config.ray_actor_name] = actor
 
     # Initialize the train unit.
