@@ -324,7 +324,6 @@ class RemoteHFModel:
         self.ray_actor_name = ray_actor_name
 
         self.hf_workers = []
-        self.update_process_groups = []
 
         if gangs.dp.rank != 0 and gangs.tp.rank != 0:
             raise ValueError("hf worker should only be initialized on DP & TP rank 0")
@@ -341,10 +340,7 @@ class RemoteHFModel:
         pipeline_name: str,
         context: RuntimeContext,
     ):
-        if (
-            len(self.hf_workers) != replica_i
-            or len(self.update_process_groups) != replica_i
-        ):
+        if len(self.hf_workers) != replica_i:
             raise RuntimeError(
                 "new replica is being created while previous ones are not setup yet"
             )
@@ -382,7 +378,7 @@ class RemoteHFModel:
             placement_group_bundle_index=0,
         )
 
-        unit_handlers = context.get_registry(VLLMOutputRewardHandler)
+        unit_handlers = context.get_registry(RemoteModelHandler)
         pipeline = unit_handlers.get(pipeline_name)
         llm = pipeline.options(
             name=ray_actor_name,
@@ -433,7 +429,9 @@ class RemoteHFModel:
 
 class RemoteModelHandler(ABC):
     @abstractmethod
-    def create(self, gangs: Gangs, unit_config: object) -> RemoteVllmModel: ...
+    def create(
+        self, gangs: Gangs, unit_config: object
+    ) -> Union[RemoteVllmModel, RemoteHFModel]: ...
 
     @property
     @abstractmethod
@@ -448,7 +446,7 @@ class RemoteRayModelHandler(RemoteModelHandler):
     @override
     def create(
         self, gangs: Gangs, actor_config: RayActorConfig, context: RuntimeContext
-    ) -> Union["RemoteVllmModel", "RemoteHFModel"]:
+    ) -> Union[RemoteVllmModel, RemoteHFModel]:
 
         if gangs.dp.rank == 0 and gangs.tp.rank == 0:
             # vllm worker is only created on the first DP ranks given how many replicas we use
