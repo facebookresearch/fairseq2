@@ -253,7 +253,16 @@ class MathVerifyVerifier(VLLMOutputReward):
         batch_tokens = []
         batch_rewards = []
         vllm_inputs = []  # dummy for vllm syncronization # FIXME
-        vllm_input = "<|start_header_id|>user<|end_header_id|>\n\ndummy prompt<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\ndummy response<|eot_id|><|reserved_special_token_1|>"
+        vllm_input = [
+            {
+                "role": "user",
+                "content": "dummy_prompt",
+            },
+            {
+                "role": "assistant",
+                "content": "dummy_rollout",
+            },
+        ]
 
         reference_answers = prompt_batch.meta_info.get(self.answer_key)
         for i, i_batch_request_output in enumerate(vllm_outputs):
@@ -571,6 +580,29 @@ class MultiVerifier(VLLMOutputReward):
 
         log.info(f"Reward model type: {reward_model_type}")
         return reward_model_type
+
+    @override
+    def process_rollouts(
+        self, vllm_outputs: List[RequestOutput], prompt_batch: PromptBatch
+    ):
+        reward_model_type = self.get_reward_model_type(prompt_batch)
+        reward = self.rewards_map[reward_model_type]
+        return reward.process_rollouts(vllm_outputs, prompt_batch)
+
+    @override
+    def prepare_preference_batch(
+        self, prompt_batch: PromptBatch, rollouts, reject_longest=False
+    ) -> PreferenceBatch:
+
+        reward_model_type = self.get_reward_model_type(prompt_batch)
+        reward = self.rewards_map[reward_model_type]
+        return reward.prepare_preference_batch(prompt_batch, rollouts, reject_longest)
+
+    @override
+    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
+        reward_model_type = self.get_reward_model_type(prompt_batch)
+        reward = self.rewards_map[reward_model_type]
+        return reward.prepare_grpo_batch(prompt_batch, rollouts)
 
 
 class GenerativePointwiseVerifierHandler(VLLMOutputRewardHandler):

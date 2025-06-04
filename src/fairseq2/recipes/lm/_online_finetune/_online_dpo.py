@@ -188,7 +188,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             dp_gang=self._gangs.dp,
             vllm_model=self._vllm_model,
             sampling_params=policy_sampling_params,
-            max_tokens=max_tokens,
         )
         if self._loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Valid")
@@ -266,7 +265,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             prompt_batch.prompts,
             dp_gang=self._gangs.dp,
             vllm_model=self._vllm_model,
-            max_tokens=max_tokens,
         )
         if self._loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Train")
