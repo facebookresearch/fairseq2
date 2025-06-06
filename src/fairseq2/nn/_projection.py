@@ -519,7 +519,7 @@ class RowShardedLinear(Projection):
             f"{s}, "
             f"scatter_input={self.scatter_input}, "
             f"output_dim={self.output_dim}, "
-            f"bias={bias}, "
+            f"bias={bias}"
         )
 
         if self.init_fn is not None:

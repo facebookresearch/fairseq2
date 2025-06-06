@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import cast
 
 from torch import Tensor
-from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
 from fairseq2.models.utils.checkpoint import convert_checkpoint
 
@@ -26,7 +25,7 @@ def convert_llama_checkpoint(
     except KeyError:
         pass
 
-    if "lm_head.weight" in checkpoint:  # Hugging Face
+    if "decoder.embed_tokens.weight" in checkpoint:  # Hugging Face
         head_dim = config.model_dim // config.num_attn_heads
 
         def permute_rotary(w: Tensor, num_heads: int) -> Tensor:
@@ -70,14 +69,7 @@ def convert_llama_checkpoint(
         }
 
         checkpoint = convert_checkpoint(checkpoint, key_map)
-
-        # Safetensors does not support shared tensors.
-        if config.tie_embeddings:
-            checkpoint["final_proj.weight"] = checkpoint["decoder_frontend.embed.weight"]  # fmt: skip
-
-        return checkpoint
-
-    if "tok_embeddings.weight" in checkpoint:  # reference
+    elif "tok_embeddings.weight" in checkpoint:  # reference
         key_map = {
             # fmt: off
             r"^layers\.([0-9]+)\.attention\.wq\.":    r"decoder.layers.\1.self_attn.q_proj.",
@@ -98,8 +90,9 @@ def convert_llama_checkpoint(
         # We do not need the pre-computed 'rope.freqs' buffers.
         checkpoint = {k: v for (k, v) in checkpoint.items() if "rope.freqs" not in k}
 
-        return convert_checkpoint(checkpoint, key_map)
+        checkpoint = convert_checkpoint(checkpoint, key_map)
 
-    consume_prefix_in_state_dict_if_present(checkpoint, prefix="module.")  # legacy
+    if config.tied_embeddings:
+        checkpoint["final_proj.weight"] = checkpoint["decoder_frontend.embed.weight"]
 
     return checkpoint

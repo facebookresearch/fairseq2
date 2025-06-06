@@ -220,10 +220,10 @@ class LLaMAFactory:
     def create_final_projection(self, embed: Embedding) -> Projection:
         config = self._config
 
-        if config.tie_embeddings:
+        if config.tied_embeddings:
             if not isinstance(embed, StandardEmbedding):
                 raise TypeError(
-                    f"`embed` must be of type `{StandardEmbedding}` when `config.tie_embeddings` is `True`, but is of type `{type(embed)}` instead."
+                    f"`embed` must be of type `{StandardEmbedding}` when `config.tied_embeddings` is `True`, but is of type `{type(embed)}` instead."
                 )
 
             return TiedProjection(embed.weight, bias=None)

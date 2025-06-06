@@ -301,14 +301,14 @@ class FileCheckpointManager(CheckpointManager):
     ) -> None:
         gangs = self._gangs
 
-        filename = f"step_{step_nr}.tmp/trainer"
+        pathname = f"step_{step_nr}.tmp/trainer"
 
         if gangs.root.size == 1:
-            filename = f"{filename}.pt"
+            pathname = f"{pathname}.pt"
         else:
-            filename = f"{filename}/rank_{gangs.root.rank:02d}.pt"
+            pathname = f"{pathname}/rank_{gangs.root.rank:02d}.pt"
 
-        file = self._checkpoint_dir.joinpath(filename)
+        file = self._checkpoint_dir.joinpath(pathname)
 
         if gangs.root.rank == 0:
             try:
@@ -330,17 +330,9 @@ class FileCheckpointManager(CheckpointManager):
         if gangs.rdp.rank != 0:
             return
 
-        if gangs.tp.size == 1:
-            filename = f"step_{step_nr}.tmp/model"
-        else:
-            filename = f"step_{step_nr}.tmp/model/tp_{gangs.tp.rank:02d}"
+        pathname = f"step_{step_nr}.tmp/model.pt/pp_{gangs.pp.rank:02d}/tp_{gangs.tp.rank:02d}/sdp_{gangs.sdp.rank:02d}"
 
-        if gangs.sdp.size == 1:
-            filename = f"{filename}.pt"
-        else:
-            filename = f"{filename}/sdp_{gangs.sdp.rank:02d}.pt"
-
-        file = self._checkpoint_dir.joinpath(filename)
+        file = self._checkpoint_dir.joinpath(pathname)
 
         if gangs.sdp.rank == 0:
             try:
@@ -362,17 +354,9 @@ class FileCheckpointManager(CheckpointManager):
         if gangs.rdp.rank != 0:
             return
 
-        if gangs.tp.size == 1:
-            filename = f"step_{step_nr}.tmp/optimizer"
-        else:
-            filename = f"step_{step_nr}.tmp/optimizer/tp_{gangs.tp.rank:02d}"
+        pathname = f"step_{step_nr}.tmp/optimizer.pt/pp_{gangs.pp.rank:02d}/tp_{gangs.tp.rank:02d}/sdp_{gangs.sdp.rank:02d}"
 
-        if gangs.sdp.size == 1:
-            filename = f"{filename}.pt"
-        else:
-            filename = f"{filename}/sdp_{gangs.sdp.rank:02d}.pt"
-
-        file = self._checkpoint_dir.joinpath(filename)
+        file = self._checkpoint_dir.joinpath(pathname)
 
         if gangs.sdp.rank == 0:
             try:
@@ -394,14 +378,14 @@ class FileCheckpointManager(CheckpointManager):
         if gangs.tp.rank != 0:
             return
 
-        filename = f"step_{step_nr}.tmp/data_reader"
+        pathname = f"step_{step_nr}.tmp/data_reader"
 
         if gangs.dp.size == 1:
-            filename = f"{filename}.pt"
+            pathname = f"{pathname}.pt"
         else:
-            filename = f"{filename}/dp_{gangs.dp.rank:02d}.pt"
+            pathname = f"{pathname}/dp_rank_{gangs.dp.rank:02d}.pt"
 
-        file = self._checkpoint_dir.joinpath(filename)
+        file = self._checkpoint_dir.joinpath(pathname)
 
         if gangs.dp.rank == 0:
             try:
@@ -685,15 +669,7 @@ class FileCheckpointManager(CheckpointManager):
     def load_model_state(self, step_nr: int, model: Stateful) -> None:
         gangs = self._gangs
 
-        if gangs.tp.size == 1:
-            pathname = "model"
-        else:
-            pathname = f"model/tp_{gangs.tp.rank:02d}"
-
-        if gangs.sdp.size == 1:
-            pathname = f"{pathname}.pt"
-        else:
-            pathname = f"{pathname}/sdp_{gangs.sdp.rank:02d}.pt"
+        pathname = f"model.pt/pp_{gangs.pp.rank:02d}/tp_{gangs.tp.rank:02d}/sdp_{gangs.sdp.rank:02d}"
 
         try:
             state_dict = self._load_state_dict(step_nr, pathname)
@@ -713,15 +689,7 @@ class FileCheckpointManager(CheckpointManager):
     def load_optimizer_state(self, step_nr: int, optimizer: Stateful) -> None:
         gangs = self._gangs
 
-        if gangs.tp.size == 1:
-            pathname = "optimizer"
-        else:
-            pathname = f"optimizer/tp_{gangs.tp.rank:02d}"
-
-        if gangs.sdp.size == 1:
-            pathname = f"{pathname}.pt"
-        else:
-            pathname = f"{pathname}/sdp_{gangs.sdp.rank:02d}.pt"
+        pathname = f"optimizer.pt/pp_{gangs.pp.rank:02d}/tp_{gangs.tp.rank:02d}/sdp_{gangs.sdp.rank:02d}"
 
         try:
             state_dict = self._load_state_dict(step_nr, pathname)

@@ -8,13 +8,14 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol, final
 
 from torch.nn import Module
 from typing_extensions import override
 
+from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gangs
 from fairseq2.nn import (
     ColumnShardedLinear,
@@ -27,24 +28,17 @@ from fairseq2.nn import (
 
 
 @dataclass
-class ModuleShardSpec:
+class ShardSpec:
     dim: int
     region_boundary: bool = False
 
 
-class ShardedModuleMapper(Protocol):
-    def __call__(
-        self, module: Module, gangs: Gangs, spec: ModuleShardSpec
-    ) -> Module | None: ...
+class ModuleSharder(Protocol):
+    def __call__(self, module: Module, gangs: Gangs, spec: ShardSpec) -> Module: ...
 
 
-def map_sharded_linear(
-    module: Module, gangs: Gangs, spec: ModuleShardSpec
-) -> Module | None:
+def shard_linear(module: Module, gangs: Gangs, spec: ShardSpec) -> Module:
     if not isinstance(module, Linear):
-        return None
-
-    if gangs.tp.size == 1:
         return module
 
     if spec.dim == 0:
@@ -57,16 +51,11 @@ def map_sharded_linear(
             module, gangs.tp, scatter_input=not spec.region_boundary
         )
 
-    return None
+    raise ValueError(f"`spec.dim` must be 0 or 1, but is {spec.dim} instead.")
 
 
-def map_sharded_embedding(
-    module: Module, gangs: Gangs, spec: ModuleShardSpec
-) -> Module | None:
+def shard_embedding(module: Module, gangs: Gangs, spec: ShardSpec) -> Module:
     if not isinstance(module, StandardEmbedding):
-        return None
-
-    if gangs.tp.size == 1:
         return module
 
     # TODO: handle spec.region_boundary.
@@ -76,37 +65,35 @@ def map_sharded_embedding(
     if spec.dim == 1:
         return ShardedEmbedding.from_embedding(module, gangs.tp)
 
-    return None
+    raise ValueError(f"`spec.dim` must be 0 or 1, but is {spec.dim} instead.")
 
 
 class ModelSharder(ABC):
     @abstractmethod
     def shard(
-        self, model: Module, gangs: Gangs, specs: dict[str, ModuleShardSpec]
+        self, model: Module, gangs: Gangs, specs: Mapping[str, ShardSpec]
     ) -> None: ...
 
 
 @final
 class StandardModelSharder(ModelSharder):
-    _mappers: Iterable[ShardedModuleMapper]
+    _sharders: Mapping[type[Module], ModuleSharder]
 
-    def __init__(self, mappers: Iterable[ShardedModuleMapper]) -> None:
-        self._mappers = mappers
+    def __init__(self, sharders: Mapping[type[Module], ModuleSharder]) -> None:
+        self._sharders = sharders
 
     @override
     def shard(
-        self, model: Module, gangs: Gangs, specs: dict[str, ModuleShardSpec]
+        self, model: Module, gangs: Gangs, specs: Mapping[str, ShardSpec]
     ) -> None:
-        self._shard_module(model, gangs, specs, path=[])
+        if gangs.tp.size > 1:
+            self._do_shard(model, gangs, specs, path=[])
 
-        from fairseq2.logging import log
-
-        log.info(model)
-    def _shard_module(
+    def _do_shard(
         self,
         module: Module,
         gangs: Gangs,
-        specs: dict[str, ModuleShardSpec],
+        specs: Mapping[str, ShardSpec],
         path: list[str],
     ) -> None:
         for name, child in module.named_children():
@@ -118,35 +105,36 @@ class StandardModelSharder(ModelSharder):
 
             for pattern, spec in specs.items():
                 if re.match(pattern, pathname):
-                    sharded_child = self._replace_module(child, gangs, spec)
+                    kls = type(child)
 
-                    if sharded_child is None:
+                    try:
+                        sharder = self._sharders[kls]
+                    except KeyError:
+                        raise NotSupportedError(
+                            f"`{kls}` does not support sharding."
+                        ) from None
+
+                    try:
+                        sharded_child = sharder(child, gangs, spec)
+                    except ValueError as ex:
                         raise ValueError(
-                            f"`module.{pathname}` has a shard specification, but "
-                        )
+                            f"`model.{pathname}` cannot be sharded. See the nested exception for details."
+                        ) from ex
 
                     break
 
             if sharded_child is not None:
                 module.register_module(name, sharded_child)
             else:
-                self._shard_module(child, gangs, specs, path)
+                self._do_shard(child, gangs, specs, path)
 
             path.pop()
 
-    def _replace_module(
-        self, module: Module, gangs: Gangs, spec: ModuleShardSpec
-    ) -> Module | None:
-        for mapper in self._mappers:
-            sharded_module = mapper(module, gangs, spec)
-
-            if sharded_module is not None:
-                return sharded_module
-
-        return None
-
 
 def create_model_sharder() -> ModelSharder:
-    mappers = [map_sharded_linear, map_sharded_embedding]
+    sharders: dict[type[Module], ModuleSharder] = {
+        Linear: shard_linear,
+        StandardEmbedding: shard_embedding,
+    }
 
-    return StandardModelSharder(mappers)
+    return StandardModelSharder(sharders)

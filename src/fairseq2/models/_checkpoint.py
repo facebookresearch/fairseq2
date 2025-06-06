@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from itertools import count
 from pathlib import Path
 from typing import Protocol, final
@@ -21,7 +21,7 @@ from fairseq2.device import CPU
 from fairseq2.error import ContractError
 from fairseq2.file_system import FileSystem
 from fairseq2.gang import Gangs
-from fairseq2.models.utils.sharder import ModuleShardSpec
+from fairseq2.models.utils.sharder import ShardSpec
 from fairseq2.utils.io import (
     HuggingFaceSafetensorsLoader,
     SafetensorsLoader,
@@ -31,11 +31,11 @@ from fairseq2.utils.io import (
 )
 
 
-class ModelCheckpointProcessor(Protocol):
+class CheckpointProcessor(Protocol):
     def __call__(self, checkpoint: dict[str, object]) -> dict[str, object]: ...
 
 
-class ModelCheckpointLoader(ABC):
+class CheckpointLoader(ABC):
     @abstractmethod
     def load(
         self,
@@ -43,8 +43,8 @@ class ModelCheckpointLoader(ABC):
         gangs: Gangs,
         *,
         restrict: bool = True,
-        processor: ModelCheckpointProcessor | None = None,
-        module_shard_specs: dict[str, ModuleShardSpec] | None = None,
+        processor: CheckpointProcessor | None = None,
+        shard_specs: Mapping[str, ShardSpec] | None = None,
     ) -> Iterable[tuple[str, Tensor]]: ...
 
     @abstractmethod
@@ -52,10 +52,10 @@ class ModelCheckpointLoader(ABC):
 
 
 @final
-class DelegatingModelCheckpointLoader(ModelCheckpointLoader):
-    _loaders: Iterable[ModelCheckpointLoader]
+class DelegatingCheckpointLoader(CheckpointLoader):
+    _loaders: Iterable[CheckpointLoader]
 
-    def __init__(self, loaders: Iterable[ModelCheckpointLoader]) -> None:
+    def __init__(self, loaders: Iterable[CheckpointLoader]) -> None:
         self._loaders = loaders
 
     @override
@@ -65,8 +65,8 @@ class DelegatingModelCheckpointLoader(ModelCheckpointLoader):
         gangs: Gangs,
         *,
         restrict: bool = True,
-        processor: ModelCheckpointProcessor | None = None,
-        module_shard_specs: dict[str, ModuleShardSpec] | None = None,
+        processor: CheckpointProcessor | None = None,
+        shard_specs: Mapping[str, ShardSpec] | None = None,
     ) -> Iterable[tuple[str, Tensor]]:
         for loader in self._loaders:
             if loader.supports_path(path):
@@ -75,11 +75,11 @@ class DelegatingModelCheckpointLoader(ModelCheckpointLoader):
                     gangs,
                     restrict=restrict,
                     processor=processor,
-                    module_shard_specs=module_shard_specs,
+                    shard_specs=shard_specs,
                 )
 
-        raise ModelCheckpointError(
-            f"The '{path}' path does not point to any known model checkpoints."
+        raise CheckpointError(
+            f"The '{path}' path does not point to any known checkpoint formats."
         )
 
     @override
@@ -92,7 +92,7 @@ class DelegatingModelCheckpointLoader(ModelCheckpointLoader):
 
 
 @final
-class BasicCheckpointLoader(ModelCheckpointLoader):
+class BasicCheckpointLoader(CheckpointLoader):
     _file_system: FileSystem
     _tensor_loader: TensorLoader
 
@@ -108,15 +108,15 @@ class BasicCheckpointLoader(ModelCheckpointLoader):
         gangs: Gangs,
         *,
         restrict: bool = True,
-        processor: ModelCheckpointProcessor | None = None,
-        module_shard_specs: dict[str, ModuleShardSpec] | None = None,
+        processor: CheckpointProcessor | None = None,
+        shard_specs: Mapping[str, ShardSpec] | None = None,
     ) -> Iterable[tuple[str, Tensor]]:
         try:
             checkpoint = self._tensor_loader.load(
                 path, map_location=CPU, restrict=restrict, mmap=True
             )
         except (FileNotFoundError, TensorLoadError) as ex:
-            raise ModelCheckpointError(
+            raise CheckpointError(
                 f"The '{path}' tensor file cannot be loaded. See the nested exception for details."
             ) from ex
 
@@ -128,11 +128,18 @@ class BasicCheckpointLoader(ModelCheckpointLoader):
         target_shard_sizes = (gangs.tp.size, gangs.sdp.size)
         target_shard_ranks = (gangs.tp.rank, gangs.sdp.rank)
 
+        memo = set()
+
         for key, tensor in checkpoint.items():
             if not isinstance(tensor, Tensor):
-                raise ModelCheckpointError(
+                raise CheckpointError(
                     f"The value of the '{key}' key in the '{path}' checkpoint is not a `{Tensor}`."
                 )
+
+            if tensor in memo:  # Yield shared tensors only once.
+                continue
+
+            memo.add(tensor)
 
             tp_shards = [[tensor]]  # tp, dp
 
@@ -142,7 +149,7 @@ class BasicCheckpointLoader(ModelCheckpointLoader):
                 source_shard_sizes,
                 target_shard_sizes,
                 target_shard_ranks,
-                module_shard_specs,
+                shard_specs,
             )
 
             yield key, tensor
@@ -159,7 +166,7 @@ class BasicCheckpointLoader(ModelCheckpointLoader):
 
 
 @final
-class SafetensorsCheckpointLoader(ModelCheckpointLoader):
+class SafetensorsCheckpointLoader(CheckpointLoader):
     _file_system: FileSystem
     _safetensors_loader: SafetensorsLoader
 
@@ -177,8 +184,8 @@ class SafetensorsCheckpointLoader(ModelCheckpointLoader):
         gangs: Gangs,
         *,
         restrict: bool = True,
-        processor: ModelCheckpointProcessor | None = None,
-        module_shard_specs: dict[str, ModuleShardSpec] | None = None,
+        processor: CheckpointProcessor | None = None,
+        shard_specs: Mapping[str, ShardSpec] | None = None,
     ) -> Iterable[tuple[str, Tensor]]:
         try:
             is_dir = self._file_system.is_dir(path)
@@ -192,7 +199,7 @@ class SafetensorsCheckpointLoader(ModelCheckpointLoader):
                 raise _access_error(path) from ex
 
             if not files:
-                raise ModelCheckpointError(
+                raise CheckpointError(
                     f"No Safetensors file found under the '{path}' directory."
                 )
         else:
@@ -207,18 +214,25 @@ class SafetensorsCheckpointLoader(ModelCheckpointLoader):
             try:
                 checkpoint = self._safetensors_loader.load(file, device=CPU)
             except (FileNotFoundError, TensorLoadError) as ex:
-                raise ModelCheckpointError(
+                raise CheckpointError(
                     f"The '{file}' Safetensors file cannot be loaded. See the nested exception for details."
                 ) from ex
 
             if processor is not None:
                 checkpoint = processor(checkpoint)
 
+            memo = set()
+
             for key, tensor in checkpoint.items():
                 if not isinstance(tensor, Tensor):
                     raise ContractError(
                         f"The value of the '{key}' key in the '{path}' checkpoint is not a `{Tensor}`."
                     )
+
+                if tensor in memo:  # Yield shared tensors only once.
+                    continue
+
+                memo.add(tensor)
 
                 tp_shards = [[tensor]]  # tp, dp
 
@@ -228,7 +242,7 @@ class SafetensorsCheckpointLoader(ModelCheckpointLoader):
                     source_shard_sizes,
                     target_shard_sizes,
                     target_shard_ranks,
-                    module_shard_specs,
+                    shard_specs,
                 )
 
                 yield key, tensor
@@ -263,7 +277,7 @@ class SafetensorsCheckpointLoader(ModelCheckpointLoader):
 
 
 @final
-class ShardedCheckpointLoader(ModelCheckpointLoader):
+class ShardedCheckpointLoader(CheckpointLoader):
     _file_system: FileSystem
     _tensor_loader: TensorLoader
 
@@ -279,8 +293,8 @@ class ShardedCheckpointLoader(ModelCheckpointLoader):
         gangs: Gangs,
         *,
         restrict: bool = True,
-        processor: ModelCheckpointProcessor | None = None,
-        module_shard_specs: dict[str, ModuleShardSpec] | None = None,
+        processor: CheckpointProcessor | None = None,
+        shard_specs: Mapping[str, ShardSpec] | None = None,
     ) -> Iterable[tuple[str, Tensor]]:
         try:
             is_dir = self._file_system.is_dir(path)
@@ -288,7 +302,7 @@ class ShardedCheckpointLoader(ModelCheckpointLoader):
             raise _access_error(path) from ex
 
         if not is_dir:
-            raise ModelCheckpointError(
+            raise CheckpointError(
                 f"The '{path}' path does not point to a fairseq2 model checkpoint."
             )
 
@@ -304,7 +318,7 @@ class ShardedCheckpointLoader(ModelCheckpointLoader):
         target_shard_ranks = (gangs.tp.rank, gangs.sdp.rank)
 
         # If the source and target pipeline and tensor parallel sizes match,
-        # avoid loading redundant checkpoints.
+        # avoid loading redundant checkpoint files.
         if gangs.pp.size == pp_size:
             if gangs.tp.size == tp_size:
                 pp_files = [[pp_files[gangs.pp.rank][gangs.tp.rank]]]
@@ -329,7 +343,7 @@ class ShardedCheckpointLoader(ModelCheckpointLoader):
                             dp_file, restrict=restrict, mmap=True
                         )
                     except (FileNotFoundError, TensorLoadError) as ex:
-                        raise ModelCheckpointError(
+                        raise CheckpointError(
                             f"The '{dp_file}' tensor file cannot be loaded. See the nested exception for details."
                         ) from ex
 
@@ -344,6 +358,8 @@ class ShardedCheckpointLoader(ModelCheckpointLoader):
 
         # Reshard and yield the checkpoint tensors.
         for tp_checkpoints in pp_checkpoints:
+            memo = set()
+
             # Assume that the very first data parallel shard contains all the
             # checkpoint keys.
             keys = list(tp_checkpoints[0][0].keys())
@@ -361,7 +377,7 @@ class ShardedCheckpointLoader(ModelCheckpointLoader):
                             break  # data parallel sharding can be uneven.
 
                         if not isinstance(dp_shard, Tensor):
-                            raise ModelCheckpointError(
+                            raise CheckpointError(
                                 f"The value of the '{key}' key in the '{path}' checkpoint is not a `{Tensor}`."
                             )
 
@@ -369,13 +385,20 @@ class ShardedCheckpointLoader(ModelCheckpointLoader):
 
                     tp_shards.append(dp_shards)
 
+                dp_shard_0 = tp_shards[0][0]
+
+                if dp_shard_0 in memo:  # Yield shared tensors only once.
+                    continue
+
+                memo.add(dp_shard_0)
+
                 tensor = _reshard_tensor(
                     key,
                     tp_shards,
                     source_shard_sizes,
                     target_shard_sizes,
                     target_shard_ranks,
-                    module_shard_specs,
+                    shard_specs,
                 )
 
                 yield key, tensor
@@ -427,7 +450,7 @@ class ShardedCheckpointLoader(ModelCheckpointLoader):
             pp_files.append(tp_files)
 
         if not pp_files or not pp_files[0] or not pp_files[0][0]:
-            raise ModelCheckpointError(
+            raise CheckpointError(
                 f"The '{path}' directory does not contain any tensor files.",
             )
 
@@ -436,11 +459,11 @@ class ShardedCheckpointLoader(ModelCheckpointLoader):
 
         for tp_files in pp_files:
             if len(tp_files) != tp_size:
-                raise ModelCheckpointError("invalid")
+                raise CheckpointError("invalid")
 
             for dp_files in tp_files:
                 if len(dp_files) != dp_size:
-                    raise ModelCheckpointError("invalid")
+                    raise CheckpointError("invalid")
 
         return pp_files
 
@@ -468,7 +491,7 @@ def _reshard_tensor(
     source_shard_sizes: tuple[int, int],
     target_shard_sizes: tuple[int, int],
     target_shard_ranks: tuple[int, int],
-    module_shard_specs: dict[str, ModuleShardSpec] | None,
+    shard_specs: Mapping[str, ShardSpec] | None,
 ) -> Tensor:
     source_tp_size, source_dp_size = source_shard_sizes
     target_tp_size, target_dp_size = target_shard_sizes
@@ -485,7 +508,7 @@ def _reshard_tensor(
 
         return torch.cat(source_dp_shards, dim=0)
 
-    tp_dim = _get_tp_dim(key, module_shard_specs)
+    tp_dim = _get_tp_dim(key, shard_specs)
 
     # We assume that non-tensor parallel parameters are always replicated.
     if tp_dim == -1:
@@ -523,34 +546,34 @@ def _reshard_tensor(
     return target_tp_shards[target_tp_rank]
 
 
-def _get_tp_dim(key: str, module_shard_specs: dict[str, ModuleShardSpec] | None) -> int:
-    if module_shard_specs is None:
+def _get_tp_dim(key: str, shard_specs: Mapping[str, ShardSpec] | None) -> int:
+    if shard_specs is None:
         return -1
 
     offset = key.rfind(".")
     if offset >= 0:
-        module_pathname = key[:offset]
+        module_name = key[:offset]
     else:
-        module_pathname = key
+        module_name = key
 
-    for pattern, spec in module_shard_specs.items():
-        if re.match(pattern, module_pathname):
+    for pattern, spec in shard_specs.items():
+        if re.match(pattern, module_name):
             return spec.dim
 
     return -1
 
 
-class ModelCheckpointError(Exception):
+class CheckpointError(Exception):
     pass
 
 
-def _access_error(path: Path) -> ModelCheckpointError:
-    return ModelCheckpointError(
+def _access_error(path: Path) -> CheckpointError:
+    return CheckpointError(
         f"The '{path}' path cannot be accessed. See the nested exception for details."
     )
 
 
-def create_model_checkpoint_loader(file_system: FileSystem) -> ModelCheckpointLoader:
+def create_model_checkpoint_loader(file_system: FileSystem) -> CheckpointLoader:
     tensor_loader = TorchTensorLoader(file_system)
 
     safetensors_loader = HuggingFaceSafetensorsLoader(file_system)
@@ -561,4 +584,4 @@ def create_model_checkpoint_loader(file_system: FileSystem) -> ModelCheckpointLo
 
     native_loader = ShardedCheckpointLoader(file_system, tensor_loader)
 
-    return DelegatingModelCheckpointLoader([basic_loader, st_loader, native_loader])
+    return DelegatingCheckpointLoader([basic_loader, st_loader, native_loader])

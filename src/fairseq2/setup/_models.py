@@ -14,14 +14,14 @@ from torch.nn import Module
 from fairseq2.context import RuntimeContext
 from fairseq2.models import (
     ActivationCheckpointApplier,
+    CheckpointConverter,
     DelegatingModelHandler,
     FSDPApplier,
     HuggingFaceExporter,
-    ModelCheckpointConverter,
     ModelCompiler,
     ModelFactory,
     ModelHandler,
-    ModuleShardSpecProvider,
+    ShardSpecsProvider,
     create_model_checkpoint_loader,
 )
 from fairseq2.models.jepa import (
@@ -45,8 +45,8 @@ from fairseq2.models.llama import (
     convert_llama_checkpoint,
     create_llama_model,
     export_llama_checkpoint,
-    register_llama_configs,
     get_llama_shard_specs,
+    register_llama_configs,
 )
 from fairseq2.models.mistral import (
     MISTRAL_MODEL_FAMILY,
@@ -62,8 +62,8 @@ from fairseq2.models.qwen import (
     convert_qwen_checkpoint,
     create_qwen_model,
     export_qwen_checkpoint,
-    register_qwen_configs,
     get_qwen_shard_specs,
+    register_qwen_configs,
 )
 from fairseq2.models.s2t_transformer import (
     S2T_TRANSFORMER_MODEL_FAMILY,
@@ -86,6 +86,7 @@ from fairseq2.models.transformer_lm import (
 )
 from fairseq2.models.utils.ac import apply_default_activation_checkpointing
 from fairseq2.models.utils.fsdp import apply_default_fsdp
+from fairseq2.models.utils.sharder import create_model_sharder
 from fairseq2.models.w2vbert import (
     W2VBERT_MODEL_FAMILY,
     W2VBertConfig,
@@ -111,7 +112,6 @@ from fairseq2.models.wav2vec2.asr import (
     register_wav2vec2_asr_configs,
 )
 from fairseq2.registry import Registry
-from fairseq2.models.utils.sharder import create_model_sharder
 
 
 def _register_model_families(context: RuntimeContext) -> None:
@@ -154,7 +154,7 @@ def _register_model_families(context: RuntimeContext) -> None:
         default_llama_arch,
         factory=create_llama_model,
         checkpoint_converter=convert_llama_checkpoint,
-        module_shard_spec_provider=get_llama_shard_specs,
+        shard_specs=get_llama_shard_specs,
         compiler=compile_transformer_lm,
         hugging_face_exporter=export_llama_checkpoint,
     )
@@ -189,7 +189,7 @@ def _register_model_families(context: RuntimeContext) -> None:
         default_qwen_arch,
         factory=create_qwen_model,
         checkpoint_converter=convert_qwen_checkpoint,
-        module_shard_spec_provider=get_qwen_shard_specs,
+        shard_specs=get_qwen_shard_specs,
         compiler=compile_transformer_lm,
         hugging_face_exporter=export_qwen_checkpoint,
     )
@@ -295,8 +295,8 @@ class ModelRegistrar:
         supports_ac: bool = True,
         supports_fsdp: bool = True,
         restrict: bool = True,
-        checkpoint_converter: ModelCheckpointConverter[ModelConfigT] | None = None,
-        module_shard_spec_provider: ModuleShardSpecProvider[ModelConfigT] | None = None,
+        checkpoint_converter: CheckpointConverter[ModelConfigT] | None = None,
+        shard_specs: ShardSpecsProvider[ModelConfigT] | None = None,
         compiler: ModelCompiler[ModelT] | None = None,
         ac_applier: ActivationCheckpointApplier[ModelT] | None = None,
         fsdp_applier: FSDPApplier[ModelT] | None = None,
@@ -346,7 +346,7 @@ class ModelRegistrar:
             supports_meta=supports_meta,
             restrict=restrict,
             checkpoint_converter=checkpoint_converter,
-            module_shard_spec_provider=module_shard_spec_provider,
+            shard_specs=shard_specs,
             compiler=compiler,
             ac_applier=ac_applier,
             fsdp_applier=fsdp_applier,

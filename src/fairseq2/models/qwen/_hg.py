@@ -28,7 +28,7 @@ def _convert_config(config: QwenConfig) -> dict[str, object]:
         "hidden_size": config.model_dim,
         "max_position_embeddings": config.max_seq_len,
         "vocab_size": config.vocab_size,
-        "tie_word_embeddings": config.tie_embeddings,
+        "tie_word_embeddings": config.tied_embeddings,
         "num_hidden_layers": config.num_layers,
         "num_attention_heads": config.num_attn_heads,
         "num_key_value_heads": config.num_key_value_heads,
@@ -59,7 +59,7 @@ def _convert_checkpoint(
 
     checkpoint = convert_checkpoint(checkpoint, key_map)
 
-    if config.tie_embeddings:
+    if config.tied_embeddings:
         del checkpoint["lm_head.weight"]
 
     return checkpoint

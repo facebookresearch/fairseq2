@@ -14,29 +14,61 @@ from torch import Tensor
 from torch.nn import Module
 
 
-def load_checkpoint(module: Module, checkpoint: Iterable[tuple[str, Tensor]]) -> None:
-    state_dict = module.state_dict()
+def load_checkpoint(model: Module, checkpoint: Iterable[tuple[str, Tensor]]) -> None:
+    errors = []
 
-    unknown_keys = []
+    unexpected_keys = []
 
+    memo = set()
+
+    # To determine shared tensors we have to preserve the identity of the
+    # parameters and buffers via `keep_vars`.
+    state_dict = model.state_dict(keep_vars=True)
+
+    from fairseq2.logging import log
     with torch.no_grad():
         for key, tensor in checkpoint:
             try:
                 state_tensor = state_dict.pop(key)
             except KeyError:
-                unknown_keys.append(key)
+                unexpected_keys.append(key)
 
                 continue
 
+            if tensor.shape != state_tensor.shape:
+                errors.append(
+                    f"`{key}` has a shape of {tuple(tensor.shape)} in the checkpoint, but has a shape of {tuple(state_tensor.shape)} in the model."
+                )
+
             state_tensor.copy_(tensor, non_blocking=True)
 
-    if state_dict:
-        missing_keys = list(state_dict.keys())
-    else:
-        missing_keys = []
+            memo.add(state_tensor)
 
-    if unknown_keys or missing_keys:
-        raise ValueError(f"unknown: {unknown_keys}, missing: {missing_keys}")
+    if state_dict:
+        keys_to_remove = []
+
+        # Ensure that we remove any shared tensors from `state_dict`.
+        for key, tensor in state_dict.items():
+            if tensor in memo:
+                keys_to_remove.append(key)
+
+        for key in keys_to_remove:
+            del state_dict[key]
+
+        if state_dict:
+            missing_keys = list(state_dict.keys())
+
+            s = ", ".join(missing_keys)
+
+            errors.append(f"The following keys are missing in the checkpoint: {s}")
+
+    if unexpected_keys:
+        s = ", ".join(unexpected_keys)
+
+        errors.append(f"The following keys in the checkpoint are unexpected: {s}")
+
+    if errors:
+        raise ValueError(" ".join(errors))
 
 
 def convert_checkpoint(

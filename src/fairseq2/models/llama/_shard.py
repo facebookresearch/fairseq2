@@ -6,14 +6,13 @@
 
 from __future__ import annotations
 
-from fairseq2.gang import Gangs
 from fairseq2.models.transformer_lm import get_transformer_lm_shard_specs
-from fairseq2.models.utils.sharder import ModuleShardSpec
+from fairseq2.models.utils.sharder import ShardSpec
 
 # isort: split
 
 from fairseq2.models.llama._config import LLaMAConfig
 
 
-def get_llama_shard_specs(config: LLaMAConfig, gangs: Gangs) -> dict[str, ModuleShardSpec]:
-    return get_transformer_lm_shard_specs(gangs, shard_embed_dim=config.shard_embed_dim)
+def get_llama_shard_specs(config: LLaMAConfig) -> dict[str, ShardSpec]:
+    return get_transformer_lm_shard_specs(shard_embed_dim=config.shard_embed_dim)

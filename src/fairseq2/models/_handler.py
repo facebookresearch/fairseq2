@@ -26,6 +26,7 @@ from fairseq2.device import CPU, META_DEVICE
 from fairseq2.error import ContractError, NotSupportedError
 from fairseq2.gang import Gangs
 from fairseq2.models.utils.checkpoint import load_checkpoint
+from fairseq2.models.utils.sharder import ModelSharder, ShardSpec
 from fairseq2.nn.data_parallel import FSDPGranularity, FSDPWrapper, load_with_sdp_gang
 from fairseq2.nn.utils.module import (
     reset_non_persistent_buffers,
@@ -35,11 +36,10 @@ from fairseq2.nn.utils.module import (
 from fairseq2.utils.merge import MergeError, merge_object
 from fairseq2.utils.structured import StructureError, structure, unstructure
 from fairseq2.utils.validation import validate
-from fairseq2.models.utils.sharder import ModuleShardSpec, ModelSharder
 
 # isort: split
 
-from fairseq2.models._checkpoint import ModelCheckpointError, ModelCheckpointLoader
+from fairseq2.models._checkpoint import CheckpointError, CheckpointLoader
 from fairseq2.models._error import (
     ModelConfigLoadError,
     ModelLoadError,
@@ -141,7 +141,7 @@ class ModelFactory(Protocol[ModelConfigT_contra, ModelT_co]):
     def __call__(self, config: ModelConfigT_contra) -> ModelT_co: ...
 
 
-class ModelCheckpointConverter(Protocol[ModelConfigT_contra]):
+class CheckpointConverter(Protocol[ModelConfigT_contra]):
     def __call__(
         self, checkpoint: dict[str, object], config: ModelConfigT_contra
     ) -> dict[str, object]: ...
@@ -150,10 +150,8 @@ class ModelCheckpointConverter(Protocol[ModelConfigT_contra]):
 ModelT_contra = TypeVar("ModelT_contra", bound=Module, contravariant=True)
 
 
-class ModuleShardSpecProvider(Protocol[ModelConfigT_contra]):
-    def __call__(
-        self, config: ModelConfigT_contra, gangs: Gangs
-    ) -> dict[str, ModuleShardSpec]: ...
+class ShardSpecsProvider(Protocol[ModelConfigT_contra]):
+    def __call__(self, config: ModelConfigT_contra) -> dict[str, ShardSpec]: ...
 
 
 class ModelCompiler(Protocol[ModelT_contra]):
@@ -189,12 +187,12 @@ class DelegatingModelHandler(ModelHandler):
     _default_arch: str
     _factory: ModelFactory[Any, Module]
     _asset_download_manager: AssetDownloadManager
-    _checkpoint_loader: ModelCheckpointLoader
+    _checkpoint_loader: CheckpointLoader
     _sharder: ModelSharder
     _supports_meta: bool
     _restrict: bool
-    _checkpoint_converter: ModelCheckpointConverter[Any] | None
-    _module_shard_spec_provider: ModuleShardSpecProvider[Any] | None
+    _checkpoint_converter: CheckpointConverter[Any] | None
+    _shard_specs: ShardSpecsProvider[Any] | None
     _compiler: ModelCompiler[Any] | None
     _ac_applier: ActivationCheckpointApplier[Any] | None
     _fsdp_applier: FSDPApplier[Any] | None
@@ -208,13 +206,13 @@ class DelegatingModelHandler(ModelHandler):
         default_arch: str,
         factory: ModelFactory[ModelConfigT, ModelT],
         asset_download_manager: AssetDownloadManager,
-        checkpoint_loader: ModelCheckpointLoader,
+        checkpoint_loader: CheckpointLoader,
         sharder: ModelSharder,
         *,
         supports_meta: bool = True,
         restrict: bool = True,
-        checkpoint_converter: ModelCheckpointConverter[ModelConfigT] | None = None,
-        module_shard_spec_provider: ModuleShardSpecProvider[ModelConfigT] | None = None,
+        checkpoint_converter: CheckpointConverter[ModelConfigT] | None = None,
+        shard_specs: ShardSpecsProvider[ModelConfigT] | None = None,
         compiler: ModelCompiler[ModelT] | None = None,
         ac_applier: ActivationCheckpointApplier[ModelT] | None = None,
         fsdp_applier: FSDPApplier[ModelT] | None = None,
@@ -231,7 +229,7 @@ class DelegatingModelHandler(ModelHandler):
         self._supports_meta = supports_meta
         self._restrict = restrict
         self._checkpoint_converter = checkpoint_converter
-        self._module_shard_spec_provider = module_shard_spec_provider
+        self._shard_specs = shard_specs
         self._compiler = compiler
         self._ac_applier = ac_applier
         self._fsdp_applier = fsdp_applier
@@ -409,10 +407,10 @@ class DelegatingModelHandler(ModelHandler):
         else:
             checkpoint_processor = partial(self._checkpoint_converter, config=config)
 
-        if self._module_shard_spec_provider is None:
-            module_shard_specs = None
+        if self._shard_specs is None:
+            shard_specs = None
         else:
-            module_shard_specs = self._module_shard_spec_provider(config, gangs)
+            shard_specs = self._shard_specs(config)
 
         with load_with_sdp_gang(gangs):  # Required for ShardedTensor
             try:
@@ -421,16 +419,16 @@ class DelegatingModelHandler(ModelHandler):
                     gangs,
                     restrict=restrict,
                     processor=checkpoint_processor,
-                    module_shard_specs=module_shard_specs,
+                    shard_specs=shard_specs,
                 )
-            except ModelCheckpointError as ex:
+            except CheckpointError as ex:
                 raise ModelLoadError(
                     name, f"The checkpoint of the '{name}' model cannot be loaded. See the nested exception for details."  # fmt: skip
                 ) from ex
 
             try:
                 load_checkpoint(model, checkpoint)
-            except (ModelCheckpointError, KeyError, ValueError) as ex:
+            except (CheckpointError, KeyError, ValueError) as ex:
                 raise ModelLoadError(
                     name, f"The state of the '{name}' model cannot be loaded from the checkpoint. See the nested exception for details."  # fmt: skip
                 ) from ex
@@ -469,18 +467,18 @@ class DelegatingModelHandler(ModelHandler):
             ) from ex
 
         if gangs.root.size != gangs.dp.size:
-            if self._module_shard_spec_provider is None:
+            if self._shard_specs is None:
                 raise NotSupportedError(
                     f"The '{self._family}' model family does not support model parallelism."
                 )
 
-            module_shard_specs = self._module_shard_spec_provider(config, gangs)
+            shard_specs = self._shard_specs(config)
 
             try:
-                self._sharder.shard(model, gangs, module_shard_specs)
+                self._sharder.shard(model, gangs, shard_specs)
             except ValueError as ex:
                 raise ContractError(
-                    "The model sharding has failed. See the nested exception for details."
+                    "The model cannot be sharded. See the nested exception for details."
                 ) from ex
 
             if not meta and device != gangs.root.device:
@@ -573,7 +571,7 @@ class DelegatingModelHandler(ModelHandler):
     @property
     @override
     def supports_model_parallelism(self) -> bool:
-        return self._module_shard_spec_provider is not None
+        return self._shard_specs is not None
 
     @property
     @override
