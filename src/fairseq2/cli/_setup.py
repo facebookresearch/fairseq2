@@ -53,7 +53,6 @@ from fairseq2.recipes.common import (
     DatasetPathNotFoundError,
     FSDPNotSupportedError,
     HybridShardingNotSupportedError,
-    InvalidModelPathError,
     ModelCompilationNotSupportedError,
     ModelParallelismNotSupportedError,
     ModelPathNotFoundError,
@@ -343,7 +342,6 @@ def _register_user_error_types(cli: Cli) -> None:
     cli.register_user_error_type(HybridShardingNotSupportedError)
     cli.register_user_error_type(InconsistentGradNormError)
     cli.register_user_error_type(InvalidDatasetTypeError)
-    cli.register_user_error_type(InvalidModelPathError)
     cli.register_user_error_type(InvalidModelTypeError)
     cli.register_user_error_type(MinimumLossScaleReachedError)
     cli.register_user_error_type(ModelCompilationNotSupportedError)

@@ -518,9 +518,12 @@ class Gangs:
     tp: Gang
     """The tensor parallel gang."""
 
+    pp: Gang
+    """The pipeline parallel gang."""
+
     def __post_init__(self) -> None:
         if self.root.rank == 0:
-            if self.dp.rank != 0 or self.tp.rank != 0:
+            if self.dp.rank != 0 or self.tp.rank != 0 and self.pp.rank != 0:
                 raise GangError(
                     "The coordinator process of the root gang (i.e. rank 0) must be rank 0 in all parallel gangs."
                 )
@@ -533,14 +536,21 @@ def fake_gangs(device: Device) -> Gangs:
     fake_gang = FakeGang(device=device)
 
     return Gangs(
-        root=fake_gang, dp=fake_gang, rdp=fake_gang, sdp=fake_gang, tp=fake_gang
+        root=fake_gang,
+        dp=fake_gang,
+        rdp=fake_gang,
+        sdp=fake_gang,
+        tp=fake_gang,
+        pp=fake_gang,
     )
 
 
 def to_gangs(gang: Gang) -> Gangs:
     fake_gang = FakeGang(device=gang.device)
 
-    return Gangs(root=gang, dp=gang, rdp=gang, sdp=fake_gang, tp=fake_gang)
+    return Gangs(
+        root=gang, dp=gang, rdp=gang, sdp=fake_gang, tp=fake_gang, pp=fake_gang
+    )
 
 
 def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
@@ -657,7 +667,9 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     if tp_gang is None:
         raise InternalError("`tp_gang` is `None`.")
 
-    return Gangs(root=root_gang, dp=dp_gang, rdp=dp_gang, sdp=fake_gang, tp=tp_gang)
+    return Gangs(
+        root=root_gang, dp=dp_gang, rdp=dp_gang, sdp=fake_gang, tp=tp_gang, pp=fake_gang
+    )
 
 
 def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
@@ -679,7 +691,12 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
         fake_gang = FakeGang(gangs.root.device)
 
         return Gangs(
-            root=gangs.root, dp=gangs.dp, rdp=fake_gang, sdp=gangs.dp, tp=gangs.tp
+            root=gangs.root,
+            dp=gangs.dp,
+            rdp=fake_gang,
+            sdp=gangs.dp,
+            tp=gangs.tp,
+            pp=gangs.pp,
         )
 
     if intra_node_size <= 1:
@@ -768,7 +785,12 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
         raise InternalError("`intra_gang` is `None`.")
 
     return Gangs(
-        root=gangs.root, dp=dp_gang, rdp=inter_gang, sdp=intra_gang, tp=gangs.tp
+        root=gangs.root,
+        dp=dp_gang,
+        rdp=inter_gang,
+        sdp=intra_gang,
+        tp=gangs.tp,
+        pp=gangs.pp,
     )
 
 

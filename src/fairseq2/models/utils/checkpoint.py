@@ -7,7 +7,36 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
+
+import torch
+from torch import Tensor
+from torch.nn import Module
+
+
+def load_checkpoint(module: Module, checkpoint: Iterable[tuple[str, Tensor]]) -> None:
+    state_dict = module.state_dict()
+
+    unknown_keys = []
+
+    with torch.no_grad():
+        for key, tensor in checkpoint:
+            try:
+                state_tensor = state_dict.pop(key)
+            except KeyError:
+                unknown_keys.append(key)
+
+                continue
+
+            state_tensor.copy_(tensor, non_blocking=True)
+
+    if state_dict:
+        missing_keys = list(state_dict.keys())
+    else:
+        missing_keys = []
+
+    if unknown_keys or missing_keys:
+        raise ValueError(f"unknown: {unknown_keys}, missing: {missing_keys}")
 
 
 def convert_checkpoint(

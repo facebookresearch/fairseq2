@@ -69,9 +69,6 @@ class FileCheckpointMetadataSaver(CheckpointMetadataSaver):
             },
         }
 
-        if self._gangs.tp.size != 1:
-            metadata["num_shards"] = self._gangs.tp.size
-
         metadata_file = self._checkpoint_dir.joinpath("model.yaml")
 
         def save_error() -> AssetMetadataSaveError:

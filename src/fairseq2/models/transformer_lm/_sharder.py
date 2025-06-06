@@ -15,6 +15,7 @@ from fairseq2.models.transformer import (
     StandardMultiheadAttention,
     TransformerEmbeddingFrontend,
 )
+from fairseq2.models.utils.sharder import ModuleShardSpec
 from fairseq2.nn import (
     ColumnShardedLinear,
     Linear,
@@ -27,6 +28,24 @@ from fairseq2.nn import (
 # isort: split
 
 from fairseq2.models.transformer_lm._model import TransformerLM
+
+
+def get_transformer_lm_shard_specs(
+    gangs: Gangs, *, shard_embed_dim: bool = False
+) -> dict[str, ModuleShardSpec]:
+    return {
+        # fmt: off
+        r".*\.embed$":                 ModuleShardSpec(dim=0 if shard_embed_dim else 1),
+        r".*\.self_attn.q_proj$":      ModuleShardSpec(dim=0, region_boundary=True),
+        r".*\.self_attn.k_proj$":      ModuleShardSpec(dim=0, region_boundary=True),
+        r".*\.self_attn.v_proj$":      ModuleShardSpec(dim=0, region_boundary=True),
+        r".*\.self_attn.output_proj$": ModuleShardSpec(dim=1, region_boundary=True),
+        r".*\.ffn.inner_proj$":        ModuleShardSpec(dim=0, region_boundary=True),
+        r".*\.ffn.gate_proj$":         ModuleShardSpec(dim=0, region_boundary=True),
+        r".*\.ffn.output_proj$":       ModuleShardSpec(dim=1, region_boundary=True),
+        r"^final_proj$":               ModuleShardSpec(dim=0),
+        # fmt: on
+    }
 
 
 def shard_transformer_lm(

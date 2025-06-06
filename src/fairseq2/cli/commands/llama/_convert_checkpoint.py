@@ -28,8 +28,7 @@ from fairseq2.logging import log
 from fairseq2.models import ModelConfigLoadError, ModelHandler
 from fairseq2.models.llama import LLAMA_MODEL_FAMILY, LLaMAConfig
 from fairseq2.models.llama.integ import convert_to_reference_llama_checkpoint
-from fairseq2.utils.io import (
-    AutoTensorLoader,
+from fairseq2.utils.io import (  # AutoTensorLoader,
     TensorDumpError,
     TensorLoadError,
     TorchTensorDumper,
@@ -192,7 +191,7 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
         # Begin conversion.
         console = get_error_console()
 
-        tensor_loader = AutoTensorLoader(file_system)
+        tensor_loader = None  # AutoTensorLoader(file_system)
         tensor_dumper = TorchTensorDumper(file_system)
 
         with console.status("[bold green]Converting...") as status:

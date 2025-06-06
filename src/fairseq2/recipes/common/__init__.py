@@ -38,9 +38,6 @@ from fairseq2.recipes.common._error import (
     HybridShardingNotSupportedError as HybridShardingNotSupportedError,
 )
 from fairseq2.recipes.common._error import (
-    InvalidModelPathError as InvalidModelPathError,
-)
-from fairseq2.recipes.common._error import (
     ModelCompilationNotSupportedError as ModelCompilationNotSupportedError,
 )
 from fairseq2.recipes.common._error import (
