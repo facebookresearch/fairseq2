@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any, List, Dict
 
 import torch
 from transformers import AutoTokenizer
@@ -31,6 +31,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
 from fairseq2.recipes.lm._online_finetune._generative_prompts import POINTWISE_PROMPT
 from fairseq2.recipes.model import Model
 from fairseq2.recipes.trainer import TrainUnit
+from fairseq2.logging import log
 
 
 @dataclass(kw_only=True)
@@ -42,7 +43,7 @@ class RewardModelConfig:
 
 @dataclass(kw_only=True)
 class RewardSection:
-    name: str = "dummy"
+    name: str | List[str] = "dummy"
     config: RewardModelConfig = field(default_factory=lambda: RewardModelConfig())
 
 
@@ -66,7 +67,9 @@ class VLLMOutputReward(ABC):
     def process_rollouts(self, vllm_outputs: List[RequestOutput]): ...
 
     @abstractmethod
-    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts): ...
+    def prepare_preference_batch(
+        self, prompt_batch: PromptBatch, rollouts, reject_longest: bool
+    ): ...
 
 
 class GSM8kVerifierHandler(VLLMOutputRewardHandler):
@@ -141,9 +144,8 @@ class GSM8kVerifier(VLLMOutputReward):
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts
+        self, prompt_batch: PromptBatch, rollouts, reject_longest=False
     ) -> PreferenceBatch:
-
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         batch, is_bad_batch = prepare_preference_batch_random_pair(
@@ -163,6 +165,7 @@ class MathVerifyHandler(VLLMOutputRewardHandler):
             answer_key=reward_config.answer_key,
             prompt_key=reward_config.prompt_key,
             gangs=gangs,
+            vllm_math_reward_model=reward_model,
         )
 
     @property
@@ -177,7 +180,7 @@ class MathVerifyHandler(VLLMOutputRewardHandler):
 
 
 class MathVerifyVerifier(VLLMOutputReward):
-    def __init__(self, answer_key, prompt_key, gangs):
+    def __init__(self, answer_key, prompt_key, gangs, vllm_math_reward_model):
         try:
             from math_verify.metric import math_metric
             from math_verify.parser import (
@@ -193,6 +196,7 @@ class MathVerifyVerifier(VLLMOutputReward):
         self._gangs = gangs
         self.answer_key = answer_key
         self.prompt_key = prompt_key
+        self.vllm_math_reward_model = vllm_math_reward_model
 
         label_normalizer = NormalizationConfig(
             basic_latex=True,
@@ -230,12 +234,23 @@ class MathVerifyVerifier(VLLMOutputReward):
         vllm_outputs: List[RequestOutput],
         prompt_batch: PromptBatch,
     ):
+        log.info("MathVerifyVerifier process_rollouts()")
         batch_text = []
         batch_tokens = []
         batch_rewards = []
+        vllm_inputs = []  # dummy for vllm syncronization # FIXME
+        vllm_input = [
+            {
+                "role": "user",
+                "content": "dummy_prompt",
+            },
+            {
+                "role": "assistant",
+                "content": "dummy_rollout",
+            },
+        ]
 
         reference_answers = prompt_batch.meta_info.get(self.answer_key)
-
         for i, i_batch_request_output in enumerate(vllm_outputs):
             rollouts_text = []
             rollouts_tokens = []
@@ -248,16 +263,26 @@ class MathVerifyVerifier(VLLMOutputReward):
                     rollout_output.text, i_reference_answer
                 )
                 rollouts_rewards.append(predicted_reward)
+                vllm_inputs.append(vllm_input)
+
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
             batch_rewards.append(rollouts_rewards)
 
+        # dummy vllm call for syncronization # FIXME
+        # if self.vllm_math_reward_model is not None:
+        dummy_rewards = generate_rewards(
+            vllm_inputs,
+            dp_gang=self._gangs.dp,
+            vllm_model=self.vllm_math_reward_model,
+        )
+
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts
+        self, prompt_batch: PromptBatch, rollouts, reject_longest=False
     ) -> PreferenceBatch:
-
+        log.info("MathVerifyVerifier prepare_preference_batch()")
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         batch, is_bad_batch = prepare_preference_batch_random_pair(
@@ -331,6 +356,7 @@ class AtheneVerifier(VLLMOutputReward):
     def process_rollouts(
         self, vllm_outputs: List[RequestOutput], prompt_batch: PromptBatch
     ):
+        log.info("AtheneVerifier process_rollouts()")
         vllm_inputs = []
         batch_text = []
         batch_tokens = []
@@ -366,9 +392,10 @@ class AtheneVerifier(VLLMOutputReward):
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts
+        self, prompt_batch: PromptBatch, rollouts, reject_longest=False
     ) -> PreferenceBatch:
 
+        log.info("AtheneVerifier prepare_preference_batch()")
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         chosen_batch = []
@@ -382,7 +409,22 @@ class AtheneVerifier(VLLMOutputReward):
         ):
 
             chosen_rollout_position = i_batch_rewards.index(max(i_batch_rewards))
-            rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards))
+            if reject_longest:
+                max_length = -1
+                rejected_rollout_position = i_batch_rewards.index(
+                    min(i_batch_rewards)
+                )  # fallback
+                for idx, tokens in enumerate(i_batch_tokens):
+                    # Only consider rollouts that are *not* the chosen one
+                    if idx != chosen_rollout_position:
+                        current_length = len(tokens)
+                        if current_length > max_length:
+                            max_length = current_length  # Update the maximum length
+                            rejected_rollout_position = (
+                                idx  # Update the rejected position
+                            )
+            else:
+                rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards))
 
             if chosen_rollout_position == rejected_rollout_position:
                 # cant form preference pair when we dont have such rollouts
@@ -442,6 +484,62 @@ class AtheneVerifier(VLLMOutputReward):
         )
 
         return batch, is_bad_batch, reward_output
+
+
+class MultiVerifier(VLLMOutputReward):
+    """
+    A reward model verifier that processes rollouts using multiple reward models.
+    This class evaluates rollouts generated by vLLM by wrapping the prompt and rollout text into a specific format and passing it through the appropriate reward model.
+    This class is designed to handle multiple reward models and their configurations.
+    Note: this relies on modified Athene-RM-8B code to ensure compatibility with vLLM.
+    """
+
+    def __init__(self, rewards_map: Dict[VLLMOutputReward]):
+        self.rewards_map = rewards_map
+
+    def get_reward_model_type(self, prompt_batch: PromptBatch) -> str:
+        """
+        Get the reward model type from the prompt batch meta info.
+        """
+        reward_model_type = prompt_batch.meta_info.get("reward_model", [None])[0]
+        if reward_model_type is None:
+            raise ValueError("Reward model type not found in meta_info.")
+
+        # assert (
+        #     len(set(prompt_batch.meta_info.get("reward_model", 0))) == 1
+        # ), "Not all batch prompts have the same 'reward_model' value."
+        if len(set(prompt_batch.meta_info["reward_model"])) != 1:
+            # FIXME temp solution if the whole batch is not the same reward_model type
+            log.warning(
+                "Not all batch prompts have the same 'reward_model' value. Using athene_verifier."
+            )
+            reward_model_type = "athene_verifier"
+
+        log.info(f"Reward model type: {reward_model_type}")
+        return reward_model_type
+
+    @override
+    def process_rollouts(
+        self, vllm_outputs: List[RequestOutput], prompt_batch: PromptBatch
+    ):
+        reward_model_type = self.get_reward_model_type(prompt_batch)
+        reward = self.rewards_map[reward_model_type]
+        return reward.process_rollouts(vllm_outputs, prompt_batch)
+
+    @override
+    def prepare_preference_batch(
+        self, prompt_batch: PromptBatch, rollouts, reject_longest=False
+    ) -> PreferenceBatch:
+
+        reward_model_type = self.get_reward_model_type(prompt_batch)
+        reward = self.rewards_map[reward_model_type]
+        return reward.prepare_preference_batch(prompt_batch, rollouts, reject_longest)
+
+    @override
+    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
+        reward_model_type = self.get_reward_model_type(prompt_batch)
+        reward = self.rewards_map[reward_model_type]
+        return reward.prepare_grpo_batch(prompt_batch, rollouts)
 
 
 class GenerativePointwiseVerifierHandler(VLLMOutputRewardHandler):
