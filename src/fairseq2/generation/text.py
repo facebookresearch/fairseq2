@@ -11,13 +11,9 @@ from typing import final
 
 from torch import Tensor
 
-from fairseq2.data.text.tokenizers import (
-    TextTokenDecoder,
-    TextTokenEncoder,
-    TextTokenizer,
-)
-from fairseq2.error import ContractError
-from fairseq2.generation import (
+from fairseq2.data.tokenizers import TokenDecoder, TokenEncoder, Tokenizer
+from fairseq2.error import InternalError
+from fairseq2.generation.generator import (
     Seq2SeqGenerator,
     SequenceGenerator,
     SequenceGeneratorOutput,
@@ -31,14 +27,10 @@ from fairseq2.nn.utils.padding import pad_seqs
 class SequenceToTextConverter:
     """Converts source sequences to text."""
 
-    _generator: Seq2SeqGenerator
-    _target_prefix_seq: Tensor
-    _text_decoder: TextTokenDecoder
-
     def __init__(
         self,
         generator: Seq2SeqGenerator,
-        tokenizer: TextTokenizer,
+        tokenizer: Tokenizer,
         task: str,
         target_lang: str | None = None,
         *,
@@ -59,9 +51,7 @@ class SequenceToTextConverter:
         try:
             device = infer_device(generator.model)
         except ValueError as ex:
-            raise ValueError(
-                "The device of `generator.model` is not valid. See the nested exception for details."
-            ) from ex
+            raise ValueError("Device of `generator.model` is not valid.") from ex
 
         target_text_encoder = tokenizer.create_encoder(
             task=task, lang=target_lang, mode="target", device=device
@@ -156,8 +146,8 @@ class SequenceToTextConverter:
 
         for idx, hypotheses in enumerate(generator_output.hypotheses):
             if len(hypotheses) == 0:
-                raise ContractError(
-                    f"The sequence generator returned no hypothesis at index {idx}."
+                raise InternalError(
+                    f"Sequence generator returned no hypothesis at index {idx}."
                 )
 
             text = self._text_decoder(hypotheses[0].seq)
@@ -173,13 +163,13 @@ class TextTranslator:
 
     _converter: SequenceToTextConverter
     _pad_idx: int
-    _source_text_encoder: TextTokenEncoder
+    _source_text_encoder: TokenEncoder
     _max_source_len: int | None
 
     def __init__(
         self,
         generator: Seq2SeqGenerator,
-        tokenizer: TextTokenizer,
+        tokenizer: Tokenizer,
         source_lang: str | None = None,
         target_lang: str | None = None,
         *,
@@ -219,9 +209,7 @@ class TextTranslator:
         try:
             device = infer_device(generator.model)
         except ValueError as ex:
-            raise ValueError(
-                "The device of `generator.model` is not valid. See the nested exception for details."
-            ) from ex
+            raise ValueError("Device of `generator.model` is not valid.") from ex
 
         self._source_text_encoder = tokenizer.create_encoder(
             task="translation", lang=source_lang, mode="source", device=device
@@ -283,13 +271,13 @@ class TextCompleter:
     """Completes text prompts."""
 
     _generator: SequenceGenerator
-    _text_encoder: TextTokenEncoder
-    _text_decoder: TextTokenDecoder
+    _text_encoder: TokenEncoder
+    _text_decoder: TokenDecoder
 
     def __init__(
         self,
         generator: SequenceGenerator,
-        tokenizer: TextTokenizer,
+        tokenizer: Tokenizer,
         *,
         skip_special_tokens: bool = False,
     ) -> None:
@@ -304,9 +292,7 @@ class TextCompleter:
         try:
             device = infer_device(generator.model)
         except ValueError as ex:
-            raise ValueError(
-                "The device of `generator.model` is not valid. See the nested exception for details."
-            ) from ex
+            raise ValueError("Device of `generator.model` is not valid.") from ex
 
         self._text_encoder = tokenizer.create_encoder(mode="prompt", device=device)
 
@@ -365,8 +351,8 @@ class TextCompleter:
 
         for idx, hypotheses in enumerate(generator_output.hypotheses):
             if len(hypotheses) == 0:
-                raise ContractError(
-                    f"The sequence generator returned no hypothesis at index {idx}."
+                raise InternalError(
+                    f"Sequence generator returned no hypothesis at index {idx}."
                 )
 
             text = self._text_decoder(hypotheses[0].seq)

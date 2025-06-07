@@ -9,10 +9,9 @@ model_family: jepa
 model_arch: large
 model_config:
   encoder_config:
-    _set_:
-      input_dims: [16, 224, 224]
-      patch_dims: [2, 16, 16]
-      uniform_power: true
+    input_dims: [16, 224, 224]
+    patch_dims: [2, 16, 16]
+    uniform_power: true
 checkpoint: "https://dl.fbaipublicfiles.com/jepa/vitl16/vitl16.pth.tar"
 
 ---
@@ -22,10 +21,9 @@ model_family: jepa
 model_arch: huge
 model_config:
   encoder_config:
-    _set_:
-      input_dims: [16, 224, 224]
-      patch_dims: [2, 16, 16]
-      uniform_power: true
+    input_dims: [16, 224, 224]
+    patch_dims: [2, 16, 16]
+    uniform_power: true
 checkpoint: "https://dl.fbaipublicfiles.com/jepa/vith16/vith16.pth.tar"
 
 ---
@@ -35,8 +33,7 @@ model_family: jepa
 model_arch: huge
 model_config:
   encoder_config:
-    _set_:
-      input_dims: [16, 384, 384]
-      patch_dims: [2, 16, 16]
-      uniform_power: true
+    input_dims: [16, 384, 384]
+    patch_dims: [2, 16, 16]
+    uniform_power: true
 checkpoint: "https://dl.fbaipublicfiles.com/jepa/vith16-384/vith16-384.pth.tar"

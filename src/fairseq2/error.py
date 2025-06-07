@@ -6,12 +6,10 @@
 
 from __future__ import annotations
 
+from typing import NoReturn
+
 
 class InternalError(Exception):
-    pass
-
-
-class ContractError(Exception):
     pass
 
 
@@ -19,9 +17,13 @@ class InvalidOperationError(Exception):
     pass
 
 
-class AlreadyExistsError(Exception):
-    pass
-
-
 class NotSupportedError(Exception):
     pass
+
+
+class OperationalError(Exception):
+    pass
+
+
+def raise_operational_system_error(cause: OSError) -> NoReturn:
+    raise OperationalError("A system error occurred.") from cause

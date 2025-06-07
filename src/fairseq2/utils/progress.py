@@ -11,7 +11,7 @@ from typing import Any, final
 
 from typing_extensions import Self, override
 
-from fairseq2.typing import Closable
+from fairseq2.runtime.closable import Closable
 
 
 class ProgressReporter(ABC):

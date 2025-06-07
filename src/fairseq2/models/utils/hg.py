@@ -48,7 +48,7 @@ def save_hg_checkpoint(
         hg_config_ = hg_config_kls()
     except TypeError as ex:
         raise ValueError(
-            f"An instance of `transformers.{hg_config_class}` cannot be constructed. See the nested exception for details."
+            f"An instance of `transformers.{hg_config_class}` cannot be constructed."
         ) from ex
 
     for key, value in hg_config.items():

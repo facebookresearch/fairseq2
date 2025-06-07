@@ -6,9 +6,6 @@
 
 from __future__ import annotations
 
-import warnings
-from typing import TypeVar
-
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     CheckpointImpl,
     CheckpointWrapper,
@@ -16,51 +13,31 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
 from torch.nn import Module
 
 from fairseq2.nn import LayerStack
-from fairseq2.utils.version import torch_greater_or_equal
-
-ModelT_contra = TypeVar("ModelT_contra", bound=Module, contravariant=True)
 
 
-def apply_default_activation_checkpointing(
-    model: ModelT_contra, *, every_nth_layer: int = 1
+def apply_layerwise_activation_checkpointing(
+    model: Module, *, every_nth_layer: int = 1
 ) -> None:
-    applied = _do_apply_ac(model, every_nth_layer)
-
-    if not applied:
-        raise ValueError("`model` must contain at least one layer stack.")
+    _do_apply_layerwise_ac(model, every_nth_layer)
 
 
-def _do_apply_ac(module: Module, every_nth_layer: int) -> bool:
-    applied = False
-
+def _do_apply_layerwise_ac(module: Module, every_nth_layer: int) -> None:
     children = list(module.named_children())
 
     for child_name, child in children:
         if isinstance(child, LayerStack):
+            _apply_ac_to_stack(child, every_nth_layer)
+        else:
             _do_apply_layerwise_ac(child, every_nth_layer)
 
-            applied = True
-        else:
-            if _do_apply_ac(child, every_nth_layer):
-                applied = True
 
-    return applied
-
-
-def _do_apply_layerwise_ac(stack: LayerStack, every_nth_layer: int) -> None:
-    if not torch_greater_or_equal(2, 6):
-        warnings.filterwarnings(
-            action="ignore", message=r".*`torch\.cpu\.amp\.autocast\(args\.\.\.\)` is deprecated.*"  # fmt: skip
-        )
-
+def _apply_ac_to_stack(stack: LayerStack, every_nth_layer: int) -> None:
     layers = list(stack.layers.named_children())
 
-    for layer_idx, (layer_name, layer) in enumerate(layers):
-        if layer_idx % every_nth_layer == 0:
+    for idx, (layer_name, layer) in enumerate(layers):
+        if idx % every_nth_layer == 0:
             wrapper = CheckpointWrapper(
-                layer,
-                CheckpointImpl.NO_REENTRANT,
-                preserve_rng_state=True,
+                layer, CheckpointImpl.NO_REENTRANT, preserve_rng_state=True
             )
 
             stack.layers.register_module(layer_name, wrapper)

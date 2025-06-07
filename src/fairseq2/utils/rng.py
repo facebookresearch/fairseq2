@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import final
 
@@ -14,7 +14,6 @@ import torch
 from torch import Generator, Tensor
 
 from fairseq2.device import Device
-from fairseq2.typing import ContextManager
 
 
 def use_deterministic(value: bool, warn_only: bool = False) -> None:
@@ -34,8 +33,6 @@ def use_deterministic(value: bool, warn_only: bool = False) -> None:
 @final
 class RngBag:
     """Holds a collection of random number generators."""
-
-    _generators: list[Generator]
 
     def __init__(self, *generators: Generator) -> None:
         """
@@ -75,10 +72,6 @@ class RngBag:
 
         return RngBag(*generators)
 
-    def add_generator(self, generator: Generator) -> None:
-        """Add ``generator`` to the bag."""
-        self._generators.append(generator)
-
     def seed(self) -> None:
         """Set the seed of the random number generators to a random number."""
         if not self._generators:
@@ -117,7 +110,7 @@ class RngBag:
     def state_dict(self) -> dict[str, object]:
         return {"generators": [g.get_state() for g in self._generators]}
 
-    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
+    def load_state_dict(self, state_dict: dict[str, object]) -> None:
         try:
             states = state_dict["generators"]
         except KeyError:
@@ -127,32 +120,18 @@ class RngBag:
 
         if not isinstance(states, list):
             raise TypeError(
-                f"`state_dict['generators']` must be of type `list`, but is of type `{type(states)}` instead."
+                f"`state_dict['generators']` must be of type `{list}`, but is of type `{type(states)}` instead."
             )
 
         if len(states) != len(self._generators):
             raise ValueError(
-                f"The number of generators in `state_dict['generators']` must match the number of generators in the bag ({len(self._generators)}), but is {len(states)} instead."
+                f"Number of generators in `state_dict['generators']` must match the number of generators in the bag ({len(self._generators)}), but is {len(states)} instead."
             )
 
         for idx, state in enumerate(states):
             if not isinstance(state, Tensor):
                 raise TypeError(
-                    f"The generator states in `state_dict['generators']` must be of type `Tensor`, but the item at index {idx} is of type `{type(state)}` instead."
+                    f"Generator states in `state_dict['generators']` must be of type `{Tensor}`, but the item at index {idx} is of type `{type(state)}` instead."
                 )
 
             self._generators[idx].set_state(state.clone())
-
-
-def manual_seed(seed: int, *devices: Device) -> None:
-    """Change the seed of the random number generators of ``devices``."""
-    rng_bag = RngBag.from_device_defaults(*devices)
-
-    rng_bag.manual_seed(seed)
-
-
-def temporary_manual_seed(seed: int, *devices: Device) -> ContextManager:
-    """Temporarily change the seed of the random number generators of ``devices``."""
-    rng_bag = RngBag.from_device_defaults(*devices)
-
-    return rng_bag.temporary_manual_seed(seed)

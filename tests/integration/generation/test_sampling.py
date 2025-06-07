@@ -8,9 +8,9 @@ from typing import Final
 
 import torch
 
-from fairseq2.data.text.tokenizers import get_text_tokenizer_hub
-from fairseq2.generation import SamplingSeq2SeqGenerator, TopKSampler
+from fairseq2.generation.sampling import SamplingSeq2SeqGenerator, TopKSampler
 from fairseq2.generation.text import TextTranslator
+from fairseq2.models.nllb import get_nllb_tokenizer_hub
 from fairseq2.models.transformer import get_transformer_model_hub
 from tests.common import device
 
@@ -27,13 +27,11 @@ DEU_SENTENCE2: Final = "Wie geht es Ihnen heute?"
 def test_greedy_sampling() -> None:
     model_name = "nllb-200_dense_distill_600m"
 
-    model_hub = get_transformer_model_hub()
+    model = get_transformer_model_hub().load_model(
+        model_name, device=device, dtype=torch.float32
+    )
 
-    model = model_hub.load(model_name, device=device, dtype=torch.float32)
-
-    tokenizer_hub = get_text_tokenizer_hub()
-
-    tokenizer = tokenizer_hub.load(model_name)
+    tokenizer = get_nllb_tokenizer_hub().load_tokenizer(model_name)
 
     sampler = TopKSampler(k=1)
 

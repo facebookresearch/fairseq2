@@ -17,12 +17,12 @@ name: qwen25_7b_instruct
 model_family: qwen
 model_arch: qwen25_7b
 model_config:
-  _set_:
-    max_seq_len: 32768
+  max_seq_len: 32768
 checkpoint: "hg://qwen/qwen2.5-7b-instruct"
 tokenizer: "hg://qwen/qwen2.5-7b-instruct"
 tokenizer_family: qwen
-use_im_end: true
+tokenizer_config:
+  use_im_end: true
 
 ---
 
@@ -41,7 +41,8 @@ model_arch: qwen25_14b
 checkpoint: "hg://qwen/qwen2.5-14b-instruct"
 tokenizer: "hg://qwen/qwen2.5-14b-instruct"
 tokenizer_family: qwen
-use_im_end: true
+tokenizer_config:
+  use_im_end: true
 
 ---
 
@@ -60,7 +61,9 @@ model_arch: qwen25_32b
 checkpoint: "hg://qwen/qwen2.5-32b-instruct"
 tokenizer: "hg://qwen/qwen2.5-32b-instruct"
 tokenizer_family: qwen
-use_im_end: true
+tokenizer_config:
+  _set_:
+    use_im_end: true
 
 ---
 
@@ -79,7 +82,8 @@ model_arch: qwen3_0.6b
 checkpoint: "hg://qwen/qwen3-0.6b"
 tokenizer: "hg://qwen/qwen3-0.6b"
 tokenizer_family: qwen
-use_im_end: true
+tokenizer_config:
+  use_im_end: true
 
 ---
 
@@ -98,7 +102,8 @@ model_arch: qwen3_1.7b
 checkpoint: "hg://qwen/qwen3-1.7b"
 tokenizer: "hg://qwen/qwen3-1.7b"
 tokenizer_family: qwen
-use_im_end: true
+tokenizer_config:
+  use_im_end: true
 
 ---
 
@@ -117,7 +122,8 @@ model_arch: qwen3_4b
 checkpoint: "hg://qwen/qwen3-4b"
 tokenizer: "hg://qwen/qwen3-4b"
 tokenizer_family: qwen
-use_im_end: true
+tokenizer_config:
+  use_im_end: true
 
 ---
 
@@ -136,7 +142,8 @@ model_arch: qwen3_8b
 checkpoint: "hg://qwen/qwen3-8b"
 tokenizer: "hg://qwen/qwen3-8b"
 tokenizer_family: qwen
-use_im_end: true
+tokenizer_config:
+  use_im_end: true
 
 ---
 
@@ -155,7 +162,8 @@ model_arch: qwen3_14b
 checkpoint: "hg://qwen/qwen3-14b"
 tokenizer: "hg://qwen/qwen3-14b"
 tokenizer_family: qwen
-use_im_end: true
+tokenizer_config:
+  use_im_end: true
 
 ---
 
@@ -165,4 +173,5 @@ model_arch: qwen3_32b
 checkpoint: "hg://qwen/qwen3-32b"
 tokenizer: "hg://qwen/qwen3-32b"
 tokenizer_family: qwen
-use_im_end: true
+tokenizer_config:
+  use_im_end: true

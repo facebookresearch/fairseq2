@@ -13,7 +13,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import Enum
-from typing import Any, final
+from typing import Any, NoReturn, final
 
 import torch
 import torch.distributed as dist
@@ -22,72 +22,23 @@ from torch.distributed import Backend, ProcessGroup, ReduceOp
 from typing_extensions import override
 
 from fairseq2.device import Device
-from fairseq2.error import InternalError, InvalidOperationError, NotSupportedError
-from fairseq2.logging import log
-from fairseq2.typing import Closable
-from fairseq2.utils.env import (
-    InvalidEnvironmentVariableError,
-    get_world_size,
+from fairseq2.error import (
+    InternalError,
+    InvalidOperationError,
+    NotSupportedError,
+    OperationalError,
 )
+from fairseq2.logging import log
+from fairseq2.runtime.closable import Closable
 from fairseq2.utils.tensor import to_tensor
-from fairseq2.utils.version import torch_greater_or_equal
-
-
-class ReduceOperation(Enum):
-    """Specifies a reduce operation."""
-
-    SUM = 1
-    MEAN = 2
-    PRODUCT = 3
-    MIN = 4
-    MAX = 5
 
 
 class Gang(Closable):
     """Represents a set of processes that work collectively."""
 
-    _rank: int
-    _size: int
-    _device: Device
-
-    def __init__(self, rank: int, size: int, device: Device) -> None:
-        if size == 0:
-            raise ValueError("`size` must be greater than zero.")
-
-        if rank >= size:
-            raise ValueError(
-                f"`rank` must be less than `size` ({size}), but is {rank} instead."
-            )
-
-        if device.type == "meta":
-            raise ValueError("`device` must be a real device.")
-
-        self._rank = rank
-        self._size = size
-
-        self._device = device
-
-    @final
-    def create_gang(self, ranks: Sequence[int]) -> Gang | None:
-        """Make a new gang.
-
-        :param ranks:
-            The ranks of processes that will be part of the new gang.
-        """
-        if len(set(ranks)) != len(ranks):
-            raise ValueError("The ranks in ``ranks`` must be all unique.")
-
-        for idx, rank in enumerate(ranks):
-            if rank < 0 or rank > self.size:
-                raise ValueError(
-                    f"The rank at index {idx} in ``ranks`` must be greater than or equal to 0 and less than the size of the gang ({self.size}), but is {rank} instead."
-                )
-
-        return self._do_create_gang(ranks)
-
     @abstractmethod
-    def _do_create_gang(self, ranks: Sequence[int]) -> Gang | None:
-        """Make a new gang.
+    def create_gang(self, ranks: Sequence[int]) -> Gang | None:
+        """Creates a new gang.
 
         :param ranks:
             The ranks of processes that will be part of the new gang.
@@ -154,27 +105,42 @@ class Gang(Closable):
             The rank of the process from which to broadcast ``objects``.
         """
 
-    @final
     @property
+    @abstractmethod
     def rank(self) -> int:
         """The rank of this process in the gang."""
-        return self._rank
 
-    @final
     @property
+    @abstractmethod
     def size(self) -> int:
         """The number of processes that are part of the gang."""
-        return self._size
 
-    @final
     @property
+    @abstractmethod
     def device(self) -> Device:
         """The associated device."""
-        return self._device
+
+    @property
+    @abstractmethod
+    def supports_process_group(self) -> bool: ...
+
+
+class ReduceOperation(Enum):
+    """Specifies a reduce operation."""
+
+    SUM = 1
+    MEAN = 2
+    PRODUCT = 3
+    MIN = 4
+    MAX = 5
 
 
 class GangError(Exception):
     pass
+
+
+def raise_operational_gang_error(cause: GangError) -> NoReturn:
+    raise OperationalError("A collective communication error occurred.") from cause
 
 
 @final
@@ -182,14 +148,29 @@ class FakeGang(Gang):
     """Represents a non-distributed gang for local use."""
 
     def __init__(self, device: Device, *, rank: int = 0, size: int = 1) -> None:
-        super().__init__(rank, size, device)
+        if size <= 0:
+            raise ValueError("`size` must be greater than 0.")
+
+        if rank < 0 or rank >= size:
+            raise ValueError(
+                f"`rank` must be greater than or equal to 0 and less than `size` ({size}), but is {rank} instead."
+            )
+
+        if device.type == "meta":
+            raise ValueError("`device` must be a real device.")
+
+        self._rank = rank
+        self._size = size
+        self._device = device
 
     @override
     def close(self) -> None:
         pass
 
     @override
-    def _do_create_gang(self, ranks: Sequence[int]) -> FakeGang | None:
+    def create_gang(self, ranks: Sequence[int]) -> FakeGang | None:
+        _check_ranks(ranks, self._size)
+
         try:
             idx = ranks.index(self._rank)
         except ValueError:
@@ -215,8 +196,8 @@ class FakeGang(Gang):
             case ReduceOperation.PRODUCT:
                 tensor.pow_(self._size)
             case _:
-                raise NotSupportedError(
-                    f"`{FakeGang}` supports only `SUM` and `PRODUCT` reduce operations, but `op` is `{op.name}` instead."
+                raise ValueError(
+                    f"`op` must be a supported reduce operation, but is `{op.name}` instead."
                 )
 
     @override
@@ -231,7 +212,7 @@ class FakeGang(Gang):
 
         if output_tensor.size(0) != self._size:
             raise ValueError(
-                f"The size of the first dimension of `output_tensor` must match the number of processes in the gang ({self._size}), but is {output_tensor.size(0)} instead."
+                f"Size of the first dimension of `output_tensor` must match the number of processes in the gang ({self._size}), but is {output_tensor.size(0)} instead."
             )
 
         for i in range(self._size):
@@ -243,7 +224,7 @@ class FakeGang(Gang):
     ) -> None:
         if len(output_tensors) != self._size:
             raise ValueError(
-                f"The length of `output_tensors` must match the number of processes in the gang ({self._size}), but is {len(output_tensors)} instead."
+                f"Length of `output_tensors` must match the number of processes in the gang ({self._size}), but is {len(output_tensors)} instead."
             )
 
         for i in range(self._size):
@@ -263,20 +244,37 @@ class FakeGang(Gang):
                 f"`source_rank` must be {self._rank}, but is {source_rank} instead."
             )
 
+    @property
+    @override
+    def rank(self) -> int:
+        return self._rank
+
+    @property
+    @override
+    def size(self) -> int:
+        return self._size
+
+    @property
+    @override
+    def device(self) -> Device:
+        return self._device
+
+    @property
+    @override
+    def supports_process_group(self) -> bool:
+        return False
+
 
 @final
 class ProcessGroupGang(Gang):
     """Represents a gang that wraps a process group."""
 
-    _pg: ProcessGroup
-
-    def __init__(self, pg: ProcessGroup, device: Device) -> None:
-        super().__init__(dist.get_rank(pg), dist.get_world_size(pg), device)
-
-        self._pg = pg
+    def __init__(self, _pg: ProcessGroup, _device: Device) -> None:
+        self._pg = _pg
+        self._device = _device
 
     @classmethod
-    def init_root_process_group(
+    def create_default_process_group(
         cls,
         device: Device,
         *,
@@ -299,10 +297,12 @@ class ProcessGroupGang(Gang):
             dist.set_debug_level_from_env()
 
         if not dist.is_available():
-            raise GangError("`torch.distributed` is not available.")
+            raise NotSupportedError("torch.distributed is not available.")
 
         if dist.is_initialized():
-            raise GangError("The root process group is already initialized.")
+            raise InvalidOperationError(
+                "The root process group is already initialized."
+            )
 
         backend: str | None
 
@@ -311,8 +311,8 @@ class ProcessGroupGang(Gang):
         elif device.type == "cuda":
             backend = Backend.NCCL
         else:
-            raise NotSupportedError(
-                f"`{ProcessGroupGang}` supports only `cpu` and `cuda` device types, but `device` is of type `{device.type}` instead."
+            raise ValueError(
+                f"`device` must be of type `cpu` or `cuda`, but is of type `{device.type}` instead."
             )
 
         if device.type == "cuda":
@@ -327,8 +327,7 @@ class ProcessGroupGang(Gang):
         pg_options = None
 
         if device.type == "cuda":
-            # Forces NCCL to initialize immediately which enables deterministic
-            # behavior.
+            # Forces eager NCCL initialization.
             kwargs["device_id"] = device
 
             # If enabled, uses high priority CUDA streams for NCCL.
@@ -348,13 +347,13 @@ class ProcessGroupGang(Gang):
                     backend, timeout=timeout, pg_options=pg_options, **kwargs
                 )
         except (RuntimeError, ValueError) as ex:
-            raise GangError(
-                "The underlying process group has failed to initialize. See the nested exception for details."
-            ) from ex
+            raise GangError("Underlying process group failed to initialize.") from ex
 
         pg = dist.group.WORLD
         if pg is None:
-            raise InternalError("`dist.group.WORLD` is `None`.")
+            raise OperationalError(
+                "Root process group is not available after initialization."
+            )
 
         return ProcessGroupGang(pg, device)
 
@@ -363,17 +362,19 @@ class ProcessGroupGang(Gang):
         dist.destroy_process_group(self._pg)
 
     @override
-    def _do_create_gang(self, ranks: Sequence[int]) -> ProcessGroupGang | None:
+    def create_gang(self, ranks: Sequence[int]) -> ProcessGroupGang | None:
+        _check_ranks(ranks, self.size)
+
         if self._pg is not dist.group.WORLD:
             raise InvalidOperationError(
-                "`create_gang()` can only be called on the gang associated with the root process group."
+                "`create_gang()` must be called on the gang of the default process group."
             )
 
         try:
             backend = dist.get_backend()
         except RuntimeError as ex:
-            raise GangError(
-                "The root process group backend cannot be determined. See the nested exception for details."
+            raise OperationalError(
+                "Root process group backend cannot be determined."
             ) from ex
 
         try:
@@ -382,10 +383,10 @@ class ProcessGroupGang(Gang):
             s = ", ".join(sorted(str(r) for r in ranks))
 
             raise GangError(
-                f"The child process group for ranks {s} cannot be created. See the nested exception for details."
+                f"Child process group for ranks {s} cannot be created."
             ) from ex
 
-        if self._rank not in ranks:
+        if self.rank not in ranks:
             return None
 
         return ProcessGroupGang(pg, self._device)
@@ -404,27 +405,21 @@ class ProcessGroupGang(Gang):
         try:
             dist.barrier(group=self._pg, device_ids=device_ids)
         except RuntimeError as ex:
-            raise GangError(
-                "The `barrier` collective operation has failed. See the nested exception for details."
-            ) from ex
+            self._raise_op_failed(ex, "barrier")
 
     @override
     def all_reduce(self, tensor: Tensor, op: ReduceOperation) -> None:
         try:
             dist.all_reduce(tensor, self._get_reduce_op(op), group=self._pg)
         except RuntimeError as ex:
-            raise GangError(
-                "The `all_reduce` collective operation has failed. See the nested exception for details."
-            ) from ex
+            self._raise_op_failed(ex, "all_reduce")
 
     @override
     def all_gather(self, output_tensor: Tensor, input_tensor: Tensor) -> None:
         try:
             dist.all_gather_into_tensor(output_tensor, input_tensor, group=self._pg)
         except RuntimeError as ex:
-            raise GangError(
-                "The `all_gather` collective operation has failed. See the nested exception for details."
-            ) from ex
+            self._raise_op_failed(ex, "all_gather")
 
     @override
     def all_gather_to_list(
@@ -433,27 +428,25 @@ class ProcessGroupGang(Gang):
         try:
             dist.all_gather(output_tensors, input_tensor, group=self._pg)
         except RuntimeError as ex:
-            raise GangError(
-                "The `all_gather_to_list` collective operation has failed. See the nested exception for details."
-            ) from ex
+            self._raise_op_failed(ex, "all_gather_to_list")
 
     @override
     def broadcast(self, tensor: Tensor, source_rank: int = 0) -> None:
         try:
             dist.broadcast(tensor, source_rank, group=self._pg)
         except RuntimeError as ex:
-            raise GangError(
-                "The `broadcast` collective operation has failed. See the nested exception for details."
-            ) from ex
+            self._raise_op_failed(ex, "broadcast")
 
     @override
     def broadcast_objects(self, objects: list[object], source_rank: int = 0) -> None:
         try:
             dist.broadcast_object_list(objects, source_rank, group=self._pg)
         except RuntimeError as ex:
-            raise GangError(
-                "The `broadcast_object_list` collective operation has failed. See the nested exception for details."
-            ) from ex
+            self._raise_op_failed(ex, "broadcast_object_list")
+
+    @staticmethod
+    def _raise_op_failed(cause: Exception, op: str) -> NoReturn:
+        raise GangError(f"`{op}()` collective operation failed.") from cause
 
     @staticmethod
     def _get_reduce_op(op: ReduceOperation):  # type: ignore[no-untyped-def]
@@ -468,37 +461,40 @@ class ProcessGroupGang(Gang):
         if op == ReduceOperation.MAX:
             return ReduceOp.MAX
 
-        raise NotSupportedError(
-            f"`{ProcessGroup}` does not support `{op}` reduce operation."
+        raise ValueError(
+            f"`op` must be a supported reduce operation, but is `{op.name}` instead."
         )
 
+    @property
+    @override
+    def rank(self) -> int:
+        return dist.get_rank(self._pg)
 
-def setup_root_gang(
-    device: Device, *, timeout: timedelta | None = None, high_priority: bool = False
-) -> Gang:
-    """
-    Creates the root gang of this process.
+    @property
+    @override
+    def size(self) -> int:
+        return dist.get_world_size(self._pg)
 
-    :param device: The device for which to initialize the gang. For CUDA devices,
-        NCCL; for CPU, Gloo will be used.
-    :param timeout: The timeout for collective operations. If ``None``, the
-        default timeout value (15 minutes) will be used.
-    :param high_priority: If ``True``, the underlying collective operations
-        will be performed on high priority channels (e.g. CUDA streams).
-    """
-    try:
-        world_size = get_world_size(os.environ)
-    except InvalidEnvironmentVariableError as ex:
-        raise GangError(
-            "The world size cannot be determined. See the nested exception for details."
-        ) from ex
+    @property
+    @override
+    def device(self) -> Device:
+        return self._device
 
-    if world_size == 1:
-        return FakeGang(device)
+    @property
+    @override
+    def supports_process_group(self) -> bool:
+        return True
 
-    return ProcessGroupGang.init_root_process_group(
-        device, timeout=timeout, high_priority=high_priority
-    )
+
+def _check_ranks(ranks: Sequence[int], gang_size: int) -> None:
+    if len(set(ranks)) != len(ranks):
+        raise ValueError("Ranks in `ranks` must be unique.")
+
+    for idx, rank in enumerate(ranks):
+        if rank < 0 or rank > gang_size:
+            raise ValueError(
+                f"Rank at index {idx} in `ranks` must be greater than or equal to 0 and less than the size of the gang ({gang_size}), but is {rank} instead."
+            )
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -524,21 +520,21 @@ class Gangs:
     def __post_init__(self) -> None:
         if self.root.rank == 0:
             if self.dp.rank != 0 or self.tp.rank != 0 and self.pp.rank != 0:
-                raise GangError(
-                    "The coordinator process of the root gang (i.e. rank 0) must be rank 0 in all parallel gangs."
+                raise ValueError(
+                    "Coordinator process of the root gang (i.e. `root.rank == 0`) must be rank 0 in all parallel gangs."
                 )
 
     def close(self) -> None:
         self.root.close()
 
 
-def fake_gangs(device: Device) -> Gangs:
+def create_fake_gangs(device: Device) -> Gangs:
     gang = FakeGang(device=device)
 
     return Gangs(root=gang, dp=gang, rdp=gang, sdp=gang, tp=gang, pp=gang)
 
 
-def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
+def create_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     """
     Sets up gangs to be used for data and model parallelism.
 
@@ -567,16 +563,13 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     :param tp_size: The size of tensor parallel gangs.
     """
     if tp_size < 1:
-        raise ValueError(f"`tp_size` must be greater than 0, but is {tp_size} instead.")
-
-    if tp_size > root_gang.size:
         raise ValueError(
-            f"`tp_size` must be less than or equal to the number of processes in the root gang ({root_gang.size}), but is {tp_size} instead."
+            f"`tp_size` must be greater than or equal to 1, but is {tp_size} instead."
         )
 
     if root_gang.size % tp_size != 0:
         raise ValueError(
-            f"`root_gang.size` is expected to be a multiple of `tp_size` ({tp_size}), but is {root_gang.size} instead."
+            f"`tp_size` must be a factor of `root_gang.size` ({root_gang.size}), but is {tp_size} instead."
         )
 
     fake_gang = FakeGang(device=root_gang.device)
@@ -590,7 +583,7 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
 
     dp_gang: Gang | None = None
 
-    log.info("Initializing data parallel gang with {} process(es).", dp_size)
+    log.info("Creating data parallel gang with {} process(es).", dp_size)
 
     # Build the gangs for data parallelism.
     match dp_size:
@@ -599,14 +592,16 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
         case root_gang.size:
             dp_gang = root_gang
         case _:
-            if torch_greater_or_equal(2, 5) and root_gang.device.type == "cuda":
+            if root_gang.device.type == "cuda" and root_gang.supports_process_group:
+                root_pg = root_gang.as_process_group()
+
                 try:
                     pg = torch.distributed.distributed_c10d.split_group(
-                        split_ranks=mesh.T.tolist(), group_desc="dp"
+                        parent_pg=root_pg, split_ranks=mesh.T.tolist(), group_desc="dp"
                     )
                 except RuntimeError as ex:
                     raise GangError(
-                        "The data parallel process group cannot be created. See the nested exception for details."
+                        "Data parallel process group cannot be created."
                     ) from ex
 
                 if pg is not None:
@@ -620,11 +615,11 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     if dp_gang is None:
         raise InternalError("`dp_gang` is `None`.")
 
-    log.info("Data parallel gang initialized.")
+    log.info("Data parallel gang created.")
 
     tp_gang: Gang | None = None
 
-    log.info("Initializing tensor parallel gang with {} process(es).", tp_size)
+    log.info("Creating tensor parallel gang with {} process(es).", tp_size)
 
     # Build the gangs for tensor parallelism.
     match tp_size:
@@ -633,14 +628,16 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
         case root_gang.size:
             tp_gang = root_gang
         case _:
-            if torch_greater_or_equal(2, 5) and root_gang.device.type == "cuda":
+            if root_gang.device.type == "cuda" and root_gang.supports_process_group:
+                root_pg = root_gang.as_process_group()
+
                 try:
                     pg = torch.distributed.distributed_c10d.split_group(
-                        split_ranks=mesh.tolist(), group_desc="tp"
+                        parent_pg=root_pg, split_ranks=mesh.tolist(), group_desc="tp"
                     )
                 except RuntimeError as ex:
                     raise GangError(
-                        "The tensor parallel process group cannot be created. See the nested exception for details."
+                        "Tensor parallel process group cannot be created."
                     ) from ex
 
                 if pg is not None:
@@ -654,19 +651,19 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     if tp_gang is None:
         raise InternalError("`tp_gang` is `None`.")
 
-    log.info("Tensor parallel gang initialized.")
+    log.info("Tensor parallel gang created.")
 
     # TODO: implement!
-    log.info("Initializing pipeline parallel gang with {} process(es).", 1)
+    log.info("Creating pipeline parallel gang with {} process(es).", 1)
 
-    log.info("Pipeline parallel gang initialized.")
+    log.info("Pipeline parallel gang created.")
 
     return Gangs(
         root=root_gang, dp=dp_gang, rdp=dp_gang, sdp=fake_gang, tp=tp_gang, pp=fake_gang
     )
 
 
-def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
+def create_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
     """
     Sets up gangs to be used for sharded data parallelism.
 
@@ -702,7 +699,7 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
 
     if dp_gang.size % intra_node_size != 0:
         raise ValueError(
-            f"`gangs.dp.size` is expected to be a multiple of `intra_node_size` ({intra_node_size}), but is {dp_gang.size} instead."
+            f"`intra_node_size` must be a factor of `gangs.dp.size` ({dp_gang.size}), but is {intra_node_size} instead."
         )
 
     fake_gang = FakeGang(device=dp_gang.device)
@@ -716,7 +713,7 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
 
     inter_gang: Gang | None = None
 
-    log.info("Initializing inter-node data parallel gang with {} process(es).", inter_node_size)  # fmt: skip
+    log.info("Creating inter-node data parallel gang with {} process(es).", inter_node_size)  # fmt: skip
 
     # Build the gangs for inter-node data parallelism.
     match inter_node_size:
@@ -725,14 +722,16 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
         case dp_gang.size:
             inter_gang = dp_gang
         case _:
-            if torch_greater_or_equal(2, 5) and dp_gang.device.type == "cuda":
+            if dp_gang.device.type == "cuda" and dp_gang.supports_process_group:
+                dp_pg = dp_gang.as_process_group()
+
                 try:
                     pg = torch.distributed.distributed_c10d.split_group(
-                        split_ranks=mesh.T.tolist(), group_desc="inter"
+                        parent_pg=dp_pg, split_ranks=mesh.T.tolist(), group_desc="inter"
                     )
                 except RuntimeError as ex:
                     raise GangError(
-                        "The inter-node process group cannot be created. See the nested exception for details."
+                        "Inter-node process group cannot be created."
                     ) from ex
 
                 if pg is not None:
@@ -748,7 +747,7 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
 
     intra_gang: Gang | None = None
 
-    log.info("Initializing intra-node data parallel gang with {} process(es).", intra_node_size)  # fmt: skip
+    log.info("Creating intra-node data parallel gang with {} process(es).", intra_node_size)  # fmt: skip
 
     # Build the gangs for intra-node data parallelism.
     match intra_node_size:
@@ -757,14 +756,16 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
         case dp_gang.size:
             intra_gang = dp_gang
         case _:
-            if torch_greater_or_equal(2, 5) and dp_gang.device.type == "cuda":
+            if dp_gang.device.type == "cuda" and dp_gang.supports_process_group:
+                dp_pg = dp_gang.as_process_group()
+
                 try:
                     pg = torch.distributed.distributed_c10d.split_group(
-                        split_ranks=mesh.tolist(), group_desc="intra"
+                        parent_pg=dp_pg, split_ranks=mesh.tolist(), group_desc="intra"
                     )
                 except RuntimeError as ex:
                     raise GangError(
-                        "The intra-node process group cannot be created. See the nested exception for details."
+                        "Intra-node process group cannot be created."
                     ) from ex
 
                 if pg is not None:

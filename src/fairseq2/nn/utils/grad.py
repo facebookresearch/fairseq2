@@ -6,20 +6,20 @@
 
 from __future__ import annotations
 
-import logging
 import warnings
+from collections.abc import Collection
 from typing import Any
 
 import torch
 from torch import Tensor
 from torch.autograd import Function
+from torch.distributed.tensor import DTensor
 from torch.nn import Module
 from torch.nn.utils import clip_grad_norm_  # type: ignore[attr-defined]
 
+from fairseq2.error import OperationalError
 from fairseq2.gang import Gang, all_sum
-from fairseq2.logging import log
-from fairseq2.nn.data_parallel import FSDP1
-from fairseq2.utils.version import torch_greater_or_equal
+from fairseq2.nn.data_parallel import FSDP1Module
 
 
 def normalize_grads(module: Module, gang: Gang, num_targets: int) -> None:
@@ -97,7 +97,7 @@ def clip_grad_norm(
     if max_norm is None:
         max_norm = torch.inf
 
-    if isinstance(module, FSDP1):
+    if isinstance(module, FSDP1Module):
         if not module.check_is_root():
             raise ValueError("`module` must be the root FSDP module.")
 
@@ -110,24 +110,27 @@ def clip_grad_norm(
                 action="ignore", message=r".*with no gradients -- returning the total norm.*"  # fmt: skip
             )
 
-            return module.clip_grad_norm_(max_norm, norm_type)
+            try:
+                return module.clip_grad_norm_(max_norm, norm_type)
+            except RuntimeError as ex:
+                raise OperationalError("FSDP1 gradient norm clipping failed.") from ex
 
-    grad_norm = clip_grad_norm_(
-        module.parameters(), max_norm, norm_type, error_if_nonfinite=False
-    )
-
-    if torch_greater_or_equal(2, 6):
-        from torch.distributed.tensor import DTensor
+    try:
+        grad_norm = clip_grad_norm_(
+            module.parameters(), max_norm, norm_type, error_if_nonfinite=False
+        )
 
         # When the parameters are of type `DTensor`, `clip_grad_norm_` returns
         # the local grad norm only.
         if isinstance(grad_norm, DTensor):
             grad_norm = grad_norm.full_tensor()
+    except RuntimeError as ex:
+        raise OperationalError("FSDP2 gradient norm clipping failed.") from ex
 
     return grad_norm  # type: ignore[no-any-return]
 
 
-def check_grad_norms(local_norm: Tensor, gang: Gang, step_nr: int) -> bool:
+def check_grad_norms(local_norm: Tensor, gang: Gang, step_nr: int) -> None:
     """Sanity check the total gradient norm across all processes.
 
     :param local_norm:
@@ -138,7 +141,7 @@ def check_grad_norms(local_norm: Tensor, gang: Gang, step_nr: int) -> bool:
         The number of the training step. Used for logging purposes.
     """
     if gang.size == 1:
-        return True
+        return
 
     norms = torch.zeros((gang.size,), device=gang.device, dtype=local_norm.dtype)
 
@@ -148,14 +151,19 @@ def check_grad_norms(local_norm: Tensor, gang: Gang, step_nr: int) -> bool:
         delta = (norms - norms[0]).abs().max() / (norms[0] + 1e-6)
 
         if (delta < 1e-6).all():
-            return True
+            return
     else:
         if all_finite.logical_not().all():  # Check if all Inf/NaN.
-            return True
+            return
 
-    if log.is_enabled_for(logging.ERROR):
-        s = "\n".join(f"Rank {r:3d} = {g:.8f}" for r, g in enumerate(norms.tolist()))
+    raise InconsistentGradNormError(step_nr, norms.tolist())
 
-        log.error("Gradients are inconsistent between processes at step {}. Gradient Norms:\n{}", step_nr, s)  # fmt: skip
 
-    return False
+class InconsistentGradNormError(Exception):
+    def __init__(self, step_nr: int, grad_norms: Collection[Tensor]) -> None:
+        super().__init__(
+            f"Gradients are inconsistent between processes at step {step_nr}."
+        )
+
+        self.step_nr = step_nr
+        self.grad_norms = grad_norms

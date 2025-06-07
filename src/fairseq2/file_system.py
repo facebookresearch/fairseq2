@@ -155,7 +155,6 @@ class LocalFileSystem(FileSystem):
     def resolve(self, path: Path) -> Path:
         return path.expanduser().resolve()
 
-    @final
     @property
     @override
     def is_local(self) -> bool:

@@ -6,62 +6,88 @@
 
 from __future__ import annotations
 
-from fairseq2.assets._card import AssetCard as AssetCard
-from fairseq2.assets._card import AssetCardError as AssetCardError
-from fairseq2.assets._card import (
-    AssetCardFieldNotFoundError as AssetCardFieldNotFoundError,
+from fairseq2.assets.card import AssetCard as AssetCard
+from fairseq2.assets.card import AssetCardError as AssetCardError
+from fairseq2.assets.card import AssetConfigLoader as AssetConfigLoader
+from fairseq2.assets.card import StandardAssetConfigLoader as StandardAssetConfigLoader
+from fairseq2.assets.dirs import AssetDirectoryAccessor as AssetDirectoryAccessor
+from fairseq2.assets.dirs import (
+    StandardAssetDirectoryAccessor as StandardAssetDirectoryAccessor,
 )
-from fairseq2.assets._card import AssetCardNotFoundError as AssetCardNotFoundError
-from fairseq2.assets._dirs import AssetDirectories as AssetDirectories
-from fairseq2.assets._download_manager import AssetDownloadError as AssetDownloadError
-from fairseq2.assets._download_manager import (
+from fairseq2.assets.download_manager import AssetDownloadError as AssetDownloadError
+from fairseq2.assets.download_manager import (
     AssetDownloadManager as AssetDownloadManager,
 )
-from fairseq2.assets._download_manager import (
-    CompositeAssetDownloadManager as CompositeAssetDownloadManager,
+from fairseq2.assets.download_manager import (
+    DelegatingAssetDownloadManager as DelegatingAssetDownloadManager,
 )
-from fairseq2.assets._download_manager import HuggingFaceHub as HuggingFaceHub
-from fairseq2.assets._download_manager import (
-    InProcAssetDownloadManager as InProcAssetDownloadManager,
-)
-from fairseq2.assets._download_manager import (
+from fairseq2.assets.download_manager import HuggingFaceHub as HuggingFaceHub
+from fairseq2.assets.download_manager import (
     NoopAssetDownloadManager as NoopAssetDownloadManager,
 )
-from fairseq2.assets._metadata_provider import (
+from fairseq2.assets.download_manager import (
+    StandardAssetDownloadManager as StandardAssetDownloadManager,
+)
+from fairseq2.assets.metadata_provider import AssetMetadataError as AssetMetadataError
+from fairseq2.assets.metadata_provider import (
     AssetMetadataFileLoader as AssetMetadataFileLoader,
 )
-from fairseq2.assets._metadata_provider import (
-    AssetMetadataLoadError as AssetMetadataLoadError,
-)
-from fairseq2.assets._metadata_provider import (
-    AssetMetadataNotFoundError as AssetMetadataNotFoundError,
-)
-from fairseq2.assets._metadata_provider import (
+from fairseq2.assets.metadata_provider import (
     AssetMetadataProvider as AssetMetadataProvider,
 )
-from fairseq2.assets._metadata_provider import (
-    AssetMetadataSaveError as AssetMetadataSaveError,
+from fairseq2.assets.metadata_provider import (
+    AssetSourceNotFoundError as AssetSourceNotFoundError,
 )
-from fairseq2.assets._metadata_provider import (
+from fairseq2.assets.metadata_provider import (
     CachedAssetMetadataProvider as CachedAssetMetadataProvider,
 )
-from fairseq2.assets._metadata_provider import (
+from fairseq2.assets.metadata_provider import (
     FileAssetMetadataLoader as FileAssetMetadataLoader,
 )
-from fairseq2.assets._metadata_provider import (
-    InProcAssetMetadataLoader as InProcAssetMetadataLoader,
+from fairseq2.assets.metadata_provider import (
+    FileAssetMetadataSource as FileAssetMetadataSource,
 )
-from fairseq2.assets._metadata_provider import (
+from fairseq2.assets.metadata_provider import (
+    MaybeSystemAssetMetadataSource as MaybeSystemAssetMetadataSource,
+)
+from fairseq2.assets.metadata_provider import (
+    MaybeUserAssetMetadataSource as MaybeUserAssetMetadataSource,
+)
+from fairseq2.assets.metadata_provider import (
     PackageAssetMetadataLoader as PackageAssetMetadataLoader,
 )
-from fairseq2.assets._metadata_provider import PackageFileLister as PackageFileLister
-from fairseq2.assets._metadata_provider import (
-    StandardAssetMetadataFileLoader as StandardAssetMetadataFileLoader,
+from fairseq2.assets.metadata_provider import (
+    PackageAssetMetadataSource as PackageAssetMetadataSource,
 )
-from fairseq2.assets._metadata_provider import (
-    WheelPackageFileLister as WheelPackageFileLister,
+from fairseq2.assets.metadata_provider import PackageFileLister as PackageFileLister
+from fairseq2.assets.metadata_provider import (
+    StandardFileAssetMetadataLoader as StandardFileAssetMetadataLoader,
 )
-from fairseq2.assets._store import AssetLookupScope as AssetLookupScope
-from fairseq2.assets._store import AssetStore as AssetStore
-from fairseq2.assets._store import EnvironmentResolver as EnvironmentResolver
-from fairseq2.assets._store import StandardAssetStore as StandardAssetStore
+from fairseq2.assets.metadata_provider import (
+    StandardPackageAssetMetadataLoader as StandardPackageAssetMetadataLoader,
+)
+from fairseq2.assets.metadata_provider import (
+    StandardPackageFileLister as StandardPackageFileLister,
+)
+from fairseq2.assets.metadata_provider import (
+    YamlAssetMetadataFileLoader as YamlAssetMetadataFileLoader,
+)
+from fairseq2.assets.metadata_provider import (
+    canonicalize_asset_name as canonicalize_asset_name,
+)
+from fairseq2.assets.metadata_provider import (
+    load_in_memory_asset_metadata as load_in_memory_asset_metadata,
+)
+from fairseq2.assets.metadata_provider import register_assets as register_assets
+from fairseq2.assets.metadata_provider import (
+    register_package_assets as register_package_assets,
+)
+from fairseq2.assets.metadata_provider import (
+    sanitize_base_asset_name as sanitize_base_asset_name,
+)
+from fairseq2.assets.store import AssetEnvironmentDetector as AssetEnvironmentDetector
+from fairseq2.assets.store import AssetEnvironmentResolver as AssetEnvironmentResolver
+from fairseq2.assets.store import AssetNotFoundError as AssetNotFoundError
+from fairseq2.assets.store import AssetStore as AssetStore
+from fairseq2.assets.store import StandardAssetStore as StandardAssetStore
+from fairseq2.assets.store import get_asset_store as get_asset_store

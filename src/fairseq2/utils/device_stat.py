@@ -9,10 +9,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import final
 
-import torch
 from typing_extensions import override
 
-from fairseq2.device import Device
+from fairseq2.device import CudaContext, Device
+from fairseq2.error import OperationalError
 
 
 class DeviceStatTracker(ABC):
@@ -36,19 +36,28 @@ class NoopDeviceStatTracker(DeviceStatTracker):
 
 @final
 class CudaDeviceStatTracker(DeviceStatTracker):
-    _device: Device
-    _total_memory: int
+    def __init__(self, device: Device, cuda_context: CudaContext) -> None:
+        if device.type != "cuda":
+            raise ValueError(
+                f"`device.type` must be `cuda`, but is `{device.type}` instead."
+            )
 
-    def __init__(self, device: Device) -> None:
         self._device = device
+        self._cuda_context = cuda_context
 
-        props = torch.cuda.get_device_properties(device)
+        try:
+            props = cuda_context.get_device_properties(device)
+        except RuntimeError as ex:
+            raise OperationalError("CUDA call failed.") from ex
 
         self._total_memory = props.total_memory
 
     @override
     def get_stats(self) -> dict[str, object]:
-        stats = torch.cuda.memory_stats(self._device)
+        try:
+            stats = self._cuda_context.memory_stats(self._device)
+        except RuntimeError as ex:
+            raise OperationalError("CUDA call failed.") from ex
 
         peak_active_mem_bytes = stats["active_bytes.all.peak"]
         peak_active_mem_ratio = peak_active_mem_bytes / self._total_memory
@@ -65,4 +74,7 @@ class CudaDeviceStatTracker(DeviceStatTracker):
 
     @override
     def reset(self) -> None:
-        torch.cuda.reset_peak_memory_stats()
+        try:
+            self._cuda_context.reset_peak_memory_stats()
+        except RuntimeError as ex:
+            raise OperationalError("CUDA call failed.") from ex

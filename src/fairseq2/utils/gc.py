@@ -43,10 +43,7 @@ class NoopGarbageCollector(GarbageCollector):
 
 
 @final
-class CPythonGarbageCollector(GarbageCollector):
-    _step: int
-    _collect_every_n_step: int
-
+class StandardGarbageCollector(GarbageCollector):
     def __init__(self, collect_every_n_step: int) -> None:
         if collect_every_n_step < 1:
             raise ValueError(
