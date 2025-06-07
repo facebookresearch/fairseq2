@@ -38,8 +38,7 @@ def convert_qwen_checkpoint(
 
         checkpoint = convert_checkpoint(checkpoint, key_map)
 
-        # Safetensors does not support shared tensors.
-        if config.tie_embeddings:
-            checkpoint["final_proj.weight"] = checkpoint["decoder_frontend.embed.weight"]  # fmt: skip
+    if config.tied_embeddings:
+        checkpoint["final_proj.weight"] = checkpoint["decoder_frontend.embed.weight"]
 
     return checkpoint

@@ -61,7 +61,6 @@ from fairseq2.recipes.common._compile import compile_model
 from fairseq2.recipes.common._distributed import setup_data_parallel_model
 from fairseq2.recipes.common._error import (
     ActivationCheckpointingNotSupportedError,
-    InvalidModelPathError,
     ModelParallelismNotSupportedError,
     ModelPathNotFoundError,
 )
@@ -243,11 +242,10 @@ class _CardBasedModelLoader(_ModelLoader):
         else:
             log.info("Loading '{}' model on data parallel rank 0.", model_name)
 
+        gangs.root.barrier()
         try:
             if gangs.dp.rank == 0 and not self._has_checkpoint:
-                module = handler.load(
-                    card, gangs, dtype, model_config, mmap=model_section.mmap
-                )
+                module = handler.load(card, gangs, dtype, model_config)
             else:
                 module = handler.create(
                     model_config, gangs, dtype, meta=handler.supports_meta
@@ -307,9 +305,7 @@ class _PathBasedModelLoader(_ModelLoader):
         if model_path is None:
             raise ValueError("`model_section.path` must be specified.")
 
-        model_path = self._format_as_sharded_path(model_path, gangs)
-
-        model_name = "recipe"
+        model_name = model_path.name
 
         try:
             handler = self._model_handlers.get(model_family)
@@ -356,12 +352,7 @@ class _PathBasedModelLoader(_ModelLoader):
             if gangs.dp.rank == 0 and not self._has_checkpoint:
                 try:
                     module = handler.load_from_path(
-                        model_path,
-                        model_name,
-                        model_config,
-                        gangs,
-                        dtype,
-                        mmap=model_section.mmap,
+                        model_path, model_name, model_config, gangs, dtype
                     )
                 except FileNotFoundError:
                     raise ModelPathNotFoundError(model_name, model_path) from None
@@ -391,17 +382,6 @@ class _PathBasedModelLoader(_ModelLoader):
             log.info("Model loaded on data parallel rank 0.")
 
         return _LocalModel(model_name, module, model_config, handler)
-
-    @staticmethod
-    def _format_as_sharded_path(model_path: Path, gangs: Gangs) -> Path:
-        model_pathname = str(model_path)
-
-        model_pathname = model_pathname.format_map({"shard_idx": gangs.tp.rank})
-
-        try:
-            return Path(model_pathname)
-        except ValueError:
-            raise InvalidModelPathError(model_pathname) from None
 
 
 @final

@@ -25,7 +25,7 @@ class QwenConfig:
     vocab_size: int = 152_064
     """The size of the vocabulary."""
 
-    tie_embeddings: bool = False
+    tied_embeddings: bool = False
     """If ``True``, ties the embedding table and the output projection layer."""
 
     num_layers: int = 28
@@ -77,7 +77,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.num_attn_heads = 16
         config.num_key_value_heads = 2
         config.ffn_inner_dim = 11_008
-        config.tie_embeddings = True
+        config.tied_embeddings = True
 
         return config
 
@@ -115,7 +115,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
 
         config.model_dim = 1536
         config.vocab_size = 151_936
-        config.tie_embeddings = True
+        config.tied_embeddings = True
         config.num_attn_heads = 12
         config.num_key_value_heads = 2
         config.ffn_inner_dim = 8960
@@ -129,7 +129,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.model_dim = 1024
         config.max_seq_len = 40_960
         config.vocab_size = 151_936
-        config.tie_embeddings = True
+        config.tied_embeddings = True
         config.num_layers = 28
         config.num_attn_heads = 16
         config.num_key_value_heads = 8
@@ -149,7 +149,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.model_dim = 2048
         config.max_seq_len = 40_960
         config.vocab_size = 151_936
-        config.tie_embeddings = True
+        config.tied_embeddings = True
         config.num_layers = 28
         config.num_attn_heads = 16
         config.num_key_value_heads = 8
@@ -169,7 +169,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.model_dim = 2560
         config.max_seq_len = 40_960
         config.vocab_size = 151_936
-        config.tie_embeddings = True
+        config.tied_embeddings = True
         config.num_layers = 36
         config.num_attn_heads = 32
         config.num_key_value_heads = 8

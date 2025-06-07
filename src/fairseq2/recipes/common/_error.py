@@ -37,15 +37,6 @@ class DatasetPathNotFoundError(Exception):
         self.path = path
 
 
-class InvalidModelPathError(Exception):
-    pathname: str
-
-    def __init__(self, pathname: str) -> None:
-        super().__init__(f"'{pathname}' does not represent a valid file system path.")
-
-        self.pathname = pathname
-
-
 class ModelParallelismNotSupportedError(NotSupportedError):
     model_name: str
 

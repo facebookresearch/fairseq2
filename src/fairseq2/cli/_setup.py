@@ -9,7 +9,6 @@ from __future__ import annotations
 from fairseq2.chatbots import UnknownChatbotError
 from fairseq2.cli.commands.assets import ListAssetsHandler, ShowAssetHandler
 from fairseq2.cli.commands.chatbot import RunChatbotHandler
-from fairseq2.cli.commands.llama import ConvertLLaMACheckpointHandler
 from fairseq2.cli.commands.recipe import RecipeCommandHandler
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import (
@@ -53,7 +52,6 @@ from fairseq2.recipes.common import (
     DatasetPathNotFoundError,
     FSDPNotSupportedError,
     HybridShardingNotSupportedError,
-    InvalidModelPathError,
     ModelCompilationNotSupportedError,
     ModelParallelismNotSupportedError,
     ModelPathNotFoundError,
@@ -108,7 +106,6 @@ def setup_cli(context: RuntimeContext) -> Cli:
     _register_asr_cli(cli)
     _register_asset_cli(cli)
     _register_chatbot_cli(cli)
-    _register_llama_cli(cli)
     _register_clm_cli(cli)
     _register_mt_cli(cli)
     _register_wav2vec2_asr_cli(cli)
@@ -165,16 +162,6 @@ def _register_chatbot_cli(cli: Cli) -> None:
         name="run",
         handler=RunChatbotHandler(),
         help="run a terminal-based chatbot demo",
-    )
-
-
-def _register_llama_cli(cli: Cli) -> None:
-    group = cli.add_group("llama", help="LLaMA recipes")
-
-    group.add_command(
-        name="convert_checkpoint",
-        handler=ConvertLLaMACheckpointHandler(),
-        help="convert fairseq2 LLaMA checkpoints to reference checkpoints",
     )
 
 
@@ -343,7 +330,6 @@ def _register_user_error_types(cli: Cli) -> None:
     cli.register_user_error_type(HybridShardingNotSupportedError)
     cli.register_user_error_type(InconsistentGradNormError)
     cli.register_user_error_type(InvalidDatasetTypeError)
-    cli.register_user_error_type(InvalidModelPathError)
     cli.register_user_error_type(InvalidModelTypeError)
     cli.register_user_error_type(MinimumLossScaleReachedError)
     cli.register_user_error_type(ModelCompilationNotSupportedError)

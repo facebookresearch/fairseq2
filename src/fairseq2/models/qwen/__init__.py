@@ -16,4 +16,4 @@ from fairseq2.models.qwen._factory import QwenFactory as QwenFactory
 from fairseq2.models.qwen._factory import create_qwen_model as create_qwen_model
 from fairseq2.models.qwen._hg import export_qwen_checkpoint as export_qwen_checkpoint
 from fairseq2.models.qwen._hub import get_qwen_model_hub as get_qwen_model_hub
-from fairseq2.models.qwen._shard import shard_qwen_model as shard_qwen_model
+from fairseq2.models.qwen._shard import get_qwen_shard_specs as get_qwen_shard_specs

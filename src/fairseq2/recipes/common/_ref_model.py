@@ -150,9 +150,7 @@ class _ReferenceModelLoader:
 
         try:
             if gangs.dp.rank == 0:
-                module = handler.load(
-                    card, gangs, dtype, model_config, mmap=model_section.mmap
-                )
+                module = handler.load(card, gangs, dtype, model_config)
             else:
                 module = handler.create(
                     model_config, gangs, dtype, meta=handler.supports_meta

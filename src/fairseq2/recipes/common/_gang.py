@@ -33,6 +33,8 @@ def setup_gangs(context: RuntimeContext, gang_section: GangSection) -> Gangs:
 
     log_ranks(log, gangs)
 
+    gangs.root.barrier()
+
     return gangs
 
 
@@ -102,6 +104,19 @@ def _do_setup_gangs(context: RuntimeContext, gang_section: GangSection) -> Gangs
         ) from ex
 
     log.info("Parallel gangs initialized.")
+
+    # Perform a warm-up collective call to ensure that the internal machinery of
+    # the gangs is fully set up.
+    log.info("Performing a collective barrier call to warm up gangs. This can take up to several minutes depending on the topology.")  # fmt: skip
+
+    try:
+        gangs.root.barrier()
+    except GangError as ex:
+        raise RecipeError(
+            "The collective barrier after the gang setup operation has failed. See the nested exception for details."  # fmt: skip
+        ) from ex
+
+    log.info("Gangs warmed up.")
 
     return gangs
 

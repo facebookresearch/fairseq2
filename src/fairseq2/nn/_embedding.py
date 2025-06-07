@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, final
+from typing import TYPE_CHECKING, final
 
 import torch
 import torch.nn as nn
@@ -20,7 +20,6 @@ from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import META_DEVICE, Device
-from fairseq2.error import InternalError
 from fairseq2.gang import Gang
 from fairseq2.nn.utils.module import to_empty
 from fairseq2.ops.tensor_parallel import gather, reduce, reduce_on_backward
@@ -216,8 +215,6 @@ class VocabShardedEmbedding(Embedding):
 
         self.init_fn = init_fn
 
-        self.register_load_state_dict_pre_hook(self._pre_load_state_dict_hook)
-
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
@@ -232,25 +229,6 @@ class VocabShardedEmbedding(Embedding):
             weight = weight_shards[self.gang.rank]
 
             self.weight.copy_(weight, non_blocking=True)
-
-    @staticmethod
-    def _pre_load_state_dict_hook(
-        module: Module, state_dict: dict[str, object], prefix: str, *args: Any
-    ) -> None:
-        if not isinstance(module, VocabShardedEmbedding):
-            raise InternalError(f"`module` is of type `{type(module)}`.")
-
-        key = f"{prefix}weight"
-
-        weight = state_dict.get(key)
-        if weight is None or not isinstance(weight, Tensor):
-            return
-
-        if weight.size(0) == module.num_embeddings:
-            with torch.no_grad():
-                weight_shards = weight.split(module.sharded_num_embeddings, dim=0)
-
-                state_dict[key] = weight_shards[module.gang.rank]
 
     @override
     def forward(self, x: Tensor) -> Tensor:
@@ -422,8 +400,6 @@ class ShardedEmbedding(Embedding):
 
         self.init_fn = init_fn
 
-        self.register_load_state_dict_pre_hook(self._pre_load_state_dict_hook)
-
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
@@ -438,25 +414,6 @@ class ShardedEmbedding(Embedding):
             weight = weight_shards[self.gang.rank]
 
             self.weight.copy_(weight, non_blocking=True)
-
-    @staticmethod
-    def _pre_load_state_dict_hook(
-        module: Module, state_dict: dict[str, object], prefix: str, *args: Any
-    ) -> None:
-        if not isinstance(module, ShardedEmbedding):
-            raise InternalError(f"`module` is of type `{type(module)}`.")
-
-        key = f"{prefix}weight"
-
-        weight = state_dict.get(key)
-        if weight is None or not isinstance(weight, Tensor):
-            return
-
-        if weight.size(1) == module.embed_dim:
-            with torch.no_grad():
-                weight_shards = weight.split(module.sharded_embed_dim, dim=1)
-
-                state_dict[key] = weight_shards[module.gang.rank]
 
     @override
     def forward(self, x: Tensor) -> Tensor:

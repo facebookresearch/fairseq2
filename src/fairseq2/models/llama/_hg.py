@@ -66,7 +66,7 @@ def _convert_config(config: LLaMAConfig) -> dict[str, object]:
         "rms_norm_eps": 1e-5,
         "rope_scaling": rope_scale,
         "rope_theta": config.rope_theta,
-        "tie_word_embeddings": config.tie_embeddings,
+        "tie_word_embeddings": config.tied_embeddings,
         "vocab_size": config.vocab_size,
     }
 
@@ -118,7 +118,7 @@ def _convert_checkpoint(
 
     checkpoint = convert_checkpoint(checkpoint, key_map)
 
-    if config.tie_embeddings:
+    if config.tied_embeddings:
         del checkpoint["lm_head.weight"]
 
     return checkpoint

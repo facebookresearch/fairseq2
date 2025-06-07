@@ -187,7 +187,7 @@ class Generator(Recipe):
 
                 self._step_nr += 1
 
-                progress_task.step(1)
+                progress_task.step()
 
                 with record_function(f"step_{self._step_nr}"):
                     self._run_step(batches)
