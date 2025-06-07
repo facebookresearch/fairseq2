@@ -25,7 +25,7 @@ def convert_llama_checkpoint(
     except KeyError:
         pass
 
-    if "decoder.embed_tokens.weight" in checkpoint:  # Hugging Face
+    if "model.embed_tokens.weight" in checkpoint:  # Hugging Face
         head_dim = config.model_dim // config.num_attn_heads
 
         def permute_rotary(w: Tensor, num_heads: int) -> Tensor:

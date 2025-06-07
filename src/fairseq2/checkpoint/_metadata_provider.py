@@ -131,9 +131,9 @@ class FileCheckpointMetadataLoader:
             ) from None
 
         def add_checkpoint_metadata(name: str, step_nr: int) -> None:
-            path = self._checkpoint_dir.joinpath(f"step_{step_nr}")
+            model_path = self._checkpoint_dir.joinpath(f"step_{step_nr}/model.pt")
 
-            cache[name] = {"base": "checkpoint", "checkpoint": str(path)}
+            cache[name] = {"base": "checkpoint", "checkpoint": str(model_path)}
 
         max_step_nr = -1
 

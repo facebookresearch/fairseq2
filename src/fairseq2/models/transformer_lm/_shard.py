@@ -14,7 +14,7 @@ def get_transformer_lm_shard_specs(
 ) -> dict[str, ShardSpec]:
     return {
         # fmt: off
-        r".*\.embed$":                 ShardSpec(dim=0 if shard_embed_dim else 1),
+        r".*\.embed$":                 ShardSpec(dim=1 if shard_embed_dim else 0),
         r".*\.self_attn.q_proj$":      ShardSpec(dim=0, region_boundary=True),
         r".*\.self_attn.k_proj$":      ShardSpec(dim=0, region_boundary=True),
         r".*\.self_attn.v_proj$":      ShardSpec(dim=0, region_boundary=True),

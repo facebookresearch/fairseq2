@@ -25,7 +25,6 @@ def load_checkpoint(model: Module, checkpoint: Iterable[tuple[str, Tensor]]) -> 
     # parameters and buffers via `keep_vars`.
     state_dict = model.state_dict(keep_vars=True)
 
-    from fairseq2.logging import log
     with torch.no_grad():
         for key, tensor in checkpoint:
             try:
@@ -39,6 +38,8 @@ def load_checkpoint(model: Module, checkpoint: Iterable[tuple[str, Tensor]]) -> 
                 errors.append(
                     f"`{key}` has a shape of {tuple(tensor.shape)} in the checkpoint, but has a shape of {tuple(state_tensor.shape)} in the model."
                 )
+
+                continue
 
             state_tensor.copy_(tensor, non_blocking=True)
 

@@ -154,6 +154,8 @@ class BasicCheckpointLoader(CheckpointLoader):
 
             yield key, tensor
 
+            del tensor
+
     @override
     def supports_path(self, path: Path) -> bool:
         if not path.suffix in (".pt", ".pth", ".bin"):
@@ -210,42 +212,54 @@ class SafetensorsCheckpointLoader(CheckpointLoader):
         target_shard_sizes = (gangs.tp.size, gangs.sdp.size)
         target_shard_ranks = (gangs.tp.rank, gangs.sdp.rank)
 
+        checkpoint = {}
+
         for file in files:
             try:
-                checkpoint = self._safetensors_loader.load(file, device=CPU)
+                st_shard = self._safetensors_loader.load(file, device=CPU)
             except (FileNotFoundError, TensorLoadError) as ex:
                 raise CheckpointError(
                     f"The '{file}' Safetensors file cannot be loaded. See the nested exception for details."
                 ) from ex
 
-            if processor is not None:
-                checkpoint = processor(checkpoint)
-
-            memo = set()
-
-            for key, tensor in checkpoint.items():
-                if not isinstance(tensor, Tensor):
-                    raise ContractError(
-                        f"The value of the '{key}' key in the '{path}' checkpoint is not a `{Tensor}`."
+            for key, value in st_shard.items():
+                if key in checkpoint:
+                    raise CheckpointError(
+                        f"The '{path}' directory has multiple Safetensors file with key '{key}'."
                     )
 
-                if tensor in memo:  # Yield shared tensors only once.
-                    continue
+                checkpoint[key] = value
 
-                memo.add(tensor)
+        if processor is not None:
+            checkpoint = processor(checkpoint)
 
-                tp_shards = [[tensor]]  # tp, dp
+        memo = set()
 
-                tensor = _reshard_tensor(
-                    key,
-                    tp_shards,
-                    source_shard_sizes,
-                    target_shard_sizes,
-                    target_shard_ranks,
-                    shard_specs,
+        for key, tensor in checkpoint.items():
+            if not isinstance(tensor, Tensor):
+                raise ContractError(
+                    f"The value of the '{key}' key in the '{path}' checkpoint is not a `{Tensor}`."
                 )
 
-                yield key, tensor
+            if tensor in memo:  # Yield shared tensors only once.
+                continue
+
+            memo.add(tensor)
+
+            tp_shards = [[tensor]]  # tp, dp
+
+            tensor = _reshard_tensor(
+                key,
+                tp_shards,
+                source_shard_sizes,
+                target_shard_sizes,
+                target_shard_ranks,
+                shard_specs,
+            )
+
+            yield key, tensor
+
+            del tensor
 
     @override
     def supports_path(self, path: Path) -> bool:
@@ -403,6 +417,8 @@ class ShardedCheckpointLoader(CheckpointLoader):
 
                 yield key, tensor
 
+                del tensor
+
     def _get_checkpoint_files(self, path: Path) -> list[list[list[Path]]]:
         pp_files = []
 
@@ -485,6 +501,164 @@ class ShardedCheckpointLoader(CheckpointLoader):
             raise _access_error(path) from ex
 
 
+@final
+class LLaMACheckpointLoader(CheckpointLoader):
+    _file_system: FileSystem
+    _tensor_loader: TensorLoader
+
+    def __init__(self, file_system: FileSystem, tensor_loader: TensorLoader) -> None:
+        self._file_system = file_system
+
+        self._tensor_loader = tensor_loader
+
+    @override
+    def load(
+        self,
+        path: Path,
+        gangs: Gangs,
+        *,
+        restrict: bool = True,
+        processor: CheckpointProcessor | None = None,
+        shard_specs: Mapping[str, ShardSpec] | None = None,
+    ) -> Iterable[tuple[str, Tensor]]:
+        # Handle legacy paths with format specifiers.
+        if "shard_idx" in path.name:
+            path = path.parent
+
+        try:
+            is_dir = self._file_system.is_dir(path)
+        except OSError as ex:
+            raise _access_error(path) from ex
+
+        if not is_dir:
+            raise CheckpointError(
+                f"The '{path}' path does not point to a LLaMA model checkpoint."
+            )
+
+        tp_files = self._get_checkpoint_files(path)
+
+        tp_size = len(tp_files)
+
+        source_shard_sizes = (tp_size, 1)
+
+        target_shard_sizes = (gangs.tp.size, gangs.sdp.size)
+        target_shard_ranks = (gangs.tp.rank, gangs.sdp.rank)
+
+        # If the source and target tensor parallel sizes match, avoid loading
+        # redundant checkpoint files.
+        if gangs.tp.size == tp_size:
+            tp_files = [tp_files[gangs.tp.rank]]
+
+            source_shard_sizes = (1, 1)
+
+            target_shard_sizes = (1, gangs.sdp.size)
+            target_shard_ranks = (0, gangs.sdp.rank)
+
+        # Load the checkpoint files.
+        tp_checkpoints = []
+
+        for tp_file in tp_files:
+            try:
+                tp_checkpoint = self._tensor_loader.load(
+                    tp_file, restrict=restrict, mmap=True
+                )
+            except (FileNotFoundError, TensorLoadError) as ex:
+                raise CheckpointError(
+                    f"The '{tp_file}' tensor file cannot be loaded. See the nested exception for details."
+                ) from ex
+
+            if processor is not None:
+                tp_checkpoint = processor(tp_checkpoint)
+
+            tp_checkpoints.append(tp_checkpoint)
+
+        memo = set()
+
+        # Assume that the very first tensor parallel shard contains all the
+        # checkpoint keys.
+        keys = list(tp_checkpoints[0].keys())
+
+        for key in keys:
+            tp_shards = []
+
+            for tp_checkpoint in tp_checkpoints:
+                try:
+                    tp_shard = tp_checkpoint.pop(key)
+                except KeyError:
+                    break  # data parallel sharding can be uneven.
+
+                if not isinstance(tp_shard, Tensor):
+                    raise CheckpointError(
+                        f"The value of the '{key}' key in the '{path}' checkpoint is not a `{Tensor}`."
+                    )
+
+                tp_shards.append([tp_shard])
+
+            tp_shard_0 = tp_shards[0][0]
+
+            if tp_shard_0 in memo:  # Yield shared tensors only once.
+                continue
+
+            memo.add(tp_shard_0)
+
+            tensor = _reshard_tensor(
+                key,
+                tp_shards,
+                source_shard_sizes,
+                target_shard_sizes,
+                target_shard_ranks,
+                shard_specs,
+            )
+
+            yield key, tensor
+
+            del tensor
+
+    def _get_checkpoint_files(self, path: Path) -> list[Path]:
+        tp_files = []
+
+        for tp_idx in count():
+            tp_file = path.joinpath(f"consolidated.{tp_idx:02d}.pth")
+
+            try:
+                is_file = self._file_system.is_file(tp_file)
+            except OSError as ex:
+                raise _access_error(path) from ex
+
+            if not is_file:
+                break
+
+            tp_files.append(tp_file)
+
+        if not tp_files:
+            raise CheckpointError(
+                f"The '{path}' directory does not contain any tensor files.",
+            )
+
+        return tp_files
+
+    @override
+    def supports_path(self, path: Path) -> bool:
+        # Handle legacy paths with format specifiers.
+        if "shard_idx" in path.name:
+            path = path.parent
+
+        try:
+            is_dir = self._file_system.is_dir(path)
+        except OSError as ex:
+            raise _access_error(path) from ex
+
+        if not is_dir:
+            return False
+
+        file = path.joinpath("consolidated.00.pth")
+
+        try:
+            return self._file_system.is_file(file)
+        except OSError as ex:
+            raise _access_error(path) from ex
+
+
 def _reshard_tensor(
     key: str,
     source_tp_shards: list[list[Tensor]],
@@ -521,7 +695,7 @@ def _reshard_tensor(
 
     tp_shards = []
 
-    # Unshard the tensor over the tensor parallel dimension.
+    # Unshard the tensor over the source tensor parallel dimension.
     for source_dp_shards in source_tp_shards:
         if source_dp_size == 1:
             tp_shard = source_dp_shards[0]
@@ -530,20 +704,35 @@ def _reshard_tensor(
 
         tp_shards.append(tp_shard)
 
-    if source_tp_size == 1:
-        tensor = tp_shards[0]
-    else:
-        tensor = torch.cat(tp_shards, dim=tp_dim)
+    # Reshard the tensor over the target parallel dimension.
+    source_tp_dim_size = tp_shards[0].size(tp_dim)
+
+    target_tp_dim_size = (source_tp_dim_size * source_tp_size) // target_tp_size
+
+    target_tp_frst = target_tp_rank * target_tp_dim_size
+    target_tp_last = target_tp_frst + target_tp_dim_size - 1
+
+    source_frst_shard_idx = target_tp_frst // source_tp_dim_size
+    source_last_shard_idx = target_tp_last // source_tp_dim_size
+
+    source_start = source_frst_shard_idx * source_tp_dim_size
+
+    #    from fairseq2.logging import log
+    #    log.info(f"source_tp_size: {source_tp_size}, target_tp_size: {target_tp_size}, source_tp_dim_size: {source_tp_dim_size}, target_tp_dim_size: {target_tp_dim_size}, target_begin: {target_start}, source_begin: {source_start}, source_idx_first: {source_shard_idx_first}, source_idx_last: {source_shard_idx_last}")
+    tp_sub_shards = []
+
+    for idx in range(source_frst_shard_idx, source_last_shard_idx + 1):
+        tp_sub_shards.append(tp_shards[idx])
 
     del tp_shards
 
-    if target_tp_size == 1:
-        return tensor
+    tensor = torch.cat(tp_sub_shards, dim=tp_dim)
 
-    # Reshard with the target tensor parallel size.
-    target_tp_shards = tensor.chunk(target_tp_size, dim=tp_dim)
+    del tp_sub_shards
 
-    return target_tp_shards[target_tp_rank]
+    return tensor.narrow(
+        dim=tp_dim, start=target_tp_frst - source_start, length=target_tp_dim_size
+    )
 
 
 def _get_tp_dim(key: str, shard_specs: Mapping[str, ShardSpec] | None) -> int:
@@ -582,6 +771,10 @@ def create_model_checkpoint_loader(file_system: FileSystem) -> CheckpointLoader:
 
     st_loader = SafetensorsCheckpointLoader(file_system, safetensors_loader)
 
+    llama_loader = LLaMACheckpointLoader(file_system, tensor_loader)
+
     native_loader = ShardedCheckpointLoader(file_system, tensor_loader)
 
-    return DelegatingCheckpointLoader([basic_loader, st_loader, native_loader])
+    return DelegatingCheckpointLoader(
+        [basic_loader, st_loader, llama_loader, native_loader]
+    )

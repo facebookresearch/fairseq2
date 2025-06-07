@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import math
-from functools import partial
 
 import torch
 import torch.nn as nn
@@ -126,7 +125,12 @@ class LLaMAFactory:
         config = self._config
 
         if config.use_scaled_rope:
-            freqs_init_fn = partial(init_llama_rope_freqs, rope_scale=config.rope_scale)
+            rope_scale = config.rope_scale
+
+            def init_rope_freqs(pos_encoder: RotaryEncoder) -> Tensor:
+                return init_llama_rope_freqs(pos_encoder, rope_scale)
+
+            freqs_init_fn = init_rope_freqs
         else:
             freqs_init_fn = None
 
