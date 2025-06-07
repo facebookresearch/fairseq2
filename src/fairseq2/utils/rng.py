@@ -156,3 +156,18 @@ def temporary_manual_seed(seed: int, *devices: Device) -> ContextManager:
     rng_bag = RngBag.from_device_defaults(*devices)
 
     return rng_bag.temporary_manual_seed(seed)
+
+
+@final
+class SeedHolder:
+    _value: int
+
+    def __init__(self, initial_value: int) -> None:
+        self._value = initial_value
+
+    def advance(self) -> int:
+        value = self._value
+
+        self._value += 1
+
+        return value

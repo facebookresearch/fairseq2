@@ -16,6 +16,8 @@ from typing import BinaryIO, TextIO, cast, final
 
 from typing_extensions import override
 
+from fairseq2.dependency import DependencyResolver
+
 
 class FileMode(Enum):
     READ = 0
@@ -160,3 +162,7 @@ class LocalFileSystem(FileSystem):
     @override
     def is_local(self) -> bool:
         return True
+
+
+def get_file_system(resolver: DependencyResolver) -> FileSystem:
+    return resolver.resolve(FileSystem)

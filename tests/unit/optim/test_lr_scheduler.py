@@ -15,7 +15,7 @@ from torch.nn import Conv2d, Module
 from torch.nn.functional import relu
 from torch.optim import SGD
 
-from fairseq2.optim.lr_scheduler import (
+from fairseq2.optim.lr_schedulers import (
     CosineAnnealingLR,
     LRScheduler,
     MyleLR,

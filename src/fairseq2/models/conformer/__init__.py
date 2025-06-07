@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from fairseq2.models.conformer._block import ConformerBlock as ConformerBlock
-from fairseq2.models.conformer._convolution import (
+from fairseq2.models.conformer.block import ConformerBlock as ConformerBlock
+from fairseq2.models.conformer.convolution import (
     ConformerConvolution as ConformerConvolution,
 )

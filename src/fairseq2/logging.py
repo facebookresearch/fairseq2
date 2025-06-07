@@ -81,7 +81,3 @@ class LogWriter:
 
 
 log = get_log_writer("fairseq2")
-
-
-class LoggingSetupError(Exception):
-    pass

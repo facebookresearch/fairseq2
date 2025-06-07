@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
-from collections.abc import MutableMapping
+from abc import ABC, abstractmethod
+from collections.abc import Hashable, MutableMapping
 from contextlib import AbstractContextManager
 from dataclasses import Field, is_dataclass
-from typing import Any, ClassVar, Protocol, TypeAlias, TypeGuard
+from typing import Any, ClassVar, Generic, Protocol, TypeAlias, TypeGuard, TypeVar
 
 from typing_extensions import Self
 
@@ -49,9 +50,13 @@ def get_name_or_self(obj: object) -> object:
     return getattr(obj, "__name__", obj)
 
 
+T_co = TypeVar("T_co", covariant=True)
+
+
+class Provider(ABC, Generic[T_co]):
+    @abstractmethod
+    def resolve(self, key: Hashable) -> T_co: ...
+
+
 class Closable(Protocol):
     def close(self) -> None: ...
-
-
-class Compilable(Protocol):
-    def compile(self, *args: Any, **kwargs: Any) -> object: ...

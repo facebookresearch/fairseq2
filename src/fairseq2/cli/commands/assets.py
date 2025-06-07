@@ -20,10 +20,11 @@ from fairseq2.assets import (
     AssetCardNotFoundError,
     AssetLookupScope,
     AssetStore,
+    get_asset_store,
 )
 from fairseq2.cli import CliArgumentError, CliCommandError, CliCommandHandler
 from fairseq2.cli.utils.rich import get_console
-from fairseq2.context import RuntimeContext
+from fairseq2.dependency import DependencyResolver
 from fairseq2.logging import log
 
 
@@ -40,9 +41,9 @@ class ListAssetsHandler(CliCommandHandler):
 
     @override
     def run(
-        self, context: RuntimeContext, parser: ArgumentParser, args: Namespace
+        self, resolver: DependencyResolver, parser: ArgumentParser, args: Namespace
     ) -> int:
-        asset_store = context.asset_store
+        asset_store = get_asset_store(resolver)
 
         usr_assets = self._retrieve_assets(asset_store, args.type, user=True)
         sys_assets = self._retrieve_assets(asset_store, args.type)
@@ -161,7 +162,7 @@ class ShowAssetHandler(CliCommandHandler):
 
     @override
     def run(
-        self, context: RuntimeContext, parser: ArgumentParser, args: Namespace
+        self, resolver: DependencyResolver, parser: ArgumentParser, args: Namespace
     ) -> int:
         match args.scope:
             case "all":
@@ -175,8 +176,10 @@ class ShowAssetHandler(CliCommandHandler):
 
                 return 2
 
+        asset_store = get_asset_store(resolver)
+
         try:
-            card: AssetCard | None = context.asset_store.retrieve_card(
+            card: AssetCard | None = asset_store.retrieve_card(
                 args.name, envs=args.envs, scope=scope
             )
         except AssetCardNotFoundError:

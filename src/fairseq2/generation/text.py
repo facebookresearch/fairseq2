@@ -11,13 +11,9 @@ from typing import final
 
 from torch import Tensor
 
-from fairseq2.data.text.tokenizers import (
-    TextTokenDecoder,
-    TextTokenEncoder,
-    TextTokenizer,
-)
+from fairseq2.data.tokenizers import TokenDecoder, TokenEncoder, Tokenizer
 from fairseq2.error import ContractError
-from fairseq2.generation import (
+from fairseq2.generation.generator import (
     Seq2SeqGenerator,
     SequenceGenerator,
     SequenceGeneratorOutput,
@@ -33,12 +29,12 @@ class SequenceToTextConverter:
 
     _generator: Seq2SeqGenerator
     _target_prefix_seq: Tensor
-    _text_decoder: TextTokenDecoder
+    _text_decoder: TokenDecoder
 
     def __init__(
         self,
         generator: Seq2SeqGenerator,
-        tokenizer: TextTokenizer,
+        tokenizer: Tokenizer,
         task: str,
         target_lang: str | None = None,
         *,
@@ -173,13 +169,13 @@ class TextTranslator:
 
     _converter: SequenceToTextConverter
     _pad_idx: int
-    _source_text_encoder: TextTokenEncoder
+    _source_text_encoder: TokenEncoder
     _max_source_len: int | None
 
     def __init__(
         self,
         generator: Seq2SeqGenerator,
-        tokenizer: TextTokenizer,
+        tokenizer: Tokenizer,
         source_lang: str | None = None,
         target_lang: str | None = None,
         *,
@@ -283,13 +279,13 @@ class TextCompleter:
     """Completes text prompts."""
 
     _generator: SequenceGenerator
-    _text_encoder: TextTokenEncoder
-    _text_decoder: TextTokenDecoder
+    _text_encoder: TokenEncoder
+    _text_decoder: TokenDecoder
 
     def __init__(
         self,
         generator: SequenceGenerator,
-        tokenizer: TextTokenizer,
+        tokenizer: Tokenizer,
         *,
         skip_special_tokens: bool = False,
     ) -> None:

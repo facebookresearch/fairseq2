@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from argparse import Namespace
+
 from fairseq2.cli import CliArgumentError, CliCommandError
 from fairseq2.cluster import (
     ClusterError,
@@ -13,16 +15,21 @@ from fairseq2.cluster import (
     ClusterResolver,
     UnknownClusterError,
 )
-from fairseq2.context import RuntimeContext
+from fairseq2.dependency import DependencyResolver
+from fairseq2.utils.env import get_env
 
 
-def set_torch_distributed_variables(context: RuntimeContext, cluster: str) -> None:
-    cluster_handlers = context.get_registry(ClusterHandler)
+def set_torch_distributed_variables(resolver: DependencyResolver) -> None:
+    env = get_env(resolver)
 
-    cluster_resolver = ClusterResolver(cluster_handlers, context.env)
+    handlers = resolver.resolve_all(ClusterHandler)
+
+    cluster_resolver = ClusterResolver(handlers, env)
+
+    args = resolver.resolve(Namespace)
 
     try:
-        handler = cluster_resolver.get(cluster)
+        handler = cluster_resolver.get(args.cluster)
     except UnknownClusterError as ex:
         s = ", ".join(ex.supported_clusters)
 

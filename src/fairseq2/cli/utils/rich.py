@@ -23,6 +23,8 @@ from rich.progress import (
 from rich.text import Text
 from typing_extensions import Self, override
 
+from fairseq2.dependency import DependencyResolver
+from fairseq2.utils.env import get_env, get_rank
 from fairseq2.utils.progress import ProgressReporter, ProgressTask
 
 _console: Console | None = None
@@ -124,7 +126,11 @@ class BasicMofNCompleteColumn(ProgressColumn):
         return Text(s, style="progress.download")
 
 
-def create_rich_progress_reporter(rank: int) -> ProgressReporter:
+def create_rich_progress_reporter(resolver: DependencyResolver) -> ProgressReporter:
+    env = get_env(resolver)
+
+    rank = get_rank(env)
+
     console = get_error_console()
 
     return RichProgressReporter(console, rank)

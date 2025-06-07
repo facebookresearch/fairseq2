@@ -11,6 +11,7 @@ from typing import Any, final
 
 from typing_extensions import Self, override
 
+from fairseq2.dependency import DependencyResolver
 from fairseq2.typing import Closable
 
 
@@ -64,3 +65,7 @@ class NoopProgressTask(ProgressTask):
     @override
     def close(self) -> None:
         pass
+
+
+def get_progress_reporter(resolver: DependencyResolver) -> ProgressReporter:
+    return resolver.resolve(ProgressReporter)

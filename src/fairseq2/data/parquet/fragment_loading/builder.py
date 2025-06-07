@@ -15,7 +15,7 @@ from typing import List, Optional
 import pyarrow as pa
 from retrying import retry
 
-from fairseq2.data import DataPipelineBuilder
+from fairseq2.data.data_pipeline import DataPipelineBuilder
 from fairseq2.data.parquet.arrow_transform import (
     apply_filter,
 )

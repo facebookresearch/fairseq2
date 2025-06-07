@@ -10,7 +10,7 @@ from copy import deepcopy
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from fairseq2.data import DataPipelineBuilder
+from fairseq2.data.data_pipeline import DataPipelineBuilder
 from fairseq2.data.parquet.fragment_streaming.config import FragmentStreamingConfig
 from fairseq2.data.parquet.fragment_streaming.primitives import (
     init_parquet_dataset,

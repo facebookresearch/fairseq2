@@ -12,6 +12,7 @@ from typing import Any, final
 import torch
 from typing_extensions import Self
 
+from fairseq2.dependency import DependencyResolver
 from fairseq2.device import CPU, Device
 from fairseq2.error import InvalidOperationError
 
@@ -95,3 +96,7 @@ class Stopwatch:
     @property
     def is_running(self) -> bool:
         return self._is_running
+
+
+def get_wall_watch(resolver: DependencyResolver) -> Stopwatch:
+    return resolver.resolve(Stopwatch)

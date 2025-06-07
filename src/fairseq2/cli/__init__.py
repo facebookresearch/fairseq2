@@ -6,12 +6,12 @@
 
 from __future__ import annotations
 
-from fairseq2.cli._cli import Cli as Cli
-from fairseq2.cli._cli import CliArgumentError as CliArgumentError
-from fairseq2.cli._cli import CliCommand as CliCommand
-from fairseq2.cli._cli import CliCommandError as CliCommandError
-from fairseq2.cli._cli import CliCommandHandler as CliCommandHandler
-from fairseq2.cli._cli import CliGroup as CliGroup
-from fairseq2.cli._logging import setup_logging as setup_logging
-from fairseq2.cli._main import main as main
-from fairseq2.cli._setup import setup_cli as setup_cli
+from fairseq2.cli.cli import Cli as Cli
+from fairseq2.cli.cli import CliArgumentError as CliArgumentError
+from fairseq2.cli.cli import CliCommand as CliCommand
+from fairseq2.cli.cli import CliCommandError as CliCommandError
+from fairseq2.cli.cli import CliCommandHandler as CliCommandHandler
+from fairseq2.cli.cli import CliGroup as CliGroup
+from fairseq2.cli.logging import setup_logging as setup_logging
+from fairseq2.cli.main import main as main
+from fairseq2.cli.setup import setup_cli as setup_cli

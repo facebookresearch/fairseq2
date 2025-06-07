@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <exception>
+#include <string>
 #include <system_error>
 #include <utility>
 
@@ -23,6 +24,7 @@
 #include "fairseq2n/data/filter_data_source.h"
 #include "fairseq2n/data/list_data_source.h"
 #include "fairseq2n/data/map_data_source.h"
+#include "fairseq2n/data/packed_data_source.h"
 #include "fairseq2n/data/prefetch_data_source.h"
 #include "fairseq2n/data/repeat_data_source.h"
 #include "fairseq2n/data/round_robin_data_source.h"
@@ -467,6 +469,24 @@ data_pipeline_builder::map(
     factory_ = [=, fns = std::move(fns), inner = std::move(factory_)]() mutable
     {
         return std::make_unique<map_data_source>(inner(), std::move(fns), num_parallel_calls, deterministic);
+    };
+
+    return std::move(*this);
+}
+
+data_pipeline_builder
+data_pipeline_builder::pack(
+    std::int64_t num_elements,
+    std::int64_t max_seq_len,
+    std::int64_t pad_value,
+    bool truncate,
+    bool drop_remainder,
+    bool pinned_memory) &&
+{
+    factory_ = [=, inner = std::move(factory_)]
+    {
+        return std::make_unique<packed_data_source>(
+            inner(), num_elements, max_seq_len, pad_value, truncate, drop_remainder, pinned_memory);
     };
 
     return std::move(*this);

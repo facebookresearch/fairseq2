@@ -15,13 +15,14 @@ from rich.console import Console
 from torch import Tensor
 from typing_extensions import override
 
+from fairseq2.assets import get_asset_store
 from fairseq2.chatbots import Chatbot, ChatbotHandler, ChatMessage, UnknownChatbotError
 from fairseq2.cli import CliCommandError, CliCommandHandler
 from fairseq2.cli.utils.argparse import parse_dtype
 from fairseq2.cli.utils.cluster import set_torch_distributed_variables
 from fairseq2.cli.utils.rich import get_console
-from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
+from fairseq2.dependency import DependencyResolver
 from fairseq2.device import CPU
 from fairseq2.error import InternalError
 from fairseq2.gang import Gang, GangError
@@ -32,19 +33,20 @@ from fairseq2.generation import (
 )
 from fairseq2.logging import log
 from fairseq2.models.clm import CausalLM
-from fairseq2.recipes import RecipeError
-from fairseq2.recipes.common import (
+from fairseq2.recipe import RecipeError
+from fairseq2.recipe.common import (
     load_text_tokenizer,
     setup_gangs,
     setup_reference_model,
     setup_torch,
 )
-from fairseq2.recipes.config import (
+from fairseq2.recipe.config import (
     GangSection,
     ReferenceModelSection,
     TextTokenizerSection,
     TorchSection,
 )
+from fairseq2.registry import get_registry
 from fairseq2.utils.rng import RngBag
 
 
@@ -112,24 +114,24 @@ class RunChatbotHandler(CliCommandHandler):
     @override
     @torch.inference_mode()
     def run(
-        self, context: RuntimeContext, parser: ArgumentParser, args: Namespace
+        self, resolver: DependencyResolver, parser: ArgumentParser, args: Namespace
     ) -> int:
         console = get_console()
 
         view = CliChatbotView(args.model_name, console)
 
-        set_torch_distributed_variables(context, args.cluster)
+        set_torch_distributed_variables(resolver, args.cluster)
 
         torch_section = TorchSection()
 
-        setup_torch(context, torch_section, output_dir=None)
+        setup_torch(resolver, torch_section, output_dir=None)
 
         gang_section = GangSection(
             tensor_parallel_size=args.tensor_parallel_size, timeout=999
         )
 
         try:
-            gangs = setup_gangs(context, gang_section)
+            gangs = setup_gangs(resolver, gang_section)
         except RecipeError as ex:
             raise CliCommandError(
                 "The chatbot setup has failed. See the nested exception for details."
@@ -143,7 +145,7 @@ class RunChatbotHandler(CliCommandHandler):
         try:
             model = setup_reference_model(
                 CausalLM,
-                context,
+                resolver,
                 model_section,
                 gangs,
                 args.dtype,
@@ -157,7 +159,7 @@ class RunChatbotHandler(CliCommandHandler):
         tokenizer_section = TextTokenizerSection(name=args.model_name)
 
         try:
-            tokenizer = load_text_tokenizer(context, tokenizer_section)
+            tokenizer = load_text_tokenizer(resolver, tokenizer_section)
         except RecipeError as ex:
             raise CliCommandError(
                 "The chatbot setup has failed. See the nested exception for details."
@@ -175,11 +177,13 @@ class RunChatbotHandler(CliCommandHandler):
             max_gen_len=args.max_gen_len,
         )
 
-        card = context.asset_store.retrieve_card(args.model_name)
+        asset_store = get_asset_store(resolver)
+
+        card = asset_store.retrieve_card(args.model_name)
 
         family = card.field("model_family").as_(str)
 
-        chatbot_handlers = context.get_registry(ChatbotHandler)
+        chatbot_handlers = get_registry(resolver, ChatbotHandler)
 
         try:
             chatbot_handler = chatbot_handlers.get(family)

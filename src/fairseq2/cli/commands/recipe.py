@@ -18,6 +18,8 @@ from typing import Protocol, final
 
 from typing_extensions import override
 
+from fairseq2.dependency import DependencyContainer, DependencyResolver, StandardDependencyContainer
+from fairseq2.cli.utils.rich import create_rich_progress_reporter
 from fairseq2.cli import (
     CliArgumentError,
     CliCommandError,
@@ -27,21 +29,31 @@ from fairseq2.cli import (
 from fairseq2.cli.utils.argparse import ConfigAction
 from fairseq2.cli.utils.cluster import set_torch_distributed_variables
 from fairseq2.cli.utils.rich import get_console
-from fairseq2.config_registry import ConfigNotFoundError, ConfigProvider
-from fairseq2.context import RuntimeContext
+from fairseq2.config_registry import (
+    ConfigNotFoundError,
+    ConfigProvider,
+    get_config_registry,
+)
+from fairseq2.dependency import DependencyResolver
 from fairseq2.error import ContractError
-from fairseq2.file_system import FileSystem
+from fairseq2.file_system import FileSystem, get_file_system
 from fairseq2.logging import LoggingSetupError, log
-from fairseq2.recipes import Recipe, RecipeError, RecipeStopException
-from fairseq2.recipes.utils.log import log_config
-from fairseq2.recipes.utils.logging import DistributedLoggingInitializer
-from fairseq2.recipes.utils.sweep_tag import (
+from fairseq2.recipe import Recipe, RecipeError, RecipeStopException
+from fairseq2.recipe.utils.log import log_config
+from fairseq2.recipe.utils.logging import DistributedLoggingInitializer
+from fairseq2.recipe.utils.sweep_tag import (
     SweepFormatError,
     SweepFormatPlaceholderError,
     SweepTagGenerator,
 )
-from fairseq2.utils.env import InvalidEnvironmentVariableError, get_rank, get_world_size
+from fairseq2.utils.env import (
+    InvalidEnvironmentVariableError,
+    get_env,
+    get_rank,
+    get_world_size,
+)
 from fairseq2.utils.merge import MergeError, merge_object, to_mergeable
+from fairseq2.utils.stopwatch import get_wall_watch
 from fairseq2.utils.structured import StructureError, unstructure
 from fairseq2.utils.yaml import (
     RuamelYamlDumper,
@@ -57,6 +69,7 @@ class RecipeCommandHandler(CliCommandHandler):
     """Runs a recipe over command line."""
 
     _loader: RecipeLoader
+    _factory: RecipeFactory[Any]
     _config_kls: type[object]
     _default_preset: str
 
@@ -142,18 +155,13 @@ class RecipeCommandHandler(CliCommandHandler):
         )
 
     @override
-    def run(
-        self, context: RuntimeContext, parser: ArgumentParser, args: Namespace
-    ) -> int:
-        self._do_run(context, args)
+    def run(self, parser: ArgumentParser, args: Namespace) -> int:
+        resolver = self._build_container(args)
 
-        return 0
-
-    def _do_run(self, context: RuntimeContext, args: Namespace) -> None:
         if args.list_preset_configs:
-            self._print_preset_configs(context)
+            self._print_preset_configs(resolver)
 
-            return
+            return 0
 
         try:
             setup_logging(debug=args.debug)
@@ -162,13 +170,13 @@ class RecipeCommandHandler(CliCommandHandler):
                 "The logging setup has failed. See the nested exception for details."
             ) from ex
 
-        config = self._read_config(context, args)
+        config = get_recipe_config(resolver)
 
         if args.dump_config:
             if isinstance(config, Mapping):
                 config = to_mergeable(config)
 
-            yaml_dumper = RuamelYamlDumper(context.file_system)
+            yaml_dumper = resolver.resolve(YamlDumper)
 
             try:
                 yaml_dumper.dump(config, sys.stdout)
@@ -177,32 +185,23 @@ class RecipeCommandHandler(CliCommandHandler):
                     "The recipe configuration cannot be dumped to stdout. See the nested exception for details."
                 ) from ex
 
-            return
+            return 0
 
         if not args.output_dir:
             raise CliArgumentError("output_dir", "required")
 
-        set_torch_distributed_variables(context, args.cluster)
+        set_torch_distributed_variables(resolver)
+
+        setup_distributed_logging(resolver)
+
+        dump_recipe_config(resolver)
+
+        setup_torch(resolver)
+
+        set_manual_rng_seed(resolver)
 
         try:
-            world_size = get_world_size(context.env)
-        except InvalidEnvironmentVariableError as ex:
-            raise CliCommandError(
-                "The world size cannot be determined. See the nested exception for details."
-            ) from ex
-
-        tag = self._create_sweep_tag(args, config, world_size)
-
-        output_dir: Path = args.output_dir
-
-        output_dir = self._create_output_directory(context, output_dir, tag)
-
-        self._setup_distributed_logging(context, output_dir)
-
-        self._dump_config(context, config, output_dir)
-
-        try:
-            recipe = self._loader(context, config, output_dir)
+            recipe = self._loader(resolver, config, output_dir)
         except StructureError as ex:
             raise CliArgumentError(
                 None, "The recipe configuration cannot be parsed. See the logged stack trace for details."  # fmt: skip
@@ -222,6 +221,8 @@ class RecipeCommandHandler(CliCommandHandler):
 
         log.info("Running on {} process(es).", world_size)
 
+        wall_watch = get_wall_watch(resolver)
+
         try:
             recipe.run()
         except RecipeError as ex:
@@ -229,14 +230,14 @@ class RecipeCommandHandler(CliCommandHandler):
                 "The recipe has failed. See the nested exception for details."
             ) from ex
         except RecipeStopException:
-            elapsed_time = int(context.wall_watch.get_elapsed_time())
+            elapsed_time = int(wall_watch.get_elapsed_time())
 
             if recipe.step_nr == 0:
                 log.info("Recipe stopped after {:,} second(s)!", elapsed_time)
             else:
                 log.info("Recipe stopped after {:,} second(s) at step {}!", elapsed_time, recipe.step_nr)  # fmt: skip
         except KeyboardInterrupt:
-            elapsed_time = int(context.wall_watch.get_elapsed_time())
+            elapsed_time = int(wall_watch.get_elapsed_time())
 
             if recipe.step_nr == 0:
                 log.info("Recipe terminated after {:,} second(s)!", elapsed_time)
@@ -245,7 +246,7 @@ class RecipeCommandHandler(CliCommandHandler):
 
             raise
         else:
-            elapsed_time = int(context.wall_watch.get_elapsed_time())
+            elapsed_time = int(wall_watch.get_elapsed_time())
 
             if recipe.step_nr == 0:
                 log.info("Recipe finished in {:,} second(s)!", elapsed_time)
@@ -254,10 +255,35 @@ class RecipeCommandHandler(CliCommandHandler):
         finally:
             recipe.close()
 
-    def _print_preset_configs(self, context: RuntimeContext) -> None:
+        return 0
+
+    def _build_container(self, args: Namespace) -> DependencyContainer:
+        container = StandardDependencyContainer()
+
+        register_library(container)
+
+        register_extensions(container)
+
+        register_recipe_common(container)
+
+        # CLI Arguments
+        container.register(Namespace, args)
+
+        # Recipe Configuration
+        container.register(object, load_recipe_config, key="recipe_config")
+
+        # Recipe Output Directory
+        container.register(Path, make_recipe_output_dir, key="recipe_output_dir")
+
+        # ProgressReporter
+        container.register(ProgressReporter, create_rich_progress_reporter)
+
+        return container
+
+    def _print_preset_configs(self, resolver: DependencyResolver) -> None:
         console = get_console()
 
-        configs = context.get_config_registry(self._config_kls)
+        configs = resolver.resolve_all(self._config_kls)
 
         preset_names = configs.names()
 
@@ -272,128 +298,72 @@ class RecipeCommandHandler(CliCommandHandler):
         else:
             console.print("no preset configuration found.")
 
-    def _read_config(self, context: RuntimeContext, args: Namespace) -> object:
-        configs = context.get_config_registry(self._config_kls)
-
-        file_system = context.file_system
-
-        yaml_loader = RuamelYamlLoader(file_system)
-
-        config_reader = ConfigReader(configs, file_system, yaml_loader)
-
-        if args.config_override_files:
-            config_override_files = chain.from_iterable(args.config_override_files)
-        else:
-            config_override_files = None
-
-        try:
-            return config_reader.read(
-                args.preset, config_override_files, args.config_overrides
-            )
-        except ConfigNotFoundError as ex:
-            raise CliArgumentError(
-                "preset", f"'{ex.name}' is not a known preset name. Use `--list-preset-configs` to see the available configurations."  # fmt: skip
-            ) from None
-        except ConfigFileNotFoundError as ex:
-            raise CliArgumentError(
-                "--config-file", f"{ex.config_file} does not point to a configuration file."  # fmt: skip
-            ) from None
-        except InvalidConfigFileError as ex:
-            raise CliArgumentError(
-                "--config-file", f"{ex.config_file} does not contain a valid configuration override. See the logged stack trace for details."  # fmt: skip
-            ) from ex
-        except InvalidConfigOverrideError as ex:
-            raise CliArgumentError(
-                "--config-file", "key-value pair(s) cannot be applied over the preset configuration. See the logged stack trace for details."  # fmt: skip
-            ) from ex
-        except ConfigReadError as ex:
-            raise CliCommandError(
-                "The recipe configuration cannot be read. See the nested exception for details."
-            ) from ex
-
-    def _create_sweep_tag(
-        self, args: Namespace, config: object, world_size: int
-    ) -> str | None:
-        if args.no_sweep_dir:
-            return None
-
-        tag_generator = SweepTagGenerator(world_size, args.sweep_format)
-
-        try:
-            return tag_generator.generate(args.preset, config)
-        except SweepFormatPlaceholderError as ex:
-            s = ", ".join(ex.unknown_keys)
-
-            raise CliArgumentError(
-                "--sweep-format", f"must contain only placeholders that correspond to the configuration keys, but contains the following unexpected placeholder(s): {s}"  # fmt: skip
-            ) from None
-        except SweepFormatError:
-            raise CliArgumentError(
-                "--sweep-format", "must be a non-empty string with brace-enclosed placeholders."  # fmt: skip
-            ) from None
-
-    @staticmethod
-    def _create_output_directory(
-        context: RuntimeContext, output_dir: Path, sweep_tag: str | None
-    ) -> Path:
-        if sweep_tag is not None:
-            output_dir = output_dir.joinpath(sweep_tag)
-
-        try:
-            context.file_system.make_directory(output_dir)
-        except OSError as ex:
-            raise CliCommandError(
-                f"The '{output_dir}' recipe directory cannot be created. See the nested exception for details."
-            ) from ex
-
-        return output_dir
-
-    @staticmethod
-    def _setup_distributed_logging(context: RuntimeContext, output_dir: Path) -> None:
-        logger = getLogger()
-
-        initializer = DistributedLoggingInitializer(
-            logger, context.env, context.file_system
-        )
-
-        try:
-            initializer.initialize(output_dir)
-        except LoggingSetupError as ex:
-            raise CliCommandError(
-                "The distributed logging setup has failed. See the nested exception for details."
-            ) from ex
-
-        log.info("Log files are stored under {}.", output_dir)
-
-    @staticmethod
-    def _dump_config(context: RuntimeContext, config: object, output_dir: Path) -> None:
-        yaml_dumper = RuamelYamlDumper(context.file_system)
-
-        dumper = ConfigDumper(context.env, yaml_dumper)
-
-        try:
-            dumper.dump(config, output_dir)
-        except ConfigDumpError as ex:
-            raise CliCommandError(
-                "The recipe configuration cannot be saved. See the nested exception for details."
-            ) from ex
-
 
 class RecipeLoader(Protocol):
     def __call__(
-        self, context: RuntimeContext, config: object, output_dir: Path
+        self, resolver: DependencyResolver, config: object, output_dir: Path
     ) -> Recipe: ...
 
 
-@final
-class ConfigReader:
-    _configs: ConfigProvider[object]
+
+
+
+def load_recipe_config(resolver: DependencyResolver) -> object:
+    configs = resolver.resolve_provider(self._config_kls)
+
+    file_system = resolver.resolve(FileSystem)
+
+    yaml_loader = resolver.resolve(YamlLoader)
+
+    config_reader = _ConfigReader(configs, file_system, yaml_loader)
+
+    args = resolver.resolve(Namespace)
+
+    if args.config_override_files:
+        config_override_files = chain.from_iterable(args.config_override_files)
+    else:
+        config_override_files = None
+
+    try:
+        unstructured_config = config_reader.read(
+            args.preset, config_override_files, args.config_overrides
+        )
+    except ConfigNotFoundError as ex:
+        raise CliArgumentError(
+            "preset", f"'{ex.name}' is not a known preset name. Use `--list-preset-configs` to see the available configurations."  # fmt: skip
+        ) from None
+    except ConfigFileNotFoundError as ex:
+        raise CliArgumentError(
+            "--config-file", f"{ex.config_file} does not point to a configuration file."  # fmt: skip
+        ) from None
+    except InvalidConfigFileError as ex:
+        raise CliArgumentError(
+            "--config-file", f"{ex.config_file} does not contain a valid configuration override. See the logged stack trace for details."  # fmt: skip
+        ) from ex
+    except InvalidConfigOverrideError as ex:
+        raise CliArgumentError(
+            "--config-file", "key-value pair(s) cannot be applied over the preset configuration. See the logged stack trace for details."  # fmt: skip
+        ) from ex
+    except ConfigReadError as ex:
+        raise CliCommandError(
+            "The recipe configuration cannot be read. See the nested exception for details."
+        ) from ex
+
+    config = structure(unstructured_config)
+
+    validate(config)
+
+    return config
+
+
+class _ConfigReader:
+    _configs: Provider[object]
     _file_system: FileSystem
     _yaml_loader: YamlLoader
 
     def __init__(
         self,
-        configs: ConfigProvider[object],
+        configs: Provider[object],
         file_system: FileSystem,
         yaml_loader: YamlLoader,
     ) -> None:
@@ -408,7 +378,7 @@ class ConfigReader:
         config_overrides: Iterable[Mapping[str, object]] | None,
     ) -> object:
         # Load the preset configuration.
-        preset_config = self._configs.get(preset)
+        preset_config = self._configs.retrieve(preset)
 
         try:
             unstructured_config = unstructure(preset_config)
@@ -498,8 +468,91 @@ class InvalidConfigOverrideError(Exception):
     pass
 
 
-@final
-class ConfigDumper:
+def make_recipe_output_dir(resolver: DependencyResolver) -> Path:
+    env = get_env(resolver)
+
+    try:
+        world_size = get_world_size(env)
+    except InvalidEnvironmentVariableError as ex:
+        raise CliCommandError(
+            "The world size cannot be determined. See the nested exception for details."
+        ) from ex
+
+    args = resolver.resolve(Namespace)
+
+    if not args.no_sweep_dir:
+        tag_generator = SweepTagGenerator(world_size, args.sweep_format)
+
+        config = get_recipe_config(resolver)
+
+        try:
+            tag = tag_generator.generate(args.preset, config)
+        except SweepFormatPlaceholderError as ex:
+            s = ", ".join(ex.unknown_keys)
+
+            raise CliArgumentError(
+                "--sweep-format", f"must contain only placeholders that correspond to the configuration keys, but contains the following unexpected placeholder(s): {s}"  # fmt: skip
+            ) from None
+        except SweepFormatError:
+            raise CliArgumentError(
+                "--sweep-format", "must be a non-empty string with brace-enclosed placeholders."  # fmt: skip
+            ) from None
+
+        output_dir = output_dir.joinpath(tag)
+
+    file_system = resolver.resolve(FileSystem)
+
+    try:
+        file_system.make_directory(output_dir)
+    except OSError as ex:
+        raise CliCommandError(
+            f"The '{output_dir}' recipe directory cannot be created. See the nested exception for details."
+        ) from ex
+
+    return output_dir
+
+
+def setup_distributed_logging(resolver: DependencyResolver) -> None:
+    logger = getLogger()
+
+    env = get_env(resolver)
+
+    file_system = resolver.resolve(FileSystem)
+
+    initializer = DistributedLoggingInitializer(logger, env, file_system)
+
+    output_dir = get_recipe_output_dir(resolver)
+
+    try:
+        initializer.initialize(output_dir)
+    except LoggingSetupError as ex:
+        raise CliCommandError(
+            "The distributed logging setup has failed. See the nested exception for details."
+        ) from ex
+
+    log.info("Log files are stored under {}.", output_dir)
+
+
+def dump_recipe_config(resolver: DependencyResolver) -> None:
+    env = get_env(resolver)
+
+    yaml_dumper = resolver.resolve(YamlDumper)
+
+    dumper = _ConfigDumper(env, yaml_dumper)
+
+    config = get_recipe_config(resolver)
+
+    output_dir = get_recipe_output_dir(resolver)
+
+    try:
+        dumper.dump(config, output_dir)
+    except ConfigDumpError as ex:
+        raise CliCommandError(
+            "The recipe configuration cannot be saved. See the nested exception for details."
+        ) from ex
+
+
+class _ConfigDumper:
     _env: Mapping[str, str]
     _yaml_dumper: YamlDumper
 
