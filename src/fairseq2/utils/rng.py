@@ -14,7 +14,6 @@ import torch
 from torch import Generator, Tensor
 
 from fairseq2.device import Device
-from fairseq2.typing import ContextManager
 
 
 def use_deterministic(value: bool, warn_only: bool = False) -> None:
@@ -75,10 +74,6 @@ class RngBag:
 
         return RngBag(*generators)
 
-    def add_generator(self, generator: Generator) -> None:
-        """Add ``generator`` to the bag."""
-        self._generators.append(generator)
-
     def seed(self) -> None:
         """Set the seed of the random number generators to a random number."""
         if not self._generators:
@@ -127,7 +122,7 @@ class RngBag:
 
         if not isinstance(states, list):
             raise TypeError(
-                f"`state_dict['generators']` must be of type `list`, but is of type `{type(states)}` instead."
+                f"`state_dict['generators']` is expected to be of type `{list}`, but is of type `{type(states)}` instead."
             )
 
         if len(states) != len(self._generators):
@@ -138,21 +133,22 @@ class RngBag:
         for idx, state in enumerate(states):
             if not isinstance(state, Tensor):
                 raise TypeError(
-                    f"The generator states in `state_dict['generators']` must be of type `Tensor`, but the item at index {idx} is of type `{type(state)}` instead."
+                    f"The generator states in `state_dict['generators']` is expected to be of type `{Tensor}`, but the item at index {idx} is of type `{type(state)}` instead."
                 )
 
             self._generators[idx].set_state(state.clone())
 
 
-def manual_seed(seed: int, *devices: Device) -> None:
-    """Change the seed of the random number generators of ``devices``."""
-    rng_bag = RngBag.from_device_defaults(*devices)
+@final
+class SeedHolder:
+    _value: int
 
-    rng_bag.manual_seed(seed)
+    def __init__(self, initial_value: int) -> None:
+        self._value = initial_value
 
+    def advance(self) -> int:
+        value = self._value
 
-def temporary_manual_seed(seed: int, *devices: Device) -> ContextManager:
-    """Temporarily change the seed of the random number generators of ``devices``."""
-    rng_bag = RngBag.from_device_defaults(*devices)
+        self._value += 1
 
-    return rng_bag.temporary_manual_seed(seed)
+        return value

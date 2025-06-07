@@ -144,7 +144,7 @@ def _do_merge_map(
                 pathname = build_pathname("_del_")
 
                 raise MergeError(
-                    f"Each element under '{pathname}' at `source` must be of type `str`, but the element at index {idx} is of type `{type(del_key)}` instead."
+                    f"Each element under '{pathname}' at `source` must be of type `{str}`, but the element at index {idx} is of type `{type(del_key)}` instead."
                 )
 
             ignored_keys.add(del_key)
@@ -167,7 +167,7 @@ def _do_merge_map(
                 pathname = build_pathname("_set_")
 
                 raise MergeError(
-                    f"Each key under '{pathname}' at `source` must be of type `str`, but the key at index {idx} is of type `{type(set_key)}` instead."
+                    f"Each key under '{pathname}' at `source` must be of type `{str}`, but the key at index {idx} is of type `{type(set_key)}` instead."
                 )
 
             output[set_key] = deepcopy(value)
@@ -205,8 +205,8 @@ def to_mergeable(obj: object) -> object:
     return to_mergeable_map(obj)
 
 
-def to_mergeable_map(obj: Mapping[str, object]) -> Mapping[str, object]:
-    output = {}
+def to_mergeable_map(obj: Mapping[str, object]) -> dict[str, object]:
+    output: dict[str, object] = {}
 
     set_map = None
 
@@ -220,6 +220,10 @@ def to_mergeable_map(obj: Mapping[str, object]) -> Mapping[str, object]:
             set_map[key] = value
 
     if set_map:
-        output["_set_"] = set_map
+        tmp: dict[str, object] = {"_set_": set_map}
+
+        tmp.update(output)
+
+        output = tmp
 
     return output

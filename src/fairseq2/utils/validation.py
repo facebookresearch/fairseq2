@@ -6,57 +6,124 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from abc import ABC, abstractmethod
+from collections.abc import Mapping, Sequence
 from dataclasses import fields
 from typing import Protocol, final, runtime_checkable
+
+from typing_extensions import override
 
 from fairseq2.typing import is_dataclass_instance
 
 
-def validate(obj: object) -> None:
-    if is_dataclass_instance(obj):
-        for field in fields(obj):
-            value = getattr(obj, field.name)
+class ObjectValidator(ABC):
+    @abstractmethod
+    def validate(self, obj: object) -> None: ...
 
-            validate(value)
 
-    if isinstance(obj, Validatable):
-        obj.validate()
+@final
+class StandardObjectValidator(ObjectValidator):
+    @override
+    def validate(self, obj: object) -> None:
+        result = self._do_validate(obj)
+
+        if result.has_error():
+            raise ValidationError(result)
+
+    def _do_validate(self, obj: object) -> ValidationResult:
+        if isinstance(obj, Validatable):
+            result = obj.validate()
+        else:
+            result = ValidationResult()
+
+        if is_dataclass_instance(obj):
+            for field in fields(obj):
+                value = getattr(obj, field.name)
+
+                sub_result = self._do_validate(value)
+
+                if sub_result.has_error():
+                    result.add_sub_result(field.name, sub_result)
+
+        return result
 
 
 @runtime_checkable
 class Validatable(Protocol):
-    def validate(self) -> None: ...
+    def validate(self) -> ValidationResult: ...
 
 
 @final
 class ValidationResult:
     _errors: list[str]
+    _sub_results: dict[str, ValidationResult]
 
     def __init__(self) -> None:
         self._errors = []
 
+        self._sub_results = {}
+
     def add_error(self, message: str) -> None:
         self._errors.append(message)
 
-    @property
+    def add_sub_result(self, field: str, result: ValidationResult) -> None:
+        self._sub_results[field] = result
+
     def has_error(self) -> bool:
-        return bool(self._errors)
+        if self._errors:
+            return True
+
+        for sub_result in self._sub_results.values():
+            if sub_result._errors:
+                return True
+
+        return False
 
     @property
     def errors(self) -> Sequence[str]:
         return self._errors
 
+    @property
+    def sub_results(self) -> Mapping[str, ValidationResult]:
+        return self._sub_results
+
+    def __str__(self) -> str:
+        parts: list[str] = []
+
+        self._error_str(parts, path=[])
+
+        return " ".join(parts)
+
+    def _error_str(self, parts: list[str], path: list[str]) -> None:
+        s = " ".join(self._errors)
+        if s:
+            if path:
+                pathname = ".".join(path)
+
+                parts.append(f"`{pathname}` is not valid: {s}")
+            else:
+                parts.append(s)
+
+        for field, result in self._sub_results.items():
+            path.append(field)
+
+            result._error_str(parts, path)
+
+            path.pop()
+
 
 class ValidationError(Exception):
     result: ValidationResult
 
-    def __init__(self, message: str, result: ValidationResult) -> None:
-        if result.has_error:
-            errors = " ".join(result.errors)
+    def __init__(self, result: ValidationResult, *, field: str | None = None) -> None:
+        if field is not None:
+            tmp = ValidationResult()
 
-            message = f"{message} {errors}"
+            tmp.add_sub_result(field, result)
 
-        super().__init__(message)
+            result = tmp
 
         self.result = result
+
+    def __str__(self) -> str:
+        return str(self.result)

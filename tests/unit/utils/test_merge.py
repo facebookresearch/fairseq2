@@ -155,7 +155,7 @@ def test_merge_map_raises_error_when_type_is_invalid() -> None:
     source = {"foo1": {"foo2": {"_del_": [0]}}}
 
     with pytest.raises(
-        MergeError, match=rf"^Each element under 'foo1\.foo2\._del_' at `source` must be of type `str`, but the element at index 0 is of type `{int}` instead\.$"  # fmt: skip
+        MergeError, match=rf"^Each element under 'foo1\.foo2\._del_' at `source` must be of type `{str}`, but the element at index 0 is of type `{int}` instead\.$"  # fmt: skip
     ):
         merge_map(target, source)
 
@@ -171,7 +171,7 @@ def test_merge_map_raises_error_when_type_is_invalid() -> None:
     source = {"foo1": {"foo2": {"_set_": {0: "foo"}}}}
 
     with pytest.raises(
-        MergeError, match=rf"^Each key under 'foo1\.foo2\._set_' at `source` must be of type `str`, but the key at index 0 is of type `{int}` instead\.$"  # fmt: skip
+        MergeError, match=rf"^Each key under 'foo1\.foo2\._set_' at `source` must be of type `{str}`, but the key at index 0 is of type `{int}` instead\.$"  # fmt: skip
     ):
         merge_map(target, source)
 

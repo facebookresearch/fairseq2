@@ -22,13 +22,14 @@ from torch.distributed import Backend, ProcessGroup, ReduceOp
 from typing_extensions import override
 
 from fairseq2.device import Device
-from fairseq2.error import InternalError, InvalidOperationError, NotSupportedError
-from fairseq2.logging import log
-from fairseq2.typing import Closable
-from fairseq2.utils.env import (
-    InvalidEnvironmentVariableError,
-    get_world_size,
+from fairseq2.error import (
+    InfraError,
+    InternalError,
+    InvalidOperationError,
+    NotSupportedError,
 )
+from fairseq2.logging import log
+from fairseq2.runtime.closable import Closable
 from fairseq2.utils.tensor import to_tensor
 from fairseq2.utils.version import torch_greater_or_equal
 
@@ -173,7 +174,7 @@ class Gang(Closable):
         return self._device
 
 
-class GangError(Exception):
+class GangError(InfraError):
     pass
 
 
@@ -276,7 +277,7 @@ class ProcessGroupGang(Gang):
         self._pg = pg
 
     @classmethod
-    def init_root_process_group(
+    def create_default_process_group(
         cls,
         device: Device,
         *,
@@ -372,7 +373,7 @@ class ProcessGroupGang(Gang):
         try:
             backend = dist.get_backend()
         except RuntimeError as ex:
-            raise GangError(
+            raise InternalError(
                 "The root process group backend cannot be determined. See the nested exception for details."
             ) from ex
 
@@ -473,34 +474,6 @@ class ProcessGroupGang(Gang):
         )
 
 
-def setup_root_gang(
-    device: Device, *, timeout: timedelta | None = None, high_priority: bool = False
-) -> Gang:
-    """
-    Creates the root gang of this process.
-
-    :param device: The device for which to initialize the gang. For CUDA devices,
-        NCCL; for CPU, Gloo will be used.
-    :param timeout: The timeout for collective operations. If ``None``, the
-        default timeout value (15 minutes) will be used.
-    :param high_priority: If ``True``, the underlying collective operations
-        will be performed on high priority channels (e.g. CUDA streams).
-    """
-    try:
-        world_size = get_world_size(os.environ)
-    except InvalidEnvironmentVariableError as ex:
-        raise GangError(
-            "The world size cannot be determined. See the nested exception for details."
-        ) from ex
-
-    if world_size == 1:
-        return FakeGang(device)
-
-    return ProcessGroupGang.init_root_process_group(
-        device, timeout=timeout, high_priority=high_priority
-    )
-
-
 @dataclass(kw_only=True, frozen=True)
 class Gangs:
     root: Gang
@@ -524,21 +497,21 @@ class Gangs:
     def __post_init__(self) -> None:
         if self.root.rank == 0:
             if self.dp.rank != 0 or self.tp.rank != 0 and self.pp.rank != 0:
-                raise GangError(
-                    "The coordinator process of the root gang (i.e. rank 0) must be rank 0 in all parallel gangs."
+                raise ValueError(
+                    "The coordinator process of the root gang (i.e. `root.rank == 0`) must be rank 0 in all parallel gangs."
                 )
 
     def close(self) -> None:
         self.root.close()
 
 
-def fake_gangs(device: Device) -> Gangs:
+def create_fake_gangs(device: Device) -> Gangs:
     gang = FakeGang(device=device)
 
     return Gangs(root=gang, dp=gang, rdp=gang, sdp=gang, tp=gang, pp=gang)
 
 
-def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
+def create_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     """
     Sets up gangs to be used for data and model parallelism.
 
@@ -569,15 +542,8 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     if tp_size < 1:
         raise ValueError(f"`tp_size` must be greater than 0, but is {tp_size} instead.")
 
-    if tp_size > root_gang.size:
-        raise ValueError(
-            f"`tp_size` must be less than or equal to the number of processes in the root gang ({root_gang.size}), but is {tp_size} instead."
-        )
-
-    if root_gang.size % tp_size != 0:
-        raise ValueError(
-            f"`root_gang.size` is expected to be a multiple of `tp_size` ({tp_size}), but is {root_gang.size} instead."
-        )
+    if tp_size > root_gang.size or root_gang.size % tp_size != 0:
+        raise GangTopologyError(root_gang.size, tp_size)
 
     fake_gang = FakeGang(device=root_gang.device)
 
@@ -590,7 +556,7 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
 
     dp_gang: Gang | None = None
 
-    log.info("Initializing data parallel gang with {} process(es).", dp_size)
+    log.info("Creating data parallel gang with {} process(es).", dp_size)
 
     # Build the gangs for data parallelism.
     match dp_size:
@@ -620,11 +586,11 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     if dp_gang is None:
         raise InternalError("`dp_gang` is `None`.")
 
-    log.info("Data parallel gang initialized.")
+    log.info("Data parallel gang created.")
 
     tp_gang: Gang | None = None
 
-    log.info("Initializing tensor parallel gang with {} process(es).", tp_size)
+    log.info("Creating tensor parallel gang with {} process(es).", tp_size)
 
     # Build the gangs for tensor parallelism.
     match tp_size:
@@ -654,19 +620,32 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     if tp_gang is None:
         raise InternalError("`tp_gang` is `None`.")
 
-    log.info("Tensor parallel gang initialized.")
+    log.info("Tensor parallel gang created.")
 
     # TODO: implement!
-    log.info("Initializing pipeline parallel gang with {} process(es).", 1)
+    log.info("Creating pipeline parallel gang with {} process(es).", 1)
 
-    log.info("Pipeline parallel gang initialized.")
+    log.info("Pipeline parallel gang created.")
 
     return Gangs(
         root=root_gang, dp=dp_gang, rdp=dp_gang, sdp=fake_gang, tp=tp_gang, pp=fake_gang
     )
 
 
-def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
+class GangTopologyError(Exception):
+    root_size: int
+    tp_size: int
+
+    def __init__(self, root_size: int, tp_size: int) -> None:
+        super().__init__(
+            f"`tp_size` must be a factor of `root_gang.size` ({root_size}), but is {tp_size} instead."
+        )
+
+        self.root_size = root_size
+        self.tp_size = tp_size
+
+
+def create_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
     """
     Sets up gangs to be used for sharded data parallelism.
 
@@ -701,9 +680,7 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
     dp_gang = gangs.dp
 
     if dp_gang.size % intra_node_size != 0:
-        raise ValueError(
-            f"`gangs.dp.size` is expected to be a multiple of `intra_node_size` ({intra_node_size}), but is {dp_gang.size} instead."
-        )
+        raise HybridShardingTopologyError(dp_gang.size, intra_node_size)
 
     fake_gang = FakeGang(device=dp_gang.device)
 
@@ -716,7 +693,7 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
 
     inter_gang: Gang | None = None
 
-    log.info("Initializing inter-node data parallel gang with {} process(es).", inter_node_size)  # fmt: skip
+    log.info("Creating inter-node data parallel gang with {} process(es).", inter_node_size)  # fmt: skip
 
     # Build the gangs for inter-node data parallelism.
     match inter_node_size:
@@ -748,7 +725,7 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
 
     intra_gang: Gang | None = None
 
-    log.info("Initializing intra-node data parallel gang with {} process(es).", intra_node_size)  # fmt: skip
+    log.info("Creating intra-node data parallel gang with {} process(es).", intra_node_size)  # fmt: skip
 
     # Build the gangs for intra-node data parallelism.
     match intra_node_size:
@@ -786,6 +763,19 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
         tp=gangs.tp,
         pp=gangs.pp,
     )
+
+
+class HybridShardingTopologyError(Exception):
+    dp_size: int
+    intra_node_size: int
+
+    def __init__(self, dp_size: int, intra_node_size: int) -> None:
+        super().__init__(
+            f"`intra_node_size` must be a factor of `gangs.dp.size` ({dp_size}), but is {intra_node_size} instead."
+        )
+
+        self.dp_size = dp_size
+        self.intra_node_size = intra_node_size
 
 
 def broadcast_flag(gang: Gang, flag: bool, source_rank: int = 0) -> bool:

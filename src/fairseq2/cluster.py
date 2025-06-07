@@ -8,44 +8,63 @@ from __future__ import annotations
 
 import subprocess
 from abc import ABC, abstractmethod
-from collections.abc import Collection, Mapping, MutableMapping
+from collections.abc import Collection, Iterable, Mapping, MutableMapping
 from random import Random
 from typing import final
 
 from typing_extensions import override
 
-from fairseq2.registry import Provider
+from fairseq2.error import InfraError
 
 
 @final
 class ClusterResolver:
-    _handlers: Provider[ClusterHandler]
+    _env: Mapping[str, str]
+    _handlers: dict[str, ClusterHandler]
 
     def __init__(
-        self, handlers: Provider[ClusterHandler], env: Mapping[str, str]
+        self, handlers: Iterable[ClusterHandler], env: Mapping[str, str]
     ) -> None:
-        self._handlers = handlers
+        self._env = env
 
-        self._is_torchrun = "TORCHELASTIC_RUN_ID" in env
+        self._handlers = {h.supported_cluster: h for h in handlers}
 
-    def get(self, name: str) -> ClusterHandler:
-        if self._is_torchrun or name == "none":
-            return _NoneClusterHandler()
+    def resolve(self, name: str) -> ClusterHandler:
+        if name == "none":
+            return NoneClusterHandler(self._env)
 
         if name == "auto":
-            for _, handler in self._handlers.get_all():
+            if "RANK" in self._env and "WORLD_SIZE" in self._env:
+                return NoneClusterHandler(self._env)
+
+            for handler in self._handlers.values():
                 if handler.supports_current_cluster():
                     return handler
 
-            return _NoneClusterHandler()
+            return NoneClusterHandler(self._env)
 
         try:
-            return self._handlers.get(name)
+            return self._handlers[name]
         except LookupError:
-            raise UnknownClusterError(name, self.supported_clusters()) from None
+            raise UnknownClusterError(name, self.supported_clusters) from None
 
+    @property
     def supported_clusters(self) -> Collection[str]:
-        return [str(key) for key, _ in self._handlers.get_all()]
+        return self._handlers.keys()
+
+
+class ClusterHandler(ABC):
+    @abstractmethod
+    def set_torch_distributed_env_variables(self) -> None:
+        """Set environment variables required to initialize ``torch.distributed``."""
+
+    @abstractmethod
+    def supports_current_cluster(self) -> bool:
+        """Return ``True`` if this instance supports the current cluster."""
+
+    @property
+    @abstractmethod
+    def supported_cluster(self) -> str: ...
 
 
 class UnknownClusterError(Exception):
@@ -59,21 +78,7 @@ class UnknownClusterError(Exception):
         self.supported_clusters = supported_clusters
 
 
-class ClusterHandler(ABC):
-    @abstractmethod
-    def set_torch_distributed_variables(self) -> None:
-        """Set environment variables required to initialize ``torch.distributed``."""
-
-    @abstractmethod
-    def supports_current_cluster(self) -> bool:
-        """Return ``True`` if this instance supports the current cluster."""
-
-    @property
-    @abstractmethod
-    def supported_cluster(self) -> str: ...
-
-
-class ClusterError(Exception):
+class ClusterError(InfraError):
     cluster: str
 
     def __init__(self, cluster: str, message: str) -> None:
@@ -83,7 +88,7 @@ class ClusterError(Exception):
 
 
 @final
-class SlurmClusterHandler(ClusterHandler):
+class SlurmHandler(ClusterHandler):
     _job_id: int | None
     _env: MutableMapping[str, str]
 
@@ -92,7 +97,7 @@ class SlurmClusterHandler(ClusterHandler):
         self._env = env
 
     @override
-    def set_torch_distributed_variables(self) -> None:
+    def set_torch_distributed_env_variables(self) -> None:
         job_id = self._ensure_job_id()
 
         env = self._env
@@ -169,9 +174,14 @@ class SlurmClusterHandler(ClusterHandler):
 
 
 @final
-class _NoneClusterHandler(ClusterHandler):
+class NoneClusterHandler(ClusterHandler):
+    _env: Mapping[str, str]
+
+    def __init__(self, env: Mapping[str, str]) -> None:
+        self._env = env
+
     @override
-    def set_torch_distributed_variables(self) -> None:
+    def set_torch_distributed_env_variables(self) -> None:
         pass
 
     @override

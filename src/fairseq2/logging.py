@@ -11,11 +11,6 @@ from logging import Logger, getLogger
 from typing import Any, Final, final
 
 
-def get_log_writer(name: str | None = None) -> LogWriter:
-    """Return a :class:`LogWriter` for the logger with the specified name."""
-    return LogWriter(getLogger(name))
-
-
 @final
 class LogWriter:
     """Writes log messages using ``format()`` strings."""
@@ -25,33 +20,24 @@ class LogWriter:
     _logger: Logger
 
     def __init__(self, logger: Logger) -> None:
-        """
-        :param logger:
-            The logger to write to.
-        """
         self._logger = logger
 
     def debug(self, message: str, *args: Any) -> None:
-        """Log a message with level ``DEBUG``."""
-        self._write(logging.DEBUG, message, args)
+        self._log(logging.DEBUG, message, args)
 
     def info(self, message: str, *args: Any) -> None:
-        """Log a message with level ``INFO``."""
-        self._write(logging.INFO, message, args)
+        self._log(logging.INFO, message, args)
 
     def warning(self, message: str, *args: Any) -> None:
-        """Log a message with level ``WARNING``."""
-        self._write(logging.WARNING, message, args)
+        self._log(logging.WARNING, message, args)
 
     def error(self, message: str, *args: Any, ex: BaseException | None = None) -> None:
-        """Log a message with level ``ERROR``."""
-        self._write(logging.ERROR, message, args, exc_info=ex or False)
+        self._log(logging.ERROR, message, args, exc_info=ex or False)
 
     def exception(self, message: str, *args: Any) -> None:
-        """Log a message with level ``ERROR``."""
-        self._write(logging.ERROR, message, args, exc_info=True)
+        self._log(logging.ERROR, message, args, exc_info=True)
 
-    def _write(
+    def _log(
         self,
         level: int,
         message: str,
@@ -67,7 +53,7 @@ class LogWriter:
         self._logger.log(level, message, exc_info=exc_info, extra=self._NO_HIGHLIGHT)
 
     def is_enabled_for(self, level: int) -> bool:
-        """Return ``True`` if the writer is enabled for ``level``."""
+        """Returns ``True`` if the writer is enabled for ``level``."""
         return self._logger.isEnabledFor(level)
 
     def is_enabled_for_debug(self) -> bool:
@@ -80,8 +66,9 @@ class LogWriter:
         return self._logger.isEnabledFor(logging.ERROR)
 
 
+def get_log_writer(name: str | None = None) -> LogWriter:
+    """Return a :class:`LogWriter` for the logger with the specified name."""
+    return LogWriter(getLogger(name))
+
+
 log = get_log_writer("fairseq2")
-
-
-class LoggingSetupError(Exception):
-    pass

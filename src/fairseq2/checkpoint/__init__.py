@@ -6,32 +6,29 @@
 
 from __future__ import annotations
 
-from fairseq2.checkpoint._hg import HuggingFaceSaveError as HuggingFaceSaveError
-from fairseq2.checkpoint._hg import HuggingFaceSaver as HuggingFaceSaver
-from fairseq2.checkpoint._hg import (
+from fairseq2.checkpoint.hg import HuggingFaceSaver as HuggingFaceSaver
+from fairseq2.checkpoint.hg import (
     OutOfProcHuggingFaceSaver as OutOfProcHuggingFaceSaver,
 )
-from fairseq2.checkpoint._manager import CheckpointCallback as CheckpointCallback
-from fairseq2.checkpoint._manager import CheckpointDeleteError as CheckpointDeleteError
-from fairseq2.checkpoint._manager import CheckpointError as CheckpointError
-from fairseq2.checkpoint._manager import CheckpointLoadError as CheckpointLoadError
-from fairseq2.checkpoint._manager import CheckpointManager as CheckpointManager
-from fairseq2.checkpoint._manager import (
+from fairseq2.checkpoint.manager import CheckpointCallback as CheckpointCallback
+from fairseq2.checkpoint.manager import CheckpointLoadError as CheckpointLoadError
+from fairseq2.checkpoint.manager import CheckpointManager as CheckpointManager
+from fairseq2.checkpoint.manager import (
     CheckpointNotFoundError as CheckpointNotFoundError,
 )
-from fairseq2.checkpoint._manager import CheckpointSaveError as CheckpointSaveError
-from fairseq2.checkpoint._manager import CheckpointState as CheckpointState
-from fairseq2.checkpoint._manager import (
+from fairseq2.checkpoint.manager import CheckpointSaveError as CheckpointSaveError
+from fairseq2.checkpoint.manager import CheckpointState as CheckpointState
+from fairseq2.checkpoint.manager import (
     CheckpointStateProcessor as CheckpointStateProcessor,
 )
-from fairseq2.checkpoint._manager import FileCheckpointManager as FileCheckpointManager
-from fairseq2.checkpoint._manager import Stateful as Stateful
-from fairseq2.checkpoint._metadata_provider import (
-    CheckpointMetadataSaver as CheckpointMetadataSaver,
+from fairseq2.checkpoint.manager import FileCheckpointManager as FileCheckpointManager
+from fairseq2.checkpoint.manager import Stateful as Stateful
+from fairseq2.checkpoint.metadata_provider import (
+    CheckpointAssetMetadataLoader as CheckpointAssetMetadataLoader,
 )
-from fairseq2.checkpoint._metadata_provider import (
-    FileCheckpointMetadataLoader as FileCheckpointMetadataLoader,
+from fairseq2.checkpoint.metadata_provider import (
+    CheckpointAssetMetadataSaver as CheckpointAssetMetadataSaver,
 )
-from fairseq2.checkpoint._metadata_provider import (
-    FileCheckpointMetadataSaver as FileCheckpointMetadataSaver,
+from fairseq2.checkpoint.metadata_provider import (
+    register_checkpoint_assets as register_checkpoint_assets,
 )

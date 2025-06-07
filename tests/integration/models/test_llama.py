@@ -8,20 +8,19 @@ import os
 
 import pytest
 
-from fairseq2 import get_runtime_context
-from fairseq2.models.llama import LLaMAConfig, LLaMAFactory, convert_llama_checkpoint
+from fairseq2.models.llama import LLaMAConfig, LLaMAFactory, _convert_llama_checkpoint
 from fairseq2.models.llama.integ import convert_to_reference_llama_checkpoint
+from fairseq2.runtime.config_registry import get_config
+from fairseq2.runtime.dependency import get_dependency_resolver
 
 
 @pytest.mark.skipif(
     "FAIR_ENV_CLUSTER" not in os.environ, reason="checkpoints only on faircluster"
 )
 def test_convert_to_reference_checkpoint() -> None:
-    context = get_runtime_context()
+    resolver = get_dependency_resolver()
 
-    model_config_registry = context.get_config_registry(LLaMAConfig)
-
-    model_config = model_config_registry.get("llama2_7b")
+    model_config = get_config(resolver, LLaMAConfig, "llama2_7b")
 
     model_factory = LLaMAFactory(model_config)
 
@@ -31,7 +30,7 @@ def test_convert_to_reference_checkpoint() -> None:
 
     checkpoint = convert_to_reference_llama_checkpoint(checkpoint)
 
-    checkpoint = convert_llama_checkpoint(checkpoint, model_config)
+    checkpoint = _convert_llama_checkpoint(checkpoint, model_config)
 
     # This should work.
     model.load_state_dict(checkpoint)

@@ -15,13 +15,17 @@ class ContractError(Exception):
     pass
 
 
+class FormatError(Exception):
+    pass
+
+
 class InvalidOperationError(Exception):
     pass
 
 
-class AlreadyExistsError(Exception):
+class NotSupportedError(Exception):
     pass
 
 
-class NotSupportedError(Exception):
+class InfraError(Exception):
     pass

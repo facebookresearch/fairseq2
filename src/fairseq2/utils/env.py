@@ -6,10 +6,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, MutableMapping
 from pathlib import Path
+from typing import cast
 
-from fairseq2.device import Device
+from fairseq2.runtime.dependency import DependencyResolver
+
+
+def get_env(resolver: DependencyResolver) -> MutableMapping[str, str]:
+    env = resolver.resolve(MutableMapping, key="env")
+
+    return cast(MutableMapping[str, str], env)
 
 
 def get_int_from_env(
@@ -27,10 +34,10 @@ def get_int_from_env(
 
     try:
         value = int(s)
-    except ValueError:
+    except ValueError as ex:
         raise InvalidEnvironmentVariableError(
-            name, f"The value of the `{name}` environment variable is expected to be an integer, but is '{s}' instead."  # fmt: skip
-        ) from None
+            name, f"The value of the `{name}` environment variable cannot be parsed as an integer. See the nested exception for details."  # fmt: skip
+        ) from ex
 
     if not allow_zero:
         if not value >= 1:
@@ -57,29 +64,19 @@ def get_path_from_env(env: Mapping[str, str], name: str) -> Path | None:
 
     try:
         return Path(pathname)
-    except ValueError:
+    except ValueError as ex:
         raise InvalidEnvironmentVariableError(
-            name, f"The value of the `{name}` environment variable is expected to be a pathname, but is '{pathname}' instead."  # fmt: skip
-        ) from None
+            name, f"The value of the `{name}` environment variable cannot be parsed as a pathname. See the nested exception for details."  # fmt: skip
+        ) from ex
 
 
-def get_device_from_env(env: Mapping[str, str], name: str) -> Device | None:
-    device_str = env.get(name)
-    if device_str is None:
-        return None
+class InvalidEnvironmentVariableError(Exception):
+    name: str
 
-    try:
-        return Device(device_str)
-    except (RuntimeError, ValueError):
-        raise InvalidEnvironmentVariableError(
-            name, f"The value of the `{name}` environment variable is expected to specify a PyTorch device, but is '{device_str}' instead."  # fmt: skip
-        ) from None
+    def __init__(self, name: str, message: str) -> None:
+        super().__init__(message)
 
-
-def get_world_size(env: Mapping[str, str]) -> int:
-    value = get_int_from_env(env, "WORLD_SIZE")
-
-    return 1 if value is None else value
+        self.name = name
 
 
 def get_rank(env: Mapping[str, str]) -> int:
@@ -88,8 +85,8 @@ def get_rank(env: Mapping[str, str]) -> int:
     return 0 if value is None else value
 
 
-def get_local_world_size(env: Mapping[str, str]) -> int:
-    value = get_int_from_env(env, "LOCAL_WORLD_SIZE")
+def get_world_size(env: Mapping[str, str]) -> int:
+    value = get_int_from_env(env, "WORLD_SIZE")
 
     return 1 if value is None else value
 
@@ -100,10 +97,7 @@ def get_local_rank(env: Mapping[str, str]) -> int:
     return 0 if value is None else value
 
 
-class InvalidEnvironmentVariableError(Exception):
-    name: str
+def get_local_world_size(env: Mapping[str, str]) -> int:
+    value = get_int_from_env(env, "LOCAL_WORLD_SIZE")
 
-    def __init__(self, name: str, message: str) -> None:
-        super().__init__(message)
-
-        self.name = name
+    return 1 if value is None else value

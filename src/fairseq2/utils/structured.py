@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence, Set
 from dataclasses import MISSING, fields, is_dataclass
 from enum import Enum
@@ -15,25 +16,40 @@ from typing import (
     Any,
     Literal,
     Protocol,
-    TypeVar,
     Union,
     cast,
+    final,
     get_args,
     get_origin,
     get_type_hints,
 )
 
 import torch
+from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.typing import EMPTY, DataClass
 
 
+class ValueConverter(ABC):
+    @abstractmethod
+    def structure(
+        self, obj: object, target_type: object, *, set_empty: bool = False
+    ) -> Any: ...
+
+    @abstractmethod
+    def unstructure(self, obj: object) -> object: ...
+
+
+class StructureError(ValueError):
+    """Raised when a structure or unstructure operation fails."""
+
+
 class _Structurer(Protocol):
     def __call__(
         self,
-        orig_type: object,
+        origin_type: object,
         type_args: tuple[object, ...],
         obj: object,
         set_empty: bool,
@@ -44,11 +60,10 @@ class _Unstructurer(Protocol):
     def __call__(self, obj: object) -> object: ...
 
 
-class ValueConverter:
-    """Structures objects using provided type expressions."""
-
+@final
+class StandardValueConverter(ValueConverter):
     _structurers: dict[object, _Structurer]
-    _unstructurers: dict[type, _Unstructurer]
+    _unstructurers: dict[type[object], _Unstructurer]
 
     def __init__(self) -> None:
         self._structurers = {
@@ -95,21 +110,24 @@ class ValueConverter:
             # fmt: on
         }
 
-    def structure(self, obj: object, type_: object, *, set_empty: bool = False) -> Any:
-        orig_type, type_args = get_origin(type_), get_args(type_)
+    @override
+    def structure(
+        self, obj: object, target_type: object, *, set_empty: bool = False
+    ) -> Any:
+        origin_type, type_args = get_origin(target_type), get_args(target_type)
 
-        if orig_type is None:
-            orig_type = type_
+        if origin_type is None:
+            origin_type = target_type
 
-        if orig_type is object or orig_type is Any:
+        if origin_type is object:
             return obj
 
-        lookup_type = orig_type
+        lookup_type = origin_type
 
-        if isinstance(orig_type, type):
-            if is_dataclass(orig_type):
+        if isinstance(origin_type, type):
+            if is_dataclass(origin_type):
                 lookup_type = DataClass
-            elif issubclass(orig_type, Enum):
+            elif issubclass(origin_type, Enum):
                 lookup_type = Enum
 
         structurer = self._structurers.get(lookup_type)
@@ -117,21 +135,24 @@ class ValueConverter:
             supported_types = ", ".join(str(t) for t in self._structurers.keys())
 
             raise StructureError(
-                f"`type_` must be the value of a type expression consisting of the following types, but is `{type_}` instead: {supported_types}"
-            ) from None
+                f"`target_type` must represent a type expression consisting of the following types, but is `{target_type}` instead: {supported_types}"
+            )
 
         try:
-            return structurer(orig_type, type_args, obj, set_empty)
+            return structurer(origin_type, type_args, obj, set_empty)
         except StructureError as ex:
             raise StructureError(
-                f"`obj` cannot be structured to `{type_}`. See the nested exception for details."
+                f"`obj` cannot be structured to `{target_type}`. See the nested exception for details."
             ) from ex
 
-    @staticmethod
     def _structure_primitive(
-        orig_type: object, type_args: tuple[object, ...], obj: object, set_empty: bool
+        self,
+        origin_type: object,
+        type_args: tuple[object, ...],
+        obj: object,
+        set_empty: bool,
     ) -> object:
-        kls = cast(type, orig_type)
+        kls = cast(type, origin_type)
 
         if isinstance(obj, kls):
             return obj
@@ -143,11 +164,14 @@ class ValueConverter:
                 f"`obj` cannot be parsed as `{kls}`. See the nested exception for details."
             ) from ex
 
-    @staticmethod
     def _structure_identity(
-        orig_type: object, type_args: tuple[object, ...], obj: object, set_empty: bool
+        self,
+        origin_type: object,
+        type_args: tuple[object, ...],
+        obj: object,
+        set_empty: bool,
     ) -> object:
-        kls = cast(type, orig_type)
+        kls = cast(type, origin_type)
 
         if isinstance(obj, kls):
             return obj
@@ -158,12 +182,12 @@ class ValueConverter:
 
     def _structure_dataclass(
         self,
-        orig_type: object,
+        origin_type: object,
         type_args: tuple[object, ...],
         obj: object,
         set_empty: bool,
     ) -> object:
-        kls = cast(type[DataClass], orig_type)
+        kls = cast(type[DataClass], origin_type)
 
         if kls is DataClass:
             raise StructureError(
@@ -237,7 +261,7 @@ class ValueConverter:
 
     def _structure_dict(
         self,
-        orig_type: object,
+        origin_type: object,
         type_args: tuple[object, ...],
         obj: object,
         set_empty: bool,
@@ -245,14 +269,25 @@ class ValueConverter:
         if isinstance(obj, Mapping):
             if len(type_args) != 2:
                 raise StructureError(
-                    f"`type_` must have a key-value type annotation for `{orig_type}`."
+                    f"`target_type` must have a key-value type annotation for `{origin_type}`."
                 )
 
             output = {}
 
             for k, v in obj.items():
-                k = self.structure(k, type_args[0])
-                v = self.structure(v, type_args[1])
+                try:
+                    k = self.structure(k, type_args[0])
+                except StructureError as ex:
+                    raise StructureError(
+                        f"The '{k}' key cannot be structured. See the nested exception for details."
+                    ) from ex
+
+                try:
+                    v = self.structure(v, type_args[1])
+                except StructureError as ex:
+                    raise StructureError(
+                        f"The value of the '{k}' key cannot be structured. See the nested exception for details."
+                    ) from ex
 
                 output[k] = v
 
@@ -262,9 +297,12 @@ class ValueConverter:
             f"`obj` must be of type `{Mapping}`, but is of type `{type(obj)}` instead."
         )
 
-    @staticmethod
     def _structure_dtype(
-        orig_type: object, type_args: tuple[object, ...], obj: object, set_empty: bool
+        self,
+        origin_type: object,
+        type_args: tuple[object, ...],
+        obj: object,
+        set_empty: bool,
     ) -> DataType:
         if isinstance(obj, DataType):
             return obj
@@ -284,9 +322,12 @@ class ValueConverter:
             f"`obj` must be of type `{DataType}` or `{str}`, but is of type `{type(obj)}` instead."
         )
 
-    @staticmethod
     def _structure_device(
-        orig_type: object, type_args: tuple[object, ...], obj: object, set_empty: bool
+        self,
+        origin_type: object,
+        type_args: tuple[object, ...],
+        obj: object,
+        set_empty: bool,
     ) -> Device:
         if isinstance(obj, Device):
             return obj
@@ -301,11 +342,14 @@ class ValueConverter:
             f"`obj` must be of type `{Device}` or `{str}`, but is of type `{type(obj)}` instead."
         )
 
-    @staticmethod
     def _structure_enum(
-        orig_type: object, type_args: tuple[object, ...], obj: object, set_empty: bool
+        self,
+        origin_type: object,
+        type_args: tuple[object, ...],
+        obj: object,
+        set_empty: bool,
     ) -> object:
-        kls = cast(type[Enum], orig_type)
+        kls = cast(type[Enum], origin_type)
 
         if isinstance(obj, kls):
             return obj
@@ -320,7 +364,7 @@ class ValueConverter:
 
             raise StructureError(
                 f"`obj` must be one of the following enumeration values, but is '{obj}' instead: {values}"
-            ) from None
+            )
 
         raise StructureError(
             f"`obj` must be of type `{kls}` or `{str}`, but is of type `{type(obj)}` instead."
@@ -328,7 +372,7 @@ class ValueConverter:
 
     def _structure_list(
         self,
-        orig_type: object,
+        origin_type: object,
         type_args: tuple[object, ...],
         obj: object,
         set_empty: bool,
@@ -336,7 +380,7 @@ class ValueConverter:
         if isinstance(obj, Sequence):
             if len(type_args) != 1:
                 raise StructureError(
-                    f"`type_` must have an element type annotation for `{orig_type}`."
+                    f"`target_type` must have an element type annotation for `{origin_type}`."
                 )
 
             output = []
@@ -346,7 +390,7 @@ class ValueConverter:
                     elem = self.structure(elem, type_args[0])
                 except StructureError as ex:
                     raise StructureError(
-                        f"The element at index {idx} in the sequence cannot be structured. See the nested exception for details."
+                        f"The element at index {idx} cannot be structured. See the nested exception for details."
                     ) from ex
 
                 output.append(elem)
@@ -357,9 +401,12 @@ class ValueConverter:
             f"`obj` must be of type `{Sequence}`, but is of type `{type(obj)}` instead."
         )
 
-    @staticmethod
     def _structure_literal(
-        orig_type: object, type_args: tuple[object, ...], obj: object, set_empty: bool
+        self,
+        origin_type: object,
+        type_args: tuple[object, ...],
+        obj: object,
+        set_empty: bool,
     ) -> str:
         if isinstance(obj, str):
             if obj in type_args:
@@ -375,9 +422,12 @@ class ValueConverter:
             f"`obj` must be of type `{str}`, but is of type `{type(obj)}` instead."
         )
 
-    @staticmethod
     def _structure_path(
-        orig_type: object, type_args: tuple[object, ...], obj: object, set_empty: bool
+        self,
+        origin_type: object,
+        type_args: tuple[object, ...],
+        obj: object,
+        set_empty: bool,
     ) -> Path:
         if isinstance(obj, Path):
             return obj
@@ -391,7 +441,7 @@ class ValueConverter:
 
     def _structure_set(
         self,
-        orig_type: object,
+        origin_type: object,
         type_args: tuple[object, ...],
         obj: object,
         set_empty: bool,
@@ -399,18 +449,33 @@ class ValueConverter:
         if isinstance(obj, set):
             if len(type_args) != 1:
                 raise StructureError(
-                    f"`type_` must have an element type annotation for `{orig_type}`."
+                    f"`target_type` must have an element type annotation for `{origin_type}`."
                 )
 
-            return {self.structure(e, type_args[0]) for e in obj}
+            try:
+                return {self.structure(e, type_args[0]) for e in obj}
+            except StructureError as ex:
+                raise StructureError(
+                    "One of the set elements cannot be structured. See the nested exception for details."
+                ) from ex
 
         if isinstance(obj, Sequence):
             if len(type_args) != 1:
                 raise StructureError(
-                    f"`type_` must have an element type annotation for `{orig_type}`."
+                    f"`target_type` must have an element type annotation for `{origin_type}`."
                 )
 
-            tmp = [self.structure(e, type_args[0]) for e in obj]
+            tmp = []
+
+            for idx, e in enumerate(obj):
+                try:
+                    e = self.structure(e, type_args[0])
+                except StructureError as ex:
+                    raise StructureError(
+                        f"The element at index {idx} cannot be structured. See the nested exception for details."
+                    ) from ex
+
+                tmp.append(e)
 
             output = set(tmp)
 
@@ -427,7 +492,7 @@ class ValueConverter:
 
     def _structure_tuple(
         self,
-        orig_type: object,
+        origin_type: object,
         type_args: tuple[object, ...],
         obj: object,
         set_empty: bool,
@@ -437,11 +502,11 @@ class ValueConverter:
 
             if num_args == 0:
                 raise StructureError(
-                    f"`type_` must have an element type annotation for `{orig_type}`."
+                    f"`target_type` must have an element type annotation for `{origin_type}`."
                 )
 
             if num_args == 2 and type_args[1] is Ellipsis:  # homogeneous
-                tmp = self._structure_list(orig_type, type_args[:1], obj, set_empty)
+                tmp = self._structure_list(origin_type, type_args[:1], obj, set_empty)
 
                 return tuple(tmp)
 
@@ -457,7 +522,7 @@ class ValueConverter:
                     elem = self.structure(elem, type_args[idx])
                 except StructureError as ex:
                     raise StructureError(
-                        f"The element at index {idx} in the sequence cannot be structured. See the nested exception for details."
+                        f"The element at index {idx} cannot be structured. See the nested exception for details."
                     ) from ex
 
                 output.append(elem)
@@ -470,7 +535,7 @@ class ValueConverter:
 
     def _structure_union(
         self,
-        orig_type: object,
+        origin_type: object,
         type_args: tuple[object, ...],
         obj: object,
         set_empty: bool,
@@ -480,9 +545,9 @@ class ValueConverter:
         if is_optional and obj is None:
             return obj
 
-        for type_ in type_args:
+        for target_type in type_args:
             try:
-                return self.structure(obj, type_, set_empty=set_empty)
+                return self.structure(obj, target_type, set_empty=set_empty)
             except StructureError:
                 if is_optional:
                     raise
@@ -495,6 +560,7 @@ class ValueConverter:
             f"`obj` must be parseable as one of the following union elements: {types}"
         )
 
+    @override
     def unstructure(self, obj: object) -> object:
         kls = type(obj)
 
@@ -519,7 +585,7 @@ class ValueConverter:
 
             raise StructureError(
                 f"`obj` must be of one of the following types, but is of type `{type(obj)}` instead: {supported_types}"
-            ) from None
+            )
 
         try:
             return unstructurer(obj)
@@ -528,8 +594,7 @@ class ValueConverter:
                 "`obj` cannot be unstructured. See the nested exception for details."
             ) from ex
 
-    @staticmethod
-    def _unstructure_identity(obj: object) -> object:
+    def _unstructure_identity(self, obj: object) -> object:
         return obj
 
     def _unstructure_dataclass(self, obj: object) -> dict[str, object]:
@@ -551,16 +616,13 @@ class ValueConverter:
 
         return output
 
-    @staticmethod
-    def _unstructure_dtype(obj: object) -> str:
+    def _unstructure_dtype(self, obj: object) -> str:
         return str(obj)[6:]  # strip 'torch.'
 
-    @staticmethod
-    def _unstructure_device(obj: object) -> str:
+    def _unstructure_device(self, obj: object) -> str:
         return str(obj)
 
-    @staticmethod
-    def _unstructure_enum(obj: object) -> str:
+    def _unstructure_enum(self, obj: object) -> str:
         return cast(Enum, obj).name
 
     def _unstructure_mapping(self, obj: object) -> dict[object, object]:
@@ -576,8 +638,7 @@ class ValueConverter:
 
         return output
 
-    @staticmethod
-    def _unstructure_path(obj: object) -> str:
+    def _unstructure_path(self, obj: object) -> str:
         return str(obj)
 
     def _unstructure_sequence(self, obj: object) -> list[object]:
@@ -601,47 +662,3 @@ class ValueConverter:
         s = cast(set[object], obj)
 
         return [self.unstructure(e) for e in s]
-
-
-class StructureError(ValueError):
-    """Raised when a structure or unstructure operation fails."""
-
-
-default_value_converter = ValueConverter()
-
-
-T = TypeVar("T")
-
-
-def structure(obj: object, kls: type[T], *, set_empty: bool = False) -> T:
-    obj = default_value_converter.structure(obj, kls, set_empty=set_empty)
-
-    return cast(T, obj)
-
-
-def unstructure(obj: object) -> object:
-    return default_value_converter.unstructure(obj)
-
-
-def is_unstructured(obj: object) -> bool:
-    if obj is None:
-        return True
-
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            if not is_unstructured(k):
-                return False
-
-            if not is_unstructured(v):
-                return False
-
-        return True
-
-    if isinstance(obj, list):
-        for e in obj:
-            if not is_unstructured(e):
-                return False
-
-        return True
-
-    return isinstance(obj, (bool, int, float, str))

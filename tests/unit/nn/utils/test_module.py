@@ -8,18 +8,17 @@ from __future__ import annotations
 
 from torch.nn import Parameter
 
-from fairseq2 import get_runtime_context
 from fairseq2.device import META_DEVICE
 from fairseq2.models.transformer import TransformerConfig, TransformerFactory
 from fairseq2.nn.utils.module import select_parameters
+from fairseq2.runtime.config_registry import get_config
+from fairseq2.runtime.dependency import get_dependency_resolver
 
 
 def test_select_parameters() -> None:
-    context = get_runtime_context()
+    resolver = get_dependency_resolver()
 
-    model_config_registry = context.get_config_registry(TransformerConfig)
-
-    model_config = model_config_registry.get("nllb_dense_1b")
+    model_config = get_config(resolver, TransformerConfig, "nllb_dense_1b")
 
     model_factory = TransformerFactory(model_config)
 
@@ -37,11 +36,9 @@ def test_select_parameters() -> None:
 
 
 def test_select_parameters_when_exclude_is_true() -> None:
-    context = get_runtime_context()
+    resolver = get_dependency_resolver()
 
-    model_config_registry = context.get_config_registry(TransformerConfig)
-
-    model_config = model_config_registry.get("nllb_dense_1b")
+    model_config = get_config(resolver, TransformerConfig, "nllb_dense_1b")
 
     model_factory = TransformerFactory(model_config)
 

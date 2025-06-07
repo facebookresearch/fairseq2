@@ -6,63 +6,42 @@
 
 from __future__ import annotations
 
-__version__ = "0.5.0.dev0"
+from collections.abc import Callable
 
 import fairseq2n  # Report any fairseq2n initialization error eagerly.
 
-# isort: split
+import fairseq2.runtime.dependency
+from fairseq2.error import InvalidOperationError
+from fairseq2.runtime.composition import _register_library
+from fairseq2.runtime.dependency import DependencyContainer, StandardDependencyContainer
 
-from fairseq2.context import RuntimeContext
-from fairseq2.error import InternalError
-from fairseq2.utils.progress import ProgressReporter
-
-_default_context: RuntimeContext | None = None
-
-_setting_up: bool = False
+__version__ = "0.5.0.dev0"
 
 
-def setup_fairseq2(progress_reporter: ProgressReporter | None = None) -> RuntimeContext:
-    """
-    Sets up fairseq2.
+_in_call: bool = False
 
-    As part of the initialization, this function also registers extensions
-    with via setuptools' `entry-point`__ mechanism. See
-    :doc:`/basics/runtime_extensions` for more information.
 
-    .. important::
+def init_fairseq2(
+    *, extras: Callable[[DependencyContainer], None] | None = None
+) -> None:
+    global _in_call
 
-        This function must be called before using any of the fairseq2 APIs.
+    if fairseq2.runtime.dependency._resolver is not None:
+        raise InvalidOperationError("`init_fairseq2()` is already called.")
 
-    .. __: https://setuptools.pypa.io/en/latest/userguide/entry_point.html
-    """
-    from fairseq2.setup import setup_library
+    if _in_call:
+        raise InvalidOperationError("`init_fairseq2()` cannot be called recursively.")
 
-    global _default_context
-    global _setting_up
+    _in_call = True
 
-    if _default_context is not None:
-        return _default_context
-
-    if _setting_up:
-        raise RuntimeError("`setup_fairseq2()` cannot be called recursively.")
-
-    _setting_up = True
+    container = StandardDependencyContainer()
 
     try:
-        context = setup_library(progress_reporter)
+        _register_library(container)
+
+        if extras is not None:
+            extras(container)
     finally:
-        _setting_up = False
+        _in_call = False
 
-    _default_context = context
-
-    return context
-
-
-def get_runtime_context() -> RuntimeContext:
-    if _default_context is None:
-        setup_fairseq2()
-
-    if _default_context is None:
-        raise InternalError("fairseq2 is not initialized.")
-
-    return _default_context
+    fairseq2.runtime.dependency._resolver = container

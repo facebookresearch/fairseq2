@@ -47,11 +47,3 @@ EMPTY = _EmptyType()
 
 def get_name_or_self(obj: object) -> object:
     return getattr(obj, "__name__", obj)
-
-
-class Closable(Protocol):
-    def close(self) -> None: ...
-
-
-class Compilable(Protocol):
-    def compile(self, *args: Any, **kwargs: Any) -> object: ...

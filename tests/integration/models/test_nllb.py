@@ -9,9 +9,9 @@ from typing import Final
 import pytest
 import torch
 
-from fairseq2.data.text.tokenizers import get_text_tokenizer_hub
-from fairseq2.generation import BeamSearchSeq2SeqGenerator
+from fairseq2.generation.beam_search import BeamSearchSeq2SeqGenerator
 from fairseq2.generation.text import TextTranslator
+from fairseq2.models.nllb import get_nllb_tokenizer_hub
 from fairseq2.models.transformer import get_transformer_model_hub
 from tests.common import device
 
@@ -26,13 +26,11 @@ DEU_SENTENCE: Final = (
 def test_load_dense_distill_600m() -> None:
     model_name = "nllb-200_dense_distill_600m"
 
-    model_hub = get_transformer_model_hub()
+    model = get_transformer_model_hub().load_model(
+        model_name, device=device, dtype=torch.float32
+    )
 
-    model = model_hub.load(model_name, device=device, dtype=torch.float32)
-
-    tokenizer_hub = get_text_tokenizer_hub()
-
-    tokenizer = tokenizer_hub.load(model_name)
+    tokenizer = get_nllb_tokenizer_hub().load_tokenizer(model_name)
 
     generator = BeamSearchSeq2SeqGenerator(
         model, tokenizer.vocab_info, echo_prompt=True, max_seq_len=128
@@ -65,9 +63,7 @@ def test_load_dense_distill_600m() -> None:
 def test_tokenizer_special_tokens() -> None:
     model_name = "nllb-200_dense_distill_600m"
 
-    tokenizer_hub = get_text_tokenizer_hub()
-
-    tokenizer = tokenizer_hub.load(model_name)
+    tokenizer = get_nllb_tokenizer_hub().load_tokenizer(model_name)
 
     text = "Hello world!"
 
