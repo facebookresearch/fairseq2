@@ -106,7 +106,8 @@ def convert_checkpoint(
 
     def get_converted_key(key: str) -> str:
         for pattern, replacement in key_map.items():
-            if (converted_key := re.sub(pattern, replacement, key)) != key:
+            converted_key = re.sub(pattern, replacement, key)
+            if converted_key != key:
                 return converted_key
 
         return key

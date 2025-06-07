@@ -8,13 +8,15 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Protocol, final
+from itertools import chain
+from typing import final
 
 from torch.nn import Module
 from typing_extensions import override
 
+from fairseq2.dependency import DependencyResolver
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gangs
 from fairseq2.nn import (
@@ -33,43 +35,64 @@ class ShardSpec:
     region_boundary: bool = False
 
 
-class ModuleSharder(Protocol):
-    def __call__(self, module: Module, gangs: Gangs, spec: ShardSpec) -> Module: ...
+class ModuleSharder(ABC):
+    @abstractmethod
+    def shard(self, module: Module, gangs: Gangs, spec: ShardSpec) -> Module: ...
+
+    @property
+    @abstractmethod
+    def supported_module_kls(self) -> type[Module]: ...
 
 
-def shard_linear(module: Module, gangs: Gangs, spec: ShardSpec) -> Module:
-    if not isinstance(module, Linear):
-        return module
+@final
+class LinearSharder(ModuleSharder):
+    @override
+    def shard(self, module: Module, gangs: Gangs, spec: ShardSpec) -> Module:
+        if not isinstance(module, Linear):
+            return module
 
-    if spec.dim == 0:
-        return ColumnShardedLinear.from_linear(
-            module, gangs.tp, gather_output=not spec.region_boundary
-        )
+        if spec.dim == 0:
+            return ColumnShardedLinear.from_linear(
+                module, gangs.tp, gather_output=not spec.region_boundary
+            )
 
-    if spec.dim == 1:
-        return RowShardedLinear.from_linear(
-            module, gangs.tp, scatter_input=not spec.region_boundary
-        )
+        if spec.dim == 1:
+            return RowShardedLinear.from_linear(
+                module, gangs.tp, scatter_input=not spec.region_boundary
+            )
 
-    raise ValueError(f"`spec.dim` must be 0 or 1, but is {spec.dim} instead.")
+        raise ValueError(f"`spec.dim` must be 0 or 1, but is {spec.dim} instead.")
+
+    @property
+    @override
+    def supported_module_kls(self) -> type[Module]:
+        return Linear
 
 
-def shard_embedding(module: Module, gangs: Gangs, spec: ShardSpec) -> Module:
-    if not isinstance(module, StandardEmbedding):
-        return module
+@final
+class EmbeddingSharder(ModuleSharder):
+    @override
+    def shard(self, module: Module, gangs: Gangs, spec: ShardSpec) -> Module:
+        if not isinstance(module, StandardEmbedding):
+            return module
 
-    if spec.region_boundary:
-        raise NotSupportedError(
-            f"`{StandardEmbedding}` does not support `spec.region_boundary`."
-        )
+        if spec.region_boundary:
+            raise NotSupportedError(
+                f"`{StandardEmbedding}` does not support `spec.region_boundary`."
+            )
 
-    if spec.dim == 0:
-        return VocabShardedEmbedding.from_embedding(module, gangs.tp)
+        if spec.dim == 0:
+            return VocabShardedEmbedding.from_embedding(module, gangs.tp)
 
-    if spec.dim == 1:
-        return ShardedEmbedding.from_embedding(module, gangs.tp)
+        if spec.dim == 1:
+            return ShardedEmbedding.from_embedding(module, gangs.tp)
 
-    raise ValueError(f"`spec.dim` must be 0 or 1, but is {spec.dim} instead.")
+        raise ValueError(f"`spec.dim` must be 0 or 1, but is {spec.dim} instead.")
+
+    @property
+    @override
+    def supported_module_kls(self) -> type[Module]:
+        return StandardEmbedding
 
 
 class ModelSharder(ABC):
@@ -81,10 +104,10 @@ class ModelSharder(ABC):
 
 @final
 class StandardModelSharder(ModelSharder):
-    _sharders: Mapping[type[Module], ModuleSharder]
+    _sharders: dict[type[Module], ModuleSharder]
 
-    def __init__(self, sharders: Mapping[type[Module], ModuleSharder]) -> None:
-        self._sharders = sharders
+    def __init__(self, sharders: Iterable[ModuleSharder]) -> None:
+        self._sharders = {s.supported_module_kls: s for s in sharders}
 
     @override
     def shard(
@@ -119,7 +142,7 @@ class StandardModelSharder(ModelSharder):
                         ) from None
 
                     try:
-                        sharded_child = sharder(child, gangs, spec)
+                        sharded_child = sharder.shard(child, gangs, spec)
                     except ValueError as ex:
                         raise ValueError(
                             f"`model.{pathname}` cannot be sharded. See the nested exception for details."
@@ -135,10 +158,11 @@ class StandardModelSharder(ModelSharder):
             path.pop()
 
 
-def create_model_sharder() -> ModelSharder:
-    sharders: dict[type[Module], ModuleSharder] = {
-        Linear: shard_linear,
-        StandardEmbedding: shard_embedding,
-    }
+def create_model_sharder(resolver: DependencyResolver) -> ModelSharder:
+    other_sharders = resolver.resolve_all(ModuleSharder)
 
-    return StandardModelSharder(sharders)
+    sharders = [LinearSharder(), EmbeddingSharder()]
+
+    it = chain(sharders, other_sharders)
+
+    return StandardModelSharder(it)

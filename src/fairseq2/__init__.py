@@ -12,16 +12,16 @@ import fairseq2n  # Report any fairseq2n initialization error eagerly.
 
 # isort: split
 
-from fairseq2.context import RuntimeContext
+from fairseq2.composition import register_library
+from fairseq2.dependency import DependencyResolver, StandardDependencyContainer
 from fairseq2.error import InternalError
-from fairseq2.utils.progress import ProgressReporter
 
-_default_context: RuntimeContext | None = None
+_default_resolver: DependencyResolver | None = None
 
-_setting_up: bool = False
+_in_call: bool = False
 
 
-def setup_fairseq2(progress_reporter: ProgressReporter | None = None) -> RuntimeContext:
+def setup_fairseq2() -> DependencyResolver:
     """
     Sets up fairseq2.
 
@@ -35,34 +35,33 @@ def setup_fairseq2(progress_reporter: ProgressReporter | None = None) -> Runtime
 
     .. __: https://setuptools.pypa.io/en/latest/userguide/entry_point.html
     """
-    from fairseq2.setup import setup_library
 
-    global _default_context
-    global _setting_up
+    global _default_resolver
+    global _in_call
 
-    if _default_context is not None:
-        return _default_context
+    if _default_resolver is None:
+        if _in_call:
+            raise RuntimeError("`setup_fairseq2()` cannot be called recursively.")
 
-    if _setting_up:
-        raise RuntimeError("`setup_fairseq2()` cannot be called recursively.")
+        _in_call = True
 
-    _setting_up = True
+        container = StandardDependencyContainer()
 
-    try:
-        context = setup_library(progress_reporter)
-    finally:
-        _setting_up = False
+        try:
+            register_library(container)
+        finally:
+            _in_call = False
 
-    _default_context = context
+        _default_resolver = container
 
-    return context
+    return _default_resolver
 
 
-def get_runtime_context() -> RuntimeContext:
-    if _default_context is None:
+def get_dependency_resolver() -> DependencyResolver:
+    if _default_resolver is None:
         setup_fairseq2()
 
-    if _default_context is None:
-        raise InternalError("fairseq2 is not initialized.")
+    if _default_resolver is None:
+        raise InternalError("`_default_resolver` is `None`.")
 
-    return _default_context
+    return _default_resolver

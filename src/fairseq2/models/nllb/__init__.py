@@ -6,4 +6,7 @@
 
 from __future__ import annotations
 
-from fairseq2.models.nllb._config import register_nllb_configs as register_nllb_configs
+from fairseq2.models.nllb.config import NLLB_FAMILY as NLLB_FAMILY
+from fairseq2.models.nllb.config import register_nllb_configs as register_nllb_configs
+from fairseq2.models.nllb.tokenizer import NllbTokenizer as NllbTokenizer
+from fairseq2.models.nllb.tokenizer import load_nllb_tokenizer as load_nllb_tokenizer

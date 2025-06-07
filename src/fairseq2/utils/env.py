@@ -6,10 +6,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, MutableMapping
 from pathlib import Path
+from typing import cast
 
+from fairseq2.dependency import DependencyResolver
 from fairseq2.device import Device
+
+
+def get_env(resolver: DependencyResolver) -> MutableMapping[str, str]:
+    env = resolver.resolve(MutableMapping, key="env")
+
+    return cast(MutableMapping[str, str], env)
 
 
 def get_int_from_env(

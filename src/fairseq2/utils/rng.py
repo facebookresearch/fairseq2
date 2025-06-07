@@ -127,7 +127,7 @@ class RngBag:
 
         if not isinstance(states, list):
             raise TypeError(
-                f"`state_dict['generators']` must be of type `list`, but is of type `{type(states)}` instead."
+                f"`state_dict['generators']` is expected to be of type `{list}`, but is of type `{type(states)}` instead."
             )
 
         if len(states) != len(self._generators):
@@ -138,7 +138,7 @@ class RngBag:
         for idx, state in enumerate(states):
             if not isinstance(state, Tensor):
                 raise TypeError(
-                    f"The generator states in `state_dict['generators']` must be of type `Tensor`, but the item at index {idx} is of type `{type(state)}` instead."
+                    f"The generator states in `state_dict['generators']` is expected to be of type `{Tensor}`, but the item at index {idx} is of type `{type(state)}` instead."
                 )
 
             self._generators[idx].set_state(state.clone())
@@ -156,3 +156,18 @@ def temporary_manual_seed(seed: int, *devices: Device) -> ContextManager:
     rng_bag = RngBag.from_device_defaults(*devices)
 
     return rng_bag.temporary_manual_seed(seed)
+
+
+@final
+class SeedHolder:
+    _value: int
+
+    def __init__(self, initial_value: int) -> None:
+        self._value = initial_value
+
+    def advance(self) -> int:
+        value = self._value
+
+        self._value += 1
+
+        return value

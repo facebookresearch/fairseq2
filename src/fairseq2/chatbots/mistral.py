@@ -14,15 +14,14 @@ from typing_extensions import override
 
 from fairseq2.chatbots import (
     Chatbot,
-    ChatbotHandler,
     ChatDialog,
     ChatDialogEncoder,
     StandardChatbot,
 )
-from fairseq2.data.text.tokenizers import TextTokenEncoder, TextTokenizer
+from fairseq2.chatbots.handler import ChatbotHandler
+from fairseq2.data.tokenizers import TokenEncoder, Tokenizer
 from fairseq2.generation import SequenceGenerator
 from fairseq2.models.clm import CausalLM
-from fairseq2.models.mistral import MISTRAL_MODEL_FAMILY
 from fairseq2.nn.utils.module import infer_device
 from fairseq2.utils.tensor import to_tensor
 
@@ -31,9 +30,9 @@ from fairseq2.utils.tensor import to_tensor
 class MistralDialogEncoder(ChatDialogEncoder):
     _bos_idx: Tensor
     _eos_idx: Tensor
-    _text_encoder: TextTokenEncoder
+    _text_encoder: TokenEncoder
 
-    def __init__(self, model: CausalLM, tokenizer: TextTokenizer) -> None:
+    def __init__(self, model: CausalLM, tokenizer: Tokenizer) -> None:
         bos_idx = tokenizer.vocab_info.bos_idx
         eos_idx = tokenizer.vocab_info.eos_idx
 
@@ -86,7 +85,7 @@ class MistralDialogEncoder(ChatDialogEncoder):
 @final
 class MistralChatbotHandler(ChatbotHandler):
     @override
-    def create(self, generator: SequenceGenerator, tokenizer: TextTokenizer) -> Chatbot:
+    def create(self, generator: SequenceGenerator, tokenizer: Tokenizer) -> Chatbot:
         dialog_encoder = MistralDialogEncoder(generator.model, tokenizer)
 
         text_decoder = tokenizer.create_decoder(skip_special_tokens=True)
@@ -94,8 +93,3 @@ class MistralChatbotHandler(ChatbotHandler):
         return StandardChatbot(
             generator, dialog_encoder, text_decoder, supports_system_prompt=False
         )
-
-    @property
-    @override
-    def family(self) -> str:
-        return MISTRAL_MODEL_FAMILY

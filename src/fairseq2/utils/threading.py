@@ -14,7 +14,12 @@ from typing import ParamSpec, Protocol, TypeVar, final
 
 from typing_extensions import override
 
-from fairseq2.utils.env import InvalidEnvironmentVariableError, get_local_world_size
+from fairseq2.dependency import DependencyResolver
+from fairseq2.utils.env import (
+    InvalidEnvironmentVariableError,
+    get_env,
+    get_local_world_size,
+)
 
 P = ParamSpec("P")
 
@@ -49,20 +54,14 @@ class FuturesThreadPool(ThreadPool):
         return self._executor.submit(callback, *args, **kwargs)
 
 
-_default_pool: ThreadPool | None = None
+def create_thread_pool(resolver: DependencyResolver) -> ThreadPool:
+    env = get_env(resolver)
 
+    num_threads = get_num_threads(env)
 
-def get_default_thread_pool() -> ThreadPool:
-    global _default_pool
-
-    if _default_pool is None:
-        num_threads = get_num_threads(os.environ)
-
-        # Due to GIL, threads in CPython are typically used to overlap I/O with
-        # CPU work; therefore, we can slightly oversubscribe here (i.e. +4).
-        _default_pool = FuturesThreadPool(max_num_workers=num_threads + 4)
-
-    return _default_pool
+    # Due to GIL, threads in CPython are typically used to overlap I/O with CPU
+    # work; therefore, we can slightly oversubscribe here (i.e. +4).
+    return FuturesThreadPool(max_num_workers=num_threads + 4)
 
 
 def get_num_threads(env: Mapping[str, str]) -> int:

@@ -14,11 +14,8 @@ from torch.nn import Module
 from fairseq2.data_type import DataType
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gangs
+from fairseq2.nn.data_parallel.common import FSDPApplier, FSDPGranularity
 from fairseq2.typing import ContextManager
-
-# isort: split
-
-from fairseq2.nn.data_parallel._common import FSDPApplier, FSDPGranularity
 
 
 @final

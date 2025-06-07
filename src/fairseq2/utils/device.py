@@ -9,21 +9,24 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import final
 
-from fairseq2.context import RuntimeContext
+from fairseq2.dependency import DependencyResolver
 from fairseq2.device import CPU, Device
 from fairseq2.error import InternalError
 from fairseq2.utils.cuda import CudaContext, TorchCudaContext
 from fairseq2.utils.env import (
     InvalidEnvironmentVariableError,
     get_device_from_env,
+    get_env,
     get_int_from_env,
 )
 
 
-def determine_default_device(context: RuntimeContext) -> Device:
+def determine_default_device(resolver: DependencyResolver) -> Device:
+    env = get_env(resolver)
+
     cuda_context = TorchCudaContext()
 
-    device_accessor = DefaultDeviceAccessor(context.env, cuda_context)
+    device_accessor = DefaultDeviceAccessor(env, cuda_context)
 
     return device_accessor.get()
 

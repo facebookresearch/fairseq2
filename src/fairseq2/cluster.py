@@ -8,23 +8,25 @@ from __future__ import annotations
 
 import subprocess
 from abc import ABC, abstractmethod
-from collections.abc import Collection, Mapping, MutableMapping
+from collections.abc import Collection, Iterable, Mapping, MutableMapping
+from itertools import chain
 from random import Random
 from typing import final
 
 from typing_extensions import override
 
-from fairseq2.registry import Provider
+from fairseq2.dependency import DependencyResolver
+from fairseq2.utils.env import get_env
 
 
 @final
 class ClusterResolver:
-    _handlers: Provider[ClusterHandler]
+    _handlers: dict[str, ClusterHandler]
 
     def __init__(
-        self, handlers: Provider[ClusterHandler], env: Mapping[str, str]
+        self, handlers: Iterable[ClusterHandler], env: Mapping[str, str]
     ) -> None:
-        self._handlers = handlers
+        self._handlers = {h.supported_cluster: h for h in handlers}
 
         self._is_torchrun = "TORCHELASTIC_RUN_ID" in env
 
@@ -33,19 +35,20 @@ class ClusterResolver:
             return _NoneClusterHandler()
 
         if name == "auto":
-            for _, handler in self._handlers.get_all():
+            for handler in self._handlers.values():
                 if handler.supports_current_cluster():
                     return handler
 
             return _NoneClusterHandler()
 
         try:
-            return self._handlers.get(name)
+            return self._handlers[name]
         except LookupError:
-            raise UnknownClusterError(name, self.supported_clusters()) from None
+            raise UnknownClusterError(name, self.supported_clusters) from None
 
+    @property
     def supported_clusters(self) -> Collection[str]:
-        return [str(key) for key, _ in self._handlers.get_all()]
+        return self._handlers.keys()
 
 
 class UnknownClusterError(Exception):
@@ -82,8 +85,20 @@ class ClusterError(Exception):
         self.cluster = cluster
 
 
+def create_cluster_resolver(resolver: DependencyResolver) -> ClusterResolver:
+    env = get_env(resolver)
+
+    other_handlers = resolver.resolve_all(ClusterHandler)
+
+    handlers = [SlurmHandler(env)]
+
+    it = chain(handlers, other_handlers)
+
+    return ClusterResolver(it, env)
+
+
 @final
-class SlurmClusterHandler(ClusterHandler):
+class SlurmHandler(ClusterHandler):
     _job_id: int | None
     _env: MutableMapping[str, str]
 
