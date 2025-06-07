@@ -206,7 +206,8 @@ def log_ranks(log: LogWriter, gangs: Gangs) -> None:
         f"Data: {gangs.dp.rank} | "
         f"Data/Replicated: {gangs.rdp.rank} | "
         f"Data/Sharded: {gangs.sdp.rank} | "
-        f"Tensor: {gangs.tp.rank}"
+        f"Tensor: {gangs.tp.rank} | "
+        f"Pipeline: {gangs.pp.rank}"
     )
 
     log.info("Process Ranks - {}", s)

@@ -29,7 +29,7 @@ class ProgressReporter(ABC):
 
 class ProgressTask(Closable):
     @abstractmethod
-    def step(self, value: int) -> None: ...
+    def step(self, value: int = 1) -> None: ...
 
     def __enter__(self) -> Self:
         return self
@@ -58,7 +58,7 @@ class NoopProgressReporter(ProgressReporter):
 @final
 class NoopProgressTask(ProgressTask):
     @override
-    def step(self, value: int) -> None:
+    def step(self, value: int = 1) -> None:
         pass
 
     @override

@@ -58,7 +58,11 @@ def shard_embedding(module: Module, gangs: Gangs, spec: ShardSpec) -> Module:
     if not isinstance(module, StandardEmbedding):
         return module
 
-    # TODO: handle spec.region_boundary.
+    if spec.region_boundary:
+        raise NotSupportedError(
+            f"`{StandardEmbedding}` does not support `spec.region_boundary`."
+        )
+
     if spec.dim == 0:
         return VocabShardedEmbedding.from_embedding(module, gangs.tp)
 

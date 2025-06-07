@@ -105,7 +105,7 @@ class RichProgressTask(ProgressTask):
         self._task_id = task_id
 
     @override
-    def step(self, value: int) -> None:
+    def step(self, value: int = 1) -> None:
         self._progress.update(self._task_id, advance=value)
 
     @override

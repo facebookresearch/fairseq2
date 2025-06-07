@@ -20,7 +20,7 @@ from fairseq2.models._checkpoint import (
     ShardedCheckpointLoader as ShardedCheckpointLoader,
 )
 from fairseq2.models._checkpoint import (
-    create_model_checkpoint_loader as create_model_checkpoint_loader,
+    create_checkpoint_loader as create_checkpoint_loader,
 )
 from fairseq2.models._error import (
     InvalidModelConfigTypeError as InvalidModelConfigTypeError,

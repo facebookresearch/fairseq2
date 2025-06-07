@@ -242,6 +242,7 @@ class _CardBasedModelLoader(_ModelLoader):
         else:
             log.info("Loading '{}' model on data parallel rank 0.", model_name)
 
+        gangs.root.barrier()
         try:
             if gangs.dp.rank == 0 and not self._has_checkpoint:
                 module = handler.load(card, gangs, dtype, model_config)
@@ -304,7 +305,7 @@ class _PathBasedModelLoader(_ModelLoader):
         if model_path is None:
             raise ValueError("`model_section.path` must be specified.")
 
-        model_name = "recipe"
+        model_name = model_path.name
 
         try:
             handler = self._model_handlers.get(model_family)

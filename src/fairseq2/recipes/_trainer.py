@@ -710,7 +710,7 @@ class Trainer(Recipe):
 
         self._step_nr += 1
 
-        progress_task.step(1)
+        progress_task.step()
 
         with detect_anomaly:
             with record_function(f"step_{self._step_nr}"):

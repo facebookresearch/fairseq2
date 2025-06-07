@@ -34,6 +34,7 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 from fairseq2.utils.merge import MergeError, merge_object
+from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.structured import StructureError, structure, unstructure
 from fairseq2.utils.validation import validate
 
@@ -189,6 +190,7 @@ class DelegatingModelHandler(ModelHandler):
     _asset_download_manager: AssetDownloadManager
     _checkpoint_loader: CheckpointLoader
     _sharder: ModelSharder
+    _progress_reporter: ProgressReporter
     _supports_meta: bool
     _restrict: bool
     _checkpoint_converter: CheckpointConverter[Any] | None
@@ -208,6 +210,7 @@ class DelegatingModelHandler(ModelHandler):
         asset_download_manager: AssetDownloadManager,
         checkpoint_loader: CheckpointLoader,
         sharder: ModelSharder,
+        progress_reporter: ProgressReporter,
         *,
         supports_meta: bool = True,
         restrict: bool = True,
@@ -226,6 +229,7 @@ class DelegatingModelHandler(ModelHandler):
         self._asset_download_manager = asset_download_manager
         self._checkpoint_loader = checkpoint_loader
         self._sharder = sharder
+        self._progress_reporter = progress_reporter
         self._supports_meta = supports_meta
         self._restrict = restrict
         self._checkpoint_converter = checkpoint_converter
@@ -427,7 +431,7 @@ class DelegatingModelHandler(ModelHandler):
                 ) from ex
 
             try:
-                load_checkpoint(model, checkpoint)
+                load_checkpoint(model, checkpoint, self._progress_reporter)
             except (CheckpointError, KeyError, ValueError) as ex:
                 raise ModelLoadError(
                     name, f"The state of the '{name}' model cannot be loaded from the checkpoint. See the nested exception for details."  # fmt: skip

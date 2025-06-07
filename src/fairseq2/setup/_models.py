@@ -22,7 +22,7 @@ from fairseq2.models import (
     ModelFactory,
     ModelHandler,
     ShardSpecsProvider,
-    create_model_checkpoint_loader,
+    create_checkpoint_loader,
 )
 from fairseq2.models.jepa import (
     JEPA_MODEL_FAMILY,
@@ -306,7 +306,9 @@ class ModelRegistrar:
 
         asset_download_manager = self._context.asset_download_manager
 
-        checkpoint_loader = create_model_checkpoint_loader(file_system)
+        progress_reporter = self._context.progress_reporter
+
+        checkpoint_loader = create_checkpoint_loader(file_system)
 
         sharder = create_model_sharder()
 
@@ -343,6 +345,7 @@ class ModelRegistrar:
             asset_download_manager,
             checkpoint_loader,
             sharder,
+            progress_reporter,
             supports_meta=supports_meta,
             restrict=restrict,
             checkpoint_converter=checkpoint_converter,
