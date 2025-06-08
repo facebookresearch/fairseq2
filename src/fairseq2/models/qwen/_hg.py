@@ -6,11 +6,12 @@
 
 from __future__ import annotations
 
-from fairseq2.models.utils.checkpoint import convert_checkpoint
+from fairseq2.models.utils.checkpoint import convert_checkpoint, create_reverse_key_map
 
 # isort: split
 
 from fairseq2.models.qwen._config import QwenConfig
+from fairseq2.models.qwen._checkpoint import QWEN_KEY_MAP
 
 
 def export_qwen_checkpoint(
@@ -40,24 +41,8 @@ def _convert_config(config: QwenConfig) -> dict[str, object]:
 def _convert_checkpoint(
     checkpoint: dict[str, object], config: QwenConfig
 ) -> dict[str, object]:
-    key_map = {
-        # fmt: off
-        r"^decoder\.layers\.([0-9]+)\.self_attn\.q_proj\.":      r"model.layers.\1.self_attn.q_proj.",
-        r"^decoder\.layers\.([0-9]+)\.self_attn\.k_proj\.":      r"model.layers.\1.self_attn.k_proj.",
-        r"^decoder\.layers\.([0-9]+)\.self_attn\.v_proj\.":      r"model.layers.\1.self_attn.v_proj.",
-        r"^decoder\.layers\.([0-9]+)\.self_attn\.output_proj\.": r"model.layers.\1.self_attn.o_proj.",
-        r"^decoder\.layers\.([0-9]+)\.ffn_layer_norm\.":         r"model.layers.\1.post_attention_layernorm.",
-        r"^decoder\.layers\.([0-9]+)\.ffn\.gate_proj\.":         r"model.layers.\1.mlp.gate_proj.",
-        r"^decoder\.layers\.([0-9]+)\.ffn\.output_proj\.":       r"model.layers.\1.mlp.down_proj.",
-        r"^decoder\.layers\.([0-9]+)\.ffn\.inner_proj\.":        r"model.layers.\1.mlp.up_proj.",
-        r"^decoder\.layers\.([0-9]+)\.self_attn_layer_norm\.":   r"model.layers.\1.input_layernorm.",
-        r"^decoder\.layer_norm\.":                               r"model.norm.",
-        r"^decoder_frontend\.embed\.":                           r"model.embed_tokens.",
-        r"^final_proj\.":                                        r"lm_head.",
-        # fmt: on
-    }
 
-    checkpoint = convert_checkpoint(checkpoint, key_map)
+    checkpoint = convert_checkpoint(checkpoint, create_reverse_key_map(QWEN_KEY_MAP))
 
     if config.tied_embeddings:
         del checkpoint["lm_head.weight"]
