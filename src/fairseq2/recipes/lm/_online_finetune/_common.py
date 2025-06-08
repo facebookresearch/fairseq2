@@ -368,7 +368,15 @@ def generate_rewards(
     return rewards_per_rank[0]
 
 
-def generate_rewards_generative(prompts: List[List[int]], dp_gang, vllm_model):
+def generate_rewards_generative(
+    prompts: List[List[int]], 
+    dp_gang, 
+    vllm_model,
+    is_pointwise=True
+):
+    """
+    By default, any LLM-as-a-Judge will be used in a pointwise setup that generates a score
+    """
     prompts_to_generate = [None] * dp_gang.size
     if dp_gang.rank == 0:
         dp_gang.gather_object(prompts, prompts_to_generate, 0)
@@ -380,7 +388,7 @@ def generate_rewards_generative(prompts: List[List[int]], dp_gang, vllm_model):
         for rank_prompts in prompts_to_generate:
             flat_request_list.extend(rank_prompts)
 
-        rewards = vllm_model.reward_from_generative_model(flat_request_list)
+        rewards = vllm_model.reward_from_generative_model(flat_request_list, is_pointwise)
 
         rewards_to_scatter = []
         rewards_per_rank = [None]
@@ -555,6 +563,14 @@ def prepare_grpo_batch(
     rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (
         rewards.std(dim=1, keepdim=True) + 1e-6
     )  # small epsilon to compensate 0 std
+    
+    # if gangs.root.rank == 0:
+    #     import pdb;
+    #     pdb.set_trace()
+
+    # gangs.root.barrier() # this ensures that ranks will wait until all are caught up to this point
+        
+    # print(rewards_normalized)
 
     rewards_normalized = rewards_normalized[
         :, rollout_start_end[0] : rollout_start_end[1]

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Dict
 
@@ -300,13 +301,37 @@ class RemoteVllmModel:
         rewards = [o.outputs.data.item() for o in ray_outputs_flat]
         return rewards
 
-    def reward_from_generative_model(self, prompt_list):
+    def reward_from_generative_model(self, prompt_list, is_pointwise):
 
-        def extract_score(output):
+        def extract_score_single(output):
             matches = re.findall(
                 r"<score>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score>", output
             )
-            return float(matches[-1]) if matches else 0.0
+            return float(matches[-1].strip()) if matches else 0.0
+        
+        def extract_score_pair(output):
+            score_a_matches = re.findall(r"<score_A>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score_A>", output)
+            score_b_matches = re.findall(r"<score_B>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score_B>", output)
+
+            if score_a_matches and score_b_matches:
+                score_a = score_a_matches[-1]  # Last occurrence of score_A
+                score_b = score_b_matches[-1]  # Last occurrence of score_B
+                return (float(score_a.strip()), float(score_b.strip()))
+            else:
+                return (0.0, 0.0)
+        
+        def get_avg_score(scores, is_pointwise):
+            avg_score = 0.0 if is_pointwise else (0.0, 0.0)
+            for score in scores:
+                if is_pointwise:
+                    avg_score += score
+                else:
+                    avg_score = (avg_score[0]+score[0], avg_score[1]+score[1])
+            
+            if is_pointwise:
+                return round(avg_score/len(scores), 4)
+            else:
+                return (round(avg_score[0]/len(scores), 4), round(avg_score[1]/len(scores), 4))
         
         def get_len_norm_avg_score(scores, lengths):
             avg_score = 0.0
@@ -315,20 +340,32 @@ class RemoteVllmModel:
             
             return round(avg_score/len(scores), 4)
         
-        def get_avg_score(scores):
-            avg_score = 0.0
-            for score in scores:
-                avg_score += score
-            
-            return round(avg_score/len(scores), 4)
+        def extract_preference(output):
+            matches = list(
+                re.finditer(r"<answer>\s*\[\[(A|B)\]\]\s*</answer>", output.strip())
+            )
 
-        rewards = []
-        judgments = self.rollout_from_model(prompt_list=prompt_list, string_input=True)
+            return matches[-1].group(1) if matches else None
+        
+        def get_majority_vote(preferences):
+            count_A = preferences.count("A")
+            count_B = preferences.count("B")
+            if count_A > count_B:
+                return "A"
+            elif count_A < count_B:
+                return "B"
+            else:
+                return None
         
         rewards = []
-        for per_rollout_judgments in judgments:
-            per_rollout_scores = [extract_score(judgment.text) for judgment in per_rollout_judgments.outputs]
-            per_rollout_lengths = [len(judgment.token_ids) for judgment in per_rollout_judgments.outputs]
-            rewards.append(get_avg_score(per_rollout_scores))
-            
+        judgments = self.rollout_from_model(prompt_list=prompt_list, string_input=True)
+        if is_pointwise:
+            for per_rollout_judgments in judgments:
+                per_rollout_scores = [extract_score_single(judgment.text) for judgment in per_rollout_judgments.outputs]
+                rewards.append(get_avg_score(per_rollout_scores, is_pointwise))
+        else:
+            for per_rollout_judgments in judgments:
+                per_rollout_scores = [extract_score_pair(judgment.text) for judgment in per_rollout_judgments.outputs]
+                rewards.append(get_avg_score(per_rollout_scores, is_pointwise))
+                    
         return rewards

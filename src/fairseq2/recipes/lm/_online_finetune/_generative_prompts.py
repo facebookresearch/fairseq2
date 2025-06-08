@@ -43,3 +43,30 @@ Below are the user's question and the two responses:
 {response_B}
 [The End of Assistant B's Answer]
 """
+
+PAIRWISE_WITH_SCORES_PROMPT = """
+You are given a user question and two responses from two AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer.
+
+First, provide your reasoning within <think> and </think> tags. This should include your evaluation criteria for a high-quality response, a detailed comparison of the two responses, and when helpful, a reference answer as part of your evaluation. Be explicit in your thought process, referencing your criteria and explaining how each response aligns with or deviates from them.
+
+Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
+
+Finally, assign the assistant's response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision, with a higher score indicating a higher-quality response that better satisfies the criteria. Enclose the scores within the tags <score_A> </score_A>, and <score_B> </score_B>.
+
+Format your output like this:
+<think> your_thinking_process </think>
+<score_A> your_score_a </score_A> <score_B> your_score_b </score_B>
+
+Below are the user's question and the two responses:
+
+[User Question]
+{instruction}
+
+[The Start of Assistant A's Answer]
+{response_A}
+[The End of Assistant A's Answer]
+
+[The Start of Assistant B's Answer]
+{response_B}
+[The End of Assistant B's Answer]
+"""
