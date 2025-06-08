@@ -18,7 +18,6 @@ from torch import Tensor
 from typing_extensions import override
 
 try:
-    import safetensors  # type: ignore[import-not-found]
     from safetensors import torch as safetensors_torch
 except ImportError:
     _has_safetensors = False
