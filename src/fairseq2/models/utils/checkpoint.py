@@ -144,3 +144,32 @@ def convert_fairseq_checkpoint(
         pass
 
     return fs2_checkpoint
+
+
+def create_reverse_key_map(key_map):
+    """Create a reversed version of a regex-based key map."""
+    reversed_map = {}
+
+    for pattern, replacement in key_map.items():
+        # Strip ^ from pattern if present
+        pattern_without_anchor = pattern[1:] if pattern.startswith("^") else pattern
+
+        # Create new pattern from the original replacement
+        # 1. Escape dots
+        # 2. Replace backreferences with capture groups
+        new_pattern = "^" + replacement.replace(".", r"\.").replace(r"\1", r"([0-9]+)")
+
+        # Create new replacement from original pattern
+        # Instead of string manipulation, use a simpler approach
+        # The key insight: we need \1 as a literal in the output string
+        if "([0-9]+)" in pattern_without_anchor:
+            # This is the literal representation we want in the final string
+            new_replacement = pattern_without_anchor.replace(r"([0-9]+)", r"\1")
+            # Remove escaping from dots
+            new_replacement = new_replacement.replace(r"\.", ".")
+        else:
+            new_replacement = pattern_without_anchor.replace(r"\.", ".")
+
+        reversed_map[new_pattern] = new_replacement
+
+    return reversed_map
