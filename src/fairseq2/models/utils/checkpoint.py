@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping
+from typing import Dict
 
 import torch
 from torch import Tensor
@@ -146,7 +147,7 @@ def convert_fairseq_checkpoint(
     return fs2_checkpoint
 
 
-def create_reverse_key_map(key_map: dict) -> dict:
+def create_reverse_key_map(key_map: Dict) -> Dict:
     """Create a reversed version of a regex-based key map."""
     reversed_map = {}
 
