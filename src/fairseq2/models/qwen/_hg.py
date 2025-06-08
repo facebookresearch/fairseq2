@@ -10,8 +10,8 @@ from fairseq2.models.utils.checkpoint import convert_checkpoint, create_reverse_
 
 # isort: split
 
-from fairseq2.models.qwen._config import QwenConfig
 from fairseq2.models.qwen._checkpoint import QWEN_KEY_MAP
+from fairseq2.models.qwen._config import QwenConfig
 
 
 def export_qwen_checkpoint(
