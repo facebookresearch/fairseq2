@@ -168,7 +168,7 @@ class HuggingFaceSafetensorsLoader(SafetensorsLoader):
             with open(file, "rb") as f:
                 tensors = safetensors_torch.load(f.read())
             for key, tensor in tensors.items():
-                tensors[key] = tensor.to(str(device))
+                tensors[key] = tensor.to(device)
 
         except FileNotFoundError:
             raise
