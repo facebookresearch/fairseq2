@@ -18,7 +18,7 @@ from torch import Tensor
 from typing_extensions import override
 
 try:
-    import safetensors  # type: ignore[import-not-found]
+    from safetensors import torch as safetensors_torch  # type: ignore[import-not-found]
 except ImportError:
     _has_safetensors = False
 else:
@@ -165,9 +165,11 @@ class HuggingFaceSafetensorsLoader(SafetensorsLoader):
         tensors = {}
 
         try:
-            with safetensors.safe_open(file, framework="pt", device=str(device)) as f:
-                for key in f.keys():
-                    tensors[key] = f.get_tensor(key)
+            with open(file, "rb") as f:
+                tensors = safetensors_torch.load(f.read())
+            for key, tensor in tensors.items():
+                tensors[key] = tensor.to(device)
+
         except FileNotFoundError:
             raise
         except (RuntimeError, OSError, PickleError) as ex:

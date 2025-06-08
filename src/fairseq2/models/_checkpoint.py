@@ -354,7 +354,7 @@ class ShardedCheckpointLoader(CheckpointLoader):
                 for dp_file in dp_files:
                     try:
                         dp_checkpoint = self._tensor_loader.load(
-                            dp_file, restrict=restrict, mmap=True
+                            dp_file, restrict=restrict, map_location=CPU, mmap=True
                         )
                     except (FileNotFoundError, TensorLoadError) as ex:
                         raise CheckpointError(
@@ -564,7 +564,7 @@ class LLaMACheckpointLoader(CheckpointLoader):
         for tp_file in tp_files:
             try:
                 tp_checkpoint = self._tensor_loader.load(
-                    tp_file, restrict=restrict, mmap=True
+                    tp_file, restrict=restrict, map_location=CPU, mmap=True
                 )
             except (FileNotFoundError, TensorLoadError) as ex:
                 raise CheckpointError(
