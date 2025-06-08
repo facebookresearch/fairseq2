@@ -146,7 +146,7 @@ def convert_fairseq_checkpoint(
     return fs2_checkpoint
 
 
-def create_reverse_key_map(key_map):
+def create_reverse_key_map(key_map: dict) -> dict:
     """Create a reversed version of a regex-based key map."""
     reversed_map = {}
 
