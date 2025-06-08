@@ -24,18 +24,10 @@ def export_qwen_checkpoint(
     return hg_checkpoint, hg_config
 
 
-def _convert_config(config: QwenConfig) -> dict[str, object]:
-    return {
-        "hidden_size": config.model_dim,
-        "max_position_embeddings": config.max_seq_len,
-        "vocab_size": config.vocab_size,
-        "tie_word_embeddings": config.tied_embeddings,
-        "num_hidden_layers": config.num_layers,
-        "num_attention_heads": config.num_attn_heads,
-        "num_key_value_heads": config.num_key_value_heads,
-        "intermediate_size": config.ffn_inner_dim,
-        "rope_theta": config.rope_theta,
-    }
+def _convert_config(config: QwenConfig) -> object:
+    hg_config = config.to_hg_config()
+
+    return hg_config
 
 
 def _convert_checkpoint(
