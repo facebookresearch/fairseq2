@@ -198,7 +198,11 @@ class DelegatingModelHandler(ModelHandler):
     _compiler: ModelCompiler[Any] | None
     _ac_applier: ActivationCheckpointApplier[Any] | None
     _fsdp_applier: FSDPApplier[Any] | None
-    _hugging_face_exporter: HuggingFaceExporter[Any] | None
+    _hugging_face_exporter: (
+        HuggingFaceExporter[Any]
+        | Callable[[dict[str, object], object], tuple[dict[str, object], object]]
+        | None
+    )
 
     def __init__(
         self,
