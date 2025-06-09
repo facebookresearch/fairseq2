@@ -71,7 +71,7 @@ class QwenConfig:
 
     def to_hg_config(self) -> object:
         try:
-            import transformers.models as transformers_models
+            import transformers.models as transformers_models  # type: ignore[import-not-found]
         except ImportError:
             raise ImportError(
                 "transformers package is required to fetch Qwen Config for export purpose, run `pip install transformers`"
