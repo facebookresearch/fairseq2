@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeVar, final
+from typing import Any, Callable, TypeVar, final
 
 import torch
 from torch.nn import Module
@@ -300,7 +300,7 @@ class ModelRegistrar:
         compiler: ModelCompiler[ModelT] | None = None,
         ac_applier: ActivationCheckpointApplier[ModelT] | None = None,
         fsdp_applier: FSDPApplier[ModelT] | None = None,
-        hugging_face_exporter: HuggingFaceExporter[ModelConfigT] | None = None,
+        hugging_face_exporter: HuggingFaceExporter[ModelConfigT] | Callable | None = None,
     ) -> None:
         file_system = self._context.file_system
 
