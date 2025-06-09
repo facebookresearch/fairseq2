@@ -69,39 +69,6 @@ class QwenConfig:
     )
     """This architecture is passed to the huggingface config during export."""
 
-    def to_hg_config(self) -> object:
-        try:
-            import transformers.models as transformers_models  # type: ignore[import-not-found]
-        except ImportError:
-            raise ImportError(
-                "transformers package is required to fetch Qwen Config for export purpose, run `pip install transformers`"
-            )
-
-        config_cls = getattr(transformers_models, self.hg_config_class)
-
-        config_args_map = {
-            "model_dim": "hidden_size",
-            "max_seq_len": "max_position_embeddings",
-            "vocab_size": "vocab_size",
-            "tied_embeddings": "tie_word_embeddings",
-            "num_layers": "num_hidden_layers",
-            "num_attn_heads": "num_attention_heads",
-            "num_key_value_heads": "num_key_value_heads",
-            "head_dim": "head_dim",
-            "ffn_inner_dim": "intermediate_size",
-            "rope_theta": "rope_theta",
-            "hg_architectures": "architectures",
-        }
-
-        hg_config_kwargs = {}
-        for k, v in config_args_map.items():
-            config_value = getattr(self, k)
-            hg_config_kwargs[v] = config_value
-
-        hg_config = config_cls(**hg_config_kwargs)
-
-        return hg_config
-
 
 def register_qwen_configs(context: RuntimeContext) -> None:
     registry = context.get_config_registry(QwenConfig)

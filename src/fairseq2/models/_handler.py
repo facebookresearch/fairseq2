@@ -9,10 +9,15 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Protocol, TypeVar, final
+from typing import Any, Protocol, TypeVar, final
 
 from torch.nn import Module
 from typing_extensions import override
+
+try:
+    from transformers import PretrainedConfig
+except ImportError:
+    raise ImportError("transformers is required for model export config handling")
 
 from fairseq2.assets import (
     AssetCard,
@@ -179,7 +184,7 @@ class FSDPApplier(Protocol[ModelT_contra]):
 class HuggingFaceExporter(Protocol[ModelConfigT_contra]):
     def __call__(
         self, checkpoint: dict[str, object], config: ModelConfigT_contra
-    ) -> tuple[dict[str, object], dict[str, object]]: ...
+    ) -> tuple[dict[str, object], dict[str, object] | PretrainedConfig]: ...
 
 
 ModelT = TypeVar("ModelT", bound=Module)
@@ -205,11 +210,7 @@ class DelegatingModelHandler(ModelHandler):
     _compiler: ModelCompiler[Any] | None
     _ac_applier: ActivationCheckpointApplier[Any] | None
     _fsdp_applier: FSDPApplier[Any] | None
-    _hugging_face_exporter: (
-        HuggingFaceExporter[Any]
-        | Callable[[dict[str, object], object], tuple[dict[str, object], object]]
-        | None
-    )
+    _hugging_face_exporter: HuggingFaceExporter[Any] | None
 
     def __init__(
         self,
@@ -230,11 +231,7 @@ class DelegatingModelHandler(ModelHandler):
         compiler: ModelCompiler[ModelT] | None = None,
         ac_applier: ActivationCheckpointApplier[ModelT] | None = None,
         fsdp_applier: FSDPApplier[ModelT] | None = None,
-        hugging_face_exporter: (
-            HuggingFaceExporter[ModelConfigT]
-            | Callable[[dict[str, object], object], tuple[dict[str, object], object]]
-            | None
-        ) = None,
+        hugging_face_exporter: HuggingFaceExporter[ModelConfigT] | None = None,
     ) -> None:
         self._family = family
         self._kls = kls
