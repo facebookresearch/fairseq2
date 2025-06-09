@@ -302,7 +302,7 @@ class ModelRegistrar:
         fsdp_applier: FSDPApplier[ModelT] | None = None,
         hugging_face_exporter: (
             HuggingFaceExporter[ModelConfigT]
-            | Callable[[dict[str, object], object], tuple[object]]
+            | Callable[[dict[str, object], object], tuple[dict[str, object], object]]
             | None
         ) = None,
     ) -> None:
