@@ -12,6 +12,14 @@ from torch import Tensor
 
 from fairseq2.models.utils.checkpoint import convert_checkpoint
 
+try:
+    import transformers.models as transformers_models  # type: ignore[import-not-found]
+    from transformers import PretrainedConfig  # type: ignore[import-not-found]
+except ImportError:
+    raise ImportError(
+        "transformers package is required to fetch Qwen Config for export purpose, run `pip install transformers`"
+    )
+
 # isort: split
 
 from fairseq2.models.llama._config import LLaMAConfig
@@ -19,7 +27,7 @@ from fairseq2.models.llama._config import LLaMAConfig
 
 def export_llama_checkpoint(
     checkpoint: dict[str, object], config: LLaMAConfig
-) -> tuple[dict[str, object], dict[str, object]]:
+) -> tuple[dict[str, object], PretrainedConfig]:
     hg_config = _convert_config(config)
 
     hg_checkpoint = _convert_checkpoint(checkpoint, config)
@@ -27,7 +35,7 @@ def export_llama_checkpoint(
     return hg_checkpoint, hg_config
 
 
-def _convert_config(config: LLaMAConfig) -> dict[str, object]:
+def _convert_config(config: LLaMAConfig) -> PretrainedConfig:
     multiplier = config.ffn_inner_dim_multiplier
 
     multiple_of = config.ffn_inner_dim_multiple_of
@@ -51,13 +59,6 @@ def _convert_config(config: LLaMAConfig) -> dict[str, object]:
     else:
         bos_idx = 128_000
         eos_idx = 128_001
-
-    try:
-        import transformers.models as transformers_models  # type: ignore[import-not-found]
-    except ImportError:
-        raise ImportError(
-            "transformers package is required to fetch Qwen Config for export purpose, run `pip install transformers`"
-        )
 
     config_cls = getattr(transformers_models, config.hg_config_class)
 
