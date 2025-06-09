@@ -106,6 +106,10 @@ class SpeechReadOptions(DataReadOptions):
     npc: int = 10
     """The number of parallel calls to use in the pipeline."""
 
+    beta_corpus: float | None = None
+    beta_language: float | None = None
+    """Params specifying sampling temperature; between [0,1]."""
+
 
 class SpeechDataset(ABC):
     """Represents a speech dataset."""
