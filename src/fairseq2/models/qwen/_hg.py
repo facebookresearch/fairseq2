@@ -33,7 +33,6 @@ def export_qwen_checkpoint(
 
 
 def _convert_config(config: QwenConfig) -> PretrainedConfig:
-    
     config_cls = getattr(transformers_models, config.hg_config_class)
 
     config_mapped_to_hg = {
