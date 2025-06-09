@@ -8,6 +8,14 @@ from __future__ import annotations
 
 from fairseq2.models.utils.checkpoint import convert_checkpoint, create_reverse_key_map
 
+try:
+    import transformers.models as transformers_models  # type: ignore[import-not-found]
+    from transformers import PretrainedConfig
+except ImportError:
+    raise ImportError(
+        "transformers package is required to fetch Qwen Config for export purpose, run `pip install transformers`"
+    )
+
 # isort: split
 
 from fairseq2.models.qwen import QWEN_KEY_MAP
@@ -16,7 +24,7 @@ from fairseq2.models.qwen._config import QwenConfig
 
 def export_qwen_checkpoint(
     checkpoint: dict[str, object], config: QwenConfig
-) -> tuple[dict[str, object], object]:
+) -> tuple[dict[str, object], PretrainedConfig]:
     hg_config = _convert_config(config)
 
     hg_checkpoint = _convert_checkpoint(checkpoint, config)
@@ -24,13 +32,8 @@ def export_qwen_checkpoint(
     return hg_checkpoint, hg_config
 
 
-def _convert_config(config: QwenConfig) -> object:
-    try:
-        import transformers.models as transformers_models  # type: ignore[import-not-found]
-    except ImportError:
-        raise ImportError(
-            "transformers package is required to fetch Qwen Config for export purpose, run `pip install transformers`"
-        )
+def _convert_config(config: QwenConfig) -> PretrainedConfig:
+    
     config_cls = getattr(transformers_models, config.hg_config_class)
 
     config_mapped_to_hg = {
