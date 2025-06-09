@@ -300,7 +300,11 @@ class ModelRegistrar:
         compiler: ModelCompiler[ModelT] | None = None,
         ac_applier: ActivationCheckpointApplier[ModelT] | None = None,
         fsdp_applier: FSDPApplier[ModelT] | None = None,
-        hugging_face_exporter: HuggingFaceExporter[ModelConfigT] | Callable | None = None,
+        hugging_face_exporter: (
+            HuggingFaceExporter[ModelConfigT]
+            | Callable[[dict[str, object], object], tuple[object]]
+            | None
+        ) = None,
     ) -> None:
         file_system = self._context.file_system
 
