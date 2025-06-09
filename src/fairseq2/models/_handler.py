@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from functools import partial
 from pathlib import Path
-from typing import Any, Protocol, TypeVar, final
+from typing import Any, Callable, Protocol, TypeVar, final
 
 from torch.nn import Module
 from typing_extensions import override
@@ -230,7 +230,11 @@ class DelegatingModelHandler(ModelHandler):
         compiler: ModelCompiler[ModelT] | None = None,
         ac_applier: ActivationCheckpointApplier[ModelT] | None = None,
         fsdp_applier: FSDPApplier[ModelT] | None = None,
-        hugging_face_exporter: HuggingFaceExporter[ModelConfigT] | None = None,
+        hugging_face_exporter: (
+            HuggingFaceExporter[ModelConfigT]
+            | Callable[[dict[str, object], object], tuple[dict[str, object], object]]
+            | None
+        ) = None,
     ) -> None:
         self._family = family
         self._kls = kls
