@@ -8,14 +8,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
-from typing import Final, List, Tuple, final
-
-from typing_extensions import override
+from typing import Final, final, List, Tuple
 
 from fairseq2.data import CollateOptionsOverride, Collater, DataPipelineBuilder
 from fairseq2.data.parquet import NamedColumns
 from fairseq2.data.text.tokenizers import TextTokenizer
-from fairseq2.datasets import DataPipelineReader, DataReader, UnknownSplitError
+from fairseq2.datasets import DataPipelineReader, DataReader
 from fairseq2.datasets.asr import AsrDataset, GenericAsrDataset
 from fairseq2.datasets.speech import GenericSpeechDataset, SpeechReadOptions
 from fairseq2.datasets.speech_parquet import (
@@ -25,6 +23,8 @@ from fairseq2.datasets.speech_parquet import (
 from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.models.seq2seq import Seq2SeqBatch
+
+from typing_extensions import override
 
 PARQUET_ASR_DATASET_FAMILY: Final = "generic_parquet_asr"
 
@@ -52,8 +52,8 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
     ) -> Tuple[SpeechReadOptions, DataPipelineBuilder]:
         assert min_audio_len <= max_audio_len, "min_audio_len must be <= max_audio_len"
 
-        if split not in self._splits:
-            raise UnknownSplitError(self._name, split, self._splits)
+        # if split not in self._splits:
+        #     raise UnknownSplitError(self._name, split, self._splits)
 
         if options is None:
             options = SpeechReadOptions()
