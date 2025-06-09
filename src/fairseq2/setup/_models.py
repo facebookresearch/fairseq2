@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, TypeVar, final
+from typing import Any, TypeVar, final
 
 import torch
 from torch.nn import Module
