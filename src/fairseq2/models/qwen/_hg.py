@@ -16,7 +16,7 @@ from fairseq2.models.qwen._config import QwenConfig
 
 def export_qwen_checkpoint(
     checkpoint: dict[str, object], config: QwenConfig
-) -> tuple[dict[str, object], dict[str, object]]:
+) -> tuple[dict[str, object], object]:
     hg_config = _convert_config(config)
 
     hg_checkpoint = _convert_checkpoint(checkpoint, config)
