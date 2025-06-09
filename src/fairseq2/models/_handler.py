@@ -15,7 +15,7 @@ from torch.nn import Module
 from typing_extensions import override
 
 try:
-    from transformers import PretrainedConfig
+    from transformers import PretrainedConfig  # type: ignore[import-not-found]
 except ImportError:
     raise ImportError("transformers is required for model export config handling")
 
