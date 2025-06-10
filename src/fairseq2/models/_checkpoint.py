@@ -42,6 +42,7 @@ class CheckpointLoader(ABC):
         path: Path,
         gangs: Gangs,
         *,
+        mmap: bool = False,
         restrict: bool = True,
         processor: CheckpointProcessor | None = None,
         shard_specs: Mapping[str, ShardSpec] | None = None,
@@ -64,6 +65,7 @@ class DelegatingCheckpointLoader(CheckpointLoader):
         path: Path,
         gangs: Gangs,
         *,
+        mmap: bool = False,
         restrict: bool = True,
         processor: CheckpointProcessor | None = None,
         shard_specs: Mapping[str, ShardSpec] | None = None,
@@ -73,6 +75,7 @@ class DelegatingCheckpointLoader(CheckpointLoader):
                 return loader.load(
                     path,
                     gangs,
+                    mmap=mmap,
                     restrict=restrict,
                     processor=processor,
                     shard_specs=shard_specs,
@@ -107,13 +110,14 @@ class BasicCheckpointLoader(CheckpointLoader):
         path: Path,
         gangs: Gangs,
         *,
+        mmap: bool = False,
         restrict: bool = True,
         processor: CheckpointProcessor | None = None,
         shard_specs: Mapping[str, ShardSpec] | None = None,
     ) -> Iterable[tuple[str, Tensor]]:
         try:
             checkpoint = self._tensor_loader.load(
-                path, map_location=CPU, restrict=restrict, mmap=True
+                path, map_location=CPU, restrict=restrict, mmap=mmap
             )
         except (FileNotFoundError, TensorLoadError) as ex:
             raise CheckpointError(
@@ -185,6 +189,7 @@ class SafetensorsCheckpointLoader(CheckpointLoader):
         path: Path,
         gangs: Gangs,
         *,
+        mmap: bool = False,
         restrict: bool = True,
         processor: CheckpointProcessor | None = None,
         shard_specs: Mapping[str, ShardSpec] | None = None,
@@ -211,7 +216,7 @@ class SafetensorsCheckpointLoader(CheckpointLoader):
 
         for file in files:
             try:
-                st_shard = self._safetensors_loader.load(file, device=CPU)
+                st_shard = self._safetensors_loader.load(file, device=CPU, mmap=mmap)
             except (FileNotFoundError, TensorLoadError) as ex:
                 raise CheckpointError(
                     f"The '{file}' Safetensors file cannot be loaded. See the nested exception for details."
@@ -306,6 +311,7 @@ class ShardedCheckpointLoader(CheckpointLoader):
         path: Path,
         gangs: Gangs,
         *,
+        mmap: bool = False,
         restrict: bool = True,
         processor: CheckpointProcessor | None = None,
         shard_specs: Mapping[str, ShardSpec] | None = None,
@@ -354,7 +360,7 @@ class ShardedCheckpointLoader(CheckpointLoader):
                 for dp_file in dp_files:
                     try:
                         dp_checkpoint = self._tensor_loader.load(
-                            dp_file, restrict=restrict, map_location=CPU, mmap=True
+                            dp_file, restrict=restrict, map_location=CPU, mmap=mmap
                         )
                     except (FileNotFoundError, TensorLoadError) as ex:
                         raise CheckpointError(
@@ -521,6 +527,7 @@ class LLaMACheckpointLoader(CheckpointLoader):
         path: Path,
         gangs: Gangs,
         *,
+        mmap: bool = False,
         restrict: bool = True,
         processor: CheckpointProcessor | None = None,
         shard_specs: Mapping[str, ShardSpec] | None = None,
@@ -564,7 +571,7 @@ class LLaMACheckpointLoader(CheckpointLoader):
         for tp_file in tp_files:
             try:
                 tp_checkpoint = self._tensor_loader.load(
-                    tp_file, restrict=restrict, map_location=CPU, mmap=True
+                    tp_file, restrict=restrict, map_location=CPU, mmap=mmap
                 )
             except (FileNotFoundError, TensorLoadError) as ex:
                 raise CheckpointError(

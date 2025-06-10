@@ -63,7 +63,13 @@ class ModelHandler(ABC):
 
     @abstractmethod
     def load(
-        self, card: AssetCard, gangs: Gangs, dtype: DataType, config: object
+        self,
+        card: AssetCard,
+        gangs: Gangs,
+        dtype: DataType,
+        config: object,
+        *,
+        mmap: bool = False,
     ) -> Module: ...
 
     @abstractmethod
@@ -75,6 +81,7 @@ class ModelHandler(ABC):
         gangs: Gangs,
         dtype: DataType,
         *,
+        mmap: bool = False,
         restrict: bool | None = None,
     ) -> Module: ...
 
@@ -327,7 +334,13 @@ class DelegatingModelHandler(ModelHandler):
 
     @override
     def load(
-        self, card: AssetCard, gangs: Gangs, dtype: DataType, config: object
+        self,
+        card: AssetCard,
+        gangs: Gangs,
+        dtype: DataType,
+        config: object,
+        *,
+        mmap: bool = False,
     ) -> Module:
         name = card.name
 
@@ -361,7 +374,7 @@ class DelegatingModelHandler(ModelHandler):
 
         try:
             return self.load_from_path(
-                path, name, config, gangs, dtype, restrict=restrict
+                path, name, config, gangs, dtype, mmap=mmap, restrict=restrict
             )
         except FileNotFoundError:
             raise ModelLoadError(
@@ -384,6 +397,7 @@ class DelegatingModelHandler(ModelHandler):
         gangs: Gangs,
         dtype: DataType,
         *,
+        mmap: bool = False,
         restrict: bool | None = None,
     ) -> Module:
         if gangs.root.device.type == "meta":
@@ -421,6 +435,7 @@ class DelegatingModelHandler(ModelHandler):
                 checkpoint = self._checkpoint_loader.load(
                     path,
                     gangs,
+                    mmap=mmap,
                     restrict=restrict,
                     processor=checkpoint_processor,
                     shard_specs=shard_specs,
