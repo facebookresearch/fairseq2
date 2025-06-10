@@ -47,6 +47,8 @@ class ModelSection:
 
     path: Path | None = None
 
+    mmap: bool = False
+
     compile: bool = False
 
     compile_options: CompileOptionsSection = field(
@@ -71,6 +73,8 @@ class ModelSection:
 @dataclass
 class ReferenceModelSection:
     name: str
+
+    mmap: bool = False
 
     compile: bool = False
 

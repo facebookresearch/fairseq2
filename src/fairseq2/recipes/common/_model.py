@@ -245,7 +245,9 @@ class _CardBasedModelLoader(_ModelLoader):
         gangs.root.barrier()
         try:
             if gangs.dp.rank == 0 and not self._has_checkpoint:
-                module = handler.load(card, gangs, dtype, model_config)
+                module = handler.load(
+                    card, gangs, dtype, model_config, mmap=model_section.mmap
+                )
             else:
                 module = handler.create(
                     model_config, gangs, dtype, meta=handler.supports_meta
@@ -352,7 +354,12 @@ class _PathBasedModelLoader(_ModelLoader):
             if gangs.dp.rank == 0 and not self._has_checkpoint:
                 try:
                     module = handler.load_from_path(
-                        model_path, model_name, model_config, gangs, dtype
+                        model_path,
+                        model_name,
+                        model_config,
+                        gangs,
+                        dtype,
+                        mmap=model_section.mmap,
                     )
                 except FileNotFoundError:
                     raise ModelPathNotFoundError(model_name, model_path) from None
