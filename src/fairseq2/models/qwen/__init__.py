@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from fairseq2.models.qwen._checkpoint import QWEN_KEY_MAP as QWEN_KEY_MAP
 from fairseq2.models.qwen._checkpoint import (
     convert_qwen_checkpoint as convert_qwen_checkpoint,
 )
@@ -15,6 +14,6 @@ from fairseq2.models.qwen._config import QwenConfig as QwenConfig
 from fairseq2.models.qwen._config import register_qwen_configs as register_qwen_configs
 from fairseq2.models.qwen._factory import QwenFactory as QwenFactory
 from fairseq2.models.qwen._factory import create_qwen_model as create_qwen_model
-from fairseq2.models.qwen._hg import export_qwen_checkpoint as export_qwen_checkpoint
+from fairseq2.models.qwen._hg import save_as_hg_qwen as save_as_hg_qwen
 from fairseq2.models.qwen._hub import get_qwen_model_hub as get_qwen_model_hub
 from fairseq2.models.qwen._shard import get_qwen_shard_specs as get_qwen_shard_specs

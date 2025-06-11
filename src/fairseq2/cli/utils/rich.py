@@ -78,9 +78,11 @@ class RichProgressReporter(ProgressReporter):
 
     @override
     def create_task(
-        self, name: str, total: int | None, completed: int = 0
+        self, name: str, total: int | None, completed: int = 0, *, start: bool = True
     ) -> ProgressTask:
-        task_id = self._progress.add_task(name, total=total, completed=completed)
+        task_id = self._progress.add_task(
+            name, start=start, total=total, completed=completed
+        )
 
         return RichProgressTask(self._progress, task_id)
 
@@ -105,6 +107,10 @@ class RichProgressTask(ProgressTask):
         self._task_id = task_id
 
     @override
+    def start(self) -> None:
+        self._progress.start_task(self._task_id)
+
+    @override
     def step(self, value: int = 1) -> None:
         self._progress.update(self._task_id, advance=value)
 
@@ -117,6 +123,9 @@ class BasicMofNCompleteColumn(ProgressColumn):
     @override
     def render(self, task: Task) -> Text:
         if task.total is None:
+            if not task.started:
+                return Text()
+
             s = f"{task.completed:5d}"
         else:
             s = f"{task.completed:5d}/{task.total}"

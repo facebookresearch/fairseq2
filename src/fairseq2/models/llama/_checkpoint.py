@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import cast
+from typing import Final, cast
 
 from torch import Tensor
 
@@ -15,6 +15,23 @@ from fairseq2.models.utils.checkpoint import convert_checkpoint
 # isort: split
 
 from fairseq2.models.llama._config import LLaMAConfig
+
+_LLAMA_HG_KEY_MAP: Final = {
+    # fmt: off
+    r"^model\.layers\.([0-9]+)\.self_attn\.q_proj\.":        r"decoder.layers.\1.self_attn.q_proj.",
+    r"^model\.layers\.([0-9]+)\.self_attn\.k_proj\.":        r"decoder.layers.\1.self_attn.k_proj.",
+    r"^model\.layers\.([0-9]+)\.self_attn\.v_proj\.":        r"decoder.layers.\1.self_attn.v_proj.",
+    r"^model\.layers\.([0-9]+)\.self_attn\.o_proj\.":        r"decoder.layers.\1.self_attn.output_proj.",
+    r"^model\.layers\.([0-9]+)\.post_attention_layernorm\.": r"decoder.layers.\1.ffn_layer_norm.",
+    r"^model\.layers\.([0-9]+)\.mlp\.gate_proj\.":           r"decoder.layers.\1.ffn.gate_proj.",
+    r"^model\.layers\.([0-9]+)\.mlp\.down_proj\.":           r"decoder.layers.\1.ffn.output_proj.",
+    r"^model\.layers\.([0-9]+)\.mlp\.up_proj\.":             r"decoder.layers.\1.ffn.inner_proj.",
+    r"^model\.layers\.([0-9]+)\.input_layernorm\.":          r"decoder.layers.\1.self_attn_layer_norm.",
+    r"^model\.norm\.":                                       r"decoder.layer_norm.",
+    r"^model\.embed_tokens\.":                               r"decoder_frontend.embed.",
+    r"^lm_head\.":                                           r"final_proj.",
+    # fmt: on
+}
 
 
 def convert_llama_checkpoint(
@@ -51,24 +68,7 @@ def convert_llama_checkpoint(
             checkpoint[q_key] = q_proj
             checkpoint[k_key] = k_proj
 
-        key_map = {
-            # fmt: off
-            r"^model\.layers\.([0-9]+)\.self_attn\.q_proj\.":        r"decoder.layers.\1.self_attn.q_proj.",
-            r"^model\.layers\.([0-9]+)\.self_attn\.k_proj\.":        r"decoder.layers.\1.self_attn.k_proj.",
-            r"^model\.layers\.([0-9]+)\.self_attn\.v_proj\.":        r"decoder.layers.\1.self_attn.v_proj.",
-            r"^model\.layers\.([0-9]+)\.self_attn\.o_proj\.":        r"decoder.layers.\1.self_attn.output_proj.",
-            r"^model\.layers\.([0-9]+)\.post_attention_layernorm\.": r"decoder.layers.\1.ffn_layer_norm.",
-            r"^model\.layers\.([0-9]+)\.mlp\.gate_proj\.":           r"decoder.layers.\1.ffn.gate_proj.",
-            r"^model\.layers\.([0-9]+)\.mlp\.down_proj\.":           r"decoder.layers.\1.ffn.output_proj.",
-            r"^model\.layers\.([0-9]+)\.mlp\.up_proj\.":             r"decoder.layers.\1.ffn.inner_proj.",
-            r"^model\.layers\.([0-9]+)\.input_layernorm\.":          r"decoder.layers.\1.self_attn_layer_norm.",
-            r"^model\.norm\.":                                       r"decoder.layer_norm.",
-            r"^model\.embed_tokens\.":                               r"decoder_frontend.embed.",
-            r"^lm_head\.":                                           r"final_proj.",
-            # fmt: on
-        }
-
-        checkpoint = convert_checkpoint(checkpoint, key_map)
+        checkpoint = convert_checkpoint(checkpoint, _LLAMA_HG_KEY_MAP)
     elif "tok_embeddings.weight" in checkpoint:  # reference
         key_map = {
             # fmt: off

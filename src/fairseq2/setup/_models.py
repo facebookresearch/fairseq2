@@ -17,7 +17,7 @@ from fairseq2.models import (
     CheckpointConverter,
     DelegatingModelHandler,
     FSDPApplier,
-    HuggingFaceExporter,
+    HuggingFaceSaver,
     ModelCompiler,
     ModelFactory,
     ModelHandler,
@@ -44,9 +44,9 @@ from fairseq2.models.llama import (
     LLaMAConfig,
     convert_llama_checkpoint,
     create_llama_model,
-    export_llama_checkpoint,
     get_llama_shard_specs,
     register_llama_configs,
+    save_as_hg_llama,
 )
 from fairseq2.models.mistral import (
     MISTRAL_MODEL_FAMILY,
@@ -61,9 +61,9 @@ from fairseq2.models.qwen import (
     QwenConfig,
     convert_qwen_checkpoint,
     create_qwen_model,
-    export_qwen_checkpoint,
     get_qwen_shard_specs,
     register_qwen_configs,
+    save_as_hg_qwen,
 )
 from fairseq2.models.s2t_transformer import (
     S2T_TRANSFORMER_MODEL_FAMILY,
@@ -156,7 +156,7 @@ def _register_model_families(context: RuntimeContext) -> None:
         checkpoint_converter=convert_llama_checkpoint,
         shard_specs=get_llama_shard_specs,
         compiler=compile_transformer_lm,
-        hugging_face_exporter=export_llama_checkpoint,
+        hugging_face_saver=save_as_hg_llama,
     )
 
     register_llama_configs(context)
@@ -191,7 +191,7 @@ def _register_model_families(context: RuntimeContext) -> None:
         checkpoint_converter=convert_qwen_checkpoint,
         shard_specs=get_qwen_shard_specs,
         compiler=compile_transformer_lm,
-        hugging_face_exporter=export_qwen_checkpoint,
+        hugging_face_saver=save_as_hg_qwen,
     )
 
     register_qwen_configs(context)
@@ -300,7 +300,7 @@ class ModelRegistrar:
         compiler: ModelCompiler[ModelT] | None = None,
         ac_applier: ActivationCheckpointApplier[ModelT] | None = None,
         fsdp_applier: FSDPApplier[ModelT] | None = None,
-        hugging_face_exporter: HuggingFaceExporter[ModelConfigT] | None = None,
+        hugging_face_saver: HuggingFaceSaver[ModelConfigT] | None = None,
     ) -> None:
         file_system = self._context.file_system
 
@@ -353,7 +353,7 @@ class ModelRegistrar:
             compiler=compiler,
             ac_applier=ac_applier,
             fsdp_applier=fsdp_applier,
-            hugging_face_exporter=hugging_face_exporter,
+            hugging_face_saver=hugging_face_saver,
         )
 
         self._registry.register(handler.family, handler)
