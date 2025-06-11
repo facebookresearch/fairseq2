@@ -14,14 +14,6 @@ from torch import Tensor
 from fairseq2.models.utils.checkpoint import convert_checkpoint, create_reverse_key_map
 from fairseq2.models.utils.hg import save_hg_checkpoint
 
-try:
-    import transformers.models as transformers_models  # type: ignore[import-not-found]
-    from transformers import PretrainedConfig  # type: ignore[import-not-found]
-except ImportError:
-    raise ImportError(
-        "transformers package is required to fetch Qwen Config for export purpose, run `pip install transformers`"
-    )
-
 # isort: split
 
 from fairseq2.models.llama._checkpoint import _LLAMA_HG_KEY_MAP

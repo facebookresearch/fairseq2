@@ -33,6 +33,7 @@ def save_as_hg_qwen(
         "intermediate_size": config.ffn_inner_dim,
         "rope_theta": config.rope_theta,
     }
+
     if config.hg_architecture == "Qwen3ForCausalLM":
         hg_config["head_dim"] = config.head_dim
 

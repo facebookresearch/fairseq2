@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Final, List, Literal
+from typing import Final, Literal
 
 from fairseq2.context import RuntimeContext
 

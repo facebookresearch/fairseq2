@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping
-from typing import Dict
 
 import torch
 from torch import Tensor
