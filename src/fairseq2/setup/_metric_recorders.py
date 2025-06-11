@@ -8,17 +8,17 @@ from __future__ import annotations
 
 from fairseq2.context import RuntimeContext
 from fairseq2.logging import log
-from fairseq2.metrics import MetricDescriptor
 from fairseq2.metrics.recorders import (
     JsonlMetricRecorderHandler,
     LogMetricRecorderHandler,
+    MetricDescriptor,
     MetricRecorderHandler,
     TensorBoardRecorderHandler,
     WandbRecorderHandler,
 )
 
 
-def register_metric_recorders(context: RuntimeContext) -> None:
+def _register_metric_recorders(context: RuntimeContext) -> None:
     registry = context.get_registry(MetricRecorderHandler)
 
     metric_descriptors = context.get_registry(MetricDescriptor)
@@ -43,6 +43,6 @@ def register_metric_recorders(context: RuntimeContext) -> None:
     registry.register(handler.name, handler)
 
     # Weights & Biases
-    handler = WandbRecorderHandler(metric_descriptors)
+    handler = WandbRecorderHandler(file_system, metric_descriptors)
 
     registry.register(handler.name, handler)

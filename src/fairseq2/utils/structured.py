@@ -25,7 +25,9 @@ from typing import (
 
 import torch
 
-from fairseq2.typing import EMPTY, DataClass, DataType, Device
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
+from fairseq2.typing import EMPTY, DataClass
 
 
 class _Structurer(Protocol):
@@ -622,6 +624,9 @@ def unstructure(obj: object) -> object:
 
 
 def is_unstructured(obj: object) -> bool:
+    if obj is None:
+        return True
+
     if isinstance(obj, dict):
         for k, v in obj.items():
             if not is_unstructured(k):
@@ -639,4 +644,4 @@ def is_unstructured(obj: object) -> bool:
 
         return True
 
-    return isinstance(obj, NoneType | bool | int | float | str)
+    return isinstance(obj, (bool, int, float, str))

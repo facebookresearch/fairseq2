@@ -34,7 +34,9 @@ def test_load_dense_distill_600m() -> None:
 
     tokenizer = tokenizer_hub.load(model_name)
 
-    generator = BeamSearchSeq2SeqGenerator(model, echo_prompt=True, max_seq_len=128)
+    generator = BeamSearchSeq2SeqGenerator(
+        model, tokenizer.vocab_info, echo_prompt=True, max_seq_len=128
+    )
 
     translator = TextTranslator(
         generator, tokenizer, source_lang="eng_Latn", target_lang="deu_Latn"
@@ -46,7 +48,7 @@ def test_load_dense_distill_600m() -> None:
 
     # testing that truncation prevents length-related errors
     with pytest.raises(
-        ValueError, match="The input sequence length must be less than or equal"
+        ValueError, match="The lengths of all sequences in `seqs` must be less than"
     ):
         text, _ = translator(ENG_SENTENCE * 20)
 

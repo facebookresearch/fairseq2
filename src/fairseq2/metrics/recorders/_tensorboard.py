@@ -13,24 +13,27 @@ from typing import Final, final
 
 from typing_extensions import override
 
+try:
+    from torch.utils.tensorboard import SummaryWriter  # type: ignore[attr-defined]
+except ImportError:
+    _has_tensorboard = False
+else:
+    _has_tensorboard = True
+
 from fairseq2.logging import log
-from fairseq2.metrics import MetricDescriptor
+from fairseq2.registry import Provider
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
+
+# isort: split
+
+from fairseq2.metrics.recorders._descriptor import MetricDescriptor
 from fairseq2.metrics.recorders._handler import MetricRecorderHandler
 from fairseq2.metrics.recorders._recorder import (
     MetricRecorder,
     MetricRecordError,
     NoopMetricRecorder,
 )
-from fairseq2.registry import Provider
-from fairseq2.utils.structured import structure
-from fairseq2.utils.validation import validate
-
-try:
-    from torch.utils.tensorboard import SummaryWriter  # type: ignore[attr-defined]
-except ImportError:
-    has_tensorboard = False
-else:
-    has_tensorboard = True
 
 
 @final
@@ -48,7 +51,7 @@ class TensorBoardRecorder(MetricRecorder):
         :param output_dir:
             The base directory under which to store the TensorBoard files.
         """
-        if not has_tensorboard:
+        if not _has_tensorboard:
             log.warning("tensorboard not found. Please install it with `pip install tensorboard`.")  # fmt: skip
 
         self._output_dir = output_dir
@@ -57,15 +60,10 @@ class TensorBoardRecorder(MetricRecorder):
         self._writers = {}
 
     @override
-    def record_metrics(
-        self,
-        run: str,
-        values: Mapping[str, object],
-        step_nr: int | None = None,
-        *,
-        flush: bool = True,
+    def record_metric_values(
+        self, section: str, values: Mapping[str, object], step_nr: int | None = None
     ) -> None:
-        writer = self._get_writer(run)
+        writer = self._get_writer(section)
         if writer is None:
             return
 
@@ -83,22 +81,21 @@ class TensorBoardRecorder(MetricRecorder):
 
                 writer.add_scalar(display_name, value, step_nr)
 
-            if flush:
-                writer.flush()
+            writer.flush()
         except RuntimeError as ex:
             raise MetricRecordError(
-                f"The metric values of the '{run}' cannot be saved to TensorBoard. See the nested exception for details."
+                f"The metric values of the '{section}' section cannot be saved to TensorBoard. See the nested exception for details."
             ) from ex
 
-    def _get_writer(self, run: str) -> SummaryWriter | None:
-        if not has_tensorboard:
+    def _get_writer(self, section: str) -> SummaryWriter | None:
+        if not _has_tensorboard:
             return None
 
-        writer = self._writers.get(run)
+        writer = self._writers.get(section)
         if writer is None:
-            writer = SummaryWriter(self._output_dir.joinpath(run))
+            writer = SummaryWriter(self._output_dir.joinpath(section))
 
-            self._writers[run] = writer
+            self._writers[section] = writer
 
         return writer
 
@@ -126,7 +123,9 @@ class TensorBoardRecorderHandler(MetricRecorderHandler):
         self._metric_descriptors = metric_descriptors
 
     @override
-    def create(self, output_dir: Path, config: object) -> MetricRecorder:
+    def create(
+        self, output_dir: Path, config: object, hyper_params: object
+    ) -> MetricRecorder:
         config = structure(config, TensorBoardRecorderConfig)
 
         validate(config)

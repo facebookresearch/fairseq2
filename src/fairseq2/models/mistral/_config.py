@@ -6,11 +6,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Final
 
 from fairseq2.context import RuntimeContext
-from fairseq2.data import VocabularyInfo
 
 MISTRAL_MODEL_FAMILY: Final = "mistral"
 
@@ -29,12 +28,11 @@ class MistralConfig:
     max_seq_len: int = 8192
     """The maximum sequence length."""
 
-    vocab_info: VocabularyInfo = field(
-        default_factory=lambda: VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        )
-    )
-    """The vocabulary information."""
+    vocab_size: int = 32_000
+    """The size of the vocabulary."""
+
+    pad_idx: int | None = None
+    """The index of the PAD symbol in the vocabulary."""
 
     attn_window_len: int = 4096
     """The local attention window length."""
@@ -51,7 +49,7 @@ class MistralConfig:
     ffn_inner_dim: int = 14336
     """The dimensionality of inner projection layers in feed-forward networks."""
 
-    dropout_p: float = 0.1
+    dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""
 
 

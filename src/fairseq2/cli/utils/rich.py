@@ -23,9 +23,7 @@ from rich.progress import (
 from rich.text import Text
 from typing_extensions import Self, override
 
-from fairseq2.context import RuntimeContext
-from fairseq2.recipes.utils.progress import ProgressReporter, ProgressTask
-from fairseq2.utils.env import get_rank
+from fairseq2.utils.progress import ProgressReporter, ProgressTask
 
 _console: Console | None = None
 
@@ -107,7 +105,7 @@ class RichProgressTask(ProgressTask):
         self._task_id = task_id
 
     @override
-    def step(self, value: int) -> None:
+    def step(self, value: int = 1) -> None:
         self._progress.update(self._task_id, advance=value)
 
     @override
@@ -126,9 +124,7 @@ class BasicMofNCompleteColumn(ProgressColumn):
         return Text(s, style="progress.download")
 
 
-def create_rich_progress_reporter(context: RuntimeContext) -> ProgressReporter:
+def create_rich_progress_reporter(rank: int) -> ProgressReporter:
     console = get_error_console()
-
-    rank = get_rank(context.env)
 
     return RichProgressReporter(console, rank)

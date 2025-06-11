@@ -15,17 +15,18 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
-from fairseq2.datasets import LengthBatching, SyncMode
+from fairseq2.datasets import LengthBatching, SequenceBatch, SyncMode
 from fairseq2.datasets.speech import (
     GENERIC_SPEECH_DATASET_FAMILY,
     SpeechDataset,
     SpeechReadOptions,
 )
-from fairseq2.gang import Gangs
-from fairseq2.models.sequence import SequenceBatch
+from fairseq2.device import CPU
+from fairseq2.metrics import MetricBag
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import POLYNOMIAL_DECAY_LR, PolynomialDecayLRConfig
+from fairseq2.recipes import Model, Trainer, TrainUnit
 from fairseq2.recipes.common import (
     create_checkpoint_manager,
     create_lr_scheduler,
@@ -33,8 +34,9 @@ from fairseq2.recipes.common import (
     create_trainer,
     load_dataset,
     register_extra_asset_paths,
-    setup_gangs,
     setup_model,
+    setup_torch,
+    setup_training_gangs,
 )
 from fairseq2.recipes.config import (
     CommonSection,
@@ -46,18 +48,15 @@ from fairseq2.recipes.config import (
     RegimeSection,
     TrainerSection,
 )
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import Trainer, TrainUnit
-from fairseq2.recipes.wav2vec2._common import (
-    Wav2Vec2Criterion,
-    Wav2Vec2LossSection,
-    Wav2Vec2MetricBag,
-)
-from fairseq2.recipes.wav2vec2._eval import Wav2Vec2EvalUnit
-from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+
+# isort: split
+
+from fairseq2.recipes.wav2vec2._config import Wav2Vec2LossSection
+from fairseq2.recipes.wav2vec2._criterion import Wav2Vec2Criterion
+from fairseq2.recipes.wav2vec2._eval import Wav2Vec2EvalUnit
 
 
 @dataclass(kw_only=True)
@@ -160,7 +159,9 @@ def register_wav2vec2_train_configs(context: RuntimeContext) -> None:
     def base_960h() -> Wav2Vec2TrainConfig:
         config = Wav2Vec2TrainConfig()
 
-        config.model.config = {"encoder_config": {"first_pass_dropout_p": 0.1}}
+        config.model.config_overrides = {
+            "encoder_config": {"first_pass_dropout_p": 0.1}
+        }
 
         return config
 
@@ -172,7 +173,9 @@ def register_wav2vec2_train_configs(context: RuntimeContext) -> None:
         assert isinstance(config.lr_scheduler.config, PolynomialDecayLRConfig)
 
         config.model.arch = "large"
-        config.model.config = {"encoder_config": {"first_pass_dropout_p": 0.1}}
+        config.model.config_overrides = {
+            "encoder_config": {"first_pass_dropout_p": 0.1}
+        }
         config.dataset.max_audio_len = 320_000
         config.dataset.max_num_elements = 1_200_000
         config.optimizer.config.lr = 3e-04
@@ -185,16 +188,16 @@ def register_wav2vec2_train_configs(context: RuntimeContext) -> None:
 
 def load_wav2vec2_trainer(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Trainer[SequenceBatch]:
+) -> Trainer:
     config = structure(config, Wav2Vec2TrainConfig)
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common.assets)
 
-    torch.set_float32_matmul_precision("high")
+    setup_torch(context, config.common.torch, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_training_gangs(context, config.gang, config.trainer)
 
     checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
@@ -205,21 +208,29 @@ def load_wav2vec2_trainer(
     seed += 1
 
     model = setup_model(
-        Wav2Vec2Model, context, config, output_dir, gangs, checkpoint_manager
+        Wav2Vec2Model,
+        context,
+        config.model,
+        config.trainer,
+        output_dir,
+        gangs,
+        checkpoint_manager,
     )
 
-    optimizer = create_optimizer(context, config, model)
+    optimizer = create_optimizer(context, config.optimizer, model)
 
-    lr_scheduler = create_lr_scheduler(context, config, optimizer)
+    lr_scheduler = create_lr_scheduler(
+        context, config.lr_scheduler, config.regime, optimizer
+    )
 
-    dataset = load_dataset(SpeechDataset, context, config, gangs)
+    dataset = load_dataset(SpeechDataset, context, config.dataset, gangs)
 
     # Initialize the train unit.
     criterion = Wav2Vec2Criterion(
-        model, config.loss.diversity_loss_weight, config.loss.feature_penalty_weight
+        model.module, config.loss.diversity_weight, config.loss.features_penalty_weight
     )
 
-    unit = Wav2Vec2TrainUnit(criterion, gangs)
+    unit = Wav2Vec2TrainUnit(model, criterion)
 
     batching = LengthBatching(config.dataset.max_num_elements)
 
@@ -228,7 +239,7 @@ def load_wav2vec2_trainer(
         dtype=config.trainer.dtype,
         normalize_audio=config.dataset.normalize_audio,
         batch_shuffle_window=config.dataset.batch_shuffle_window,
-        num_accumulate=config.trainer.gradient_accumulation,
+        num_accumulate=config.trainer.grad_accumulation.num_batches,
         num_prefetch=config.dataset.num_prefetch,
         seed=seed,
         extras=config.dataset.extras,
@@ -246,7 +257,7 @@ def load_wav2vec2_trainer(
 
     # Initialize the validation unit.
     if config.dataset.valid_split is not None:
-        valid_unit = Wav2Vec2EvalUnit(criterion, gangs)
+        valid_unit = Wav2Vec2EvalUnit(model, criterion)
 
         read_options = SpeechReadOptions(
             batching=batching,
@@ -278,7 +289,9 @@ def load_wav2vec2_trainer(
 
     return create_trainer(
         context,
-        config,
+        config.trainer,
+        config.regime,
+        config.common,
         output_dir,
         unit,
         data_reader,
@@ -289,29 +302,27 @@ def load_wav2vec2_trainer(
         optimizer,
         lr_scheduler,
         seed,
+        hyper_params=config,
     )
 
 
 @final
 class Wav2Vec2TrainUnit(TrainUnit[SequenceBatch]):
+    _model: Model
     _criterion: Wav2Vec2Criterion
-    _metric_bag: Wav2Vec2MetricBag
 
-    def __init__(self, criterion: Wav2Vec2Criterion, gangs: Gangs) -> None:
+    def __init__(self, model: Model, criterion: Wav2Vec2Criterion) -> None:
+        self._model = model
+
         self._criterion = criterion
 
-        self._metric_bag = Wav2Vec2MetricBag(gangs.dp)
-
     @override
-    def __call__(self, batch: SequenceBatch) -> tuple[Tensor, int]:
-        return self._criterion(batch, self._metric_bag)
+    def __call__(
+        self, batch: SequenceBatch, metric_bag: MetricBag
+    ) -> tuple[Tensor, int]:
+        return self._criterion(batch, metric_bag)
 
     @property
     @override
     def model(self) -> Model:
-        return self._criterion.model
-
-    @property
-    @override
-    def metric_bag(self) -> Wav2Vec2MetricBag:
-        return self._metric_bag
+        return self._model

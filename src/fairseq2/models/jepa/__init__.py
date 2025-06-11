@@ -16,10 +16,5 @@ from fairseq2.models.jepa._config import register_jepa_configs as register_jepa_
 from fairseq2.models.jepa._factory import JepaEncoderFactory as JepaEncoderFactory
 from fairseq2.models.jepa._factory import JepaFactory as JepaFactory
 from fairseq2.models.jepa._factory import create_jepa_model as create_jepa_model
+from fairseq2.models.jepa._hub import get_jepa_model_hub as get_jepa_model_hub
 from fairseq2.models.jepa._model import JepaModel as JepaModel
-
-# isort: split
-
-from fairseq2.models import ModelHubAccessor
-
-get_jepa_model_hub = ModelHubAccessor(JepaModel, JepaConfig)

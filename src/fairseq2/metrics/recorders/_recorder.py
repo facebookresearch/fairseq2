@@ -6,40 +6,28 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
+from abc import abstractmethod
+from collections.abc import Mapping
 from typing import final
 
 from typing_extensions import override
 
+from fairseq2.typing import Closable
 
-class MetricRecorder(ABC):
+
+class MetricRecorder(Closable):
     """Records metric values."""
 
     @abstractmethod
-    def record_metrics(
-        self,
-        run: str,
-        values: Mapping[str, object],
-        step_nr: int | None = None,
-        *,
-        flush: bool = True,
+    def record_metric_values(
+        self, section: str, values: Mapping[str, object], step_nr: int | None = None
     ) -> None:
         """Record ``values``.
 
-        :param run:
-            The name of the run (e.g. 'train', 'eval').
-        :param values:
-            The metric values.
-        :param step_nr:
-            The step number of the run.
-        :param flush:
-            If ``True``, flushes any buffers after recording.
+        :param section: The run section (e.g. 'train', 'eval').
+        :param values: The metric values.
+        :param step_nr: The step number of the run.
         """
-
-    @abstractmethod
-    def close(self) -> None:
-        """Close the recorder."""
 
 
 class MetricRecordError(Exception):
@@ -49,36 +37,11 @@ class MetricRecordError(Exception):
 @final
 class NoopMetricRecorder(MetricRecorder):
     @override
-    def record_metrics(
-        self,
-        run: str,
-        values: Mapping[str, object],
-        step_nr: int | None = None,
-        *,
-        flush: bool = True,
+    def record_metric_values(
+        self, section: str, values: Mapping[str, object], step_nr: int | None = None
     ) -> None:
         pass
 
     @override
     def close(self) -> None:
         pass
-
-
-def record_metrics(
-    recorders: Sequence[MetricRecorder],
-    run: str,
-    values: Mapping[str, object],
-    step_nr: int | None = None,
-    *,
-    flush: bool = True,
-) -> None:
-    """Record ``values`` to ``recorders``.
-
-    :param recorders: The recorders to record to.
-    :param run: The name of the run (e.g. 'train', 'eval').
-    :param values: The metric values.
-    :param step_nr: The step number of the run.
-    :param flush: If ``True``, flushes any buffers after recording.
-    """
-    for recorder in recorders:
-        recorder.record_metrics(run, values, step_nr, flush=flush)

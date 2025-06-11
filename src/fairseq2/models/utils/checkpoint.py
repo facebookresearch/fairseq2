@@ -7,75 +7,140 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
-from typing import cast
+from collections.abc import Iterable, Mapping
+
+import torch
+from torch import Tensor
+from torch.nn import Module
+
+from fairseq2.utils.progress import ProgressReporter
 
 
-def convert_model_state_dict(
-    state_dict: dict[str, object], key_map: Mapping[str, str]
+def load_checkpoint(
+    model: Module,
+    checkpoint: Iterable[tuple[str, Tensor]],
+    progress_reporter: ProgressReporter,
+) -> None:
+    errors = []
+
+    unexpected_keys = []
+
+    memo = set()
+
+    # To determine shared tensors we have to preserve the identity of the
+    # parameters and buffers via `keep_vars`.
+    state_dict = model.state_dict(keep_vars=True)
+
+    with progress_reporter:
+        progress_task = progress_reporter.create_task(
+            name="parameter load", total=len(state_dict)
+        )
+
+        with progress_task, torch.no_grad():
+            for key, tensor in checkpoint:
+                try:
+                    state_tensor = state_dict.pop(key)
+                except KeyError:
+                    unexpected_keys.append(key)
+
+                    continue
+
+                if tensor.shape != state_tensor.shape:
+                    errors.append(
+                        f"`{key}` has a shape of {tuple(tensor.shape)} in the checkpoint, but has a shape of {tuple(state_tensor.shape)} in the model."
+                    )
+
+                    continue
+
+                # We copy tensors synchronously as we do not want to accumulate
+                # host tensors in memory.
+                state_tensor.copy_(tensor, non_blocking=False)
+
+                del tensor
+
+                memo.add(state_tensor)
+
+                progress_task.step()
+
+    if state_dict:
+        keys_to_remove = []
+
+        # Ensure that we remove any shared tensor from `state_dict`.
+        for key, tensor in state_dict.items():
+            if tensor in memo:
+                keys_to_remove.append(key)
+
+        for key in keys_to_remove:
+            del state_dict[key]
+
+        if state_dict:
+            missing_keys = list(state_dict.keys())
+
+            s = ", ".join(missing_keys)
+
+            errors.append(f"The following keys are missing in the checkpoint: {s}")
+
+    if unexpected_keys:
+        s = ", ".join(unexpected_keys)
+
+        errors.append(f"The following keys in the checkpoint are unexpected: {s}")
+
+    if errors:
+        raise ValueError(" ".join(errors))
+
+
+def convert_checkpoint(
+    checkpoint: dict[str, object], key_map: Mapping[str, str]
 ) -> dict[str, object]:
-    """Convert a model state dictionary to fairseq2.
-
-    :param state_dict:
-        The original model state dictionary.
-    :param key_map:
-        A map of regex patterns to fairseq2 model keys.
-
-    :returns:
-        A converted model state dictionary that is compatible with fairseq2.
     """
-    new_state_dict = {}
+    Converts a checkpoint.
 
-    def get_new_key(old_key: str) -> str:
-        for old_pattern, replacement in key_map.items():
-            if (new_key := re.sub(old_pattern, replacement, old_key)) != old_key:
-                return new_key
+    :param key_map: A map of regex patterns to update model keys.
+    """
+    converted_checkpoint = {}
 
-        return old_key
+    def get_converted_key(key: str) -> str:
+        for pattern, replacement in key_map.items():
+            if (converted_key := re.sub(pattern, replacement, key)) != key:
+                return converted_key
 
-    # Convert module keys from fairseq to fairseq2.
-    for old_key in state_dict.keys():
-        new_key = get_new_key(old_key)
+        return key
 
-        new_state_dict[new_key] = state_dict[old_key]
+    for key in checkpoint.keys():
+        converted_key = get_converted_key(key)
 
-    return new_state_dict
+        converted_checkpoint[converted_key] = checkpoint[key]
+
+    return converted_checkpoint
 
 
 def convert_fairseq_checkpoint(
     checkpoint: dict[str, object], key_map: Mapping[str, str]
 ) -> dict[str, object]:
-    """Convert a fairseq checkpoint to fairseq2.
-
-    :param checkpoint:
-        The original fairseq checkpoint.
-    :param key_map:
-        A map of regex patterns to fairseq2 model keys.
-
-    :returns:
-        A converted checkpoint that is compatible with fairseq2.
     """
-    old_state_dict = cast(dict[str, object], checkpoint["model"])
+    Converts a fairseq checkpoint to fairseq2.
 
-    new_state_dict = convert_model_state_dict(old_state_dict, key_map)
+    :param checkpoint: The original fairseq checkpoint.
+    :param key_map: A map of regex patterns to fairseq2 model keys.
+    """
+    fs2_checkpoint = convert_checkpoint(checkpoint, key_map)
 
-    # We use the built-in version attribute of `torch.nn.Module`.
     try:
-        del new_state_dict["encoder.version"]
+        del fs2_checkpoint["encoder.version"]
     except KeyError:
         pass
     try:
-        del new_state_dict["decoder.version"]
+        del fs2_checkpoint["decoder.version"]
     except KeyError:
         pass
 
     try:
-        del new_state_dict["encoder.embed_positions._float_tensor"]
+        del fs2_checkpoint["encoder.embed_positions._float_tensor"]
     except KeyError:
         pass
     try:
-        del new_state_dict["decoder.embed_positions._float_tensor"]
+        del fs2_checkpoint["decoder.embed_positions._float_tensor"]
     except KeyError:
         pass
 
-    return {"model": new_state_dict}
+    return fs2_checkpoint

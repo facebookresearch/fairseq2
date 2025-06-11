@@ -8,41 +8,44 @@ from __future__ import annotations
 
 import sys
 from argparse import OPTIONAL, ArgumentParser, BooleanOptionalAction, Namespace
-from collections.abc import Callable, Hashable, Iterable, Mapping, Set
+from collections.abc import Iterable, Mapping
 from itertools import chain
 from logging import getLogger
 from pathlib import Path
 from signal import SIGUSR1, signal
 from types import FrameType
-from typing import Protocol, TypeAlias, final, runtime_checkable
+from typing import Protocol, final
 
 from typing_extensions import override
 
-from fairseq2.cli import CliArgumentError, CliCommandHandler, setup_logging
+from fairseq2.cli import (
+    CliArgumentError,
+    CliCommandError,
+    CliCommandHandler,
+    setup_logging,
+)
 from fairseq2.cli.utils.argparse import ConfigAction
 from fairseq2.cli.utils.cluster import set_torch_distributed_variables
-from fairseq2.cli.utils.rich import create_rich_progress_reporter, get_console
-from fairseq2.cluster import ClusterError, UnknownClusterError
+from fairseq2.cli.utils.rich import get_console
 from fairseq2.config_registry import ConfigNotFoundError, ConfigProvider
 from fairseq2.context import RuntimeContext
-from fairseq2.error import ContractError, ProgramError
+from fairseq2.error import ContractError
+from fairseq2.file_system import FileSystem
 from fairseq2.logging import LoggingSetupError, log
-from fairseq2.recipes.logging import DistributedLoggingInitializer
+from fairseq2.recipes import Recipe, RecipeError, RecipeStopException
 from fairseq2.recipes.utils.log import log_config
-from fairseq2.recipes.utils.progress import ProgressReporter
+from fairseq2.recipes.utils.logging import DistributedLoggingInitializer
 from fairseq2.recipes.utils.sweep_tag import (
     SweepFormatError,
     SweepFormatPlaceholderError,
     SweepTagGenerator,
-    get_sweep_keys,
 )
 from fairseq2.utils.env import InvalidEnvironmentVariableError, get_rank, get_world_size
-from fairseq2.utils.file import FileSystem
 from fairseq2.utils.merge import MergeError, merge_object, to_mergeable
 from fairseq2.utils.structured import StructureError, unstructure
 from fairseq2.utils.yaml import (
-    StandardYamlDumper,
-    StandardYamlLoader,
+    RuamelYamlDumper,
+    RuamelYamlLoader,
     YamlDumper,
     YamlError,
     YamlLoader,
@@ -56,28 +59,19 @@ class RecipeCommandHandler(CliCommandHandler):
     _loader: RecipeLoader
     _config_kls: type[object]
     _default_preset: str
-    _extra_sweep_keys: Set[Hashable] | None
 
     def __init__(
-        self,
-        loader: RecipeLoader,
-        config_kls: type[object],
-        default_preset: str,
-        *,
-        extra_sweep_keys: Set[Hashable] | None = None,
+        self, loader: RecipeLoader, config_kls: type[object], default_preset: str
     ) -> None:
         """
         :param loader: The recipe loader.
         :param preset_configs: The registry containing the preset recipe
             configurations.
         :param default_preset: The name of the default preset.
-        :param extra_sweep_keys: The recipe specific configuration keys to
-            include in the sweep directory name.
         """
         self._loader = loader
         self._config_kls = config_kls
         self._default_preset = default_preset
-        self._extra_sweep_keys = extra_sweep_keys
 
     @override
     def init_parser(self, parser: ArgumentParser) -> None:
@@ -151,90 +145,57 @@ class RecipeCommandHandler(CliCommandHandler):
     def run(
         self, context: RuntimeContext, parser: ArgumentParser, args: Namespace
     ) -> int:
+        self._do_run(context, args)
+
+        return 0
+
+    def _do_run(self, context: RuntimeContext, args: Namespace) -> None:
         if args.list_preset_configs:
             self._print_preset_configs(context)
 
-            return 0
-
-        setup_logging(debug=args.debug)
+            return
 
         try:
-            config = self._read_config(context, args)
-        except ConfigNotFoundError as ex:
-            raise CliArgumentError(
-                "preset", f"'{ex.name}' is not a known preset name. Use `--list-preset-configs` to see the available configurations."  # fmt: skip
-            ) from None
-        except ConfigFileNotFoundError as ex:
-            raise CliArgumentError(
-                "--config-file", f"{ex.config_file} does not point to a configuration file."  # fmt: skip
-            ) from None
-        except InvalidConfigFileError as ex:
-            raise CliArgumentError(
-                "--config-file", f"{ex.config_file} does not contain a valid configuration override. See logged stack trace for details."  # fmt: skip
+            setup_logging(debug=args.debug)
+        except LoggingSetupError as ex:
+            raise CliCommandError(
+                "The logging setup has failed. See the nested exception for details."
             ) from ex
-        except InvalidConfigOverrideError as ex:
-            raise CliArgumentError(
-                "--config-file", "key-value pair(s) cannot be applied over the preset configuration. See logged stack trace for details."  # fmt: skip
-            ) from ex
-        except ConfigReadError as ex:
-            raise ProgramError(
-                "The recipe configuration cannot be read. See the nested exception for details."
-            ) from ex
+
+        config = self._read_config(context, args)
 
         if args.dump_config:
             if isinstance(config, Mapping):
                 config = to_mergeable(config)
 
-            yaml_dumper = StandardYamlDumper(context.file_system)
+            yaml_dumper = RuamelYamlDumper(context.file_system)
 
             try:
                 yaml_dumper.dump(config, sys.stdout)
             except YamlError as ex:
-                raise ProgramError(
+                raise CliCommandError(
                     "The recipe configuration cannot be dumped to stdout. See the nested exception for details."
                 ) from ex
 
-            return 0
+            return
 
         if not args.output_dir:
             raise CliArgumentError("output_dir", "required")
 
+        set_torch_distributed_variables(context, args.cluster)
+
         try:
-            set_torch_distributed_variables(context, args.cluster)
-        except UnknownClusterError as ex:
-            s = ", ".join(ex.supported_clusters)
+            world_size = get_world_size(context.env)
+        except InvalidEnvironmentVariableError as ex:
+            raise CliCommandError(
+                "The world size cannot be determined. See the nested exception for details."
+            ) from ex
 
-            raise CliArgumentError(
-                "cluster", f"'{ex.cluster}' is not a known cluster. Must be one of: auto, none, {s}"  # fmt: skip
-            ) from None
-        except ClusterError as ex:
-            if ex.cluster == "slurm":
-                message = f"'{ex.cluster}' cluster environment cannot be set. See logged stack trace for details. If you are within an allocated Slurm job (i.e. `salloc`), make sure to run with `srun`. If you want to run without Slurm, use `--cluster none`."
-            else:
-                message = f"'{ex.cluster}' cluster environment cannot be set. See logged stack trace for details."
-
-            raise ProgramError(message) from ex
+        tag = self._create_sweep_tag(args, config, world_size)
 
         output_dir: Path = args.output_dir
 
-        try:
-            sweep_tag = self._create_sweep_tag(context, args, config)
-        except SweepFormatPlaceholderError as ex:
-            s = ", ".join(ex.unknown_keys)
-
-            raise CliArgumentError(
-                "--sweep-format", f"must contain only placeholders that correspond to the configuration keys, but contains the following unexpected placeholder(s): {s}"  # fmt: skip
-            ) from None
-        except SweepFormatError:
-            raise CliArgumentError(
-                "--sweep-format", "must be a non-empty string with brace-enclosed placeholders."  # fmt: skip
-            ) from None
-        except SweepTagError as ex:
-            raise ProgramError(
-                "The sweep tag cannot be generated. See the nested exception for details."
-            ) from ex
-
-        output_dir = self._create_output_directory(context, output_dir, sweep_tag)
+        output_dir = self._create_output_directory(context, output_dir, tag)
 
         self._setup_distributed_logging(context, output_dir)
 
@@ -244,24 +205,54 @@ class RecipeCommandHandler(CliCommandHandler):
             recipe = self._loader(context, config, output_dir)
         except StructureError as ex:
             raise CliArgumentError(
-                None, "The recipe configuration cannot be parsed. See logged stack trace for details."  # fmt: skip
+                None, "The recipe configuration cannot be parsed. See the logged stack trace for details."  # fmt: skip
+            ) from ex
+        except RecipeError as ex:
+            raise CliCommandError(
+                "The recipe setup has failed. See the nested exception for details."
             ) from ex
 
-        # If the recipe is stoppable, use SIGUSR1 as the stop signal.
-        if isinstance(recipe, Stoppable):
+        # Use SIGUSR1 as the stop signal.
+        def request_stop(signum: int, frame: FrameType | None) -> None:
+            log.info("SIGUSR1 received. Requesting recipe to stop.")
 
-            def request_stop(signum: int, frame: FrameType | None) -> None:
-                log.info("SIGUSR1 received. Requesting recipe to stop.")
+            recipe.request_stop()
 
-                recipe.request_stop()
+        signal(SIGUSR1, request_stop)
 
-            signal(SIGUSR1, request_stop)
+        log.info("Running on {} process(es).", world_size)
 
-        progress_reporter = create_rich_progress_reporter(context)
+        try:
+            recipe.run()
+        except RecipeError as ex:
+            raise CliCommandError(
+                "The recipe has failed. See the nested exception for details."
+            ) from ex
+        except RecipeStopException:
+            elapsed_time = int(context.wall_watch.get_elapsed_time())
 
-        recipe(progress_reporter)
+            if recipe.step_nr == 0:
+                log.info("Recipe stopped after {:,} second(s)!", elapsed_time)
+            else:
+                log.info("Recipe stopped after {:,} second(s) at step {}!", elapsed_time, recipe.step_nr)  # fmt: skip
+        except KeyboardInterrupt:
+            elapsed_time = int(context.wall_watch.get_elapsed_time())
 
-        return 0
+            if recipe.step_nr == 0:
+                log.info("Recipe terminated after {:,} second(s)!", elapsed_time)
+            else:
+                log.info("Recipe terminated after {:,} second(s) at step {}!", elapsed_time, recipe.step_nr)  # fmt: skip
+
+            raise
+        else:
+            elapsed_time = int(context.wall_watch.get_elapsed_time())
+
+            if recipe.step_nr == 0:
+                log.info("Recipe finished in {:,} second(s)!", elapsed_time)
+            else:
+                log.info("Recipe finished in {:,} second(s) after {} step(s)!", elapsed_time, recipe.step_nr)  # fmt: skip
+        finally:
+            recipe.close()
 
     def _print_preset_configs(self, context: RuntimeContext) -> None:
         console = get_console()
@@ -286,7 +277,7 @@ class RecipeCommandHandler(CliCommandHandler):
 
         file_system = context.file_system
 
-        yaml_loader = StandardYamlLoader(file_system)
+        yaml_loader = RuamelYamlLoader(file_system)
 
         config_reader = ConfigReader(configs, file_system, yaml_loader)
 
@@ -295,28 +286,51 @@ class RecipeCommandHandler(CliCommandHandler):
         else:
             config_override_files = None
 
-        return config_reader.read(
-            args.preset, config_override_files, args.config_overrides
-        )
+        try:
+            return config_reader.read(
+                args.preset, config_override_files, args.config_overrides
+            )
+        except ConfigNotFoundError as ex:
+            raise CliArgumentError(
+                "preset", f"'{ex.name}' is not a known preset name. Use `--list-preset-configs` to see the available configurations."  # fmt: skip
+            ) from None
+        except ConfigFileNotFoundError as ex:
+            raise CliArgumentError(
+                "--config-file", f"{ex.config_file} does not point to a configuration file."  # fmt: skip
+            ) from None
+        except InvalidConfigFileError as ex:
+            raise CliArgumentError(
+                "--config-file", f"{ex.config_file} does not contain a valid configuration override. See the logged stack trace for details."  # fmt: skip
+            ) from ex
+        except InvalidConfigOverrideError as ex:
+            raise CliArgumentError(
+                "--config-file", "key-value pair(s) cannot be applied over the preset configuration. See the logged stack trace for details."  # fmt: skip
+            ) from ex
+        except ConfigReadError as ex:
+            raise CliCommandError(
+                "The recipe configuration cannot be read. See the nested exception for details."
+            ) from ex
 
     def _create_sweep_tag(
-        self, context: RuntimeContext, args: Namespace, config: object
+        self, args: Namespace, config: object, world_size: int
     ) -> str | None:
         if args.no_sweep_dir:
             return None
 
+        tag_generator = SweepTagGenerator(world_size, args.sweep_format)
+
         try:
-            world_size = get_world_size(context.env)
-        except InvalidEnvironmentVariableError as ex:
-            raise SweepTagError(
-                "The world size cannot be determined. See the nested exception for details."
-            ) from ex
+            return tag_generator.generate(args.preset, config)
+        except SweepFormatPlaceholderError as ex:
+            s = ", ".join(ex.unknown_keys)
 
-        keys = get_sweep_keys(self._extra_sweep_keys)
-
-        tag_generator = SweepTagGenerator(world_size, keys, args.sweep_format)
-
-        return tag_generator.generate(args.preset, config)
+            raise CliArgumentError(
+                "--sweep-format", f"must contain only placeholders that correspond to the configuration keys, but contains the following unexpected placeholder(s): {s}"  # fmt: skip
+            ) from None
+        except SweepFormatError:
+            raise CliArgumentError(
+                "--sweep-format", "must be a non-empty string with brace-enclosed placeholders."  # fmt: skip
+            ) from None
 
     @staticmethod
     def _create_output_directory(
@@ -328,7 +342,7 @@ class RecipeCommandHandler(CliCommandHandler):
         try:
             context.file_system.make_directory(output_dir)
         except OSError as ex:
-            raise ProgramError(
+            raise CliCommandError(
                 f"The '{output_dir}' recipe directory cannot be created. See the nested exception for details."
             ) from ex
 
@@ -345,7 +359,7 @@ class RecipeCommandHandler(CliCommandHandler):
         try:
             initializer.initialize(output_dir)
         except LoggingSetupError as ex:
-            raise ProgramError(
+            raise CliCommandError(
                 "The distributed logging setup has failed. See the nested exception for details."
             ) from ex
 
@@ -353,36 +367,22 @@ class RecipeCommandHandler(CliCommandHandler):
 
     @staticmethod
     def _dump_config(context: RuntimeContext, config: object, output_dir: Path) -> None:
-        yaml_dumper = StandardYamlDumper(context.file_system)
+        yaml_dumper = RuamelYamlDumper(context.file_system)
 
         dumper = ConfigDumper(context.env, yaml_dumper)
 
         try:
             dumper.dump(config, output_dir)
         except ConfigDumpError as ex:
-            raise ProgramError(
+            raise CliCommandError(
                 "The recipe configuration cannot be saved. See the nested exception for details."
             ) from ex
-
-
-class SweepTagError(Exception):
-    pass
-
-
-Recipe: TypeAlias = Callable[[ProgressReporter], None]
 
 
 class RecipeLoader(Protocol):
     def __call__(
         self, context: RuntimeContext, config: object, output_dir: Path
     ) -> Recipe: ...
-
-
-@runtime_checkable
-class Stoppable(Protocol):
-    """Represents a recipe that supports graceful stopping."""
-
-    def request_stop(self) -> None: ...
 
 
 @final

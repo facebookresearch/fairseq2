@@ -9,18 +9,20 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from string import capwords
 from typing import Final, final
 
 from typing_extensions import override
 
 from fairseq2.logging import LogWriter
-from fairseq2.metrics import MetricDescriptor
-from fairseq2.metrics.recorders._handler import MetricRecorderHandler
-from fairseq2.metrics.recorders._recorder import MetricRecorder, NoopMetricRecorder
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+
+# isort: split
+
+from fairseq2.metrics.recorders._descriptor import MetricDescriptor
+from fairseq2.metrics.recorders._handler import MetricRecorderHandler
+from fairseq2.metrics.recorders._recorder import MetricRecorder, NoopMetricRecorder
 
 
 @final
@@ -29,6 +31,7 @@ class LogMetricRecorder(MetricRecorder):
 
     _log: LogWriter
     _metric_descriptors: Provider[MetricDescriptor]
+    _display_names: dict[str, str]
 
     def __init__(
         self, log: LogWriter, metric_descriptors: Provider[MetricDescriptor]
@@ -36,14 +39,11 @@ class LogMetricRecorder(MetricRecorder):
         self._log = log
         self._metric_descriptors = metric_descriptors
 
+        self._display_names = {"valid": "Validation", "eval": "Evaluation"}
+
     @override
-    def record_metrics(
-        self,
-        run: str,
-        values: Mapping[str, object],
-        step_nr: int | None = None,
-        *,
-        flush: bool = True,
+    def record_metric_values(
+        self, section: str, values: Mapping[str, object], step_nr: int | None = None
     ) -> None:
         if not self._log.is_enabled_for_info():
             return
@@ -80,10 +80,21 @@ class LogMetricRecorder(MetricRecorder):
         if not s:
             s = "N/A"
 
+        section_parts = section.split("/")
+
+        title = self._display_names.get(section_parts[0])
+        if title is None:
+            title = section_parts[0].capitalize()
+
         if step_nr is None:
-            self._log.info("{} Metrics - {}", capwords(run), s)
+            m = f"{title} Metrics"
         else:
-            self._log.info("{} Metrics (step {}) - {}", capwords(run), step_nr, s)
+            m = f"{title} Metrics (step {step_nr})"
+
+        if len(section_parts) > 1:
+            m = f"{m} - {'/'.join(section_parts[1:])}"
+
+        self._log.info("{} - {}", m, s)
 
     @override
     def close(self) -> None:
@@ -110,7 +121,9 @@ class LogMetricRecorderHandler(MetricRecorderHandler):
         self._metric_descriptors = metric_descriptors
 
     @override
-    def create(self, output_dir: Path, config: object) -> MetricRecorder:
+    def create(
+        self, output_dir: Path, config: object, hyper_params: object
+    ) -> MetricRecorder:
         config = structure(config, LogMetricRecorderConfig)
 
         validate(config)

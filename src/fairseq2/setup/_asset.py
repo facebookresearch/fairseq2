@@ -15,18 +15,21 @@ from fairseq2.assets import (
     WheelPackageFileLister,
 )
 from fairseq2.context import RuntimeContext
-from fairseq2.error import SetupError
-from fairseq2.utils.yaml import StandardYamlLoader
+from fairseq2.utils.yaml import RuamelYamlLoader
+
+# isort: split
+
+from fairseq2.setup._error import SetupError
 
 
-def register_assets(context: RuntimeContext) -> None:
+def _register_assets(context: RuntimeContext) -> None:
     register_package_metadata_provider(context, "fairseq2.assets.cards")
 
     asset_store = context.asset_store
 
     file_system = context.file_system
 
-    yaml_loader = StandardYamlLoader(file_system)
+    yaml_loader = RuamelYamlLoader(file_system)
 
     asset_metadata_file_loader = StandardAssetMetadataFileLoader(yaml_loader)
 
@@ -90,7 +93,7 @@ def register_package_metadata_provider(
 
     file_lister = WheelPackageFileLister()
 
-    yaml_loader = StandardYamlLoader(file_system)
+    yaml_loader = RuamelYamlLoader(file_system)
 
     asset_metadata_file_loader = StandardAssetMetadataFileLoader(yaml_loader)
 

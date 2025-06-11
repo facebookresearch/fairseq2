@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
-from fairseq2.typing import Device
+from fairseq2.device import Device
 
 
 def get_int_from_env(

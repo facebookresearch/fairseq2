@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import cast, final
+from typing import TYPE_CHECKING, cast, final
 
 import torch.nn as nn
 from torch import Tensor
@@ -15,15 +15,17 @@ from torch.nn import GELU, Conv1d, Module, Sequential
 from torch.nn.utils import remove_weight_norm, weight_norm  # type: ignore[attr-defined]
 from typing_extensions import override
 
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.error import NotSupportedError
 from fairseq2.nn import (
+    BatchLayout,
     IncrementalStateBag,
     LayerNorm,
     PositionEncoder,
     StandardLayerNorm,
 )
-from fairseq2.nn.padding import PaddingMask, apply_padding_mask
-from fairseq2.typing import DataType, Device
+from fairseq2.nn.utils.mask import apply_mask
 
 
 @final
@@ -52,7 +54,7 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
         :param num_groups:
             The number of convolution groups.
         """
-        super().__init__(model_dim, max_seq_len=None)
+        super().__init__(model_dim)
 
         self.conv = Wav2Vec2PositionalConv1d(
             model_dim,
@@ -69,11 +71,12 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
         self.activation = GELU()
 
     @override
-    def _do_forward(
+    def forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
-        state_bag: IncrementalStateBag | None,
+        seqs_layout: BatchLayout,
+        *,
+        state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
         """:meta private:"""
         if state_bag is not None:
@@ -81,9 +84,15 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
                 f"`{Wav2Vec2PositionEncoder}` does not support incremental decoding."
             )
 
-        # We have to ensure that the padded elements are correctly set to zero;
-        # otherwise, noise will leak into the feature maps.
-        seqs = apply_padding_mask(seqs, padding_mask)
+        if seqs_layout.packed:
+            raise ValueError("`seqs` must not be a packed batch.")
+
+        if seqs_layout.padded:
+            padding_mask = seqs_layout.position_indices >= 0
+
+            # We have to ensure that the padded elements are correctly set to
+            # zero; otherwise, noise will leak into the feature maps.
+            seqs = apply_mask(seqs, padding_mask)
 
         # (N, S, E) -> (N, E, S)
         encodings = seqs.transpose(1, 2)
@@ -100,6 +109,11 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
         encodings = encodings.transpose(1, 2)
 
         return seqs + encodings
+
+    @override
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return f"encoding_dim={self.encoding_dim}"
 
 
 @final
@@ -173,7 +187,7 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
         :param num_layers:
             The number of convolution layers.
         """
-        super().__init__(model_dim, max_seq_len=None)
+        super().__init__(model_dim)
 
         k = max(3, kernel_size // num_layers)
 
@@ -191,11 +205,12 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
             self.layers.append(layer)
 
     @override
-    def _do_forward(
+    def forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
-        state_bag: IncrementalStateBag | None,
+        seqs_layout: BatchLayout,
+        *,
+        state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
         """:meta private:"""
         if state_bag is not None:
@@ -203,9 +218,15 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
                 f"`{Wav2Vec2StackedPositionEncoder}` does not support incremental decoding."
             )
 
-        # We have to ensure that the padded elements are correctly set to
-        # zero; otherwise, noise will leak into the feature maps.
-        seqs = apply_padding_mask(seqs, padding_mask)
+        if seqs_layout.packed:
+            raise ValueError("`seqs` must not be a packed batch.")
+
+        if seqs_layout.padded:
+            padding_mask = seqs_layout.position_indices >= 0
+
+            # We have to ensure that the padded elements are correctly set to
+            # zero; otherwise, noise will leak into the feature maps.
+            seqs = apply_mask(seqs, padding_mask)
 
         # (N, S, E) -> (N, E, S)
         encodings = seqs.transpose(1, 2)
@@ -217,6 +238,11 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
         encodings = encodings.transpose(1, 2)
 
         return seqs + encodings
+
+    @override
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return f"encoding_dim={self.encoding_dim}"
 
 
 @final
@@ -269,3 +295,6 @@ class Wav2Vec2PositionEncoderLayer(Module):
         encodings = self.activation(encodings)
 
         return encodings
+
+    if TYPE_CHECKING:
+        __call__ = forward

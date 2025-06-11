@@ -8,13 +8,14 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import final
+from typing import TYPE_CHECKING, final
 
 from torch import Tensor
 from torch.nn import Conv2d, Conv3d, Module
 from typing_extensions import override
 
-from fairseq2.typing import DataType, Device
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 
 
 class PatchFeatureExtractor(Module, ABC):
@@ -22,17 +23,6 @@ class PatchFeatureExtractor(Module, ABC):
     Extracts patch features from N-dimensional inputs and embeds them in a
     latent space.
     """
-
-    feature_dim: int
-
-    def __init__(self, feature_dim: int) -> None:
-        """
-        :param feature_dim:
-            The dimensionality of extracted patch features.
-        """
-        super().__init__()
-
-        self.feature_dim = feature_dim
 
     @abstractmethod
     def forward(self, x: Tensor) -> Tensor:
@@ -48,6 +38,9 @@ class PatchFeatureExtractor(Module, ABC):
               dimensionality, and :math:`E` is the dimensionality of the patch
               features.
         """
+
+    if TYPE_CHECKING:
+        __call__ = forward
 
 
 @final
@@ -73,7 +66,7 @@ class Conv2dPatchFeatureExtractor(PatchFeatureExtractor):
         :param patch_dims: The dimensionality of height and width patch
             dimensions.
         """
-        super().__init__(feature_dim)
+        super().__init__()
 
         self.conv = Conv2d(
             num_channels,
@@ -89,7 +82,6 @@ class Conv2dPatchFeatureExtractor(PatchFeatureExtractor):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
         if self.init_fn is not None:
             self.init_fn(self.conv)
         else:
@@ -124,7 +116,7 @@ class Conv3dPatchFeatureExtractor(PatchFeatureExtractor):
         :param patch_dims: The dimensionality of depth, height, and width patch
             dimensions.
         """
-        super().__init__(feature_dim)
+        super().__init__()
 
         self.conv = Conv3d(
             num_channels,
@@ -140,7 +132,6 @@ class Conv3dPatchFeatureExtractor(PatchFeatureExtractor):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
         if self.init_fn is not None:
             self.init_fn(self.conv)
         else:

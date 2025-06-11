@@ -14,7 +14,9 @@ from fairseq2.metrics.recorders._recorder import MetricRecorder
 
 class MetricRecorderHandler(ABC):
     @abstractmethod
-    def create(self, output_dir: Path, config: object) -> MetricRecorder: ...
+    def create(
+        self, output_dir: Path, config: object, hyper_params: object
+    ) -> MetricRecorder: ...
 
     @property
     @abstractmethod

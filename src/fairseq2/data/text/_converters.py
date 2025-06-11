@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, final
 from fairseq2n import DOC_MODE
 from torch import Tensor
 
-from fairseq2.typing import DataType
+from fairseq2.data_type import DataType
 
 if TYPE_CHECKING or DOC_MODE:
 

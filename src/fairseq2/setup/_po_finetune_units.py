@@ -28,7 +28,7 @@ from fairseq2.recipes.lm import (
 )
 
 
-def register_po_finetune_units(context: RuntimeContext) -> None:
+def _register_po_finetune_units(context: RuntimeContext) -> None:
     registry = context.get_registry(POFinetuneUnitHandler)
 
     handler: POFinetuneUnitHandler

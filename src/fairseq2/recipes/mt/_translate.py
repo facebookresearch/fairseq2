@@ -6,27 +6,35 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Mapping, TextIO, final
+from typing import TextIO, final
 
 import torch
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import TextTokenizer
-from fairseq2.datasets import StaticBatching, SyncMode
+from fairseq2.datasets import SequenceBatch, StaticBatching, SyncMode
 from fairseq2.datasets.text import (
     GENERIC_TEXT_DATASET_FAMILY,
     TextDataset,
     TextReadOptions,
 )
-from fairseq2.error import ProgramError
-from fairseq2.gang import Gangs
+from fairseq2.device import CPU
+from fairseq2.file_system import FileMode
 from fairseq2.generation import BeamSearchConfig, Seq2SeqGenerator
 from fairseq2.generation.text import SequenceToTextConverter
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.models.sequence import SequenceBatch
+from fairseq2.metrics import MetricBag
+from fairseq2.models.seq2seq import Seq2SeqModel
+from fairseq2.recipes import (
+    Generator,
+    GeneratorUnit,
+    Model,
+    RecipeError,
+    UnitError,
+)
 from fairseq2.recipes.common import (
     create_generator,
     create_seq2seq_generator,
@@ -35,6 +43,7 @@ from fairseq2.recipes.common import (
     register_extra_asset_paths,
     setup_gangs,
     setup_reference_model,
+    setup_torch,
 )
 from fairseq2.recipes.config import (
     CommonSection,
@@ -43,13 +52,9 @@ from fairseq2.recipes.config import (
     GeneratorSection,
     ReferenceModelSection,
     Seq2SeqGeneratorSection,
+    TextTokenizerSection,
 )
-from fairseq2.recipes.error import UnitError
-from fairseq2.recipes.generator import Generator, GeneratorUnit
-from fairseq2.recipes.metrics import Seq2SeqGenerationMetricBag
-from fairseq2.recipes.model import Model
-from fairseq2.typing import CPU
-from fairseq2.utils.file import FileMode
+from fairseq2.recipes.metrics import update_seq2seq_generator_metrics
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
@@ -65,6 +70,14 @@ class TextTranslateConfig:
 
     dataset: TextTranslateDatasetSection = field(
         default_factory=lambda: TextTranslateDatasetSection()
+    )
+
+    source_tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="nllb-200")
+    )
+
+    target_tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="nllb-200")
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
@@ -123,16 +136,16 @@ def register_text_translate_configs(context: RuntimeContext) -> None:
 @torch.inference_mode()
 def load_text_translator(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Generator[SequenceBatch]:
+) -> Generator:
     config = structure(config, TextTranslateConfig)
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common.assets)
 
-    torch.set_float32_matmul_precision("high")
+    setup_torch(context, config.common.torch, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_gangs(context, config.gang)
 
     seed = config.common.seed
 
@@ -141,21 +154,27 @@ def load_text_translator(
     seed += 1
 
     model = setup_reference_model(
-        EncoderDecoderModel,
+        Seq2SeqModel,
         context,
-        config.model.name,
+        config.model,
         gangs,
         config.generator.dtype,
         config.generator.amp,
-        config.generator.torch_compile,
     )
 
-    dataset = load_dataset(TextDataset, context, config, gangs)
+    dataset = load_dataset(TextDataset, context, config.dataset, gangs)
 
-    tokenizer = load_text_tokenizer(context, config)
+    source_tokenizer = load_text_tokenizer(context, config.source_tokenizer)
+
+    if config.source_tokenizer == config.target_tokenizer:
+        target_tokenizer = source_tokenizer
+    else:
+        target_tokenizer = load_text_tokenizer(context, config.target_tokenizer)
 
     # Initialize the unit.
-    seq2seq_generator = create_seq2seq_generator(context, config, model)
+    seq2seq_generator = create_seq2seq_generator(
+        context, config.seq2seq_generator, model, target_tokenizer.vocab_info
+    )
 
     if gangs.tp.rank == 0:
         file_system = context.file_system
@@ -165,14 +184,14 @@ def load_text_translator(
         src_lang = config.source_lang
         tgt_lang = config.target_lang
 
-        src_file = output_dir.joinpath(
-            f"translations/{src_lang}-{tgt_lang}/rank_{rank}.src.txt"
-        )
-        hyp_file = output_dir.joinpath(
-            f"translations/{src_lang}-{tgt_lang}/rank_{rank}.hyp.txt"
-        )
-
         try:
+            src_file = output_dir.joinpath(
+                f"translations/{src_lang}-{tgt_lang}/rank_{rank}.src.txt"
+            )
+            hyp_file = output_dir.joinpath(
+                f"translations/{src_lang}-{tgt_lang}/rank_{rank}.hyp.txt"
+            )
+
             try:
                 file_system.make_directory(src_file.parent)
             except OSError as ex:
@@ -194,18 +213,18 @@ def load_text_translator(
                     f"The '{hyp_file}' output file cannot be created. See the nested exception for details."
                 ) from ex
         except UnitError as ex:
-            raise ProgramError(
-                "The generation unit cannot be initialized. See the nested exception for details."
+            raise RecipeError(
+                "The generator unit cannot be initialized. See the nested exception for details."
             ) from ex
     else:
         src_fp = None
         hyp_fp = None
 
     unit = TextTranslationUnit(
-        model, seq2seq_generator, tokenizer, config.target_lang, gangs, src_fp, hyp_fp
+        model, seq2seq_generator, target_tokenizer, config.target_lang, src_fp, hyp_fp
     )
 
-    text_encoder = tokenizer.create_encoder(
+    text_encoder = source_tokenizer.create_encoder(
         task="translation", lang=config.source_lang, mode="source"
     )
 
@@ -221,7 +240,7 @@ def load_text_translator(
 
     data_reader = dataset.create_reader(
         text_encoder,
-        tokenizer.vocab_info.pad_idx,
+        target_tokenizer.vocab_info.pad_idx,
         gangs.dp,
         config.dataset.min_seq_len,
         config.dataset.max_seq_len,
@@ -230,7 +249,17 @@ def load_text_translator(
 
     seed += 1
 
-    return create_generator(context, config, output_dir, unit, data_reader, gangs, seed)
+    return create_generator(
+        context,
+        config.generator,
+        config.common,
+        output_dir,
+        unit,
+        data_reader,
+        gangs,
+        seed,
+        hyper_params=config,
+    )
 
 
 @final
@@ -239,7 +268,6 @@ class TextTranslationUnit(GeneratorUnit[SequenceBatch]):
     _converter: SequenceToTextConverter
     _src_output_stream: TextIO | None
     _hyp_output_stream: TextIO | None
-    _metric_bag: Seq2SeqGenerationMetricBag
 
     def __init__(
         self,
@@ -247,7 +275,6 @@ class TextTranslationUnit(GeneratorUnit[SequenceBatch]):
         generator: Seq2SeqGenerator,
         tokenizer: TextTokenizer,
         target_lang: str,
-        gangs: Gangs,
         src_output_stream: TextIO | None,
         hyp_output_stream: TextIO | None,
     ) -> None:
@@ -274,10 +301,8 @@ class TextTranslationUnit(GeneratorUnit[SequenceBatch]):
         self._src_output_stream = src_output_stream
         self._hyp_output_stream = hyp_output_stream
 
-        self._metric_bag = Seq2SeqGenerationMetricBag(gangs.dp)
-
     @override
-    def __call__(self, batch: SequenceBatch) -> None:
+    def __call__(self, batch: SequenceBatch, metric_bag: MetricBag) -> None:
         if batch.example is None:
             raise ValueError("`batch.example` must not be `None`.")
 
@@ -291,14 +316,16 @@ class TextTranslationUnit(GeneratorUnit[SequenceBatch]):
         except KeyError:
             raise ValueError("`batch.example` must contain a 'text' item.") from None
 
-        if not isinstance(srcs, Iterable):
+        if not isinstance(srcs, Sequence):
             raise TypeError(
-                f"`batch.example['text'] must be an iterable of strings, but is of type `{type(srcs)}` instead."
+                f"`batch.example['text'] must be a sequence of strings, but is of type `{type(srcs)}` instead."
             )
 
-        hyps, output = self._converter.batch_convert(batch.seqs, batch.padding_mask)
+        seqs, seqs_layout = batch.as_input()
 
-        self._metric_bag.update_batch_metrics(output, batch.num_elements())
+        hyps, output = self._converter.batch_convert(seqs, seqs_layout)
+
+        update_seq2seq_generator_metrics(metric_bag, output, batch.num_elements)
 
         try:
             # Dump source sentences.
@@ -320,15 +347,10 @@ class TextTranslationUnit(GeneratorUnit[SequenceBatch]):
                 stream.flush()
         except OSError as ex:
             raise UnitError(
-                "The generator output cannot be written to the stream. See the nested exception for details."
+                "The generator output cannot be written. See the nested exception for details."
             ) from ex
 
     @property
     @override
     def model(self) -> Model:
         return self._model
-
-    @property
-    @override
-    def metric_bag(self) -> Seq2SeqGenerationMetricBag:
-        return self._metric_bag

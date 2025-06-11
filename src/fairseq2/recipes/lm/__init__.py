@@ -27,30 +27,32 @@ from fairseq2.recipes.lm._instruction_finetune import (
 from fairseq2.recipes.lm._instruction_finetune import (
     register_instruction_finetune_configs as register_instruction_finetune_configs,
 )
-from fairseq2.recipes.lm._loss_eval import LMLossEvalConfig as LMLossEvalConfig
 from fairseq2.recipes.lm._loss_eval import (
-    LMLossEvalDatasetSection as LMLossEvalDatasetSection,
+    CausalLMLossEvalConfig as CausalLMLossEvalConfig,
 )
 from fairseq2.recipes.lm._loss_eval import (
-    load_lm_loss_evaluator as load_lm_loss_evaluator,
+    CausalLMLossEvalDatasetSection as CausalLMLossEvalDatasetSection,
 )
 from fairseq2.recipes.lm._loss_eval import (
-    register_lm_loss_eval_configs as register_lm_loss_eval_configs,
+    load_clm_loss_evaluator as load_clm_loss_evaluator,
 )
-from fairseq2.recipes.lm._preference_finetune._common import (
+from fairseq2.recipes.lm._loss_eval import (
+    register_clm_loss_eval_configs as register_clm_loss_eval_configs,
+)
+from fairseq2.recipes.lm._preference_finetune._config import (
     POCriterionSection as POCriterionSection,
 )
-from fairseq2.recipes.lm._preference_finetune._common import (
-    POFinetuneMetricBag as POFinetuneMetricBag,
+from fairseq2.recipes.lm._preference_finetune._config import (
+    POFinetuneConfig as POFinetuneConfig,
+)
+from fairseq2.recipes.lm._preference_finetune._config import (
+    POFinetuneDatasetSection as POFinetuneDatasetSection,
 )
 from fairseq2.recipes.lm._preference_finetune._cpo import (
     CPO_FINETUNE_UNIT as CPO_FINETUNE_UNIT,
 )
 from fairseq2.recipes.lm._preference_finetune._cpo import (
     CpoFinetuneConfig as CpoFinetuneConfig,
-)
-from fairseq2.recipes.lm._preference_finetune._cpo import (
-    CpoFinetuneMetricBag as CpoFinetuneMetricBag,
 )
 from fairseq2.recipes.lm._preference_finetune._cpo import (
     CpoFinetuneUnit as CpoFinetuneUnit,
@@ -63,9 +65,6 @@ from fairseq2.recipes.lm._preference_finetune._dpo import (
 )
 from fairseq2.recipes.lm._preference_finetune._dpo import (
     DpoFinetuneConfig as DpoFinetuneConfig,
-)
-from fairseq2.recipes.lm._preference_finetune._dpo import (
-    DpoFinetuneMetricBag as DpoFinetuneMetricBag,
 )
 from fairseq2.recipes.lm._preference_finetune._dpo import (
     DpoFinetuneUnit as DpoFinetuneUnit,
@@ -86,19 +85,10 @@ from fairseq2.recipes.lm._preference_finetune._orpo import (
     OrpoFinetuneConfig as OrpoFinetuneConfig,
 )
 from fairseq2.recipes.lm._preference_finetune._orpo import (
-    OrpoFinetuneMetricBag as OrpoFinetuneMetricBag,
-)
-from fairseq2.recipes.lm._preference_finetune._orpo import (
     OrpoFinetuneUnit as OrpoFinetuneUnit,
 )
 from fairseq2.recipes.lm._preference_finetune._orpo import (
     OrpoFinetuneUnitHandler as OrpoFinetuneUnitHandler,
-)
-from fairseq2.recipes.lm._preference_finetune._recipe import (
-    POFinetuneConfig as POFinetuneConfig,
-)
-from fairseq2.recipes.lm._preference_finetune._recipe import (
-    POFinetuneDatasetSection as POFinetuneDatasetSection,
 )
 from fairseq2.recipes.lm._preference_finetune._recipe import (
     load_po_finetuner as load_po_finetuner,
@@ -111,9 +101,6 @@ from fairseq2.recipes.lm._preference_finetune._simpo import (
 )
 from fairseq2.recipes.lm._preference_finetune._simpo import (
     SimPOFinetuneConfig as SimPOFinetuneConfig,
-)
-from fairseq2.recipes.lm._preference_finetune._simpo import (
-    SimPOFinetuneMetricBag as SimPOFinetuneMetricBag,
 )
 from fairseq2.recipes.lm._preference_finetune._simpo import (
     SimPOFinetuneUnit as SimPOFinetuneUnit,
@@ -180,6 +167,12 @@ from fairseq2.recipes.lm._online_finetune._remote_model import (
     RemoteModelHandler as RemoteModelHandler,
 )
 
-from fairseq2.recipes.lm._online_finetune._common import (
-    NoEnvAtheneRewardPipeline as NoEnvAtheneRewardPipeline,
+from fairseq2.recipes.lm._online_finetune._common import NoEnvAtheneRewardPipeline as NoEnvAtheneRewardPipeline
+
+from fairseq2.recipes.lm._train import CausalLMTrainConfig as CausalLMTrainConfig
+from fairseq2.recipes.lm._train import CausalLMTrainUnit as CausalLMTrainUnit
+from fairseq2.recipes.lm._train import TextDatasetSection as TextDatasetSection
+from fairseq2.recipes.lm._train import load_clm_trainer as load_clm_trainer
+from fairseq2.recipes.lm._train import (
+    register_clm_train_configs as register_clm_train_configs,
 )

@@ -10,6 +10,9 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from fairseq2.gang import Gangs
+
+# isort: split
+
 from fairseq2.profilers._profiler import Profiler
 
 

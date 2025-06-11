@@ -10,8 +10,13 @@ from fairseq2.recipes.common._asset import (
     register_extra_asset_paths as register_extra_asset_paths,
 )
 from fairseq2.recipes.common._checkpoint import (
+    check_has_checkpoint as check_has_checkpoint,
+)
+from fairseq2.recipes.common._checkpoint import (
     create_checkpoint_manager as create_checkpoint_manager,
 )
+from fairseq2.recipes.common._compile import compile_model as compile_model
+from fairseq2.recipes.common._compile import compile_object as compile_object
 from fairseq2.recipes.common._dataset import load_dataset as load_dataset
 from fairseq2.recipes.common._device import (
     create_device_stat_tracker as create_device_stat_tracker,
@@ -20,8 +25,30 @@ from fairseq2.recipes.common._distributed import broadcast_model as broadcast_mo
 from fairseq2.recipes.common._distributed import (
     setup_data_parallel_model as setup_data_parallel_model,
 )
+from fairseq2.recipes.common._error import (
+    ActivationCheckpointingNotSupportedError as ActivationCheckpointingNotSupportedError,
+)
+from fairseq2.recipes.common._error import (
+    DatasetPathNotFoundError as DatasetPathNotFoundError,
+)
+from fairseq2.recipes.common._error import (
+    FSDPNotSupportedError as FSDPNotSupportedError,
+)
+from fairseq2.recipes.common._error import (
+    HybridShardingNotSupportedError as HybridShardingNotSupportedError,
+)
+from fairseq2.recipes.common._error import (
+    ModelCompilationNotSupportedError as ModelCompilationNotSupportedError,
+)
+from fairseq2.recipes.common._error import (
+    ModelParallelismNotSupportedError as ModelParallelismNotSupportedError,
+)
+from fairseq2.recipes.common._error import (
+    ModelPathNotFoundError as ModelPathNotFoundError,
+)
 from fairseq2.recipes.common._evaluator import create_evaluator as create_evaluator
 from fairseq2.recipes.common._gang import setup_gangs as setup_gangs
+from fairseq2.recipes.common._gang import setup_training_gangs as setup_training_gangs
 from fairseq2.recipes.common._generation import (
     create_seq2seq_generator as create_seq2seq_generator,
 )
@@ -50,4 +77,5 @@ from fairseq2.recipes.common._ref_model import (
 from fairseq2.recipes.common._text_tokenizer import (
     load_text_tokenizer as load_text_tokenizer,
 )
+from fairseq2.recipes.common._torch import setup_torch as setup_torch
 from fairseq2.recipes.common._trainer import create_trainer as create_trainer

@@ -7,13 +7,8 @@
 from __future__ import annotations
 
 from fairseq2.chatbots import UnknownChatbotError
-from fairseq2.cli import Cli
 from fairseq2.cli.commands.assets import ListAssetsHandler, ShowAssetHandler
 from fairseq2.cli.commands.chatbot import RunChatbotHandler
-from fairseq2.cli.commands.llama import (
-    ConvertLLaMACheckpointHandler,
-    WriteHFLLaMAConfigHandler,
-)
 from fairseq2.cli.commands.recipe import RecipeCommandHandler
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import (
@@ -33,12 +28,13 @@ from fairseq2.generation import (
     UnknownSeq2SeqGeneratorError,
     UnknownSequenceGeneratorError,
 )
-from fairseq2.metrics import UnknownMetricDescriptorError
-from fairseq2.metrics.recorders import UnknownMetricRecorderError
+from fairseq2.metrics.recorders import (
+    UnknownMetricDescriptorError,
+    UnknownMetricRecorderError,
+)
 from fairseq2.metrics.text import UnknownBleuTokenizerError
 from fairseq2.models import (
     InvalidModelTypeError,
-    ShardedModelLoadError,
     UnknownModelArchitectureError,
     UnknownModelError,
     UnknownModelFamilyError,
@@ -49,24 +45,27 @@ from fairseq2.optim.lr_scheduler import (
     UnspecifiedNumberOfStepsError,
 )
 from fairseq2.profilers import UnknownProfilerError
+from fairseq2.recipes import InconsistentGradNormError, MinimumLossScaleReachedError
 from fairseq2.recipes.asr import AsrEvalConfig, load_asr_evaluator
-from fairseq2.recipes.error import (
+from fairseq2.recipes.common import (
+    ActivationCheckpointingNotSupportedError,
     DatasetPathNotFoundError,
+    FSDPNotSupportedError,
     HybridShardingNotSupportedError,
-    InvalidCheckpointPathError,
     ModelCompilationNotSupportedError,
     ModelParallelismNotSupportedError,
     ModelPathNotFoundError,
-    StaticGraphNotSupportedError,
 )
 from fairseq2.recipes.lm import (
+    CausalLMLossEvalConfig,
+    CausalLMTrainConfig,
     InstructionFinetuneConfig,
-    LMLossEvalConfig,
     POFinetuneConfig,
     OnlineFinetuneConfig,
     TextGenerateConfig,
+    load_clm_loss_evaluator,
+    load_clm_trainer,
     load_instruction_finetuner,
-    load_lm_loss_evaluator,
     load_po_finetuner,
     load_text_generator,
     load_online_finetuner,
@@ -91,6 +90,10 @@ from fairseq2.recipes.wav2vec2.asr import (
 )
 from fairseq2.utils.validation import ValidationError
 
+# isort: split
+
+from fairseq2.cli._cli import Cli
+
 
 def setup_cli(context: RuntimeContext) -> Cli:
     from fairseq2 import __version__
@@ -105,22 +108,21 @@ def setup_cli(context: RuntimeContext) -> Cli:
     _register_asr_cli(cli)
     _register_asset_cli(cli)
     _register_chatbot_cli(cli)
-    _register_llama_cli(cli)
-    _register_lm_cli(cli)
+    _register_clm_cli(cli)
     _register_mt_cli(cli)
     _register_wav2vec2_asr_cli(cli)
     _register_wav2vec2_cli(cli)
 
     _register_user_error_types(cli)
 
-    run_extensions("fairseq2.cli", context, cli)
+    signature = "extension_function(context: RuntimeContext, cli: Cli) -> None"
+
+    run_extensions("fairseq2.cli", signature, cli, context)
 
     return cli
 
 
 def _register_asr_cli(cli: Cli) -> None:
-    extra_sweep_keys = {"max_audio_len", "min_audio_len", "normalize_audio"}
-
     group = cli.add_group("asr", help="ASR recipes")
 
     # Eval
@@ -128,7 +130,6 @@ def _register_asr_cli(cli: Cli) -> None:
         loader=load_asr_evaluator,
         config_kls=AsrEvalConfig,
         default_preset="wav2vec2",
-        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
@@ -166,24 +167,20 @@ def _register_chatbot_cli(cli: Cli) -> None:
     )
 
 
-def _register_llama_cli(cli: Cli) -> None:
-    group = cli.add_group("llama", help="LLaMA recipes")
+def _register_clm_cli(cli: Cli) -> None:
+    group = cli.add_group("lm", help="causal language model recipes")
 
-    group.add_command(
-        name="convert_checkpoint",
-        handler=ConvertLLaMACheckpointHandler(),
-        help="convert fairseq2 LLaMA checkpoints to reference checkpoints",
+    train_handler = RecipeCommandHandler(
+        loader=load_clm_trainer,
+        config_kls=CausalLMTrainConfig,
+        default_preset="llama3_8b",
     )
 
     group.add_command(
-        name="write_hf_config",
-        handler=WriteHFLLaMAConfigHandler(),
-        help="write fairseq2 LLaMA configurations in Hugging Face format",
+        name="train",
+        handler=train_handler,
+        help="train a causal language model",
     )
-
-
-def _register_lm_cli(cli: Cli) -> None:
-    group = cli.add_group("lm", help="language model recipes")
 
     # Instruction Finetune
     instruction_finetune_handler = RecipeCommandHandler(
@@ -195,20 +192,20 @@ def _register_lm_cli(cli: Cli) -> None:
     group.add_command(
         name="instruction_finetune",
         handler=instruction_finetune_handler,
-        help="instruction-finetune a language model",
+        help="instruction-finetune a causal language model",
     )
 
     # Loss Evaluation
     loss_eval_handler = RecipeCommandHandler(
-        loader=load_lm_loss_evaluator,
-        config_kls=LMLossEvalConfig,
+        loader=load_clm_loss_evaluator,
+        config_kls=CausalLMLossEvalConfig,
         default_preset="llama3_1_base_eval",
     )
 
     group.add_command(
-        name="nll_eval",
+        name="loss_eval",
         handler=loss_eval_handler,
-        help="Evaluate the model and compute NLL loss over a given dataset",
+        help="evaluate a causal language model and compute nll loss over a given dataset",
     )
 
     # PO Finetune
@@ -221,7 +218,7 @@ def _register_lm_cli(cli: Cli) -> None:
     group.add_command(
         name="preference_finetune",
         handler=po_finetune_handler,
-        help="preference-finetune a language model (e.g. DPO, SimPO).",
+        help="preference-finetune a causal language model (e.g. DPO, SimPO).",
     )
 
     # Text Generate
@@ -252,8 +249,6 @@ def _register_lm_cli(cli: Cli) -> None:
 
 
 def _register_mt_cli(cli: Cli) -> None:
-    extra_sweep_keys = {"source_lang", "target_lang"}
-
     group = cli.add_group("mt", help="machine translation recipes")
 
     # Eval
@@ -261,7 +256,6 @@ def _register_mt_cli(cli: Cli) -> None:
         loader=load_mt_evaluator,
         config_kls=MTEvalConfig,
         default_preset="nllb_dense",
-        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
@@ -275,7 +269,6 @@ def _register_mt_cli(cli: Cli) -> None:
         loader=load_mt_trainer,
         config_kls=MTTrainConfig,
         default_preset="nllb_dense",
-        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
@@ -289,7 +282,6 @@ def _register_mt_cli(cli: Cli) -> None:
         loader=load_text_translator,
         config_kls=TextTranslateConfig,
         default_preset="nllb_dense",
-        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
@@ -300,8 +292,6 @@ def _register_mt_cli(cli: Cli) -> None:
 
 
 def _register_wav2vec2_cli(cli: Cli) -> None:
-    extra_sweep_keys = {"max_audio_len", "min_audio_len", "normalize_audio"}
-
     group = cli.add_group("wav2vec2", help="wav2vec 2.0 pretraining recipes")
 
     # Eval
@@ -309,7 +299,6 @@ def _register_wav2vec2_cli(cli: Cli) -> None:
         loader=load_wav2vec2_evaluator,
         config_kls=Wav2Vec2EvalConfig,
         default_preset="base_ls960h",
-        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
@@ -323,7 +312,6 @@ def _register_wav2vec2_cli(cli: Cli) -> None:
         loader=load_wav2vec2_trainer,
         config_kls=Wav2Vec2TrainConfig,
         default_preset="base_960h",
-        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
@@ -334,13 +322,6 @@ def _register_wav2vec2_cli(cli: Cli) -> None:
 
 
 def _register_wav2vec2_asr_cli(cli: Cli) -> None:
-    extra_sweep_keys = {
-        "freeze_encoder_for_n_steps",
-        "max_audio_len",
-        "min_audio_len",
-        "normalize_audio",
-    }
-
     group = cli.add_group("wav2vec2_asr", help="wav2vec 2.0 ASR recipes")
 
     # Train
@@ -348,7 +329,6 @@ def _register_wav2vec2_asr_cli(cli: Cli) -> None:
         loader=load_wav2vec2_asr_trainer,
         config_kls=Wav2Vec2AsrTrainConfig,
         default_preset="base_10h",
-        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
@@ -359,16 +339,17 @@ def _register_wav2vec2_asr_cli(cli: Cli) -> None:
 
 
 def _register_user_error_types(cli: Cli) -> None:
+    cli.register_user_error_type(ActivationCheckpointingNotSupportedError)
     cli.register_user_error_type(DatasetPathNotFoundError)
+    cli.register_user_error_type(FSDPNotSupportedError)
     cli.register_user_error_type(HybridShardingNotSupportedError)
-    cli.register_user_error_type(InvalidCheckpointPathError)
+    cli.register_user_error_type(InconsistentGradNormError)
     cli.register_user_error_type(InvalidDatasetTypeError)
     cli.register_user_error_type(InvalidModelTypeError)
+    cli.register_user_error_type(MinimumLossScaleReachedError)
     cli.register_user_error_type(ModelCompilationNotSupportedError)
     cli.register_user_error_type(ModelParallelismNotSupportedError)
     cli.register_user_error_type(ModelPathNotFoundError)
-    cli.register_user_error_type(ShardedModelLoadError)
-    cli.register_user_error_type(StaticGraphNotSupportedError)
     cli.register_user_error_type(UnknownBeamSearchAlgorithmError)
     cli.register_user_error_type(UnknownBleuTokenizerError)
     cli.register_user_error_type(UnknownChatbotError)

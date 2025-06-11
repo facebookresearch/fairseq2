@@ -10,14 +10,17 @@ from abc import ABC, abstractmethod
 
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.gang import Gangs
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import TrainUnit
+from fairseq2.recipes import Model, TrainUnit
+
+# isort: split
+
+from fairseq2.recipes.lm._preference_finetune._config import POFinetuneConfig
 
 
 class POFinetuneUnitHandler(ABC):
     @abstractmethod
     def create(
-        self, model: Model, gangs: Gangs, recipe_config: object
+        self, model: Model, gangs: Gangs, recipe_config: POFinetuneConfig
     ) -> TrainUnit[PreferenceBatch]: ...
 
     @property

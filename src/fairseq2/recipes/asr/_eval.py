@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import MutableMapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import final
@@ -14,13 +15,13 @@ import torch
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
-from fairseq2.datasets import LengthBatching, SyncMode
+from fairseq2.datasets import LengthBatching, Seq2SeqBatch, SyncMode
 from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
-from fairseq2.error import ProgramError
-from fairseq2.gang import Gangs
+from fairseq2.device import CPU
+from fairseq2.file_system import FileMode
+from fairseq2.metrics import MetricBag
 from fairseq2.models.asr import AsrModel
-from fairseq2.models.seq2seq import Seq2SeqBatch
-from fairseq2.recipes.asr._common import AsrCriterion, AsrMetricBag, AsrScorer
+from fairseq2.recipes import Evaluator, EvalUnit, Model, RecipeError, UnitError
 from fairseq2.recipes.common import (
     create_evaluator,
     load_dataset,
@@ -28,6 +29,7 @@ from fairseq2.recipes.common import (
     register_extra_asset_paths,
     setup_gangs,
     setup_reference_model,
+    setup_torch,
 )
 from fairseq2.recipes.config import (
     CommonSection,
@@ -35,15 +37,16 @@ from fairseq2.recipes.config import (
     EvaluatorSection,
     GangSection,
     ReferenceModelSection,
+    TextTokenizerSection,
 )
-from fairseq2.recipes.error import UnitError
-from fairseq2.recipes.evaluator import Evaluator, EvalUnit
-from fairseq2.recipes.model import Model
-from fairseq2.typing import CPU
-from fairseq2.utils.file import FileMode
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+
+# isort: split
+
+from fairseq2.recipes.asr._metrics import update_asr_batch_metrics, update_ctc_loss
+from fairseq2.recipes.asr._scorer import AsrScorer
 
 
 @dataclass(kw_only=True)
@@ -54,6 +57,10 @@ class AsrEvalConfig:
 
     dataset: AsrEvalDatasetSection = field(
         default_factory=lambda: AsrEvalDatasetSection()
+    )
+
+    tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="librispeech_asr")
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
@@ -107,16 +114,16 @@ def register_asr_eval_configs(context: RuntimeContext) -> None:
 @torch.inference_mode()
 def load_asr_evaluator(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Evaluator[Seq2SeqBatch]:
+) -> Evaluator:
     config = structure(config, AsrEvalConfig)
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common.assets)
 
-    torch.set_float32_matmul_precision("high")
+    setup_torch(context, config.common.torch, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_gangs(context, config.gang)
 
     seed = config.common.seed
 
@@ -127,16 +134,15 @@ def load_asr_evaluator(
     model = setup_reference_model(
         AsrModel,
         context,
-        config.model.name,
+        config.model,
         gangs,
         config.evaluator.dtype,
         config.evaluator.amp,
-        config.evaluator.torch_compile,
     )
 
-    dataset = load_dataset(AsrDataset, context, config, gangs)
+    dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
 
-    tokenizer = load_text_tokenizer(context, config)
+    tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the unit.
     if gangs.tp.rank == 0:
@@ -144,10 +150,10 @@ def load_asr_evaluator(
 
         rank = gangs.dp.rank
 
-        ref_file = output_dir.joinpath(f"transcriptions/rank_{rank}.ref.txt")
-        hyp_file = output_dir.joinpath(f"transcriptions/rank_{rank}.hyp.txt")
-
         try:
+            ref_file = output_dir.joinpath(f"transcriptions/rank_{rank}.ref.txt")
+            hyp_file = output_dir.joinpath(f"transcriptions/rank_{rank}.hyp.txt")
+
             try:
                 file_system.make_directory(ref_file.parent)
             except OSError as ex:
@@ -169,8 +175,8 @@ def load_asr_evaluator(
                     f"The '{hyp_file}' output file cannot be created. See the nested exception for details."
                 ) from ex
         except UnitError as ex:
-            raise ProgramError(
-                "The evaluation unit cannot be initialized. See the nested exception for details."
+            raise RecipeError(
+                "The evaluator unit cannot be initialized. See the nested exception for details."
             ) from ex
     else:
         ref_fp = None
@@ -178,9 +184,7 @@ def load_asr_evaluator(
 
     scorer = AsrScorer(tokenizer, ref_output_stream=ref_fp, hyp_output_stream=hyp_fp)
 
-    criterion = AsrCriterion(model, scorer)
-
-    unit = AsrEvalUnit(criterion, gangs)
+    unit = AsrEvalUnit(model, scorer)
 
     batching = LengthBatching(config.dataset.max_num_elements)
 
@@ -203,33 +207,59 @@ def load_asr_evaluator(
         read_options,
     )
 
+    units = [unit]
+
+    data_readers = [data_reader]
+
     seed += 1
 
     return create_evaluator(
-        context, config, output_dir, [unit], [data_reader], gangs, seed
+        context,
+        config.evaluator,
+        config.common,
+        output_dir,
+        units,
+        data_readers,
+        gangs,
+        seed,
+        hyper_params=config,
     )
 
 
 @final
 class AsrEvalUnit(EvalUnit[Seq2SeqBatch]):
-    _criterion: AsrCriterion
-    _metric_bag: AsrMetricBag
+    _model: Model
+    _scorer: AsrScorer
 
-    def __init__(self, criterion: AsrCriterion, gangs: Gangs) -> None:
-        self._criterion = criterion
+    def __init__(self, model: Model, scorer: AsrScorer) -> None:
+        self._model = model
 
-        self._metric_bag = AsrMetricBag(gangs.dp, train=False)
+        self._scorer = scorer
 
     @override
-    def __call__(self, batch: Seq2SeqBatch) -> None:
-        self._criterion(batch, self._metric_bag)
+    def __call__(self, batch: Seq2SeqBatch, metric_bag: MetricBag) -> None:
+        source_seqs, source_seqs_layout = batch.as_source_input()
+        target_seqs, target_seqs_layout = batch.as_target_input()
+
+        ctc_loss, logits, logits_layout = self._model.module(
+            source_seqs,
+            source_seqs_layout,
+            target_seqs,
+            target_seqs_layout,
+            return_logits=True,
+        )
+
+        update_ctc_loss(metric_bag, ctc_loss, batch.batch_size)
+
+        update_asr_batch_metrics(metric_bag, batch)
+
+        self._scorer(batch, logits, logits_layout, metric_bag)
+
+    @override
+    def process_metric_values(self, values: MutableMapping[str, object]) -> None:
+        self._scorer.process_metric_values(values)
 
     @property
     @override
     def model(self) -> Model:
-        return self._criterion.model
-
-    @property
-    @override
-    def metric_bag(self) -> AsrMetricBag:
-        return self._metric_bag
+        return self._model
