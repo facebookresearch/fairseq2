@@ -68,7 +68,13 @@ class ModelHandler(ABC):
 
     @abstractmethod
     def load(
-        self, card: AssetCard, gangs: Gangs, dtype: DataType, config: object
+        self,
+        card: AssetCard,
+        gangs: Gangs,
+        dtype: DataType,
+        config: object,
+        *,
+        mmap: bool = False,
     ) -> Module: ...
 
     @abstractmethod
@@ -80,6 +86,7 @@ class ModelHandler(ABC):
         gangs: Gangs,
         dtype: DataType,
         *,
+        mmap: bool = False,
         restrict: bool | None = None,
     ) -> Module: ...
 
@@ -97,9 +104,9 @@ class ModelHandler(ABC):
     ) -> None: ...
 
     @abstractmethod
-    def export_to_hugging_face(
-        self, checkpoint: dict[str, object], config: object
-    ) -> tuple[dict[str, object], dict[str, object]]: ...
+    def save_as_hugging_face(
+        self, save_dir: Path, checkpoint: dict[str, object], config: object
+    ) -> None: ...
 
     @property
     @abstractmethod
@@ -174,10 +181,10 @@ class FSDPApplier(Protocol[ModelT_contra]):
     ) -> None: ...
 
 
-class HuggingFaceExporter(Protocol[ModelConfigT_contra]):
+class HuggingFaceSaver(Protocol[ModelConfigT_contra]):
     def __call__(
-        self, checkpoint: dict[str, object], config: ModelConfigT_contra
-    ) -> tuple[dict[str, object], dict[str, object] | PretrainedConfig]: ...
+        self, save_dir: Path, checkpoint: dict[str, object], config: ModelConfigT_contra
+    ) -> None: ...
 
 
 ModelT = TypeVar("ModelT", bound=Module)
@@ -203,7 +210,7 @@ class DelegatingModelHandler(ModelHandler):
     _compiler: ModelCompiler[Any] | None
     _ac_applier: ActivationCheckpointApplier[Any] | None
     _fsdp_applier: FSDPApplier[Any] | None
-    _hugging_face_exporter: HuggingFaceExporter[Any] | None
+    _hugging_face_saver: HuggingFaceSaver[Any] | None
 
     def __init__(
         self,
@@ -224,7 +231,7 @@ class DelegatingModelHandler(ModelHandler):
         compiler: ModelCompiler[ModelT] | None = None,
         ac_applier: ActivationCheckpointApplier[ModelT] | None = None,
         fsdp_applier: FSDPApplier[ModelT] | None = None,
-        hugging_face_exporter: HuggingFaceExporter[ModelConfigT] | None = None,
+        hugging_face_saver: HuggingFaceSaver[ModelConfigT] | None = None,
     ) -> None:
         self._family = family
         self._kls = kls
@@ -242,7 +249,7 @@ class DelegatingModelHandler(ModelHandler):
         self._compiler = compiler
         self._ac_applier = ac_applier
         self._fsdp_applier = fsdp_applier
-        self._hugging_face_exporter = hugging_face_exporter
+        self._hugging_face_saver = hugging_face_saver
 
     @override
     def get_arch_config(self, arch: str | None) -> object:
@@ -332,7 +339,13 @@ class DelegatingModelHandler(ModelHandler):
 
     @override
     def load(
-        self, card: AssetCard, gangs: Gangs, dtype: DataType, config: object
+        self,
+        card: AssetCard,
+        gangs: Gangs,
+        dtype: DataType,
+        config: object,
+        *,
+        mmap: bool = False,
     ) -> Module:
         name = card.name
 
@@ -366,7 +379,7 @@ class DelegatingModelHandler(ModelHandler):
 
         try:
             return self.load_from_path(
-                path, name, config, gangs, dtype, restrict=restrict
+                path, name, config, gangs, dtype, mmap=mmap, restrict=restrict
             )
         except FileNotFoundError:
             raise ModelLoadError(
@@ -389,6 +402,7 @@ class DelegatingModelHandler(ModelHandler):
         gangs: Gangs,
         dtype: DataType,
         *,
+        mmap: bool = False,
         restrict: bool | None = None,
     ) -> Module:
         if gangs.root.device.type == "meta":
@@ -426,6 +440,7 @@ class DelegatingModelHandler(ModelHandler):
                 checkpoint = self._checkpoint_loader.load(
                     path,
                     gangs,
+                    mmap=mmap,
                     restrict=restrict,
                     processor=checkpoint_processor,
                     shard_specs=shard_specs,
@@ -542,12 +557,12 @@ class DelegatingModelHandler(ModelHandler):
         self._fsdp_applier(model, granularity, wrapper)
 
     @override
-    def export_to_hugging_face(
-        self, checkpoint: dict[str, object], config: object
-    ) -> tuple[dict[str, object], dict[str, object]]:
-        if self._hugging_face_exporter is None:
+    def save_as_hugging_face(
+        self, save_dir: Path, checkpoint: dict[str, object], config: object
+    ) -> None:
+        if self._hugging_face_saver is None:
             raise NotSupportedError(
-                f"The '{self._family}' model family does not support Hugging Face integration."
+                f"The '{self._family}' model family does not support Hugging Face conversion."
             )
 
         if not isinstance(config, self._configs.config_kls):
@@ -555,7 +570,7 @@ class DelegatingModelHandler(ModelHandler):
                 f"`config` must be of type `{self._configs.config_kls}`, but is of type `{type(config)}` instead."
             )
 
-        return self._hugging_face_exporter(checkpoint, config)
+        return self._hugging_face_saver(save_dir, checkpoint, config)
 
     @property
     @override
@@ -600,4 +615,4 @@ class DelegatingModelHandler(ModelHandler):
     @property
     @override
     def supports_hugging_face(self) -> bool:
-        return self._hugging_face_exporter is not None
+        return self._hugging_face_saver is not None

@@ -6,36 +6,23 @@
 
 from __future__ import annotations
 
-from fairseq2.models.utils.checkpoint import convert_checkpoint, create_reverse_key_map
+from pathlib import Path
 
-try:
-    import transformers.models as transformers_models  # type: ignore[import-not-found]
-    from transformers import PretrainedConfig
-except ImportError:
-    raise ImportError(
-        "transformers package is required to fetch Qwen Config for export purpose, run `pip install transformers`"
-    )
+from fairseq2.models.utils.checkpoint import convert_checkpoint, create_reverse_key_map
+from fairseq2.models.utils.hg import save_hg_checkpoint
 
 # isort: split
 
-from fairseq2.models.qwen import QWEN_KEY_MAP
+from fairseq2.models.qwen._checkpoint import _QWEN_HG_KEY_MAP
 from fairseq2.models.qwen._config import QwenConfig
 
 
-def export_qwen_checkpoint(
-    checkpoint: dict[str, object], config: QwenConfig
-) -> tuple[dict[str, object], PretrainedConfig]:
-    hg_config = _convert_config(config)
+def save_as_hg_qwen(
+    save_dir: Path, checkpoint: dict[str, object], config: QwenConfig
+) -> None:
+    hg_checkpoint = _convert_to_hg_checkpoint(checkpoint, config)
 
-    hg_checkpoint = _convert_checkpoint(checkpoint, config)
-
-    return hg_checkpoint, hg_config
-
-
-def _convert_config(config: QwenConfig) -> PretrainedConfig:
-    config_cls = getattr(transformers_models, config.hg_config_class)
-
-    config_mapped_to_hg = {
+    hg_config: dict[str, object] = {
         "hidden_size": config.model_dim,
         "max_position_embeddings": config.max_seq_len,
         "vocab_size": config.vocab_size,
@@ -47,6 +34,16 @@ def _convert_config(config: QwenConfig) -> PretrainedConfig:
         "head_dim": config.head_dim,
         "rope_theta": config.rope_theta,
     }
+    if config.hg_architecture == "Qwen3ForCausalLM":
+        hg_config["head_dim"] = config.head_dim
+
+    save_hg_checkpoint(
+        save_dir,
+        hg_checkpoint,
+        config.hg_config_class,
+        hg_config,
+        config.hg_architecture,
+    )
 
     hg_config = config_cls()
 
@@ -60,13 +57,14 @@ def _convert_config(config: QwenConfig) -> PretrainedConfig:
     return hg_config
 
 
-def _convert_checkpoint(
+def _convert_to_hg_checkpoint(
     checkpoint: dict[str, object], config: QwenConfig
 ) -> dict[str, object]:
+    key_map = create_reverse_key_map(_QWEN_HG_KEY_MAP)
 
-    checkpoint = convert_checkpoint(checkpoint, create_reverse_key_map(QWEN_KEY_MAP))
+    hg_checkpoint = convert_checkpoint(checkpoint, key_map)
 
     if config.tied_embeddings:
-        del checkpoint["lm_head.weight"]
+        del hg_checkpoint["lm_head.weight"]
 
-    return checkpoint
+    return hg_checkpoint

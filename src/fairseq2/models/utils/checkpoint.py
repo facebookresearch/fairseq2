@@ -33,8 +33,11 @@ def load_checkpoint(
     state_dict = model.state_dict(keep_vars=True)
 
     with progress_reporter:
+        # Start the progress bar in indeterminate mode since the first iteration
+        # typicall takes longer to process; in particular when the checkpoint is
+        # not mmap'ed.
         progress_task = progress_reporter.create_task(
-            name="parameter load", total=len(state_dict)
+            name="parameter load", total=len(state_dict), start=False
         )
 
         with progress_task, torch.no_grad():
@@ -45,6 +48,8 @@ def load_checkpoint(
                     unexpected_keys.append(key)
 
                     continue
+
+                progress_task.start()
 
                 if tensor.shape != state_tensor.shape:
                     errors.append(
@@ -147,30 +152,31 @@ def convert_fairseq_checkpoint(
     return fs2_checkpoint
 
 
-def create_reverse_key_map(key_map: Dict[str, str]) -> Dict[str, str]:
-    """Create a reversed version of a regex-based key map."""
-    reversed_map = {}
+def create_reverse_key_map(key_map: dict[str, str]) -> dict[str, str]:
+    """Creates a reversed version of a regex-based key map."""
+    reverse_key_map = {}
 
     for pattern, replacement in key_map.items():
-        # Strip ^ from pattern if present
+        # Strip ^ from `pattern` if present.
         pattern_without_anchor = pattern[1:] if pattern.startswith("^") else pattern
 
-        # Create new pattern from the original replacement
-        # 1. Escape dots
-        # 2. Replace backreferences with capture groups
+        # Create a new pattern from the original replacement:
+        #   1. Escape dots.
+        #   2. Replace backreferences with capture groups.
         new_pattern = "^" + replacement.replace(".", r"\.").replace(r"\1", r"([0-9]+)")
 
-        # Create new replacement from original pattern
-        # Instead of string manipulation, use a simpler approach
-        # The key insight: we need \1 as a literal in the output string
+        # Create a new replacement from the original pattern. Instead of string
+        # manipulation, use a simpler approach. The key insight is that we need
+        # \1 as a literal in the output string
         if "([0-9]+)" in pattern_without_anchor:
-            # This is the literal representation we want in the final string
+            # This is the literal representation we want in the final string.
             new_replacement = pattern_without_anchor.replace(r"([0-9]+)", r"\1")
-            # Remove escaping from dots
+
+            # Remove escaping from dots.
             new_replacement = new_replacement.replace(r"\.", ".")
         else:
             new_replacement = pattern_without_anchor.replace(r"\.", ".")
 
-        reversed_map[new_pattern] = new_replacement
+        reverse_key_map[new_pattern] = new_replacement
 
-    return reversed_map
+    return reverse_key_map

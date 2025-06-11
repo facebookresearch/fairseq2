@@ -18,7 +18,8 @@ from torch import Tensor
 from typing_extensions import override
 
 try:
-    from safetensors import torch as safetensors_torch  # type: ignore[import-not-found]
+    import safetensors  # type: ignore[import-not-found]
+    import safetensors.torch  # type: ignore[import-not-found]
 except ImportError:
     _has_safetensors = False
 else:
@@ -42,8 +43,8 @@ class TensorLoader(ABC):
         file: Path,
         *,
         map_location: MapLocation = None,
-        restrict: bool = True,
         mmap: bool = False,
+        restrict: bool = True,
     ) -> dict[str, object]:
         """
         :param file: The path to the file.
@@ -76,8 +77,8 @@ class TorchTensorLoader(TensorLoader):
         file: Path,
         *,
         map_location: MapLocation = None,
-        restrict: bool = True,
         mmap: bool = False,
+        restrict: bool = True,
     ) -> dict[str, object]:
         with warnings.catch_warnings():
             warnings.filterwarnings(
@@ -138,7 +139,7 @@ class SafetensorsLoader(ABC):
 
     @abstractmethod
     def load(
-        self, file: Path, *, device: Device | None = None
+        self, file: Path, *, device: Device | None = None, mmap: bool = False
     ) -> dict[str, object]: ...
 
 
@@ -153,7 +154,9 @@ class HuggingFaceSafetensorsLoader(SafetensorsLoader):
         self._file_system = file_system
 
     @override
-    def load(self, file: Path, *, device: Device | None = None) -> dict[str, object]:
+    def load(
+        self, file: Path, *, device: Device | None = None, mmap: bool = False
+    ) -> dict[str, object]:
         if not _has_safetensors:
             raise RuntimeError(
                 "Safetensors is not found in your Python environment. Use `pip install safetensors`."
@@ -162,13 +165,23 @@ class HuggingFaceSafetensorsLoader(SafetensorsLoader):
         if device is None:
             device = CPU
 
-        tensors = {}
+        data = {}
 
         try:
-            with open(file, "rb") as f:
-                tensors = safetensors_torch.load(f.read())
-            for key, tensor in tensors.items():
-                tensors[key] = tensor.to(device)
+            if mmap:
+                with safetensors.safe_open(
+                    file, framework="pt", device=str(device)
+                ) as f:
+                    for key in f.keys():
+                        data[key] = f.get_tensor(key)
+            else:
+                with open(file, "rb") as f:
+                    bits = f.read()
+
+                tensors = safetensors.torch.load(bits)
+
+                for key, tensor in tensors.items():
+                    data[key] = tensor.to(device)
 
         except FileNotFoundError:
             raise
@@ -177,7 +190,7 @@ class HuggingFaceSafetensorsLoader(SafetensorsLoader):
                 file, f"The '{file}' tensor file cannot be loaded. See the nested exception for details."  # fmt: skip
             ) from ex
 
-        return tensors
+        return data
 
 
 class TensorLoadError(Exception):

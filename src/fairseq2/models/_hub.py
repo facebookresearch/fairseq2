@@ -109,6 +109,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         device: Device | None = None,
         dtype: DataType | None = None,
         config: ModelConfigT | None = None,
+        mmap: bool = False,
     ) -> ModelT:
         if gangs is not None and device is not None:
             raise ValueError(
@@ -160,7 +161,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         if dtype is None:
             dtype = torch.get_default_dtype()
 
-        model = handler.load(card, gangs, dtype, config)
+        model = handler.load(card, gangs, dtype, config, mmap=mmap)
 
         return cast(ModelT, model)
 

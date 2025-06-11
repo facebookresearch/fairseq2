@@ -42,6 +42,7 @@ class CheckpointLoader(ABC):
         path: Path,
         gangs: Gangs,
         *,
+        mmap: bool = False,
         restrict: bool = True,
         processor: CheckpointProcessor | None = None,
         shard_specs: Mapping[str, ShardSpec] | None = None,
@@ -64,6 +65,7 @@ class DelegatingCheckpointLoader(CheckpointLoader):
         path: Path,
         gangs: Gangs,
         *,
+        mmap: bool = False,
         restrict: bool = True,
         processor: CheckpointProcessor | None = None,
         shard_specs: Mapping[str, ShardSpec] | None = None,
@@ -73,6 +75,7 @@ class DelegatingCheckpointLoader(CheckpointLoader):
                 return loader.load(
                     path,
                     gangs,
+                    mmap=mmap,
                     restrict=restrict,
                     processor=processor,
                     shard_specs=shard_specs,
@@ -107,13 +110,14 @@ class BasicCheckpointLoader(CheckpointLoader):
         path: Path,
         gangs: Gangs,
         *,
+        mmap: bool = False,
         restrict: bool = True,
         processor: CheckpointProcessor | None = None,
         shard_specs: Mapping[str, ShardSpec] | None = None,
     ) -> Iterable[tuple[str, Tensor]]:
         try:
             checkpoint = self._tensor_loader.load(
-                path, map_location=CPU, restrict=restrict, mmap=True
+                path, map_location=CPU, mmap=mmap, restrict=restrict
             )
         except (FileNotFoundError, TensorLoadError) as ex:
             raise CheckpointError(
@@ -185,6 +189,7 @@ class SafetensorsCheckpointLoader(CheckpointLoader):
         path: Path,
         gangs: Gangs,
         *,
+        mmap: bool = False,
         restrict: bool = True,
         processor: CheckpointProcessor | None = None,
         shard_specs: Mapping[str, ShardSpec] | None = None,
@@ -211,7 +216,7 @@ class SafetensorsCheckpointLoader(CheckpointLoader):
 
         for file in files:
             try:
-                st_shard = self._safetensors_loader.load(file, device=CPU)
+                st_shard = self._safetensors_loader.load(file, device=CPU, mmap=mmap)
             except (FileNotFoundError, TensorLoadError) as ex:
                 raise CheckpointError(
                     f"The '{file}' Safetensors file cannot be loaded. See the nested exception for details."
@@ -306,6 +311,7 @@ class ShardedCheckpointLoader(CheckpointLoader):
         path: Path,
         gangs: Gangs,
         *,
+        mmap: bool = False,
         restrict: bool = True,
         processor: CheckpointProcessor | None = None,
         shard_specs: Mapping[str, ShardSpec] | None = None,
@@ -354,7 +360,7 @@ class ShardedCheckpointLoader(CheckpointLoader):
                 for dp_file in dp_files:
                     try:
                         dp_checkpoint = self._tensor_loader.load(
-                            dp_file, restrict=restrict, map_location=CPU, mmap=False
+                            dp_file, map_location=CPU, mmap=mmap, restrict=restrict
                         )
                     except (FileNotFoundError, TensorLoadError) as ex:
                         raise CheckpointError(
@@ -521,6 +527,7 @@ class LLaMACheckpointLoader(CheckpointLoader):
         path: Path,
         gangs: Gangs,
         *,
+        mmap: bool = False,
         restrict: bool = True,
         processor: CheckpointProcessor | None = None,
         shard_specs: Mapping[str, ShardSpec] | None = None,
@@ -564,7 +571,7 @@ class LLaMACheckpointLoader(CheckpointLoader):
         for tp_file in tp_files:
             try:
                 tp_checkpoint = self._tensor_loader.load(
-                    tp_file, restrict=restrict, map_location=CPU, mmap=True
+                    tp_file, map_location=CPU, mmap=mmap, restrict=restrict
                 )
             except (FileNotFoundError, TensorLoadError) as ex:
                 raise CheckpointError(
@@ -715,17 +722,17 @@ def _reshard_tensor(
 
     target_tp_dim_size = tp_dim_size // target_tp_size
 
-    target_f_idx = target_tp_rank * target_tp_dim_size
-    target_l_idx = target_tp_rank * target_tp_dim_size + target_tp_dim_size - 1
+    f_target_idx = target_tp_rank * target_tp_dim_size
+    l_target_idx = target_tp_rank * target_tp_dim_size + target_tp_dim_size - 1
 
-    source_tp_shard_f_idx = target_f_idx // source_tp_dim_size
-    source_tp_shard_l_idx = target_l_idx // source_tp_dim_size
+    f_source_tp_shard_idx = f_target_idx // source_tp_dim_size
+    l_source_tp_shard_idx = l_target_idx // source_tp_dim_size
 
-    source_f_idx = source_tp_shard_f_idx * source_tp_dim_size
+    f_source_idx = f_source_tp_shard_idx * source_tp_dim_size
 
     tp_sub_shards = []
 
-    for idx in range(source_tp_shard_f_idx, source_tp_shard_l_idx + 1):
+    for idx in range(f_source_tp_shard_idx, l_source_tp_shard_idx + 1):
         tp_sub_shards.append(tp_shards[idx])
 
     del tp_shards
@@ -735,7 +742,7 @@ def _reshard_tensor(
     del tp_sub_shards
 
     return tensor.narrow(
-        dim=tp_dim, start=target_f_idx - source_f_idx, length=target_tp_dim_size
+        dim=tp_dim, start=f_target_idx - f_source_idx, length=target_tp_dim_size
     )
 
 
