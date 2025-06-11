@@ -31,7 +31,6 @@ def save_as_hg_qwen(
         "num_attention_heads": config.num_attn_heads,
         "num_key_value_heads": config.num_key_value_heads,
         "intermediate_size": config.ffn_inner_dim,
-        "head_dim": config.head_dim,
         "rope_theta": config.rope_theta,
     }
     if config.hg_architecture == "Qwen3ForCausalLM":
@@ -44,17 +43,6 @@ def save_as_hg_qwen(
         hg_config,
         config.hg_architecture,
     )
-
-    hg_config = config_cls()
-
-    for k, v in config_mapped_to_hg.items():
-        if getattr(hg_config, k, None) is not None:
-            setattr(hg_config, k, v)
-
-    # always add architectures in the end since its used by vllm
-    setattr(hg_config, "architectures", config.hg_architectures)
-
-    return hg_config
 
 
 def _convert_to_hg_checkpoint(

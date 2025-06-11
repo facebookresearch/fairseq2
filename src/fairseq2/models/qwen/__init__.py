@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from fairseq2.models.qwen._checkpoint import QWEN_KEY_MAP as QWEN_KEY_MAP
+from fairseq2.models.qwen._checkpoint import _QWEN_HG_KEY_MAP as _QWEN_HG_KEY_MAP
 from fairseq2.models.qwen._checkpoint import (
     convert_qwen_checkpoint as convert_qwen_checkpoint,
 )
