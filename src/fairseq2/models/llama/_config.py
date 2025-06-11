@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final, Literal
+from typing import Final, List, Literal
 
 from fairseq2.context import RuntimeContext
 
@@ -98,6 +98,14 @@ class LLaMAConfig:
 
     shard_embed_dim: bool = True
     """If ``True``, shards the embedding dimension for tensor parallelism."""
+
+    hg_config_class: str = "LlamaConfig"
+    """This class is imported from transformers to return huggingface config."""
+
+    hg_architectures: List[str] = field(
+        default_factory=lambda: list(["LlamaForCausalLM"])
+    )
+    """This architecture is passed to the huggingface config during export."""
 
 
 @dataclass

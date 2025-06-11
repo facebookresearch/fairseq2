@@ -14,6 +14,11 @@ from typing import Any, Protocol, TypeVar, final
 from torch.nn import Module
 from typing_extensions import override
 
+try:
+    from transformers import PretrainedConfig  # type: ignore[import-not-found]
+except ImportError:
+    raise ImportError("transformers is required for model export config handling")
+
 from fairseq2.assets import (
     AssetCard,
     AssetCardError,
@@ -179,7 +184,7 @@ class FSDPApplier(Protocol[ModelT_contra]):
 class HuggingFaceExporter(Protocol[ModelConfigT_contra]):
     def __call__(
         self, checkpoint: dict[str, object], config: ModelConfigT_contra
-    ) -> tuple[dict[str, object], dict[str, object]]: ...
+    ) -> tuple[dict[str, object], dict[str, object] | PretrainedConfig]: ...
 
 
 ModelT = TypeVar("ModelT", bound=Module)

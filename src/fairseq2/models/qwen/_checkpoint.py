@@ -12,13 +12,8 @@ from fairseq2.models.utils.checkpoint import convert_checkpoint
 
 from fairseq2.models.qwen._config import QwenConfig
 
-
-def convert_qwen_checkpoint(
-    checkpoint: dict[str, object], config: QwenConfig
-) -> dict[str, object]:
-    if "model.embed_tokens.weight" in checkpoint:  # Hugging Face
-        key_map = {
-            # fmt: off
+QWEN_KEY_MAP = {
+    # fmt: off
             r"^model\.layers\.([0-9]+)\.self_attn\.q_proj\.":        r"decoder.layers.\1.self_attn.q_proj.",
             r"^model\.layers\.([0-9]+)\.self_attn\.k_proj\.":        r"decoder.layers.\1.self_attn.k_proj.",
             r"^model\.layers\.([0-9]+)\.self_attn\.v_proj\.":        r"decoder.layers.\1.self_attn.v_proj.",
@@ -33,10 +28,15 @@ def convert_qwen_checkpoint(
             r"^model\.norm\.":                                       r"decoder.layer_norm.",
             r"^model\.embed_tokens\.":                               r"decoder_frontend.embed.",
             r"^lm_head\.":                                           r"final_proj.",
-            # fmt: on
-        }
+    # fmt: on
+}
 
-        checkpoint = convert_checkpoint(checkpoint, key_map)
+
+def convert_qwen_checkpoint(
+    checkpoint: dict[str, object], config: QwenConfig
+) -> dict[str, object]:
+    if "model.embed_tokens.weight" in checkpoint:  # Hugging Face
+        checkpoint = convert_checkpoint(checkpoint, QWEN_KEY_MAP)
 
     if config.tied_embeddings:
         checkpoint["final_proj.weight"] = checkpoint["decoder_frontend.embed.weight"]

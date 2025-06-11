@@ -12,6 +12,14 @@ from torch import Tensor
 
 from fairseq2.models.utils.checkpoint import convert_checkpoint
 
+try:
+    import transformers.models as transformers_models  # type: ignore[import-not-found]
+    from transformers import PretrainedConfig  # type: ignore[import-not-found]
+except ImportError:
+    raise ImportError(
+        "transformers package is required to fetch Qwen Config for export purpose, run `pip install transformers`"
+    )
+
 # isort: split
 
 from fairseq2.models.llama._config import LLaMAConfig
@@ -19,7 +27,7 @@ from fairseq2.models.llama._config import LLaMAConfig
 
 def export_llama_checkpoint(
     checkpoint: dict[str, object], config: LLaMAConfig
-) -> tuple[dict[str, object], dict[str, object]]:
+) -> tuple[dict[str, object], PretrainedConfig]:
     hg_config = _convert_config(config)
 
     hg_checkpoint = _convert_checkpoint(checkpoint, config)
@@ -27,7 +35,7 @@ def export_llama_checkpoint(
     return hg_checkpoint, hg_config
 
 
-def _convert_config(config: LLaMAConfig) -> dict[str, object]:
+def _convert_config(config: LLaMAConfig) -> PretrainedConfig:
     multiplier = config.ffn_inner_dim_multiplier
 
     multiple_of = config.ffn_inner_dim_multiple_of
@@ -52,8 +60,9 @@ def _convert_config(config: LLaMAConfig) -> dict[str, object]:
         bos_idx = 128_000
         eos_idx = 128_001
 
-    # We only specify the parameters made explicit in the Hugging Face converter.
-    return {
+    config_cls = getattr(transformers_models, config.hg_config_class)
+
+    config_mapped_to_hg = {
         "bos_token_id": bos_idx,
         "eos_token_id": eos_idx,
         "hidden_size": config.model_dim,
@@ -69,6 +78,17 @@ def _convert_config(config: LLaMAConfig) -> dict[str, object]:
         "tie_word_embeddings": config.tied_embeddings,
         "vocab_size": config.vocab_size,
     }
+
+    hg_config = config_cls()
+
+    for k, v in config_mapped_to_hg.items():
+        if getattr(hg_config, k, None) is not None:
+            setattr(hg_config, k, v)
+
+    # always add architectures in the end since its used by vllm
+    setattr(hg_config, "architectures", config.hg_architectures)
+
+    return hg_config
 
 
 def _convert_checkpoint(
