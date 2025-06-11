@@ -181,6 +181,7 @@ def get_seqs_and_padding_mask(
     seq_lens = data["seq_lens"]
 
     if device is not None:
+        seq_lens = torch.tensor(seq_lens)
         seq_lens = seq_lens.to(device)
 
     return seqs, PaddingMask(seq_lens, batch_seq_len=seqs.size(1))
