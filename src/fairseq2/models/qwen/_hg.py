@@ -31,9 +31,10 @@ def save_as_hg_qwen(
         "num_attention_heads": config.num_attn_heads,
         "num_key_value_heads": config.num_key_value_heads,
         "intermediate_size": config.ffn_inner_dim,
-        "head_dim": config.head_dim,
         "rope_theta": config.rope_theta,
     }
+    if config.hg_architecture == "Qwen3ForCausalLM":
+        hg_config["head_dim"] = config.head_dim
 
     save_hg_checkpoint(
         save_dir,
