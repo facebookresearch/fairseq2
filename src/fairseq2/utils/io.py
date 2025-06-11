@@ -43,8 +43,8 @@ class TensorLoader(ABC):
         file: Path,
         *,
         map_location: MapLocation = None,
-        restrict: bool = True,
         mmap: bool = False,
+        restrict: bool = True,
     ) -> dict[str, object]:
         """
         :param file: The path to the file.
@@ -77,8 +77,8 @@ class TorchTensorLoader(TensorLoader):
         file: Path,
         *,
         map_location: MapLocation = None,
-        restrict: bool = True,
         mmap: bool = False,
+        restrict: bool = True,
     ) -> dict[str, object]:
         with warnings.catch_warnings():
             warnings.filterwarnings(

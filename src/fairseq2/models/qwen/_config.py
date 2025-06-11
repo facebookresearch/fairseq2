@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Final
 
@@ -19,7 +20,7 @@ class QwenConfig:
     model_dim: int = 3584
     """The dimensionality of the model."""
 
-    max_seq_len: int = 131_072
+    max_seq_len: int = 32_768
     """The maximum sequence length."""
 
     vocab_size: int = 152_064
@@ -60,6 +61,12 @@ class QwenConfig:
 
     dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""
+
+    hg_config_class: str = "Qwen2Config"
+    """The name of the Hugging Face configuration class."""
+
+    hg_architecture: str | Sequence[str] = "Qwen2ForCausalLM"
+    """The name(s) under which Hugging Face refers to this architecture."""
 
 
 def register_qwen_configs(context: RuntimeContext) -> None:
@@ -139,6 +146,8 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.k_norm = True
         config.ffn_inner_dim = 3072
         config.rope_theta = 1_000_000
+        config.hg_config_class = "Qwen3Config"
+        config.hg_architecture = "Qwen3ForCausalLM"
 
         return config
 
@@ -159,6 +168,8 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.k_norm = True
         config.ffn_inner_dim = 6144
         config.rope_theta = 1_000_000
+        config.hg_config_class = "Qwen3Config"
+        config.hg_architecture = "Qwen3ForCausalLM"
 
         return config
 
@@ -179,6 +190,8 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.k_norm = True
         config.ffn_inner_dim = 9728
         config.rope_theta = 1_000_000
+        config.hg_config_class = "Qwen3Config"
+        config.hg_architecture = "Qwen3ForCausalLM"
 
         return config
 
@@ -198,6 +211,8 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.k_norm = True
         config.ffn_inner_dim = 12_288
         config.rope_theta = 1_000_000
+        config.hg_config_class = "Qwen3Config"
+        config.hg_architecture = "Qwen3ForCausalLM"
 
         return config
 
@@ -217,6 +232,8 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.k_norm = True
         config.ffn_inner_dim = 17_408
         config.rope_theta = 1_000_000
+        config.hg_config_class = "Qwen3Config"
+        config.hg_architecture = "Qwen3ForCausalLM"
 
         return config
 
@@ -236,5 +253,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.k_norm = True
         config.ffn_inner_dim = 25_600
         config.rope_theta = 1_000_000
+        config.hg_config_class = "Qwen3Config"
+        config.hg_architecture = "Qwen3ForCausalLM"
 
         return config

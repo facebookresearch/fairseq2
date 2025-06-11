@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Final, Literal
 
@@ -98,6 +99,12 @@ class LLaMAConfig:
 
     shard_embed_dim: bool = True
     """If ``True``, shards the embedding dimension for tensor parallelism."""
+
+    hg_config_class: str = "LlamaConfig"
+    """The name of the Hugging Face configuration class."""
+
+    hg_architecture: str | Sequence[str] = "LlamaForCausalLM"
+    """The name(s) under which Hugging Face refers to this architecture."""
 
 
 @dataclass
