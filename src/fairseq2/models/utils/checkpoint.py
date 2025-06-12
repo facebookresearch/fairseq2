@@ -33,7 +33,7 @@ def load_checkpoint(
 
     with progress_reporter:
         # Start the progress bar in indeterminate mode since the first iteration
-        # typicall takes longer to process; in particular when the checkpoint is
+        # typically takes longer to handle; in particular when the checkpoint is
         # not mmap'ed.
         progress_task = progress_reporter.create_task(
             name="parameter load", total=len(state_dict), start=False

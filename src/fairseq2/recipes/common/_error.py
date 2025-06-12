@@ -79,6 +79,17 @@ class FSDPNotSupportedError(NotSupportedError):
         self.model_name = model_name
 
 
+class HuggingFaceNotSupportedError(NotSupportedError):
+    model_name: str
+
+    def __init__(self, model_name: str) -> None:
+        super().__init__(
+            f"The '{model_name}' model does not support Hugging Face conversion."
+        )
+
+        self.model_name = model_name
+
+
 class HybridShardingNotSupportedError(NotSupportedError):
     def __init__(self) -> None:
         super().__init__(

@@ -74,6 +74,7 @@ class CheckpointManager(Closable):
         self, *, blocking: bool = False
     ) -> bool | None: ...
 
+    @property
     @abstractmethod
     def is_saving(self) -> bool: ...
 
@@ -129,7 +130,7 @@ class CheckpointStateProcessor(Protocol):
 
 
 class CheckpointCallback(Protocol):
-    def __call__(self, step_nr: int) -> None: ...
+    def __call__(self, step_nr: int, blocking: bool) -> None: ...
 
 
 @final
@@ -271,6 +272,8 @@ class FileCheckpointManager(CheckpointManager):
 
         return True
 
+    @property
+    @override
     def is_saving(self) -> bool:
         return self._save_op is not None
 
@@ -448,7 +451,7 @@ class FileCheckpointManager(CheckpointManager):
                 self._commit_checkpoint(step_nr)
 
                 if callback is not None:
-                    callback(step_nr)
+                    callback(step_nr, blocking)
 
             return commit
 

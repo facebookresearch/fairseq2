@@ -281,6 +281,8 @@ class RegimeSection:
 
     save_model_only: bool = False
 
+    save_as_hugging_face: bool = False
+
     keep_last_n_checkpoints: int | None = None
     """The number of checkpoints to keep. If ``None``, none will be deleted."""
 

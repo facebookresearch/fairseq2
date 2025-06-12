@@ -12,7 +12,7 @@ from typing import TypeVar
 
 from torch.optim import Optimizer
 
-from fairseq2.checkpoint import CheckpointManager
+from fairseq2.checkpoint import CheckpointManager, OutOfProcHuggingFaceSaver
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import DataReader
 from fairseq2.device import SupportsDeviceTransfer
@@ -27,10 +27,12 @@ from fairseq2.utils.gc import (
     GarbageCollector,
     NoopGarbageCollector,
 )
+from fairseq2.utils.threading import get_default_thread_pool
 
 # isort: split
 
 from fairseq2.recipes.common._device import create_device_stat_tracker
+from fairseq2.recipes.common._error import HuggingFaceNotSupportedError
 from fairseq2.recipes.common._metrics import create_metric_recorder
 from fairseq2.recipes.common._profilers import create_profiler
 
@@ -56,6 +58,18 @@ def create_trainer(
     hyper_params: object = None,
     score_metric: str | None = None,
 ) -> Trainer:
+    if regime_section.save_as_hugging_face:
+        if not unit.model.handler.supports_hugging_face:
+            raise HuggingFaceNotSupportedError(unit.model.name)
+
+        checkpoint_dir = output_dir.joinpath("checkpoints")
+
+        thread_pool = get_default_thread_pool()
+
+        hugging_face_saver = OutOfProcHuggingFaceSaver(checkpoint_dir, thread_pool)
+    else:
+        hugging_face_saver = None
+
     score_metric_descriptor = _get_score_metric_descriptor(context, score_metric)
 
     metric_recorder = create_metric_recorder(
@@ -126,6 +140,7 @@ def create_trainer(
         checkpoint_after_n_data_epochs=regime_section.checkpoint_after_n_data_epochs,
         checkpoint_every_n_data_epochs=regime_section.checkpoint_every_n_data_epochs,
         save_model_only=regime_section.save_model_only,
+        hugging_face_saver=hugging_face_saver,
         keep_last_n_checkpoints=regime_section.keep_last_n_checkpoints,
         keep_best_n_checkpoints=regime_section.keep_best_n_checkpoints,
         keep_checkpoint_every_n_steps=regime_section.keep_checkpoint_every_n_steps,
