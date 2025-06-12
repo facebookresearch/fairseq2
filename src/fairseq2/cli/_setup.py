@@ -52,6 +52,7 @@ from fairseq2.recipes.common import (
     ActivationCheckpointingNotSupportedError,
     DatasetPathNotFoundError,
     FSDPNotSupportedError,
+    HuggingFaceNotSupportedError,
     HybridShardingNotSupportedError,
     ModelCompilationNotSupportedError,
     ModelParallelismNotSupportedError,
@@ -339,6 +340,7 @@ def _register_user_error_types(cli: Cli) -> None:
     cli.register_user_error_type(ActivationCheckpointingNotSupportedError)
     cli.register_user_error_type(DatasetPathNotFoundError)
     cli.register_user_error_type(FSDPNotSupportedError)
+    cli.register_user_error_type(HuggingFaceNotSupportedError)
     cli.register_user_error_type(HybridShardingNotSupportedError)
     cli.register_user_error_type(InconsistentGradNormError)
     cli.register_user_error_type(InvalidDatasetTypeError)

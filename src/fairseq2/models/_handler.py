@@ -7,10 +7,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from functools import partial
 from pathlib import Path
 from typing import Any, Protocol, TypeVar, final
 
+from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
@@ -84,6 +86,17 @@ class ModelHandler(ABC):
         mmap: bool = False,
         restrict: bool | None = None,
     ) -> Module: ...
+
+    @abstractmethod
+    def iter_checkpoint(
+        self,
+        path: Path,
+        config: object,
+        gangs: Gangs,
+        *,
+        mmap: bool = False,
+        restrict: bool | None = None,
+    ) -> Iterable[tuple[str, Tensor]]: ...
 
     @abstractmethod
     def compile(self, model: Module, *args: Any, **kwargs: Any) -> None: ...
@@ -400,22 +413,66 @@ class DelegatingModelHandler(ModelHandler):
         mmap: bool = False,
         restrict: bool | None = None,
     ) -> Module:
-        if gangs.root.device.type == "meta":
-            raise ValueError(
-                "`gangs.root` must be on a real device, but is on the meta device instead."
-            )
-
         config = structure(config, self._configs.config_kls)
 
         validate(config)
 
-        # Create the model.
         model = self._do_create(config, gangs, dtype, meta=self._supports_meta)
 
         if self._supports_meta:
-            # Move the model to the actual device without initializing. Its
-            # state will be overwritten by the checkpoint anyways.
+            # The parameters of the model will be overwritten by the checkpoint,
+            # so there is no need to redundantly initialize them.
             to_empty(model, device=gangs.root.device)
+
+        checkpoint = self._do_iter_checkpoint(
+            path, config, gangs, mmap=mmap, restrict=restrict
+        )
+
+        try:
+            load_checkpoint(model, checkpoint, self._progress_reporter)
+        except (CheckpointError, KeyError, ValueError) as ex:
+            raise ModelLoadError(
+                name, f"The checkpoint of the '{name}' model cannot be loaded. See the nested exception for details."  # fmt: skip
+            ) from ex
+
+        if self._supports_meta:
+            # Non-persistent buffers are not included in the checkpoint, so we
+            # have to explicitly initialize them.
+            reset_non_persistent_buffers(model)
+
+        return model
+
+    @override
+    def iter_checkpoint(
+        self,
+        path: Path,
+        config: object,
+        gangs: Gangs,
+        *,
+        mmap: bool = False,
+        restrict: bool | None = None,
+    ) -> Iterable[tuple[str, Tensor]]:
+        config = structure(config, self._configs.config_kls)
+
+        validate(config)
+
+        return self._do_iter_checkpoint(
+            path, config, gangs, mmap=mmap, restrict=restrict
+        )
+
+    def _do_iter_checkpoint(
+        self,
+        path: Path,
+        config: object,
+        gangs: Gangs,
+        *,
+        mmap: bool = False,
+        restrict: bool | None = None,
+    ) -> Iterable[tuple[str, Tensor]]:
+        if gangs.root.device.type == "meta":
+            raise ValueError(
+                "`gangs.root` must be on a real device, but is on the meta device instead."
+            )
 
         if restrict is None:
             restrict = self._restrict
@@ -431,33 +488,14 @@ class DelegatingModelHandler(ModelHandler):
             shard_specs = self._shard_specs(config)
 
         with load_with_sdp_gang(gangs):  # Required for ShardedTensor
-            try:
-                checkpoint = self._checkpoint_loader.load(
-                    path,
-                    gangs,
-                    mmap=mmap,
-                    restrict=restrict,
-                    processor=checkpoint_processor,
-                    shard_specs=shard_specs,
-                )
-            except CheckpointError as ex:
-                raise ModelLoadError(
-                    name, f"The checkpoint of the '{name}' model cannot be loaded. See the nested exception for details."  # fmt: skip
-                ) from ex
-
-            try:
-                load_checkpoint(model, checkpoint, self._progress_reporter)
-            except (CheckpointError, KeyError, ValueError) as ex:
-                raise ModelLoadError(
-                    name, f"The state of the '{name}' model cannot be loaded from the checkpoint. See the nested exception for details."  # fmt: skip
-                ) from ex
-
-        if self._supports_meta:
-            # Non-persistent buffers are not included in the checkpoint, so we
-            # have to explicitly initialize them.
-            reset_non_persistent_buffers(model)
-
-        return model
+            yield from self._checkpoint_loader.load(
+                path,
+                gangs,
+                mmap=mmap,
+                restrict=restrict,
+                processor=checkpoint_processor,
+                shard_specs=shard_specs,
+            )
 
     def _do_create(
         self, config: object, gangs: Gangs, dtype: DataType, meta: bool

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import final
 
 import torch
@@ -73,6 +74,16 @@ class ConvertFairseq2ToHuggingFaceHandler(CliCommandHandler):
 
         register_extra_asset_paths(context, assets_section)
 
+        try:
+            dir_exists = context.file_system.exists(args.save_dir)
+        except OSError as ex:
+            raise CliCommandError(
+                "The model cannot be saved. See the nested exception for details."
+            ) from ex
+
+        if dir_exists:
+            raise CliArgumentError("save_dir", f"{args.save_dir} already exists.")
+
         name = args.model
 
         try:
@@ -123,15 +134,18 @@ class ConvertFairseq2ToHuggingFaceHandler(CliCommandHandler):
         try:
             log.info("Saving Hugging Face model.")
 
-            context.file_system.make_directory(save_dir)
+            with TemporaryDirectory(dir=save_dir.parent) as tmp_dirname:
+                tmp_save_dir = Path(tmp_dirname).joinpath(save_dir.name)
 
-            with context.progress_reporter:
-                progress_task = context.progress_reporter.create_task(
-                    name="save", total=None, start=False
-                )
+                with context.progress_reporter:
+                    progress_task = context.progress_reporter.create_task(
+                        name="save", total=None, start=False
+                    )
 
-                with progress_task:
-                    handler.save_as_hugging_face(save_dir, state_dict, config)
+                    with progress_task:
+                        handler.save_as_hugging_face(tmp_save_dir, state_dict, config)
+
+                context.file_system.move(tmp_save_dir, save_dir)
 
             log.info("Hugging Face model saved to {}!", save_dir)
         except (OSError, RuntimeError) as ex:
