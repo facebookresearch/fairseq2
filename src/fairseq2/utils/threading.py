@@ -81,7 +81,13 @@ def get_num_threads(env: Mapping[str, str]) -> int:
 def _get_num_cpus(num_procs: int) -> int:
     num_cpus = os.cpu_count()
 
-    affinity_mask = os.sched_getaffinity(0)
+    try:
+        affinity_mask = os.sched_getaffinity(0)
+    except AttributeError:  # Python on macOS does not have `sched_getaffinity`.
+        if num_cpus is None:
+            affinity_mask = None
+        else:
+            affinity_mask = set(range(num_cpus))
 
     if num_cpus is None or affinity_mask is None:
         raise ThreadingError(
