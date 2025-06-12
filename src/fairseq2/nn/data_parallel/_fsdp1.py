@@ -175,7 +175,8 @@ def to_fsdp1(
         )
 
     try:
-        module = applier(module, granularity, wrap)
+        if granularity != "model":
+            module = applier(module, granularity, wrap)
 
         if not isinstance(module, Fsdp1Module):
             module = wrap(module, reshard_after_forward=False)
