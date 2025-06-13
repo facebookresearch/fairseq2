@@ -162,3 +162,25 @@ name: llama3_3_70b_instruct
 base: llama3_instruct
 model_arch: llama3_1_70b
 num_shards: 8
+
+---
+name: meres_llama3_2_1b_char
+base: llama3
+model_arch: llama3_2_1b_char_tokenizer
+checkpoint: /checkpoint/meres/artyomko/meta_llama3.2/Llama3.2-1B/consolidated_char.pth
+tokenizer: /checkpoint/mms/shared/assets/datasets/bib_1143_exp/spm.model
+tokenizer_family: char_tokenizer
+
+---
+name: meres_llama3_2_1b
+base: llama3
+model_arch: llama3_2_1b
+checkpoint: /checkpoint/meres/shared/meta_llama3.2/Llama3.2-1B/consolidated.00.pth
+
+
+---
+name: meres_llama3_2_1b_char5k
+base: llama3
+checkpoint: /checkpoint/meres/shared/meta_llama3.2/Llama3.2-1B/consolidated.00.pth
+tokenizer: /checkpoint/meres/mt/models/tokenizers/trimmed_llama3/tokenizer_llama3_trimmed_1_5K.model
+tokenizer_family: llama
