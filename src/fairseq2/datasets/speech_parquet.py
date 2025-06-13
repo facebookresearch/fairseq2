@@ -9,14 +9,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Final, List, Set, final
+from typing import Any, Dict, Final, final, List, Set
 
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 import torch
-from numpy.typing import NDArray
-from typing_extensions import override
 
 from fairseq2.data import Collater, DataPipelineBuilder, MemoryBlock, read_sequence
 from fairseq2.data.audio import AudioDecoder, AudioDecoderOutput
@@ -36,6 +34,8 @@ from fairseq2.datasets.speech import (
 from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.models.sequence import SequenceBatch
+from numpy.typing import NDArray
+from typing_extensions import override
 
 PARQUET_SPEECH_DATASET_FAMILY: Final = "generic_parquet_speech"
 
@@ -158,9 +158,22 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
             seed=seed,
             fragment_shuffle_window=fragment_shuffle_window,
         )
+
+        # Extra here logic for specifying subsplits
+        # Expects format: <split>_<corpus> (where corpus is optional and may contain _)
+        corpus = None
+        split_info = split.split("_")
+        if len(split_info) >= 2:
+            split = split_info[0]
+            corpus = "_".join(split_info[1:])
+
         fragment_config = fragment_config.add_partition_filter(
             pa.compute.field("split") == split
         )
+        if corpus is not None:
+            fragment_config = fragment_config.add_partition_filter(
+                pa.compute.field("corpus") == corpus
+            )
         fragement_builder = ParquetFragmentStreamer(
             config=fragment_config
         ).build_pipeline(rank=rank, world_size=world_size)

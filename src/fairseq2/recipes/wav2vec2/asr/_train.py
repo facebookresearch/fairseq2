@@ -8,16 +8,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, cast, final
+from typing import cast, final, Literal
 
 import torch
-from torch import Tensor
-from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset
-from fairseq2.datasets.speech import SpeechReadOptions
+from fairseq2.datasets.asr import AsrDataset, GENERIC_ASR_DATASET_FAMILY
+from fairseq2.datasets.speech import ManifestDatasetInterface, SpeechReadOptions
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
 from fairseq2.models.asr import AsrModel
@@ -60,13 +58,15 @@ from fairseq2.recipes.config import (
 )
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.wav2vec2.batch_weighted_datareader import (
-    MIXTURE_DATASET_FAMILY,
     BatchMixtureDataset,
+    MIXTURE_DATASET_FAMILY,
 )
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+from torch import Tensor
+from typing_extensions import override
 
 
 @dataclass(kw_only=True)
@@ -165,6 +165,22 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
 
     npc: int = 10
     """The number of parallel calls to use in the pipeline."""
+
+    # Upsampling
+    beta_corpus: float | None = None
+    beta_language: float | None = None
+    """Params specifying sampling temperature; between [0,1]."""
+
+    # SpecAugment
+    spec_aug_p: float | None = None
+    """Probability of applying SpecAugment per row."""
+    spec_aug_freq_mask_param: int = 80
+    """Maximum frequency mask length."""
+    spec_aug_time_mask_param: int = 80
+    """Maximum time mask length."""
+
+    always_read_tsv: bool = False
+    """If ``True``, always read the TSV manifest, regardless of whether parquet datasets exist."""
 
     extras: dict[str, object] = field(default_factory=dict)
     """The dataset-specific extra options."""
@@ -395,6 +411,11 @@ def load_wav2vec2_asr_trainer(
         seed=seed,
         extras=config.dataset.extras,
         npc=config.dataset.npc,
+        beta_corpus=config.dataset.beta_corpus,
+        beta_language=config.dataset.beta_language,
+        spec_aug_p=config.dataset.spec_aug_p,
+        spec_aug_freq_mask_param=config.dataset.spec_aug_freq_mask_param,
+        spec_aug_time_mask_param=config.dataset.spec_aug_time_mask_param,
     )
 
     dataset: AsrDataset | BatchMixtureDataset
@@ -407,6 +428,9 @@ def load_wav2vec2_asr_trainer(
         )
     else:
         dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
+        assert isinstance(dataset, ManifestDatasetInterface)
+        if config.dataset.always_read_tsv:
+            dataset._always_read_tsv = True
 
     data_reader = dataset.create_reader(
         config.dataset.train_split,
