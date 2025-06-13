@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import random
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import partial, reduce
@@ -14,6 +16,7 @@ from typing import Any, Callable, Dict, Final, List
 
 import numpy as np
 import torch
+import torchaudio.transforms as T
 
 from fairseq2.data import Collater, create_bucket_sizes, DataPipelineBuilder, FileMapper
 from fairseq2.data.audio import AudioDecoder, WaveformToFbankConverter
@@ -40,8 +43,80 @@ from torch.nn.functional import layer_norm
 from typing_extensions import override
 
 
+# SpecAugment
+@torch.no_grad
+def freq_mask(spec: torch.Tensor, freq_mask_param=80) -> torch.Tensor:
+    """Apply frequency masking to the spectrogram. Maximum mask length is set by freq_mask_param."""
+    n_freq = spec.size(-2)
+
+    assert freq_mask_param < n_freq
+    fmask_len = random.randint(20, freq_mask_param)
+    fmask_i = random.randint(0, (n_freq - fmask_len - 1))
+
+    masked_spec = spec.clone()
+    masked_spec[:, fmask_i : (fmask_i + fmask_len)] = 0.0
+    return masked_spec
+
+
+@torch.no_grad
+def time_mask(spec: torch.Tensor, time_mask_param=80) -> torch.Tensor:
+    """Apply time masking to the spectrogram. Maximum mask length is set by time_mask_param."""
+    n_t = spec.size(-1)
+
+    time_mask_param = min(120, int(n_t / 4))
+    assert time_mask_param < n_t
+    tmask_len = random.randint(0, time_mask_param)
+    tmask_i = random.randint(0, (n_t - tmask_len - 1))
+
+    masked_spec = spec.clone()
+    masked_spec[..., tmask_i : (tmask_i + tmask_len)] = 0.0
+    return masked_spec
+
+
 @torch.no_grad()
-def postprocess(waveform: Tensor, normalize_audio: bool, dtype: DataType) -> Tensor:
+def _apply_spec_augment(
+    waveform,
+    n_fft=400,
+    win_len=None,
+    hop_len=None,
+    power=None,
+    freq_mask_param=80,
+    time_mask_param=80,
+):
+    log.info(
+        "Applying SpecAugment with freq_mask_param={}, time_mask_param={}".format(
+            freq_mask_param, time_mask_param
+        )
+    )
+    # get spectrogram
+    spectrogram = T.Spectrogram(
+        n_fft=n_fft,
+        win_length=win_len,
+        hop_length=hop_len,
+        center=True,
+        pad_mode="reflect",
+        power=power,
+    )
+    spec = spectrogram(waveform)
+
+    # augment
+    spec_aug = time_mask(freq_mask(spec, freq_mask_param))
+
+    # get augmented wav
+    ispec = T.InverseSpectrogram()
+    wav_aug = ispec(spec_aug)
+    return wav_aug
+
+
+@torch.no_grad()
+def postprocess(
+    waveform: Tensor,
+    normalize_audio: bool,
+    dtype: DataType,
+    spec_aug_p: float | None = None,
+    spec_aug_freq_mask_param: int = 80,
+    spec_aug_time_mask_param: int = 80,
+) -> Tensor:
     if waveform.dim() == 2:
         # reduce channels inplace to save the memory
         size = waveform.size(1)
@@ -53,6 +128,13 @@ def postprocess(waveform: Tensor, normalize_audio: bool, dtype: DataType) -> Ten
 
     if normalize_audio:
         waveform = layer_norm(waveform, waveform.shape)
+
+    if spec_aug_p is not None and random.random() < spec_aug_p:
+        waveform = _apply_spec_augment(
+            waveform,
+            freq_mask_param=spec_aug_freq_mask_param,
+            time_mask_param=spec_aug_time_mask_param,
+        )
 
     return waveform.to(dtype)
 
@@ -106,9 +188,18 @@ class SpeechReadOptions(DataReadOptions):
     npc: int = 10
     """The number of parallel calls to use in the pipeline."""
 
+    # Upsampling
     beta_corpus: float | None = None
     beta_language: float | None = None
     """Params specifying sampling temperature; between [0,1]."""
+
+    # SpecAugment
+    spec_aug_p: float | None = None
+    """Probability of applying SpecAugment per row."""
+    spec_aug_freq_mask_param: int = 80
+    """Maximum frequency mask length."""
+    spec_aug_time_mask_param: int = 80
+    """Maximum time mask length."""
 
 
 class SpeechDataset(ABC):
@@ -153,6 +244,7 @@ class ManifestDatasetInterface:
     _name: str
     _manifest_dir: Path
     _splits: set[str]
+    _always_read_tsv: bool = False
 
     def __init__(self, name: str, manifest_dir: Path, splits: set[str]) -> None:
         """
@@ -260,6 +352,9 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
                     postprocess,
                     normalize_audio=options.normalize_audio,
                     dtype=options.dtype,
+                    spec_aug_p=options.spec_aug_p,
+                    spec_aug_freq_mask_param=options.spec_aug_freq_mask_param,
+                    spec_aug_time_mask_param=options.spec_aug_time_mask_param,
                 ),
                 selector="[*].audio.data.waveform",
             )
