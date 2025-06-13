@@ -146,7 +146,6 @@ Read more about this recipe in :ref:`tutorial-preference-optimization`.
                 path: /datasets/facebook/fairseq2-lm-gsm8k/sft
                 max_seq_len: 4096
                 max_num_tokens: 4096
-                max_seq_len: 4096
         model:
             _set_:
                 name: llama3_2_1b
