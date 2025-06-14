@@ -240,11 +240,11 @@ class BlockMaskCacheKey:
 
 class BlockMaskCache:
     """
-    Cache for block masks to avoid recomputation across layers and possibly training
+    Cache for block masks to avoid recomputation across layers and (possibly) training
     steps.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._cache: dict[BlockMaskCacheKey, BlockMask | None] = {}
 
     def get_or_create_mask(
@@ -297,6 +297,6 @@ class BlockMaskCache:
 
         return block_mask
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear the cache."""
         self._cache.clear()

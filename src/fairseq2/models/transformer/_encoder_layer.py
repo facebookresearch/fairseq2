@@ -40,6 +40,7 @@ class TransformerEncoderLayer(Module, ABC):
         seqs: Tensor,
         seqs_layout: BatchLayout,
         attn_bias_cache: AttentionBiasCache,
+        block_mask_cache: BlockMaskCache,
     ) -> Tensor:
         """
         :param seqs: The sequences to process. *Shape:* :math:`(N,S,M)`, where
