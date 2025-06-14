@@ -13,6 +13,7 @@ from torch import Tensor
 from torch.nn import Module
 
 from fairseq2.models.transformer._attention_bias import AttentionBiasCache
+from fairseq2.models.transformer._block_mask import BlockMaskCache
 from fairseq2.nn import BatchLayout
 
 
@@ -28,6 +29,7 @@ class SDPA(Module, ABC):
         keys_layout: BatchLayout,
         values: Tensor,
         bias_cache: AttentionBiasCache,
+        block_mask_cache: BlockMaskCache,
         *,
         needs_weights: bool = False,
     ) -> tuple[Tensor, Tensor | None]:

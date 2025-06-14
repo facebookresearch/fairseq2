@@ -23,6 +23,7 @@ from fairseq2.models.transformer._attention_bias import (
 from fairseq2.models.transformer._attention_bias import (
     maybe_get_attention_bias_tensor as maybe_get_attention_bias_tensor,
 )
+from fairseq2.models.transformer._block_mask import BlockMaskCache as BlockMaskCache
 from fairseq2.models.transformer._checkpoint import (
     convert_transformer_checkpoint as convert_transformer_checkpoint,
 )

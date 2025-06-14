@@ -18,6 +18,7 @@ from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.models.transformer import (
     AttentionBiasCache,
+    BlockMaskCache,
     FeedForwardNetwork,
     MultiheadAttention,
     TransformerEncoder,
@@ -221,6 +222,7 @@ class CrossAttentionDecoderLayer(Module):
         encoder_output = self.cross_attn_layer_norm(encoder_output)
 
         attn_bias_cache = AttentionBiasCache()
+        block_mask_cache = BlockMaskCache()
 
         seqs = self.cross_attn(
             seqs,
@@ -229,6 +231,7 @@ class CrossAttentionDecoderLayer(Module):
             keys_layout=encoder_output_layout,
             values=encoder_output,
             bias_cache=attn_bias_cache,
+            block_mask_cache=block_mask_cache,
         )
 
         seqs = seqs + residual

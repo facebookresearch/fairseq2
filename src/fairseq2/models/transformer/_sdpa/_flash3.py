@@ -30,6 +30,7 @@ from fairseq2.models.transformer._attention_bias import (
     CausalAttentionBias,
     IdentityBias,
 )
+from fairseq2.models.transformer._block_mask import BlockMaskCache
 from fairseq2.models.transformer._sdpa._base import SDPA
 
 
@@ -56,6 +57,7 @@ class Flash3SDPA(SDPA):
         keys_layout: BatchLayout,
         values: Tensor,
         bias_cache: AttentionBiasCache,
+        block_mask_cache: BlockMaskCache,
         *,
         needs_weights: bool = False,
     ) -> tuple[Tensor, Tensor | None]:

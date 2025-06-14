@@ -15,6 +15,7 @@ from torch import Tensor
 from fairseq2.models.transformer import (
     AttentionBias,
     AttentionBiasCache,
+    BlockMaskCache,
     CausalAttentionBias,
     FlexSDPA,
     IdentityBias,
@@ -118,6 +119,7 @@ class TestScaledDotProductAttention:
                 k_layout = BatchLayout(source_shape, seq_lens=None, device=device)
 
         bias_cache = AttentionBiasCache()
+        block_mask_cache = BlockMaskCache()
 
         return {
             "seqs": q,
@@ -126,6 +128,7 @@ class TestScaledDotProductAttention:
             "keys_layout": k_layout,
             "values": v,
             "bias_cache": bias_cache,
+            "block_mask_cache": block_mask_cache,
         }
 
 
@@ -171,6 +174,7 @@ class TestStandardMultiheadAttention:
         keys_layout = BatchLayout.of(keys)
 
         bias_cache = AttentionBiasCache()
+        block_mask_cache = BlockMaskCache()
 
         result = mha(
             seqs,
@@ -179,6 +183,7 @@ class TestStandardMultiheadAttention:
             keys_layout,
             values=keys,
             bias_cache=bias_cache,
+            block_mask_cache=block_mask_cache,
         )
 
         assert result.shape == seqs.shape
@@ -283,6 +288,7 @@ class TestFlexScaledDotProductAttention:
                 k_layout = BatchLayout(source_shape, seq_lens=None, device=device)
 
         bias_cache = AttentionBiasCache()
+        block_mask_cache = BlockMaskCache()
 
         return {
             "seqs": q,
@@ -291,4 +297,5 @@ class TestFlexScaledDotProductAttention:
             "keys_layout": k_layout,
             "values": v,
             "bias_cache": bias_cache,
+            "block_mask_cache": block_mask_cache,
         }
