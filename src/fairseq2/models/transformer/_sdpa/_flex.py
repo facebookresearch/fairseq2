@@ -35,16 +35,47 @@ from fairseq2.models.transformer._sdpa._base import SDPA
 MaskFunction: TypeAlias = Callable[[Tensor, Tensor, Tensor, Tensor], Tensor]
 
 
-def _causal_mask_fn(b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor) -> Tensor:
-    """Standard causal attention mask."""
-    return q_idx >= kv_idx
-
-
-def _sliding_window_causal_mask_fn(window_size: int) -> MaskFunction:
-    """Creates a sliding window causal mask function."""
+def _causal_mask_fn(
+    q_lens: Tensor, kv_lens: Tensor
+) -> MaskFunction:
+    """Creates a causal mask function."""
 
     def mask_fn(b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor) -> Tensor:
-        return (q_idx >= kv_idx) & (q_idx - kv_idx <= window_size)
+        # Get sequence lengths for this batch
+        q_len = q_lens[b]
+        kv_len = kv_lens[b]
+
+        # Calculate diagonal offset
+        d = kv_len - q_len
+
+        return q_idx >= kv_idx - d
+
+    return mask_fn
+
+
+def _sliding_window_causal_mask_fn(
+    window_size: int,
+    q_lens: Tensor,
+    kv_lens: Tensor,
+) -> MaskFunction:
+    """Creates a sliding window causal mask functions."""
+
+    def mask_fn(b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor) -> Tensor:
+        # Get sequence lengths for this batch
+        q_len = q_lens[b]
+        kv_len = kv_lens[b]
+        
+        # Calculate diagonal offset
+        d = kv_len - q_len
+        
+        # For window_size=1, only allow the exact diagonal position
+        if window_size == 1:
+            return q_idx == kv_idx - d
+        else:
+            # For larger windows, use the range logic
+            causal_mask = q_idx >= kv_idx - d
+            window_mask = q_idx >= kv_idx - d - window_size + 1
+            return causal_mask & window_mask
 
     return mask_fn
 
@@ -88,30 +119,15 @@ def _create_packed_mask_fn(
     return packed_mask_fn
 
 
-def _create_padding_mask_fn(seq_lens: Tensor, value_seq_lens: Tensor) -> MaskFunction:
+def _create_padding_mask_fn(q_lens: Tensor, kv_lens: Tensor) -> MaskFunction:
     """Creates a padding mask function that masks out padding tokens."""
 
     def padding_mask_fn(b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor) -> Tensor:
-        q_valid = q_idx < seq_lens[b]
-        kv_valid = kv_idx < value_seq_lens[b]
+        q_valid = q_idx < q_lens[b]
+        kv_valid = kv_idx < kv_lens[b]
         return q_valid & kv_valid
 
     return padding_mask_fn
-
-
-def _dropout_mask_fn(dropout_p: float, training: bool = True) -> MaskFunction | None:
-    """Creates a dropout mask function."""
-    if not training or dropout_p == 0.0:
-        return None
-
-    def dropout_fn(b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor) -> Tensor:
-        generator = torch.Generator()  # TODO: How to set seed?
-        rand_val = torch.rand(1, generator=generator)
-
-        # Return True to keep, False to mask (opposite of dropout probability)
-        return rand_val >= dropout_p
-
-    return dropout_fn
 
 
 def _create_composed_mask(
@@ -119,11 +135,10 @@ def _create_composed_mask(
     seqs_layout: BatchLayout,
     keys_layout: BatchLayout,
     device: Device,
-    dropout_p: float = 0.0,
-    training: bool = True,
+    *,
     packed: bool = False,
 ) -> BlockMask | None:
-    """Creates a composed mask using and_mask for combining multiple mask functions."""
+    """Creates a composed mask using and_masks for combining multiple mask functions."""
     masks = []
 
     if packed:
@@ -134,9 +149,16 @@ def _create_composed_mask(
         if isinstance(bias, CausalAttentionBias):
             attn_window_len = bias.attn_window_len
             if attn_window_len is not None:
-                base_mask_fn = _sliding_window_causal_mask_fn(attn_window_len)
+                base_mask_fn = _sliding_window_causal_mask_fn(
+                    attn_window_len,
+                    seqs_layout.seq_lens_pt,
+                    keys_layout.seq_lens_pt,
+                )
             else:
-                base_mask_fn = _causal_mask_fn
+                base_mask_fn = _causal_mask_fn(
+                    seqs_layout.seq_lens_pt,
+                    keys_layout.seq_lens_pt,
+                )
         elif not isinstance(bias, IdentityBias):
             raise NotSupportedError(f"Unsupported bias type: {bias}")
 
@@ -152,23 +174,30 @@ def _create_composed_mask(
         if isinstance(bias, CausalAttentionBias):
             attn_window_len = bias.attn_window_len
             if attn_window_len is not None:
-                masks.append(_sliding_window_causal_mask_fn(attn_window_len))
+                masks.append(
+                    _sliding_window_causal_mask_fn(
+                        attn_window_len,
+                        seqs_layout.seq_lens_pt,
+                        keys_layout.seq_lens_pt,
+                    )
+                )
             else:
-                masks.append(_causal_mask_fn)
+                masks.append(
+                    _causal_mask_fn(
+                        seqs_layout.seq_lens_pt,
+                        keys_layout.seq_lens_pt,
+                    )
+                )
         elif not isinstance(bias, IdentityBias):
             raise NotSupportedError(f"Unsupported bias type: {bias}")
 
-        # Add padding mask
+    # Add padding mask
+    if seqs_layout.padded or keys_layout.padded:
         masks.append(
             _create_padding_mask_fn(seqs_layout.seq_lens_pt, keys_layout.seq_lens_pt)
         )
 
-    # Add dropout mask if needed
-    dropout_mask = _dropout_mask_fn(dropout_p, training)
-    if dropout_mask is not None:
-        masks.append(dropout_mask)
-
-    # Compose masks using and_mask
+    # Compose masks
     mask_fn = None
     if len(masks) == 0:
         return None
@@ -177,16 +206,16 @@ def _create_composed_mask(
     else:
         mask_fn = and_masks(*masks)
 
-    # For packed sequences, use the total sequence length
     if packed:
         total_seq_len = int(seqs_layout.seq_begin_indices_pt[-1].item())
         total_keys_len = int(keys_layout.seq_begin_indices_pt[-1].item())
-        batch_size = 1  # Packed format treats everything as one big batch
+        batch_size = 1
     else:
         total_seq_len = seqs_layout.max_seq_len
         total_keys_len = keys_layout.max_seq_len
-        batch_size = seqs_layout.width
+        batch_size = len(seqs_layout.seq_lens)
 
+    # Create the block mask
     block_mask = create_block_mask(
         mask_fn,
         B=batch_size,
@@ -203,13 +232,11 @@ class FlexSDPA(SDPA):
     """Computes scaled dot-product attention using PyTorch's Flex Attention."""
 
     bias: AttentionBias
-    dropout_p: float
 
-    def __init__(self, bias: AttentionBias, *, dropout_p: float = 0.0) -> None:
+    def __init__(self, bias: AttentionBias) -> None:
         super().__init__()
 
         self.bias = bias
-        self.dropout_p = dropout_p
 
     @override
     def forward(
@@ -226,11 +253,12 @@ class FlexSDPA(SDPA):
         if seqs_layout.packed ^ keys_layout.packed:
             raise ValueError("`seqs_layout` and `keys_layout` must be both packed.")
 
-        # Handle dropout
-        if not self.training:
-            dropout_p = 0.0
-        else:
-            dropout_p = self.dropout_p
+        unsqueezed = False
+        if seqs.ndim == 3:
+            unsqueezed = True
+            seqs = seqs.unsqueeze(0)
+            keys = keys.unsqueeze(0)
+            values = values.unsqueeze(0)
 
         # Create the composed block mask using and_mask
         block_mask = _create_composed_mask(
@@ -238,8 +266,6 @@ class FlexSDPA(SDPA):
             seqs_layout,
             keys_layout,
             seqs.device,
-            dropout_p,
-            self.training,
             packed=seqs_layout.packed,
         )
 
@@ -259,11 +285,7 @@ class FlexSDPA(SDPA):
             attns, _ = attns
 
         attns = attns.transpose(1, 2)
+        if unsqueezed:
+            attns = attns.squeeze(0)
 
         return attns, None
-
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        s = super().extra_repr()
-
-        return f"{s}, dropout_p={self.dropout_p:G}"

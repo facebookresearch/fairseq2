@@ -58,8 +58,8 @@ class TestScaledDotProductAttention:
         naive_sdpa = NaiveSDPA(attn_bias)
 
         if training:
-            torch_sdpa.eval()
-            naive_sdpa.eval()
+            torch_sdpa.train()
+            naive_sdpa.train()
 
         kwargs = self._get_sdpa_args(use_padding, use_packing)
 
@@ -186,16 +186,21 @@ class TestStandardMultiheadAttention:
 
 class TestFlexScaledDotProductAttention:
     # fmt: off
-    @pytest.mark.parametrize("use_padding,use_packing,use_bias,training",
+    @pytest.mark.parametrize("use_padding,use_packing,use_bias,training,attn_window_len",
         [
-            (False, False, False, True),
-            (True,  False, True,  True),
-            (False, False, True,  True),
-            (True,  False, False, True),
-            (False,  True, False, True),
-            (False,  True, True, True),
-            (False, False, False, False),
-            (False, False, True,  False),
+            # Original test cases
+            (False, False, False, True,  None),
+            (True,  False, True,  True,  None),
+            (False, False, True,  True,  None),
+            (True,  False, False, True,  None),
+            (False,  True, False, True,  None),
+            (False,  True, True, True,   None),
+            (False, False, True,  True,  1),
+            (False, False, True,  True,  2),
+            (True,  False, True,  True,  1),
+            (False,  True, True,  True,  1),
+            (False, False, False, False, None),
+            (False, False, True,  False, None),
         ],
     )
     # fmt: on
@@ -205,11 +210,12 @@ class TestFlexScaledDotProductAttention:
         use_packing: bool,
         use_bias: bool,
         training: bool,
+        attn_window_len: int | None,
     ) -> None:
         attn_bias: AttentionBias
 
         if use_bias:
-            attn_bias = CausalAttentionBias()
+            attn_bias = CausalAttentionBias(attn_window_len=attn_window_len)
         else:
             attn_bias = IdentityBias()
 
@@ -217,8 +223,8 @@ class TestFlexScaledDotProductAttention:
         naive_sdpa = NaiveSDPA(attn_bias)
 
         if training:
-            flex_sdpa.eval()
-            naive_sdpa.eval()
+            flex_sdpa.train()
+            naive_sdpa.train()
 
         kwargs = self._get_sdpa_args(use_padding, use_packing)
 
@@ -247,9 +253,9 @@ class TestFlexScaledDotProductAttention:
             total_target_len = sum([2, 3])  # seq_lens for target
             total_source_len = sum([2, 3])  # seq_lens for source
 
-            q = random_tensor(1, total_target_len, num_heads, k_size)
-            k = random_tensor(1, total_source_len, num_heads, k_size)
-            v = random_tensor(1, total_source_len, num_heads, v_size)
+            q = random_tensor(total_target_len, num_heads, k_size)
+            k = random_tensor(total_source_len, num_heads, k_size)
+            v = random_tensor(total_source_len, num_heads, v_size)
 
             target_shape = (total_target_len,)
             source_shape = (total_source_len,)
