@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Callable, TypeAlias
+from typing import Callable, OrderedDict, TypeAlias
 
 import torch
 from torch import Tensor
@@ -23,7 +23,7 @@ from fairseq2.models.transformer._attention_bias import (
 
 MaskFunction: TypeAlias = Callable[[Tensor, Tensor, Tensor, Tensor], Tensor]
 
-BLOCK_MASK_CACHE_MAX_SIZE = 1000
+BLOCK_MASK_CACHE_MAX_SIZE = 250
 
 
 def _causal_mask_fn(q_lens: Tensor, kv_lens: Tensor) -> MaskFunction:
@@ -218,22 +218,16 @@ def _create_composed_mask(
 class BlockMaskCacheKey:
     """Key for caching block masks."""
 
-    bias_type: str
     batch_size: int
-    seq_len: int
+    seqs_len: int
     keys_len: int
-    packed: bool
-    attn_window_len: int | None = None
 
     def __hash__(self) -> int:
         return hash(
             (
-                self.bias_type,
                 self.batch_size,
-                self.seq_len,
+                self.seqs_len,
                 self.keys_len,
-                self.packed,
-                self.attn_window_len,
             )
         )
 
@@ -241,11 +235,34 @@ class BlockMaskCacheKey:
 class BlockMaskCache:
     """
     Cache for block masks to avoid recomputation across layers and (possibly) training
-    steps.
+    steps. We assume that the cache is not shared across different models or training
+    runs and therefore only needs to hash on sequence lengths and batch sizes.
     """
 
     def __init__(self) -> None:
-        self._cache: dict[BlockMaskCacheKey, BlockMask | None] = {}
+        self._cache: OrderedDict[BlockMaskCacheKey, BlockMask | None] = OrderedDict()
+
+    def _create_cache_key(
+        self,
+        seqs_layout: BatchLayout,
+        keys_layout: BatchLayout,
+    ) -> BlockMaskCacheKey:
+        """Create a cache key based on sequence / key-value lengths and batch sizes."""
+        if seqs_layout.packed:
+            batch_size = 1
+            seqs_len = int(seqs_layout.seq_begin_indices[-1])
+            keys_len = int(keys_layout.seq_begin_indices[-1])
+        else:
+            batch_size = len(seqs_layout.seq_lens)
+            seqs_len = seqs_layout.max_seq_len
+            keys_len = keys_layout.max_seq_len
+
+        cache_key = BlockMaskCacheKey(
+            batch_size=batch_size,
+            seqs_len=seqs_len,
+            keys_len=keys_len,
+        )
+        return cache_key
 
     def get_or_create_mask(
         self,
@@ -255,47 +272,22 @@ class BlockMaskCache:
         device: Device,
     ) -> BlockMask | None:
         """Get cached mask or create new one."""
+        cache_key = self._create_cache_key(seqs_layout, keys_layout)
 
-        # Create cache key
-        bias_type = type(bias).__name__
-        attn_window_len = None
-        if isinstance(bias, CausalAttentionBias):
-            attn_window_len = bias.attn_window_len
-
-        if seqs_layout.packed:
-            batch_size = 1
-            seq_len = int(seqs_layout.seq_begin_indices[-1])
-            keys_len = int(keys_layout.seq_begin_indices[-1])
-        else:
-            batch_size = len(seqs_layout.seq_lens)
-            seq_len = seqs_layout.max_seq_len
-            keys_len = keys_layout.max_seq_len
-
-        cache_key = BlockMaskCacheKey(
-            bias_type=bias_type,
-            batch_size=batch_size,
-            seq_len=seq_len,
-            keys_len=keys_len,
-            packed=seqs_layout.packed,
-            attn_window_len=attn_window_len,
-        )
-
-        # Check cache first
         if cache_key in self._cache:
+            # Move to end (most recently used)
+            self._cache.move_to_end(cache_key)
             return self._cache[cache_key]
 
         # Create new mask
-        block_mask = _create_composed_mask(
-            bias,
-            seqs_layout,
-            keys_layout,
-            device,
-        )
+        mask = _create_composed_mask(bias, seqs_layout, keys_layout, device)
 
-        if len(self._cache) < BLOCK_MASK_CACHE_MAX_SIZE:
-            self._cache[cache_key] = block_mask
+        # Add to cache and evict if needed
+        self._cache[cache_key] = mask
+        if len(self._cache) > BLOCK_MASK_CACHE_MAX_SIZE:
+            self._cache.popitem(last=False)
 
-        return block_mask
+        return mask
 
     def clear(self) -> None:
         """Clear the cache."""
