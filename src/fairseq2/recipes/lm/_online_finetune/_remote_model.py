@@ -320,17 +320,16 @@ class RemoteVllmModel:
             else:
                 return None
         
-        rewards = []
         judgments = self.rollout_from_model(prompt_list=prompt_list, string_input=True)
-        if is_pointwise:
-            for per_rollout_judgments in judgments:
+        
+        rewards = []
+        for per_rollout_judgments in judgments:
+            if is_pointwise:
                 per_rollout_scores = [extract_score_single(judgment.text) for judgment in per_rollout_judgments.outputs]
-                rewards.append(get_avg_score(per_rollout_scores, is_pointwise))
-        else:
-            for per_rollout_judgments in judgments:
+            else:
                 per_rollout_scores = [extract_score_pair(judgment.text) for judgment in per_rollout_judgments.outputs]
-                rewards.append(get_avg_score(per_rollout_scores, is_pointwise))
-                    
+            rewards.append(get_avg_score(per_rollout_scores, is_pointwise))
+               
         return rewards
 
 
