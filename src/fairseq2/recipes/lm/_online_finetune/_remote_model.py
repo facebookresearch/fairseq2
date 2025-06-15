@@ -9,41 +9,40 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict
-
+from typing_extensions import override
+from vllm.engine.arg_utils import PoolerConfig
+from fairseq2.gang import Gangs
+from fairseq2.utils.structured import StructureError, structure
+from typing import Any, Dict, Union
 import ray
 import re
 import torch
 from ray.util.placement_group import placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
-from torch.nn import Module
 from typing_extensions import override
 from vllm import SamplingParams
 from vllm.engine.arg_utils import PoolerConfig
 from vllm.utils import get_ip, get_open_port
-
 from fairseq2.gang import Gangs
-from fairseq2.models.sequence import SequenceBatch
-from fairseq2.recipes.config import get_config_section
 from fairseq2.recipes.lm._online_finetune._common import (
     MyWorker,
     NoEnvLLM,
+    NoEnvAtheneRewardPipeline,
     stateless_init_process_group,
 )
 from fairseq2.logging import log
+from fairseq2.context import RuntimeContext
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    VLLMOutputRewardHandler,
+)
 
 
-class RemoteModelHandler(ABC):
-    @abstractmethod
-    def create(self, gangs: Gangs, unit_config: object) -> RemoteVllmModel: ...
-
-    @property
-    @abstractmethod
-    def name(self) -> str: ...
-
-    @property
-    @abstractmethod
-    def config_kls(self) -> type[object]: ...
+@dataclass(kw_only=True)
+class RayActorConfig(ABC):
+    ray_actor_name: str = "dummy"
+    backend: str = "vllm"  # vllm or hf
+    num_replicas: int = 1
+    init_update_process_group: bool = False
 
 
 @dataclass(kw_only=True)
@@ -61,43 +60,9 @@ class VllmEngineArgs:
 
 
 @dataclass(kw_only=True)
-class VllmRayActorConfig:
-    ray_actor_name: str = "dummy"
-    num_replicas: int = 1
+class VllmRayActorConfig(RayActorConfig):
     vllm_engine_args: VllmEngineArgs = field(default_factory=lambda: VllmEngineArgs())
     vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
-    init_update_process_group: bool = False
-
-
-class RemoteVllmModelHandler(RemoteModelHandler):
-    @override
-    def create(self, gangs: Gangs, actor_config: VllmRayActorConfig) -> RemoteVllmModel:
-        if gangs.dp.rank == 0 and gangs.tp.rank == 0:
-            # vllm worker is only created on the first DP ranks given how many replicas we use
-            remote_vllm_model = RemoteVllmModel(
-                actor_config.ray_actor_name,
-                actor_config.num_replicas,
-                actor_config.vllm_engine_args,
-                actor_config.vllm_sampling_params,
-                actor_config.init_update_process_group,
-                gangs,
-            )
-        else:
-            remote_vllm_model = None
-
-        gangs.root.barrier()
-
-        return remote_vllm_model
-
-    @property
-    @override
-    def name(self) -> str:
-        "vllm_model"
-
-    @property
-    @override
-    def config_kls(self) -> type[object]:
-        return VllmRayActorConfig
 
 
 class RemoteVllmModel:
@@ -105,7 +70,7 @@ class RemoteVllmModel:
         self,
         ray_actor_name: str,
         num_replicas: int,
-        vllm_engine_args: VllmEngineArgs,
+        vllm_engine_args,
         sampling_params: dict,
         init_update_process_group: bool,
         gangs: Gangs,
@@ -153,9 +118,7 @@ class RemoteVllmModel:
 
         log.info(f"Replica {replica_i} setup completed")
 
-    def setup_vllm_worker(
-        self, ray_actor_name, vllm_engine_args: VllmEngineArgs, gangs: Gangs
-    ):
+    def setup_vllm_worker(self, ray_actor_name, vllm_engine_args, gangs: Gangs):
 
         pg_inference = placement_group(
             [{"GPU": 1, "CPU": 0}] * vllm_engine_args.tensor_parallel_size,
@@ -369,3 +332,189 @@ class RemoteVllmModel:
                 rewards.append(get_avg_score(per_rollout_scores, is_pointwise))
                     
         return rewards
+
+
+@dataclass(kw_only=True)
+class HFRayActorConfig(RayActorConfig):
+    pipeline_name: str = ""
+    tensor_parallel_size: int = 4
+
+
+class RemoteHFModel:
+    def __init__(
+        self,
+        ray_actor_name: str,
+        num_replicas: int,
+        tensor_parallel_size: int,
+        pipeline_name: str,
+        context: RuntimeContext,
+        gangs: Gangs,
+    ):
+        self._gangs = gangs
+
+        self.num_replicas = num_replicas
+        self.ray_actor_name = ray_actor_name
+
+        self.hf_workers = []
+
+        if gangs.dp.rank != 0 and gangs.tp.rank != 0:
+            raise ValueError("hf worker should only be initialized on DP & TP rank 0")
+
+        for replica_i in range(self.num_replicas):
+            self.setup_replica(replica_i, tensor_parallel_size, pipeline_name, context)
+
+        self._tensor_parallel_size = tensor_parallel_size
+
+    def setup_replica(
+        self,
+        replica_i: int,
+        tensor_parallel_size: int,
+        pipeline_name: str,
+        context: RuntimeContext,
+    ):
+        if len(self.hf_workers) != replica_i:
+            raise RuntimeError(
+                "new replica is being created while previous ones are not setup yet"
+            )
+
+        hf_worker = self.setup_hf_worker(
+            f"{self.ray_actor_name}_{replica_i}",
+            tensor_parallel_size,
+            pipeline_name,
+            context,
+            self._gangs,
+        )
+        self.hf_workers.append(hf_worker)
+
+        log.info(f"Replica {replica_i} setup completed")
+
+    def setup_hf_worker(
+        self,
+        ray_actor_name,
+        tensor_parallel_size,
+        pipeline_name: str,
+        context: RuntimeContext,
+        gangs: Gangs,
+    ):
+
+        pg_inference = placement_group(
+            [{"GPU": 1, "CPU": 0}] * tensor_parallel_size,
+            strategy="STRICT_PACK",
+        )
+
+        ray.get(pg_inference.ready())
+
+        scheduling_inference = PlacementGroupSchedulingStrategy(
+            placement_group=pg_inference,
+            placement_group_capture_child_tasks=True,
+            placement_group_bundle_index=0,
+        )
+
+        unit_handlers = context.get_registry(RemoteModelHandler)
+        pipeline = unit_handlers.get(pipeline_name)
+        llm = pipeline.options(
+            name=ray_actor_name,
+            num_cpus=0,
+            num_gpus=0,
+            scheduling_strategy=scheduling_inference,
+            get_if_exists=True,
+        ).remote()
+
+        # we block here until the engine is initialized
+        ray.get(llm.is_ready.remote())
+
+        return llm
+
+    def rollout_from_model(self, prompt_list, sampling_params=None, string_input=False):
+        raise NotImplementedError(
+            "RemoteHFModel.rollout_from_model is not implemented. "
+        )
+
+    def reward_from_model(self, prompt_list, batch_size=64):
+        # NOTE: need to batch inputs to hf.encode model for current models that aren't supported by hf
+        rewards = []
+        outputs = []
+        replica_counter = 0
+        for i in range(0, len(prompt_list), batch_size):
+            prompt_chunk = prompt_list[i : i + batch_size]
+
+            outputs.append(
+                self.hf_workers[replica_counter % self.num_replicas].__call__.remote(
+                    prompt_chunk
+                )
+            )
+            replica_counter += 1
+
+        ray_outputs = ray.get(outputs)
+
+        ray_outputs_flat = [o for sublist in ray_outputs for o in sublist]
+
+        # rewards = [o.outputs.data.item() for o in ray_outputs_flat]
+        return ray_outputs_flat
+
+    def reward_from_generative_model(self, prompt_list):
+
+        raise NotImplementedError(
+            "RemoteHFModel.reward_from_generative_model is not implemented. "
+        )
+
+
+class RemoteModelHandler(ABC):
+    @abstractmethod
+    def create(
+        self, gangs: Gangs, unit_config: object
+    ) -> Union[RemoteVllmModel, RemoteHFModel]: ...
+
+    @property
+    @abstractmethod
+    def name(self) -> str: ...
+
+    @property
+    @abstractmethod
+    def config_kls(self) -> type[object]: ...
+
+
+class RemoteRayModelHandler(RemoteModelHandler):
+    @override
+    def create(
+        self, gangs: Gangs, actor_config: RayActorConfig, context: RuntimeContext
+    ) -> Union[RemoteVllmModel, RemoteHFModel]:
+
+        if gangs.dp.rank == 0 and gangs.tp.rank == 0:
+            # vllm worker is only created on the first DP ranks given how many replicas we use
+            if actor_config.backend == "vllm":
+                actor_config = structure(actor_config, VllmRayActorConfig)
+                remote_vllm_model = RemoteVllmModel(
+                    actor_config.ray_actor_name,
+                    actor_config.num_replicas,
+                    actor_config.vllm_engine_args,
+                    actor_config.vllm_sampling_params,
+                    actor_config.init_update_process_group,
+                    gangs,
+                )
+            else:
+                actor_config = structure(actor_config, HFRayActorConfig)
+                remote_vllm_model = RemoteHFModel(
+                    actor_config.ray_actor_name,
+                    actor_config.num_replicas,
+                    actor_config.tensor_parallel_size,
+                    actor_config.pipeline_name,
+                    context,
+                    gangs,
+                )
+        else:
+            remote_vllm_model = None
+
+        gangs.root.barrier()
+
+        return remote_vllm_model
+
+    @property
+    @override
+    def name(self) -> str:
+        "vllm_model"
+
+    @property
+    @override
+    def config_kls(self) -> type[object]:
+        return RayActorConfig

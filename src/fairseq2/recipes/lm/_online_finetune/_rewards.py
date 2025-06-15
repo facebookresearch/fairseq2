@@ -26,7 +26,6 @@ from fairseq2.recipes.lm._online_finetune._common import (
     find_first_value,
     generate_rewards,
     generate_rewards_generative,
-    prepare_grpo_batch,
     prepare_preference_batch_random_pair,
 )
 from fairseq2.recipes.lm._online_finetune._generative_prompts import (
@@ -72,9 +71,6 @@ class VLLMOutputReward(ABC):
 
     @abstractmethod
     def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts): ...
-
-    @abstractmethod
-    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts): ...
 
 
 class GSM8kVerifierHandler(VLLMOutputRewardHandler):
@@ -159,16 +155,6 @@ class GSM8kVerifier(VLLMOutputReward):
         )
 
         return batch, is_bad_batch, reward_output
-
-    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
-
-        reward_output = self.process_rollouts(rollouts, prompt_batch)
-
-        batch = prepare_grpo_batch(
-            prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs
-        )
-
-        return batch, reward_output
 
 
 class MathVerifyHandler(VLLMOutputRewardHandler):
@@ -284,16 +270,6 @@ class MathVerifyVerifier(VLLMOutputReward):
 
         return batch, is_bad_batch, reward_output
 
-    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
-
-        reward_output = self.process_rollouts(rollouts, prompt_batch)
-
-        batch = prepare_grpo_batch(
-            prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs
-        )
-
-        return batch, reward_output
-
 
 class AtheneVerifierHandler(VLLMOutputRewardHandler):
     def __init__(self):
@@ -342,14 +318,18 @@ class AtheneVerifier(VLLMOutputReward):
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
 
     def wrap_text(self, prompt_text, rollout_text):
-        wrapped_text = [
-            {"role": "user", "content": prompt_text},
-            {"role": "assistant", "content": rollout_text},
+        messages = [
+            {
+                "role": "user",
+                "content": prompt_text,
+            },
+            {
+                "role": "assistant",
+                "content": rollout_text,
+            },
         ]
-        chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False)
-        chat_str += "<|reserved_special_token_1|>"
 
-        return chat_str
+        return messages
 
     @override
     def process_rollouts(
@@ -466,45 +446,6 @@ class AtheneVerifier(VLLMOutputReward):
         )
 
         return batch, is_bad_batch, reward_output
-
-    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
-
-        prompt_rollouts = []
-        prompt_lens = []
-        rewards = []
-
-        reward_output = self.process_rollouts(rollouts, prompt_batch)
-
-        for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
-            zip(reward_output["rewards"], reward_output["tokens"])
-        ):
-            prompt = prompt_batch.prompts[i_batch]
-            rollout_tokens = [
-                torch.tensor(prompt + list(c), device=self._gangs.dp.device)
-                for c in i_batch_tokens
-            ]
-            prompt_rollouts.extend(rollout_tokens)
-
-            prompt_lens.extend([len(prompt)] * len(rollout_tokens))
-
-            rewards.append(i_batch_rewards)
-
-        prompt_rollout_batch = collate_with_target_mask(
-            prompt_rollouts, prompt_lens, device=self._gangs.dp.device
-        )
-
-        rewards = torch.tensor(
-            rewards, device=self._gangs.dp.device
-        ).float()  # [Batch, Rollouts]
-        rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (
-            rewards.std(dim=1, keepdim=True) + 1e-6
-        )  # small epsilon to compensate 0 std
-
-        grpo_batch = GRPOBatch(
-            prompt_rollouts=prompt_rollout_batch, rewards=rewards_normalized
-        )
-
-        return grpo_batch, reward_output
 
 
 class GenerativePointwiseVerifierHandler(VLLMOutputRewardHandler):
@@ -669,51 +610,6 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
 
         return batch, is_bad_batch, reward_output
 
-    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
-        prompt_rollouts = []
-        prompt_lens = []
-        rewards = []
-
-        reward_output = self.process_rollouts(rollouts, prompt_batch)
-
-        for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
-            zip(reward_output["rewards"], reward_output["tokens"])
-        ):
-            prompt = prompt_batch.prompts[i_batch]
-            rollout_tokens = [
-                torch.tensor(prompt + list(c), device=self._gangs.dp.device)
-                for c in i_batch_tokens
-            ]
-            prompt_rollouts.extend(rollout_tokens)
-
-            prompt_lens.extend([len(prompt)] * len(rollout_tokens))
-
-            rewards.append(i_batch_rewards)
-
-        prompt_rollout_batch = collate_with_target_mask(
-            prompt_rollouts, prompt_lens, device=self._gangs.dp.device
-        )
-
-        rewards = torch.tensor(
-            rewards, device=self._gangs.dp.device
-        ).float()  # [Batch, Rollouts]
-        rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (
-            rewards.std(dim=1, keepdim=True) + 1e-6
-        )  # small epsilon to compensate 0 std
-        
-        if self._gangs.root.rank == 0:
-            import pdb;
-            pdb.set_trace()
-
-        self._gangs.root.barrier() # this ensures that ranks will wait until all are caught up to this point
-        
-        print(rewards_normalized)
-
-        grpo_batch = GRPOBatch(
-            prompt_rollouts=prompt_rollout_batch, rewards=rewards_normalized
-        )
-
-        return grpo_batch, reward_output
     
 class GenerativePairwiseVerifierHandler(VLLMOutputRewardHandler):
     def __init__(self):
@@ -741,6 +637,7 @@ class GenerativePairwiseVerifierHandler(VLLMOutputRewardHandler):
     @override
     def config_kls(self):
         return None
+
     
 class GenerativePairwiseVerifier(VLLMOutputReward):
     def __init__(self, gangs, reward_model, answer_key, prompt_key, tokenizer):
@@ -898,42 +795,4 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
         )
 
         return batch, is_bad_batch, reward_output
-
-    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
-        prompt_rollouts = []
-        prompt_lens = []
-        rewards = []
-
-        reward_output = self.process_rollouts(rollouts, prompt_batch)
-
-        for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
-            zip(reward_output["rewards"], reward_output["tokens"])
-        ):
-            prompt = prompt_batch.prompts[i_batch]
-            rollout_tokens = [
-                torch.tensor(prompt + list(c), device=self._gangs.dp.device)
-                for c in i_batch_tokens
-            ]
-            prompt_rollouts.extend(rollout_tokens)
-
-            prompt_lens.extend([len(prompt)] * len(rollout_tokens))
-
-            rewards.append(i_batch_rewards)
-
-        prompt_rollout_batch = collate_with_target_mask(
-            prompt_rollouts, prompt_lens, device=self._gangs.dp.device
-        )
-
-        rewards = torch.tensor(
-            rewards, device=self._gangs.dp.device
-        ).float()  # [Batch, Rollouts]
-        rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (
-            rewards.std(dim=1, keepdim=True) + 1e-6
-        )  # small epsilon to compensate 0 std
-
-        grpo_batch = GRPOBatch(
-            prompt_rollouts=prompt_rollout_batch, rewards=rewards_normalized
-        )
-
-        return grpo_batch, reward_output
 

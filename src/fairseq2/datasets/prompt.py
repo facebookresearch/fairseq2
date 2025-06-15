@@ -247,7 +247,13 @@ class GenericPromptDataset(PromptDataset):
                     and all(isinstance(i, str) for i in jsonl_keys)
                 ):
                     raise ValueError(f"{jsonl_keys} must be a list of strings")
-                jsonl_content = {k: example.get(k, None) for k in jsonl_keys}
+                jsonl_content = {}
+                for k in jsonl_keys:
+                    if k not in example:
+                        raise KeyError(
+                            f"Required key '{k}' not found in example dictionary."
+                        )
+                    jsonl_content[k] = example[k]
             else:
                 jsonl_content = None
 
