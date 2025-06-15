@@ -93,8 +93,8 @@ class TestScaledDotProductAttention:
             k = random_tensor(total_source_len, num_heads, k_size)
             v = random_tensor(total_source_len, num_heads, v_size)
 
-            target_shape = (total_target_len,)
-            source_shape = (total_source_len,)
+            target_shape: tuple[int, ...] = (total_target_len,)
+            source_shape: tuple[int, ...] = (total_source_len,)
 
             q_layout = BatchLayout(
                 target_shape, seq_lens=[2, 3], packed=True, device=device
@@ -239,7 +239,7 @@ class TestFlexScaledDotProductAttention:
         assert_close(attn1, attn2)
 
     @staticmethod
-    def _get_sdpa_args(use_padding: bool, use_packing: bool) -> dict[str, object]:
+    def _get_sdpa_args(use_padding: bool, use_packing: bool) -> dict[str, Any]:
         batch_size = 2
 
         num_heads = 4
@@ -262,8 +262,8 @@ class TestFlexScaledDotProductAttention:
             k = random_tensor(total_source_len, num_heads, k_size)
             v = random_tensor(total_source_len, num_heads, v_size)
 
-            target_shape = (total_target_len,)
-            source_shape = (total_source_len,)
+            target_shape: tuple[int, ...] = (total_target_len,)
+            source_shape: tuple[int, ...] = (total_source_len,)
 
             q_layout = BatchLayout(
                 target_shape, seq_lens=[2, 3], packed=True, device=device
