@@ -26,7 +26,9 @@ from fairseq2.models.transformer._sdpa._base import SDPA
 
 MaskFunction: TypeAlias = Callable[[Tensor, Tensor, Tensor, Tensor], Tensor]
 
-flex_attention = torch.compile(flex_attention, dynamic=False)
+# TODO: Hitting some torch.compile issues with this enabled for different builds.
+# Commenting out for now until we can investigate.
+# flex_attention = torch.compile(flex_attention, dynamic=False)
 
 
 @final
