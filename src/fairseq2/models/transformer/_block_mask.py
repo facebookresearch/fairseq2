@@ -23,7 +23,7 @@ from fairseq2.models.transformer._attention_bias import (
 
 MaskFunction: TypeAlias = Callable[[Tensor, Tensor, Tensor, Tensor], Tensor]
 
-BLOCK_MASK_CACHE_MAX_SIZE = 250
+BLOCK_MASK_CACHE_MAX_SIZE = 100
 
 
 def _causal_mask_fn(q_lens: Tensor, kv_lens: Tensor) -> MaskFunction:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Callable, TypeAlias, final
 
+import torch
 from torch import Tensor
 from torch.nn.attention.flex_attention import flex_attention
 from typing_extensions import override
@@ -24,6 +25,8 @@ from fairseq2.models.transformer._attention_bias import (
 from fairseq2.models.transformer._sdpa._base import SDPA
 
 MaskFunction: TypeAlias = Callable[[Tensor, Tensor, Tensor, Tensor], Tensor]
+
+flex_attention = torch.compile(flex_attention, dynamic=False)
 
 
 @final
