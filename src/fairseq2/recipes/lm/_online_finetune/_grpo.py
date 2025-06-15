@@ -163,6 +163,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     def validate_reward(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
+            # For a pairwise RM, need to sample at least two judgments
             policy_sampling_params.n = 2 if self._reward_name == "generative_pairwise_verifier" else 1
             for k, v in self._loss_config.validation_vllm_sampling_params.items():
                 policy_sampling_params.__setattr__(k, v)
@@ -241,8 +242,8 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 dp_gang=self._gangs.dp,
                 vllm_model=self._vllm_model,
             )
-            # if self._loss_config.log_rollouts:
-            #     log_rollouts(prompt_batch, rollouts, "Train")
+            if self._loss_config.log_rollouts:
+                log_rollouts(prompt_batch, rollouts, "Train")
 
             reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
             self._rollout_bag.save(rollouts, reward_output)
