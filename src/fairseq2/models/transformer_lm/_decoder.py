@@ -21,6 +21,7 @@ from fairseq2.nn import BatchLayout, IncrementalStateBag, LayerNorm, LayerStack
 
 # isort: split
 
+from fairseq2.models.transformer._block_mask import BlockMaskCache
 from fairseq2.models.transformer_lm._decoder_layer import TransformerLMDecoderLayer
 
 
@@ -132,11 +133,18 @@ class StandardTransformerLMDecoder(TransformerLMDecoder):
         state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
         attn_bias_cache = AttentionBiasCache()
+        block_mask_cache = BlockMaskCache()
 
         num_layers = len(self.layers)
 
         for layer_idx, layer in enumerate(self.layers):
-            seqs = layer(seqs, seqs_layout, attn_bias_cache, state_bag=state_bag)
+            seqs = layer(
+                seqs,
+                seqs_layout,
+                attn_bias_cache,
+                block_mask_cache,
+                state_bag=state_bag,
+            )
 
             for hook in self._layer_hooks.values():
                 if not hook(layer_idx, seqs, seqs_layout, num_layers):
