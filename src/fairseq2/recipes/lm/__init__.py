@@ -171,9 +171,15 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
 from fairseq2.recipes.lm._online_finetune._rewards import (
     GenerativePointwiseVerifier as GenerativePointwiseVerifier,
 )
-
 from fairseq2.recipes.lm._online_finetune._rewards import (
     GenerativePointwiseVerifierHandler as GenerativePointwiseVerifierHandler,
+)
+
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    GenerativePairwiseVerifier as GenerativePairwiseVerifier,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    GenerativePairwiseVerifierHandler as GenerativePairwiseVerifierHandler,
 )
 
 from fairseq2.recipes.lm._online_finetune._remote_model import (
