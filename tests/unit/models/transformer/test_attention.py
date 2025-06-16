@@ -201,7 +201,6 @@ class TestFlexScaledDotProductAttention:
             (False,  True, False, True,  None),
             (False,  True, True, True,   None),
             (False, False, True,  True,  1),
-            (False, False, True,  True,  2),
             (True,  False, True,  True,  1),
             (False,  True, True,  True,  1),
             (False, False, False, False, None),

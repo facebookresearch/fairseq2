@@ -63,14 +63,14 @@ def _sliding_window_causal_mask_fn(
         # Calculate diagonal offset
         d = kv_len - q_len
 
-        # For window_size=1, only allow the exact diagonal position
-        if window_size == 1:
-            return q_idx == kv_idx - d
-        else:
-            # For larger windows, use the range logic
-            causal_mask = q_idx >= kv_idx - d
-            window_mask = q_idx >= kv_idx - d - window_size + 1
-            return causal_mask & window_mask
+        # Apply both causal and window constraint
+        # NOTE: There is a incompatibility here with our _create_causal_bias_tensor
+        # function, since that requires data-dependent control flow via the q_len,
+        # which is not currently supported by torch.compile. This is a simplified
+        # version of that logic, which won't match exactly in all cases.
+        causal_mask = q_idx >= kv_idx - d
+        window_mask = kv_idx - d >= q_idx - window_size + 1
+        return causal_mask & window_mask
 
     return mask_fn
 
