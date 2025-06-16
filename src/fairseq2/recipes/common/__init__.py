@@ -35,10 +35,10 @@ from fairseq2.recipes.common._error import (
     FSDPNotSupportedError as FSDPNotSupportedError,
 )
 from fairseq2.recipes.common._error import (
-    HybridShardingNotSupportedError as HybridShardingNotSupportedError,
+    HuggingFaceNotSupportedError as HuggingFaceNotSupportedError,
 )
 from fairseq2.recipes.common._error import (
-    InvalidModelPathError as InvalidModelPathError,
+    HybridShardingNotSupportedError as HybridShardingNotSupportedError,
 )
 from fairseq2.recipes.common._error import (
     ModelCompilationNotSupportedError as ModelCompilationNotSupportedError,

@@ -6,16 +6,13 @@
 
 from __future__ import annotations
 
-from fairseq2.gang import Gangs
-from fairseq2.models.transformer_lm import (
-    TransformerLM,
-    shard_transformer_lm,
-)
+from fairseq2.models.transformer_lm import get_transformer_lm_shard_specs
+from fairseq2.models.utils.sharder import ShardSpec
 
 # isort: split
 
 from fairseq2.models.qwen._config import QwenConfig
 
 
-def shard_qwen_model(model: TransformerLM, config: QwenConfig, gangs: Gangs) -> None:
-    shard_transformer_lm(model, gangs)
+def get_qwen_shard_specs(config: QwenConfig) -> dict[str, ShardSpec]:
+    return get_transformer_lm_shard_specs()

@@ -6,16 +6,32 @@
 
 from __future__ import annotations
 
-from typing import cast
+from typing import Final, cast
 
 from torch import Tensor
-from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
 from fairseq2.models.utils.checkpoint import convert_checkpoint
 
 # isort: split
 
 from fairseq2.models.llama._config import LLaMAConfig
+
+_LLAMA_HG_KEY_MAP: Final = {
+    # fmt: off
+    r"^model\.layers\.([0-9]+)\.self_attn\.q_proj\.":        r"decoder.layers.\1.self_attn.q_proj.",
+    r"^model\.layers\.([0-9]+)\.self_attn\.k_proj\.":        r"decoder.layers.\1.self_attn.k_proj.",
+    r"^model\.layers\.([0-9]+)\.self_attn\.v_proj\.":        r"decoder.layers.\1.self_attn.v_proj.",
+    r"^model\.layers\.([0-9]+)\.self_attn\.o_proj\.":        r"decoder.layers.\1.self_attn.output_proj.",
+    r"^model\.layers\.([0-9]+)\.post_attention_layernorm\.": r"decoder.layers.\1.ffn_layer_norm.",
+    r"^model\.layers\.([0-9]+)\.mlp\.gate_proj\.":           r"decoder.layers.\1.ffn.gate_proj.",
+    r"^model\.layers\.([0-9]+)\.mlp\.down_proj\.":           r"decoder.layers.\1.ffn.output_proj.",
+    r"^model\.layers\.([0-9]+)\.mlp\.up_proj\.":             r"decoder.layers.\1.ffn.inner_proj.",
+    r"^model\.layers\.([0-9]+)\.input_layernorm\.":          r"decoder.layers.\1.self_attn_layer_norm.",
+    r"^model\.norm\.":                                       r"decoder.layer_norm.",
+    r"^model\.embed_tokens\.":                               r"decoder_frontend.embed.",
+    r"^lm_head\.":                                           r"final_proj.",
+    # fmt: on
+}
 
 
 def convert_llama_checkpoint(
@@ -26,7 +42,7 @@ def convert_llama_checkpoint(
     except KeyError:
         pass
 
-    if "lm_head.weight" in checkpoint:  # Hugging Face
+    if "model.embed_tokens.weight" in checkpoint:  # Hugging Face
         head_dim = config.model_dim // config.num_attn_heads
 
         def permute_rotary(w: Tensor, num_heads: int) -> Tensor:
@@ -52,32 +68,8 @@ def convert_llama_checkpoint(
             checkpoint[q_key] = q_proj
             checkpoint[k_key] = k_proj
 
-        key_map = {
-            # fmt: off
-            r"^model\.layers\.([0-9]+)\.self_attn\.q_proj\.":        r"decoder.layers.\1.self_attn.q_proj.",
-            r"^model\.layers\.([0-9]+)\.self_attn\.k_proj\.":        r"decoder.layers.\1.self_attn.k_proj.",
-            r"^model\.layers\.([0-9]+)\.self_attn\.v_proj\.":        r"decoder.layers.\1.self_attn.v_proj.",
-            r"^model\.layers\.([0-9]+)\.self_attn\.o_proj\.":        r"decoder.layers.\1.self_attn.output_proj.",
-            r"^model\.layers\.([0-9]+)\.post_attention_layernorm\.": r"decoder.layers.\1.ffn_layer_norm.",
-            r"^model\.layers\.([0-9]+)\.mlp\.gate_proj\.":           r"decoder.layers.\1.ffn.gate_proj.",
-            r"^model\.layers\.([0-9]+)\.mlp\.down_proj\.":           r"decoder.layers.\1.ffn.output_proj.",
-            r"^model\.layers\.([0-9]+)\.mlp\.up_proj\.":             r"decoder.layers.\1.ffn.inner_proj.",
-            r"^model\.layers\.([0-9]+)\.input_layernorm\.":          r"decoder.layers.\1.self_attn_layer_norm.",
-            r"^model\.norm\.":                                       r"decoder.layer_norm.",
-            r"^model\.embed_tokens\.":                               r"decoder_frontend.embed.",
-            r"^lm_head\.":                                           r"final_proj.",
-            # fmt: on
-        }
-
-        checkpoint = convert_checkpoint(checkpoint, key_map)
-
-        # Safetensors does not support shared tensors.
-        if config.tie_embeddings:
-            checkpoint["final_proj.weight"] = checkpoint["decoder_frontend.embed.weight"]  # fmt: skip
-
-        return checkpoint
-
-    if "tok_embeddings.weight" in checkpoint:  # reference
+        checkpoint = convert_checkpoint(checkpoint, _LLAMA_HG_KEY_MAP)
+    elif "tok_embeddings.weight" in checkpoint:  # reference
         key_map = {
             # fmt: off
             r"^layers\.([0-9]+)\.attention\.wq\.":    r"decoder.layers.\1.self_attn.q_proj.",
@@ -98,8 +90,9 @@ def convert_llama_checkpoint(
         # We do not need the pre-computed 'rope.freqs' buffers.
         checkpoint = {k: v for (k, v) in checkpoint.items() if "rope.freqs" not in k}
 
-        return convert_checkpoint(checkpoint, key_map)
+        checkpoint = convert_checkpoint(checkpoint, key_map)
 
-    consume_prefix_in_state_dict_if_present(checkpoint, prefix="module.")  # legacy
+    if config.tied_embeddings:
+        checkpoint["final_proj.weight"] = checkpoint["decoder_frontend.embed.weight"]
 
     return checkpoint

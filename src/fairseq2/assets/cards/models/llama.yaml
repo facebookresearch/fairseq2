@@ -159,3 +159,13 @@ name: llama3_3_70b_instruct
 base: llama3_instruct
 model_arch: llama3_1_70b
 num_shards: 8
+
+---
+
+name: r1_distilled_llama3_1_8b_instruct
+model_family: llama
+model_arch: llama3_1_8b
+checkpoint: "hg://deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+tokenizer: "hg://deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+tokenizer_family: llama
+use_v2_tokenizer: true

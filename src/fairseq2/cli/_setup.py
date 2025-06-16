@@ -9,7 +9,7 @@ from __future__ import annotations
 from fairseq2.chatbots import UnknownChatbotError
 from fairseq2.cli.commands.assets import ListAssetsHandler, ShowAssetHandler
 from fairseq2.cli.commands.chatbot import RunChatbotHandler
-from fairseq2.cli.commands.llama import ConvertLLaMACheckpointHandler
+from fairseq2.cli.commands.convert.fs2_to_hg import ConvertFairseq2ToHuggingFaceHandler
 from fairseq2.cli.commands.recipe import RecipeCommandHandler
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import (
@@ -52,8 +52,8 @@ from fairseq2.recipes.common import (
     ActivationCheckpointingNotSupportedError,
     DatasetPathNotFoundError,
     FSDPNotSupportedError,
+    HuggingFaceNotSupportedError,
     HybridShardingNotSupportedError,
-    InvalidModelPathError,
     ModelCompilationNotSupportedError,
     ModelParallelismNotSupportedError,
     ModelPathNotFoundError,
@@ -107,8 +107,8 @@ def setup_cli(context: RuntimeContext) -> Cli:
 
     _register_asr_cli(cli)
     _register_asset_cli(cli)
+    _register_convert_cli(cli)
     _register_chatbot_cli(cli)
-    _register_llama_cli(cli)
     _register_clm_cli(cli)
     _register_mt_cli(cli)
     _register_wav2vec2_asr_cli(cli)
@@ -165,16 +165,6 @@ def _register_chatbot_cli(cli: Cli) -> None:
         name="run",
         handler=RunChatbotHandler(),
         help="run a terminal-based chatbot demo",
-    )
-
-
-def _register_llama_cli(cli: Cli) -> None:
-    group = cli.add_group("llama", help="LLaMA recipes")
-
-    group.add_command(
-        name="convert_checkpoint",
-        handler=ConvertLLaMACheckpointHandler(),
-        help="convert fairseq2 LLaMA checkpoints to reference checkpoints",
     )
 
 
@@ -243,6 +233,16 @@ def _register_clm_cli(cli: Cli) -> None:
         name="generate",
         handler=text_generate_handler,
         help="generate text",
+    )
+
+
+def _register_convert_cli(cli: Cli) -> None:
+    group = cli.add_group("convert", help="model conversion utilities")
+
+    group.add_command(
+        "fs2_to_hg",
+        ConvertFairseq2ToHuggingFaceHandler(),
+        help="convert fairseq2 model to Hugging Face model",
     )
 
 
@@ -340,10 +340,10 @@ def _register_user_error_types(cli: Cli) -> None:
     cli.register_user_error_type(ActivationCheckpointingNotSupportedError)
     cli.register_user_error_type(DatasetPathNotFoundError)
     cli.register_user_error_type(FSDPNotSupportedError)
+    cli.register_user_error_type(HuggingFaceNotSupportedError)
     cli.register_user_error_type(HybridShardingNotSupportedError)
     cli.register_user_error_type(InconsistentGradNormError)
     cli.register_user_error_type(InvalidDatasetTypeError)
-    cli.register_user_error_type(InvalidModelPathError)
     cli.register_user_error_type(InvalidModelTypeError)
     cli.register_user_error_type(MinimumLossScaleReachedError)
     cli.register_user_error_type(ModelCompilationNotSupportedError)

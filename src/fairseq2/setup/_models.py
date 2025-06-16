@@ -17,11 +17,12 @@ from fairseq2.models import (
     CheckpointConverter,
     DelegatingModelHandler,
     FSDPApplier,
-    HuggingFaceExporter,
+    HuggingFaceSaver,
     ModelCompiler,
     ModelFactory,
     ModelHandler,
-    ModelSharder,
+    ShardSpecsProvider,
+    create_checkpoint_loader,
 )
 from fairseq2.models.jepa import (
     JEPA_MODEL_FAMILY,
@@ -43,9 +44,9 @@ from fairseq2.models.llama import (
     LLaMAConfig,
     convert_llama_checkpoint,
     create_llama_model,
-    export_llama_checkpoint,
+    get_llama_shard_specs,
     register_llama_configs,
-    shard_llama_model,
+    save_as_hg_llama,
 )
 from fairseq2.models.mistral import (
     MISTRAL_MODEL_FAMILY,
@@ -60,9 +61,9 @@ from fairseq2.models.qwen import (
     QwenConfig,
     convert_qwen_checkpoint,
     create_qwen_model,
-    export_qwen_checkpoint,
+    get_qwen_shard_specs,
     register_qwen_configs,
-    shard_qwen_model,
+    save_as_hg_qwen,
 )
 from fairseq2.models.s2t_transformer import (
     S2T_TRANSFORMER_MODEL_FAMILY,
@@ -85,6 +86,7 @@ from fairseq2.models.transformer_lm import (
 )
 from fairseq2.models.utils.ac import apply_default_activation_checkpointing
 from fairseq2.models.utils.fsdp import apply_default_fsdp
+from fairseq2.models.utils.sharder import create_model_sharder
 from fairseq2.models.w2vbert import (
     W2VBERT_MODEL_FAMILY,
     W2VBertConfig,
@@ -110,7 +112,6 @@ from fairseq2.models.wav2vec2.asr import (
     register_wav2vec2_asr_configs,
 )
 from fairseq2.registry import Registry
-from fairseq2.utils.io import AutoTensorLoader
 
 
 def _register_model_families(context: RuntimeContext) -> None:
@@ -153,9 +154,9 @@ def _register_model_families(context: RuntimeContext) -> None:
         default_llama_arch,
         factory=create_llama_model,
         checkpoint_converter=convert_llama_checkpoint,
-        sharder=shard_llama_model,
+        shard_specs=get_llama_shard_specs,
         compiler=compile_transformer_lm,
-        hugging_face_exporter=export_llama_checkpoint,
+        hugging_face_saver=save_as_hg_llama,
     )
 
     register_llama_configs(context)
@@ -188,9 +189,9 @@ def _register_model_families(context: RuntimeContext) -> None:
         default_qwen_arch,
         factory=create_qwen_model,
         checkpoint_converter=convert_qwen_checkpoint,
-        sharder=shard_qwen_model,
+        shard_specs=get_qwen_shard_specs,
         compiler=compile_transformer_lm,
-        hugging_face_exporter=export_qwen_checkpoint,
+        hugging_face_saver=save_as_hg_qwen,
     )
 
     register_qwen_configs(context)
@@ -295,17 +296,21 @@ class ModelRegistrar:
         supports_fsdp: bool = True,
         restrict: bool = True,
         checkpoint_converter: CheckpointConverter[ModelConfigT] | None = None,
-        sharder: ModelSharder[ModelT, ModelConfigT] | None = None,
+        shard_specs: ShardSpecsProvider[ModelConfigT] | None = None,
         compiler: ModelCompiler[ModelT] | None = None,
         ac_applier: ActivationCheckpointApplier[ModelT] | None = None,
         fsdp_applier: FSDPApplier[ModelT] | None = None,
-        hugging_face_exporter: HuggingFaceExporter[ModelConfigT] | None = None,
+        hugging_face_saver: HuggingFaceSaver[ModelConfigT] | None = None,
     ) -> None:
         file_system = self._context.file_system
 
         asset_download_manager = self._context.asset_download_manager
 
-        tensor_loader = AutoTensorLoader(file_system)
+        progress_reporter = self._context.progress_reporter
+
+        checkpoint_loader = create_checkpoint_loader(file_system)
+
+        sharder = create_model_sharder()
 
         configs = self._context.get_config_registry(config_kls)
 
@@ -338,15 +343,17 @@ class ModelRegistrar:
             default_arch,
             factory,
             asset_download_manager,
-            tensor_loader,
+            checkpoint_loader,
+            sharder,
+            progress_reporter,
             supports_meta=supports_meta,
             restrict=restrict,
             checkpoint_converter=checkpoint_converter,
-            sharder=sharder,
+            shard_specs=shard_specs,
             compiler=compiler,
             ac_applier=ac_applier,
             fsdp_applier=fsdp_applier,
-            hugging_face_exporter=hugging_face_exporter,
+            hugging_face_saver=hugging_face_saver,
         )
 
         self._registry.register(handler.family, handler)

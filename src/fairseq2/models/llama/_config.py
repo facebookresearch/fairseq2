@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Final, Literal
 
@@ -34,7 +35,7 @@ class LLaMAConfig:
     pad_idx: int | None = None
     """The index of the PAD symbol in the vocabulary."""
 
-    tie_embeddings: bool = False
+    tied_embeddings: bool = False
     """If ``True``, ties the embedding table and the output projection layer."""
 
     num_layers: int = 32
@@ -98,6 +99,12 @@ class LLaMAConfig:
 
     shard_embed_dim: bool = True
     """If ``True``, shards the embedding dimension for tensor parallelism."""
+
+    hg_config_class: str = "LlamaConfig"
+    """The name of the Hugging Face configuration class."""
+
+    hg_architecture: str | Sequence[str] = "LlamaForCausalLM"
+    """The name(s) under which Hugging Face refers to this architecture."""
 
 
 @dataclass
@@ -259,7 +266,7 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config = llama3_1_8b()
 
         config.model_dim = 2048
-        config.tie_embeddings = True
+        config.tied_embeddings = True
         config.ffn_inner_dim = 2048 * 4
         config.ffn_inner_dim_multiplier = 1.5
         config.ffn_inner_dim_multiple_of = 256

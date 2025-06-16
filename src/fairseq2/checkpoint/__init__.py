@@ -6,6 +6,11 @@
 
 from __future__ import annotations
 
+from fairseq2.checkpoint._hg import HuggingFaceSaveError as HuggingFaceSaveError
+from fairseq2.checkpoint._hg import HuggingFaceSaver as HuggingFaceSaver
+from fairseq2.checkpoint._hg import (
+    OutOfProcHuggingFaceSaver as OutOfProcHuggingFaceSaver,
+)
 from fairseq2.checkpoint._manager import CheckpointCallback as CheckpointCallback
 from fairseq2.checkpoint._manager import CheckpointDeleteError as CheckpointDeleteError
 from fairseq2.checkpoint._manager import CheckpointError as CheckpointError

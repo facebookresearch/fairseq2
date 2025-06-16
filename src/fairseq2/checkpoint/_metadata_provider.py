@@ -69,9 +69,6 @@ class FileCheckpointMetadataSaver(CheckpointMetadataSaver):
             },
         }
 
-        if self._gangs.tp.size != 1:
-            metadata["num_shards"] = self._gangs.tp.size
-
         metadata_file = self._checkpoint_dir.joinpath("model.yaml")
 
         def save_error() -> AssetMetadataSaveError:
@@ -134,9 +131,9 @@ class FileCheckpointMetadataLoader:
             ) from None
 
         def add_checkpoint_metadata(name: str, step_nr: int) -> None:
-            path = self._checkpoint_dir.joinpath(f"step_{step_nr}")
+            model_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}/model")
 
-            cache[name] = {"base": "checkpoint", "checkpoint": str(path)}
+            cache[name] = {"base": "checkpoint", "checkpoint": str(model_dir)}
 
         max_step_nr = -1
 

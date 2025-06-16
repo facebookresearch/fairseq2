@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import math
-from functools import partial
 
 import torch
 import torch.nn as nn
@@ -126,7 +125,12 @@ class LLaMAFactory:
         config = self._config
 
         if config.use_scaled_rope:
-            freqs_init_fn = partial(init_llama_rope_freqs, rope_scale=config.rope_scale)
+            rope_scale = config.rope_scale
+
+            def init_rope_freqs(pos_encoder: RotaryEncoder) -> Tensor:
+                return init_llama_rope_freqs(pos_encoder, rope_scale)
+
+            freqs_init_fn = init_rope_freqs
         else:
             freqs_init_fn = None
 
@@ -220,10 +224,10 @@ class LLaMAFactory:
     def create_final_projection(self, embed: Embedding) -> Projection:
         config = self._config
 
-        if config.tie_embeddings:
+        if config.tied_embeddings:
             if not isinstance(embed, StandardEmbedding):
                 raise TypeError(
-                    f"`embed` must be of type `{StandardEmbedding}` when `config.tie_embeddings` is `True`, but is of type `{type(embed)}` instead."
+                    f"`embed` must be of type `{StandardEmbedding}` when `config.tied_embeddings` is `True`, but is of type `{type(embed)}` instead."
                 )
 
             return TiedProjection(embed.weight, bias=None)

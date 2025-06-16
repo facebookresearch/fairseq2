@@ -39,7 +39,6 @@ class AssetDownloadManager(ABC):
         uri: str,
         model_name: str,
         *,
-        shard_idx: int = 0,
         force: bool = False,
         progress: bool = True,
     ) -> Path:
@@ -48,7 +47,6 @@ class AssetDownloadManager(ABC):
 
         :param uri: The URI to download from.
         :param model_name: The name of the associated model.
-        :param shard_idx: The shard to download if the checkpoint is sharded.
         :param force: If ``True``, downloads the checkpoint even if it is
             already in cache.
         :param progress: If ``True``, displays a progress bar to stderr.
@@ -117,14 +115,13 @@ class CompositeAssetDownloadManager(AssetDownloadManager):
         uri: str,
         model_name: str,
         *,
-        shard_idx: int = 0,
         force: bool = False,
         progress: bool = True,
     ) -> Path:
         download_manager = self._get_download_manager(uri)
 
         return download_manager.download_checkpoint(
-            uri, model_name, shard_idx=shard_idx, force=force, progress=progress
+            uri, model_name, force=force, progress=progress
         )
 
     @override
@@ -181,7 +178,6 @@ class NoopAssetDownloadManager(AssetDownloadManager):
         uri: str,
         model_name: str,
         *,
-        shard_idx: int = 0,
         force: bool = False,
         progress: bool = True,
     ) -> Path:
@@ -239,7 +235,6 @@ class HuggingFaceHub(AssetDownloadManager):
         uri: str,
         model_name: str,
         *,
-        shard_idx: int = 0,
         force: bool = False,
         progress: bool = True,
     ) -> Path:
@@ -338,15 +333,12 @@ class InProcAssetDownloadManager(AssetDownloadManager):
         uri: str,
         model_name: str,
         *,
-        shard_idx: int = 0,
         force: bool = False,
         progress: bool = True,
     ) -> Path:
         display_name = f"checkpoint of {model_name}"
 
-        op = _AssetDownloadOp(
-            self._cache_dir, uri, display_name, force, progress, shard_idx
-        )
+        op = _AssetDownloadOp(self._cache_dir, uri, display_name, force, progress)
 
         return op.run()
 
@@ -389,7 +381,6 @@ class _AssetDownloadOp:
     _display_name: str
     _force: bool
     _progress: bool
-    _shard_idx: int
 
     def __init__(
         self,
@@ -398,7 +389,6 @@ class _AssetDownloadOp:
         display_name: str,
         force: bool,
         progress: bool,
-        shard_idx: int = 0,
     ) -> None:
         self._cache_dir = cache_dir
         self._uri = uri
@@ -407,12 +397,9 @@ class _AssetDownloadOp:
         self._display_name = display_name
         self._force = force
         self._progress = progress
-        self._shard_idx = shard_idx
 
     def run(self) -> Path:
         self._process_uri()
-
-        self._format_uri_with_shard_index()
 
         self._check_if_gated_asset()
 
@@ -466,16 +453,6 @@ class _AssetDownloadOp:
                 self._uri_params[key.lower()] = unquote(value).strip()
 
         self._uri = parsed_uri._replace(params="").geturl()
-
-    def _format_uri_with_shard_index(self) -> None:
-        sharded_uri = self._uri.replace("%7Bshard_idx%7D", str(self._shard_idx))
-        if self._shard_idx > 1:
-            if sharded_uri == self._uri:
-                raise AssetDownloadError(
-                    f"`shard_idx` is specified, but the {self._display_name} is not sharded."
-                )
-
-        self._uri = sharded_uri
 
     def _check_if_gated_asset(self) -> None:
         if self._uri_params.get("gated", "false").strip().lower() == "true":

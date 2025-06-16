@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Final
 
@@ -19,13 +20,13 @@ class QwenConfig:
     model_dim: int = 3584
     """The dimensionality of the model."""
 
-    max_seq_len: int = 131_072
+    max_seq_len: int = 32_768
     """The maximum sequence length."""
 
     vocab_size: int = 152_064
     """The size of the vocabulary."""
 
-    tie_embeddings: bool = False
+    tied_embeddings: bool = False
     """If ``True``, ties the embedding table and the output projection layer."""
 
     num_layers: int = 28
@@ -61,6 +62,12 @@ class QwenConfig:
     dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""
 
+    hg_config_class: str = "Qwen2Config"
+    """The name of the Hugging Face configuration class."""
+
+    hg_architecture: str | Sequence[str] = "Qwen2ForCausalLM"
+    """The name(s) under which Hugging Face refers to this architecture."""
+
 
 def register_qwen_configs(context: RuntimeContext) -> None:
     registry = context.get_config_registry(QwenConfig)
@@ -77,7 +84,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.num_attn_heads = 16
         config.num_key_value_heads = 2
         config.ffn_inner_dim = 11_008
-        config.tie_embeddings = True
+        config.tied_embeddings = True
 
         return config
 
@@ -115,7 +122,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
 
         config.model_dim = 1536
         config.vocab_size = 151_936
-        config.tie_embeddings = True
+        config.tied_embeddings = True
         config.num_attn_heads = 12
         config.num_key_value_heads = 2
         config.ffn_inner_dim = 8960
@@ -129,7 +136,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.model_dim = 1024
         config.max_seq_len = 40_960
         config.vocab_size = 151_936
-        config.tie_embeddings = True
+        config.tied_embeddings = True
         config.num_layers = 28
         config.num_attn_heads = 16
         config.num_key_value_heads = 8
@@ -139,6 +146,8 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.k_norm = True
         config.ffn_inner_dim = 3072
         config.rope_theta = 1_000_000
+        config.hg_config_class = "Qwen3Config"
+        config.hg_architecture = "Qwen3ForCausalLM"
 
         return config
 
@@ -149,7 +158,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.model_dim = 2048
         config.max_seq_len = 40_960
         config.vocab_size = 151_936
-        config.tie_embeddings = True
+        config.tied_embeddings = True
         config.num_layers = 28
         config.num_attn_heads = 16
         config.num_key_value_heads = 8
@@ -159,6 +168,8 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.k_norm = True
         config.ffn_inner_dim = 6144
         config.rope_theta = 1_000_000
+        config.hg_config_class = "Qwen3Config"
+        config.hg_architecture = "Qwen3ForCausalLM"
 
         return config
 
@@ -169,7 +180,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.model_dim = 2560
         config.max_seq_len = 40_960
         config.vocab_size = 151_936
-        config.tie_embeddings = True
+        config.tied_embeddings = True
         config.num_layers = 36
         config.num_attn_heads = 32
         config.num_key_value_heads = 8
@@ -179,6 +190,8 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.k_norm = True
         config.ffn_inner_dim = 9728
         config.rope_theta = 1_000_000
+        config.hg_config_class = "Qwen3Config"
+        config.hg_architecture = "Qwen3ForCausalLM"
 
         return config
 
@@ -198,6 +211,8 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.k_norm = True
         config.ffn_inner_dim = 12_288
         config.rope_theta = 1_000_000
+        config.hg_config_class = "Qwen3Config"
+        config.hg_architecture = "Qwen3ForCausalLM"
 
         return config
 
@@ -217,6 +232,8 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.k_norm = True
         config.ffn_inner_dim = 17_408
         config.rope_theta = 1_000_000
+        config.hg_config_class = "Qwen3Config"
+        config.hg_architecture = "Qwen3ForCausalLM"
 
         return config
 
@@ -236,5 +253,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.k_norm = True
         config.ffn_inner_dim = 25_600
         config.rope_theta = 1_000_000
+        config.hg_config_class = "Qwen3Config"
+        config.hg_architecture = "Qwen3ForCausalLM"
 
         return config

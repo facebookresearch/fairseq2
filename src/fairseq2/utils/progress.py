@@ -17,7 +17,7 @@ from fairseq2.typing import Closable
 class ProgressReporter(ABC):
     @abstractmethod
     def create_task(
-        self, name: str, total: int | None, completed: int = 0
+        self, name: str, total: int | None, completed: int = 0, *, start: bool = True
     ) -> ProgressTask: ...
 
     @abstractmethod
@@ -29,7 +29,10 @@ class ProgressReporter(ABC):
 
 class ProgressTask(Closable):
     @abstractmethod
-    def step(self, value: int) -> None: ...
+    def start(self) -> None: ...
+
+    @abstractmethod
+    def step(self, value: int = 1) -> None: ...
 
     def __enter__(self) -> Self:
         return self
@@ -42,7 +45,7 @@ class ProgressTask(Closable):
 class NoopProgressReporter(ProgressReporter):
     @override
     def create_task(
-        self, name: str, total: int | None, completed: int = 0
+        self, name: str, total: int | None, completed: int = 0, *, start: bool = True
     ) -> ProgressTask:
         return NoopProgressTask()
 
@@ -58,7 +61,11 @@ class NoopProgressReporter(ProgressReporter):
 @final
 class NoopProgressTask(ProgressTask):
     @override
-    def step(self, value: int) -> None:
+    def start(self) -> None:
+        pass
+
+    @override
+    def step(self, value: int = 1) -> None:
         pass
 
     @override

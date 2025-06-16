@@ -155,8 +155,9 @@ class StandardMultiheadAttention(MultiheadAttention):
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     num_heads: int
-    head_dim: int
     num_key_value_heads: int
+    head_dim: int
+    kv_dim: int
     num_query_groups: int
     q_proj: Projection
     k_proj: Projection
@@ -246,9 +247,6 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         self.num_heads = num_heads
 
-        if head_dim is None:
-            head_dim = model_dim // num_heads
-
         if num_key_value_heads is None:
             num_key_value_heads = num_heads
         else:
@@ -264,15 +262,22 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         self.num_key_value_heads = num_key_value_heads
 
+        if head_dim is None:
+            head_dim = model_dim // num_heads
+
+        self.head_dim = head_dim
+
         if kv_dim is None:
             kv_dim = model_dim
 
-        self.num_query_groups = num_heads // self.num_key_value_heads
+        self.kv_dim = kv_dim
+
+        self.num_query_groups = num_heads // num_key_value_heads
 
         if q_proj is None and k_proj is None and v_proj is None:
             q_proj = Linear(
                 model_dim,
-                head_dim * self.num_heads,
+                head_dim * num_heads,
                 bias,
                 init_fn=qkv_proj_init_fn or init_qkv_projection,
                 device=device,
@@ -280,7 +285,7 @@ class StandardMultiheadAttention(MultiheadAttention):
             )
             k_proj = Linear(
                 kv_dim,
-                head_dim * self.num_key_value_heads,
+                head_dim * num_key_value_heads,
                 bias,
                 init_fn=qkv_proj_init_fn or init_qkv_projection,
                 device=device,
@@ -288,7 +293,7 @@ class StandardMultiheadAttention(MultiheadAttention):
             )
             v_proj = Linear(
                 kv_dim,
-                head_dim * self.num_key_value_heads,
+                head_dim * num_key_value_heads,
                 bias,
                 init_fn=qkv_proj_init_fn or init_qkv_projection,
                 device=device,
@@ -314,14 +319,14 @@ class StandardMultiheadAttention(MultiheadAttention):
                     f"`q_proj.output_dim` and `k_proj.output_dim` (or times the number of query groups when GQA) must be equal, but they are {q_proj.output_dim} and {k_dim} instead."
                 )
 
-            if k_proj.output_dim % self.num_key_value_heads != 0:
+            if k_proj.output_dim % num_key_value_heads != 0:
                 raise ValueError(
-                    f"`k_proj.output_dim` must be a multiple of `num_key_value_heads` ({self.num_key_value_heads}), but is {k_proj.output_dim} instead."
+                    f"`k_proj.output_dim` must be a multiple of `num_key_value_heads` ({num_key_value_heads}), but is {k_proj.output_dim} instead."
                 )
 
-            if v_proj.output_dim % self.num_key_value_heads != 0:
+            if v_proj.output_dim % num_key_value_heads != 0:
                 raise ValueError(
-                    f"`v_proj.output_dim` must be a multiple of `num_key_value_heads` ({self.num_key_value_heads}), but is {v_proj.output_dim} instead."
+                    f"`v_proj.output_dim` must be a multiple of `num_key_value_heads` ({num_key_value_heads}), but is {v_proj.output_dim} instead."
                 )
 
         self.q_proj = q_proj
@@ -485,7 +490,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         q = self.q_proj(seqs)
 
         # (N, S, K_proj) -> (N, S, H, K_h)
-        q = q.unflatten(-1, (self.num_heads, -1))
+        q = q.unflatten(-1, (-1, self.head_dim))
 
         if self.q_norm is not None:
             q = self.q_norm(q)
@@ -508,9 +513,9 @@ class StandardMultiheadAttention(MultiheadAttention):
         v = self.v_proj(values)
 
         # (N, S, K_proj) -> (N, S, H, K_h)
-        k = k.unflatten(-1, (self.num_key_value_heads, -1))
+        k = k.unflatten(-1, (-1, self.head_dim))
         # (N, S, V_proj) -> (N, S, H, V_h)
-        v = v.unflatten(-1, (self.num_key_value_heads, -1))
+        v = v.unflatten(-1, (-1, self.head_dim))
 
         if self.k_norm is not None:
             k = self.k_norm(k)
@@ -523,7 +528,7 @@ class StandardMultiheadAttention(MultiheadAttention):
     @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = f"num_heads={self.num_heads}, "
+        s = f"num_heads={self.num_heads}"
 
         if self.num_key_value_heads != self.num_heads:
             s = f"{s}, num_key_value_heads={self.num_key_value_heads}"

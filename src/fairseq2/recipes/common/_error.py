@@ -37,15 +37,6 @@ class DatasetPathNotFoundError(Exception):
         self.path = path
 
 
-class InvalidModelPathError(Exception):
-    pathname: str
-
-    def __init__(self, pathname: str) -> None:
-        super().__init__(f"'{pathname}' does not represent a valid file system path.")
-
-        self.pathname = pathname
-
-
 class ModelParallelismNotSupportedError(NotSupportedError):
     model_name: str
 
@@ -84,6 +75,17 @@ class FSDPNotSupportedError(NotSupportedError):
 
     def __init__(self, model_name: str) -> None:
         super().__init__(f"The '{model_name}' model does not support FSDP.")
+
+        self.model_name = model_name
+
+
+class HuggingFaceNotSupportedError(NotSupportedError):
+    model_name: str
+
+    def __init__(self, model_name: str) -> None:
+        super().__init__(
+            f"The '{model_name}' model does not support Hugging Face conversion."
+        )
 
         self.model_name = model_name
 

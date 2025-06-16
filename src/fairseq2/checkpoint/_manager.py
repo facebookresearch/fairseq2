@@ -74,6 +74,7 @@ class CheckpointManager(Closable):
         self, *, blocking: bool = False
     ) -> bool | None: ...
 
+    @property
     @abstractmethod
     def is_saving(self) -> bool: ...
 
@@ -129,7 +130,7 @@ class CheckpointStateProcessor(Protocol):
 
 
 class CheckpointCallback(Protocol):
-    def __call__(self, step_nr: int) -> None: ...
+    def __call__(self, step_nr: int, blocking: bool) -> None: ...
 
 
 @final
@@ -271,6 +272,8 @@ class FileCheckpointManager(CheckpointManager):
 
         return True
 
+    @property
+    @override
     def is_saving(self) -> bool:
         return self._save_op is not None
 
@@ -301,14 +304,9 @@ class FileCheckpointManager(CheckpointManager):
     ) -> None:
         gangs = self._gangs
 
-        filename = f"step_{step_nr}.tmp/trainer"
+        pathname = f"step_{step_nr}.tmp/trainer/rank_{gangs.root.rank:02d}.pt"
 
-        if gangs.root.size == 1:
-            filename = f"{filename}.pt"
-        else:
-            filename = f"{filename}/rank_{gangs.root.rank:02d}.pt"
-
-        file = self._checkpoint_dir.joinpath(filename)
+        file = self._checkpoint_dir.joinpath(pathname)
 
         if gangs.root.rank == 0:
             try:
@@ -330,17 +328,9 @@ class FileCheckpointManager(CheckpointManager):
         if gangs.rdp.rank != 0:
             return
 
-        if gangs.tp.size == 1:
-            filename = f"step_{step_nr}.tmp/model"
-        else:
-            filename = f"step_{step_nr}.tmp/model/tp_{gangs.tp.rank:02d}"
+        pathname = f"step_{step_nr}.tmp/model/pp_{gangs.pp.rank:02d}/tp_{gangs.tp.rank:02d}/sdp_{gangs.sdp.rank:02d}.pt"
 
-        if gangs.sdp.size == 1:
-            filename = f"{filename}.pt"
-        else:
-            filename = f"{filename}/sdp_{gangs.sdp.rank:02d}.pt"
-
-        file = self._checkpoint_dir.joinpath(filename)
+        file = self._checkpoint_dir.joinpath(pathname)
 
         if gangs.sdp.rank == 0:
             try:
@@ -362,17 +352,9 @@ class FileCheckpointManager(CheckpointManager):
         if gangs.rdp.rank != 0:
             return
 
-        if gangs.tp.size == 1:
-            filename = f"step_{step_nr}.tmp/optimizer"
-        else:
-            filename = f"step_{step_nr}.tmp/optimizer/tp_{gangs.tp.rank:02d}"
+        pathname = f"step_{step_nr}.tmp/optimizer/pp_{gangs.pp.rank:02d}/tp_{gangs.tp.rank:02d}/sdp_{gangs.sdp.rank:02d}.pt"
 
-        if gangs.sdp.size == 1:
-            filename = f"{filename}.pt"
-        else:
-            filename = f"{filename}/sdp_{gangs.sdp.rank:02d}.pt"
-
-        file = self._checkpoint_dir.joinpath(filename)
+        file = self._checkpoint_dir.joinpath(pathname)
 
         if gangs.sdp.rank == 0:
             try:
@@ -394,14 +376,9 @@ class FileCheckpointManager(CheckpointManager):
         if gangs.tp.rank != 0:
             return
 
-        filename = f"step_{step_nr}.tmp/data_reader"
+        pathname = f"step_{step_nr}.tmp/data_reader/dp_{gangs.dp.rank:02d}.pt"
 
-        if gangs.dp.size == 1:
-            filename = f"{filename}.pt"
-        else:
-            filename = f"{filename}/dp_{gangs.dp.rank:02d}.pt"
-
-        file = self._checkpoint_dir.joinpath(filename)
+        file = self._checkpoint_dir.joinpath(pathname)
 
         if gangs.dp.rank == 0:
             try:
@@ -474,7 +451,7 @@ class FileCheckpointManager(CheckpointManager):
                 self._commit_checkpoint(step_nr)
 
                 if callback is not None:
-                    callback(step_nr)
+                    callback(step_nr, blocking)
 
             return commit
 
@@ -660,12 +637,7 @@ class FileCheckpointManager(CheckpointManager):
     def load_trainer_state(self, step_nr: int, trainer: Stateful) -> None:
         gangs = self._gangs
 
-        pathname = "trainer"
-
-        if gangs.root.size == 1:
-            pathname = f"{pathname}.pt"
-        else:
-            pathname = f"{pathname}/rank_{gangs.root.rank:02d}.pt"
+        pathname = f"trainer/rank_{gangs.root.rank:02d}.pt"
 
         try:
             state_dict = self._load_state_dict(step_nr, pathname)
@@ -685,15 +657,7 @@ class FileCheckpointManager(CheckpointManager):
     def load_model_state(self, step_nr: int, model: Stateful) -> None:
         gangs = self._gangs
 
-        if gangs.tp.size == 1:
-            pathname = "model"
-        else:
-            pathname = f"model/tp_{gangs.tp.rank:02d}"
-
-        if gangs.sdp.size == 1:
-            pathname = f"{pathname}.pt"
-        else:
-            pathname = f"{pathname}/sdp_{gangs.sdp.rank:02d}.pt"
+        pathname = f"model/pp_{gangs.pp.rank:02d}/tp_{gangs.tp.rank:02d}/sdp_{gangs.sdp.rank:02d}.pt"
 
         try:
             state_dict = self._load_state_dict(step_nr, pathname)
@@ -713,15 +677,7 @@ class FileCheckpointManager(CheckpointManager):
     def load_optimizer_state(self, step_nr: int, optimizer: Stateful) -> None:
         gangs = self._gangs
 
-        if gangs.tp.size == 1:
-            pathname = "optimizer"
-        else:
-            pathname = f"optimizer/tp_{gangs.tp.rank:02d}"
-
-        if gangs.sdp.size == 1:
-            pathname = f"{pathname}.pt"
-        else:
-            pathname = f"{pathname}/sdp_{gangs.sdp.rank:02d}.pt"
+        pathname = f"optimizer/pp_{gangs.pp.rank:02d}/tp_{gangs.tp.rank:02d}/sdp_{gangs.sdp.rank:02d}.pt"
 
         try:
             state_dict = self._load_state_dict(step_nr, pathname)
@@ -741,12 +697,7 @@ class FileCheckpointManager(CheckpointManager):
     def load_data_reader_state(self, step_nr: int, data_reader: Stateful) -> None:
         gangs = self._gangs
 
-        pathname = "data_reader"
-
-        if gangs.dp.size == 1:
-            pathname = f"{pathname}.pt"
-        else:
-            pathname = f"{pathname}/dp_{gangs.dp.rank:02d}.pt"
+        pathname = f"data_reader/dp_{gangs.dp.rank:02d}.pt"
 
         try:
             state_dict = self._load_state_dict(step_nr, pathname)
@@ -871,11 +822,6 @@ class FileCheckpointManager(CheckpointManager):
 
                     if self._file_system.exists(trainer_dir):
                         step_nrs.append(step_nr)
-                    else:
-                        trainer_file = step_dir.joinpath("trainer.pt")
-
-                        if self._file_system.exists(trainer_file):
-                            step_nrs.append(step_nr)
                 else:
                     step_nrs.append(step_nr)
         except OSError as ex:

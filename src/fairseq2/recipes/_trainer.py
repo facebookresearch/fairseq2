@@ -27,6 +27,8 @@ from fairseq2.checkpoint import (
     CheckpointManager,
     CheckpointSaveError,
     CheckpointState,
+    HuggingFaceSaveError,
+    HuggingFaceSaver,
     Stateful,
 )
 from fairseq2.data_type import DataType
@@ -144,6 +146,7 @@ class Trainer(Recipe):
     _checkpoint_after_n_data_epochs: int
     _checkpoint_every_n_data_epochs: int | None
     _save_model_only: bool
+    _hugging_face_saver: HuggingFaceSaver | None
     _keep_last_n_checkpoints: int | None
     _keep_best_n_checkpoints: int | None
     _keep_checkpoint_every_n_steps: int | None
@@ -206,6 +209,7 @@ class Trainer(Recipe):
         checkpoint_after_n_data_epochs: int = 0,
         checkpoint_every_n_data_epochs: int | None = None,
         save_model_only: bool = False,
+        hugging_face_saver: HuggingFaceSaver | None = None,
         keep_last_n_checkpoints: int | None = None,
         keep_best_n_checkpoints: int | None = None,
         keep_checkpoint_every_n_steps: int | None = None,
@@ -409,6 +413,8 @@ class Trainer(Recipe):
         self._checkpoint_every_n_data_epochs = checkpoint_every_n_data_epochs
 
         self._save_model_only = save_model_only
+
+        self._hugging_face_saver = hugging_face_saver
 
         if keep_last_n_checkpoints is not None:
             if keep_last_n_checkpoints <= 0:
@@ -710,7 +716,7 @@ class Trainer(Recipe):
 
         self._step_nr += 1
 
-        progress_task.step(1)
+        progress_task.step()
 
         with detect_anomaly:
             with record_function(f"step_{self._step_nr}"):
@@ -975,10 +981,45 @@ class Trainer(Recipe):
                 f"The checkpoint of step {ex.step_nr} cannot be saved. See the nested exception for details."
             ) from ex
 
-    def _complete_checkpoint(self, step_nr: int) -> None:
+    def _complete_checkpoint(self, step_nr: int, blocking: bool) -> None:
         log.info("Checkpoint at step {} saved.", step_nr)
 
+        gangs = self._gangs
+
+        hg_saver = self._hugging_face_saver
+
+        if hg_saver is not None:
+            if gangs.root.rank == 0:
+                if hg_saver.is_saving:
+                    log.info("Waiting for the current Hugging Face model save operation to complete before continuing.")  # fmt: skip
+
+                try:
+                    hg_saver.complete_pending()
+                except HuggingFaceSaveError as ex:
+                    raise RecipeError(
+                        f"The Hugging Face model of step {ex.step_nr} cannot be saved. See the nested exception for details."  # fmt: skip
+                    ) from ex
+
+            try:
+                gangs.root.barrier()
+            except GangError as ex:
+                raise RecipeError(
+                    "The collective barrier after the Hugging Face wait operation has failed. See the nested exception for details."
+                ) from ex
+
         self._delete_stale_checkpoints()
+
+        if hg_saver is not None:
+            if gangs.root.rank == 0:
+                if blocking:
+                    log.info("Saving Hugging Face model of step {}.", step_nr)  # fmt: skip
+                else:
+                    log.info("Asynchronously saving Hugging Face model of step {}.", step_nr)  # fmt: skip
+
+                def save_callback(step_nr: int) -> None:
+                    log.info("Hugging Face model of step {} saved.", step_nr)
+
+                hg_saver.save(step_nr, callback=save_callback, blocking=blocking)
 
     def _maybe_publish_metrics(self) -> None:
         should_publish = self._should_publish_metrics()
@@ -1155,7 +1196,7 @@ class Trainer(Recipe):
         return broadcast_flag(gangs.root, should_stop)
 
     def _maybe_wait_checkpoint(self) -> None:
-        if not self._checkpoint_manager.is_saving():
+        if not self._checkpoint_manager.is_saving:
             return
 
         log.info("Waiting for the current checkpoint save operation to complete before continuing.")  # fmt: skip
