@@ -428,8 +428,10 @@ def load_wav2vec2_asr_trainer(
         )
     else:
         dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
-        assert isinstance(dataset, ManifestDatasetInterface)
-        if config.dataset.always_read_tsv:
+        if (
+            isinstance(dataset, ManifestDatasetInterface)
+            and config.dataset.always_read_tsv
+        ):
             dataset._always_read_tsv = True
 
     data_reader = dataset.create_reader(

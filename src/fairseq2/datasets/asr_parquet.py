@@ -52,9 +52,6 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
     ) -> Tuple[SpeechReadOptions, DataPipelineBuilder]:
         assert min_audio_len <= max_audio_len, "min_audio_len must be <= max_audio_len"
 
-        # if split not in self._splits:
-        #     raise UnknownSplitError(self._name, split, self._splits)
-
         if options is None:
             options = SpeechReadOptions()
 
