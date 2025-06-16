@@ -489,7 +489,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
             instruction=prompt_text, response=rollout_text
         )
         wrapped_text = [{"role": "user", "content": content}]
-        chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False)
+        chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False, add_generation_prompt=True)
         return chat_str
 
     @override
@@ -654,7 +654,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
             response_B=rollout_B_text
         )
         wrapped_text = [{"role": "user", "content": content}]
-        chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False)
+        chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False, add_generation_prompt=True)
         return chat_str
 
     @override
@@ -712,7 +712,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
             
             # Average score over 2*(R-1) pairwise comparisons
             if (R-1) > 0:
-                prompt_rewards = [prompt_reward/(2*(R-1)) for prompt_reward in prompt_rewards]
+                prompt_rewards = [round(prompt_reward/(2*(R-1)), 4) for prompt_reward in prompt_rewards]
                             
             batch_rewards.append(prompt_rewards)
         
