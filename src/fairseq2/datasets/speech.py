@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import random
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import partial, reduce
@@ -16,12 +15,13 @@ from typing import Any, Callable, Dict, Final, List
 
 import numpy as np
 import torch
+from torch import Tensor
+from torch.nn.functional import layer_norm
+from typing_extensions import override
 
-import torchaudio
-
-from fairseq2.data import Collater, create_bucket_sizes, DataPipelineBuilder, FileMapper
+from fairseq2.data import Collater, DataPipelineBuilder, FileMapper, create_bucket_sizes
 from fairseq2.data.audio import AudioDecoder, WaveformToFbankConverter
-from fairseq2.data.text import read_text, StrSplitter
+from fairseq2.data.text import StrSplitter, read_text
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
@@ -39,9 +39,14 @@ from fairseq2.logging import log
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import DataType, Device
-from torch import Tensor
-from torch.nn.functional import layer_norm
-from typing_extensions import override
+
+try:
+    import torchaudio
+except ImportError:
+    torchaudio = None
+    log.warning(
+        "torchaudio is not installed. Please install it with `pip install torchaudio`."
+    )
 
 
 # SpecAugment
@@ -90,7 +95,7 @@ def _apply_spec_augment(
         )
     )
     # get spectrogram
-    spectrogram = torchaudio.transforms.Spectrogram(
+    spectrogram = torchaudio.transforms.Spectrogram(  # type: ignore
         n_fft=n_fft,
         win_length=win_len,
         hop_length=hop_len,
@@ -105,7 +110,7 @@ def _apply_spec_augment(
     spec_aug = time_mask(spec_aug, time_mask_param)
 
     # get augmented wav
-    ispec = torchaudio.transforms.InverseSpectrogram()
+    ispec = torchaudio.transforms.InverseSpectrogram()  # type: ignore
     wav_aug = ispec(spec_aug)
     return wav_aug
 
