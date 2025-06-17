@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import Callable, TypeAlias, final
 
-import torch
 from torch import Tensor
 from torch.nn.attention.flex_attention import flex_attention
 from typing_extensions import override
