@@ -270,6 +270,8 @@ class RemoteVllmModel:
             matches = re.findall(
                 r"<score>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score>", output
             )
+            if matches and float(matches[-1].strip()) > 10.0:
+                log.info(f"CoT = {output}")
             return float(matches[-1].strip()) if matches else 0.0
         
         def extract_score_pair(output):
@@ -279,6 +281,8 @@ class RemoteVllmModel:
             if score_a_matches and score_b_matches:
                 score_a = score_a_matches[-1]  # Last occurrence of score_A
                 score_b = score_b_matches[-1]  # Last occurrence of score_B
+                if float(score_a.strip()) > 10.0 or float(score_b.strip()) > 10.0:
+                    log.info(f"CoT = {output}")
                 return (float(score_a.strip()), float(score_b.strip()))
             else:
                 return (0.0, 0.0)
