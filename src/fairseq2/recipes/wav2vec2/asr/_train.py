@@ -312,7 +312,25 @@ def load_wav2vec2_asr_trainer(
             ) from ex
 
     # Load a full model from checkpoint
-    if config.pretrained_model_full.name:
+    if model.is_empty_initialized and config.pretrained_model.name:
+        tp = (
+            AsrModel
+            if "ctc" in config.pretrained_model.name
+            or "best_checkpoint" in config.pretrained_model.name
+            else Wav2Vec2Model
+        )
+        pt_model = load_reference_model(
+            tp,
+            context,
+            config.pretrained_model,
+            gangs,
+            config.trainer.dtype,
+            mp=config.trainer.mixed_precision != "off",
+        )
+        pt_module = cast(tp, pt_model.module)
+        share_parameters(pt_module, module)
+        del pt_model
+    elif config.pretrained_model_full.name:
         assert not config.pretrained_model.name
 
         pt_model = load_reference_model(
