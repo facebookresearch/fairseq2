@@ -41,6 +41,7 @@ from torch.nn.functional import layer_norm
 from typing_extensions import override
 
 try:
+    # type: ignore
     import torchaudio
 except ImportError:
     torchaudio = None
