@@ -584,14 +584,6 @@ def prepare_grpo_batch(
     rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (
         rewards.std(dim=1, keepdim=True) + 1e-6
     )  # small epsilon to compensate 0 std
-    
-    # if gangs.root.rank == 0:
-    #     import pdb;
-    #     pdb.set_trace()
-
-    # gangs.root.barrier() # this ensures that ranks will wait until all are caught up to this point
-        
-    # print(rewards_normalized)
 
     rewards_normalized = rewards_normalized[
         :, rollout_start_end[0] : rollout_start_end[1]
