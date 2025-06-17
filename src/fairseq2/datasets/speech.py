@@ -16,7 +16,8 @@ from typing import Any, Callable, Dict, Final, List
 
 import numpy as np
 import torch
-import torchaudio.transforms as T
+
+import torchaudio
 
 from fairseq2.data import Collater, create_bucket_sizes, DataPipelineBuilder, FileMapper
 from fairseq2.data.audio import AudioDecoder, WaveformToFbankConverter
@@ -44,8 +45,8 @@ from typing_extensions import override
 
 
 # SpecAugment
-@torch.no_grad
-def freq_mask(spec: torch.Tensor, freq_mask_param=80) -> torch.Tensor:
+@torch.no_grad()
+def freq_mask(spec: torch.Tensor, freq_mask_param: int = 80) -> torch.Tensor:
     """Apply frequency masking to the spectrogram. Maximum mask length is set by freq_mask_param."""
     n_freq = spec.size(-2)
 
@@ -58,8 +59,8 @@ def freq_mask(spec: torch.Tensor, freq_mask_param=80) -> torch.Tensor:
     return masked_spec
 
 
-@torch.no_grad
-def time_mask(spec: torch.Tensor, time_mask_param=80) -> torch.Tensor:
+@torch.no_grad()
+def time_mask(spec: torch.Tensor, time_mask_param: int = 80) -> torch.Tensor:
     """Apply time masking to the spectrogram. Maximum mask length is set by time_mask_param."""
     n_t = spec.size(-1)
 
@@ -75,21 +76,21 @@ def time_mask(spec: torch.Tensor, time_mask_param=80) -> torch.Tensor:
 
 @torch.no_grad()
 def _apply_spec_augment(
-    waveform,
-    n_fft=400,
-    win_len=None,
-    hop_len=None,
-    power=None,
-    freq_mask_param=80,
-    time_mask_param=80,
-):
+    waveform: Tensor,
+    n_fft: int = 400,
+    win_len: int | None = None,
+    hop_len: int | None = None,
+    power: int | None = None,
+    freq_mask_param: int = 80,
+    time_mask_param: int = 80,
+) -> Tensor:
     log.info(
         "Applying SpecAugment with freq_mask_param={}, time_mask_param={}".format(
             freq_mask_param, time_mask_param
         )
     )
     # get spectrogram
-    spectrogram = T.Spectrogram(
+    spectrogram = torchaudio.transforms.Spectrogram(
         n_fft=n_fft,
         win_length=win_len,
         hop_length=hop_len,
@@ -100,10 +101,11 @@ def _apply_spec_augment(
     spec = spectrogram(waveform)
 
     # augment
-    spec_aug = time_mask(freq_mask(spec, freq_mask_param))
+    spec_aug = freq_mask(spec, freq_mask_param)
+    spec_aug = time_mask(spec_aug, time_mask_param)
 
     # get augmented wav
-    ispec = T.InverseSpectrogram()
+    ispec = torchaudio.transforms.InverseSpectrogram()
     wav_aug = ispec(spec_aug)
     return wav_aug
 
