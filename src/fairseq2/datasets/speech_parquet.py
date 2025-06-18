@@ -158,9 +158,22 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
             seed=seed,
             fragment_shuffle_window=fragment_shuffle_window,
         )
+
+        # Extra here logic for specifying subsplits
+        # Expects format: <split>_<corpus> (where corpus is optional and may contain _)
+        corpus = None
+        split_info = split.split("_")
+        if len(split_info) >= 2:
+            split = split_info[0]
+            corpus = "_".join(split_info[1:])
+
         fragment_config = fragment_config.add_partition_filter(
             pa.compute.field("split") == split
         )
+        if corpus is not None:
+            fragment_config = fragment_config.add_partition_filter(
+                pa.compute.field("corpus") == corpus
+            )
         fragement_builder = ParquetFragmentStreamer(
             config=fragment_config
         ).build_pipeline(rank=rank, world_size=world_size)
