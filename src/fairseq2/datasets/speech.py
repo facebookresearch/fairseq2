@@ -465,7 +465,7 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
         if isinstance(batching, LengthBatching):
             # Bucket by the audio length.
             max_num_elements = batching.max_num_elements
-            log.info(f"SETZLER. Using max_num_elements={max_num_elements}!")
+            log.info(f"Using max_num_elements={max_num_elements}!")
 
             if max_num_elements % max_audio_len != 0:
                 max_num_elements = (max_num_elements // max_audio_len) * max_audio_len
