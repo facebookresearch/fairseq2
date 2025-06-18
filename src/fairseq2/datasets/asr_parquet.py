@@ -15,7 +15,7 @@ from typing_extensions import override
 from fairseq2.data import CollateOptionsOverride, Collater, DataPipelineBuilder
 from fairseq2.data.parquet import NamedColumns
 from fairseq2.data.text.tokenizers import TextTokenizer
-from fairseq2.datasets import DataPipelineReader, DataReader, UnknownSplitError
+from fairseq2.datasets import DataPipelineReader, DataReader
 from fairseq2.datasets.asr import AsrDataset, GenericAsrDataset
 from fairseq2.datasets.speech import GenericSpeechDataset, SpeechReadOptions
 from fairseq2.datasets.speech_parquet import (
@@ -51,9 +51,6 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
         options: SpeechReadOptions | None = None,
     ) -> Tuple[SpeechReadOptions, DataPipelineBuilder]:
         assert min_audio_len <= max_audio_len, "min_audio_len must be <= max_audio_len"
-
-        if split not in self._splits:
-            raise UnknownSplitError(self._name, split, self._splits)
 
         if options is None:
             options = SpeechReadOptions()
