@@ -9,9 +9,9 @@ from __future__ import annotations
 from fairseq2.models.transformer import (
     CausalAttentionBias,
     FeedForwardNetwork,
-    GLUFeedForwardNetwork,
     LocalAttentionStateFactory,
     MultiheadAttention,
+    StandardFeedForwardNetwork,
     StandardMultiheadAttention,
     TransformerEmbeddingFrontend,
     TransformerFrontend,
@@ -29,12 +29,13 @@ from fairseq2.models.transformer_lm import (
 from fairseq2.nn import (
     Embedding,
     LayerNorm,
+    LearnedPositionEncoder,
     Linear,
     PositionEncoder,
     Projection,
     RMSNorm,
-    RotaryEncoder,
     StandardEmbedding,
+    StandardLayerNorm,
 )
 
 # isort: split
@@ -80,7 +81,7 @@ class OPTFactory:
             embed,
             pos_encoder=None,
             no_scale=True,
-            dropout_p=config.dropout_p,
+            # dropout_p=config.dropout_p,  # TODO: check if there is dropout here
         )
 
     def create_embedding(self) -> Embedding:
@@ -107,9 +108,11 @@ class OPTFactory:
     def create_position_encoder(self) -> PositionEncoder:
         config = self._config
 
+        # TODO: should be "= config.model_dim", but fs2 throws error
+        # See https://github.com/vllm-project/vllm/blob/4719460644b4629db2b6dbf12be331d0b34b4b6f/vllm/model_executor/models/opt.py#L211
         encoding_dim = config.model_dim // config.num_attn_heads
 
-        return RotaryEncoder(encoding_dim, config.max_seq_len)
+        return LearnedPositionEncoder(encoding_dim, config.max_seq_len)
 
     def create_decoder_layer(self, pos_encoder: PositionEncoder) -> TransformerLMDecoderLayer:
         config = self._config
@@ -153,12 +156,12 @@ class OPTFactory:
     def create_ffn(self) -> FeedForwardNetwork:
         config = self._config
 
-        return GLUFeedForwardNetwork(config.model_dim, config.ffn_inner_dim, bias=False, inner_dim_scale=1.0)
+        return StandardFeedForwardNetwork(config.model_dim, config.ffn_inner_dim, bias=True)
 
     def create_layer_norm(self) -> LayerNorm:
         config = self._config
 
-        return RMSNorm(config.model_dim, bias=False)
+        return StandardLayerNorm(config.model_dim, bias=False)
 
     def create_final_projection(self) -> Projection:
         config = self._config
