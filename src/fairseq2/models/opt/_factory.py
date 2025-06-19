@@ -76,10 +76,12 @@ class OPTFactory:
 
         embed = self.create_embedding()
 
+        pos_encoder = self.create_position_encoder()
+
         return TransformerEmbeddingFrontend(
             config.model_dim,
             embed,
-            pos_encoder=None,
+            pos_encoder=pos_encoder,
             no_scale=True,
             # dropout_p=config.dropout_p,  # TODO: check if there is dropout here
         )
@@ -92,12 +94,10 @@ class OPTFactory:
     def create_decoder(self) -> TransformerLMDecoder:
         config = self._config
 
-        pos_encoder = self.create_position_encoder()
-
         layers = []
 
         for _ in range(config.num_layers):
-            layer = self.create_decoder_layer(pos_encoder)
+            layer = self.create_decoder_layer()
 
             layers.append(layer)
 
@@ -110,14 +110,14 @@ class OPTFactory:
 
         # TODO: should be "= config.model_dim", but fs2 throws error
         # See https://github.com/vllm-project/vllm/blob/4719460644b4629db2b6dbf12be331d0b34b4b6f/vllm/model_executor/models/opt.py#L211
-        encoding_dim = config.model_dim // config.num_attn_heads
+        encoding_dim = config.model_dim  # // config.num_attn_heads
 
         return LearnedPositionEncoder(encoding_dim, config.max_seq_len)
 
-    def create_decoder_layer(self, pos_encoder: PositionEncoder) -> TransformerLMDecoderLayer:
+    def create_decoder_layer(self) -> TransformerLMDecoderLayer:
         config = self._config
 
-        self_attn = self.create_self_attention(pos_encoder)
+        self_attn = self.create_self_attention()
 
         self_attn_layer_norm = self.create_layer_norm()
 
@@ -134,7 +134,7 @@ class OPTFactory:
             dropout_p=config.dropout_p,
         )
 
-    def create_self_attention(self, pos_encoder: PositionEncoder) -> MultiheadAttention:
+    def create_self_attention(self) -> MultiheadAttention:
         config = self._config
 
         attn_bias = CausalAttentionBias(attn_window_len=config.attn_window_len)
@@ -148,7 +148,7 @@ class OPTFactory:
             config.num_attn_heads,
             sdpa,
             num_key_value_heads=config.num_key_value_heads,
-            pos_encoder=pos_encoder,
+            # pos_encoder=pos_encoder,
             bias=True,
             state_factory=incremental_state_factory,
         )
