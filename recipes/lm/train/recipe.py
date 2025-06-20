@@ -23,11 +23,8 @@ from fairseq2.recipe.run import train
 from fairseq2.recipe.trainer import Trainer, TrainUnit
 
 from .config import CausalLMTrainConfig
-from .dataset import (
-    JSONL_TEXT_DATASET_FAMILY,
-    JsonlTextDataset,
-    TextReadOptions,
-)
+from .dataset import JSONL_TEXT_DATASET_FAMILY, JsonlTextDataset, TextReadOptions
+from .parquet_dataset import PARQUET_TEXT_DATASET_FAMILY, ParquetTextDataset
 
 
 @final
@@ -39,6 +36,13 @@ class CausalLMTrainRecipe(TrainRecipe):
             JSONL_TEXT_DATASET_FAMILY,
             JsonlTextDataset,
             JsonlTextDataset.from_path,
+        )
+
+        register_dataset_family(
+            container,
+            PARQUET_TEXT_DATASET_FAMILY,
+            ParquetTextDataset,
+            ParquetTextDataset.from_path,
         )
 
     @override

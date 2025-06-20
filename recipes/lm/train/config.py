@@ -32,6 +32,7 @@ from fairseq2.recipe.config import (
 )
 
 from .dataset import JSONL_TEXT_DATASET_FAMILY
+from .parquet_dataset import PARQUET_TEXT_DATASET_FAMILY
 
 
 @dataclass(kw_only=True)
@@ -105,7 +106,7 @@ class CausalLMTrainConfig:
 class DatasetSection(DatasetSectionBase):
     name: str = "foo"  # TODO: change!
 
-    family: str = JSONL_TEXT_DATASET_FAMILY
+    family: str = JSONL_TEXT_DATASET_FAMILY | PARQUET_TEXT_DATASET_FAMILY
 
     path: Path | None = None
 
