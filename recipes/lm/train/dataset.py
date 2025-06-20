@@ -34,6 +34,7 @@ JSONL_TEXT_DATASET_FAMILY: Final = "jsonl_text"
 @dataclass(kw_only=True)
 class TextReadOptions(DataReadOptions):
     npc: int = 10
+    example_shuffle_window: int = 1
 
 
 @final
@@ -96,11 +97,10 @@ class JsonlTextDataset:
 
         builder.yield_from(read_file)
 
-        #        # Shuffle examples.
-        #        if options.example_shuffle_window != 1:
-        #            builder.shuffle(options.example_shuffle_window, seed)
-
-        seed += 1
+        # Shuffle examples.
+        if options.example_shuffle_window != 1:
+            builder.shuffle(options.example_shuffle_window, seed)
+            seed += 1
 
         # Tokenize.
         def encode(example: dict[str, Any]) -> Tensor:
