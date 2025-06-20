@@ -311,6 +311,7 @@ class RotaryEncoder(PositionEncoder):
     max_seq_len: int
     theta: float
     freqs_init_fn: Callable[[RotaryEncoder], Tensor] | None
+    impl: str 
 
     def __init__(
         self,
@@ -320,6 +321,7 @@ class RotaryEncoder(PositionEncoder):
         theta: float = 10_000.0,
         freqs_init_fn: Callable[[RotaryEncoder], Tensor] | None = None,
         device: Device | None = None,
+        impl: str = "llama"
     ) -> None:
         """
         :param encoding_dim: The dimensionality of positional encodings. The
@@ -334,8 +336,14 @@ class RotaryEncoder(PositionEncoder):
             expected for the callable to return a :class:`~torch.Tensor` holding
             the frequency table. If ``None``, the frequencies will be initialized
             as described in the reference paper.
+        :param impl: Changes the embedding dimension grouping by using consecutive
+            tensors as a real/img pair ("llama") or using the split-half pairing ("reference").
+            Example: E = 8: [1,2,3,4,5,6,7,8]
+            - "llama":     [(1,2), (3,4), (5,6), (7,8)]
+            - "reference": [(1,5), (2,6), (3,7), (4,8)]
 
         :raise ValueError: when ``encoding_dim`` is not even.
+        :raise ValueError: when ``impl`` is not a valid implementation selection
         """
         super().__init__(encoding_dim)
 
@@ -344,6 +352,12 @@ class RotaryEncoder(PositionEncoder):
                 f"`encoding_dim` must be even, but is {encoding_dim} instead."
             )
 
+        if impl not in ["llama", "reference"]:
+            raise ValueError(
+                f"`impl` must be one of [\"llama\", \"reference\"], but is {impl} instead."
+            )
+
+        # (S+1, E / 2, 2)
         freqs = torch.empty(
             (max_seq_len + 1, encoding_dim // 2, 2), device=device, dtype=torch.float32
         )
@@ -355,6 +369,8 @@ class RotaryEncoder(PositionEncoder):
         self.theta = theta
 
         self.freqs_init_fn = freqs_init_fn
+
+        self.impl = impl
 
         self.reset_parameters()
 
@@ -430,8 +446,11 @@ class RotaryEncoder(PositionEncoder):
 
             # (S, E / 2) -> (1, S, E / 2)
             complex_freqs = complex_freqs.unsqueeze(0)
+        
+        if self.impl == "reference":
+            seqs = self._split_to_consecutive_layout(tensor=seqs)
 
-        # ([N], S, *, E) -> ([N], S, *, E / 2, 2)
+         # ([N], S, *, E) -> ([N], S, *, E / 2, 2)
         seqs = seqs.unflatten(-1, (-1, 2))
 
         # ([N], S, *, E / 2, 2) -> ([N], S, *, E / 2)
@@ -445,7 +464,47 @@ class RotaryEncoder(PositionEncoder):
         # ([N], S, *, E / 2) -> ([N], S, *, E)
         fp32_seqs = torch.view_as_real(complex_seqs).flatten(-2)
 
+        if self.impl == "reference":
+            fp32_seqs = self._consecutive_to_split_layout(tensor=fp32_seqs)
+
         return fp32_seqs.type_as(seqs)
+    
+    def _consecutive_to_split_layout(self,tensor: torch.Tensor) -> torch.Tensor:
+        """
+        Transforms consecutive pairs to split layout: [1,2,3,4,5,6,7,8] -> [1,3,5,7,2,4,6,8]
+         """
+        original_shape = tensor.shape
+        encoding_dim = original_shape[-1]
+        half_dim = encoding_dim // 2
+        
+        # (*, E) -> (*, E / 2, 2)
+        pairs = tensor.view(*original_shape[:-1], half_dim, 2)
+        
+        # (*, E / 2)
+        real_parts = pairs[..., 0]
+        # (*, E / 2)
+        imag_parts = pairs[..., 1]
+        
+        # (*, E / 2) -> (*, E)
+        return torch.cat([real_parts, imag_parts], dim=-1)
+
+    def _split_to_consecutive_layout(self, tensor: torch.Tensor) -> torch.Tensor:
+        """
+        Transforms split into consecutive layout: [1,3,5,7,2,4,6,8] -> [1,2,3,4,5,6,7,8]
+        """
+        original_shape = tensor.shape
+        encoding_dim = original_shape[-1]
+        half_dim = encoding_dim // 2
+        
+        # (*, E) -> (*, E / 2)
+        real_parts = tensor[..., :half_dim]
+        # (*, E) -> (*, E / 2)
+        imag_parts = tensor[..., half_dim:]
+        
+        # (*, E / 2, 2) -> (*, E)
+        pairs = torch.stack([real_parts, imag_parts], dim=-1)
+        # tuples to original view
+        return pairs.view(*original_shape)
 
     @override
     def extra_repr(self) -> str:
@@ -532,10 +591,10 @@ class ReferenceRotaryEncoder(PositionEncoder):
 
         encoding_dim = self.encoding_dim
 
-        # (E)
+        # (E / 2)
         indices = torch.arange(encoding_dim // 2, device=device, dtype=dtype)
 
-        # (E) -> (1, E)
+        # (E / 2) -> (1, E / 2)
         indices = indices.unsqueeze(0)
 
         # (S)
@@ -544,7 +603,7 @@ class ReferenceRotaryEncoder(PositionEncoder):
         # (S, 1)
         steps = steps.unsqueeze(1)
 
-        # (S, 1) x (1, E) -> (S, E)
+        # (S, 1) x (1, E / 2) -> (S, E / 2)
         table = torch.matmul(steps, self.theta ** (-2.0 * indices / encoding_dim))
 
         cos = torch.cos(table)
