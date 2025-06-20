@@ -14,10 +14,7 @@ from typing import Any, Final, final
 
 from torch import Tensor
 
-from fairseq2.data.data_pipeline import (
-    DataPipeline,
-    read_sequence,
-)
+from fairseq2.data.data_pipeline import DataPipeline, read_sequence
 from fairseq2.data.text import read_text
 from fairseq2.data.tokenizers import TokenEncoder
 from fairseq2.datasets import (
@@ -31,16 +28,12 @@ from fairseq2.dependency import DependencyResolver
 from fairseq2.gang import Gang
 from fairseq2.nn import BatchLayout
 
-# TODO: FIX, INFER
-npc = 10
-
-
 JSONL_TEXT_DATASET_FAMILY: Final = "jsonl_text"
 
 
 @dataclass(kw_only=True)
 class TextReadOptions(DataReadOptions):
-    pass
+    npc: int = 10
 
 
 @final
@@ -84,7 +77,7 @@ class JsonlTextDataset:
     ) -> DataReader[SequenceBatch]:
         if options is None:
             options = TextReadOptions()
-
+        npc = options.npc
         seed = options.seed + gang.rank
 
         files = self._files
@@ -97,7 +90,9 @@ class JsonlTextDataset:
             builder.shard(file_rank, file_world_size, allow_uneven=True)
 
         def read_file(file: Path) -> DataPipeline:
-            return read_text(file).map(json.loads, num_parallel_calls=npc).and_return()
+            # Artyom: parallel calls here will only slow down the pipeline, not speed it up !
+            # we're GIL bound here/
+            return read_text(file).map(json.loads, num_parallel_calls=1).and_return()
 
         builder.yield_from(read_file)
 
@@ -111,7 +106,7 @@ class JsonlTextDataset:
         def encode(example: dict[str, Any]) -> Tensor:
             return text_encoder(example["text"])
 
-        builder.map(encode, num_parallel_calls=npc)
+        builder.map(encode, num_parallel_calls=1)
         #        builder.map(text_encoder, selector="text", num_parallel_calls=npc)
 
         bsz = 2
