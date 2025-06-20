@@ -112,7 +112,7 @@ class OPTFactory:
         # See https://github.com/vllm-project/vllm/blob/4719460644b4629db2b6dbf12be331d0b34b4b6f/vllm/model_executor/models/opt.py#L211
         encoding_dim = config.model_dim  # // config.num_attn_heads
 
-        return LearnedPositionEncoder(encoding_dim, config.max_seq_len)
+        return LearnedPositionEncoder(encoding_dim, config.max_seq_len, offset=2)
 
     def create_decoder_layer(self) -> TransformerLMDecoderLayer:
         config = self._config
@@ -161,7 +161,7 @@ class OPTFactory:
     def create_layer_norm(self) -> LayerNorm:
         config = self._config
 
-        return StandardLayerNorm(config.model_dim, bias=False)
+        return StandardLayerNorm(config.model_dim, bias=True)
 
     def create_final_projection(self) -> Projection:
         config = self._config

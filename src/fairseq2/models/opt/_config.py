@@ -25,7 +25,7 @@ class OPTConfig:
     model_dim: int = 768
     """The dimensionality of the model."""
 
-    max_seq_len: int = 2048
+    max_seq_len: int = 2048 + 1
     """The maximum sequence length."""
 
     vocab_size: int = 50272
