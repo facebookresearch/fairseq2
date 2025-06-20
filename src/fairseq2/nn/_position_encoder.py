@@ -336,11 +336,11 @@ class RotaryEncoder(PositionEncoder):
             expected for the callable to return a :class:`~torch.Tensor` holding
             the frequency table. If ``None``, the frequencies will be initialized
             as described in the reference paper.
-        :param impl: Changes the embedding dimension grouping by using consecutive
+        :param impl: Changes the embedding dimension ordering by using consecutive
             tensors as a real/img pair ("llama") or using the split-half pairing ("reference").
             Example: E = 8: [1,2,3,4,5,6,7,8]
-            - "llama":     [(1,2), (3,4), (5,6), (7,8)]
-            - "reference": [(1,5), (2,6), (3,7), (4,8)]
+            - "llama":     [(1,2), (3,4), (5,6), (7,8)] := [real0, imag0, real1, imag1, real2, imag2, real3, imag3]
+            - "reference": [(1,5), (2,6), (3,7), (4,8)] := [real0, real1, real2, real3, imag0, imag1, imag2, imag3]
 
         :raise ValueError: when ``encoding_dim`` is not even.
         :raise ValueError: when ``impl`` is not a valid implementation selection
@@ -472,7 +472,7 @@ class RotaryEncoder(PositionEncoder):
     def _consecutive_to_split_layout(self,tensor: torch.Tensor) -> torch.Tensor:
         """
         Transforms consecutive pairs to split layout: [1,2,3,4,5,6,7,8] -> [1,3,5,7,2,4,6,8]
-         """
+        """
         original_shape = tensor.shape
         encoding_dim = original_shape[-1]
         half_dim = encoding_dim // 2
@@ -487,7 +487,7 @@ class RotaryEncoder(PositionEncoder):
         
         # (*, E / 2) -> (*, E)
         return torch.cat([real_parts, imag_parts], dim=-1)
-
+        
     def _split_to_consecutive_layout(self, tensor: torch.Tensor) -> torch.Tensor:
         """
         Transforms split into consecutive layout: [1,3,5,7,2,4,6,8] -> [1,2,3,4,5,6,7,8]
@@ -534,6 +534,7 @@ class ReferenceRotaryEncoder(PositionEncoder):
     sin_freqs: Tensor
     max_seq_len: int
     theta: float
+    impl: str
 
     def __init__(
         self,
@@ -542,6 +543,7 @@ class ReferenceRotaryEncoder(PositionEncoder):
         *,
         theta: float = 10_000.0,
         device: Device | None = None,
+        impl: str = "reference",
     ) -> None:
         """
         :param encoding_dim: The dimensionality of positional encodings. The
@@ -551,14 +553,25 @@ class ReferenceRotaryEncoder(PositionEncoder):
             Sequences longer than ``max_seq_len`` will cause a :class:`ValueError`.
         :param theta: The coefficient of the long-term decay as described in
             section 3.3 of the reference paper.
+       :param impl: Changes the embedding dimension ordering by using consecutive
+            tensors as a real/img pair ("llama") or using the split-half pairing ("reference").
+            Example: E = 8: [1,2,3,4,5,6,7,8]
+            - "llama":     [(1,2), (3,4), (5,6), (7,8)] := [real0, imag0, real1, imag1, real2, imag2, real3, imag3]
+            - "reference": [(1,5), (2,6), (3,7), (4,8)] := [real0, real1, real2, real3, imag0, imag1, imag2, imag3]
 
         :raise ValueError: when ``encoding_dim`` is not even.
+        :raise ValueError: when ``impl`` is not a valid implementation selection.
         """
         super().__init__(encoding_dim)
 
         if encoding_dim % 2 != 0:
             raise ValueError(
                 f"`encoding_dim` must be even, but is {encoding_dim} instead."
+            )
+
+        if impl not in ["reference", "llama"]:
+            raise ValueError(
+                f"`impl` must be one of [\"reference\", \"llama\"], but is {impl} instead."
             )
 
         cos_freqs = torch.empty(
@@ -575,6 +588,8 @@ class ReferenceRotaryEncoder(PositionEncoder):
         self.max_seq_len = max_seq_len
 
         self.theta = theta
+
+        self.impl = impl
 
         self.reset_parameters()
 
@@ -609,11 +624,21 @@ class ReferenceRotaryEncoder(PositionEncoder):
         cos = torch.cos(table)
         sin = torch.sin(table)
 
-        self.cos_freqs[1:, : encoding_dim // 2] = cos
-        self.cos_freqs[1:, encoding_dim // 2 :] = cos
+        if self.impl == "reference":
+            # Split-half layout: [real0, real1, real2, real3, imag0, imag1, imag2, imag3]
+            self.cos_freqs[1:, : encoding_dim // 2] = cos
+            self.cos_freqs[1:, encoding_dim // 2 :] = cos
 
-        self.sin_freqs[1:, : encoding_dim // 2] = sin
-        self.sin_freqs[1:, encoding_dim // 2 :] = sin
+            self.sin_freqs[1:, : encoding_dim // 2] = sin
+            self.sin_freqs[1:, encoding_dim // 2 :] = sin
+        else:  # llama
+            # Consecutive layout: [real0, imag0, real1, imag1, real2, imag2, real3, imag3]
+            for i in range(encoding_dim // 2):
+                self.cos_freqs[1:, 2*i] = cos[:, i]
+                self.cos_freqs[1:, 2*i + 1] = cos[:, i]
+                
+                self.sin_freqs[1:, 2*i] = sin[:, i]
+                self.sin_freqs[1:, 2*i + 1] = sin[:, i]
 
     @override
     def forward(
@@ -666,17 +691,32 @@ class ReferenceRotaryEncoder(PositionEncoder):
 
         fp32_seqs = seqs.float()
 
-        fp32_rotated_seqs = self._rotate_half_way(fp32_seqs)
+        if self.impl == "reference":
+            fp32_rotated_seqs = self._rotate_half_way(fp32_seqs)
+        else:  # llama
+            fp32_rotated_seqs = self._reorder_to_consecutive_pairs(fp32_seqs)
 
         fp32_seqs = (fp32_seqs * cos_freqs) + (fp32_rotated_seqs * sin_freqs)
 
         return fp32_seqs.type_as(seqs)
 
     def _rotate_half_way(self, seqs: Tensor) -> Tensor:
+        """Rotation for split-half layout: [1,2,3,4,5,6,7,8] -> [-5,-6,-7,-8,1,2,3,4]"""
         half1 = seqs[..., : self.encoding_dim // 2]
         half2 = seqs[..., self.encoding_dim // 2 :]
 
         return torch.cat((-half2, half1), dim=-1)
+
+    def _reorder_to_consecutive_pairs(self, seqs: Tensor) -> Tensor:
+        """Rotation for consecutive layout: [1,2,3,4,5,6,7,8] -> [-2,1,-4,3,-6,5,-8,7]"""
+        even_parts = seqs[..., 0::2]
+        odd_parts = seqs[..., 1::2]
+        
+        result = torch.zeros_like(seqs)
+        result[..., 0::2] = -odd_parts
+        result[..., 1::2] = even_parts
+        
+        return result
 
     @override
     def extra_repr(self) -> str:
@@ -684,7 +724,8 @@ class ReferenceRotaryEncoder(PositionEncoder):
         return (
             f"encoding_dim={self.encoding_dim}, "
             f"max_seq_len={self.max_seq_len}, "
-            f"theta={self.theta}"
+            f"theta={self.theta}, "
+            f"impl={self.impl}"
         )
 
 
