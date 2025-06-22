@@ -88,7 +88,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     _sync_vllm_model_every_n_steps: int
     _sync_ref_model_every_n_steps: int
     _reward: VLLMOutputReward
-    _reward_name: str
     _display_name: str
     _reference_offload: bool
     _rollout_bag: StatefulRolloutBag
@@ -101,7 +100,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         vllm_model: RemoteVllmModel,
         vllm_actors: List[Union[RemoteVllmModel, RemoteHFModel]],
         reward,
-        reward_name: str,
         gangs: Gangs,
         loss_config: GrpoLossConfig,
         sync_vllm_model_every_n_steps: int = 1,
@@ -117,7 +115,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._sync_vllm_model_every_n_steps = sync_vllm_model_every_n_steps
         self._sync_ref_model_every_n_steps = sync_ref_model_every_n_step
         self._reward = reward
-        self._reward_name = reward_name
         self._reference_offload = reference_offload
         self._metric_bag = GrpoFinetuneMetricBag(gangs.dp)
         self._rollout_bag = StatefulRolloutBag()
@@ -164,7 +161,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
             # For a pairwise RM, need to sample at least two judgments
-            policy_sampling_params.n = 2 if self._reward_name == "generative_pairwise_verifier" else 1
+            policy_sampling_params.n = 2 if self._reward.reward_name == "generative_pairwise_verifier" else 1
             for k, v in self._loss_config.validation_vllm_sampling_params.items():
                 policy_sampling_params.__setattr__(k, v)
         else:
@@ -638,6 +635,7 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         reward_handler = reward_registry.get(reward_name)
         reward = reward_handler.create(
             reward_model=vllm_reward_model,
+            reward_name=reward_name,
             reward_config=config.reward.config,
             gangs=gangs,
         )
@@ -651,7 +649,6 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             vllm_model,
             vllm_actors,
             reward,
-            reward_name,
             gangs,
             config.loss_config,
             config.sync_vllm_model_every_n_steps,

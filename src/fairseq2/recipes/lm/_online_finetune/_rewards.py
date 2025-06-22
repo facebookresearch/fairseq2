@@ -53,7 +53,7 @@ class RewardSection:
 class VLLMOutputRewardHandler(ABC):
     @abstractmethod
     def create(
-        self, reward_model: Any, gangs: Gangs, reward_config: object
+        self, reward_model: Any, reward_name: str, gangs: Gangs, reward_config: object
     ) -> VLLMOutputReward: ...
 
     @property
@@ -78,10 +78,11 @@ class GSM8kVerifierHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, reward_model, reward_config, gangs):
+    def create(self, reward_model, reward_name, reward_config, gangs):
         return GSM8kVerifier(
             answer_key=reward_config.answer_key,
             prompt_key=reward_config.prompt_key,
+            reward_name=reward_name,
             gangs=gangs,
         )
 
@@ -97,13 +98,14 @@ class GSM8kVerifierHandler(VLLMOutputRewardHandler):
 
 
 class GSM8kVerifier(VLLMOutputReward):
-    def __init__(self, answer_key, prompt_key, gangs):
+    def __init__(self, answer_key, prompt_key, reward_name, gangs):
         self.answer_re = re.compile(
             r"#### (\-?[0-9\.\,]+)"
         )  # regexp from original gsm8k to extract formatted answer
         self.invalid_answer = "[invalid]"
         self._gangs = gangs
         self.answer_key = answer_key
+        self.reward_name = reward_name
         self.prompt_key = prompt_key
 
     def extract_answer(self, completion: str):
@@ -162,10 +164,11 @@ class MathVerifyHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, reward_model, reward_config, gangs):
+    def create(self, reward_model, reward_name, reward_config, gangs):
         return MathVerifyVerifier(
             answer_key=reward_config.answer_key,
             prompt_key=reward_config.prompt_key,
+            reward_name=reward_name,
             gangs=gangs,
         )
 
@@ -181,7 +184,7 @@ class MathVerifyHandler(VLLMOutputRewardHandler):
 
 
 class MathVerifyVerifier(VLLMOutputReward):
-    def __init__(self, answer_key, prompt_key, gangs):
+    def __init__(self, answer_key, prompt_key, reward_name, gangs):
         try:
             from math_verify.metric import math_metric
             from math_verify.parser import (
@@ -197,6 +200,7 @@ class MathVerifyVerifier(VLLMOutputReward):
         self._gangs = gangs
         self.answer_key = answer_key
         self.prompt_key = prompt_key
+        self.reward_name = reward_name
 
         label_normalizer = NormalizationConfig(
             basic_latex=True,
@@ -276,7 +280,7 @@ class AtheneVerifierHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, reward_model, reward_config, gangs):
+    def create(self, reward_model, reward_name, reward_config, gangs):
         if reward_config.tokenizer is not None:
             tokenizer = reward_config.tokenizer
         else:
@@ -285,6 +289,7 @@ class AtheneVerifierHandler(VLLMOutputRewardHandler):
         return AtheneVerifier(
             gangs,
             reward_model,
+            reward_name=reward_name,
             answer_key=reward_config.answer_key,
             prompt_key=reward_config.prompt_key,
             tokenizer=tokenizer,
@@ -310,11 +315,12 @@ class AtheneVerifier(VLLMOutputReward):
     Note: this relies on modified Athene-RM-8B code to ensure compatibility with vLLM.
     """
 
-    def __init__(self, gangs, reward_model, answer_key, prompt_key, tokenizer):
+    def __init__(self, gangs, reward_model, reward_name, answer_key, prompt_key, tokenizer):
         self.answer_key = answer_key
         self.prompt_key = prompt_key
         self._gangs = gangs
         self.reward_model = reward_model
+        self.reward_name = reward_name
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
 
     def wrap_text(self, prompt_text, rollout_text):
@@ -453,13 +459,14 @@ class GenerativePointwiseVerifierHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, reward_model, reward_config, gangs):
+    def create(self, reward_model, reward_name, reward_config, gangs):
         if reward_config.tokenizer is None:
             raise RuntimeError("Generative pointwise judge requires tokenizer")
 
         return GenerativePointwiseVerifier(
             gangs,
             reward_model,
+            reward_name,
             answer_key=reward_config.answer_key,
             prompt_key=reward_config.prompt_key,
             tokenizer=reward_config.tokenizer,
@@ -477,11 +484,12 @@ class GenerativePointwiseVerifierHandler(VLLMOutputRewardHandler):
 
 
 class GenerativePointwiseVerifier(VLLMOutputReward):
-    def __init__(self, gangs, reward_model, answer_key, prompt_key, tokenizer):
+    def __init__(self, gangs, reward_model, reward_name, answer_key, prompt_key, tokenizer):
         self.answer_key = answer_key
         self.prompt_key = prompt_key
         self._gangs = gangs
         self.reward_model = reward_model
+        self.reward_name = reward_name
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
 
     def wrap_text(self, prompt_text, rollout_text):
@@ -616,13 +624,14 @@ class GenerativePairwiseVerifierHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, reward_model, reward_config, gangs):
+    def create(self, reward_model, reward_name, reward_config, gangs):
         if reward_config.tokenizer is None:
             raise RuntimeError("Generative pairwise judge requires tokenizer")
 
         return GenerativePairwiseVerifier(
             gangs,
             reward_model,
+            reward_name,
             answer_key=reward_config.answer_key,
             prompt_key=reward_config.prompt_key,
             tokenizer=reward_config.tokenizer,
@@ -640,11 +649,12 @@ class GenerativePairwiseVerifierHandler(VLLMOutputRewardHandler):
 
     
 class GenerativePairwiseVerifier(VLLMOutputReward):
-    def __init__(self, gangs, reward_model, answer_key, prompt_key, tokenizer):
+    def __init__(self, gangs, reward_model, reward_name, answer_key, prompt_key, tokenizer):
         self.answer_key = answer_key
         self.prompt_key = prompt_key
         self._gangs = gangs
         self.reward_model = reward_model
+        self.reward_name = reward_name
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
 
     def wrap_text(self, prompt_text, rollout_A_text, rollout_B_text):
