@@ -22,6 +22,7 @@ from fairseq2.recipes.lm import (
     MathVerifyHandler,
     AtheneVerifierHandler,
     GenerativePointwiseVerifierHandler,
+    GenerativePairwiseVerifierHandler,
     VLLMOutputRewardHandler,
     RemoteModelHandler,
     NoEnvAtheneRewardPipeline,
@@ -92,7 +93,11 @@ def register_online_finetune_units(context: RuntimeContext) -> None:
     # GenerativePointwiseVerifier
     handler = GenerativePointwiseVerifierHandler()
     registry.register(handler.name, handler)
-
+    
+    # GenerativePairwiseVerifier
+    handler = GenerativePairwiseVerifierHandler()
+    registry.register(handler.name, handler)
+    
     registry = context.get_registry(RemoteModelHandler)
 
     # NoEnvAtheneRewardPipeline

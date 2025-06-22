@@ -75,7 +75,6 @@ from fairseq2.typing import DataType
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
-
 @final
 class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     """Represents the language model DPO-finetuning unit with online generations. Paper: https://arxiv.org/abs/2305.18290."""
@@ -161,7 +160,8 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     def validate_reward(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
-            policy_sampling_params.n = 1
+            # For a pairwise RM, need to sample at least two judgments
+            policy_sampling_params.n = 2 if self._reward.reward_name == "generative_pairwise_verifier" else 1
             for k, v in self._loss_config.validation_vllm_sampling_params.items():
                 policy_sampling_params.__setattr__(k, v)
         else:
@@ -175,7 +175,9 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         if self._loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Valid")
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
+        log.info(f"Rewards: {reward_output['rewards']}")
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
+        std_reward = torch.tensor(reward_output["rewards"]).float().std()
 
         rollout_lengths = get_rollout_lengths(rollouts)
         avg_rollout_length = torch.tensor(rollout_lengths).float().mean()
@@ -185,6 +187,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._metric_bag.update_avg_reward_len_norm(avg_reward_len_norm)
 
         self._metric_bag.update_avg_reward(avg_reward)
+        self._metric_bag.update_std_reward(std_reward)
         self._metric_bag.update_batch_metrics(prompt_batch)
         # returning dummy loss since trainer expects it
         return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
@@ -314,7 +317,10 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )  # TODO fix, now logs only the last prompt from the batch
 
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
+        std_reward = torch.tensor(reward_output["rewards"]).float().std()
+        
         self._metric_bag.update_avg_reward(avg_reward)
+        self._metric_bag.update_std_reward(std_reward)
 
         loss = grpo_loss
 
@@ -400,6 +406,7 @@ class GrpoFinetuneMetricBag(SequenceMetricBag):
     grpo_loss: Mean
     logit_entropy: Mean
     avg_reward: Mean
+    std_reward: Mean
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
@@ -418,6 +425,9 @@ class GrpoFinetuneMetricBag(SequenceMetricBag):
         )
         self.register_metric(
             "logit_entropy", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "std_reward", Mean(device=gang.device), persistent=False
         )
 
     @torch.inference_mode()
@@ -455,6 +465,10 @@ class GrpoFinetuneMetricBag(SequenceMetricBag):
     @torch.inference_mode()
     def update_avg_reward(self, avg_reward):
         self.avg_reward.update(avg_reward, weight=1)
+        
+    @torch.inference_mode()
+    def update_std_reward(self, std_reward):
+        self.std_reward.update(std_reward, weight=1)
 
     @torch.inference_mode()
     def update_avg_rollout_length(self, avg_rollout_length):
@@ -617,9 +631,11 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
 
         vllm_reward_model = vllm_actors.get(config.vllm_reward_model_name, None)
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
-        reward_handler = reward_registry.get(config.reward.name)
+        reward_name = config.reward.name
+        reward_handler = reward_registry.get(reward_name)
         reward = reward_handler.create(
             reward_model=vllm_reward_model,
+            reward_name=reward_name,
             reward_config=config.reward.config,
             gangs=gangs,
         )
