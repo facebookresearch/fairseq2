@@ -60,6 +60,6 @@ def register_opt_configs(context: RuntimeContext) -> None:
 
     arch = registry.decorator
 
-    @arch("125m")
+    @arch("opt_125m")
     def opt_125m() -> OPTConfig:
         return OPTConfig()
