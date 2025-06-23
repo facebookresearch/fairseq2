@@ -100,6 +100,36 @@ class Seq2SeqBatch(SupportsDeviceTransfer):
         if self.target_padding_mask is not None:
             self.target_padding_mask = self.target_padding_mask.to(device)
 
+        # Context examples
+        if "context_audio" in self.example:  # type: ignore
+            for i in range(len(self.example["context_audio"])):  # type: ignore
+                self.example["context_audio"][i]["data"]["waveform"]["seqs"] = (  # type: ignore
+                    self.example["context_audio"][i]["data"]["waveform"]["seqs"].to(  # type: ignore
+                        device
+                    )
+                )
+                self.example["context_audio"][i]["data"]["waveform"]["seq_lens"] = (  # type: ignore
+                    self.example["context_audio"][i]["data"]["waveform"]["seq_lens"].to(  # type: ignore
+                        device
+                    )
+                )
+                self.example["context_text"][i]["seqs"] = self.example["context_text"][  # type: ignore
+                    i
+                ][
+                    "seqs"
+                ].to(
+                    device
+                )
+                self.example["context_text"][i]["seq_lens"] = self.example[  # type: ignore
+                    "context_text"
+                ][
+                    i
+                ][
+                    "seq_lens"
+                ].to(
+                    device
+                )
+
 
 def as_auto_regressive_input(batch: Seq2SeqBatch) -> tuple[Seq2SeqBatch, SequenceBatch]:
     """Use ``batch`` to train an auto-regressive model.

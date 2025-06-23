@@ -185,6 +185,9 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     extras: dict[str, object] = field(default_factory=dict)
     """The dataset-specific extra options."""
 
+    n_context_examples: int = 0
+    """The number of context examples to use when providing context."""
+
 
 @dataclass(kw_only=True)
 class Wav2Vec2AsrTrainerSection(TrainerSection):
@@ -416,6 +419,9 @@ def load_wav2vec2_asr_trainer(
         spec_aug_p=config.dataset.spec_aug_p,
         spec_aug_freq_mask_param=config.dataset.spec_aug_freq_mask_param,
         spec_aug_time_mask_param=config.dataset.spec_aug_time_mask_param,
+        n_context_examples=config.dataset.n_context_examples,
+        bucket_size=2000,
+        deterministic_context=False,
     )
 
     dataset: AsrDataset | BatchMixtureDataset
@@ -459,6 +465,9 @@ def load_wav2vec2_asr_trainer(
             num_prefetch=config.dataset.num_prefetch,
             seed=seed,
             extras=config.dataset.extras,
+            n_context_examples=config.dataset.n_context_examples,
+            bucket_size=30,
+            deterministic_context=True,
         )
 
         valid_units = []
