@@ -58,6 +58,13 @@ from fairseq2.models.mistral import (
     register_mistral_configs,
 )
 from fairseq2.models.nllb import register_nllb_configs
+from fairseq2.models.opt import (
+    OPT_MODEL_FAMILY,
+    OPTConfig,
+    convert_opt_checkpoint,
+    create_opt_model,
+    register_opt_configs,
+)
 from fairseq2.models.s2t_transformer import (
     S2T_TRANSFORMER_MODEL_FAMILY,
     S2TTransformerConfig,
@@ -167,6 +174,21 @@ def register_model_families(context: RuntimeContext) -> None:
     )
 
     register_mistral_configs(context)
+
+    # OPT
+    default_opt_arch = "opt_125m"
+
+    registrar.register_family(
+        OPT_MODEL_FAMILY,
+        TransformerLanguageModel,
+        OPTConfig,
+        default_opt_arch,
+        factory=create_opt_model,
+        checkpoint_converter=convert_opt_checkpoint,
+        compiler=compile_transformer_lm,
+    )
+
+    register_opt_configs(context)
 
     # NLLB
     register_nllb_configs(context)
