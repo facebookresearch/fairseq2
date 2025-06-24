@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.models.transformer import (
     CausalAttentionBias,
     FeedForwardNetwork,
@@ -62,12 +64,11 @@ class OPTFactory:
         final_proj = self.create_final_projection()
 
         return TransformerLanguageModel(
-            config.model_dim,
             decoder_frontend,
             decoder,
             final_proj,
-            config.pad_idx,
-            config.max_seq_len,
+            pad_idx=config.pad_idx,
+            max_seq_len=config.max_seq_len,
         )
 
     def create_decoder_frontend(self) -> TransformerFrontend:
@@ -99,9 +100,11 @@ class OPTFactory:
 
             layers.append(layer)
 
-        layer_norm = self.create_layer_norm()
-
-        return StandardTransformerLMDecoder(layers, layer_norm)
+        return StandardTransformerLMDecoder(
+            layers,
+            norm_order=TransformerNormOrder.PRE,
+            layer_norm_factory=self.create_layer_norm,
+        )
 
     def create_position_encoder(self) -> PositionEncoder:
         config = self._config
@@ -151,11 +154,6 @@ class OPTFactory:
 
         return StandardFeedForwardNetwork(config.model_dim, config.ffn_inner_dim, bias=True)
 
-    def create_layer_norm(self) -> LayerNorm:
-        config = self._config
-
-        return StandardLayerNorm(config.model_dim, bias=True)
-
     def create_final_projection(self) -> Projection:
         config = self._config
 
@@ -165,3 +163,7 @@ class OPTFactory:
             bias=False,
             init_fn=init_transformer_final_projection,
         )
+
+    @staticmethod
+    def create_layer_norm(model_dim: int, *, device: Device | None = None, dtype: DataType | None = None) -> LayerNorm:
+        return StandardLayerNorm(model_dim, bias=True, device=device, dtype=dtype)
