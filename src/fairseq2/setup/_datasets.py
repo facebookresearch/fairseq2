@@ -62,6 +62,12 @@ def _register_dataset_families(context: RuntimeContext) -> None:
     )
 
     registrar.register_family(
+        GENERIC_PROMPT_DATASET_FAMILY,
+        GenericPromptDataset,
+        GenericPromptDataset.from_path,
+    )
+
+    registrar.register_family(
         GENERIC_SPEECH_DATASET_FAMILY,
         GenericSpeechDataset,
         GenericSpeechDataset.from_path,
