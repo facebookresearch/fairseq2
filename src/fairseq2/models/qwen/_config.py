@@ -147,11 +147,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.ffn_inner_dim = 3072
         config.rope_theta = 1_000_000
         config.hg_config_class = "Qwen3Config"
-<<<<<<< HEAD
-        config.hg_architectures = ["Qwen3ForCausalLM"]
-=======
         config.hg_architecture = "Qwen3ForCausalLM"
->>>>>>> main
 
         return config
 
@@ -173,11 +169,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.ffn_inner_dim = 6144
         config.rope_theta = 1_000_000
         config.hg_config_class = "Qwen3Config"
-<<<<<<< HEAD
-        config.hg_architectures = ["Qwen3ForCausalLM"]
-=======
         config.hg_architecture = "Qwen3ForCausalLM"
->>>>>>> main
 
         return config
 
@@ -199,11 +191,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.ffn_inner_dim = 9728
         config.rope_theta = 1_000_000
         config.hg_config_class = "Qwen3Config"
-<<<<<<< HEAD
-        config.hg_architectures = ["Qwen3ForCausalLM"]
-=======
         config.hg_architecture = "Qwen3ForCausalLM"
->>>>>>> main
 
         return config
 
@@ -224,11 +212,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.ffn_inner_dim = 12_288
         config.rope_theta = 1_000_000
         config.hg_config_class = "Qwen3Config"
-<<<<<<< HEAD
-        config.hg_architectures = ["Qwen3ForCausalLM"]
-=======
         config.hg_architecture = "Qwen3ForCausalLM"
->>>>>>> main
 
         return config
 
@@ -249,11 +233,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.ffn_inner_dim = 17_408
         config.rope_theta = 1_000_000
         config.hg_config_class = "Qwen3Config"
-<<<<<<< HEAD
-        config.hg_architectures = ["Qwen3ForCausalLM"]
-=======
         config.hg_architecture = "Qwen3ForCausalLM"
->>>>>>> main
 
         return config
 
@@ -274,10 +254,6 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         config.ffn_inner_dim = 25_600
         config.rope_theta = 1_000_000
         config.hg_config_class = "Qwen3Config"
-<<<<<<< HEAD
-        config.hg_architectures = ["Qwen3ForCausalLM"]
-=======
         config.hg_architecture = "Qwen3ForCausalLM"
->>>>>>> main
 
         return config
