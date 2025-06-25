@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Final, List, Literal
 
@@ -100,12 +101,10 @@ class LLaMAConfig:
     """If ``True``, shards the embedding dimension for tensor parallelism."""
 
     hg_config_class: str = "LlamaConfig"
-    """This class is imported from transformers to return huggingface config."""
+    """The name of the Hugging Face configuration class."""
 
-    hg_architectures: List[str] = field(
-        default_factory=lambda: list(["LlamaForCausalLM"])
-    )
-    """This architecture is passed to the huggingface config during export."""
+    hg_architecture: str | Sequence[str] = "LlamaForCausalLM"
+    """The name(s) under which Hugging Face refers to this architecture."""
 
 
 @dataclass

@@ -15,6 +15,7 @@ from fairseq2.datasets.instruction import (
     GENERIC_INSTRUCTION_DATASET_FAMILY,
     GenericInstructionDataset,
 )
+from fairseq2.datasets.jsonl import JSONL_DATASET_FAMILY, JsonlDataset
 from fairseq2.datasets.parallel_text import (
     GENERIC_PARALLEL_TEXT_DATASET_FAMILY,
     GenericParallelTextDataset,
@@ -73,9 +74,9 @@ def _register_dataset_families(context: RuntimeContext) -> None:
     )
 
     registrar.register_family(
-        GENERIC_PROMPT_DATASET_FAMILY,
-        GenericPromptDataset,
-        GenericPromptDataset.from_path,
+        JSONL_DATASET_FAMILY,
+        JsonlDataset,
+        JsonlDataset.from_path,
     )
     # fmt: on
 

@@ -34,7 +34,7 @@ struct rel<float64> {
 
 // `T` must be a floating-point type.
 template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
-inline constexpr bool
+constexpr bool
 are_close(T lhs, T rhs, T rel = detail::rel<T>::value) noexcept
 {
 #pragma GCC diagnostic push

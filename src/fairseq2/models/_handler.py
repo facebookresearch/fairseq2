@@ -7,10 +7,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from functools import partial
 from pathlib import Path
 from typing import Any, Protocol, TypeVar, final
 
+from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
@@ -91,6 +93,17 @@ class ModelHandler(ABC):
     ) -> Module: ...
 
     @abstractmethod
+    def iter_checkpoint(
+        self,
+        path: Path,
+        config: object,
+        gangs: Gangs,
+        *,
+        mmap: bool = False,
+        restrict: bool | None = None,
+    ) -> Iterable[tuple[str, Tensor]]: ...
+
+    @abstractmethod
     def compile(self, model: Module, *args: Any, **kwargs: Any) -> None: ...
 
     @abstractmethod
@@ -104,9 +117,9 @@ class ModelHandler(ABC):
     ) -> None: ...
 
     @abstractmethod
-    def export_to_hugging_face(
-        self, checkpoint: dict[str, object], config: object
-    ) -> tuple[dict[str, object], dict[str, object]]: ...
+    def save_as_hugging_face(
+        self, save_dir: Path, checkpoint: dict[str, object], config: object
+    ) -> None: ...
 
     @property
     @abstractmethod
@@ -181,10 +194,10 @@ class FSDPApplier(Protocol[ModelT_contra]):
     ) -> None: ...
 
 
-class HuggingFaceExporter(Protocol[ModelConfigT_contra]):
+class HuggingFaceSaver(Protocol[ModelConfigT_contra]):
     def __call__(
-        self, checkpoint: dict[str, object], config: ModelConfigT_contra
-    ) -> tuple[dict[str, object], dict[str, object] | PretrainedConfig]: ...
+        self, save_dir: Path, checkpoint: dict[str, object], config: ModelConfigT_contra
+    ) -> None: ...
 
 
 ModelT = TypeVar("ModelT", bound=Module)
@@ -210,7 +223,7 @@ class DelegatingModelHandler(ModelHandler):
     _compiler: ModelCompiler[Any] | None
     _ac_applier: ActivationCheckpointApplier[Any] | None
     _fsdp_applier: FSDPApplier[Any] | None
-    _hugging_face_exporter: HuggingFaceExporter[Any] | None
+    _hugging_face_saver: HuggingFaceSaver[Any] | None
 
     def __init__(
         self,
@@ -231,7 +244,7 @@ class DelegatingModelHandler(ModelHandler):
         compiler: ModelCompiler[ModelT] | None = None,
         ac_applier: ActivationCheckpointApplier[ModelT] | None = None,
         fsdp_applier: FSDPApplier[ModelT] | None = None,
-        hugging_face_exporter: HuggingFaceExporter[ModelConfigT] | None = None,
+        hugging_face_saver: HuggingFaceSaver[ModelConfigT] | None = None,
     ) -> None:
         self._family = family
         self._kls = kls
@@ -249,7 +262,7 @@ class DelegatingModelHandler(ModelHandler):
         self._compiler = compiler
         self._ac_applier = ac_applier
         self._fsdp_applier = fsdp_applier
-        self._hugging_face_exporter = hugging_face_exporter
+        self._hugging_face_saver = hugging_face_saver
 
     @override
     def get_arch_config(self, arch: str | None) -> object:
@@ -405,22 +418,66 @@ class DelegatingModelHandler(ModelHandler):
         mmap: bool = False,
         restrict: bool | None = None,
     ) -> Module:
-        if gangs.root.device.type == "meta":
-            raise ValueError(
-                "`gangs.root` must be on a real device, but is on the meta device instead."
-            )
-
         config = structure(config, self._configs.config_kls)
 
         validate(config)
 
-        # Create the model.
         model = self._do_create(config, gangs, dtype, meta=self._supports_meta)
 
         if self._supports_meta:
-            # Move the model to the actual device without initializing. Its
-            # state will be overwritten by the checkpoint anyways.
+            # The parameters of the model will be overwritten by the checkpoint,
+            # so there is no need to redundantly initialize them.
             to_empty(model, device=gangs.root.device)
+
+        checkpoint = self._do_iter_checkpoint(
+            path, config, gangs, mmap=mmap, restrict=restrict
+        )
+
+        try:
+            load_checkpoint(model, checkpoint, self._progress_reporter)
+        except (CheckpointError, KeyError, ValueError) as ex:
+            raise ModelLoadError(
+                name, f"The checkpoint of the '{name}' model cannot be loaded. See the nested exception for details."  # fmt: skip
+            ) from ex
+
+        if self._supports_meta:
+            # Non-persistent buffers are not included in the checkpoint, so we
+            # have to explicitly initialize them.
+            reset_non_persistent_buffers(model)
+
+        return model
+
+    @override
+    def iter_checkpoint(
+        self,
+        path: Path,
+        config: object,
+        gangs: Gangs,
+        *,
+        mmap: bool = False,
+        restrict: bool | None = None,
+    ) -> Iterable[tuple[str, Tensor]]:
+        config = structure(config, self._configs.config_kls)
+
+        validate(config)
+
+        return self._do_iter_checkpoint(
+            path, config, gangs, mmap=mmap, restrict=restrict
+        )
+
+    def _do_iter_checkpoint(
+        self,
+        path: Path,
+        config: object,
+        gangs: Gangs,
+        *,
+        mmap: bool = False,
+        restrict: bool | None = None,
+    ) -> Iterable[tuple[str, Tensor]]:
+        if gangs.root.device.type == "meta":
+            raise ValueError(
+                "`gangs.root` must be on a real device, but is on the meta device instead."
+            )
 
         if restrict is None:
             restrict = self._restrict
@@ -436,33 +493,14 @@ class DelegatingModelHandler(ModelHandler):
             shard_specs = self._shard_specs(config)
 
         with load_with_sdp_gang(gangs):  # Required for ShardedTensor
-            try:
-                checkpoint = self._checkpoint_loader.load(
-                    path,
-                    gangs,
-                    mmap=mmap,
-                    restrict=restrict,
-                    processor=checkpoint_processor,
-                    shard_specs=shard_specs,
-                )
-            except CheckpointError as ex:
-                raise ModelLoadError(
-                    name, f"The checkpoint of the '{name}' model cannot be loaded. See the nested exception for details."  # fmt: skip
-                ) from ex
-
-            try:
-                load_checkpoint(model, checkpoint, self._progress_reporter)
-            except (CheckpointError, KeyError, ValueError) as ex:
-                raise ModelLoadError(
-                    name, f"The state of the '{name}' model cannot be loaded from the checkpoint. See the nested exception for details."  # fmt: skip
-                ) from ex
-
-        if self._supports_meta:
-            # Non-persistent buffers are not included in the checkpoint, so we
-            # have to explicitly initialize them.
-            reset_non_persistent_buffers(model)
-
-        return model
+            yield from self._checkpoint_loader.load(
+                path,
+                gangs,
+                mmap=mmap,
+                restrict=restrict,
+                processor=checkpoint_processor,
+                shard_specs=shard_specs,
+            )
 
     def _do_create(
         self, config: object, gangs: Gangs, dtype: DataType, meta: bool
@@ -557,12 +595,12 @@ class DelegatingModelHandler(ModelHandler):
         self._fsdp_applier(model, granularity, wrapper)
 
     @override
-    def export_to_hugging_face(
-        self, checkpoint: dict[str, object], config: object
-    ) -> tuple[dict[str, object], dict[str, object]]:
-        if self._hugging_face_exporter is None:
+    def save_as_hugging_face(
+        self, save_dir: Path, checkpoint: dict[str, object], config: object
+    ) -> None:
+        if self._hugging_face_saver is None:
             raise NotSupportedError(
-                f"The '{self._family}' model family does not support Hugging Face integration."
+                f"The '{self._family}' model family does not support Hugging Face conversion."
             )
 
         if not isinstance(config, self._configs.config_kls):
@@ -570,7 +608,7 @@ class DelegatingModelHandler(ModelHandler):
                 f"`config` must be of type `{self._configs.config_kls}`, but is of type `{type(config)}` instead."
             )
 
-        return self._hugging_face_exporter(checkpoint, config)
+        return self._hugging_face_saver(save_dir, checkpoint, config)
 
     @property
     @override
@@ -615,4 +653,4 @@ class DelegatingModelHandler(ModelHandler):
     @property
     @override
     def supports_hugging_face(self) -> bool:
-        return self._hugging_face_exporter is not None
+        return self._hugging_face_saver is not None
