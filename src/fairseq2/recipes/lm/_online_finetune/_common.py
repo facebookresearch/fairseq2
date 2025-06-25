@@ -17,7 +17,6 @@ import torch.nn as nn
 from ray.util.placement_group import placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 from torch import Tensor
-from torcheval.metrics import Mean
 from transformers import AutoTokenizer
 from vllm import LLM, CompletionOutput, RequestOutput, SamplingParams
 from vllm.utils import get_ip, get_open_port
@@ -35,14 +34,21 @@ from fairseq2.data import (
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gang
-from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
-from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.recipes.metrics import SequenceMetricBag
+from fairseq2.datasets import (
+    LengthBatching,
+    SequenceBatch,
+    StaticBatching,
+    SyncMode,
+)
+from fairseq2.nn.utils.padding import pad_seqs
+# from fairseq2.nn.padding import get_seqs_and_padding_mask
+# from fairseq2.recipes.metrics import SequenceMetricBag
 from fairseq2.logging import log
 from fairseq2.recipes.lm._online_finetune.third_party.athene import (
     AtheneRewardPipeline,
     AtheneForSequenceClassification,
 )
+from fairseq2.metrics import Mean, MetricBag
 
 
 @dataclass
@@ -50,6 +56,7 @@ class GRPOBatch:
     """Represents a preference optimization dataset batch."""
 
     prompt_rollouts: SequenceBatch
+    prompt_lengths: list[int]
     rewards: torch.Tensor
 
 
@@ -59,9 +66,9 @@ class OnlineCriterionSection:
     config: object
 
 
-class OnlineFinetuneMetricBag(SequenceMetricBag):
-    def __init__(self, gang: Gang) -> None:
-        super().__init__(gang)
+# class OnlineFinetuneMetricBag(SequenceMetricBag):
+#     def __init__(self, gang: Gang) -> None:
+#         super().__init__(gang)
 
 
 def get_ray_actor(gangs: Gang, actor_name):
@@ -155,9 +162,9 @@ class MyWorker(Worker):
         )
 
         # wrap in fs2 style dict
-        weights = {"model_key": "model", "model": {name: weight}}.items()
-        # self.model_runner.model.load_weights(weights=[(name, weight)])
-        self.model_runner.model.load_weights(weights=weights)
+        # weights = {"model_key": "model", "model": {name: weight}}.items()
+        self.model_runner.model.load_weights(weights=[(name, weight)])
+        # self.model_runner.model.load_weights(weights=weights)
 
         del weight
 
@@ -262,10 +269,10 @@ def gsm8k_correctness_verifier(vllm_output: RequestOutput, reference_answer: Lis
     return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
 
-def collate_with_target_mask(list_of_tensors, prompt_lens, pad_value=0, device="cpu"):
+def collate_with_target_mask(list_of_tensors, prompt_lengths, pad_value=0, device="cpu"):
     # list_of_tensors contain prompt+rollout tokens, we use prompt_len to define the target loss mask here
     to_collate = []
-    for seq, prompt_len in zip(list_of_tensors, prompt_lens):
+    for seq, prompt_len in zip(list_of_tensors, prompt_lengths):
         target_loss_mask = torch.arange(len(seq)) >= prompt_len
         to_collate.append({"seqs": seq, "target_loss_mask": target_loss_mask})
 
@@ -278,13 +285,16 @@ def collate_with_target_mask(list_of_tensors, prompt_lens, pad_value=0, device="
 
     seq_data = cast(SequenceData, collater(to_collate))
 
-    seqs, padding_mask = get_seqs_and_padding_mask(seq_data["seqs"], device)
+    # from fairseq2.utils.env import get_rank
+    # from os import environ
+    # if get_rank(environ) == 0:
+    #     import ipdb; ipdb.set_trace()
+    # torch.distributed.barrier()
 
     batch = SequenceBatch(
-        seqs=seqs,
-        padding_mask=padding_mask,
-        target_mask=seq_data["target_loss_mask"]["seqs"].to(device),
-    )
+                seq_data["seqs"]["seqs"], seq_data["seqs"]["seq_lens"].tolist(), target_mask=seq_data["target_loss_mask"]["seqs"]
+            )
+    batch.to(device)
 
     return batch
 
@@ -297,7 +307,6 @@ def copy_state(src_module: nn.Module, tgt_module: nn.Module):
             raise NameError(f"{name_edited} doesnt exist in tgt_module")
         tgt_param = tgt_state[name_edited]
         tgt_param.data.copy_(src_param.data.to(tgt_param.device))
-
 
 def sync_weights_with_vllm(train_model, vllm_model, trainer_process_group):
     """
@@ -585,7 +594,7 @@ def prepare_grpo_batch(
     )
 
     grpo_batch = GRPOBatch(
-        prompt_rollouts=prompt_rollout_batch, rewards=rewards_normalized
+        prompt_rollouts=prompt_rollout_batch, rewards=rewards_normalized, prompt_lengths=prompt_lens
     )
 
     return grpo_batch
@@ -722,3 +731,58 @@ class StatefulRolloutBag:
         start_i = self.bag_step * num_rollout_per_forward
         end_i = start_i + num_rollout_per_forward
         return start_i, end_i
+
+
+@torch.inference_mode()
+def update_logit_entropy(metric_bag: MetricBag, logit_entropy: Tensor):
+    # logit_entropy is expected to contain token-level entropy for every sequence in the current batch
+    batch_size = logit_entropy.size(0)
+    metric_bag.get(Mean, "logit_entropy").update(logit_entropy.sum() / batch_size, weight=batch_size)
+
+@torch.inference_mode()
+def update_dpo_loss(
+    metric_bag: MetricBag, loss: Tensor, batch: PreferenceBatch
+) -> None:
+    metric_bag.get(Mean, "dpo_loss").update(
+        loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
+    )
+
+@torch.inference_mode()
+def update_num_dummy_batches(metric_bag: MetricBag, batch: PreferenceBatch, num_dummy_batches: int):
+    metric_bag.get(Mean, "num_dummy_batches").update(
+        num_dummy_batches / batch.chosen.batch_size, weight=batch.chosen.batch_size
+    )
+
+@torch.inference_mode()
+def update_avg_reward(metric_bag: MetricBag, avg_reward):
+    metric_bag.get(Mean, "avg_reward").update(avg_reward, weight=1)
+
+@torch.inference_mode()
+def update_avg_rollout_length(metric_bag: MetricBag, avg_rollout_length):
+    metric_bag.get(Mean, "avg_rollout_length").update(avg_rollout_length, weight=1)
+
+@torch.inference_mode()
+def update_avg_reward_len_norm(metric_bag: MetricBag, avg_reward_len_norm):
+    metric_bag.get(Mean, "avg_reward_len_norm").update(avg_reward_len_norm, weight=1)
+
+@torch.inference_mode()
+def update_avg_loss_zeroer(metric_bag: MetricBag, avg_loss_zeroer):
+    metric_bag.get(Mean, "avg_loss_zeroer").update(avg_loss_zeroer, weight=1)
+
+@torch.inference_mode()
+def update_batch_metrics(metric_bag: MetricBag, batch: PreferenceBatch, train: bool):
+    num_examples = batch.batch_size
+    metric_bag.get(Mean, "num_examples").update(num_examples)
+    if train:
+        metric_bag.get(Mean, "total_num_examples").update(num_examples)
+
+@torch.inference_mode()
+def update_grpo_loss(metric_bag: MetricBag, batch: PromptBatch, loss: Tensor) -> None:
+    """Update the GRPO loss metric.
+
+    :param batch:
+        The batch processed by the model.
+    :param loss:
+        The GRPO loss of ``batch``.
+    """
+    metric_bag.get(Mean, "grpo_loss").update(loss / batch.batch_size, weight=batch.batch_size)

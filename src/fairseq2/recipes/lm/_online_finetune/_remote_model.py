@@ -187,15 +187,17 @@ class RemoteVllmModel:
 
         return model_update_group
 
-    def sync_weights_with_vllm(self, train_model):
+    def sync_weights_with_vllm(self, model, converter=None):
         """
         trainer_process_group must connect training process with vllm_model processes
         """
 
         # iterate over all replicas
         for replica_i in range(self.num_replicas):
-            for name, p in train_model.module.named_parameters():
-                name = name.replace("._checkpoint_wrapped_module", "")
+            for name, p in model.module.named_parameters():
+                name = name.replace("._checkpoint_wrapped_module", "")  # remove fsdp added substring
+                if converter:
+                    name, p = converter(name, p, model.config)
                 # print(f'sync call {name}')
                 handle = self.vllm_workers[replica_i].collective_rpc.remote(
                     "update_weight", args=(name, p.dtype, p.shape)

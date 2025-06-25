@@ -35,11 +35,10 @@ from fairseq2.datasets import (
     DatasetLoadError,
     UnknownSplitError,
 )
-from fairseq2.datasets._utils import _load_files_and_weights
+from fairseq2.datasets.utils._manifest import _load_files_and_weights
+from fairseq2.device import Device
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
-from fairseq2.models.sequence import SequenceBatch
-from fairseq2.nn.padding import get_seqs_and_padding_mask
 
 
 @dataclass(kw_only=True)
@@ -75,6 +74,15 @@ class PromptBatch:
     def batch_size(self) -> int:
         """The size of the batch dimension."""
         return len(self.prompts)
+    
+    @property
+    def prompt_lengths(self) -> list[int]:
+        return [len(p) for p in self.prompts]
+    
+    @override
+    def to(self, device: Device, *, non_blocking: bool = False) -> None:
+        # no device moving since we only carry tokens prompts here
+        pass
 
 
 class PromptDataset(ABC):

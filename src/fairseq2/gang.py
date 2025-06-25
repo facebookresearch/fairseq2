@@ -479,7 +479,6 @@ class ProcessGroupGang(Gang):
     def scatter_object_list(
         self, scatter_object_output_list, scatter_object_input_list, source_rank=None
     ):
-        self._maybe_monitored_barrier()
 
         try:
             dist.scatter_object_list(
@@ -495,26 +494,12 @@ class ProcessGroupGang(Gang):
 
     @override
     def gather_object(self, object, object_gather_list, dst) -> None:
-        self._maybe_monitored_barrier()
 
         try:
             dist.gather_object(object, object_gather_list, group=self._pg, dst=dst)
         except RuntimeError as ex:
             raise GangError(
                 "The `gather_object` collective operation has failed. See the nested exception for details."
-            ) from ex
-
-    def _maybe_monitored_barrier(self) -> None:
-        if self._monitor_pg is None:
-            return
-
-        torch.cuda.synchronize()
-
-        try:
-            dist.monitored_barrier(group=self._monitor_pg, wait_all_ranks=True)
-        except RuntimeError as ex:
-            raise GangError(
-                "The `monitored_barrier` collective operation has failed. See the nested exception for details."
             ) from ex
 
     @staticmethod

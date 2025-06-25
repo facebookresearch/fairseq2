@@ -131,9 +131,9 @@ from fairseq2.recipes.lm._online_finetune._recipe import (
 from fairseq2.recipes.lm._online_finetune._online_dpo import (
     OnlineDpoFinetuneUnitHandler as OnlineDpoFinetuneUnitHandler,
 )
-from fairseq2.recipes.lm._online_finetune._group_dpo import (
-    GroupDpoFinetuneUnitHandler as GroupDpoFinetuneUnitHandler,
-)
+# from fairseq2.recipes.lm._online_finetune._group_dpo import (
+#     GroupDpoFinetuneUnitHandler as GroupDpoFinetuneUnitHandler,
+# )
 from fairseq2.recipes.lm._online_finetune._grpo import (
     GrpoFinetuneUnitHandler as GrpoFinetuneUnitHandler,
 )

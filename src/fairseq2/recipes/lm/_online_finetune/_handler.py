@@ -11,14 +11,16 @@ from abc import ABC, abstractmethod
 from torch.nn import Module
 
 from fairseq2.gang import Gangs
-from fairseq2.models.sequence import SequenceBatch
-from fairseq2.recipes.trainer import TrainUnit
+from fairseq2.datasets import (
+    SequenceBatch
+)
+from fairseq2.recipes import Model, TrainUnit
 
 
 class OnlineFinetuneUnitHandler(ABC):
     @abstractmethod
     def create(
-        self, model: Module, gangs: Gangs, recipe_config: object, vllm_actors: object
+        self, model: Model, gangs: Gangs, recipe_config: object, vllm_actors: object
     ) -> TrainUnit[SequenceBatch]: ...
 
     @property

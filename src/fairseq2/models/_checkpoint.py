@@ -360,11 +360,7 @@ class ShardedCheckpointLoader(CheckpointLoader):
                 for dp_file in dp_files:
                     try:
                         dp_checkpoint = self._tensor_loader.load(
-<<<<<<< HEAD
                             dp_file, restrict=restrict, map_location=CPU, mmap=mmap
-=======
-                            dp_file, restrict=restrict, map_location=CPU, mmap=False
->>>>>>> kulikov/qwen_export_fix
                         )
                     except (FileNotFoundError, TensorLoadError) as ex:
                         raise CheckpointError(

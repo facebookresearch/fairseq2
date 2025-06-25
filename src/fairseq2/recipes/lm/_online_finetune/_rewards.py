@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any
 
 import torch
 from transformers import AutoTokenizer
@@ -19,7 +19,6 @@ from vllm import LLM, CompletionOutput, RequestOutput, SamplingParams
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gangs
-from fairseq2.recipes.config import get_config_section
 from fairseq2.recipes.lm._online_finetune._common import (
     GRPOBatch,
     collate_with_target_mask,
@@ -29,8 +28,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     prepare_preference_batch_random_pair,
 )
 from fairseq2.recipes.lm._online_finetune._generative_prompts import POINTWISE_PROMPT
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import TrainUnit
+from fairseq2.recipes import TrainUnit
 
 
 @dataclass(kw_only=True)
@@ -63,7 +61,7 @@ class VLLMOutputRewardHandler(ABC):
 
 class VLLMOutputReward(ABC):
     @abstractmethod
-    def process_rollouts(self, vllm_outputs: List[RequestOutput]): ...
+    def process_rollouts(self, vllm_outputs: list[RequestOutput]): ...
 
     @abstractmethod
     def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts): ...
@@ -114,7 +112,7 @@ class GSM8kVerifier(VLLMOutputReward):
     @override
     def process_rollouts(
         self,
-        vllm_outputs: List[RequestOutput],
+        vllm_outputs: list[RequestOutput],
         prompt_batch: PromptBatch,
     ):
         batch_text = []
@@ -227,7 +225,7 @@ class MathVerifyVerifier(VLLMOutputReward):
     @override
     def process_rollouts(
         self,
-        vllm_outputs: List[RequestOutput],
+        vllm_outputs: list[RequestOutput],
         prompt_batch: PromptBatch,
     ):
         batch_text = []
@@ -329,7 +327,7 @@ class AtheneVerifier(VLLMOutputReward):
 
     @override
     def process_rollouts(
-        self, vllm_outputs: List[RequestOutput], prompt_batch: PromptBatch
+        self, vllm_outputs: list[RequestOutput], prompt_batch: PromptBatch
     ):
         vllm_inputs = []
         batch_text = []
@@ -490,7 +488,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
 
     @override
     def process_rollouts(
-        self, vllm_outputs: List[RequestOutput], prompt_batch: PromptBatch
+        self, vllm_outputs: list[RequestOutput], prompt_batch: PromptBatch
     ):
         vllm_inputs = []
         batch_text = []

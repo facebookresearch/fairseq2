@@ -24,15 +24,17 @@ from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
 from fairseq2.context import RuntimeContext
 from fairseq2.data import CollateOptionsOverride, Collater, SequenceData
 from fairseq2.datasets.preference import PreferenceBatch
+from fairseq2.datasets import (
+    LengthBatching,
+    SequenceBatch,
+    StaticBatching,
+    SyncMode,
+)
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gang, Gangs
 from fairseq2.logging import log
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.sequence import (
-    SequenceBatch,
-    SequenceModelOutput,
-    as_auto_regressive_input,
-)
+from fairseq2.models.clm import CausalLM
+
 from fairseq2.nn.data_parallel._fsdp import (
     fsdp_summon_full_parameters as fsdp_summon_full_parameters,
 )
@@ -42,7 +44,6 @@ from fairseq2.recipes.common._distributed import broadcast_model
 from fairseq2.recipes.config import (
     ReferenceModelSection,
     TrainerSection,
-    get_config_section,
 )
 from fairseq2.recipes.lm._online_finetune._common import (
     OnlineCriterionSection,
@@ -53,6 +54,14 @@ from fairseq2.recipes.lm._online_finetune._common import (
     generate_rollouts,
     log_rollouts,
     get_rollout_lengths,
+    update_num_dummy_batches,
+    update_avg_loss_zeroer,
+    update_avg_reward,
+    update_dpo_loss,
+    update_avg_reward_len_norm,
+    update_avg_rollout_length,
+    update_batch_metrics,
+    update_logit_entropy
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_model import (
@@ -64,15 +73,17 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
     VLLMOutputReward,
     VLLMOutputRewardHandler,
 )
+from fairseq2.recipes.lm._instruction_finetune import update_nll_loss
+from fairseq2.metrics import Mean, MetricBag
 from fairseq2.recipes.lm._preference_finetune._common import (
-    POCriterionSection,
-    POFinetuneMetricBag,
     _gather_lprobs_avg,
+    update_logps_metrics,
+    update_sequence_length_metrics
 )
 from fairseq2.recipes.lm._online_finetune._common import compute_token_level_entropy
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import TrainUnit
-from fairseq2.typing import DataType
+# from fairseq2.recipes.model import Model
+from fairseq2.recipes import Model, TrainUnit
+# from fairseq2.typing import DataType
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
@@ -84,7 +95,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     _reference_model: Module | RemoteVllmModel | None
     _vllm_model: RemoteVllmModel
     _vllm_actors: Dict[str, Union[RemoteVllmModel, RemoteHFModel]]
-    _metric_bag: OnlineDpoFinetuneMetricBag
     _loss_config: DpoLossConfig
     _model_update_group: PyNcclCommunicator
     _sync_vllm_model_every_n_steps: int
@@ -117,7 +127,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._sync_vllm_model_every_n_steps = sync_vllm_model_every_n_steps
         self._sync_ref_model_every_n_steps = sync_ref_model_every_n_step
         self._reward = reward
-        self._metric_bag = OnlineDpoFinetuneMetricBag(gangs.dp)
 
         self._display_name = "online_dpo"
 
@@ -217,7 +226,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         return ref_logps
 
     @override
-    def __call__(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
+    def __call__(self, prompt_batch: PromptBatch, metric_bag: MetricBag) -> tuple[Tensor, int]:
 
         if not self.model.module.training:
             # we are in valid mode, only compute reward and return
@@ -242,22 +251,34 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             loss_zeroer = 1.0
 
         # below is the usual DPO code
-        chosen_input_batch, chosen_target_batch = as_auto_regressive_input(batch.chosen)
-        rejected_input_batch, rejected_target_batch = as_auto_regressive_input(
-            batch.rejected
-        )
+        chosen_input_batch, chosen_target_batch = batch.chosen.as_auto_regressive()
+        rejected_input_batch, rejected_target_batch = batch.rejected.as_auto_regressive_input()
         if (
             chosen_target_batch.target_mask is None
             or rejected_target_batch.target_mask is None
         ):
             raise RuntimeError("target_mask attributes must exist for DPO loss")
 
-        chosen_output = cast(
-            SequenceModelOutput, self._model.module(chosen_input_batch)
+        chosen_seqs, chosen_seqs_layout = chosen_input_batch.as_input()
+
+        nll_loss, chosen_logits = self._model.module(
+            chosen_seqs,
+            chosen_seqs_layout,
+            targets=chosen_target_batch.seqs,
+            target_mask=chosen_target_batch.target_mask,
+            return_logits=True,
         )
-        rejected_output = cast(
-            SequenceModelOutput, self._model.module(rejected_input_batch)
-        )
+
+        rejected_seqs, rejected_seqs_layout = rejected_input_batch.as_input()
+
+        rejected_logits = self._model.module(rejected_seqs, rejected_seqs_layout)
+
+        # chosen_output = cast(
+        #     SequenceModelOutput, self._model.module(chosen_input_batch)
+        # )
+        # rejected_output = cast(
+        #     SequenceModelOutput, self._model.module(rejected_input_batch)
+        # )
 
         # if self._gangs.root.rank == 0:
         #     from pudb.remote import set_trace
@@ -266,13 +287,13 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         # self._gangs.root.barrier()
 
         chosen_logps, average_chosen_logps = _gather_lprobs_avg(
-            chosen_output, chosen_target_batch
+            chosen_logits, chosen_target_batch
         )
         rejected_logps, average_rejected_logps = _gather_lprobs_avg(
-            rejected_output, rejected_target_batch
+            rejected_logits, rejected_target_batch
         )
         tgt_logit_entropy = compute_token_level_entropy(
-            chosen_output.logits, chosen_target_batch.target_mask
+            chosen_logits, chosen_target_batch.target_mask
         )  # [Batch x Rollouts, 1]
 
         max_entropy_regularizer = (
@@ -292,17 +313,13 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         else:
             with torch.no_grad():
-                ref_chosen_output = cast(
-                    SequenceModelOutput, self._reference_model.module(batch.chosen)
-                )
-                ref_rejected_output = cast(
-                    SequenceModelOutput, self._reference_model.module(batch.rejected)
-                )
+                ref_chosen_logits = self._reference_model.module(chosen_seqs, chosen_seqs_layout)
+                ref_rejected_logits = self._reference_model.module(rejected_seqs, rejected_seqs_layout)
                 ref_chosen_logps, ref_average_chosen_logps = _gather_lprobs_avg(
-                    ref_chosen_output, chosen_target_batch
+                    ref_chosen_logits, chosen_target_batch
                 )
                 ref_rejected_logps, ref_average_rejected_logps = _gather_lprobs_avg(
-                    ref_rejected_output, rejected_target_batch
+                    ref_rejected_logits, rejected_target_batch
                 )
 
         if self._loss_config.length_normalization:
@@ -317,24 +334,20 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 chosen_logps, ref_chosen_logps, rejected_logps, ref_rejected_logps
             )
 
-        nll_loss = chosen_output.compute_loss(
-            chosen_target_batch.seqs, loss_mask=chosen_target_batch.target_mask
-        )
+        update_dpo_loss(metric_bag, batch, dpo_loss)
 
-        self._metric_bag.update_dpo_loss(batch, dpo_loss)
+        update_nll_loss(metric_bag, batch.chosen, nll_loss)
 
-        self._metric_bag.update_nll_loss(batch.chosen, nll_loss)
+        update_sequence_length_metrics(metric_bag, batch)
 
-        self._metric_bag.update_sequence_lengths(batch)
+        update_logps_metrics(metric_bag, batch, chosen_logps, rejected_logps)
 
-        self._metric_bag.update_logps(batch, chosen_logps, rejected_logps)
+        update_avg_loss_zeroer(metric_bag, torch.tensor(loss_zeroer))
 
-        self._metric_bag.update_avg_loss_zeroer(torch.tensor(loss_zeroer))
-
-        self._metric_bag.update_batch_metrics(batch.chosen)
+        update_batch_metrics(metric_bag, batch.chosen)
 
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
-        self._metric_bag.update_avg_reward(avg_reward)
+        update_avg_reward(avg_reward)
 
         if self._loss_config.nll_length_normalization:
             nll_loss = (
@@ -358,10 +371,10 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         return loss, prompt_batch.batch_size
 
     def _gather_lprobs(
-        self, output: SequenceModelOutput, target: SequenceBatch
+        self, logits: Tensor, target: SequenceBatch
     ) -> tuple[Tensor, Tensor]:
         assert target.target_mask is not None
-        logprobs = torch.log_softmax(output.logits, dim=-1)
+        logprobs = torch.log_softmax(logits, dim=-1)
         per_token_logps = torch.gather(logprobs, -1, target.seqs.unsqueeze(-1)).squeeze(
             -1
         )
@@ -396,90 +409,85 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     def model(self) -> Model:
         return self._model
 
-    @property
-    @override
-    def metric_bag(self) -> OnlineDpoFinetuneMetricBag:
-        return self._metric_bag
 
+# class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
+#     """Holds the metrics of a DPO preference finetuning task."""
 
-class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
-    """Holds the metrics of a DPO preference finetuning task."""
+#     dpo_loss: Mean
+#     num_dummy_batches: Mean
+#     avg_reward: Mean
+#     avg_loss_zeroer: Mean
+#     logit_entropy: Mean
 
-    dpo_loss: Mean
-    num_dummy_batches: Mean
-    avg_reward: Mean
-    avg_loss_zeroer: Mean
-    logit_entropy: Mean
+#     def __init__(self, gang: Gang) -> None:
+#         super().__init__(gang)
 
-    def __init__(self, gang: Gang) -> None:
-        super().__init__(gang)
+#         self.register_metric("dpo_loss", Mean(device=gang.device), persistent=False)
+#         self.register_metric(
+#             "num_dummy_batches", Mean(device=gang.device), persistent=False
+#         )
+#         self.register_metric("avg_reward", Mean(device=gang.device), persistent=False)
+#         self.register_metric(
+#             "avg_rollout_length", Mean(device=gang.device), persistent=False
+#         )
+#         self.register_metric(
+#             "avg_reward_len_norm", Mean(device=gang.device), persistent=False
+#         )
+#         self.register_metric(
+#             "avg_loss_zeroer", Mean(device=gang.device), persistent=False
+#         )
+#         self.register_metric(
+#             "logit_entropy", Mean(device=gang.device), persistent=False
+#         )
 
-        self.register_metric("dpo_loss", Mean(device=gang.device), persistent=False)
-        self.register_metric(
-            "num_dummy_batches", Mean(device=gang.device), persistent=False
-        )
-        self.register_metric("avg_reward", Mean(device=gang.device), persistent=False)
-        self.register_metric(
-            "avg_rollout_length", Mean(device=gang.device), persistent=False
-        )
-        self.register_metric(
-            "avg_reward_len_norm", Mean(device=gang.device), persistent=False
-        )
-        self.register_metric(
-            "avg_loss_zeroer", Mean(device=gang.device), persistent=False
-        )
-        self.register_metric(
-            "logit_entropy", Mean(device=gang.device), persistent=False
-        )
+#     @torch.inference_mode()
+#     def update_logit_entropy(self, logit_entropy: Tensor):
+#         # logit_entropy is expected to contain token-level entropy for every sequence in the current batch
+#         batch_size = logit_entropy.size(0)
+#         self.logit_entropy.update(logit_entropy.sum() / batch_size, weight=batch_size)
 
-    @torch.inference_mode()
-    def update_logit_entropy(self, logit_entropy: Tensor):
-        # logit_entropy is expected to contain token-level entropy for every sequence in the current batch
-        batch_size = logit_entropy.size(0)
-        self.logit_entropy.update(logit_entropy.sum() / batch_size, weight=batch_size)
+#     @torch.inference_mode()
+#     def update_dpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
+#         """Update the DPO loss metric.
 
-    @torch.inference_mode()
-    def update_dpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
-        """Update the DPO loss metric.
+#         :param batch:
+#             The batch processed by the model.
+#         :param loss:
+#             The DPO loss of ``batch``.
+#         """
+#         self.dpo_loss.update(
+#             loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
+#         )
 
-        :param batch:
-            The batch processed by the model.
-        :param loss:
-            The DPO loss of ``batch``.
-        """
-        self.dpo_loss.update(
-            loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
-        )
+#     @torch.inference_mode()
+#     def update_num_dummy_batches(self, batch: PreferenceBatch, num_dummy_batches: int):
+#         self.num_dummy_batches.update(
+#             num_dummy_batches / batch.chosen.batch_size, weight=batch.chosen.batch_size
+#         )
 
-    @torch.inference_mode()
-    def update_num_dummy_batches(self, batch: PreferenceBatch, num_dummy_batches: int):
-        self.num_dummy_batches.update(
-            num_dummy_batches / batch.chosen.batch_size, weight=batch.chosen.batch_size
-        )
+#     @torch.inference_mode()
+#     def update_avg_reward(self, avg_reward):
+#         self.avg_reward.update(avg_reward, weight=1)
 
-    @torch.inference_mode()
-    def update_avg_reward(self, avg_reward):
-        self.avg_reward.update(avg_reward, weight=1)
+#     @torch.inference_mode()
+#     def update_avg_rollout_length(self, avg_rollout_length):
+#         self.avg_rollout_length.update(avg_rollout_length, weight=1)
 
-    @torch.inference_mode()
-    def update_avg_rollout_length(self, avg_rollout_length):
-        self.avg_rollout_length.update(avg_rollout_length, weight=1)
+#     @torch.inference_mode()
+#     def update_avg_reward_len_norm(self, avg_reward_len_norm):
+#         self.avg_reward_len_norm.update(avg_reward_len_norm, weight=1)
 
-    @torch.inference_mode()
-    def update_avg_reward_len_norm(self, avg_reward_len_norm):
-        self.avg_reward_len_norm.update(avg_reward_len_norm, weight=1)
+#     @torch.inference_mode()
+#     def update_avg_loss_zeroer(self, avg_loss_zeroer):
+#         self.avg_loss_zeroer.update(avg_loss_zeroer, weight=1)
 
-    @torch.inference_mode()
-    def update_avg_loss_zeroer(self, avg_loss_zeroer):
-        self.avg_loss_zeroer.update(avg_loss_zeroer, weight=1)
-
-    @torch.inference_mode()
-    def update_batch_metrics(self, batch: PreferenceBatch):
-        num_examples = batch.batch_size
-        self.num_examples.update(num_examples)
-        if self._train:
-            assert self.total_num_examples is not None
-            self.total_num_examples.update(num_examples)
+#     @torch.inference_mode()
+#     def update_batch_metrics(self, batch: PreferenceBatch):
+#         num_examples = batch.batch_size
+#         self.num_examples.update(num_examples)
+#         if self._train:
+#             assert self.total_num_examples is not None
+#             self.total_num_examples.update(num_examples)
 
 
 ONLINE_DPO_FINETUNE_UNIT: Final = "online_dpo"
@@ -517,7 +525,7 @@ class OnlineDpoFinetuneConfig:
     log-probabilities for rollouts using vllm actor.
     """
 
-    reference_dtype: DataType = torch.bfloat16
+    reference_dtype: Any = torch.bfloat16
     """The data type of the reference model."""
 
     loss_config: DpoLossConfig = field(default_factory=lambda: DpoLossConfig())
@@ -544,23 +552,21 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
     def create(
         self, model: Module, gangs: Gangs, recipe_config: object, vllm_actors: object
     ) -> TrainUnit[PreferenceBatch]:
-        criterion_section = get_config_section(
-            recipe_config, "criterion", OnlineCriterionSection
+        config = structure(
+            recipe_config.criterion.config, OnlineDpoFinetuneConfig
         )
-
-        config = structure(criterion_section.config, OnlineDpoFinetuneConfig)
 
         validate(config)
 
         if isinstance(config.reference_model, ReferenceModelSection):
             log.info("Setting up GRPO with reference model.")
 
-            trainer_section = get_config_section(
-                recipe_config, "trainer", TrainerSection
+            trainer_section = structure(
+                recipe_config.trainer, TrainerSection
             )
 
             reference_model = setup_reference_model(
-                DecoderModel,
+                CausalLM,
                 self._context,
                 config.reference_model.name,
                 gangs,
