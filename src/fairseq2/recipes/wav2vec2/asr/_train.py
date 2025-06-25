@@ -75,9 +75,10 @@ class Wav2Vec2AsrTrainConfig:
         default_factory=lambda: ModelSection(family="wav2vec2_asr", arch="base_10h")
     )
 
-    pretrained_model: ReferenceModelSection = field(
+    pretrained_encoder: ReferenceModelSection = field(
         default_factory=lambda: ReferenceModelSection(name="wav2vec2_base")
     )
+    pretrained_encoder_is_ctc: bool = False
     pretrained_model_full: ReferenceModelSection = field(
         default_factory=lambda: ReferenceModelSection(name="")
     )
@@ -225,7 +226,7 @@ def register_wav2vec2_asr_train_configs(context: RuntimeContext) -> None:
         assert isinstance(config.optimizer.config, AdamWConfig)
 
         config.model.arch = "large_10h"
-        config.pretrained_model.name = "wav2vec2_large"
+        config.pretrained_encoder.name = "wav2vec2_large"
         config.dataset.max_audio_len = 640_000
         config.dataset.max_num_elements = 1_280_000
         config.trainer.gradient_accumulation = 5
@@ -283,16 +284,17 @@ def load_wav2vec2_asr_trainer(
     # If we start the training with an empty ASR model, use the weights of a
     # pretrained wav2vec 2.0 model.
     if model.is_empty_initialized:
+        tp = AsrModel if config.pretrained_encoder_is_ctc else Wav2Vec2Model
         pt_model = load_reference_model(
-            Wav2Vec2Model,
+            tp,
             context,
-            config.pretrained_model,
+            config.pretrained_encoder,
             gangs,
             config.trainer.dtype,
             mp=config.trainer.mixed_precision != "off",
         )
 
-        pt_module = cast(Wav2Vec2Model, pt_model.module)
+        pt_module = cast(tp, pt_model.module)  # type: ignore
 
         share_parameters(pt_module.encoder_frontend, module.encoder_frontend)  # type: ignore
         share_parameters(pt_module.encoder, module.encoder)  # type: ignore
@@ -309,6 +311,7 @@ def load_wav2vec2_asr_trainer(
 
         try:
             gangs.root.barrier()
+            log.info("Pretrained encoder loaded")
         except GangError as ex:
             raise RecipeError(
                 "The collective barrier after the pretrained model load operation has failed. See the nested exception for details."
@@ -316,7 +319,7 @@ def load_wav2vec2_asr_trainer(
 
     # Load a full model from checkpoint
     if config.pretrained_model_full.name:
-        assert not config.pretrained_model.name
+        assert not config.pretrained_encoder.name
 
         pt_model = load_reference_model(
             type(model.module),
