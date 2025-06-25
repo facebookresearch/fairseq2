@@ -25,6 +25,7 @@ from fairseq2.nn import BatchLayout, LayerNorm, LayerStack
 # isort: split
 
 from fairseq2.models.transformer._attention_bias import AttentionBiasCache
+from fairseq2.models.transformer._block_mask import BlockMaskCache
 from fairseq2.models.transformer._encoder_layer import TransformerEncoderLayer
 
 
@@ -149,11 +150,12 @@ class StandardTransformerEncoder(TransformerEncoder):
                 )
 
         attn_bias_cache = AttentionBiasCache()
+        block_mask_cache = BlockMaskCache()
 
         num_layers = len(self.layers)
 
         for layer_idx, (layer, drop) in enumerate(self._drop_iter()):
-            layer_output = layer(seqs, seqs_layout, attn_bias_cache)
+            layer_output = layer(seqs, seqs_layout, attn_bias_cache, block_mask_cache)
 
             if drop:
                 seqs = _record_drop_for_backward(seqs, layer_output)

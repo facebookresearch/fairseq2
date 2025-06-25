@@ -26,6 +26,7 @@ from fairseq2.nn import (
 # isort: split
 
 from fairseq2.models.transformer._attention_bias import AttentionBiasCache
+from fairseq2.models.transformer._block_mask import BlockMaskCache
 from fairseq2.models.transformer._ffn import FeedForwardNetwork
 from fairseq2.models.transformer._multihead_attention import MultiheadAttention
 from fairseq2.models.transformer._norm_order import TransformerNormOrder
@@ -42,6 +43,7 @@ class TransformerDecoderLayer(Module, ABC):
         encoder_output: Tensor,
         encoder_output_layout: BatchLayout,
         attn_bias_cache: AttentionBiasCache,
+        block_mask_cache: BlockMaskCache,
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
@@ -195,10 +197,13 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         encoder_output: Tensor,
         encoder_output_layout: BatchLayout,
         attn_bias_cache: AttentionBiasCache,
+        block_mask_cache: BlockMaskCache,
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
-        seqs = self._forward_self_attn(seqs, seqs_layout, attn_bias_cache, state_bag)
+        seqs = self._forward_self_attn(
+            seqs, seqs_layout, attn_bias_cache, block_mask_cache, state_bag
+        )
 
         seqs = self._forward_encoder_decoder_attn(
             seqs,
@@ -206,6 +211,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             encoder_output,
             encoder_output_layout,
             attn_bias_cache,
+            block_mask_cache,
             state_bag,
         )
 
@@ -218,6 +224,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         seqs: Tensor,
         seqs_layout: BatchLayout,
         attn_bias_cache: AttentionBiasCache,
+        block_mask_cache: BlockMaskCache,
         state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         residual = seqs
@@ -232,6 +239,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             keys_layout=seqs_layout,
             values=seqs,
             bias_cache=attn_bias_cache,
+            block_mask_cache=block_mask_cache,
             state_bag=state_bag,
         )
 
@@ -252,6 +260,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         encoder_output: Tensor,
         encoder_output_layout: BatchLayout,
         attn_bias_cache: AttentionBiasCache,
+        block_mask_cache: BlockMaskCache,
         state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         residual = seqs
@@ -266,6 +275,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             keys_layout=encoder_output_layout,
             values=encoder_output,
             bias_cache=attn_bias_cache,
+            block_mask_cache=block_mask_cache,
             state_bag=state_bag,
         )
 
