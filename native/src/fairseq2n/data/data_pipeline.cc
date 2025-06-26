@@ -60,10 +60,16 @@ data_pipeline::next()
             if (ex.recoverable() && warning_count_ < max_num_warnings_) {
                 warning_count_++;
 
-                // TODO: log exception
+                // Log the exception with the current warning count
+                (void) fprintf(stderr, "Data pipeline warning (%zu/%zu): %s\n", 
+                    warning_count_, max_num_warnings_, ex.what());
+                
+                // Continue to the next example
+                continue;
             } else {
-                if (max_num_warnings_ > 0) {
-                    // TODO: log max number of warnings reached.
+                if (max_num_warnings_ > 0 && warning_count_ >= max_num_warnings_) {
+                    (void) fprintf(stderr, "Data pipeline error: Maximum number of warnings (%zu) reached.\n", 
+                        max_num_warnings_);
                 }
 
                 // If the error is not recoverable, any further attempt to read
@@ -89,6 +95,8 @@ data_pipeline::reset(bool reset_rng)
 
     try {
         source_->reset(reset_rng);
+        // Reset warning counter when pipeline is reset
+        warning_count_ = 0;
     } catch (const std::exception &) {
         is_broken_ = true;
 
