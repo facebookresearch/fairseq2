@@ -147,7 +147,6 @@ def postprocess(
 
 
 class AudioCropper:
-
     audio_feature: str = "audio_feature"
 
     def __init__(
@@ -177,7 +176,6 @@ class AudioCropper:
 
 @dataclass(kw_only=True)
 class SpeechReadOptions(DataReadOptions):
-
     dtype: DataType = torch.float32
     """The data type of the decoded audio sequences."""
 
@@ -207,6 +205,17 @@ class SpeechReadOptions(DataReadOptions):
     """Maximum frequency mask length."""
     spec_aug_time_mask_param: int = 80
     """Maximum time mask length."""
+
+    # Zero-shot args
+    n_context_examples: int = 0
+    """The number of context examples to use when providing context."""
+
+    bucket_size: int = 2000
+    """Minimum size of pool for choosing context examples."""
+
+    deterministic_context: bool = False
+    """If ``True``, the context examples will be selected deterministically from the \
+    audio path. Should be True for eval sets and False for train sets."""
 
 
 class SpeechDataset(ABC):
@@ -247,7 +256,6 @@ get_speech_dataset_hub = DatasetHubAccessor(SpeechDataset)
 
 
 class ManifestDatasetInterface:
-
     _name: str
     _manifest_dir: Path
     _splits: set[str]
@@ -311,7 +319,10 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
 
     @staticmethod
     def add_audio_decoding(
-        builder: DataPipelineBuilder, options: SpeechReadOptions, audio_dir: Path | None
+        builder: DataPipelineBuilder,
+        options: SpeechReadOptions,
+        audio_dir: Path | None,
+        selector: str = "[*].audio",
     ) -> DataPipelineBuilder:
         # Memory map audio files.
         cached_fd_count = options.extras.get("cached_fd_count", 1000)
@@ -322,14 +333,14 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
 
         file_mapper = FileMapper(audio_dir, cached_fd_count=cached_fd_count)
 
-        builder.map(file_mapper, selector="[*].audio")
+        builder.map(file_mapper, selector=selector)
 
         # Decode audio.
         audio_decoder = AudioDecoder(
             dtype=torch.float32 if options.normalize_audio else options.dtype
         )
         builder.map(
-            audio_decoder, selector="[*].audio.data", num_parallel_calls=options.npc
+            audio_decoder, selector=selector + ".data", num_parallel_calls=options.npc
         )
         return builder
 
@@ -337,7 +348,8 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
     def audio_post_process(
         builder: DataPipelineBuilder,
         options: SpeechReadOptions,
-        renaming: Callable[[List[Dict[str, Any]]], List[Dict[str, Any]]],
+        renaming: Callable[[List[Dict[str, Any]]], List[Dict[str, Any]]] | None = None,
+        selector: str = "[*].audio",
     ) -> DataPipelineBuilder:
         if options.use_fbank:
             fbank_converter = WaveformToFbankConverter(
@@ -350,7 +362,7 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
 
             builder.map(
                 fbank_converter,
-                selector="[*].audio.data",
+                selector=selector + ".data",
                 num_parallel_calls=options.npc,
             )
         else:
@@ -363,11 +375,12 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
                     spec_aug_freq_mask_param=options.spec_aug_freq_mask_param,
                     spec_aug_time_mask_param=options.spec_aug_time_mask_param,
                 ),
-                selector="[*].audio.data.waveform",
+                selector=selector + ".data.waveform",
             )
 
         # select the audio feature at the top level
-        builder.map(renaming)
+        if renaming is not None:
+            builder.map(renaming)
         return builder
 
     @staticmethod
@@ -515,7 +528,6 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
         max_audio_len: int,
         options: SpeechReadOptions | None = None,
     ) -> DataPipelineReader[SequenceBatch]:
-
         if split not in self._splits:
             raise UnknownSplitError(self._name, split, self._splits)
 

@@ -157,6 +157,12 @@ def _register_wav2vec2_asr_configs(container: DependencyContainer) -> None:
 
         return config
 
+    @arch("300m_bib1143", resolver=True)
+    def bib1143_300m(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
+        config = bib61_300m(resolver=resolver)
+        config.vocab_info.size = 3335
+        return config
+
     @arch("1b_bib61", resolver=True)
     def bib61_1b(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
         config = base_10h()
