@@ -43,8 +43,6 @@ class OPTConfig:
     num_attn_heads: int = 12
     """The number of attention heads in decoder layers."""
 
-    # If ``None`` or set to ``num_heads``, it is equivalent to standard Multi Head Attention (MHA);
-    # if set to 1, it is equivalent to Multi Query Attention (MQA).
     num_key_value_heads: int = 12
     """The number of key/value heads for Grouped Query Attention."""
 
