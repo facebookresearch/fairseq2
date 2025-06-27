@@ -22,13 +22,13 @@ from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.models import (
     InvalidModelTypeError,
+    model_asset_card_error,
     ModelConfigLoadError,
     ModelHandler,
     ModelLoadError,
     ShardedModelLoadError,
     UnknownModelError,
     UnknownModelFamilyError,
-    model_asset_card_error,
 )
 from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes import Model, RecipeError

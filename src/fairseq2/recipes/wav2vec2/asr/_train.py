@@ -8,15 +8,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, cast, final
+from typing import cast, final, Literal
 
 import torch
-from torch import Tensor
-from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset
+from fairseq2.datasets.asr import AsrDataset, GENERIC_ASR_DATASET_FAMILY
 from fairseq2.datasets.speech import ManifestDatasetInterface, SpeechReadOptions
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
@@ -60,13 +58,15 @@ from fairseq2.recipes.config import (
 )
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.wav2vec2.batch_weighted_datareader import (
-    MIXTURE_DATASET_FAMILY,
     BatchMixtureDataset,
+    MIXTURE_DATASET_FAMILY,
 )
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+from torch import Tensor
+from typing_extensions import override
 
 
 @dataclass(kw_only=True)
@@ -281,10 +281,18 @@ def load_wav2vec2_asr_trainer(
 
     module = cast(AsrModel, model.module)
 
+    # Load a full model from checkpoint
     # If we start the training with an empty ASR model, use the weights of a
     # pretrained wav2vec 2.0 model.
-    if model.is_empty_initialized:
-        tp = AsrModel if config.pretrained_encoder_is_ctc else Wav2Vec2Model
+
+    if model.is_empty_initialized and config.pretrained_encoder.name:
+        tp = (
+            AsrModel
+            # TODO (gilkeren): find a nicer way to do this
+            if "ctc" in config.pretrained_encoder.name
+            or "best_checkpoint" in config.pretrained_encoder.name
+            else Wav2Vec2Model
+        )
         pt_model = load_reference_model(
             tp,
             context,
@@ -293,32 +301,9 @@ def load_wav2vec2_asr_trainer(
             config.trainer.dtype,
             mp=config.trainer.mixed_precision != "off",
         )
+        pt_module = cast(tp, pt_model.module)
 
-        pt_module = cast(tp, pt_model.module)  # type: ignore
-
-        share_parameters(pt_module.encoder_frontend, module.encoder_frontend)  # type: ignore
-        share_parameters(pt_module.encoder, module.encoder)  # type: ignore
-
-        if module.masker is not None:
-            share_parameters(pt_module.masker, module.masker)  # type: ignore
-
-        del pt_model
-
-        # Make sure that the final projection layer is instantiated along with
-        # the pretrained parameters if it was on the meta device.
-        if gangs.dp.rank == 0:
-            to_device(module, gangs.root.device)
-
-        try:
-            gangs.root.barrier()
-            log.info("Pretrained encoder loaded")
-        except GangError as ex:
-            raise RecipeError(
-                "The collective barrier after the pretrained model load operation has failed. See the nested exception for details."
-            ) from ex
-
-    # Load a full model from checkpoint
-    if config.pretrained_model_full.name:
+    elif config.pretrained_model_full.name:
         assert not config.pretrained_encoder.name
 
         pt_model = load_reference_model(
@@ -471,6 +456,7 @@ def load_wav2vec2_asr_trainer(
             n_context_examples=config.dataset.n_context_examples,
             bucket_size=30,
             deterministic_context=True,
+            spec_aug_p=None,
         )
 
         valid_units = []
