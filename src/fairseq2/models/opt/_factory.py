@@ -109,9 +109,7 @@ class OPTFactory:
     def create_position_encoder(self) -> PositionEncoder:
         config = self._config
 
-        # TODO: should be "= config.model_dim", but fs2 throws error
-        # See https://github.com/vllm-project/vllm/blob/4719460644b4629db2b6dbf12be331d0b34b4b6f/vllm/model_executor/models/opt.py#L211
-        encoding_dim = config.model_dim  # // config.num_attn_heads
+        encoding_dim = config.model_dim
 
         return LearnedPositionEncoder(encoding_dim, config.max_seq_len, offset=2)
 
