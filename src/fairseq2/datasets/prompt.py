@@ -250,10 +250,13 @@ class GenericPromptDataset(PromptDataset):
                 jsonl_content = {}
                 for k in jsonl_keys:
                     if k not in example:
-                        raise KeyError(
-                            f"Required key '{k}' not found in example dictionary."
-                        )
-                    jsonl_content[k] = example[k]
+                        print(f"Required key '{k}' not found in example dictionary.")
+                        # raise KeyError(
+                        #     f"Required key '{k}' not found in example dictionary."
+                        # )
+                        jsonl_content[k] = None
+                    else:
+                        jsonl_content[k] = example[k]
             else:
                 jsonl_content = None
 
