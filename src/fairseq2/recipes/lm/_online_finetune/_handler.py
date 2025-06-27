@@ -11,9 +11,7 @@ from abc import ABC, abstractmethod
 from torch.nn import Module
 
 from fairseq2.gang import Gangs
-from fairseq2.datasets import (
-    SequenceBatch
-)
+from fairseq2.datasets import SequenceBatch
 from fairseq2.recipes import Model, TrainUnit
 
 
@@ -21,15 +19,18 @@ class OnlineFinetuneUnitHandler(ABC):
     @abstractmethod
     def create(
         self, model: Model, gangs: Gangs, recipe_config: object, vllm_actors: object
-    ) -> TrainUnit[SequenceBatch]: ...
+    ) -> TrainUnit[SequenceBatch]:
+        ...
 
     @property
     @abstractmethod
-    def name(self) -> str: ...
+    def name(self) -> str:
+        ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]: ...
+    def config_kls(self) -> type[object]:
+        ...
 
 
 class UnknownOnlineFinetuneUnitError(Exception):

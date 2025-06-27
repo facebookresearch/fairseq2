@@ -8,32 +8,27 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+import os
 from typing_extensions import override
 from vllm.engine.arg_utils import PoolerConfig
 from fairseq2.gang import Gangs
+from fairseq2.nn._batch_layout import BatchLayout
+from fairseq2.recipes.lm._online_finetune.third_party.athene import AtheneRewardPipeline
 from fairseq2.utils.structured import StructureError, structure
 from typing import Any, Dict, Union
+from vllm.worker.worker import Worker
 import ray
 import re
 import torch
 from ray.util.placement_group import placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 from typing_extensions import override
-from vllm import SamplingParams
+from vllm import LLM, SamplingParams
 from vllm.engine.arg_utils import PoolerConfig
 from vllm.utils import get_ip, get_open_port
 from fairseq2.gang import Gangs
-from fairseq2.recipes.lm._online_finetune._common import (
-    MyWorker,
-    NoEnvLLM,
-    NoEnvAtheneRewardPipeline,
-    stateless_init_process_group,
-)
 from fairseq2.logging import log
 from fairseq2.context import RuntimeContext
-from fairseq2.recipes.lm._online_finetune._rewards import (
-    VLLMOutputRewardHandler,
-)
 
 
 @dataclass(kw_only=True)
@@ -64,6 +59,149 @@ class VllmRayActorConfig(RayActorConfig):
     vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
 
 
+def stateless_init_process_group(master_address, master_port, rank, world_size, device):
+    """
+    vLLM provides `StatelessProcessGroup` to create a process group
+    without considering the global process group in torch.distributed.
+    It is recommended to create `StatelessProcessGroup`, and then initialize
+    the data-plane communication (NCCL) between external (train processes)
+    and vLLM workers.
+    """
+    from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
+    from vllm.distributed.utils import StatelessProcessGroup
+
+    pg = StatelessProcessGroup.create(
+        host=master_address, port=master_port, rank=rank, world_size=world_size
+    )
+    pynccl = PyNcclCommunicator(pg, device=device)
+    return pynccl
+
+
+@ray.remote
+class NoEnvLLM(LLM):
+    def __init__(self, *args, **kwargs):
+        # stop ray from manipulating CUDA_VISIBLE_DEVICES
+        # at the top-level
+        del os.environ["CUDA_VISIBLE_DEVICES"]
+        os.environ["VLLM_USE_V1"] = "0"
+        super().__init__(*args, **kwargs)
+
+        self.ready = True  # Set a flag or return a signal
+
+    def is_ready(self):
+        return self.ready
+
+
+@ray.remote
+class NoEnvAtheneRewardPipeline(AtheneRewardPipeline):
+    def __init__(self, *args, **kwargs):
+        # stop ray from manipulating CUDA_VISIBLE_DEVICES
+        # at the top-level
+        del os.environ["CUDA_VISIBLE_DEVICES"]
+        super().__init__(*args, **kwargs)
+        self.ready = True  # Set a flag or return a signal
+
+    def is_ready(self):
+        return self.ready
+
+    @property
+    def name(self):
+        return "athene_reward_pipeline"
+
+
+class MyWorker(Worker):
+    """
+    The `MyWorker` class inherits from `Worker` to provide custom functions.
+    For simplicity, we define the `MyWorker` class in this self-contained
+    script. Normally, we should define the `MyWorker` class in a separate
+    file and pass the qualified name of the class to the `worker_cls`
+    parameter.
+    """
+
+    def init_weight_update_group(
+        self, master_address, master_port, rank_offset, world_size
+    ):
+        from vllm.distributed.parallel_state import get_world_group
+
+        rank = get_world_group().rank + rank_offset
+        print(f"vllm own rank: {rank}")
+        self.model_update_group = stateless_init_process_group(
+            master_address,
+            master_port,
+            rank,
+            world_size,
+            self.device,
+        )
+
+    def update_weight(self, name, dtype, shape):
+        weight = torch.empty(shape, dtype=dtype, device="cuda")
+        self.model_update_group.broadcast(
+            weight, src=0, stream=torch.cuda.current_stream()
+        )
+
+        # wrap in fs2 style dict
+        # weights = {"model_key": "model", "model": {name: weight}}.items()
+        self.model_runner.model.load_weights(weights=[(name, weight)])
+        # self.model_runner.model.load_weights(weights=weights)
+
+        del weight
+
+
+def should_sync(
+    sync_every_n_steps: int,
+    trainer_step_nr: int | None,
+    remote_model_step: int | None,
+    force_sync: bool = False,
+):
+    if force_sync:
+        return True
+
+    if sync_every_n_steps < 0:
+        return False
+
+    if remote_model_step == trainer_step_nr:
+        # we are in the middle of micro-batching / grad accumulation, no sync
+        return False
+
+    if trainer_step_nr < remote_model_step:
+        raise RuntimeError(f"trainer step can not be less than remote model step")
+
+    if trainer_step_nr % sync_every_n_steps == 0:
+        return True
+
+
+def maybe_sync_model(
+    gangs: Gangs,
+    model,
+    remote_model: RemoteVllmModel | None,
+    trainer_step_nr: int,
+    sync_every_n_steps: int,
+    force_sync: bool = False,
+):
+    if gangs.dp.rank == 0:
+        _should_sync = should_sync(
+            sync_every_n_steps, trainer_step_nr, remote_model.last_sync_step, force_sync
+        )
+        broadcast_list = [_should_sync]
+    else:
+        broadcast_list = [None]
+    gangs.root.barrier()
+
+    gangs.root.broadcast_objects(broadcast_list, source_rank=0)
+    gangs.root.barrier()
+    _should_sync = broadcast_list[0]
+
+    if _should_sync:
+        with model.summon_full_parameters():
+            if gangs.dp.rank == 0:
+                remote_model.sync_weights_with_vllm(
+                    model=model,
+                    trainer_step_nr=trainer_step_nr,
+                    converter=model._convert_parameter,
+                )
+            gangs.root.barrier()
+
+
 class RemoteVllmModel:
     def __init__(
         self,
@@ -78,6 +216,7 @@ class RemoteVllmModel:
 
         self.num_replicas = num_replicas
         self.ray_actor_name = ray_actor_name
+        self.last_sync_step = -1
 
         self.vllm_workers = []
         self.update_process_groups = []
@@ -187,7 +326,7 @@ class RemoteVllmModel:
 
         return model_update_group
 
-    def sync_weights_with_vllm(self, model, converter=None):
+    def sync_weights_with_vllm(self, model, trainer_step_nr, converter=None):
         """
         trainer_process_group must connect training process with vllm_model processes
         """
@@ -195,7 +334,9 @@ class RemoteVllmModel:
         # iterate over all replicas
         for replica_i in range(self.num_replicas):
             for name, p in model.module.named_parameters():
-                name = name.replace("._checkpoint_wrapped_module", "")  # remove fsdp added substring
+                name = name.replace(
+                    "._checkpoint_wrapped_module", ""
+                )  # remove fsdp added substring
                 if converter:
                     name, p = converter(name, p, model.config)
                 # print(f'sync call {name}')
@@ -206,6 +347,7 @@ class RemoteVllmModel:
                     p, src=0, stream=torch.cuda.current_stream()
                 )
                 ray.get(handle)
+        self.last_sync_step = trainer_step_nr
 
     def rollout_from_model(self, prompt_list, sampling_params=None, string_input=False):
         if sampling_params is None:
@@ -266,7 +408,6 @@ class RemoteVllmModel:
         return rewards
 
     def reward_from_generative_model(self, prompt_list):
-
         def extract_score(output):
             matches = re.findall(
                 r"<score>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score>", output
@@ -433,15 +574,18 @@ class RemoteModelHandler(ABC):
     @abstractmethod
     def create(
         self, gangs: Gangs, unit_config: object
-    ) -> Union[RemoteVllmModel, RemoteHFModel]: ...
+    ) -> Union[RemoteVllmModel, RemoteHFModel]:
+        ...
 
     @property
     @abstractmethod
-    def name(self) -> str: ...
+    def name(self) -> str:
+        ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]: ...
+    def config_kls(self) -> type[object]:
+        ...
 
 
 class RemoteRayModelHandler(RemoteModelHandler):

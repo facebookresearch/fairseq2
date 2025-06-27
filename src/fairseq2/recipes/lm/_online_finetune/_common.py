@@ -6,58 +6,35 @@
 
 from __future__ import annotations
 
-import os
-import re
+import contextlib
+import io
 from dataclasses import dataclass
-from typing import Any, List, cast, Dict
+from typing import List, cast
 
 import ray
 import torch
 import torch.nn as nn
-from ray.util.placement_group import placement_group
-from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 from torch import Tensor
-from transformers import AutoTokenizer
-from vllm import LLM, CompletionOutput, RequestOutput, SamplingParams
-from vllm.utils import get_ip, get_open_port
-from vllm.worker.worker import Worker
+from vllm import RequestOutput
+
 
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
-    DataPipeline,
-    DataPipelineBuilder,
     SequenceData,
-    create_bucket_sizes,
-    read_sequence,
 )
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
-from fairseq2.gang import Gang
+from fairseq2.gang import Gang, Gangs
 from fairseq2.datasets import (
-    LengthBatching,
     SequenceBatch,
-    StaticBatching,
-    SyncMode,
 )
+from fairseq2.nn._batch_layout import BatchLayout
 from fairseq2.nn.utils.padding import pad_seqs
-# from fairseq2.nn.padding import get_seqs_and_padding_mask
-# from fairseq2.recipes.metrics import SequenceMetricBag
+
 from fairseq2.logging import log
-from fairseq2.recipes.lm._online_finetune.third_party.athene import (
-    AtheneRewardPipeline,
-    AtheneForSequenceClassification,
-)
-from fairseq2.metrics import Mean, MetricBag
-
-
-@dataclass
-class GRPOBatch:
-    """Represents a preference optimization dataset batch."""
-
-    prompt_rollouts: SequenceBatch
-    prompt_lengths: list[int]
-    rewards: torch.Tensor
+from fairseq2.recipes.lm._online_finetune._remote_model import RemoteVllmModel
+from fairseq2.metrics import Mean, Sum, MetricBag
 
 
 @dataclass(kw_only=True)
@@ -66,9 +43,23 @@ class OnlineCriterionSection:
     config: object
 
 
-# class OnlineFinetuneMetricBag(SequenceMetricBag):
-#     def __init__(self, gang: Gang) -> None:
-#         super().__init__(gang)
+@dataclass(kw_only=True)
+class VllmSyncSection:
+    sync_model_every_n_steps: int = 1
+    """How often to sync the vLLM model with the policy that is trained. -1 disables syncing."""
+
+    sync_ref_model_every_n_steps: int = -1
+    """How often to sync the reference model with the policy. -1 disables syncing."""
+
+
+@contextlib.contextmanager
+def _mute_output():
+    devnull_out, devnull_err = io.StringIO(), io.StringIO()
+    with (
+        contextlib.redirect_stdout(devnull_out),
+        contextlib.redirect_stderr(devnull_err),
+    ):
+        yield
 
 
 def get_ray_actor(gangs: Gang, actor_name):
@@ -81,195 +72,9 @@ def get_ray_actor(gangs: Gang, actor_name):
     return actor
 
 
-def stateless_init_process_group(master_address, master_port, rank, world_size, device):
-    """
-    vLLM provides `StatelessProcessGroup` to create a process group
-    without considering the global process group in torch.distributed.
-    It is recommended to create `StatelessProcessGroup`, and then initialize
-    the data-plane communication (NCCL) between external (train processes)
-    and vLLM workers.
-    """
-    from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
-    from vllm.distributed.utils import StatelessProcessGroup
-
-    pg = StatelessProcessGroup.create(
-        host=master_address, port=master_port, rank=rank, world_size=world_size
-    )
-    pynccl = PyNcclCommunicator(pg, device=device)
-    return pynccl
-
-
-@ray.remote
-class NoEnvLLM(LLM):
-    def __init__(self, *args, **kwargs):
-        # stop ray from manipulating CUDA_VISIBLE_DEVICES
-        # at the top-level
-        del os.environ["CUDA_VISIBLE_DEVICES"]
-        os.environ["VLLM_USE_V1"] = "0"
-        super().__init__(*args, **kwargs)
-
-        self.ready = True  # Set a flag or return a signal
-
-    def is_ready(self):
-        return self.ready
-
-
-@ray.remote
-class NoEnvAtheneRewardPipeline(AtheneRewardPipeline):
-    def __init__(self, *args, **kwargs):
-        # stop ray from manipulating CUDA_VISIBLE_DEVICES
-        # at the top-level
-        del os.environ["CUDA_VISIBLE_DEVICES"]
-        super().__init__(*args, **kwargs)
-        self.ready = True  # Set a flag or return a signal
-
-    def is_ready(self):
-        return self.ready
-
-    @property
-    def name(self):
-        return "athene_reward_pipeline"
-
-
-class MyWorker(Worker):
-    """
-    The `MyWorker` class inherits from `Worker` to provide custom functions.
-    For simplicity, we define the `MyWorker` class in this self-contained
-    script. Normally, we should define the `MyWorker` class in a separate
-    file and pass the qualified name of the class to the `worker_cls`
-    parameter.
-    """
-
-    def init_weight_update_group(
-        self, master_address, master_port, rank_offset, world_size
-    ):
-        from vllm.distributed.parallel_state import get_world_group
-
-        rank = get_world_group().rank + rank_offset
-        print(f"vllm own rank: {rank}")
-        self.model_update_group = stateless_init_process_group(
-            master_address,
-            master_port,
-            rank,
-            world_size,
-            self.device,
-        )
-
-    def update_weight(self, name, dtype, shape):
-        weight = torch.empty(shape, dtype=dtype, device="cuda")
-        self.model_update_group.broadcast(
-            weight, src=0, stream=torch.cuda.current_stream()
-        )
-
-        # wrap in fs2 style dict
-        # weights = {"model_key": "model", "model": {name: weight}}.items()
-        self.model_runner.model.load_weights(weights=[(name, weight)])
-        # self.model_runner.model.load_weights(weights=weights)
-
-        del weight
-
-
-def setup_vllm(
-    actor_name,
-    vllm_init_checkpoint_dir,
-    vllm_init_tokenizer,
-    tensor_parallel_size,
-    dp_device,
+def collate_with_target_mask(
+    list_of_tensors, prompt_lengths, pad_value=0, device="cpu"
 ):
-
-    pg_inference = placement_group([{"GPU": 1, "CPU": 0}] * tensor_parallel_size)
-
-    ray.get(pg_inference.ready())
-
-    scheduling_inference = PlacementGroupSchedulingStrategy(
-        placement_group=pg_inference,
-        placement_group_capture_child_tasks=True,
-        placement_group_bundle_index=0,
-    )
-
-    """
-    launch the vLLM inference engine.
-    here we use `enforce_eager` to reduce the start time.
-    """
-    llm = NoEnvLLM.options(
-        name=actor_name,
-        num_cpus=0,
-        num_gpus=0,
-        scheduling_strategy=scheduling_inference,
-        get_if_exists=True,
-    ).remote(
-        model=vllm_init_checkpoint_dir,
-        tokenizer=vllm_init_tokenizer,
-        enforce_eager=True,
-        worker_cls=MyWorker,
-        tensor_parallel_size=tensor_parallel_size,
-        distributed_executor_backend="ray",
-    )
-
-    # we block here until the engine is initialized
-    ray.get(llm.is_ready.remote())
-
-    # setting up process groups
-
-    master_port = get_open_port()
-    master_address = get_ip()
-
-    print(f"{master_port} {master_address}")
-
-    print("init pg on vllm host")
-    handle = llm.collective_rpc.remote(
-        "init_weight_update_group",
-        args=(master_address, master_port, 1, tensor_parallel_size + 1),
-    )
-
-    print("init pg on train host")
-    model_update_group = stateless_init_process_group(
-        master_address, master_port, 0, tensor_parallel_size + 1, dp_device
-    )
-    ray.get(handle)
-
-    return llm, model_update_group
-
-
-def gsm8k_correctness_verifier(vllm_output: RequestOutput, reference_answer: List[str]):
-    # verifier to match predicted answer with gsm8k format with the reference
-
-    # utils from gsm8k paper to extract a correct answer and match it to the prompt
-    ANS_RE = re.compile(r"#### (\-?[0-9\.\,]+)")
-    INVALID_ANS = "[invalid]"
-
-    def extract_answer(completion):
-        match = ANS_RE.search(completion)
-        if match:
-            match_str = match.group(1).strip()
-            match_str = match_str.replace(",", "")
-            return match_str
-        else:
-            return INVALID_ANS
-
-    batch_text = []
-    batch_tokens = []
-    batch_rewards = []
-
-    for i, i_batch_request_output in enumerate(vllm_output):
-        rollouts_text = []
-        rollouts_tokens = []
-        i_reference_answer = reference_answer[i]
-        rollouts_rewards = []
-        for rollout_output in i_batch_request_output.outputs:
-            rollouts_text.append(rollout_output.text)
-            rollouts_tokens.append(rollout_output.token_ids)
-            predicted_answer = extract_answer(rollout_output.text)
-            predicted_reward = 1 if predicted_answer == i_reference_answer else 0
-            rollouts_rewards.append(predicted_reward)
-        batch_text.append(rollouts_text)
-        batch_tokens.append(rollouts_tokens)
-        batch_rewards.append(rollouts_rewards)
-
-    return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
-
-
-def collate_with_target_mask(list_of_tensors, prompt_lengths, pad_value=0, device="cpu"):
     # list_of_tensors contain prompt+rollout tokens, we use prompt_len to define the target loss mask here
     to_collate = []
     for seq, prompt_len in zip(list_of_tensors, prompt_lengths):
@@ -282,18 +87,19 @@ def collate_with_target_mask(list_of_tensors, prompt_lengths, pad_value=0, devic
     collater = Collater(
         pad_value=pad_value, pad_to_multiple=1, overrides=target_mask_collate_opts
     )
-
-    seq_data = cast(SequenceData, collater(to_collate))
-
     # from fairseq2.utils.env import get_rank
     # from os import environ
     # if get_rank(environ) == 0:
     #     import ipdb; ipdb.set_trace()
     # torch.distributed.barrier()
 
+    seq_data = cast(SequenceData, collater(to_collate))
+
     batch = SequenceBatch(
-                seq_data["seqs"]["seqs"], seq_data["seqs"]["seq_lens"].tolist(), target_mask=seq_data["target_loss_mask"]["seqs"]
-            )
+        seq_data["seqs"]["seqs"],
+        seq_data["seqs"]["seq_lens"].tolist(),
+        target_mask=seq_data["target_loss_mask"]["seqs"],
+    )
     batch.to(device)
 
     return batch
@@ -307,19 +113,6 @@ def copy_state(src_module: nn.Module, tgt_module: nn.Module):
             raise NameError(f"{name_edited} doesnt exist in tgt_module")
         tgt_param = tgt_state[name_edited]
         tgt_param.data.copy_(src_param.data.to(tgt_param.device))
-
-def sync_weights_with_vllm(train_model, vllm_model, trainer_process_group):
-    """
-    trainer_process_group must connect training process with vllm_model processes
-    """
-    for name, p in train_model.module.named_parameters():
-        name = name.replace("._checkpoint_wrapped_module", "")
-        # print(f'sync call {name}')
-        handle = vllm_model.collective_rpc.remote(
-            "update_weight", args=(name, p.dtype, p.shape)
-        )
-        trainer_process_group.broadcast(p, src=0, stream=torch.cuda.current_stream())
-        ray.get(handle)
 
 
 def find_first_value(lst, value):
@@ -547,59 +340,6 @@ def prepare_group_dpo_batch(
     return batch, rewards, dummy_batch_ids
 
 
-def prepare_grpo_batch(
-    prompt_batch: PromptBatch,
-    reward_output: dict,
-    gangs: Gang,
-    rollout_start_end: tuple[int],
-):
-
-    prompt_rollouts = []
-    prompt_lens = []
-    rewards = []
-
-    for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
-        zip(reward_output["rewards"], reward_output["tokens"])
-    ):
-        prompt = prompt_batch.prompts[i_batch]
-        rollout_tokens = [
-            torch.tensor(prompt + list(c), device=gangs.dp.device)
-            for c in i_batch_tokens[rollout_start_end[0] : rollout_start_end[1]]
-        ]
-
-        prompt_rollouts.extend(rollout_tokens)
-
-        prompt_lens.extend([len(prompt)] * len(rollout_tokens))
-
-        rewards.append(
-            i_batch_rewards
-        )  # we add all rewards here to correctly compute group statistic
-
-    # if gangs.root.rank == 0:
-    #     from pudb.remote import set_trace
-    #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
-
-    # gangs.root.barrier()
-
-    rewards = torch.tensor(rewards, device=gangs.dp.device).float()  # [Batch, Rollouts]
-    rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (
-        rewards.std(dim=1, keepdim=True) + 1e-6
-    )  # small epsilon to compensate 0 std
-
-    rewards_normalized = rewards_normalized[
-        :, rollout_start_end[0] : rollout_start_end[1]
-    ]
-    prompt_rollout_batch = collate_with_target_mask(
-        prompt_rollouts, prompt_lens, device=gangs.dp.device
-    )
-
-    grpo_batch = GRPOBatch(
-        prompt_rollouts=prompt_rollout_batch, rewards=rewards_normalized, prompt_lengths=prompt_lens
-    )
-
-    return grpo_batch
-
-
 def combine_prompts_responses_for_scoring(
     prompt_batch, rollouts: List[RequestOutput], gangs
 ):
@@ -702,20 +442,19 @@ class StatefulRolloutBag:
     bag_step: int = 0
     _trainer_step: int = None
 
-    def __init__(self):
+    def __init__(self, max_bag_steps):
         self.rollouts: List = []
         self.reward_outputs: List = []
+        self.max_bag_steps = max_bag_steps
 
     def maybe_reset_bag(self, trainer_step):
         # this is called every train step to see if we need to reset the bag
-        if self._trainer_step != trainer_step:
+        if self.bag_step == self.max_bag_steps:
             # new trainer step, reset bag and counters
             self.rollouts = []
             self.reward_outputs = []
             self.bag_step = 0
             self._trainer_step = trainer_step
-        else:
-            self.bag_step += 1
 
     def __len__(self):
         return len(self.rollouts)
@@ -723,12 +462,14 @@ class StatefulRolloutBag:
     def save(self, rollouts, reward_outputs):
         self.rollouts = rollouts
         self.reward_outputs = reward_outputs
+        self.bag_step += 1
 
     def load(self):
+        self.bag_step += 1
         return self.rollouts, self.reward_outputs
 
     def get_rollout_start_end(self, num_rollout_per_forward: int):
-        start_i = self.bag_step * num_rollout_per_forward
+        start_i = (self.bag_step - 1) * num_rollout_per_forward
         end_i = start_i + num_rollout_per_forward
         return start_i, end_i
 
@@ -737,7 +478,10 @@ class StatefulRolloutBag:
 def update_logit_entropy(metric_bag: MetricBag, logit_entropy: Tensor):
     # logit_entropy is expected to contain token-level entropy for every sequence in the current batch
     batch_size = logit_entropy.size(0)
-    metric_bag.get(Mean, "logit_entropy").update(logit_entropy.sum() / batch_size, weight=batch_size)
+    metric_bag.get(Mean, "logit_entropy").update(
+        logit_entropy.sum() / batch_size, weight=batch_size
+    )
+
 
 @torch.inference_mode()
 def update_dpo_loss(
@@ -747,34 +491,64 @@ def update_dpo_loss(
         loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
     )
 
+
 @torch.inference_mode()
-def update_num_dummy_batches(metric_bag: MetricBag, batch: PreferenceBatch, num_dummy_batches: int):
+def update_num_dummy_batches(
+    metric_bag: MetricBag, batch: PreferenceBatch, num_dummy_batches: int
+):
     metric_bag.get(Mean, "num_dummy_batches").update(
         num_dummy_batches / batch.chosen.batch_size, weight=batch.chosen.batch_size
     )
+
 
 @torch.inference_mode()
 def update_avg_reward(metric_bag: MetricBag, avg_reward):
     metric_bag.get(Mean, "avg_reward").update(avg_reward, weight=1)
 
+
 @torch.inference_mode()
 def update_avg_rollout_length(metric_bag: MetricBag, avg_rollout_length):
     metric_bag.get(Mean, "avg_rollout_length").update(avg_rollout_length, weight=1)
+
 
 @torch.inference_mode()
 def update_avg_reward_len_norm(metric_bag: MetricBag, avg_reward_len_norm):
     metric_bag.get(Mean, "avg_reward_len_norm").update(avg_reward_len_norm, weight=1)
 
+
 @torch.inference_mode()
 def update_avg_loss_zeroer(metric_bag: MetricBag, avg_loss_zeroer):
     metric_bag.get(Mean, "avg_loss_zeroer").update(avg_loss_zeroer, weight=1)
 
+
 @torch.inference_mode()
 def update_batch_metrics(metric_bag: MetricBag, batch: PreferenceBatch, train: bool):
     num_examples = batch.batch_size
-    metric_bag.get(Mean, "num_examples").update(num_examples)
+    metric_bag.get(Sum, "num_examples").update(num_examples)
     if train:
-        metric_bag.get(Mean, "total_num_examples").update(num_examples)
+        metric_bag.get(Sum, "total_num_examples").update(num_examples)
+
+
+def update_grpo_batch_metrics(
+    metric_bag: MetricBag, batch: SequenceBatch, train=True
+) -> None:
+    metric_bag.get(Sum, "num_examples").update(batch.num_examples)
+
+    metric_bag.get(Sum, "num_elements").update(batch.num_elements)
+
+    metric_bag.get(Sum, "num_target_elements").update(batch.num_target_elements)
+
+    metric_bag.get(Sum, "padding").update(batch.padding)
+
+    if train:
+        metric_bag.get(Sum, "total_num_examples").update(batch.num_examples)
+
+        metric_bag.get(Sum, "total_num_elements").update(batch.num_elements)
+
+        metric_bag.get(Sum, "total_num_target_elements").update(
+            batch.num_target_elements
+        )
+
 
 @torch.inference_mode()
 def update_grpo_loss(metric_bag: MetricBag, batch: PromptBatch, loss: Tensor) -> None:
@@ -785,4 +559,32 @@ def update_grpo_loss(metric_bag: MetricBag, batch: PromptBatch, loss: Tensor) ->
     :param loss:
         The GRPO loss of ``batch``.
     """
-    metric_bag.get(Mean, "grpo_loss").update(loss / batch.batch_size, weight=batch.batch_size)
+    metric_bag.get(Mean, "grpo_loss").update(
+        loss / batch.batch_size, weight=batch.batch_size
+    )
+
+
+def compute_reference_logps(
+    gangs: Gangs,
+    reference_model: RemoteVllmModel,
+    seqs: torch.Tensor,
+    layout: BatchLayout,
+    prompt_lengths: list[int],
+):
+
+    seqs_to_score = seqs.tolist()
+    if layout.padded:
+        padding_mask = layout.position_indices >= 0  # True when non-pad
+        seqs_to_score = [
+            seq[:l] for seq, l in zip(seqs_to_score, padding_mask.sum(-1).tolist())
+        ]
+
+    scored_responses = generate_rollouts(
+        seqs_to_score, dp_gang=gangs.dp, vllm_model=reference_model
+    )
+    ref_logps = convert_vllm_output_to_ref_score(scored_responses, gangs)
+    ref_logps = collate_with_target_mask(
+        ref_logps, prompt_lengths, device=gangs.dp.device
+    ).seqs
+
+    return ref_logps

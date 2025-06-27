@@ -58,7 +58,7 @@ from fairseq2.recipes.config import (
     RegimeSection,
     TextTokenizerSection,
     TrainerSection,
-    ActivationCheckpointingSection
+    ActivationCheckpointingSection,
 )
 from fairseq2.recipes.lm._online_finetune._common import (
     OnlineCriterionSection,
@@ -307,14 +307,6 @@ def load_online_finetuner(
         raise UnknownOnlineFinetuneUnitError(config.criterion.name) from None
 
     unit = unit_handler.create(model, gangs, config, vllm_actors)
-    
-    # print(f"rank {gangs.root.rank} here")
-
-    try:
-        if unit._sync_vllm_model_every_n_steps >= 0:
-            unit.maybe_sync_models(force_sync_vllm=True)
-    except AttributeError:
-        raise RuntimeError("Train unit does not support maybe_sync_models")
 
     valid_unit = unit_handler.create(model, gangs, config, vllm_actors)
 
@@ -329,16 +321,23 @@ def load_online_finetuner(
     repeat_batch_n_times = 1
     grad_accumulation = config.trainer.grad_accumulation.num_batches
     if unit.display_name == "GRPO":
-        if unit._loss_config.group_size > unit._loss_config.forward_group_size:
+        if (
+            unit._config.loss_config.group_size
+            > unit._config.loss_config.forward_group_size
+        ):
             repeat_batch_n_times = int(
-                unit._loss_config.group_size / unit._loss_config.forward_group_size
+                unit._config.loss_config.group_size
+                / unit._config.loss_config.forward_group_size
             )
             # adjust grad accum so that it assumed repeated batches
-            grad_accumulation = (
-                repeat_batch_n_times * grad_accumulation
+            grad_accumulation = repeat_batch_n_times * grad_accumulation
+            log.info(
+                f"Using micro-batching: group_size={unit._config.loss_config.group_size}, forward_group_size={unit._config.loss_config.forward_group_size}, thus effective grad_accumulation={grad_accumulation}, repeat_batch_n_time={repeat_batch_n_times}"
             )
-            log.info(f"Using micro-batching: group_size={unit._loss_config.group_size}, forward_group_size={unit._loss_config.forward_group_size}, thus effective grad_accumulation={grad_accumulation}, repeat_batch_n_time={repeat_batch_n_times}")
-        elif unit._loss_config.group_size < unit._loss_config.forward_group_size:
+        elif (
+            unit._config.loss_config.group_size
+            < unit._config.loss_config.forward_group_size
+        ):
             raise RuntimeError(
                 " GRPO forward_group_size must be smaller than group_size"
             )

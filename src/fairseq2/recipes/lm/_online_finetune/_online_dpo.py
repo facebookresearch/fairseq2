@@ -61,7 +61,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     update_avg_reward_len_norm,
     update_avg_rollout_length,
     update_batch_metrics,
-    update_logit_entropy
+    update_logit_entropy,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_model import (
@@ -78,11 +78,13 @@ from fairseq2.metrics import Mean, MetricBag
 from fairseq2.recipes.lm._preference_finetune._common import (
     _gather_lprobs_avg,
     update_logps_metrics,
-    update_sequence_length_metrics
+    update_sequence_length_metrics,
 )
 from fairseq2.recipes.lm._online_finetune._common import compute_token_level_entropy
+
 # from fairseq2.recipes.model import Model
 from fairseq2.recipes import Model, TrainUnit
+
 # from fairseq2.typing import DataType
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
@@ -226,7 +228,9 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         return ref_logps
 
     @override
-    def __call__(self, prompt_batch: PromptBatch, metric_bag: MetricBag) -> tuple[Tensor, int]:
+    def __call__(
+        self, prompt_batch: PromptBatch, metric_bag: MetricBag
+    ) -> tuple[Tensor, int]:
 
         if not self.model.module.training:
             # we are in valid mode, only compute reward and return
@@ -252,7 +256,10 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         # below is the usual DPO code
         chosen_input_batch, chosen_target_batch = batch.chosen.as_auto_regressive()
-        rejected_input_batch, rejected_target_batch = batch.rejected.as_auto_regressive_input()
+        (
+            rejected_input_batch,
+            rejected_target_batch,
+        ) = batch.rejected.as_auto_regressive_input()
         if (
             chosen_target_batch.target_mask is None
             or rejected_target_batch.target_mask is None
@@ -313,8 +320,12 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         else:
             with torch.no_grad():
-                ref_chosen_logits = self._reference_model.module(chosen_seqs, chosen_seqs_layout)
-                ref_rejected_logits = self._reference_model.module(rejected_seqs, rejected_seqs_layout)
+                ref_chosen_logits = self._reference_model.module(
+                    chosen_seqs, chosen_seqs_layout
+                )
+                ref_rejected_logits = self._reference_model.module(
+                    rejected_seqs, rejected_seqs_layout
+                )
                 ref_chosen_logps, ref_average_chosen_logps = _gather_lprobs_avg(
                     ref_chosen_logits, chosen_target_batch
                 )
@@ -552,18 +563,14 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
     def create(
         self, model: Module, gangs: Gangs, recipe_config: object, vllm_actors: object
     ) -> TrainUnit[PreferenceBatch]:
-        config = structure(
-            recipe_config.criterion.config, OnlineDpoFinetuneConfig
-        )
+        config = structure(recipe_config.criterion.config, OnlineDpoFinetuneConfig)
 
         validate(config)
 
         if isinstance(config.reference_model, ReferenceModelSection):
             log.info("Setting up GRPO with reference model.")
 
-            trainer_section = structure(
-                recipe_config.trainer, TrainerSection
-            )
+            trainer_section = structure(recipe_config.trainer, TrainerSection)
 
             reference_model = setup_reference_model(
                 CausalLM,

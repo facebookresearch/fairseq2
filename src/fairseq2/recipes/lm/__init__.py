@@ -125,6 +125,7 @@ from fairseq2.recipes.lm._online_finetune._recipe import (
     load_online_finetuner,
     OnlineFinetuneConfig,
 )
+
 from fairseq2.recipes.lm._online_finetune._recipe import (
     OnlineFinetuneDatasetSection as OnlineFinetuneDatasetSection,
 )
@@ -167,7 +168,7 @@ from fairseq2.recipes.lm._online_finetune._remote_model import (
     RemoteModelHandler as RemoteModelHandler,
 )
 
-from fairseq2.recipes.lm._online_finetune._common import NoEnvAtheneRewardPipeline as NoEnvAtheneRewardPipeline
+from fairseq2.recipes.lm._online_finetune._remote_model import NoEnvAtheneRewardPipeline as NoEnvAtheneRewardPipeline
 
 from fairseq2.recipes.lm._train import CausalLMTrainConfig as CausalLMTrainConfig
 from fairseq2.recipes.lm._train import CausalLMTrainUnit as CausalLMTrainUnit

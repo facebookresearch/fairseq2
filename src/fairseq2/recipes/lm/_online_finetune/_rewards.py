@@ -20,15 +20,13 @@ from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gangs
 from fairseq2.recipes.lm._online_finetune._common import (
-    GRPOBatch,
     collate_with_target_mask,
-    find_first_value,
     generate_rewards,
     generate_rewards_generative,
     prepare_preference_batch_random_pair,
+    _mute_output,
 )
 from fairseq2.recipes.lm._online_finetune._generative_prompts import POINTWISE_PROMPT
-from fairseq2.recipes import TrainUnit
 
 
 @dataclass(kw_only=True)
@@ -48,23 +46,28 @@ class VLLMOutputRewardHandler(ABC):
     @abstractmethod
     def create(
         self, reward_model: Any, gangs: Gangs, reward_config: object
-    ) -> VLLMOutputReward: ...
+    ) -> VLLMOutputReward:
+        ...
 
     @property
     @abstractmethod
-    def name(self) -> str: ...
+    def name(self) -> str:
+        ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]: ...
+    def config_kls(self) -> type[object]:
+        ...
 
 
 class VLLMOutputReward(ABC):
     @abstractmethod
-    def process_rollouts(self, vllm_outputs: list[RequestOutput]): ...
+    def process_rollouts(self, vllm_outputs: list[RequestOutput]):
+        ...
 
     @abstractmethod
-    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts): ...
+    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts):
+        ...
 
 
 class GSM8kVerifierHandler(VLLMOutputRewardHandler):
@@ -214,7 +217,8 @@ class MathVerifyVerifier(VLLMOutputReward):
         if not answer.startswith("$"):
             answer = f"${answer}$"
         try:
-            grade, extracted_answers = self.verify_func([answer], [completion])
+            with _mute_output():
+                grade, extracted_answers = self.verify_func([answer], [completion])
         except:
             grade = 0
             extracted_answers = None

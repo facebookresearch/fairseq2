@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fairseq2.models.utils.checkpoint import convert_checkpoint, create_reverse_key_map
+import torch
+
+from fairseq2.models.utils.checkpoint import convert_checkpoint, create_reverse_key_map, get_converted_key
 from fairseq2.models.utils.hg import save_hg_checkpoint
 
 # isort: split
@@ -58,3 +60,29 @@ def _convert_to_hg_checkpoint(
         del hg_checkpoint["lm_head.weight"]
 
     return hg_checkpoint
+
+
+def _convert_parameter(name: str,
+    parameter: torch.nn.Parameter, config: QwenConfig
+) -> dict[str, object]:
+
+    key_map = {
+        # fmt: off
+        r"decoder\.layers\.([0-9]+)\.self_attn\.q_proj.":      r"model.layers.\1.self_attn.q_proj.",
+        r"decoder\.layers\.([0-9]+)\.self_attn\.k_proj.":      r"model.layers.\1.self_attn.k_proj.",
+        r"decoder\.layers\.([0-9]+)\.self_attn\.v_proj.":      r"model.layers.\1.self_attn.v_proj.",
+        r"decoder\.layers\.([0-9]+)\.self_attn\.output_proj.": r"model.layers.\1.self_attn.o_proj.",
+        r"decoder\.layers\.([0-9]+)\.ffn_layer_norm\.":        r"model.layers.\1.post_attention_layernorm.",
+        r"decoder\.layers\.([0-9]+)\.ffn.gate_proj\.":         r"model.layers.\1.mlp.gate_proj.",
+        r"decoder\.layers\.([0-9]+)\.ffn.output_proj\.":       r"model.layers.\1.mlp.down_proj.",
+        r"decoder\.layers\.([0-9]+)\.ffn.inner_proj\.":        r"model.layers.\1.mlp.up_proj.",
+        r"decoder\.layers\.([0-9]+)\.self_attn_layer_norm\.":  r"model.layers.\1.input_layernorm.",
+        r"decoder\.layer_norm\.":                              r"model.norm.",
+        r"decoder_frontend.embed\.":                           r"model.embed_tokens.",
+        r"final_proj\.":                                       r"lm_head.",
+        # fmt: on
+    }
+
+    converted_name = get_converted_key(name, key_map)
+
+    return converted_name, parameter
