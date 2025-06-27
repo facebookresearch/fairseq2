@@ -318,11 +318,9 @@ def find_first_value(lst, value):
 
 
 def generate_rollouts(
-    prompts: List[List[int]],
-    dp_gang,
-    vllm_model,
-    sampling_params=None,
+    prompts: List[List[int]], dp_gang, vllm_model, sampling_params=None
 ):
+
     prompts_to_generate = [None] * dp_gang.size
     if dp_gang.rank == 0:
         dp_gang.gather_object(prompts, prompts_to_generate, 0)

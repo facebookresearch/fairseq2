@@ -63,6 +63,7 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
     RewardSection,
     VLLMOutputReward,
     VLLMOutputRewardHandler,
+    MultiVerifier,
 )
 from fairseq2.recipes.lm._preference_finetune._common import (
     POCriterionSection,
@@ -90,7 +91,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     _sync_vllm_model_every_n_steps: int
     _sync_ref_model_every_n_steps: int
     _display_name: str
-    _reward: VLLMOutputReward
+    _reward: dict | VLLMOutputReward
     _reference_offload: bool
 
     def __init__(
@@ -117,6 +118,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._sync_vllm_model_every_n_steps = sync_vllm_model_every_n_steps
         self._sync_ref_model_every_n_steps = sync_ref_model_every_n_step
         self._reward = reward
+        # self._reward = reward
         self._metric_bag = OnlineDpoFinetuneMetricBag(gangs.dp)
 
         self._display_name = "online_dpo"
@@ -164,6 +166,23 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 policy_sampling_params.__setattr__(k, v)
         else:
             policy_sampling_params = None
+
+        if self._loss_config.mix_lengths:
+            try:
+                reward_model_type = prompt_batch.meta_info.get("reward_model", [None])[
+                    0
+                ]
+                if len(set(prompt_batch.meta_info["reward_model"])) != 1:
+                    reward_model_type = "athene_verifier"
+                if reward_model_type == "math_verify":
+                    max_tokens = 2048
+                elif reward_model_type == "athene_verifier":
+                    max_tokens = 1024
+            except:
+                max_tokens = None
+        else:
+            max_tokens = None
+
         rollouts = generate_rollouts(
             prompt_batch.prompts,
             dp_gang=self._gangs.dp,
@@ -226,16 +245,35 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         self.maybe_sync_models()
 
+        if self._loss_config.mix_lengths:
+            try:
+                reward_model_type = prompt_batch.meta_info.get("reward_model", [None])[
+                    0
+                ]
+                if len(set(prompt_batch.meta_info["reward_model"])) != 1:
+                    reward_model_type = "athene_verifier"
+                if reward_model_type == "math_verify":
+                    max_tokens = 2048
+                elif reward_model_type == "athene_verifier":
+                    max_tokens = 1024
+            except:
+                max_tokens = None
+        else:
+            max_tokens = None
+
         rollouts = generate_rollouts(
-            prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
+            prompt_batch.prompts,
+            dp_gang=self._gangs.dp,
+            vllm_model=self._vllm_model,
         )
         if self._loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Train")
 
         batch: PreferenceBatch
         batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
-            prompt_batch, rollouts
+            prompt_batch, rollouts, self._loss_config.reject_longest
         )  # loss_zeroer is used when entire batch has no valid prefrence pair
+
         if is_bad_batch:
             loss_zeroer = 0.0
         else:
@@ -336,6 +374,9 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         self._metric_bag.update_avg_reward(avg_reward)
 
+        if "reward_model" in prompt_batch.meta_info:
+            reward_model_type = prompt_batch.meta_info["reward_model"][0]
+            self._metric_bag.update_avg_task_reward(avg_reward, reward_model_type)
         if self._loss_config.nll_length_normalization:
             nll_loss = (
                 nll_loss
@@ -410,6 +451,8 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
     avg_reward: Mean
     avg_loss_zeroer: Mean
     logit_entropy: Mean
+    avg_math_reward: Mean
+    avg_wildchat_reward: Mean
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
@@ -430,6 +473,12 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         )
         self.register_metric(
             "logit_entropy", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "avg_math_reward", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "avg_wildchat_reward", Mean(device=gang.device), persistent=False
         )
 
     @torch.inference_mode()
@@ -460,6 +509,14 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
     @torch.inference_mode()
     def update_avg_reward(self, avg_reward):
         self.avg_reward.update(avg_reward, weight=1)
+
+    @torch.inference_mode()
+    def update_avg_task_reward(self, avg_reward, task):
+        # FIXME don't hardcode tasks
+        if task == "math_verify":
+            self.avg_math_reward.update(avg_reward, weight=1)
+        elif task == "athene_verifier":
+            self.avg_wildchat_reward.update(avg_reward, weight=1)
 
     @torch.inference_mode()
     def update_avg_rollout_length(self, avg_rollout_length):
@@ -505,6 +562,12 @@ class DpoLossConfig:
 
     validation_vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
     """VLLM sampling params for validation. If not set, the same params as training will be used."""
+
+    reject_longest: bool = False
+    """Longest sequence in the batch will be rejected. This is used to avoid the model to generate long sequences."""
+
+    mix_lengths: bool = False
+    """Mix lengths of the sequences in the batch. This is used to avoid the model to generate long sequences."""
 
 
 @dataclass(kw_only=True)
@@ -587,15 +650,27 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         gangs.root.barrier()
 
         vllm_model = vllm_actors[config.ray_policy_actor_name]
-
-        vllm_reward_model = vllm_actors.get(config.vllm_reward_model_name, None)
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
-        reward_handler = reward_registry.get(config.reward.name)
-        reward = reward_handler.create(
-            reward_model=vllm_reward_model,
-            reward_config=config.reward.config,
-            gangs=gangs,
-        )
+        vllm_reward_model = vllm_actors.get(config.vllm_reward_model_name, None)
+        if type(config.reward.name) is list and len(config.reward.name) > 1:
+            reward_mapper = {}
+            for reward_name in config.reward.name:
+                reward_handler = reward_registry.get(reward_name)
+                reward_model = reward_handler.create(
+                    reward_model=vllm_reward_model,
+                    reward_config=config.reward.config,
+                    gangs=gangs,
+                )
+                reward_mapper[reward_name] = reward_model
+            reward = MultiVerifier(reward_mapper)
+        else:
+            reward_name = config.reward.name
+            reward_handler = reward_registry.get(reward_name)
+            reward = reward_handler.create(
+                reward_model=vllm_reward_model,
+                reward_config=config.reward.config,
+                gangs=gangs,
+            )
 
         return OnlineDpoFinetuneUnit(
             model,
