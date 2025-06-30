@@ -71,6 +71,7 @@ from typing_extensions import override
 
 @dataclass(kw_only=True)
 class Wav2Vec2AsrTrainConfig:
+    is_june_17_codebase: bool = True
     model: ModelSection = field(
         default_factory=lambda: ModelSection(family="wav2vec2_asr", arch="base_10h")
     )
