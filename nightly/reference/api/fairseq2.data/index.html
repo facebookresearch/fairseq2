@@ -318,7 +318,7 @@
           <section id="module-fairseq2.data">
 <span id="fairseq2-data"></span><h1>fairseq2.data<a class="headerlink" href="#module-fairseq2.data" title="Link to this heading">¶</a></h1>
 <p>The data pipeline module provides the core data processing functionality in fairseq2.</p>
-<pre data-zoom-id="id-1527e8bc-4041-45c3-b8e7-c6ae30e6e4f3" class="mermaid">
+<pre data-zoom-id="id-58f5733e-f903-4ea9-bcc3-d45f95a8ca29" class="mermaid">
         classDiagram
   BaseException &lt;|-- Exception
   Exception &lt;|-- ByteStreamError
@@ -659,6 +659,57 @@ See <a class="reference internal" href="../../../basics/data_pipeline.html#basic
 <li><p><strong>deterministic</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">False</span></code>, the output ordering is not guaranteed to match the input ordering.
 Can yield gains in execution speed when used with <code class="docutils literal notranslate"><span class="pre">num_parallel_calls</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>.</p></li>
 </ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.13)"><em>Self</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.DataPipelineBuilder.pack">
+<span class="sig-name descname"><span class="pre">pack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_elements</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_seq_len</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">truncate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_remainder</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pinned_memory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/_data_pipeline.html#DataPipelineBuilder.pack"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.DataPipelineBuilder.pack" title="Link to this definition">¶</a></dt>
+<dd><p>Packs input sequences into a batch by concataneting them till the
+total number of tokens in the batch reaches <code class="docutils literal notranslate"><span class="pre">num_elements</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>num_elements</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The maximum number of tokens that the returned
+batch should have.</p></li>
+<li><p><strong>max_seq_len</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The maximum length of each packed sequence. If
+<code class="docutils literal notranslate"><span class="pre">truncate</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code> and a sequence is longer than
+<code class="docutils literal notranslate"><span class="pre">max_seq_len</span></code>, it will be split into two sequences
+<code class="docutils literal notranslate"><span class="pre">seq[0:max_seq_len]</span></code> and <code class="docutils literal notranslate"><span class="pre">seq[max_seq_len</span> <span class="pre">-</span> <span class="pre">1:-1]</span></code>.
+The remainder sequence will be treated as the next sequence to
+pack. If <code class="docutils literal notranslate"><span class="pre">truncate</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code> and the sequence is longer
+than <code class="docutils literal notranslate"><span class="pre">max_seq_len</span></code>, an error will be raised.</p></li>
+<li><p><strong>truncate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>; the last sequence in the pack will be
+truncated to fill the remaining space in the batch and the
+remainder of the sequence will be preserved for the next <code class="docutils literal notranslate"><span class="pre">pack()</span></code>
+call.  If <code class="docutils literal notranslate"><span class="pre">False</span></code>; if the last sequence cannot be fit into the
+batch, it will be skipped and will be put into the next batch.</p></li>
+<li><p><strong>drop_remainder</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, drops the last batch in case end of data is reached
+during packing.</p></li>
+<li><p><strong>pinned_memory</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, uses pinned memory for batch
+tensors.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.13)"><em>Self</em></a></p>
+</dd>
+</dl>
+<p>The packing implementation is tuned for feeding batches into an
+auto-regressive model. If <code class="docutils literal notranslate"><span class="pre">truncate</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code> and the last
+sequence in the batch gets truncated, the remainder sequence will
+start from the last token of the truncated sequence:</p>
+<p>max_seq_len = 4, seq = [0, 1, 2, 3, 4, 5, 6]</p>
+<p>seq1 = [0, 1, 2, 3], seq2 = [3, 4, 5, 6]</p>
+<p>The fourth token (i.e. 3) is both the last token of the first
+sequence and the first token of the second sequence.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A <code class="docutils literal notranslate"><span class="pre">dict</span></code> with key <code class="docutils literal notranslate"><span class="pre">seqs</span></code> containing the batch tensor
+and key <code class="docutils literal notranslate"><span class="pre">seq_lens</span></code> containing the lengths of packed sequences.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.13)"><em>Self</em></a></p>
@@ -1221,6 +1272,7 @@ or want to avoid incurring the cost of pickling on creation), set
 <li><a class="reference internal" href="#fairseq2.data.DataPipelineBuilder.dynamic_bucket"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.dynamic_bucket()</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.data.DataPipelineBuilder.filter"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.filter()</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.data.DataPipelineBuilder.map"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.map()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.DataPipelineBuilder.pack"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.pack()</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.data.DataPipelineBuilder.prefetch"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.prefetch()</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.data.DataPipelineBuilder.repeat"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.repeat()</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.data.DataPipelineBuilder.shard"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.shard()</span></code></a></li>
@@ -1283,7 +1335,7 @@ or want to avoid incurring the cost of pickling on creation), set
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=c0f5cb57"></script>
+</div><script src="../../../_static/documentation_options.js?v=71492070"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
@@ -1301,7 +1353,7 @@ const load = async () => {
     const mermaids_to_add_zoom = 1 === -1 ? all_mermaids.length : 1;
     const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
     if(mermaids_to_add_zoom > 0) {
-        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-1527e8bc-4041-45c3-b8e7-c6ae30e6e4f3] svg");
+        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-58f5733e-f903-4ea9-bcc3-d45f95a8ca29] svg");
         if(all_mermaids.length !== mermaids_processed.length) {
             // try again in a sec, wait for mermaids to load
             setTimeout(load, 200);
