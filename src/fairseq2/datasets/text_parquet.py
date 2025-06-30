@@ -218,5 +218,5 @@ class ParquetTextDataset(ParquetDatasetInterface, TextDataset):
             text_column_name="text",
         )
         return DataPipelineReader[SequenceBatch](
-            self._name, "default", pipeline, gang, options
+            self._name, "default", pipeline, gang, options, strict_state=False
         )
