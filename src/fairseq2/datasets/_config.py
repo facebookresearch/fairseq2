@@ -97,6 +97,9 @@ class DataReadOptions:
     num_prefetch: int = 1
     """The number of batches to prefetch in background."""
 
+    npc: int = 10
+    """The reference number of parallel calls that data reader can do."""
+
     seed: int = 2
     """The seed to initialize the random number generators used internally."""
 

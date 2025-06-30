@@ -121,10 +121,6 @@ class PreferenceDataset(ABC):
         """
 
 
-# TODO: FIX, INFER
-npc = 10
-
-
 GENERIC_PREFERENCE_DATASET_FAMILY: Final = "generic_preference"
 
 
@@ -209,9 +205,9 @@ class GenericPreferenceDataset(PreferenceDataset):
         source_encoder = tokenizer.create_encoder(mode=options.source_encode_mode)
         target_encoder = tokenizer.create_encoder(mode=options.target_encode_mode)
 
-        builder.map(source_encoder, selector="src", num_parallel_calls=npc)
-        builder.map(target_encoder, selector="tgt_chosen", num_parallel_calls=npc)
-        builder.map(target_encoder, selector="tgt_rejected", num_parallel_calls=npc)
+        builder.map(source_encoder, selector="src", num_parallel_calls=1)
+        builder.map(target_encoder, selector="tgt_chosen", num_parallel_calls=1)
+        builder.map(target_encoder, selector="tgt_rejected", num_parallel_calls=1)
 
         def cat_source_and_target(example: dict[str, Any]) -> dict[str, Any]:
             id_ = example.get("id", None)
@@ -264,7 +260,7 @@ class GenericPreferenceDataset(PreferenceDataset):
                 "keep_jsonl_keys": jsonl_content,
             }
 
-        builder.map(cat_source_and_target, num_parallel_calls=npc)
+        builder.map(cat_source_and_target, num_parallel_calls=1)
 
         batching = options.batching
 
@@ -315,7 +311,7 @@ class GenericPreferenceDataset(PreferenceDataset):
 
         collater = Collater(pad_value=0, overrides=target_mask_collate_opts)
 
-        builder.map(collater, num_parallel_calls=npc)
+        builder.map(collater, num_parallel_calls=options.npc)
 
         # Return only the first `max_num_batches`.
         if options.max_num_batches is not None:
@@ -387,7 +383,7 @@ class GenericPreferenceDataset(PreferenceDataset):
             for line in fp:
                 lines.append(line)
 
-        return read_sequence(lines).map(json.loads, num_parallel_calls=npc)
+        return read_sequence(lines).map(json.loads, num_parallel_calls=1)
 
 
 get_preference_dataset_hub = DatasetHubAccessor(PreferenceDataset)

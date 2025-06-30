@@ -127,10 +127,6 @@ class InstructionDataset(ABC):
         """Return the set of splits."""
 
 
-# TODO: FIX, INFER
-npc = 10
-
-
 GENERIC_INSTRUCTION_DATASET_FAMILY: Final = "generic_instruction"
 
 
@@ -238,8 +234,8 @@ class GenericInstructionDataset(InstructionDataset):
         source_encoder = tokenizer.create_encoder(mode=options.source_encode_mode)
         target_encoder = tokenizer.create_encoder(mode=options.target_encode_mode)
 
-        builder.map(source_encoder, selector="src", num_parallel_calls=npc)
-        builder.map(target_encoder, selector="tgt", num_parallel_calls=npc)
+        builder.map(source_encoder, selector="src", num_parallel_calls=1)
+        builder.map(target_encoder, selector="tgt", num_parallel_calls=1)
 
         def cat_source_and_target(example: dict[str, Any]) -> dict[str, Any]:
             id_ = example.get("id")
@@ -253,7 +249,7 @@ class GenericInstructionDataset(InstructionDataset):
 
             return {"id": id_, "indices": indices, "target_mask": target_mask}
 
-        builder.map(cat_source_and_target, num_parallel_calls=npc)
+        builder.map(cat_source_and_target, num_parallel_calls=1)
 
         batching = options.batching
 
@@ -301,7 +297,7 @@ class GenericInstructionDataset(InstructionDataset):
             pad_value=tokenizer.vocab_info.pad_idx, overrides=[target_mask_collate_opts]
         )
 
-        builder.map(collater, num_parallel_calls=npc)
+        builder.map(collater, num_parallel_calls=options.npc)
 
         # Return only the first `max_num_batches`.
         if options.max_num_batches is not None:
@@ -373,7 +369,7 @@ class GenericInstructionDataset(InstructionDataset):
 
             return {"id": id_, "prompt": source, "indices": indices}
 
-        builder.map(encode, num_parallel_calls=npc)
+        builder.map(encode, num_parallel_calls=1)
 
         # Filter out long examples.
         def skip(example: dict[str, Any]) -> bool:
@@ -394,7 +390,7 @@ class GenericInstructionDataset(InstructionDataset):
         # Collate bucketed examples into a batch.
         collater = Collater(pad_value=tokenizer.vocab_info.pad_idx or 0)
 
-        builder.map(collater, num_parallel_calls=npc)
+        builder.map(collater, num_parallel_calls=options.npc)
 
         # Prefetch `num_prefetch` batches in background.
         builder.prefetch(options.num_prefetch)
@@ -421,7 +417,7 @@ class GenericInstructionDataset(InstructionDataset):
             for line in fp:
                 lines.append(line)
 
-        return read_sequence(lines).map(json.loads, num_parallel_calls=npc)
+        return read_sequence(lines).map(json.loads, num_parallel_calls=1)
 
     @override
     def splits(self) -> set[str]:
