@@ -9,11 +9,12 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, List, Set, final, override
+from typing import Any, Final, List, Set, final
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.data import DataPipelineBuilder, read_sequence
 from fairseq2.data.parquet import (
