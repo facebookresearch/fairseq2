@@ -124,7 +124,7 @@ class JsonlDataset(TextDataset):
         max_seq_len: int,
         pad_idx: int | None,
         text_column_name: str,
-    ):
+    ) -> DataPipeline:
         if pad_idx is None:
             pad_idx = 0
 
