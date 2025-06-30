@@ -13,7 +13,6 @@ from typing import Any, Final, List, Set, final
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.data import DataPipelineBuilder, read_sequence
@@ -30,7 +29,6 @@ from fairseq2.datasets.jsonl import JsonlDataset
 from fairseq2.datasets.text import TextDataset, TextReadOptions
 from fairseq2.gang import Gang
 from fairseq2.logging import log
-from fairseq2.nn import BatchLayout
 
 PARQUET_TEXT_DATASET_FAMILY: Final = "parquet_text"
 
