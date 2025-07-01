@@ -17,12 +17,6 @@ from fairseq2.metrics import MetricBag
 from typing_extensions import override
 from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
 from fairseq2.nn._batch_layout import BatchLayout
-from fairseq2.recipes.lm._online_finetune._common import (
-    VllmSyncSection,
-    compute_token_level_entropy,
-    log_rollouts,
-    get_rollout_lengths,
-)
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets.preference import PreferenceBatch
@@ -37,6 +31,10 @@ from fairseq2.nn.data_parallel._fsdp import (
 )
 
 from fairseq2.recipes.lm._online_finetune._common import (
+    VllmSyncSection,
+    compute_token_level_entropy,
+    log_rollouts,
+    get_rollout_lengths,
     generate_rollouts,
     StatefulRolloutBag,
     update_avg_reward,
@@ -140,11 +138,8 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     _vllm_actors: Dict[str, Union[RemoteVllmModel, RemoteHFModel]]
     _config: GrpoFinetuneConfig
     _model_update_group: PyNcclCommunicator
-    _sync_vllm_model_every_n_steps: int
-    _sync_ref_model_every_n_steps: int
     _reward: VLLMOutputReward
     _display_name: str
-    _reference_offload: bool
     _rollout_bag: StatefulRolloutBag
 
     def __init__(
@@ -165,7 +160,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._vllm_model = vllm_model
         self._gangs = gangs
         self._reward = reward
-        self._reference_offload = True
         self._rollout_bag = StatefulRolloutBag(
             max_bag_steps=int(
                 config.loss_config.group_size / config.loss_config.forward_group_size
@@ -503,7 +497,6 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
                     f"Reference model actor must have update process group if we sync weights"
                 )
 
-        print(f"HERE")
         vllm_model = vllm_actors[config.vllm_model_actor_name]
         if gangs.dp.rank == 0:
             if vllm_model.sampling_params.n < config.loss_config.group_size:

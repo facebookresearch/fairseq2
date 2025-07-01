@@ -365,7 +365,7 @@ def load_online_finetuner(
     )
 
     if config.dataset.valid_split:
-        valid_batching = StaticBatching(32)
+        valid_batching = StaticBatching(64)
         valid_read_options = PromptReadOptions(
             batching=valid_batching,
             example_shuffle_window=config.dataset.example_shuffle_window,

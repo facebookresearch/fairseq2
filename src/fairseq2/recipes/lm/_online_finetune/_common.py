@@ -484,12 +484,8 @@ def update_logit_entropy(metric_bag: MetricBag, logit_entropy: Tensor):
 
 
 @torch.inference_mode()
-def update_dpo_loss(
-    metric_bag: MetricBag, loss: Tensor, batch: PreferenceBatch
-) -> None:
-    metric_bag.get(Mean, "dpo_loss").update(
-        loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
-    )
+def update_dpo_loss(metric_bag: MetricBag, loss: Tensor, batch_size: int) -> None:
+    metric_bag.get(Mean, "dpo_loss").update(loss / batch_size, weight=batch_size)
 
 
 @torch.inference_mode()
