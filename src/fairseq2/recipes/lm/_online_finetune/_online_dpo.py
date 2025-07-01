@@ -132,6 +132,17 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     def display_name(self) -> str | None:
         return self._display_name
 
+    def set_train_step_nr(self, train_step_nr: int) -> None:
+        self._valid_step_nr = train_step_nr
+
+    def finalize(self, metric_bag: MetricBag) -> None:
+        pass
+
+    @property
+    @override
+    def name(self) -> str | None:
+        return self._display_name
+
     def validate_reward(
         self, prompt_batch: PromptBatch, metric_bag
     ) -> tuple[Tensor, int]:
