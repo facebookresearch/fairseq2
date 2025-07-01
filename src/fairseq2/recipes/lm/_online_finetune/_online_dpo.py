@@ -186,7 +186,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         if not self.model.module.training:
             # we are in valid mode, only compute reward and return
-            dummy_loss, batch_size = self.validate_reward(prompt_batch)
+            dummy_loss, batch_size = self.validate_reward(prompt_batch, metric_bag)
             return dummy_loss, batch_size
 
         maybe_sync_model(
