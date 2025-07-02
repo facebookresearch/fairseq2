@@ -48,6 +48,9 @@ class VllmEngineArgs:
     trust_remote_code: bool = False
     model_impl: str = "auto"
     enforce_eager: bool = True
+    gpu_memory_utilization: float = 0.9
+    max_num_batched_tokens: int | None = None
+    enable_chunked_prefill: bool = False
     hf_overrides: object = None
     dtype: str = "auto"
     override_pooler_config: PoolerConfig = field(default_factory=lambda: PoolerConfig())
@@ -287,6 +290,9 @@ class RemoteVllmModel:
             trust_remote_code=vllm_engine_args.trust_remote_code,
             model_impl=vllm_engine_args.model_impl,
             hf_overrides=vllm_engine_args.hf_overrides,
+            gpu_memory_utilization=vllm_engine_args.gpu_memory_utilization,
+            max_num_batched_tokens=vllm_engine_args.max_num_batched_tokens,
+            enable_chunked_prefill=vllm_engine_args.enable_chunked_prefill,
             override_pooler_config=vllm_engine_args.override_pooler_config,
             dtype=vllm_engine_args.dtype,
             distributed_executor_backend="ray",
