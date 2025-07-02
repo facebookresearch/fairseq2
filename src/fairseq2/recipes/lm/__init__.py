@@ -189,3 +189,23 @@ from fairseq2.recipes.lm._online_finetune._remote_model import (
 from fairseq2.recipes.lm._online_finetune._common import (
     NoEnvAtheneRewardPipeline as NoEnvAtheneRewardPipeline,
 )
+
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    JudgmentExtractorHandler as JudgmentExtractorHandler,
+)
+
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    J1PointwiseExtractor as J1PointwiseExtractor,
+)
+
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    J1PointwiseExtractorHandler as J1PointwiseExtractorHandler,
+)
+
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    J1PairwiseScoreExtractor as J1PairwiseScoreExtractor,
+)
+
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    J1PairwiseScoreExtractorHandler as J1PairwiseScoreExtractorHandler,
+)

@@ -16,6 +16,7 @@ from transformers import AutoTokenizer
 from typing_extensions import override
 from vllm import LLM, CompletionOutput, RequestOutput, SamplingParams
 
+from fairseq2.context import RuntimeContext
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gangs
@@ -28,11 +29,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     generate_rewards_generative,
     prepare_preference_batch_random_pair,
 )
-from fairseq2.recipes.lm._online_finetune._generative_prompts import (
-    POINTWISE_PROMPT, 
-    PAIRWISE_PROMPT,
-    PAIRWISE_WITH_SCORES_PROMPT
-)
+from fairseq2.recipes.lm._online_finetune._generative_judge import JudgmentExtractorHandler
 from fairseq2.recipes.model import Model
 from fairseq2.recipes.trainer import TrainUnit
 
@@ -42,6 +39,7 @@ class RewardModelConfig:
     answer_key: str = "answer"
     prompt_key: str = "prompt"
     tokenizer: str | None = None
+    judgment_extractor: str | None = None
 
 
 @dataclass(kw_only=True)
@@ -53,7 +51,7 @@ class RewardSection:
 class VLLMOutputRewardHandler(ABC):
     @abstractmethod
     def create(
-        self, reward_model: Any, reward_name: str, gangs: Gangs, reward_config: object
+        self, reward_model: Any, reward_name: str, gangs: Gangs, context: RuntimeContext, reward_config: object
     ) -> VLLMOutputReward: ...
 
     @property
@@ -78,12 +76,13 @@ class GSM8kVerifierHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, reward_model, reward_name, reward_config, gangs):
+    def create(self, reward_model, reward_name, reward_config, gangs, context):
         return GSM8kVerifier(
             answer_key=reward_config.answer_key,
             prompt_key=reward_config.prompt_key,
             reward_name=reward_name,
             gangs=gangs,
+            context=context
         )
 
     @property
@@ -98,12 +97,13 @@ class GSM8kVerifierHandler(VLLMOutputRewardHandler):
 
 
 class GSM8kVerifier(VLLMOutputReward):
-    def __init__(self, answer_key, prompt_key, reward_name, gangs):
+    def __init__(self, answer_key, prompt_key, reward_name, gangs, context):
         self.answer_re = re.compile(
             r"#### (\-?[0-9\.\,]+)"
         )  # regexp from original gsm8k to extract formatted answer
         self.invalid_answer = "[invalid]"
         self._gangs = gangs
+        self._context = context
         self.answer_key = answer_key
         self.reward_name = reward_name
         self.prompt_key = prompt_key
@@ -164,12 +164,13 @@ class MathVerifyHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, reward_model, reward_name, reward_config, gangs):
+    def create(self, reward_model, reward_name, reward_config, gangs, context):
         return MathVerifyVerifier(
             answer_key=reward_config.answer_key,
             prompt_key=reward_config.prompt_key,
             reward_name=reward_name,
             gangs=gangs,
+            context=context
         )
 
     @property
@@ -184,7 +185,7 @@ class MathVerifyHandler(VLLMOutputRewardHandler):
 
 
 class MathVerifyVerifier(VLLMOutputReward):
-    def __init__(self, answer_key, prompt_key, reward_name, gangs):
+    def __init__(self, answer_key, prompt_key, reward_name, gangs, context):
         try:
             from math_verify.metric import math_metric
             from math_verify.parser import (
@@ -198,6 +199,7 @@ class MathVerifyVerifier(VLLMOutputReward):
             )
 
         self._gangs = gangs
+        self._context = context
         self.answer_key = answer_key
         self.prompt_key = prompt_key
         self.reward_name = reward_name
@@ -280,7 +282,7 @@ class AtheneVerifierHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, reward_model, reward_name, reward_config, gangs):
+    def create(self, reward_model, reward_name, reward_config, gangs, context):
         if reward_config.tokenizer is not None:
             tokenizer = reward_config.tokenizer
         else:
@@ -288,6 +290,7 @@ class AtheneVerifierHandler(VLLMOutputRewardHandler):
 
         return AtheneVerifier(
             gangs,
+            context,
             reward_model,
             reward_name=reward_name,
             answer_key=reward_config.answer_key,
@@ -315,10 +318,11 @@ class AtheneVerifier(VLLMOutputReward):
     Note: this relies on modified Athene-RM-8B code to ensure compatibility with vLLM.
     """
 
-    def __init__(self, gangs, reward_model, reward_name, answer_key, prompt_key, tokenizer):
+    def __init__(self, gangs, context, reward_model, reward_name, answer_key, prompt_key, tokenizer):
         self.answer_key = answer_key
         self.prompt_key = prompt_key
         self._gangs = gangs
+        self._context = context
         self.reward_model = reward_model
         self.reward_name = reward_name
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
@@ -459,14 +463,19 @@ class GenerativePointwiseVerifierHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, reward_model, reward_name, reward_config, gangs):
+    def create(self, reward_model, reward_name, reward_config, gangs, context):
         if reward_config.tokenizer is None:
-            raise RuntimeError("Generative pointwise judge requires tokenizer")
+            raise RuntimeError("Generative judges require tokenizer")
+        
+        if reward_config.judgment_extractor is None:
+            raise RuntimeError("Generative judges require implementing and specifying a judgment extractor")
 
         return GenerativePointwiseVerifier(
             gangs,
+            context,
             reward_model,
             reward_name,
+            judgment_extractor=reward_config.judgment_extractor,
             answer_key=reward_config.answer_key,
             prompt_key=reward_config.prompt_key,
             tokenizer=reward_config.tokenizer,
@@ -484,16 +493,22 @@ class GenerativePointwiseVerifierHandler(VLLMOutputRewardHandler):
 
 
 class GenerativePointwiseVerifier(VLLMOutputReward):
-    def __init__(self, gangs, reward_model, reward_name, answer_key, prompt_key, tokenizer):
+    def __init__(self, gangs, context, reward_model, reward_name, judgment_extractor, answer_key, prompt_key, tokenizer):
         self.answer_key = answer_key
         self.prompt_key = prompt_key
         self._gangs = gangs
+        self._context = context
         self.reward_model = reward_model
         self.reward_name = reward_name
+        self.judgment_extractor = judgment_extractor
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
+        
+        judgment_extractor_registry = self._context.get_registry(JudgmentExtractorHandler)
+        judgment_extractor_handler = judgment_extractor_registry.get(judgment_extractor)
+        self.judgment_extractor = judgment_extractor_handler.create()
 
     def wrap_text(self, prompt_text, rollout_text):
-        content = POINTWISE_PROMPT.format(
+        content = self.judgment_extractor.prompt().format(
             instruction=prompt_text, response=rollout_text
         )
         wrapped_text = [{"role": "user", "content": content}]
@@ -528,11 +543,16 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
 
-        batch_rewards = generate_rewards_generative(
+        batch_judgments = generate_rewards_generative(
             vllm_inputs, 
             dp_gang=self._gangs.dp, 
             vllm_model=self.reward_model
         )
+        
+        batch_rewards = []
+        for per_rollout_judgments in batch_judgments:
+            per_rollout_rewards = [self.judgment_extractor.extract(judgment.text) for judgment in per_rollout_judgments.outputs]
+            batch_rewards.append(self.judgment_extractor.aggregate(per_rollout_rewards))
 
         # reshape batch_rewards to [Batch, Rollouts]
         B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
@@ -624,14 +644,19 @@ class GenerativePairwiseVerifierHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, reward_model, reward_name, reward_config, gangs):
+    def create(self, reward_model, reward_name, reward_config, gangs, context):
         if reward_config.tokenizer is None:
-            raise RuntimeError("Generative pairwise judge requires tokenizer")
+            raise RuntimeError("Generative judges require tokenizer")
+        
+        if reward_config.judgment_extractor is None:
+            raise RuntimeError("Generative judges require implementing and specifying a judgment extractor")
 
         return GenerativePairwiseVerifier(
             gangs,
+            context,
             reward_model,
             reward_name,
+            judgment_extractor=reward_config.judgment_extractor,
             answer_key=reward_config.answer_key,
             prompt_key=reward_config.prompt_key,
             tokenizer=reward_config.tokenizer,
@@ -649,16 +674,22 @@ class GenerativePairwiseVerifierHandler(VLLMOutputRewardHandler):
 
     
 class GenerativePairwiseVerifier(VLLMOutputReward):
-    def __init__(self, gangs, reward_model, reward_name, answer_key, prompt_key, tokenizer):
+    def __init__(self, gangs, context, reward_model, reward_name, judgment_extractor, answer_key, prompt_key, tokenizer):
         self.answer_key = answer_key
         self.prompt_key = prompt_key
         self._gangs = gangs
+        self._context = context
         self.reward_model = reward_model
         self.reward_name = reward_name
+        self.judgment_extractor = judgment_extractor
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
+        
+        judgment_extractor_registry = self._context.get_registry(JudgmentExtractorHandler)
+        judgment_extractor_handler = judgment_extractor_registry.get(judgment_extractor)
+        self.judgment_extractor = judgment_extractor_handler.create()
 
     def wrap_text(self, prompt_text, rollout_A_text, rollout_B_text):
-        content = PAIRWISE_WITH_SCORES_PROMPT.format(
+        content = self.judgment_extractor.prompt().format(
             instruction=prompt_text, 
             response_A=rollout_A_text, 
             response_B=rollout_B_text
@@ -700,12 +731,16 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
                         
             batch_pairwise_indices.append(prompt_pairwise_indices)
 
-        batch_pairwise_scores = generate_rewards_generative(
+        batch_pairwise_judgments = generate_rewards_generative(
             vllm_inputs, 
             dp_gang=self._gangs.dp, 
             vllm_model=self.reward_model, 
-            is_pointwise=False        
         )
+        
+        batch_pairwise_rewards = []
+        for per_rollout_judgments in batch_pairwise_judgments:
+            per_rollout_rewards = [self.judgment_extractor.extract(judgment.text) for judgment in per_rollout_judgments.outputs]
+            batch_pairwise_rewards.append(self.judgment_extractor.aggregate(per_rollout_rewards))
         
         B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
         
@@ -713,12 +748,12 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
         # Can be done differently too
         batch_rewards = []
         for i in range(B):
-            prompt_pairwise_scores = batch_pairwise_scores[i * R * (R - 1) : (i + 1) * R * (R - 1)]
+            prompt_pairwise_rewards = batch_pairwise_rewards[i * R * (R - 1) : (i + 1) * R * (R - 1)]
             prompt_pairwise_indices = batch_pairwise_indices[i]
             prompt_rewards = [0.0] * R
-            for index, scores in zip(prompt_pairwise_indices, prompt_pairwise_scores):
-                prompt_rewards[index[0]] += scores[0]
-                prompt_rewards[index[1]] += scores[1]
+            for index, rewards in zip(prompt_pairwise_indices, prompt_pairwise_rewards):
+                prompt_rewards[index[0]] += rewards[0]
+                prompt_rewards[index[1]] += rewards[1]
             
             # Average score over 2*(R-1) pairwise comparisons
             if (R-1) > 0:

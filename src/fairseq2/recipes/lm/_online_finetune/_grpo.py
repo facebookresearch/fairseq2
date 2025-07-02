@@ -638,6 +638,7 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             reward_name=reward_name,
             reward_config=config.reward.config,
             gangs=gangs,
+            context=self._context
         )
 
         log.info("GRPO setup complete.")

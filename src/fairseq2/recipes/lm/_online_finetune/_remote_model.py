@@ -32,9 +32,6 @@ from fairseq2.recipes.lm._online_finetune._common import (
 )
 from fairseq2.logging import log
 from fairseq2.context import RuntimeContext
-from fairseq2.recipes.lm._online_finetune._rewards import (
-    VLLMOutputRewardHandler,
-)
 
 
 @dataclass(kw_only=True)
@@ -73,9 +70,11 @@ class RemoteVllmModel:
         vllm_engine_args,
         sampling_params: dict,
         init_update_process_group: bool,
+        context: RuntimeContext,
         gangs: Gangs,
     ):
         self._gangs = gangs
+        self._context = context
 
         self.num_replicas = num_replicas
         self.ray_actor_name = ray_actor_name
@@ -264,78 +263,6 @@ class RemoteVllmModel:
         rewards = [o.outputs.data.item() for o in ray_outputs_flat]
         return rewards
 
-    def reward_from_generative_model(self, prompt_list, is_pointwise):
-
-        def extract_score_single(output):
-            matches = re.findall(
-                r"<score>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score>", output
-            )
-            if matches and float(matches[-1].strip()) > 10.0:
-                log.info(f"CoT = {output}")
-            return float(matches[-1].strip()) if matches else 0.0
-        
-        def extract_score_pair(output):
-            score_a_matches = re.findall(r"<score_A>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score_A>", output)
-            score_b_matches = re.findall(r"<score_B>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score_B>", output)
-
-            if score_a_matches and score_b_matches:
-                score_a = score_a_matches[-1]  # Last occurrence of score_A
-                score_b = score_b_matches[-1]  # Last occurrence of score_B
-                if float(score_a.strip()) > 10.0 or float(score_b.strip()) > 10.0:
-                    log.info(f"CoT = {output}")
-                return (float(score_a.strip()), float(score_b.strip()))
-            else:
-                return (0.0, 0.0)
-        
-        def get_avg_score(scores, is_pointwise):
-            avg_score = 0.0 if is_pointwise else (0.0, 0.0)
-            for score in scores:
-                if is_pointwise:
-                    avg_score += score
-                else:
-                    avg_score = (avg_score[0]+score[0], avg_score[1]+score[1])
-            
-            if is_pointwise:
-                return round(avg_score/len(scores), 4)
-            else:
-                return (round(avg_score[0]/len(scores), 4), round(avg_score[1]/len(scores), 4))
-        
-        def get_len_norm_avg_score(scores, lengths):
-            avg_score = 0.0
-            for score, length in zip(scores, lengths):
-                avg_score += score/length
-            
-            return round(avg_score/len(scores), 4)
-        
-        def extract_preference(output):
-            matches = list(
-                re.finditer(r"<answer>\s*\[\[(A|B)\]\]\s*</answer>", output.strip())
-            )
-
-            return matches[-1].group(1) if matches else None
-        
-        def get_majority_vote(preferences):
-            count_A = preferences.count("A")
-            count_B = preferences.count("B")
-            if count_A > count_B:
-                return "A"
-            elif count_A < count_B:
-                return "B"
-            else:
-                return None
-        
-        judgments = self.rollout_from_model(prompt_list=prompt_list, string_input=True)
-        
-        rewards = []
-        for per_rollout_judgments in judgments:
-            if is_pointwise:
-                per_rollout_scores = [extract_score_single(judgment.text) for judgment in per_rollout_judgments.outputs]
-            else:
-                per_rollout_scores = [extract_score_pair(judgment.text) for judgment in per_rollout_judgments.outputs]
-            rewards.append(get_avg_score(per_rollout_scores, is_pointwise))
-               
-        return rewards
-
 
 @dataclass(kw_only=True)
 class HFRayActorConfig(RayActorConfig):
@@ -455,11 +382,11 @@ class RemoteHFModel:
         # rewards = [o.outputs.data.item() for o in ray_outputs_flat]
         return ray_outputs_flat
 
-    def reward_from_generative_model(self, prompt_list):
+    # def reward_from_generative_model(self, prompt_list):
 
-        raise NotImplementedError(
-            "RemoteHFModel.reward_from_generative_model is not implemented. "
-        )
+    #     raise NotImplementedError(
+    #         "RemoteHFModel.reward_from_generative_model is not implemented. "
+    #     )
 
 
 class RemoteModelHandler(ABC):
@@ -493,6 +420,7 @@ class RemoteRayModelHandler(RemoteModelHandler):
                     actor_config.vllm_engine_args,
                     actor_config.vllm_sampling_params,
                     actor_config.init_update_process_group,
+                    context,
                     gangs,
                 )
             else:

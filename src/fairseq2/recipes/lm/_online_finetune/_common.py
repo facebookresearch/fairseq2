@@ -393,11 +393,7 @@ def generate_rewards_generative(
     prompts: List[List[int]], 
     dp_gang, 
     vllm_model,
-    is_pointwise=True
 ):
-    """
-    By default, any LLM-as-a-Judge will be used in a pointwise setup that generates a score
-    """
     prompts_to_generate = [None] * dp_gang.size
     if dp_gang.rank == 0:
         dp_gang.gather_object(prompts, prompts_to_generate, 0)
@@ -409,7 +405,7 @@ def generate_rewards_generative(
         for rank_prompts in prompts_to_generate:
             flat_request_list.extend(rank_prompts)
 
-        rewards = vllm_model.reward_from_generative_model(flat_request_list, is_pointwise)
+        rewards = vllm_model.rollout_from_model(flat_request_list, string_input=True)
 
         rewards_to_scatter = []
         rewards_per_rank = [None]
