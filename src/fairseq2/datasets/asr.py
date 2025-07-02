@@ -165,6 +165,7 @@ class GenericAsrDataset(ManifestDatasetInterface, AsrDataset):
         builder: DataPipelineBuilder,
         tokenizer: TextTokenizer,
     ) -> DataPipelineBuilder:
+        # Tokenize target text.
         text_encoder = tokenizer.create_encoder()
         builder.map(text_encoder, selector="text")
 
