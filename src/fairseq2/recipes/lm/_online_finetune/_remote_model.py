@@ -86,7 +86,7 @@ class NoEnvLLM(LLM):
         # stop ray from manipulating CUDA_VISIBLE_DEVICES
         # at the top-level
         del os.environ["CUDA_VISIBLE_DEVICES"]
-        os.environ["VLLM_USE_V1"] = "0"
+        # os.environ["VLLM_USE_V1"] = "1"
         super().__init__(*args, **kwargs)
 
         self.ready = True  # Set a flag or return a signal
@@ -112,13 +112,15 @@ class NoEnvAtheneRewardPipeline(AtheneRewardPipeline):
         return "athene_reward_pipeline"
 
 
-class MyWorker(Worker):
+    
+class WorkerExtension:
     """
-    The `MyWorker` class inherits from `Worker` to provide custom functions.
-    For simplicity, we define the `MyWorker` class in this self-contained
-    script. Normally, we should define the `MyWorker` class in a separate
-    file and pass the qualified name of the class to the `worker_cls`
-    parameter.
+    The class for vLLM's worker to inherit from.
+    By defining an extension class, the code can work no matter what is
+    the underlying worker class. This way, the code can be compatible
+    with both vLLM V0 and V1.
+    NOTE: we define this class in a separate module, and the main module
+    should pass the full qualified name as `worker_extension_cls` argument.
     """
 
     def init_weight_update_group(
@@ -142,10 +144,7 @@ class MyWorker(Worker):
             weight, src=0, stream=torch.cuda.current_stream()
         )
 
-        # wrap in fs2 style dict
-        # weights = {"model_key": "model", "model": {name: weight}}.items()
         self.model_runner.model.load_weights(weights=[(name, weight)])
-        # self.model_runner.model.load_weights(weights=weights)
 
         del weight
 
@@ -284,7 +283,7 @@ class RemoteVllmModel:
             model=vllm_engine_args.model,
             tokenizer=vllm_engine_args.tokenizer,
             enforce_eager=vllm_engine_args.enforce_eager,
-            worker_cls=MyWorker,
+            worker_extension_cls="fairseq2.recipes.lm._online_finetune._remote_model.WorkerExtension",
             tensor_parallel_size=vllm_engine_args.tensor_parallel_size,
             task=vllm_engine_args.task,
             trust_remote_code=vllm_engine_args.trust_remote_code,
