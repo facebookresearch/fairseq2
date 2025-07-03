@@ -14,10 +14,7 @@ def convert_decisions_to_binary(string_list):
 
 class GeneralVerifierPipeline:
     def __init__(self, *args, **kwargs):
-        # Replace with your model path
         model_path = "TIGER-Lab/general-verifier"
-
-        # Load tokenizer and model
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, padding_side="left")
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path, torch_dtype=torch.float16
@@ -28,10 +25,8 @@ class GeneralVerifierPipeline:
             x.replace("[", "\[").replace("]", "\]") for x in prompt_chunk
         ]
 
-        # Tokenize and generate
-        inputs = self.tokenizer(
-            cleaned_prompt_chunk, return_tensors="pt", padding=True
-        ).to(self.model.device)
+        inputs = self.tokenizer(cleaned_prompt_chunk, return_tensors="pt", padding=True)
+        inputs = inputs.to(self.model.device)
         outputs = self.model.generate(
             **inputs,
             max_new_tokens=1024,

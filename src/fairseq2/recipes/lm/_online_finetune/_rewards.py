@@ -477,16 +477,29 @@ class GeneralVerifier(VLLMOutputReward):
     """
 
     def __init__(self, gangs, reward_model, answer_key, prompt_key, tokenizer):
+        try:
+            from math_verify import parse
+        except ImportError:
+            raise ImportError(
+                "install mathverify from https://github.com/huggingface/Math-Verify"
+            )
+
+        self.parse = parse
         self.answer_key = answer_key
         self.prompt_key = prompt_key
         self._gangs = gangs
         self.reward_model = reward_model
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
 
+    def extract_answer(self, rollout_text: str):
+        extracted_answer = self.parse(rollout_text)
+        return extracted_answer
+
     def wrap_text(self, prompt_text, reference_answer, rollout_text):
+
         question = prompt_text
         ground_truth = reference_answer
-        student_answer = rollout_text
+        student_answer = self.extract_answer(rollout_text)
 
         prompt = (
             f"User: ### Question: {question}\n\n"
