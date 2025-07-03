@@ -125,7 +125,9 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
             builder = builder.shuffle(options.example_shuffle_window, seed=options.seed)
             options.seed += 1
 
-        builder = GenericAsrDataset.add_tokenization_pipeline(builder, tokenizer)
+        builder = GenericAsrDataset.add_tokenization_pipeline(
+            builder, tokenizer, options=options
+        )
 
         builder = GenericSpeechDataset.add_bucketing_pipeline(
             builder,

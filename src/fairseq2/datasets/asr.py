@@ -164,6 +164,7 @@ class GenericAsrDataset(ManifestDatasetInterface, AsrDataset):
     def add_tokenization_pipeline(
         builder: DataPipelineBuilder,
         tokenizer: TextTokenizer,
+        options: SpeechReadOptions | None = None,
     ) -> DataPipelineBuilder:
         # Tokenize target text.
         text_encoder = tokenizer.create_encoder()
@@ -180,6 +181,18 @@ class GenericAsrDataset(ManifestDatasetInterface, AsrDataset):
 
         builder = builder.filter(empty_text)
 
+        if options is not None:
+            remove_unknown = options.extras.get("remove_unknown", False)
+        else:
+            remove_unknown = False
+
+        assert isinstance(remove_unknown, bool)
+
+        if remove_unknown:
+            builder = builder.map(
+                lambda tensor: tensor[tensor != unk_idx], selector="text"
+            )
+
         return builder
 
     @staticmethod
@@ -193,7 +206,9 @@ class GenericAsrDataset(ManifestDatasetInterface, AsrDataset):
     ) -> DataPipelineBuilder:
 
         # Tokenize target text.
-        builder = GenericAsrDataset.add_tokenization_pipeline(builder, tokenizer)
+        builder = GenericAsrDataset.add_tokenization_pipeline(
+            builder, tokenizer, options=options
+        )
 
         # Bucketize examples by audio length.
         builder = GenericSpeechDataset.add_bucketing_pipeline(
