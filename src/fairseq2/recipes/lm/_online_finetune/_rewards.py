@@ -483,13 +483,11 @@ class GeneralVerifier(VLLMOutputReward):
         self.reward_model = reward_model
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
 
-    def wrap_text(self, prompt_text, rollout_text):
-        # Example inputs
+    def wrap_text(self, prompt_text, reference_answer, rollout_text):
         question = prompt_text
-        ground_truth = "\\frac{3(2x-9)(x+6)(x+10)}{2}"
+        ground_truth = reference_answer
         student_answer = rollout_text
 
-        # Create prompt
         prompt = (
             f"User: ### Question: {question}\n\n"
             f"### Ground Truth Answer: {ground_truth}\n\n"
@@ -513,15 +511,20 @@ class GeneralVerifier(VLLMOutputReward):
             vllm_outputs = [None] * len(prompt_batch.prompts)
 
         text_prompts = prompt_batch.meta_info.get(self.prompt_key)
+        reference_answers = prompt_batch.meta_info.get(self.answer_key)
+
         for i, (i_batch_request_output, prompt_text) in enumerate(
             zip(vllm_outputs, text_prompts)
         ):
 
             rollouts_text = []
             rollouts_tokens = []
+            i_reference_answer = reference_answers[i]
             for rollout_output in i_batch_request_output.outputs:
                 rollout_text = rollout_output.text
-                vllm_input = self.wrap_text(prompt_text, rollout_text)
+                vllm_input = self.wrap_text(
+                    prompt_text, i_reference_answer, rollout_text
+                )
                 vllm_inputs.append(vllm_input)
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)
