@@ -161,6 +161,41 @@ class GenericAsrDataset(ManifestDatasetInterface, AsrDataset):
         )
 
     @staticmethod
+    def add_tokenization_pipeline(
+        builder: DataPipelineBuilder,
+        tokenizer: TextTokenizer,
+        options: SpeechReadOptions | None = None,
+    ) -> DataPipelineBuilder:
+        # Tokenize target text.
+        text_encoder = tokenizer.create_encoder()
+
+        # to avoid to tokenize empty text, we filter out them out first
+        builder = builder.filter(lambda x: bool(len(x["text"]) > 0))
+
+        builder.map(text_encoder, selector="text")
+
+        unk_idx = tokenizer.vocab_info.unk_idx
+
+        def empty_text(example: Dict[str, Any]) -> bool:
+            return bool((example["text"] != unk_idx).sum().item() > 0)
+
+        builder = builder.filter(empty_text)
+
+        if options is not None:
+            remove_unknown = options.extras.get("remove_unknown", False)
+        else:
+            remove_unknown = False
+
+        assert isinstance(remove_unknown, bool)
+
+        if remove_unknown:
+            builder = builder.map(
+                lambda tensor: tensor[tensor != unk_idx], selector="text"
+            )
+
+        return builder
+
+    @staticmethod
     def build_asr_main_pipeline(
         builder: DataPipelineBuilder,
         options: SpeechReadOptions,
@@ -169,6 +204,11 @@ class GenericAsrDataset(ManifestDatasetInterface, AsrDataset):
         min_audio_len: int,
         max_audio_len: int,
     ) -> DataPipelineBuilder:
+
+        # Tokenize target text.
+        builder = GenericAsrDataset.add_tokenization_pipeline(
+            builder, tokenizer, options=options
+        )
 
         # Bucketize examples by audio length.
         builder = GenericSpeechDataset.add_bucketing_pipeline(
@@ -187,10 +227,6 @@ class GenericAsrDataset(ManifestDatasetInterface, AsrDataset):
         builder = GenericSpeechDataset.audio_post_process(
             builder, options, GenericSpeechDataset.rename_feature
         )
-
-        # Tokenize target text.
-        text_encoder = tokenizer.create_encoder()
-        builder.map(text_encoder, selector="[*].text", num_parallel_calls=options.npc)
 
         # Collate bucketed examples into a batch.
         text_collate_opts = CollateOptionsOverride(

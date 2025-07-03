@@ -125,6 +125,10 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
             builder = builder.shuffle(options.example_shuffle_window, seed=options.seed)
             options.seed += 1
 
+        builder = GenericAsrDataset.add_tokenization_pipeline(
+            builder, tokenizer, options=options
+        )
+
         builder = GenericSpeechDataset.add_bucketing_pipeline(
             builder,
             options,
@@ -149,10 +153,6 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
         builder = GenericSpeechDataset.audio_post_process(
             builder, options, GenericSpeechDataset.rename_feature
         )
-
-        # Tokenize target text.
-        text_encoder = tokenizer.create_encoder()
-        builder.map(text_encoder, selector="[*].text", num_parallel_calls=options.npc)
 
         # Collate bucketed examples into a batch.
         text_collate_opts = CollateOptionsOverride(
