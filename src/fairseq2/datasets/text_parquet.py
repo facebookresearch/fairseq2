@@ -215,6 +215,7 @@ class ParquetTextDataset(ParquetDatasetInterface, TextDataset):
             pad_idx=pad_idx,
             max_seq_len=max_seq_len,
             text_column_name="text",
+            device=gang.device,
         )
         return DataPipelineReader[SequenceBatch](
             self._name, "default", pipeline, gang, options, strict_state=False

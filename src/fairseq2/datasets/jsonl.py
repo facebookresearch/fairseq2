@@ -25,6 +25,7 @@ from fairseq2.datasets import (
     SequenceBatch,
 )
 from fairseq2.datasets.text import GenericTextDataset, TextDataset, TextReadOptions
+from fairseq2.device import Device
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.logging import log
@@ -111,6 +112,7 @@ class JsonlDataset(TextDataset):
             pad_idx=pad_idx,
             max_seq_len=max_seq_len,
             text_column_name=text_column_name,
+            device=gang.device,
         )
         return DataPipelineReader[SequenceBatch](
             self._name, "default", pipeline, gang, options
@@ -124,6 +126,7 @@ class JsonlDataset(TextDataset):
         max_seq_len: int,
         pad_idx: int | None,
         text_column_name: str,
+        device: Device,
     ) -> DataPipeline:
         if pad_idx is None:
             pad_idx = 0
@@ -143,12 +146,14 @@ class JsonlDataset(TextDataset):
         if isinstance(batching, LengthBatching):
             max_num_elements = batching.max_num_elements
 
+            pinned_memory = device.type == "cuda"
+            # Pack.
             builder.pack(
                 max_num_elements + 1,
                 max_seq_len,
                 pad_value=pad_idx,
                 truncate=True,
-                pinned_memory=True,
+                pinned_memory=pinned_memory,
             )
             BatchLayout.compiled_max_seq_len = max_seq_len
         else:
