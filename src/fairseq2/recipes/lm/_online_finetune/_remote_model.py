@@ -14,6 +14,9 @@ from vllm.engine.arg_utils import PoolerConfig
 from fairseq2.gang import Gangs
 from fairseq2.nn._batch_layout import BatchLayout
 from fairseq2.recipes.lm._online_finetune.third_party.athene import AtheneRewardPipeline
+from fairseq2.recipes.lm._online_finetune.third_party.general_verifier import (
+    GeneralVerifierPipeline,
+)
 from fairseq2.utils.structured import StructureError, structure
 from typing import Any, Dict, Union
 from vllm.worker.worker import Worker
@@ -107,6 +110,23 @@ class NoEnvAtheneRewardPipeline(AtheneRewardPipeline):
     @property
     def name(self):
         return "athene_reward_pipeline"
+
+
+@ray.remote
+class NoEnvGeneralVerifierPipeline(GeneralVerifierPipeline):
+    def __init__(self, *args, **kwargs):
+        # stop ray from manipulating CUDA_VISIBLE_DEVICES
+        # at the top-level
+        del os.environ["CUDA_VISIBLE_DEVICES"]
+        super().__init__(*args, **kwargs)
+        self.ready = True  # Set a flag or return a signal
+
+    def is_ready(self):
+        return self.ready
+
+    @property
+    def name(self):
+        return "general_verifier_pipeline"
 
 
 class MyWorker(Worker):
@@ -574,18 +594,15 @@ class RemoteModelHandler(ABC):
     @abstractmethod
     def create(
         self, gangs: Gangs, unit_config: object
-    ) -> Union[RemoteVllmModel, RemoteHFModel]:
-        ...
+    ) -> Union[RemoteVllmModel, RemoteHFModel]: ...
 
     @property
     @abstractmethod
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]:
-        ...
+    def config_kls(self) -> type[object]: ...
 
 
 class RemoteRayModelHandler(RemoteModelHandler):

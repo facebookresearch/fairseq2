@@ -46,28 +46,23 @@ class VLLMOutputRewardHandler(ABC):
     @abstractmethod
     def create(
         self, reward_model: Any, gangs: Gangs, reward_config: object
-    ) -> VLLMOutputReward:
-        ...
+    ) -> VLLMOutputReward: ...
 
     @property
     @abstractmethod
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]:
-        ...
+    def config_kls(self) -> type[object]: ...
 
 
 class VLLMOutputReward(ABC):
     @abstractmethod
-    def process_rollouts(self, vllm_outputs: list[RequestOutput]):
-        ...
+    def process_rollouts(self, vllm_outputs: list[RequestOutput]): ...
 
     @abstractmethod
-    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts):
-        ...
+    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts): ...
 
 
 class GSM8kVerifierHandler(VLLMOutputRewardHandler):
@@ -357,6 +352,185 @@ class AtheneVerifier(VLLMOutputReward):
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
 
+        batch_rewards = generate_rewards(
+            vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.reward_model
+        )
+
+        # reshape batch_rewards to [Batch, Rollouts]
+        B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
+        batch_rewards = [batch_rewards[i * R : (i + 1) * R] for i in range(B)]
+
+        return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
+
+    def prepare_preference_batch(
+        self, prompt_batch: PromptBatch, rollouts
+    ) -> PreferenceBatch:
+
+        reward_output = self.process_rollouts(rollouts, prompt_batch)
+
+        chosen_batch = []
+        rejected_batch = []
+        prompt_lens = []
+        dummy_batch_ids = []  # keep posiitons of dummy pairs here
+
+        # choosing first rollouts with reward 1 as chosen and 0 as rejected (sort of random given that we sample rollouts randomly)
+        for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
+            zip(reward_output["rewards"], reward_output["tokens"])
+        ):
+
+            chosen_rollout_position = i_batch_rewards.index(max(i_batch_rewards))
+            rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards))
+
+            if chosen_rollout_position == rejected_rollout_position:
+                # cant form preference pair when we dont have such rollouts
+                # this will be dummy batch and we zero out loss
+                dummy_batch_ids.append(i_batch)
+
+            chosen_rollout_tokens = list(i_batch_tokens[chosen_rollout_position])
+            rejected_rollout_tokens = list(i_batch_tokens[rejected_rollout_position])
+            prompt_tokens = prompt_batch.prompts[i_batch]
+
+            chosen_tokens = prompt_tokens + chosen_rollout_tokens
+            chosen_batch.append(chosen_tokens)
+
+            rejected_tokens = prompt_tokens + rejected_rollout_tokens
+            rejected_batch.append(rejected_tokens)
+
+            prompt_lens.append(len(prompt_tokens))
+
+        filter_batch = lambda batch: [
+            item for index, item in enumerate(batch) if index not in dummy_batch_ids
+        ]
+
+        if len(dummy_batch_ids) == len(reward_output["tokens"]):
+            # entire batch does not have a valid preference pair
+            # we use it as dummy batch and zero the loss in the end
+            is_bad_batch = True
+        else:
+            # removing dummy pairs from the batch
+            chosen_batch = filter_batch(chosen_batch)
+            rejected_batch = filter_batch(rejected_batch)
+            prompt_lens = filter_batch(prompt_lens)
+            is_bad_batch = False
+
+        prompt_lens = torch.tensor(prompt_lens)
+
+        chosen_batch = [
+            torch.tensor(sequence, device=self._gangs.dp.device)
+            for sequence in chosen_batch
+        ]
+        chosen_batch = collate_with_target_mask(
+            chosen_batch, prompt_lens, device=self._gangs.dp.device
+        )
+
+        rejected_batch = [
+            torch.tensor(sequence, device=self._gangs.dp.device)
+            for sequence in rejected_batch
+        ]
+        rejected_batch = collate_with_target_mask(
+            rejected_batch, prompt_lens, device=self._gangs.dp.device
+        )
+
+        batch = PreferenceBatch(
+            chosen=chosen_batch,
+            rejected=rejected_batch,
+            reference_score_chosen=None,
+            reference_score_rejected=None,
+        )
+
+        return batch, is_bad_batch, reward_output
+
+
+class GeneralVerifierHandler(VLLMOutputRewardHandler):
+    def __init__(self):
+        pass
+
+    @override
+    def create(self, reward_model, reward_config, gangs):
+        if reward_config.tokenizer is not None:
+            tokenizer = reward_config.tokenizer
+        else:
+            tokenizer = "TIGER-Lab/general-verifier"
+
+        return GeneralVerifier(
+            gangs,
+            reward_model,
+            answer_key=reward_config.answer_key,
+            prompt_key=reward_config.prompt_key,
+            tokenizer=tokenizer,
+        )
+
+    @property
+    @override
+    def name(self):
+        return "general_verifier"
+
+    @property
+    @override
+    def config_kls(self):
+        return None
+
+
+class GeneralVerifier(VLLMOutputReward):
+    """
+    A reward model verifier that processes rollouts using the GeneralVerifier model.
+    """
+
+    def __init__(self, gangs, reward_model, answer_key, prompt_key, tokenizer):
+        self.answer_key = answer_key
+        self.prompt_key = prompt_key
+        self._gangs = gangs
+        self.reward_model = reward_model
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
+
+    def wrap_text(self, prompt_text, rollout_text):
+        # Example inputs
+        question = prompt_text
+        ground_truth = "\\frac{3(2x-9)(x+6)(x+10)}{2}"
+        student_answer = rollout_text
+
+        # Create prompt
+        prompt = (
+            f"User: ### Question: {question}\n\n"
+            f"### Ground Truth Answer: {ground_truth}\n\n"
+            f"### Student Answer: {student_answer}\n\n"
+            "For the above question, please verify if the student's answer is equivalent to the ground truth answer.\n"
+            "Do not solve the question by yourself; just check if the student's answer is equivalent to the ground truth answer.\n"
+            'If the student\'s answer is correct, output "Final Decision: Yes". If the student\'s answer is incorrect, output "Final Decision: No". Assistant:'
+        )
+
+        return prompt
+
+    @override
+    def process_rollouts(
+        self, vllm_outputs: list[RequestOutput], prompt_batch: PromptBatch
+    ):
+        vllm_inputs = []
+        batch_text = []
+        batch_tokens = []
+
+        if vllm_outputs is None:
+            vllm_outputs = [None] * len(prompt_batch.prompts)
+
+        text_prompts = prompt_batch.meta_info.get(self.prompt_key)
+        for i, (i_batch_request_output, prompt_text) in enumerate(
+            zip(vllm_outputs, text_prompts)
+        ):
+
+            rollouts_text = []
+            rollouts_tokens = []
+            for rollout_output in i_batch_request_output.outputs:
+                rollout_text = rollout_output.text
+                vllm_input = self.wrap_text(prompt_text, rollout_text)
+                vllm_inputs.append(vllm_input)
+                rollouts_text.append(rollout_output.text)
+                rollouts_tokens.append(rollout_output.token_ids)
+
+            batch_text.append(rollouts_text)
+            batch_tokens.append(rollouts_tokens)
+
+        # if self._gangs.dp.rank == 0:
+        #     breakpoint()
         batch_rewards = generate_rewards(
             vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.reward_model
         )
