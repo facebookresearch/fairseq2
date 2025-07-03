@@ -33,13 +33,16 @@ class GeneralVerifierPipeline:
             cleaned_prompt_chunk, return_tensors="pt", padding=True
         ).to(self.model.device)
         outputs = self.model.generate(
-            **inputs, max_new_tokens=1024, temperature=0.0, do_sample=False
+            **inputs,
+            max_new_tokens=1024,
+            do_sample=False,
+            pad_token_id=self.tokenizer.eos_token_id
         )
 
-        # Decode and print output
-        # text_out = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        text_out = self.tokenizer.batch_decode(
+            outputs[:, inputs.input_ids.shape[1] :], skip_special_tokens=True
+        )
 
-        text_out = [self.tokenizer.decode(o, skip_special_tokens=True) for o in outputs]
         rewards = convert_decisions_to_binary(text_out)
 
         return rewards
