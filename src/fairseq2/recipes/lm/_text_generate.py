@@ -7,26 +7,35 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Mapping, TextIO, final
+from typing import TextIO, final
 
 import torch
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
-from fairseq2.datasets import StaticBatching, SyncMode
+from fairseq2.datasets import SequenceBatch, StaticBatching, SyncMode
 from fairseq2.datasets.instruction import (
     GENERIC_INSTRUCTION_DATASET_FAMILY,
     InstructionDataset,
     InstructionPromptReadOptions,
 )
-from fairseq2.error import InternalError, ProgramError
-from fairseq2.gang import Gangs
+from fairseq2.device import CPU
+from fairseq2.error import InternalError
+from fairseq2.file_system import FileMode
 from fairseq2.generation import SamplingConfig, SequenceGenerator
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.sequence import SequenceBatch
+from fairseq2.metrics import MetricBag
+from fairseq2.models.clm import CausalLM
+from fairseq2.recipes import (
+    Generator,
+    GeneratorUnit,
+    Model,
+    RecipeError,
+    UnitError,
+)
 from fairseq2.recipes.common import (
     create_generator,
     create_seq_generator,
@@ -35,6 +44,7 @@ from fairseq2.recipes.common import (
     register_extra_asset_paths,
     setup_gangs,
     setup_reference_model,
+    setup_torch,
 )
 from fairseq2.recipes.config import (
     CommonSection,
@@ -43,13 +53,9 @@ from fairseq2.recipes.config import (
     GeneratorSection,
     ReferenceModelSection,
     SequenceGeneratorSection,
+    TextTokenizerSection,
 )
-from fairseq2.recipes.error import UnitError
-from fairseq2.recipes.generator import Generator, GeneratorUnit
-from fairseq2.recipes.metrics import SequenceGenerationMetricBag
-from fairseq2.recipes.model import Model
-from fairseq2.typing import CPU
-from fairseq2.utils.file import FileMode
+from fairseq2.recipes.metrics import update_seq_generator_metrics
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
@@ -63,6 +69,10 @@ class TextGenerateConfig:
 
     dataset: TextGenerateDatasetSection = field(
         default_factory=lambda: TextGenerateDatasetSection()
+    )
+
+    tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="llama3_instruct")
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
@@ -141,16 +151,16 @@ def register_text_generate_configs(context: RuntimeContext) -> None:
 @torch.inference_mode()
 def load_text_generator(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Generator[SequenceBatch]:
+) -> Generator:
     config = structure(config, TextGenerateConfig)
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common.assets)
 
-    torch.set_float32_matmul_precision("high")
+    setup_torch(context, config.common.torch, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_gangs(context, config.gang)
 
     seed = config.common.seed
 
@@ -159,31 +169,32 @@ def load_text_generator(
     seed += 1
 
     model = setup_reference_model(
-        DecoderModel,
+        CausalLM,
         context,
-        config.model.name,
+        config.model,
         gangs,
         config.generator.dtype,
         config.generator.amp,
-        config.generator.torch_compile,
     )
 
-    dataset = load_dataset(InstructionDataset, context, config, gangs)
+    dataset = load_dataset(InstructionDataset, context, config.dataset, gangs)
 
-    tokenizer = load_text_tokenizer(context, config)
+    tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the unit.
-    seq_generator = create_seq_generator(context, config, model)
+    seq_generator = create_seq_generator(
+        context, config.seq_generator, model, tokenizer.vocab_info
+    )
 
     if gangs.tp.rank == 0:
         file_system = context.file_system
 
         rank = gangs.dp.rank
 
-        text_file = output_dir.joinpath(f"output/rank_{rank}.txt")
-        json_file = output_dir.joinpath(f"output/rank_{rank}.jsonl")
-
         try:
+            text_file = output_dir.joinpath(f"output/rank_{rank}.txt")
+            json_file = output_dir.joinpath(f"output/rank_{rank}.jsonl")
+
             try:
                 file_system.make_directory(text_file.parent)
             except OSError as ex:
@@ -205,8 +216,8 @@ def load_text_generator(
                     f"The '{json_file}' output file cannot be created. See the nested exception for details."
                 ) from ex
         except UnitError as ex:
-            raise ProgramError(
-                "The generation unit cannot be initialized. See the nested exception for details."
+            raise RecipeError(
+                "The generator unit cannot be initialized. See the nested exception for details."
             ) from ex
     else:
         text_fp = None
@@ -216,7 +227,6 @@ def load_text_generator(
         model,
         seq_generator,
         tokenizer,
-        gangs,
         text_output_stream=text_fp,
         json_output_stream=json_fp,
     )
@@ -242,7 +252,17 @@ def load_text_generator(
 
     seed += 1
 
-    return create_generator(context, config, output_dir, unit, data_reader, gangs, seed)
+    return create_generator(
+        context,
+        config.generator,
+        config.common,
+        output_dir,
+        unit,
+        data_reader,
+        gangs,
+        seed,
+        hyper_params=config,
+    )
 
 
 @final
@@ -254,29 +274,25 @@ class TextGenerateUnit(GeneratorUnit[SequenceBatch]):
     _text_decoder: TextTokenDecoder
     _text_output_stream: TextIO | None
     _json_output_stream: TextIO | None
-    _metric_bag: SequenceGenerationMetricBag
 
     def __init__(
         self,
         model: Model,
         generator: SequenceGenerator,
         tokenizer: TextTokenizer,
-        gangs: Gangs,
         text_output_stream: TextIO | None,
         json_output_stream: TextIO | None,
     ) -> None:
         self._model = model
         self._generator = generator
 
-        self._text_decoder = tokenizer.create_decoder()
+        self._text_decoder = tokenizer.create_decoder(skip_special_tokens=False)
 
         self._text_output_stream = text_output_stream
         self._json_output_stream = json_output_stream
 
-        self._metric_bag = SequenceGenerationMetricBag(gangs.dp)
-
     @override
-    def __call__(self, batch: SequenceBatch) -> None:
+    def __call__(self, batch: SequenceBatch, metric_bag: MetricBag) -> None:
         if batch.example is None:
             raise ValueError("`batch.example` must not be `None`.")
 
@@ -290,16 +306,18 @@ class TextGenerateUnit(GeneratorUnit[SequenceBatch]):
         except KeyError:
             raise ValueError("`batch.example` must contain a 'prompt' item.") from None
 
-        if not isinstance(prompts, Iterable):
+        if not isinstance(prompts, Sequence):
             raise TypeError(
-                f"`batch.example['prompt'] must be an iterable of strings, but is of type `{type(prompts)}` instead."
+                f"`batch.example['prompt'] must be a sequence of strings, but is of type `{type(prompts)}` instead."
             )
 
         ids = batch.example["id"]
 
-        output = self._generator(batch.seqs, batch.padding_mask)
+        prompt_seqs, prompt_seqs_layout = batch.as_input()
 
-        self._metric_bag.update_batch_metrics(output)
+        output = self._generator(prompt_seqs, prompt_seqs_layout)
+
+        update_seq_generator_metrics(metric_bag, output)
 
         # Check if we are in the first tensor parallel group.
         if self._text_output_stream is None and self._json_output_stream is None:
@@ -392,15 +410,10 @@ class TextGenerateUnit(GeneratorUnit[SequenceBatch]):
                 stream.flush()
         except OSError as ex:
             raise UnitError(
-                "The generator output cannot be written to the stream. See the nested exception for details."
+                "The generator output cannot be written. See the nested exception for details."
             ) from ex
 
     @property
     @override
     def model(self) -> Model:
         return self._model
-
-    @property
-    @override
-    def metric_bag(self) -> SequenceGenerationMetricBag:
-        return self._metric_bag

@@ -9,8 +9,9 @@ from __future__ import annotations
 from fairseq2.context import RuntimeContext
 from fairseq2.recipes.asr import register_asr_eval_configs
 from fairseq2.recipes.lm import (
+    register_clm_loss_eval_configs,
+    register_clm_train_configs,
     register_instruction_finetune_configs,
-    register_lm_loss_eval_configs,
     register_po_finetune_configs,
     register_online_finetune_configs,
     register_text_generate_configs,
@@ -27,10 +28,11 @@ from fairseq2.recipes.wav2vec2 import (
 from fairseq2.recipes.wav2vec2.asr import register_wav2vec2_asr_train_configs
 
 
-def register_recipes(context: RuntimeContext) -> None:
+def _register_recipes(context: RuntimeContext) -> None:
     register_asr_eval_configs(context)
     register_instruction_finetune_configs(context)
-    register_lm_loss_eval_configs(context)
+    register_clm_loss_eval_configs(context)
+    register_clm_train_configs(context)
     register_mt_eval_configs(context)
     register_mt_train_configs(context)
     register_po_finetune_configs(context)

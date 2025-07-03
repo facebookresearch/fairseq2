@@ -159,7 +159,6 @@ Read more about this recipe in :ref:`tutorial-preference-optimization`.
                 num_data_epochs: 20
                 checkpoint_every_n_steps: 1000
                 keep_last_n_checkpoints: 1
-                keep_last_n_models: 1
                 publish_metrics_every_n_steps: 5
 
     Then run:
@@ -281,7 +280,7 @@ To help accelerate the training, fairseq2 is able to automatically detect multi-
 
     .. code-block:: bash
 
-        srun --pty --nodes=2 --ntasks-per-node=8 \
+        srun --pty --nodes=2 --ntasks-per-node=8 --gpus-per-node=8 \
             fairseq2 lm instruction_finetune $OUTPUT_DIR \
             ...
 

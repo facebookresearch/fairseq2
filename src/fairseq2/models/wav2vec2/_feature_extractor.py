@@ -6,21 +6,22 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
-from typing import final
+from typing import TYPE_CHECKING, final
 
 import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import GELU, Conv1d, Dropout, GroupNorm, Module, Sequential
-from torch.nn.functional import group_norm, layer_norm
+from torch.nn.functional import group_norm
 from typing_extensions import override
 
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
-from fairseq2.nn import LayerNorm
-from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.utils.gradient import scale_gradient
-from fairseq2.typing import DataType, Device
+from fairseq2.nn import BatchLayout, LayerNorm, StandardLayerNorm
+from fairseq2.nn.utils.grad import scale_grad
 
 
 @final
@@ -32,7 +33,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
     layers: Sequential
     layer_descs: Sequence[tuple[int, int, int]]
     num_channels: int
-    gradient_scale: float
+    grad_scale: float
 
     def __init__(
         self,
@@ -42,7 +43,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         num_channels: int = 1,
         dropout_p: float = 0.0,
         layer_norm: bool = False,
-        gradient_scale: float = 1.0,
+        grad_scale: float = 1.0,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -59,18 +60,15 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         :param layer_norm:
             If ``True``, applies Layer Normalization to outputs of convolutions
             after dropout.
-        :param gradient_scale:
+        :param grad_scale:
             The scale factor for gradients of extracted features. Setting to a
             value less than 1.0 allows the feature extractor to learn at a lower
             rate than the rest of the model.
         """
-        if len(layer_descs) == 0:
-            raise ValueError("`layer_descs` must be non-empty.")
+        super().__init__()
 
-        # The output dimensionality of the last feature extraction layer.
-        feature_dim = layer_descs[-1][0]
-
-        super().__init__(feature_dim)
+        if not layer_descs:
+            raise ValueError("`layer_descs` must not be empty.")
 
         self.layers = Sequential()
 
@@ -88,8 +86,8 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
             # If Layer Normalization is requested, apply it in all layers.
             if layer_norm:
-                layer_norm_ = Float32LayerNorm(
-                    output_dim, bias=True, device=device, dtype=dtype
+                layer_norm_ = StandardLayerNorm(
+                    output_dim, bias=True, cast_fp32=True, device=device, dtype=dtype
                 )
 
                 group_norm_ = None
@@ -125,17 +123,17 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
         self.layer_descs = layer_descs
 
-        if gradient_scale <= 0.0 or gradient_scale > 1.0:
+        if grad_scale <= 0.0 or grad_scale > 1.0:
             raise ValueError(
-                f"`gradient_scale` must be greater than 0.0 and less than or equal to 1.0, but is {gradient_scale} instead."
+                f"`grad_scale` must be greater than 0.0 and less than or equal to 1.0, but is {grad_scale} instead."
             )
 
-        self.gradient_scale = gradient_scale
+        self.grad_scale = grad_scale
 
     @override
     def forward(
-        self, seqs: Tensor, padding_mask: PaddingMask | None
-    ) -> tuple[Tensor, PaddingMask | None]:
+        self, seqs: Tensor, seqs_layout: BatchLayout
+    ) -> tuple[Tensor, BatchLayout]:
         """See the base :meth:`SequenceFeatureExtractor.forward`.
 
         :param seqs:
@@ -143,6 +141,9 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             the batch size, :math:`(S)` is the sequence length, and :math:`C`
             is the number of channels.
         """
+        if seqs_layout.packed:
+            raise ValueError("`seqs` must not be a packed batch.")
+
         if self.num_channels > 1:
             # (N, S, C) -> (N, C, S)
             seqs = seqs.transpose(1, 2)
@@ -157,38 +158,40 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             seqs = seqs.unsqueeze(1)
 
         # (N, C, S) -> (N, E, S)
-        features = self.layers(seqs)
+        seqs = self.layers(seqs)
 
-        if self.training and self.gradient_scale != 1.0:
-            features = scale_gradient(features, self.gradient_scale)
+        if self.training and self.grad_scale != 1.0:
+            seqs = scale_grad(seqs, self.grad_scale)
 
         # (N, E, S) -> (N, S, E)
-        features = features.transpose(1, 2)
+        seqs = seqs.transpose(1, 2)
 
-        # Since we contracted the temporal dimension, we should re-compute
-        # the sequence lengths.
-        if padding_mask is not None:
-            seq_lens = self._contract_seq_lens(padding_mask.seq_lens)
+        if seqs_layout.padded:
+            # Since we contracted the temporal dimension, we should re-compute
+            # the sequence lengths.
+            seq_lens = self._contract_seq_lens(seqs_layout.seq_lens)
+        else:
+            seq_lens = None
 
-            padding_mask = PaddingMask(seq_lens, batch_seq_len=features.size(1))
+        seqs_layout = BatchLayout.of(seqs, seq_lens)
 
-        return features, padding_mask
+        return seqs, seqs_layout
 
-    def _contract_seq_lens(self, num_frames: Tensor) -> Tensor:
-        seq_lens = num_frames.clone()
+    def _contract_seq_lens(self, seq_lens: Sequence[int]) -> list[int]:
+        seq_lens = list(seq_lens)
 
         for desc in self.layer_descs:
             kernel_size, stride = desc[1], desc[2]
 
-            seq_lens = (((seq_lens - kernel_size) / stride) + 1.0).floor()
+            for i in range(len(seq_lens)):
+                seq_lens[i] = math.floor(((seq_lens[i] - kernel_size) / stride) + 1.0)
 
-        return seq_lens.type_as(num_frames)
+        return seq_lens
 
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = super().extra_repr()
-
-        return f"{s}, gradient_scale={self.gradient_scale:G}"
+        return f"grad_scale={self.grad_scale:G}"
 
 
 @final
@@ -229,19 +232,15 @@ class Wav2Vec2FeatureExtractionLayer(Module):
         )
 
         if dropout_p > 0.0:
-            self.dropout = Dropout(dropout_p)
+            dropout = Dropout(dropout_p)
         else:
-            self.register_module("dropout", None)
+            dropout = None
 
-        if group_norm is not None:
-            self.group_norm = group_norm
-        else:
-            self.register_module("group_norm", None)
+        self.register_module("dropout", dropout)
 
-        if layer_norm is not None:
-            self.layer_norm = layer_norm
-        else:
-            self.register_module("layer_norm", None)
+        self.register_module("group_norm", group_norm)
+
+        self.register_module("layer_norm", layer_norm)
 
         self.activation = GELU()
 
@@ -269,6 +268,9 @@ class Wav2Vec2FeatureExtractionLayer(Module):
 
         return seqs
 
+    if TYPE_CHECKING:
+        __call__ = forward
+
 
 @final
 class Wav2Vec2FeatureConv1d(Conv1d):
@@ -294,7 +296,7 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
     def __init__(
         self, num_fbank_channels: int, stride: int, *, sample_every_k: int = 1
     ):
-        super().__init__(feature_dim=num_fbank_channels * stride)
+        super().__init__()
 
         self.num_fbank_channels = num_fbank_channels
         self.stride = stride
@@ -302,8 +304,8 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
 
     @override
     def forward(
-        self, seqs: Tensor, padding_mask: PaddingMask | None
-    ) -> tuple[Tensor, PaddingMask | None]:
+        self, seqs: Tensor, seqs_layout: BatchLayout
+    ) -> tuple[Tensor, BatchLayout]:
         """See the base :meth:`SequenceFeatureExtractor.forward`.
 
         :param seqs:
@@ -311,22 +313,16 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
             :math:`N` is the batch size, :math:`S` is the number of frames, and
             :math:`C` is the number of channels.
         """
+        if seqs_layout.packed:
+            raise ValueError("`seqs` must not be a packed batch.")
+
         batch_size, num_frames, num_channels = seqs.shape
 
-        if padding_mask is None:
-            seq_lens = None
-        else:
-            seq_lens = padding_mask.seq_lens
-
-        if (r := num_frames % self.stride) != 0:
+        r = num_frames % self.stride
+        if r != 0:
             num_frames -= r
 
             seqs = seqs[:, :num_frames, :]
-
-            if seq_lens is not None:
-                seq_lens = seq_lens.clone()
-
-                seq_lens[seq_lens > num_frames] = num_frames
 
         seqs = seqs.view(
             batch_size, num_frames // self.stride, num_channels * self.stride
@@ -337,23 +333,31 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
 
             seqs = seqs[indices % self.sample_every_k != 0]
 
-        if seq_lens is not None:
+        if seqs_layout.padded:
             # Since we contracted the temporal dimension, we should re-compute
             # the sequence lengths.
-            seq_lens = self._contract_seq_lens(seq_lens)
+            seq_lens = self._contract_seq_lens(seqs_layout.seq_lens, num_frames)
+        else:
+            seq_lens = None
 
-            padding_mask = PaddingMask(seq_lens, batch_seq_len=seqs.size(1))
+        seqs_layout = BatchLayout.of(seqs, seq_lens)
 
-        return seqs, padding_mask
+        return seqs, seqs_layout
 
-    def _contract_seq_lens(self, num_frames: Tensor) -> Tensor:
-        num_frames = num_frames // self.stride
+    def _contract_seq_lens(
+        self, seq_lens: Sequence[int], batch_width: int
+    ) -> list[int]:
+        seq_lens = list(seq_lens)
 
-        if self.sample_every_k > 1:
-            num_frames //= self.sample_every_k + 1
+        for i in range(len(seq_lens)):
+            seq_lens[i] = min(seq_lens[i], batch_width) // self.stride
 
-        return num_frames
+            if self.sample_every_k > 1:
+                seq_lens[i] //= self.sample_every_k + 1
 
+        return seq_lens
+
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
         return (
@@ -361,23 +365,6 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
             f"stride={self.stride}, "
             f"sample_every_k={self.sample_every_k}"
         )
-
-
-@final
-class Float32LayerNorm(LayerNorm):
-    """Applies Layer Normalization in single-precision."""
-
-    @override
-    def forward(self, x: Tensor) -> Tensor:
-        w, b = self.weight, self.bias
-
-        fp32_x = x.float()
-        fp32_w = w.float() if w is not None else None
-        fp32_b = b.float() if b is not None else None
-
-        y = layer_norm(fp32_x, self.normalized_shape, fp32_w, fp32_b, self.eps)
-
-        return y.type_as(x)
 
 
 @final

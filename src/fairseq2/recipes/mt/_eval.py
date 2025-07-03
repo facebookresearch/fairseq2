@@ -6,29 +6,37 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Mapping, TextIO, final
+from typing import TextIO, final
 
 import torch
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import TextTokenizer
-from fairseq2.datasets import Batching, LengthBatching, StaticBatching, SyncMode
+from fairseq2.datasets import (
+    Batching,
+    LengthBatching,
+    Seq2SeqBatch,
+    StaticBatching,
+    SyncMode,
+)
 from fairseq2.datasets.parallel_text import (
     GENERIC_PARALLEL_TEXT_DATASET_FAMILY,
     Direction,
     ParallelTextDataset,
     ParallelTextReadOptions,
 )
-from fairseq2.error import ProgramError
-from fairseq2.gang import Gangs
+from fairseq2.device import CPU
+from fairseq2.file_system import FileMode
 from fairseq2.generation import BeamSearchConfig, Seq2SeqGenerator
 from fairseq2.generation.text import SequenceToTextConverter
+from fairseq2.metrics import MetricBag
 from fairseq2.metrics.text import DEFAULT_BLEU_TOKENIZER, BleuMetric, ChrfMetric
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.models.seq2seq import Seq2SeqBatch
+from fairseq2.models.seq2seq import Seq2SeqModel
+from fairseq2.recipes import Evaluator, EvalUnit, Model, RecipeError, UnitError
 from fairseq2.recipes.common import (
     create_evaluator,
     create_seq2seq_generator,
@@ -37,6 +45,7 @@ from fairseq2.recipes.common import (
     register_extra_asset_paths,
     setup_gangs,
     setup_reference_model,
+    setup_torch,
 )
 from fairseq2.recipes.config import (
     CommonSection,
@@ -45,17 +54,17 @@ from fairseq2.recipes.config import (
     GangSection,
     ReferenceModelSection,
     Seq2SeqGeneratorSection,
+    TextTokenizerSection,
 )
-from fairseq2.recipes.error import UnitError
-from fairseq2.recipes.evaluator import Evaluator, EvalUnit
-from fairseq2.recipes.metrics import Seq2SeqGenerationMetricBag, Seq2SeqMetricBag
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.mt._common import MTCriterion, MTLossSection
-from fairseq2.typing import CPU
-from fairseq2.utils.file import FileMode
+from fairseq2.recipes.metrics import update_seq2seq_generator_metrics
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+
+# isort: split
+
+from fairseq2.recipes.mt._config import MTLossSection
+from fairseq2.recipes.mt._criterion import MTCriterion
 
 
 @dataclass(kw_only=True)
@@ -68,6 +77,14 @@ class MTEvalConfig:
 
     dataset: MTEvalDatasetSection = field(
         default_factory=lambda: MTEvalDatasetSection()
+    )
+
+    source_tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="nllb-200")
+    )
+
+    target_tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="nllb-200")
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
@@ -129,16 +146,16 @@ def register_mt_eval_configs(context: RuntimeContext) -> None:
 @torch.inference_mode()
 def load_mt_evaluator(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Evaluator[Seq2SeqBatch]:
+) -> Evaluator:
     config = structure(config, MTEvalConfig)
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common.assets)
 
-    torch.set_float32_matmul_precision("high")
+    setup_torch(context, config.common.torch, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_gangs(context, config.gang)
 
     seed = config.common.seed
 
@@ -147,30 +164,36 @@ def load_mt_evaluator(
     seed += 1
 
     model = setup_reference_model(
-        EncoderDecoderModel,
+        Seq2SeqModel,
         context,
-        config.model.name,
+        config.model,
         gangs,
         config.evaluator.dtype,
         config.evaluator.amp,
-        config.evaluator.torch_compile,
     )
 
-    dataset = load_dataset(ParallelTextDataset, context, config, gangs)
+    dataset = load_dataset(ParallelTextDataset, context, config.dataset, gangs)
 
-    tokenizer = load_text_tokenizer(context, config)
+    source_tokenizer = load_text_tokenizer(context, config.source_tokenizer)
+
+    if config.source_tokenizer == config.target_tokenizer:
+        target_tokenizer = source_tokenizer
+    else:
+        target_tokenizer = load_text_tokenizer(context, config.target_tokenizer)
 
     # Initialize the units.
-    seq2seq_generator = create_seq2seq_generator(context, config, model)
+    seq2seq_generator = create_seq2seq_generator(
+        context, config.seq2seq_generator, model, target_tokenizer.vocab_info
+    )
 
-    criterion = MTCriterion(model, label_smoothing=config.loss.label_smoothing)
+    criterion = MTCriterion(model.module, config.loss.label_smoothing)
 
     units: list[EvalUnit[Seq2SeqBatch]] = []
 
     data_readers = []
 
     for direction in dataset.directions(config.dataset.split):
-        loss_unit = MTLossEvalUnit(criterion, direction, gangs)
+        loss_unit = MTLossEvalUnit(model, criterion, direction)
 
         units.append(loss_unit)
 
@@ -187,7 +210,8 @@ def load_mt_evaluator(
 
         data_reader = dataset.create_reader(
             config.dataset.split,
-            tokenizer,
+            source_tokenizer,
+            target_tokenizer,
             gangs.dp,
             config.dataset.min_seq_len,
             config.dataset.max_seq_len,
@@ -204,17 +228,17 @@ def load_mt_evaluator(
 
             rank = gangs.dp.rank
 
-            src_file = output_dir.joinpath(
-                f"translations/{direction}/rank_{rank}.src.txt"
-            )
-            ref_file = output_dir.joinpath(
-                f"translations/{direction}/rank_{rank}.ref.txt"
-            )
-            hyp_file = output_dir.joinpath(
-                f"translations/{direction}/rank_{rank}.hyp.txt"
-            )
-
             try:
+                src_file = output_dir.joinpath(
+                    f"translations/{direction}/rank_{rank}.src.txt"
+                )
+                ref_file = output_dir.joinpath(
+                    f"translations/{direction}/rank_{rank}.ref.txt"
+                )
+                hyp_file = output_dir.joinpath(
+                    f"translations/{direction}/rank_{rank}.hyp.txt"
+                )
+
                 try:
                     file_system.make_directory(src_file.parent)
                 except OSError as ex:
@@ -243,8 +267,8 @@ def load_mt_evaluator(
                         f"The '{hyp_file}' output file cannot be created. See the nested exception for details."
                     ) from ex
             except UnitError as ex:
-                raise ProgramError(
-                    "The evaluation unit cannot be initialized. See the nested exception for details."
+                raise RecipeError(
+                    f"The 'score/{direction}' evaluator unit cannot be initialized. See the nested exception for details."
                 ) from ex
         else:
             src_fp = None
@@ -255,8 +279,7 @@ def load_mt_evaluator(
             model,
             direction,
             seq2seq_generator,
-            tokenizer,
-            gangs,
+            target_tokenizer,
             src_output_stream=src_fp,
             ref_output_stream=ref_fp,
             hyp_output_stream=hyp_fp,
@@ -278,7 +301,8 @@ def load_mt_evaluator(
 
         data_reader = dataset.create_reader(
             config.dataset.split,
-            tokenizer,
+            source_tokenizer,
+            target_tokenizer,
             gangs.dp,
             config.dataset.min_seq_len,
             config.dataset.max_seq_len,
@@ -290,56 +314,59 @@ def load_mt_evaluator(
         seed += 1
 
     return create_evaluator(
-        context, config, output_dir, units, data_readers, gangs, seed
+        context,
+        config.evaluator,
+        config.common,
+        output_dir,
+        units,
+        data_readers,
+        gangs,
+        seed,
+        hyper_params=config,
     )
 
 
 @final
 class MTLossEvalUnit(EvalUnit[Seq2SeqBatch]):
+    _name: str
+    _model: Model
     _criterion: MTCriterion
-    _display_name: str
-    _metric_bag: Seq2SeqMetricBag
 
     def __init__(
-        self, criterion: MTCriterion, direction: Direction, gangs: Gangs
+        self, model: Model, criterion: MTCriterion, direction: Direction
     ) -> None:
+        self._name = f"loss/{direction}"
+
+        self._model = model
+
         self._criterion = criterion
 
-        self._display_name = f"loss/{direction}"
-
-        self._metric_bag = Seq2SeqMetricBag(gangs.dp, train=False)
-
     @override
-    def __call__(self, batch: Seq2SeqBatch) -> None:
-        self._criterion(batch, self._metric_bag)
+    def __call__(self, batch: Seq2SeqBatch, metric_bag: MetricBag) -> None:
+        self._criterion(batch, metric_bag)
+
+    @property
+    @override
+    def name(self) -> str | None:
+        return self._name
 
     @property
     @override
     def model(self) -> Model:
-        return self._criterion.model
-
-    @property
-    @override
-    def display_name(self) -> str | None:
-        return self._display_name
-
-    @property
-    @override
-    def metric_bag(self) -> Seq2SeqMetricBag:
-        return self._metric_bag
+        return self._model
 
 
 @final
 class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
     """Represents a machine translation BLEU/chrF++ evaluation unit."""
 
+    _name: str
     _model: Model
-    _display_name: str
     _converter: SequenceToTextConverter
     _src_output_stream: TextIO | None
     _ref_output_stream: TextIO | None
     _hyp_output_stream: TextIO | None
-    _metric_bag: Seq2SeqGenerationMetricBag
+    _bleu_tokenizer: str
 
     def __init__(
         self,
@@ -347,7 +374,6 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
         direction: Direction,
         generator: Seq2SeqGenerator,
         tokenizer: TextTokenizer,
-        gangs: Gangs,
         *,
         src_output_stream: TextIO | None = None,
         ref_output_stream: TextIO | None = None,
@@ -364,9 +390,9 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
         :param ref_output_stream: The output stream to dump references.
         :param hyp_output_stream: The output stream to dump hypotheses.
         """
-        self._model = model
+        self._name = f"score/{direction}"
 
-        self._display_name = f"score/{direction}"
+        self._model = model
 
         self._converter = SequenceToTextConverter(
             generator, tokenizer, "translation", direction.target_lang
@@ -376,18 +402,10 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
         self._ref_output_stream = ref_output_stream
         self._hyp_output_stream = hyp_output_stream
 
-        self._metric_bag = Seq2SeqGenerationMetricBag(gangs.dp)
-
-        device = gangs.root.device
-
-        bleu_metric = BleuMetric(device=device, tokenizer=bleu_tokenizer)
-        chrf_metric = ChrfMetric(device=device)
-
-        self._metric_bag.register_metric("bleu", bleu_metric, persistent=False)
-        self._metric_bag.register_metric("chrf", chrf_metric, persistent=False)
+        self._bleu_tokenizer = bleu_tokenizer
 
     @override
-    def __call__(self, batch: Seq2SeqBatch) -> None:
+    def __call__(self, batch: Seq2SeqBatch, metric_bag: MetricBag) -> None:
         if batch.example is None:
             raise ValueError("`batch.example` must not be `None`.")
 
@@ -403,9 +421,9 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
                 "`batch.example` must contain a 'source_text' item."
             ) from None
 
-        if not isinstance(srcs, Iterable):
+        if not isinstance(srcs, Sequence):
             raise TypeError(
-                f"`batch.example['source_text'] must be an iterable of strings, but is of type `{type(srcs)}` instead."
+                f"`batch.example['source_text'] must be a sequence of strings, but is of type `{type(srcs)}` instead."
             )
 
         try:
@@ -415,19 +433,22 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
                 "`batch.example` must contain a 'target_text' item."
             ) from None
 
-        if not isinstance(refs, Iterable):
+        if not isinstance(refs, Sequence):
             raise TypeError(
-                f"`batch.example['target_text'] must be an iterable of strings, but is of type `{type(refs)}` instead."
+                f"`batch.example['target_text'] must be a sequence of strings, but is of type `{type(refs)}` instead."
             )
 
-        hyps, output = self._converter.batch_convert(
-            batch.source_seqs, batch.source_padding_mask
-        )
+        source_seqs, source_seqs_layout = batch.as_source_input()
 
-        self._metric_bag.bleu.update(refs, hyps)
-        self._metric_bag.chrf.update(refs, hyps)
+        hyps, output = self._converter.batch_convert(source_seqs, source_seqs_layout)
 
-        self._metric_bag.update_batch_metrics(output, batch.num_source_elements())
+        bleu_metric = metric_bag.get(BleuMetric, "bleu", self._bleu_tokenizer)
+        chrf_metric = metric_bag.get(ChrfMetric, "chrf")
+
+        bleu_metric.update(refs, hyps)
+        chrf_metric.update(refs, hyps)
+
+        update_seq2seq_generator_metrics(metric_bag, output, batch.num_source_elements)
 
         try:
             # Dump source sentences.
@@ -458,20 +479,15 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
                 stream.flush()
         except OSError as ex:
             raise UnitError(
-                "The generator output cannot be written to the stream. See the nested exception for details."
+                "The generator output cannot be written. See the nested exception for details."
             ) from ex
+
+    @property
+    @override
+    def name(self) -> str | None:
+        return self._name
 
     @property
     @override
     def model(self) -> Model:
         return self._model
-
-    @property
-    @override
-    def display_name(self) -> str | None:
-        return self._display_name
-
-    @property
-    @override
-    def metric_bag(self) -> Seq2SeqGenerationMetricBag:
-        return self._metric_bag

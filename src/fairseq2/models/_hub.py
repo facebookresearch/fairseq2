@@ -11,6 +11,7 @@ from typing import Generic, TypeVar, cast, final
 import torch
 from torch.nn import Module
 
+from fairseq2 import get_runtime_context
 from fairseq2.assets import (
     AssetCard,
     AssetCardError,
@@ -18,8 +19,13 @@ from fairseq2.assets import (
     AssetCardNotFoundError,
     AssetStore,
 )
-from fairseq2.context import get_runtime_context
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.gang import Gangs, fake_gangs
+from fairseq2.registry import Provider
+
+# isort: split
+
 from fairseq2.models._error import (
     InvalidModelConfigTypeError,
     InvalidModelTypeError,
@@ -29,8 +35,6 @@ from fairseq2.models._error import (
     model_asset_card_error,
 )
 from fairseq2.models._handler import ModelHandler
-from fairseq2.registry import Provider
-from fairseq2.typing import DataType, Device
 
 ModelT = TypeVar("ModelT", bound=Module)
 
@@ -105,6 +109,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         device: Device | None = None,
         dtype: DataType | None = None,
         config: ModelConfigT | None = None,
+        mmap: bool = False,
     ) -> ModelT:
         if gangs is not None and device is not None:
             raise ValueError(
@@ -122,7 +127,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
             gangs = fake_gangs(device)
         else:
             if gangs.root.device.type == "meta":
-                raise ValueError("`gangs` must be on a real device.")
+                raise ValueError("`gangs.root` must be on a real device.")
 
         if isinstance(name_or_card, AssetCard):
             card = name_or_card
@@ -156,7 +161,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         if dtype is None:
             dtype = torch.get_default_dtype()
 
-        model = handler.load(card, gangs, dtype, config=config)
+        model = handler.load(card, gangs, dtype, config, mmap=mmap)
 
         return cast(ModelT, model)
 

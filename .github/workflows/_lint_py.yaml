@@ -9,7 +9,7 @@ on:
     inputs:
       torch:
         type: string
-        default: '2.6.0'
+        default: '2.7.0'
       py:
         type: string
         default: '3.12'
@@ -79,7 +79,7 @@ jobs:
 
           trap remove_matcher EXIT
 
-          black --check .
+          black --check --diff .
       - name: Run flake8
         if: success() || (failure() && steps.install_fairseq2.outcome == 'success')
         run: |

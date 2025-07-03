@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import final
+from typing import TYPE_CHECKING, final
 
 import torch
 import torch.nn as nn
@@ -19,53 +19,45 @@ from torch.nn.functional import embedding, interpolate
 from torch.nn.parameter import Parameter
 from typing_extensions import override
 
-from fairseq2.error import InternalError
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
+from fairseq2.ops import unsqueeze
+from fairseq2.typing import get_name_or_self
+
+# isort: split
+
+from fairseq2.nn._batch_layout import BatchLayout
 from fairseq2.nn._incremental_state import IncrementalStateBag
-from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import DataType, Device
 
 
 class PositionEncoder(Module, ABC):
     """Encodes sequences with positional information."""
 
     encoding_dim: int
-    max_seq_len: int | None
 
-    def __init__(self, encoding_dim: int, max_seq_len: int | None) -> None:
-        """
-        :param encoding_dim: The dimensionality of positional encodings. The
-            last dimension of input sequences is expected to have the same
-            dimensionality.
-        :param max_seq_len: The maximum allowed length for input sequences.
-            Sequences longer than ``max_seq_len`` will cause a :class:`ValueError`.
-            Typically it is set to the context length of the underlying model.
-            If ``None``, sequences can have arbitrary length.
-        """
+    def __init__(self, encoding_dim: int) -> None:
         super().__init__()
 
         self.encoding_dim = encoding_dim
-        self.max_seq_len = max_seq_len
 
+    @abstractmethod
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
+        seqs_layout: BatchLayout,
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
         """
         Returns a copy of ``seqs`` with positional information encoded.
 
-        :param seqs: The input sequences to encode. *Shape:* :math:`(*,S,E)`,
-            where :math:`*` is any number of batch dimensions including none,
-            :math:`S` is the sequence length, and :math:`E` is the dimensionality
-            of the positional encodings.
-        :param padding_mask: The padding mask of ``seqs``. *Shape:* :math:`(*,S)`,
-            where :math:`*` is any number of batch dimensions including none and
-            :math:`S` is the sequence length.
+        :param seqs: The input sequences to encode. *Shape:* :math:`([N],S,*,E)`,
+            where :math:`N` is the batch size, :math:`S` is the sequence length,
+            :math:`*` is any number of batch dimensions including none, and
+            :math:`E` is the dimensionality of the positional encodings.
         :param state_bag: If not ``None``, the encoder will operate in
-            incremental decoding mode. This means that the first step in ``seqs``
-            will be considered to be at position :attr:`state_bag.step_nr
+            incremental decoding mode. The first element in ``seqs`` will be
+            considered to be at position :attr:`state_bag.step_nr
             <fairseq2.nn.IncrementalStateBag.step_nr>` instead of 0.
 
         :raises ValueError: when the sequence length of ``seqs`` exceeds
@@ -74,41 +66,9 @@ class PositionEncoder(Module, ABC):
         :returns: The input sequences with positional information encoded.
             *Shape:* Same as ``seqs``.
         """
-        if self.max_seq_len is not None:
-            if self.training or state_bag is None:
-                start_step = 0
-            else:
-                start_step = state_bag.step_nr
 
-            if (seq_len := start_step + seqs.size(-2)) > self.max_seq_len:
-                raise ValueError(
-                    f"The input sequence length must be less than or equal to the maximum sequence length ({self.max_seq_len}), but is {seq_len} instead."
-                )
-
-        return self._do_forward(seqs, padding_mask, state_bag)
-
-    @abstractmethod
-    def _do_forward(
-        self,
-        seqs: Tensor,
-        padding_mask: PaddingMask | None,
-        state_bag: IncrementalStateBag | None,
-    ) -> Tensor:
-        """
-        When overriden in a subclass, returns a copy of ``seqs`` with positional
-        information encoded. See :meth:`forward` for parameter descriptions.
-
-        :meta public:
-        """
-
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        s = f"encoding_dim={self.encoding_dim}"
-
-        if self.max_seq_len is not None:
-            s = f"{s}, max_seq_len={self.max_seq_len}"
-
-        return s
+    if TYPE_CHECKING:
+        __call__ = forward
 
 
 @final
@@ -116,6 +76,8 @@ class SinusoidalPositionEncoder(PositionEncoder):
     """Encodes sequences with fixed sinusoidal positional information."""
 
     freqs: Tensor
+    max_seq_len: int
+    sin_offset: int
 
     def __init__(
         self,
@@ -134,7 +96,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
 
         :raise ValueError: when ``encoding_dim`` is not even.
         """
-        super().__init__(encoding_dim, max_seq_len)
+        super().__init__(encoding_dim)
 
         if encoding_dim % 2 != 0:
             raise ValueError(
@@ -142,58 +104,94 @@ class SinusoidalPositionEncoder(PositionEncoder):
             )
 
         freqs = torch.empty(
-            (max_seq_len, encoding_dim), device=device, dtype=torch.float32
+            (max_seq_len + 1, encoding_dim), device=device, dtype=torch.float32
         )
 
         self.register_buffer("freqs", freqs, persistent=False)
 
+        self.max_seq_len = max_seq_len
+
         # This is a legacy parameter that should only be set when the encodings
         # must be compatible with fairseq.
         if _legacy_pad_idx is None:
-            self._sin_offset = 0
+            sin_offset = 0
         else:
-            self._sin_offset = 1 + _legacy_pad_idx
+            sin_offset = 1 + _legacy_pad_idx
+
+        self.sin_offset = sin_offset
 
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
         self.reset_non_persistent_buffers()
 
     def reset_non_persistent_buffers(self) -> None:
-        """Reset the non-persistent buffers of the module."""
-        if self.max_seq_len is None:
-            raise InternalError("`max_seq_len` is `None`.")
+        self.freqs[0] = 0.0  # pad
 
         device, dtype = self.freqs.device, self.freqs.dtype
 
-        start_step = self._sin_offset
+        start_step = self.sin_offset
 
         # (S)
         steps = torch.arange(
             start_step, start_step + self.max_seq_len, device=device, dtype=dtype
         )
 
-        _fill_sin_freq_table(self.freqs, self.encoding_dim, steps)
+        _fill_sin_freq_table(self.freqs[1:], self.encoding_dim, steps)
 
     @override
-    def _do_forward(
+    def forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
-        state_bag: IncrementalStateBag | None,
+        seqs_layout: BatchLayout,
+        *,
+        state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
-        """:meta private:"""
-        seq_len = seqs.size(-2)
-
-        if self.training or state_bag is None:
-            start_step = 0
-        else:
+        if not self.training and state_bag is not None:
             start_step = state_bag.step_nr
+        else:
+            start_step = 0
 
-        fp32_seqs = seqs.float() + self.freqs[start_step : start_step + seq_len]
+        max_seq_len = start_step + seqs_layout.max_seq_len
+
+        if max_seq_len > self.max_seq_len:
+            raise ValueError(
+                f"The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence is of length {max_seq_len} instead."
+            )
+
+        if seqs_layout.packed or seqs_layout.padded:
+            indices = seqs_layout.position_indices + 1  # +1 for padding
+
+            if not self.training and state_bag is not None:
+                indices = state_bag.step_nr + indices
+
+            # ([N], S, E)
+            freqs = self.freqs[indices]
+        else:
+            batch_width = seqs_layout.width
+
+            if not self.training and state_bag is not None:
+                start_step = 1 + state_bag.step_nr
+            else:
+                start_step = 1
+
+            # (S, E)
+            freqs = self.freqs[start_step : start_step + batch_width]
+
+            # (S, E) -> (1, S, E)
+            freqs = freqs.unsqueeze(0)
+
+        if d := seqs.ndim - freqs.ndim:
+            freqs = unsqueeze(freqs, dim=-2, count=d)
+
+        fp32_seqs = seqs.float() + freqs
 
         return fp32_seqs.type_as(seqs)
+
+    @override
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return f"encoding_dim={self.encoding_dim}, max_seq_len={self.max_seq_len}"
 
 
 def _fill_sin_freq_table(
@@ -230,6 +228,7 @@ class LearnedPositionEncoder(PositionEncoder):
     """Encodes sequences with learned positional embeddings."""
 
     weight: Parameter
+    max_seq_len: int
 
     def __init__(
         self,
@@ -246,38 +245,59 @@ class LearnedPositionEncoder(PositionEncoder):
         :param max_seq_len: The maximum allowed length for input sequences.
             Sequences longer than ``max_seq_len`` will cause a :class:`ValueError`.
         """
-        super().__init__(encoding_dim, max_seq_len)
+        super().__init__(encoding_dim)
 
         self.weight = Parameter(
-            torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)
+            torch.empty((max_seq_len + 1, encoding_dim), device=device, dtype=dtype)
         )
+
+        self.max_seq_len = max_seq_len
 
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
         nn.init.normal_(self.weight)
 
+        with torch.no_grad():
+            self.weight[0].fill_(0.0)  # pad
+
     @override
-    def _do_forward(
+    def forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
-        state_bag: IncrementalStateBag | None,
+        seqs_layout: BatchLayout,
+        *,
+        state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
-        """:meta private:"""
-        seq_len = seqs.size(-2)
-
-        if self.training or state_bag is None:
-            start_step = 0
-        else:
+        if not self.training and state_bag is not None:
             start_step = state_bag.step_nr
+        else:
+            start_step = 0
 
-        steps = torch.arange(
-            start_step, start_step + seq_len, device=seqs.device, dtype=torch.int64
-        )
+        max_seq_len = start_step + seqs_layout.max_seq_len
 
-        return seqs + embedding(steps, self.weight)
+        if max_seq_len > self.max_seq_len:
+            raise ValueError(
+                f"The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence is of length {max_seq_len} instead."
+            )
+
+        indices = seqs_layout.position_indices + 1  # +1 for padding
+
+        if not self.training and state_bag is not None:
+            indices = state_bag.step_nr + indices
+
+        # ([N], S, E)
+        embeds = embedding(indices, self.weight, padding_idx=0)
+
+        if d := seqs.ndim - embeds.ndim:
+            embeds = unsqueeze(embeds, dim=-2, count=d)
+
+        return seqs + embeds
+
+    @override
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return f"encoding_dim={self.encoding_dim}, max_seq_len={self.max_seq_len}"
 
 
 @final
@@ -288,6 +308,7 @@ class RotaryEncoder(PositionEncoder):
     """
 
     freqs: Tensor
+    max_seq_len: int
     theta: float
     freqs_init_fn: Callable[[RotaryEncoder], Tensor] | None
 
@@ -316,7 +337,7 @@ class RotaryEncoder(PositionEncoder):
 
         :raise ValueError: when ``encoding_dim`` is not even.
         """
-        super().__init__(encoding_dim, max_seq_len)
+        super().__init__(encoding_dim)
 
         if encoding_dim % 2 != 0:
             raise ValueError(
@@ -324,28 +345,28 @@ class RotaryEncoder(PositionEncoder):
             )
 
         freqs = torch.empty(
-            (max_seq_len, encoding_dim // 2, 2), device=device, dtype=torch.float32
+            (max_seq_len + 1, encoding_dim // 2, 2), device=device, dtype=torch.float32
         )
 
         self.register_buffer("freqs", freqs, persistent=False)
 
+        self.max_seq_len = max_seq_len
+
         self.theta = theta
+
         self.freqs_init_fn = freqs_init_fn
 
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
         self.reset_non_persistent_buffers()
 
     def reset_non_persistent_buffers(self) -> None:
-        """Reset the non-persistent buffers of the module."""
-        if self.max_seq_len is None:
-            raise InternalError("`max_seq_len` is `None`.")
+        self.freqs[0] = 0.0  # pad
 
         device = self.freqs.device
 
-        complex_freqs = torch.view_as_complex(self.freqs)
+        complex_freqs = torch.view_as_complex(self.freqs[1:])
 
         # (S)
         steps = torch.arange(self.max_seq_len, device=device, dtype=torch.float32)
@@ -367,35 +388,245 @@ class RotaryEncoder(PositionEncoder):
         torch.polar(torch.ones_like(freqs), freqs, out=complex_freqs)
 
     @override
-    def _do_forward(
+    def forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
-        state_bag: IncrementalStateBag | None,
+        seqs_layout: BatchLayout,
+        *,
+        state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
-        """:meta private:"""
-        seq_len = seqs.size(-2)
-
-        if self.training or state_bag is None:
-            start_step = 0
-        else:
+        if not self.training and state_bag is not None:
             start_step = state_bag.step_nr
+        else:
+            start_step = 0
+
+        max_seq_len = start_step + seqs_layout.max_seq_len
+
+        if max_seq_len > self.max_seq_len:
+            raise ValueError(
+                f"The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence is of length {max_seq_len} instead."
+            )
 
         complex_freqs = torch.view_as_complex(self.freqs)
 
-        complex_freqs = complex_freqs[start_step : start_step + seq_len]
+        if seqs_layout.packed or seqs_layout.padded:
+            indices = seqs_layout.position_indices + 1  # +1 for padding
 
-        # (*, S, E) -> (*, S, E / 2, 2)
+            if not self.training and state_bag is not None:
+                indices = state_bag.step_nr + indices
+
+            # ([N], S, E / 2)
+            complex_freqs = complex_freqs[indices]
+        else:
+            batch_width = seqs_layout.width
+
+            if not self.training and state_bag is not None:
+                start_step = 1 + state_bag.step_nr
+            else:
+                start_step = 1
+
+            # (S, E / 2)
+            complex_freqs = complex_freqs[start_step : start_step + batch_width]
+
+            # (S, E / 2) -> (1, S, E / 2)
+            complex_freqs = complex_freqs.unsqueeze(0)
+
+        # ([N], S, *, E) -> ([N], S, *, E / 2, 2)
         seqs = seqs.unflatten(-1, (-1, 2))
 
+        # ([N], S, *, E / 2, 2) -> ([N], S, *, E / 2)
         complex_seqs = torch.view_as_complex(seqs.float())
+
+        if d := complex_seqs.ndim - complex_freqs.ndim:
+            complex_freqs = unsqueeze(complex_freqs, dim=-2, count=d)
 
         complex_seqs = complex_seqs * complex_freqs
 
-        # (*, S, E / 2, 2) -> (*, S, E)
+        # ([N], S, *, E / 2) -> ([N], S, *, E)
         fp32_seqs = torch.view_as_real(complex_seqs).flatten(-2)
 
         return fp32_seqs.type_as(seqs)
+
+    @override
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        s = (
+            f"encoding_dim={self.encoding_dim}, "
+            f"max_seq_len={self.max_seq_len}, "
+            f"theta={self.theta}"
+        )
+
+        if self.freqs_init_fn is not None:
+            freqs_init_fn = get_name_or_self(self.freqs_init_fn)
+
+            s = f"{s}, freqs_init_fn={freqs_init_fn}"
+
+        return s
+
+
+@final
+class ReferenceRotaryEncoder(PositionEncoder):
+    """
+    Encodes sequences with relative positional information as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.2104.09864`.
+    """
+
+    cos_freqs: Tensor
+    sin_freqs: Tensor
+    max_seq_len: int
+    theta: float
+
+    def __init__(
+        self,
+        encoding_dim: int,
+        max_seq_len: int,
+        *,
+        theta: float = 10_000.0,
+        device: Device | None = None,
+    ) -> None:
+        """
+        :param encoding_dim: The dimensionality of positional encodings. The
+            last dimension of input sequences is expected to have the same
+            dimensionality.
+        :param max_seq_len: The maximum allowed length for input sequences.
+            Sequences longer than ``max_seq_len`` will cause a :class:`ValueError`.
+        :param theta: The coefficient of the long-term decay as described in
+            section 3.3 of the reference paper.
+
+        :raise ValueError: when ``encoding_dim`` is not even.
+        """
+        super().__init__(encoding_dim)
+
+        if encoding_dim % 2 != 0:
+            raise ValueError(
+                f"`encoding_dim` must be even, but is {encoding_dim} instead."
+            )
+
+        cos_freqs = torch.empty(
+            (max_seq_len + 1, encoding_dim), device=device, dtype=torch.float32
+        )
+
+        sin_freqs = torch.empty(
+            (max_seq_len + 1, encoding_dim), device=device, dtype=torch.float32
+        )
+
+        self.register_buffer("cos_freqs", cos_freqs, persistent=False)
+        self.register_buffer("sin_freqs", sin_freqs, persistent=False)
+
+        self.max_seq_len = max_seq_len
+
+        self.theta = theta
+
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        self.reset_non_persistent_buffers()
+
+    def reset_non_persistent_buffers(self) -> None:
+        self.cos_freqs[0] = 0.0  # pad
+        self.sin_freqs[0] = 0.0  # pad
+
+        dtype = torch.float32
+
+        device = self.cos_freqs.device
+
+        encoding_dim = self.encoding_dim
+
+        # (E)
+        indices = torch.arange(encoding_dim // 2, device=device, dtype=dtype)
+
+        # (E) -> (1, E)
+        indices = indices.unsqueeze(0)
+
+        # (S)
+        steps = torch.arange(self.max_seq_len, device=device, dtype=dtype)
+
+        # (S, 1)
+        steps = steps.unsqueeze(1)
+
+        # (S, 1) x (1, E) -> (S, E)
+        table = torch.matmul(steps, self.theta ** (-2.0 * indices / encoding_dim))
+
+        cos = torch.cos(table)
+        sin = torch.sin(table)
+
+        self.cos_freqs[1:, : encoding_dim // 2] = cos
+        self.cos_freqs[1:, encoding_dim // 2 :] = cos
+
+        self.sin_freqs[1:, : encoding_dim // 2] = sin
+        self.sin_freqs[1:, encoding_dim // 2 :] = sin
+
+    @override
+    def forward(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        *,
+        state_bag: IncrementalStateBag | None = None,
+    ) -> Tensor:
+        if not self.training and state_bag is not None:
+            start_step = state_bag.step_nr
+        else:
+            start_step = 0
+
+        max_seq_len = start_step + seqs_layout.max_seq_len
+
+        if max_seq_len > self.max_seq_len:
+            raise ValueError(
+                f"The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence is of length {max_seq_len} instead."
+            )
+
+        if seqs_layout.packed or seqs_layout.padded:
+            indices = seqs_layout.position_indices + 1  # +1 for padding
+
+            if not self.training and state_bag is not None:
+                indices = state_bag.step_nr + indices
+
+            # ([N], S, E)
+            cos_freqs = self.cos_freqs[indices]
+            sin_freqs = self.sin_freqs[indices]
+        else:
+            batch_width = seqs_layout.width
+
+            if not self.training and state_bag is not None:
+                start_step = 1 + state_bag.step_nr
+            else:
+                start_step = 1
+
+            # (S, E)
+            cos_freqs = self.cos_freqs[start_step : start_step + batch_width]
+            sin_freqs = self.sin_freqs[start_step : start_step + batch_width]
+
+            # (S, E) -> (1, S, E)
+            cos_freqs = cos_freqs.unsqueeze(0)
+            sin_freqs = sin_freqs.unsqueeze(0)
+
+        if d := seqs.ndim - cos_freqs.ndim:
+            cos_freqs = unsqueeze(cos_freqs, dim=-2, count=d)
+            sin_freqs = unsqueeze(sin_freqs, dim=-2, count=d)
+
+        fp32_seqs = seqs.float()
+
+        fp32_rotated_seqs = self._rotate_half_way(fp32_seqs)
+
+        fp32_seqs = (fp32_seqs * cos_freqs) + (fp32_rotated_seqs * sin_freqs)
+
+        return fp32_seqs.type_as(seqs)
+
+    def _rotate_half_way(self, seqs: Tensor) -> Tensor:
+        half1 = seqs[..., : self.encoding_dim // 2]
+        half2 = seqs[..., self.encoding_dim // 2 :]
+
+        return torch.cat((-half2, half1), dim=-1)
+
+    @override
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return (
+            f"encoding_dim={self.encoding_dim}, "
+            f"max_seq_len={self.max_seq_len}, "
+            f"theta={self.theta}"
+        )
 
 
 class InterpolatedPositionEncoder(Module, ABC):
@@ -404,10 +635,6 @@ class InterpolatedPositionEncoder(Module, ABC):
     encoding_dim: int
 
     def __init__(self, encoding_dim: int) -> None:
-        """
-        :param encoding_dim: The dimensionality of positional encodings. The
-            last dimension of inputs is expected to have the same dimensionality.
-        """
         super().__init__()
 
         self.encoding_dim = encoding_dim
@@ -426,9 +653,8 @@ class InterpolatedPositionEncoder(Module, ABC):
             as ``x``.
         """
 
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        return f"encoding_dim={self.encoding_dim}"
+    if TYPE_CHECKING:
+        __call__ = forward
 
 
 class SinusoidalNdPositionEncoder(InterpolatedPositionEncoder):
@@ -468,12 +694,10 @@ class SinusoidalNdPositionEncoder(InterpolatedPositionEncoder):
         self.register_buffer("freqs", freqs, persistent=False)
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
         self.reset_non_persistent_buffers()
 
     @abstractmethod
-    def reset_non_persistent_buffers(self) -> None:
-        """Reset the non-persistent buffers of the module."""
+    def reset_non_persistent_buffers(self) -> None: ...
 
     @override
     def forward(self, x: Tensor) -> Tensor:
@@ -499,15 +723,15 @@ class SinusoidalNdPositionEncoder(InterpolatedPositionEncoder):
             Same as ``x``.
         """
 
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = super().extra_repr()
-
-        return f"{s}, grid_dims={self.grid_dims}"
+        return f"encoding_dim={self.encoding_dim}, grid_dims={self.grid_dims}"
 
 
 class Sinusoidal2dPositionEncoder(SinusoidalNdPositionEncoder):
-    """Encodes 2-dimensional inputs with sinusoidal positional information.
+    """
+    Encodes 2-dimensional inputs with sinusoidal positional information.
 
     .. note::
         This implementation uses bicubic interpolation. The interpolation
@@ -601,7 +825,8 @@ class Sinusoidal2dPositionEncoder(SinusoidalNdPositionEncoder):
 
 
 class Sinusoidal3dPositionEncoder(SinusoidalNdPositionEncoder):
-    """Encodes 3-dimensional inputs with sinusoidal positional information.
+    """
+    Encodes 3-dimensional inputs with sinusoidal positional information.
 
     .. note::
         This implementation uses trilinear interpolation. The interpolation

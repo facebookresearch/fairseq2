@@ -18,10 +18,4 @@ from fairseq2.models.mistral._factory import MistralFactory as MistralFactory
 from fairseq2.models.mistral._factory import (
     create_mistral_model as create_mistral_model,
 )
-
-# isort: split
-
-from fairseq2.models import ModelHubAccessor
-from fairseq2.models.transformer_decoder import TransformerDecoderModel
-
-get_mistral_model_hub = ModelHubAccessor(TransformerDecoderModel, MistralConfig)
+from fairseq2.models.mistral._hub import get_mistral_model_hub as get_mistral_model_hub

@@ -26,7 +26,6 @@ It is probably the most complex system in fairseq2, but also the most powerful.
 
         %% TrainUnit Components
         B --> F[Model]
-        B --> G[MetricBag]
 
         %% Gang System
         I --> J[Root Gang]
@@ -75,11 +74,6 @@ The ``TrainUnit`` is an abstract class that encapsulates model-specific training
         def model(self) -> Module:
             """The underlying model."""
 
-        @property
-        @abstractmethod
-        def metric_bag(self) -> MetricBag:
-            """Training-related metrics."""
-
 .. dropdown:: Example implementation
    :icon: code
    :animate: fade-in
@@ -89,8 +83,6 @@ The ``TrainUnit`` is an abstract class that encapsulates model-specific training
       class TransformerTrainUnit(TrainUnit[TransformerBatch]):
         def __init__(self, model: TransformerModel) -> None:
             super().__init__(model)
-            self._metric_bag = MetricBag()
-            self._metric_bag.register_metric("loss", Mean())
             
         def __call__(self, batch: TransformerBatch) -> tuple[Tensor, int]:
             outputs = self._model(**batch)
@@ -129,8 +121,6 @@ The :class:`fairseq2.recipes.trainer.Trainer` class accepts a wide range of conf
         checkpoint_every_n_steps=5_000,      # Checkpoint frequency
         keep_last_n_checkpoints=5,           # Number of checkpoints to keep
         keep_best_n_checkpoints=3,           # Number of best checkpoints to keep
-        keep_last_n_models=5,                # Number of models to keep
-        keep_best_n_models=3,                # Number of best models to keep
         
         # Metric parameters
         publish_metrics_every_n_steps=100,   # Metric publishing frequency

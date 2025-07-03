@@ -15,7 +15,7 @@ from fairseq2.recipes.lm import (
     POFinetuneUnitHandler,
     SimPOFinetuneUnitHandler,
     OnlineDpoFinetuneUnitHandler,
-    GroupDpoFinetuneUnitHandler,
+    # GroupDpoFinetuneUnitHandler,
     GrpoFinetuneUnitHandler,
     OnlineFinetuneUnitHandler,
     GSM8kVerifierHandler,
@@ -32,7 +32,7 @@ from fairseq2.recipes.lm import (
 )
 
 
-def register_po_finetune_units(context: RuntimeContext) -> None:
+def _register_po_finetune_units(context: RuntimeContext) -> None:
     registry = context.get_registry(POFinetuneUnitHandler)
 
     handler: POFinetuneUnitHandler
@@ -58,7 +58,7 @@ def register_po_finetune_units(context: RuntimeContext) -> None:
     registry.register(handler.name, handler)
 
 
-def register_online_finetune_units(context: RuntimeContext) -> None:
+def _register_online_finetune_units(context: RuntimeContext) -> None:
     registry = context.get_registry(OnlineFinetuneUnitHandler)
 
     # finetune units
@@ -69,9 +69,9 @@ def register_online_finetune_units(context: RuntimeContext) -> None:
     handler = OnlineDpoFinetuneUnitHandler(context)
     registry.register(handler.name, handler)
 
-    # Group DPO
-    handler = GroupDpoFinetuneUnitHandler(context)
-    registry.register(handler.name, handler)
+    # # Group DPO
+    # handler = GroupDpoFinetuneUnitHandler(context)
+    # registry.register(handler.name, handler)
 
     # GRPO
     handler = GrpoFinetuneUnitHandler(context)

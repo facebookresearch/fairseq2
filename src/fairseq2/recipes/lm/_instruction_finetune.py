@@ -13,25 +13,28 @@ from typing import final
 import torch
 import torch.distributed
 from torch import Tensor
+from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
-from fairseq2.datasets import Batching, LengthBatching, StaticBatching, SyncMode
+from fairseq2.datasets import (
+    Batching,
+    LengthBatching,
+    SequenceBatch,
+    StaticBatching,
+    SyncMode,
+)
 from fairseq2.datasets.instruction import (
     GENERIC_INSTRUCTION_DATASET_FAMILY,
     InstructionDataset,
     InstructionReadOptions,
 )
-from fairseq2.gang import Gangs
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.sequence import (
-    SequenceBatch,
-    SequenceModelOutput,
-    as_auto_regressive_input,
-)
-from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
+from fairseq2.device import CPU
+from fairseq2.metrics import MetricBag
+from fairseq2.models.clm import CausalLM
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import COSINE_ANNEALING_LR, CosineAnnealingLRConfig
+from fairseq2.recipes import EvalUnit, Model, Trainer, TrainUnit
 from fairseq2.recipes.common import (
     create_checkpoint_manager,
     create_lr_scheduler,
@@ -40,25 +43,25 @@ from fairseq2.recipes.common import (
     load_dataset,
     load_text_tokenizer,
     register_extra_asset_paths,
-    setup_gangs,
     setup_model,
+    setup_torch,
+    setup_training_gangs,
 )
 from fairseq2.recipes.config import (
+    ActivationCheckpointingSection,
     CommonSection,
     DatasetSection,
-    FsdpSection,
+    FSDPSection,
     GangSection,
     LRSchedulerSection,
     ModelSection,
     OptimizerSection,
     RegimeSection,
+    TextTokenizerSection,
+    TorchSection,
     TrainerSection,
 )
-from fairseq2.recipes.evaluator import EvalUnit
-from fairseq2.recipes.metrics import SequenceMetricBag
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import Trainer, TrainUnit
-from fairseq2.typing import CPU
+from fairseq2.recipes.metrics import update_nll_loss, update_seq_batch_metrics
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
@@ -74,21 +77,27 @@ class InstructionFinetuneConfig:
         default_factory=lambda: InstructionFinetuneDatasetSection()
     )
 
+    tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="llama3_instruct")
+    )
+
     gang: GangSection = field(default_factory=lambda: GangSection())
 
     trainer: TrainerSection = field(
         default_factory=lambda: TrainerSection(
             dtype=torch.bfloat16,
             data_parallelism="fsdp",
-            fsdp=FsdpSection(fp32_reduce=True),
-            activation_checkpointing=True,
+            fsdp=FSDPSection(fp32_reduce=True),
+            activation_checkpointing=ActivationCheckpointingSection(mode="layerwise"),
         )
     )
 
     optimizer: OptimizerSection = field(
         default_factory=lambda: OptimizerSection(
             name=ADAMW_OPTIMIZER,
-            config=AdamWConfig(lr=5.5e-06, betas=(0.9, 0.95), weight_decay=0.1),
+            config=AdamWConfig(
+                lr=5.5e-06, betas=(0.9, 0.95), weight_decay=0.1, impl="fused"
+            ),
         )
     )
 
@@ -100,15 +109,21 @@ class InstructionFinetuneConfig:
 
     regime: RegimeSection = field(
         default_factory=lambda: RegimeSection(
-            num_steps=5_000,
+            num_steps=5000,
             validate_every_n_steps=100,
-            checkpoint_every_n_steps=1_000,
+            checkpoint_every_n_steps=1000,
             keep_last_n_checkpoints=1,
             publish_metrics_every_n_steps=10,
         )
     )
 
-    common: CommonSection = field(default_factory=lambda: CommonSection())
+    # The memory efficient SDPA implementation in PyTorch is numerically not
+    # stable when used with padded inputs.
+    common: CommonSection = field(
+        default_factory=lambda: CommonSection(
+            torch=TorchSection(default_sdpa="torch_math")
+        )
+    )
 
 
 @dataclass(kw_only=True)
@@ -160,11 +175,6 @@ class InstructionFinetuneDatasetSection(DatasetSection):
     """The dataset-specific extra options."""
 
 
-@dataclass(kw_only=True)
-class DropoutConfig:
-    dropout_p: float = 0.0
-
-
 def register_instruction_finetune_configs(context: RuntimeContext) -> None:
     registry = context.get_config_registry(InstructionFinetuneConfig)
 
@@ -172,11 +182,7 @@ def register_instruction_finetune_configs(context: RuntimeContext) -> None:
 
     @preset("llama3_1_instruct")
     def llama3_1_instruct() -> InstructionFinetuneConfig:
-        config = InstructionFinetuneConfig()
-
-        config.model.config = DropoutConfig()
-
-        return config
+        return InstructionFinetuneConfig()
 
     @preset("llama3_1_instruct_constant_lr")
     def llama3_1_instruct_constant_lr() -> InstructionFinetuneConfig:
@@ -211,16 +217,16 @@ def register_instruction_finetune_configs(context: RuntimeContext) -> None:
 
 def load_instruction_finetuner(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Trainer[SequenceBatch]:
+) -> Trainer:
     config = structure(config, InstructionFinetuneConfig)
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common.assets)
 
-    torch.set_float32_matmul_precision("high")
+    setup_torch(context, config.common.torch, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_training_gangs(context, config.gang, config.trainer)
 
     checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
@@ -231,26 +237,29 @@ def load_instruction_finetuner(
     seed += 1
 
     model = setup_model(
-        DecoderModel, context, config, output_dir, gangs, checkpoint_manager
+        CausalLM,
+        context,
+        config.model,
+        config.trainer,
+        output_dir,
+        gangs,
+        checkpoint_manager,
     )
 
-    # TODO(balioglu): investigate!
-    # The memory efficient SDPA implementation in PyTorch is not stable when
-    # used with padded inputs.
-    enable_memory_efficient_torch_sdpa(model.module, False)
+    optimizer = create_optimizer(context, config.optimizer, model)
 
-    optimizer = create_optimizer(context, config, model)
+    lr_scheduler = create_lr_scheduler(
+        context, config.lr_scheduler, config.regime, optimizer
+    )
 
-    lr_scheduler = create_lr_scheduler(context, config, optimizer)
+    dataset = load_dataset(InstructionDataset, context, config.dataset, gangs)
 
-    dataset = load_dataset(InstructionDataset, context, config, gangs)
-
-    tokenizer = load_text_tokenizer(context, config)
+    tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the unit.
-    criterion = InstructionFinetuneCriterion(model)
+    criterion = InstructionFinetuneCriterion(model.module)
 
-    unit = InstructionFinetuneUnit(criterion, gangs)
+    unit = InstructionFinetuneUnit(model, criterion)
 
     batching: Batching
 
@@ -263,7 +272,7 @@ def load_instruction_finetuner(
         batching=batching,
         example_shuffle_window=config.dataset.example_shuffle_window,
         batch_shuffle_window=config.dataset.batch_shuffle_window,
-        num_accumulate=config.trainer.gradient_accumulation,
+        num_accumulate=config.trainer.grad_accumulation.num_batches,
         num_prefetch=config.dataset.num_prefetch,
         source_encode_mode=config.dataset.source_encode_mode,
         target_encode_mode=config.dataset.target_encode_mode,
@@ -284,7 +293,7 @@ def load_instruction_finetuner(
 
     # Initialize the validation unit.
     if config.dataset.valid_split is not None:
-        valid_unit = InstructionLossEvalUnit(criterion, gangs)
+        valid_unit = InstructionLossEvalUnit(model, criterion)
 
         max_num_tokens = (
             config.dataset.max_num_valid_tokens or config.dataset.max_num_tokens
@@ -323,7 +332,9 @@ def load_instruction_finetuner(
 
     return create_trainer(
         context,
-        config,
+        config.trainer,
+        config.regime,
+        config.common,
         output_dir,
         unit,
         data_reader,
@@ -334,91 +345,77 @@ def load_instruction_finetuner(
         optimizer,
         lr_scheduler,
         seed,
+        hyper_params=config,
     )
 
 
 @final
 class InstructionFinetuneUnit(TrainUnit[SequenceBatch]):
+    _model: Model
     _criterion: InstructionFinetuneCriterion
-    _metric_bag: SequenceMetricBag
 
-    def __init__(self, criterion: InstructionFinetuneCriterion, gangs: Gangs) -> None:
+    def __init__(self, model: Model, criterion: InstructionFinetuneCriterion) -> None:
+        self._model = model
+
         self._criterion = criterion
 
-        self._metric_bag = SequenceMetricBag(gangs.dp)
-
     @override
-    def __call__(self, batch: SequenceBatch) -> tuple[Tensor, int]:
-        return self._criterion(batch, self._metric_bag)
+    def __call__(
+        self, batch: SequenceBatch, metric_bag: MetricBag
+    ) -> tuple[Tensor, int]:
+        return self._criterion(batch, metric_bag)
 
     @property
     @override
     def model(self) -> Model:
-        return self._criterion.model
-
-    @property
-    @override
-    def metric_bag(self) -> SequenceMetricBag:
-        return self._metric_bag
+        return self._model
 
 
 @final
 class InstructionLossEvalUnit(EvalUnit[SequenceBatch]):
+    _model: Model
     _criterion: InstructionFinetuneCriterion
-    _metric_bag: SequenceMetricBag
 
-    def __init__(self, criterion: InstructionFinetuneCriterion, gangs: Gangs) -> None:
+    def __init__(self, model: Model, criterion: InstructionFinetuneCriterion) -> None:
+        self._model = model
+
         self._criterion = criterion
 
-        self._metric_bag = SequenceMetricBag(gangs.dp)
-
     @override
-    def __call__(self, batch: SequenceBatch) -> None:
-        self._criterion(batch, self._metric_bag)
+    def __call__(self, batch: SequenceBatch, metric_bag: MetricBag) -> None:
+        self._criterion(batch, metric_bag)
 
     @property
     @override
     def model(self) -> Model:
-        return self._criterion.model
-
-    @property
-    @override
-    def metric_bag(self) -> SequenceMetricBag:
-        return self._metric_bag
+        return self._model
 
 
 @final
 class InstructionFinetuneCriterion:
-    _model: Model
+    _module: Module
 
-    def __init__(self, model: Model) -> None:
-        if not isinstance(model.base_module, DecoderModel):
-            raise TypeError(
-                f"`model.base_module` must be of type `{DecoderModel}`, but is of type `{type(model.base_module)}` instead."
-            )
-
-        self._model = model
+    def __init__(self, module: Module) -> None:
+        self._module = module
 
     def __call__(
-        self, batch: SequenceBatch, metric_bag: SequenceMetricBag
+        self, batch: SequenceBatch, metric_bag: MetricBag
     ) -> tuple[Tensor, int]:
-        input_batch, target_batch = as_auto_regressive_input(batch)
+        batch, target_batch = batch.as_auto_regressive()
 
-        output = self._forward(input_batch)
+        seqs, seqs_layout = batch.as_input()
 
-        loss = output.compute_loss(
-            target_batch.seqs, loss_mask=target_batch.target_mask
+        nll_loss = self._module(
+            seqs,
+            seqs_layout,
+            targets=target_batch.seqs,
+            target_mask=target_batch.target_mask,
         )
 
-        metric_bag.update_nll_loss(target_batch, loss)
+        update_nll_loss(
+            metric_bag, nll_loss, num_targets=target_batch.num_target_elements
+        )
 
-        metric_bag.update_batch_metrics(target_batch)
+        update_seq_batch_metrics(metric_bag, target_batch)
 
-        return loss, target_batch.num_target_elements()
-
-    def _forward(self, batch: SequenceBatch) -> SequenceModelOutput:
-        return self._model.module(batch)  # type: ignore[no-any-return]
-
-    @property
-    def model(self) -> Model:
-        return self._model
+        return nll_loss, target_batch.num_target_elements

@@ -8,14 +8,20 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from fairseq2.data import VocabularyInfo
+from fairseq2.models.clm import CausalLM
+from fairseq2.models.seq2seq import Seq2SeqModel
+
+# isort: split
+
 from fairseq2.generation._generator import Seq2SeqGenerator, SequenceGenerator
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
 
 
 class SequenceGeneratorHandler(ABC):
     @abstractmethod
-    def create(self, model: DecoderModel, config: object) -> SequenceGenerator: ...
+    def create(
+        self, model: CausalLM, vocab_info: VocabularyInfo, config: object
+    ) -> SequenceGenerator: ...
 
     @property
     @abstractmethod
@@ -29,7 +35,7 @@ class SequenceGeneratorHandler(ABC):
 class Seq2SeqGeneratorHandler(ABC):
     @abstractmethod
     def create(
-        self, model: EncoderDecoderModel, config: object
+        self, model: Seq2SeqModel, target_vocab_info: VocabularyInfo, config: object
     ) -> Seq2SeqGenerator: ...
 
     @property

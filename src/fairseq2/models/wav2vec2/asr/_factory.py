@@ -6,15 +6,21 @@
 
 from __future__ import annotations
 
+import torch.nn as nn
+
+from fairseq2.models.transformer import TransformerEncoder
 from fairseq2.models.wav2vec2 import (
     StandardWav2Vec2Masker,
     Wav2Vec2EncoderFactory,
     Wav2Vec2Frontend,
     Wav2Vec2Masker,
 )
+from fairseq2.nn import Linear, Projection
+
+# isort: split
+
 from fairseq2.models.wav2vec2.asr._config import Wav2Vec2AsrConfig
 from fairseq2.models.wav2vec2.asr._model import Wav2Vec2AsrModel
-from fairseq2.nn.transformer import TransformerEncoder
 
 
 def create_wav2vec2_asr_model(config: Wav2Vec2AsrConfig) -> Wav2Vec2AsrModel:
@@ -30,31 +36,39 @@ class Wav2Vec2AsrFactory:
     def create_model(self) -> Wav2Vec2AsrModel:
         config = self._config
 
-        encoder_frontend, encoder = self.create_encoder()
+        encoder_frontend = self.create_encoder_frontend()
+
+        encoder = self.create_encoder()
 
         if config.use_masking:
             masker = self.create_masker()
         else:
             masker = None
 
+        final_proj = self.create_final_projection()
+
         return Wav2Vec2AsrModel(
+            config.encoder_config.model_dim,
             encoder_frontend,
             encoder,
-            config.vocab_info,
+            final_proj,
             masker=masker,
             final_dropout_p=config.final_dropout_p,
         )
 
-    def create_encoder(self) -> tuple[Wav2Vec2Frontend, TransformerEncoder]:
+    def create_encoder_frontend(self) -> Wav2Vec2Frontend:
         config = self._config
 
         factory = Wav2Vec2EncoderFactory(config.encoder_config)
 
-        encoder_frontend = factory.create_encoder_frontend()
+        return factory.create_encoder_frontend()
 
-        encoder = factory.create_encoder()
+    def create_encoder(self) -> TransformerEncoder:
+        config = self._config
 
-        return encoder_frontend, encoder
+        factory = Wav2Vec2EncoderFactory(config.encoder_config)
+
+        return factory.create_encoder()
 
     def create_masker(self) -> Wav2Vec2Masker:
         config = self._config
@@ -68,3 +82,20 @@ class Wav2Vec2AsrFactory:
             config.max_spatial_mask_prob,
             config.min_num_spatial_mask_spans,
         )
+
+    def create_final_projection(self) -> Projection:
+        config = self._config
+
+        return Linear(
+            config.encoder_config.model_dim,
+            config.target_vocab_size,
+            bias=True,
+            init_fn=_init_final_projection,
+        )
+
+
+def _init_final_projection(proj: Linear) -> None:
+    nn.init.xavier_uniform_(proj.weight)
+
+    if proj.bias is not None:
+        nn.init.zeros_(proj.bias)

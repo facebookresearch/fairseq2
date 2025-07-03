@@ -54,7 +54,6 @@ class AtheneForSequenceClassification(LlamaPreTrainedModel):
 
 
 class AtheneRewardPipeline(TextClassificationPipeline):
-
     def __init__(self, *args, **kwargs):
         model = AtheneForSequenceClassification.from_pretrained(
             "Nexusflow/Athene-RM-8B", torch_dtype="bfloat16"

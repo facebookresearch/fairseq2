@@ -285,6 +285,7 @@ if TYPE_CHECKING or DOC_MODE:
             fn: Callable[[Any], Any] | Sequence[Callable[[Any], Any]],
             selector: str | None = None,
             num_parallel_calls: int = 1,
+            deterministic: bool = True,
         ) -> Self:
             """Apply ``fn`` to each example.
 
@@ -311,6 +312,58 @@ if TYPE_CHECKING or DOC_MODE:
                 See :ref:`basics/data-pipeline/column-selection` for more details.
             :param num_parallel_calls:
                 The number of examples to process in parallel.
+            :param deterministic:
+                If ``False``, the output ordering is not guaranteed to match the input ordering.
+                Can yield gains in execution speed when used with ``num_parallel_calls > 1``.
+            """
+
+        def pack(
+            self,
+            num_elements: int,
+            max_seq_len: int,
+            pad_value: int = 0,
+            truncate: bool = True,
+            drop_remainder: bool = True,
+            pinned_memory: bool = False,
+        ) -> Self:
+            """
+            Packs input sequences into a batch by concataneting them till the
+            total number of tokens in the batch reaches ``num_elements``.
+
+            :param num_elements: The maximum number of tokens that the returned
+                batch should have.
+            :param max_seq_len: The maximum length of each packed sequence. If
+                ``truncate`` is ``True`` and a sequence is longer than
+                ``max_seq_len``, it will be split into two sequences
+                ``seq[0:max_seq_len]`` and ``seq[max_seq_len - 1:-1]``.
+                The remainder sequence will be treated as the next sequence to
+                pack. If ``truncate`` is ``False`` and the sequence is longer
+                than ``max_seq_len``, an error will be raised.
+            :param truncate: If ``True``; the last sequence in the pack will be
+                truncated to fill the remaining space in the batch and the
+                remainder of the sequence will be preserved for the next ``pack()``
+                call.  If ``False``; if the last sequence cannot be fit into the
+                batch, it will be skipped and will be put into the next batch.
+            :param drop_remainder:
+                If ``True``, drops the last batch in case end of data is reached
+                during packing.
+            :param pinned_memory: If ``True``, uses pinned memory for batch
+                tensors.
+
+            The packing implementation is tuned for feeding batches into an
+            auto-regressive model. If ``truncate`` is ``True`` and the last
+            sequence in the batch gets truncated, the remainder sequence will
+            start from the last token of the truncated sequence:
+
+            max_seq_len = 4, seq = [0, 1, 2, 3, 4, 5, 6]
+
+            seq1 = [0, 1, 2, 3], seq2 = [3, 4, 5, 6]
+
+            The fourth token (i.e. 3) is both the last token of the first
+            sequence and the first token of the second sequence.
+
+            :returns: A ``dict`` with key ``seqs`` containing the batch tensor
+                and key ``seq_lens`` containing the lengths of packed sequences.
             """
 
         def prefetch(self, num_examples: int) -> Self:
@@ -581,7 +634,7 @@ else:
 
 class SequenceData(TypedDict):
     seqs: Tensor
-    seq_lens: Tensor
+    seq_lens: list[int]
     is_ragged: bool
 
 

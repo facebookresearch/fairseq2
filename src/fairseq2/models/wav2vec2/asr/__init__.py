@@ -22,10 +22,7 @@ from fairseq2.models.wav2vec2.asr._factory import (
 from fairseq2.models.wav2vec2.asr._factory import (
     create_wav2vec2_asr_model as create_wav2vec2_asr_model,
 )
+from fairseq2.models.wav2vec2.asr._hub import (
+    get_wav2vec2_asr_model_hub as get_wav2vec2_asr_model_hub,
+)
 from fairseq2.models.wav2vec2.asr._model import Wav2Vec2AsrModel as Wav2Vec2AsrModel
-
-# isort: split
-
-from fairseq2.models import ModelHubAccessor
-
-get_wav2vec2_asr_model_hub = ModelHubAccessor(Wav2Vec2AsrModel, Wav2Vec2AsrConfig)

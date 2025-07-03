@@ -18,7 +18,8 @@ from fairseq2.assets import (
     AssetStore,
 )
 from fairseq2.context import RuntimeContext
-from fairseq2.error import NotSupportedError, ProgramError
+from fairseq2.data_type import DataType
+from fairseq2.error import NotSupportedError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.models import (
@@ -26,38 +27,37 @@ from fairseq2.models import (
     ModelConfigLoadError,
     ModelHandler,
     ModelLoadError,
-    ShardedModelLoadError,
     UnknownModelError,
     UnknownModelFamilyError,
     model_asset_card_error,
 )
 from fairseq2.nn.utils.module import remove_parametrizations
-from fairseq2.recipes.common._distributed import broadcast_model
-from fairseq2.recipes.common._model import LocalModel
-from fairseq2.recipes.error import (
-    ModelCompilationNotSupportedError,
-    ModelParallelismNotSupportedError,
-)
-from fairseq2.recipes.model import Model
+from fairseq2.recipes import Model, RecipeError
+from fairseq2.recipes.config import ReferenceModelSection
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.registry import Provider
-from fairseq2.typing import DataType
+
+# isort: split
+
+from fairseq2.recipes.common._compile import compile_model
+from fairseq2.recipes.common._distributed import broadcast_model
+from fairseq2.recipes.common._error import ModelParallelismNotSupportedError
+from fairseq2.recipes.common._model import _LocalModel
 
 
 def setup_reference_model(
     kls: type[Module],
     context: RuntimeContext,
-    model_name: str,
+    model_section: ReferenceModelSection,
     gangs: Gangs,
     dtype: DataType,
     mp: bool,
-    torch_compile: bool,
 ) -> Model:
-    model = load_reference_model(kls, context, model_name, gangs, dtype, mp)
+    model = load_reference_model(kls, context, model_section, gangs, dtype, mp)
 
     broadcast_model(model, gangs)
 
-    model = prepare_reference_model(context, model, gangs, torch_compile)
+    prepare_reference_model(context, model, model_section)
 
     log_model(log, model.module, gangs)
 
@@ -67,27 +67,25 @@ def setup_reference_model(
 def load_reference_model(
     kls: type[Module],
     context: RuntimeContext,
-    model_name: str,
+    model_section: ReferenceModelSection,
     gangs: Gangs,
     dtype: DataType,
     mp: bool,
 ) -> Model:
     model_handlers = context.get_registry(ModelHandler)
 
-    loader = ReferenceModelLoader(kls, context.asset_store, model_handlers)
+    loader = _ReferenceModelLoader(kls, context.asset_store, model_handlers)
 
     try:
-        return loader.load(model_name, gangs, dtype, mp)
-    except ShardedModelLoadError:
-        raise
+        return loader.load(model_section, gangs, dtype, mp)
     except ModelLoadError as ex:
-        raise ProgramError(
+        raise RecipeError(
             f"The '{ex.model_name}' model cannot be loaded. See the nested exception for details."
         ) from ex
 
 
 @final
-class ReferenceModelLoader:
+class _ReferenceModelLoader:
     _kls: type[Module]
     _asset_store: AssetStore
     _model_handlers: Provider[ModelHandler]
@@ -102,7 +100,15 @@ class ReferenceModelLoader:
         self._asset_store = asset_store
         self._model_handlers = model_handlers
 
-    def load(self, model_name: str, gangs: Gangs, dtype: DataType, mp: bool) -> Model:
+    def load(
+        self,
+        model_section: ReferenceModelSection,
+        gangs: Gangs,
+        dtype: DataType,
+        mp: bool,
+    ) -> Model:
+        model_name = model_section.name
+
         try:
             card = self._asset_store.retrieve_card(model_name)
         except AssetCardNotFoundError:
@@ -126,7 +132,7 @@ class ReferenceModelLoader:
             raise InvalidModelTypeError(model_name, handler.kls, self._kls) from None
 
         if gangs.root.size != gangs.dp.size:
-            if not handler.supports_sharding:
+            if not handler.supports_model_parallelism:
                 raise ModelParallelismNotSupportedError(model_name)
 
         try:
@@ -144,7 +150,9 @@ class ReferenceModelLoader:
 
         try:
             if gangs.dp.rank == 0:
-                module = handler.load(card, gangs, dtype, model_config)
+                module = handler.load(
+                    card, gangs, dtype, model_config, mmap=model_section.mmap
+                )
             else:
                 module = handler.create(
                     model_config, gangs, dtype, meta=handler.supports_meta
@@ -158,29 +166,22 @@ class ReferenceModelLoader:
             gangs.root.barrier()
         except GangError as ex:
             raise ModelLoadError(
-                model_name, f"The collective barrier after the load of the '{model_name}' model has failed. See the nested exception for details."  # fmt: skip
+                model_name, f"The collective barrier after the '{model_name}' model load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
         module.eval()
 
         log.info("Model loaded on data parallel rank 0.")
 
-        return LocalModel(model_name, module, model_config, handler)
+        return _LocalModel(model_name, module, model_config, handler)
 
 
 def prepare_reference_model(
-    context: RuntimeContext, model: Model, gangs: Gangs, torch_compile: bool
+    context: RuntimeContext, model: Model, model_section: ReferenceModelSection
 ) -> Model:
     remove_parametrizations(model.module)
 
-    if torch_compile:
-        if not model.handler.supports_compilation:
-            raise ModelCompilationNotSupportedError(model.name)
-
-        log.info("Compiling '{}' model.", model.name)
-
-        model.handler.compile(model.module, model.config)
-
-        log.info("Model compiled.")
+    if model_section.compile:
+        compile_model(model, model_section.compile_options)
 
     return model

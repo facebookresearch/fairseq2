@@ -9,21 +9,21 @@ from __future__ import annotations
 from typing import Any
 
 from fairseq2.context import RuntimeContext
-from fairseq2.metrics._descriptor import (
-    MetricDescriptor,
+from fairseq2.metrics import (
     format_as_byte_size,
     format_as_float,
     format_as_int,
     format_as_percentage,
     format_as_seconds,
 )
+from fairseq2.metrics.recorders import MetricDescriptor
 
 
-def register_metric_descriptors(context: RuntimeContext) -> None:
+def _register_metric_descriptors(context: RuntimeContext) -> None:
     registry = context.get_registry(MetricDescriptor)
 
-    def register(name: str, *args: Any) -> None:
-        registry.register(name, MetricDescriptor(name, *args))
+    def register(name: str, *args: Any, **kwargs: Any) -> None:
+        registry.register(name, MetricDescriptor(name, *args, **kwargs))
 
     # fmt: off
     register("loss",             "Loss",                   90, format_as_float)
@@ -31,19 +31,21 @@ def register_metric_descriptors(context: RuntimeContext) -> None:
     register("ctc_loss",         "CTC Loss",              100, format_as_float)
     register("diversity_loss",   "Diversity Loss",        100, format_as_float)
     register("nll_loss",         "NLL Loss",              100, format_as_float)
-    register("feature_penalty",  "Feature Penalty",       110, format_as_float)
-    register("accuracy",         "Accuracy",              200, format_as_float)
-    register("bleu",             "BLEU",                  200, format_as_float)
-    register("chrf",             "chrF++",                200, format_as_float)
+    register("features_penalty", "Features Penalty",      110, format_as_float)
+    register("accuracy",         "Accuracy",              200, format_as_float, higher_better=True)
+    register("bleu",             "BLEU",                  200, format_as_float, higher_better=True)
+    register("chrf",             "chrF++",                200, format_as_float, higher_better=True)
     register("uer",              "Unit Error Rate (UER)", 200, format_as_float)
     register("wer",              "Word Error Rate (WER)", 200, format_as_float)
     register("code_perplexity",  "Code Perplexity",       210, format_as_float)
     register("prob_perplexity",  "Prob Perplexity",       210, format_as_float)
     register("temperature",      "Temperature",           220, format_as_float)
-    register("gradient_norm",    "Gradient Norm",         300, format_as_float)
+    register("grad_norm",        "Gradient Norm",         300, format_as_float)
     register("data_epoch",       "Data Epoch",            490, format_as_int)
-    register("data_read_time",   "Data Read Time",        500, format_as_seconds)
-    register("elapsed_time",     "Elapsed Time",          505, format_as_seconds)
+    register("data_time",        "Data Time",             500, format_as_seconds)
+    register("compute_time",     "Compute Time",          501, format_as_seconds)
+    register("lapse_time",       "Lapse Time",            502, format_as_seconds)
+    register("total_time",       "Total Time",            505, format_as_seconds)
     register("wall_time",        "Wall Time",             510, format_as_seconds)
     register("lr",               "Learning Rate",         700, format_as_float)
     register("loss_scale",       "Loss Scale",            710, format_as_float)
@@ -56,6 +58,8 @@ def register_metric_descriptors(context: RuntimeContext) -> None:
     register("num_elements",              "Number of Elements",              830, format_as_int)
     register("num_source_elements",       "Number of Source Elements",       830, format_as_int)
     register("num_target_elements",       "Number of Target Elements",       830, format_as_int)
+    register("padding",                   "Padding",                         835, format_as_int)
+    register("padding_ratio",             "Padding Ratio (%)",               835, format_as_percentage)
     register("total_num_examples",        "Total Number of Examples",        840, format_as_int)
     register("total_num_elements",        "Total Number of Elements",        850, format_as_int)
     register("total_num_source_elements", "Total Number of Source Elements", 850, format_as_int)
@@ -84,8 +88,8 @@ def register_metric_descriptors(context: RuntimeContext) -> None:
     register("rejected_lengths",   "Rejected Sequence Length",            70, format_as_float)
 
     # Memory
-    register("peak_active_mem",         "Peak Active Device Memory",       920, format_as_byte_size)
+    register("peak_active_mem_bytes",   "Peak Active Device Memory",       920, format_as_byte_size)
     register("peak_active_mem_ratio",   "Peak Active Device Memory (%)",   920, format_as_percentage)
-    register("peak_reserved_mem",       "Peak Reserved Device Memory",     925, format_as_byte_size)
+    register("peak_reserved_mem_bytes", "Peak Reserved Device Memory",     925, format_as_byte_size)
     register("peak_reserved_mem_ratio", "Peak Reserved Device Memory (%)", 925, format_as_percentage)
     # fmt, on

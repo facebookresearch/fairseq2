@@ -6,24 +6,24 @@
 
 from __future__ import annotations
 
-from typing import final
+from typing import TYPE_CHECKING, final
 
 import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import Module, Parameter
+from typing_extensions import override
 
-from fairseq2.models.sequence import SequenceBatch
-from fairseq2.models.transformer import TransformerFrontend
-from fairseq2.nn import LayerNorm, Projection
-from fairseq2.nn.transformer import (
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
+from fairseq2.models.transformer import (
+    AttentionBiasCache,
     FeedForwardNetwork,
-    LayerNormFactory,
     MultiheadAttention,
     TransformerEncoder,
-    create_standard_layer_norm,
+    TransformerFrontend,
 )
-from fairseq2.typing import DataType, Device
+from fairseq2.nn import BatchLayout, LayerNorm, Projection
 
 
 @final
@@ -38,39 +38,45 @@ class JepaClassifierModel(Module):
     model_dim: int
     encoder_frontend: TransformerFrontend
     encoder: TransformerEncoder
-    pooler: AttentivePooler
-    head: Projection
+    attn_pooler: AttentivePooler
+    head_proj: Projection
 
     def __init__(
         self,
+        model_dim: int,
         encoder_frontend: TransformerFrontend,
         encoder: TransformerEncoder,
-        pooler: AttentivePooler,
-        head: Projection,
+        attn_pooler: AttentivePooler,
+        head_proj: Projection,
     ) -> None:
         super().__init__()
 
-        self.model_dim = encoder.model_dim
+        self.model_dim = model_dim
 
         self.encoder_frontend = encoder_frontend
+
         self.encoder = encoder
 
-        self.pooler = pooler
+        self.attn_pooler = attn_pooler
 
-        self.head = head
+        self.head_proj = head_proj
 
-    def forward(self, batch: SequenceBatch) -> Tensor:
-        seqs, padding_mask = self.encoder_frontend(batch.seqs, batch.padding_mask)
+    def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> Tensor:
+        seqs, seqs_layout = self.encoder_frontend(seqs, seqs_layout)
 
-        seqs, _ = self.encoder(seqs, padding_mask)
+        seqs = self.encoder(seqs, seqs_layout)
 
-        seqs = self.pooler(seqs)
+        seqs = self.attn_pooler(seqs, seqs_layout)
 
         # (N, P, M)
         seqs = seqs.squeeze(1)  # TODO: NEEDED?
 
-        return self.head(seqs)  # type: ignore[no-any-return]
+        return self.head_proj(seqs)
 
+    if TYPE_CHECKING:
+        __call__ = forward
+
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
         return f"model_dim={self.model_dim}"
@@ -89,16 +95,16 @@ class AttentivePooler(Module):
     (finetuning) task
     """
 
-    model_dim: int
-    decoder: CrossAttentionDecoderLayer
+    decoder_layer: CrossAttentionDecoderLayer
     encoder: TransformerEncoder | None
     query_tokens: Parameter
     init_std: float
 
     def __init__(
         self,
-        decoder: CrossAttentionDecoderLayer,
-        encoder: TransformerEncoder | None,
+        model_dim: int,
+        decoder_layer: CrossAttentionDecoderLayer,
+        encoder: TransformerEncoder | None = None,
         *,
         num_queries: int = 1,
         init_std: float = 0.02,
@@ -107,17 +113,12 @@ class AttentivePooler(Module):
     ) -> None:
         super().__init__()
 
-        self.model_dim = decoder.model_dim
+        self.decoder_layer = decoder_layer
 
-        self.decoder = decoder
-
-        if encoder:
-            self.encoder = encoder
-        else:
-            self.register_module("encoder", None)
+        self.register_module("encoder", encoder)
 
         self.query_tokens = Parameter(
-            torch.empty((1, num_queries, self.model_dim), device=device, dtype=dtype)
+            torch.empty((1, num_queries, model_dim), device=device, dtype=dtype)
         )
 
         self.init_std = init_std
@@ -125,30 +126,36 @@ class AttentivePooler(Module):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
         nn.init.trunc_normal_(self.query_tokens, std=self.init_std)
 
-    def forward(self, seqs: Tensor) -> Tensor:
+    def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> Tensor:
         if self.encoder is not None:
-            seqs, _ = self.encoder(seqs, padding_mask=None)
+            seqs = self.encoder(seqs, seqs_layout)
 
         batch_size = seqs.size(0)
 
         # (1, P, M) -> (N, P, M)
         pool_seqs = self.query_tokens.repeat(batch_size, 1, 1)
 
-        return self.decoder(pool_seqs, seqs)  # type: ignore[no-any-return]
+        pool_seqs_layout = BatchLayout.of(pool_seqs)
 
+        return self.decoder_layer(pool_seqs, pool_seqs_layout, seqs, seqs_layout)
+
+    if TYPE_CHECKING:
+        __call__ = forward
+
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"model_dim={self.model_dim}, num_queries={self.query_tokens.size(1)}"
+        num_queries = self.query_tokens.size(1)
+
+        return f"num_queries={num_queries}"
 
 
 @final
 class CrossAttentionDecoderLayer(Module):
     """Represents a simple transformer decoder with only cross attention and layernorm"""
 
-    model_dim: int
     cross_attn_layer_norm: LayerNorm
     cross_attn: MultiheadAttention
     ffn_layer_norm: LayerNorm
@@ -156,10 +163,11 @@ class CrossAttentionDecoderLayer(Module):
 
     def __init__(
         self,
+        cross_attn_layer_norm: LayerNorm,
         cross_attn: MultiheadAttention,
+        ffn_layer_norm: LayerNorm,
         ffn: FeedForwardNetwork,
         *,
-        layer_norm_factory: LayerNormFactory | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -173,42 +181,54 @@ class CrossAttentionDecoderLayer(Module):
         """
         super().__init__()
 
-        model_dim = cross_attn.model_dim
-
-        if layer_norm_factory is None:
-            layer_norm_factory = create_standard_layer_norm
-
-        self.cross_attn_layer_norm = layer_norm_factory(
-            model_dim, device=device, dtype=dtype
-        )
-
-        self.model_dim = model_dim
+        self.cross_attn_layer_norm = cross_attn_layer_norm
 
         self.cross_attn = cross_attn
 
-        self.ffn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
+        self.ffn_layer_norm = ffn_layer_norm
 
         self.ffn = ffn
 
-    def forward(self, seqs: Tensor, encoder_output: Tensor) -> Tensor:
-        seqs = self._forward_cross_attn(seqs, encoder_output)
+    def forward(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        encoder_output: Tensor,
+        encoder_output_layout: BatchLayout,
+    ) -> Tensor:
+        seqs = self._forward_cross_attn(
+            seqs, seqs_layout, encoder_output, encoder_output_layout
+        )
 
         seqs = self._forward_ffn(seqs)
 
         return seqs
 
-    def _forward_cross_attn(self, seqs: Tensor, encoder_output: Tensor) -> Tensor:
+    if TYPE_CHECKING:
+        __call__ = forward
+
+    def _forward_cross_attn(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        encoder_output: Tensor,
+        encoder_output_layout: BatchLayout,
+    ) -> Tensor:
         residual = seqs
 
-        # Note that the cross-attention norm is applied on encoder output and not seqs
+        # Note that the cross-attention norm is applied on encoder output instead
+        # of sequences.
         encoder_output = self.cross_attn_layer_norm(encoder_output)
+
+        attn_bias_cache = AttentionBiasCache()
 
         seqs = self.cross_attn(
             seqs,
-            padding_mask=None,
+            seqs_layout,
             keys=encoder_output,
-            key_padding_mask=None,
+            keys_layout=encoder_output_layout,
             values=encoder_output,
+            bias_cache=attn_bias_cache,
         )
 
         seqs = seqs + residual
@@ -225,7 +245,3 @@ class CrossAttentionDecoderLayer(Module):
         seqs = seqs + residual
 
         return seqs
-
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        return f"model_dim={self.model_dim}"

@@ -15,19 +15,26 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
-from fairseq2.datasets import Batching, LengthBatching, StaticBatching, SyncMode
+from fairseq2.datasets import (
+    Batching,
+    LengthBatching,
+    Seq2SeqBatch,
+    StaticBatching,
+    SyncMode,
+)
 from fairseq2.datasets.parallel_text import (
     GENERIC_PARALLEL_TEXT_DATASET_FAMILY,
     ParallelTextDataset,
     ParallelTextReadOptions,
 )
-from fairseq2.gang import Gangs
+from fairseq2.device import CPU
 from fairseq2.generation import BeamSearchConfig
+from fairseq2.metrics import MetricBag
 from fairseq2.metrics.text import DEFAULT_BLEU_TOKENIZER
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.models.seq2seq import Seq2SeqBatch
+from fairseq2.models.seq2seq import Seq2SeqModel
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import MYLE_LR, MyleLRConfig
+from fairseq2.recipes import EvalUnit, Model, Trainer, TrainUnit
 from fairseq2.recipes.common import (
     create_checkpoint_manager,
     create_lr_scheduler,
@@ -37,14 +44,16 @@ from fairseq2.recipes.common import (
     load_dataset,
     load_text_tokenizer,
     register_extra_asset_paths,
-    setup_gangs,
     setup_model,
+    setup_torch,
+    setup_training_gangs,
 )
 from fairseq2.recipes.config import (
     CommonSection,
     DatasetSection,
-    FsdpSection,
+    FSDPSection,
     GangSection,
+    GradAccumulationSection,
     LRSchedulerSection,
     ModelSection,
     OptimizerSection,
@@ -53,16 +62,15 @@ from fairseq2.recipes.config import (
     TextTokenizerSection,
     TrainerSection,
 )
-from fairseq2.recipes.evaluator import EvalUnit
-from fairseq2.recipes.metrics import Seq2SeqMetricBag
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.mt._common import MTCriterion, MTLossSection
-from fairseq2.recipes.mt._eval import MTBleuChrfEvalUnit, MTLossEvalUnit
-from fairseq2.recipes.trainer import Trainer, TrainUnit
-from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+
+# isort: split
+
+from fairseq2.recipes.mt._config import MTLossSection
+from fairseq2.recipes.mt._criterion import MTCriterion
+from fairseq2.recipes.mt._eval import MTBleuChrfEvalUnit, MTLossEvalUnit
 
 
 @dataclass(kw_only=True)
@@ -82,7 +90,11 @@ class MTTrainConfig:
         default_factory=lambda: MTTrainDatasetSection()
     )
 
-    text_tokenizer: TextTokenizerSection = field(
+    source_tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="nllb-200")
+    )
+
+    target_tokenizer: TextTokenizerSection = field(
         default_factory=lambda: TextTokenizerSection(name="nllb-200")
     )
 
@@ -92,8 +104,8 @@ class MTTrainConfig:
         default_factory=lambda: TrainerSection(
             dtype=torch.float16,
             data_parallelism="fsdp",
-            fsdp=FsdpSection(granularity="stack"),
-            gradient_accumulation=2,
+            fsdp=FSDPSection(granularity="stack"),
+            grad_accumulation=GradAccumulationSection(num_batches=2),
         )
     )
 
@@ -189,7 +201,7 @@ def register_mt_train_configs(context: RuntimeContext) -> None:
         assert isinstance(config.lr_scheduler.config, MyleLRConfig)
 
         config.model.arch = "nllb_dense_300m"
-        config.trainer.gradient_accumulation = 4
+        config.trainer.grad_accumulation.num_batches = 4
         config.lr_scheduler.config.num_warmup_steps = 400
         config.regime.num_steps = 10_000
         config.regime.validate_every_n_steps = 1000
@@ -204,16 +216,16 @@ def register_mt_train_configs(context: RuntimeContext) -> None:
 
 def load_mt_trainer(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Trainer[Seq2SeqBatch]:
+) -> Trainer:
     config = structure(config, MTTrainConfig)
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common.assets)
 
-    torch.set_float32_matmul_precision("high")
+    setup_torch(context, config.common.torch, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_training_gangs(context, config.gang, config.trainer)
 
     checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
@@ -224,21 +236,34 @@ def load_mt_trainer(
     seed += 1
 
     model = setup_model(
-        EncoderDecoderModel, context, config, output_dir, gangs, checkpoint_manager
+        Seq2SeqModel,
+        context,
+        config.model,
+        config.trainer,
+        output_dir,
+        gangs,
+        checkpoint_manager,
     )
 
-    optimizer = create_optimizer(context, config, model)
+    optimizer = create_optimizer(context, config.optimizer, model)
 
-    lr_scheduler = create_lr_scheduler(context, config, optimizer)
+    lr_scheduler = create_lr_scheduler(
+        context, config.lr_scheduler, config.regime, optimizer
+    )
 
-    dataset = load_dataset(ParallelTextDataset, context, config, gangs)
+    dataset = load_dataset(ParallelTextDataset, context, config.dataset, gangs)
 
-    tokenizer = load_text_tokenizer(context, config)
+    source_tokenizer = load_text_tokenizer(context, config.source_tokenizer)
+
+    if config.source_tokenizer == config.target_tokenizer:
+        target_tokenizer = source_tokenizer
+    else:
+        target_tokenizer = load_text_tokenizer(context, config.target_tokenizer)
 
     # Initialize the train unit.
-    criterion = MTCriterion(model, label_smoothing=config.loss.label_smoothing)
+    criterion = MTCriterion(model.module, config.loss.label_smoothing)
 
-    unit = MTTrainUnit(criterion, gangs)
+    unit = MTTrainUnit(model, criterion)
 
     batching: Batching = LengthBatching(config.dataset.max_num_tokens)
 
@@ -247,7 +272,7 @@ def load_mt_trainer(
         sample=True,
         example_shuffle_window=config.dataset.example_shuffle_window,
         batch_shuffle_window=config.dataset.batch_shuffle_window,
-        num_accumulate=config.trainer.gradient_accumulation,
+        num_accumulate=config.trainer.grad_accumulation.num_batches,
         num_prefetch=config.dataset.num_prefetch,
         seed=seed,
         extras=config.dataset.extras,
@@ -255,7 +280,8 @@ def load_mt_trainer(
 
     data_reader = dataset.create_reader(
         config.dataset.train_split,
-        tokenizer,
+        source_tokenizer,
+        target_tokenizer,
         gangs.dp,
         config.dataset.min_seq_len,
         config.dataset.max_seq_len,
@@ -270,7 +296,12 @@ def load_mt_trainer(
 
     # Initialize the validation units.
     if config.validation.compute_bleu_chrf:
-        seq2seq_generator = create_seq2seq_generator(context, config, model)
+        seq2seq_generator = create_seq2seq_generator(
+            context,
+            config.validation.seq2seq_generator,
+            model,
+            target_tokenizer.vocab_info,
+        )
     else:
         seq2seq_generator = None
 
@@ -288,7 +319,7 @@ def load_mt_trainer(
     for direction in directions:
         assert valid_split is not None
 
-        valid_loss_unit = MTLossEvalUnit(criterion, direction, gangs)
+        valid_loss_unit = MTLossEvalUnit(model, criterion, direction)
 
         valid_units.append(valid_loss_unit)
 
@@ -305,7 +336,8 @@ def load_mt_trainer(
 
         valid_data_reader = dataset.create_reader(
             valid_split,
-            tokenizer,
+            source_tokenizer,
+            target_tokenizer,
             gangs.dp,
             config.dataset.min_seq_len,
             config.dataset.max_seq_len,
@@ -323,8 +355,7 @@ def load_mt_trainer(
                 model,
                 direction,
                 seq2seq_generator,
-                tokenizer,
-                gangs,
+                target_tokenizer,
                 bleu_tokenizer=config.validation.bleu_tokenizer,
             )
 
@@ -343,7 +374,8 @@ def load_mt_trainer(
 
             valid_data_reader = dataset.create_reader(
                 valid_split,
-                tokenizer,
+                source_tokenizer,
+                target_tokenizer,
                 gangs.dp,
                 config.dataset.min_seq_len,
                 config.dataset.max_seq_len,
@@ -356,7 +388,9 @@ def load_mt_trainer(
 
     return create_trainer(
         context,
-        config,
+        config.trainer,
+        config.regime,
+        config.common,
         output_dir,
         unit,
         data_reader,
@@ -367,29 +401,27 @@ def load_mt_trainer(
         optimizer,
         lr_scheduler,
         train_seed,
+        hyper_params=config,
     )
 
 
 @final
 class MTTrainUnit(TrainUnit[Seq2SeqBatch]):
+    _model: Model
     _criterion: MTCriterion
-    _metric_bag: Seq2SeqMetricBag
 
-    def __init__(self, criterion: MTCriterion, gangs: Gangs) -> None:
+    def __init__(self, model: Model, criterion: MTCriterion) -> None:
+        self._model = model
+
         self._criterion = criterion
 
-        self._metric_bag = Seq2SeqMetricBag(gangs.dp)
-
     @override
-    def __call__(self, batch: Seq2SeqBatch) -> tuple[Tensor, int]:
-        return self._criterion(batch, self._metric_bag)
+    def __call__(
+        self, batch: Seq2SeqBatch, metric_bag: MetricBag
+    ) -> tuple[Tensor, int]:
+        return self._criterion(batch, metric_bag)
 
     @property
     @override
     def model(self) -> Model:
-        return self._criterion.model
-
-    @property
-    @override
-    def metric_bag(self) -> Seq2SeqMetricBag:
-        return self._metric_bag
+        return self._model

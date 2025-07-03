@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from fairseq2.datasets._batch import Seq2SeqBatch as Seq2SeqBatch
+from fairseq2.datasets._batch import SequenceBatch as SequenceBatch
 from fairseq2.datasets._config import Batching as Batching
 from fairseq2.datasets._config import DataReadOptions as DataReadOptions
 from fairseq2.datasets._config import LengthBatching as LengthBatching

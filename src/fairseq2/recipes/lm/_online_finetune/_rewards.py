@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any
 
 import torch
 from transformers import AutoTokenizer
@@ -20,18 +20,14 @@ from fairseq2.context import RuntimeContext
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gangs
-from fairseq2.recipes.config import get_config_section
 from fairseq2.recipes.lm._online_finetune._common import (
-    GRPOBatch,
     collate_with_target_mask,
-    find_first_value,
     generate_rewards,
     generate_rewards_generative,
     prepare_preference_batch_random_pair,
+    _mute_output,
 )
 from fairseq2.recipes.lm._online_finetune._generative_judge import JudgmentExtractorHandler
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import TrainUnit
 
 
 @dataclass(kw_only=True)
@@ -51,24 +47,29 @@ class RewardSection:
 class VLLMOutputRewardHandler(ABC):
     @abstractmethod
     def create(
-        self, reward_model: Any, reward_name: str, gangs: Gangs, context: RuntimeContext, reward_config: object
-    ) -> VLLMOutputReward: ...
+        self, reward_model: Any, gangs: Gangs, reward_config: object
+    ) -> VLLMOutputReward:
+        ...
 
     @property
     @abstractmethod
-    def name(self) -> str: ...
+    def name(self) -> str:
+        ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]: ...
+    def config_kls(self) -> type[object]:
+        ...
 
 
 class VLLMOutputReward(ABC):
     @abstractmethod
-    def process_rollouts(self, vllm_outputs: List[RequestOutput]): ...
+    def process_rollouts(self, vllm_outputs: list[RequestOutput]):
+        ...
 
     @abstractmethod
-    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts): ...
+    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts):
+        ...
 
 
 class GSM8kVerifierHandler(VLLMOutputRewardHandler):
@@ -120,7 +121,7 @@ class GSM8kVerifier(VLLMOutputReward):
     @override
     def process_rollouts(
         self,
-        vllm_outputs: List[RequestOutput],
+        vllm_outputs: list[RequestOutput],
         prompt_batch: PromptBatch,
     ):
         batch_text = []
@@ -226,7 +227,8 @@ class MathVerifyVerifier(VLLMOutputReward):
         if not answer.startswith("$"):
             answer = f"${answer}$"
         try:
-            grade, extracted_answers = self.verify_func([answer], [completion])
+            with _mute_output():
+                grade, extracted_answers = self.verify_func([answer], [completion])
         except:
             grade = 0
             extracted_answers = None
@@ -237,7 +239,7 @@ class MathVerifyVerifier(VLLMOutputReward):
     @override
     def process_rollouts(
         self,
-        vllm_outputs: List[RequestOutput],
+        vllm_outputs: list[RequestOutput],
         prompt_batch: PromptBatch,
     ):
         batch_text = []
@@ -343,7 +345,7 @@ class AtheneVerifier(VLLMOutputReward):
 
     @override
     def process_rollouts(
-        self, vllm_outputs: List[RequestOutput], prompt_batch: PromptBatch
+        self, vllm_outputs: list[RequestOutput], prompt_batch: PromptBatch
     ):
         vllm_inputs = []
         batch_text = []
@@ -517,7 +519,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
 
     @override
     def process_rollouts(
-        self, vllm_outputs: List[RequestOutput], prompt_batch: PromptBatch
+        self, vllm_outputs: list[RequestOutput], prompt_batch: PromptBatch
     ):
         vllm_inputs = []
         batch_text = []
@@ -700,7 +702,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
 
     @override
     def process_rollouts(
-        self, vllm_outputs: List[RequestOutput], prompt_batch: PromptBatch
+        self, vllm_outputs: list[RequestOutput], prompt_batch: PromptBatch
     ):
         vllm_inputs = []
         batch_text = []

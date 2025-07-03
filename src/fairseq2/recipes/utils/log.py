@@ -17,11 +17,12 @@ from rich.pretty import pretty_repr
 from torch.nn import Module
 
 import fairseq2
+from fairseq2.data.text.tokenizers import TextTokenizer
+from fairseq2.device import Device
 from fairseq2.gang import Gangs
 from fairseq2.logging import LogWriter
 from fairseq2.metrics import format_as_byte_size
-from fairseq2.nn.utils.module import get_module_size
-from fairseq2.typing import Device
+from fairseq2.recipes.utils.module import get_module_size_info
 
 
 def log_config(log: LogWriter, title: str, config: object) -> None:
@@ -200,12 +201,24 @@ def log_environment_variables(log: LogWriter) -> None:
     log.info("Environment Variables - {}", ", ".join(kv))
 
 
+def log_ranks(log: LogWriter, gangs: Gangs) -> None:
+    s = (
+        f"Data: {gangs.dp.rank} | "
+        f"Data/Replicated: {gangs.rdp.rank} | "
+        f"Data/Sharded: {gangs.sdp.rank} | "
+        f"Tensor: {gangs.tp.rank} | "
+        f"Pipeline: {gangs.pp.rank}"
+    )
+
+    log.info("Process Ranks - {}", s)
+
+
 def log_model(log: LogWriter, model: Module, gangs: Gangs) -> None:
     """Log information about ``model``."""
     if not log.is_enabled_for_info():
         return
 
-    si = get_module_size(model)
+    si = get_module_size_info(model)
 
     s = (
         f"Parameter Size: {si.param_size:,} | "
@@ -218,4 +231,23 @@ def log_model(log: LogWriter, model: Module, gangs: Gangs) -> None:
         f"Total Size (bytes): {format_as_byte_size(si.total_size_bytes)}"
     )
 
-    log.info("Model (rank {}) - {} | Layout:\n{}", gangs.root.rank, s, model)
+    log.info("Model (rank {}) - {}\n{}", gangs.root.rank, s, model)
+
+
+def log_tokenizer(log: LogWriter, tokenizer: TextTokenizer) -> None:
+    if not log.is_enabled_for_info():
+        return
+
+    vi = tokenizer.vocab_info
+
+    s = (
+        f"Size: {vi.size:,} | "
+        f"UNK: {vi.unk_idx} | "
+        f"BOS: {vi.bos_idx} | "
+        f"EOS: {vi.eos_idx} | "
+        f"PAD: {vi.pad_idx} | "
+        f"BOH: {vi.boh_idx} | "
+        f"EOH: {vi.eoh_idx}"
+    )
+
+    log.info("Tokenizer - {}", s)

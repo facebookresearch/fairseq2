@@ -32,8 +32,7 @@ from fairseq2.datasets.prompt import (
     PromptReadOptions,
 )
 from fairseq2.logging import log
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
+from fairseq2.models.clm import CausalLM
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import COSINE_ANNEALING_LR, CosineAnnealingLRConfig
 from fairseq2.recipes.common import (
@@ -44,19 +43,22 @@ from fairseq2.recipes.common import (
     load_dataset,
     load_text_tokenizer,
     register_extra_asset_paths,
-    setup_gangs,
+    setup_training_gangs,
+    setup_torch,
     setup_model,
 )
 from fairseq2.recipes.config import (
     CommonSection,
     DatasetSection,
-    FsdpSection,
+    FSDPSection,
     GangSection,
     LRSchedulerSection,
     ModelSection,
     OptimizerSection,
     RegimeSection,
+    TextTokenizerSection,
     TrainerSection,
+    ActivationCheckpointingSection,
 )
 from fairseq2.recipes.lm._online_finetune._common import (
     OnlineCriterionSection,
@@ -79,8 +81,8 @@ from fairseq2.recipes.lm._online_finetune._remote_model import (
     VllmRayActorConfig,
     HFRayActorConfig,
 )
-from fairseq2.recipes.trainer import Trainer
-from fairseq2.typing import CPU
+from fairseq2.recipes import Trainer
+from fairseq2.device import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
@@ -96,14 +98,18 @@ class OnlineFinetuneConfig:
         default_factory=lambda: OnlineFinetuneDatasetSection()
     )
 
+    tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="llama3_instruct")
+    )
+
     gang: GangSection = field(default_factory=lambda: GangSection())
 
     trainer: TrainerSection = field(
         default_factory=lambda: TrainerSection(
             dtype=torch.bfloat16,
             data_parallelism="fsdp",
-            fsdp=FsdpSection(fp32_reduce=True),
-            activation_checkpointing=True,
+            fsdp=FSDPSection(fp32_reduce=True),
+            activation_checkpointing=ActivationCheckpointingSection(mode="layerwise"),
         )
     )
 
@@ -243,11 +249,11 @@ def load_online_finetuner(
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common.assets)
 
-    torch.set_float32_matmul_precision("high")
+    setup_torch(context, config.common.torch, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_training_gangs(context, config.gang, config.trainer)
 
     checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
@@ -258,21 +264,24 @@ def load_online_finetuner(
     seed += 1
 
     model = setup_model(
-        DecoderModel, context, config, output_dir, gangs, checkpoint_manager
+        CausalLM,
+        context,
+        config.model,
+        config.trainer,
+        output_dir,
+        gangs,
+        checkpoint_manager,
     )
 
-    # TODO(balioglu): investigate!
-    # The memory efficient SDPA implementation in PyTorch is not stable when
-    # used with padded inputs.
-    enable_memory_efficient_torch_sdpa(model.module, False)
+    optimizer = create_optimizer(context, config.optimizer, model)
 
-    optimizer = create_optimizer(context, config, model)
+    lr_scheduler = create_lr_scheduler(
+        context, config.lr_scheduler, config.regime, optimizer
+    )
 
-    lr_scheduler = create_lr_scheduler(context, config, optimizer)
+    dataset = load_dataset(PromptDataset, context, config.dataset, gangs)
 
-    dataset = load_dataset(PromptDataset, context, config, gangs)
-
-    tokenizer = load_text_tokenizer(context, config)
+    tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # initialize ray and vllm actors
     ray.init(
@@ -298,13 +307,6 @@ def load_online_finetuner(
         raise UnknownOnlineFinetuneUnitError(config.criterion.name) from None
 
     unit = unit_handler.create(model, gangs, config, vllm_actors)
-    print(f"rank {gangs.root.rank} here")
-
-    try:
-        if unit._sync_vllm_model_every_n_steps >= 0:
-            unit.maybe_sync_models(force_sync_vllm=True)
-    except AttributeError:
-        raise RuntimeError("Train unit does not support maybe_sync_models")
 
     valid_unit = unit_handler.create(model, gangs, config, vllm_actors)
 
@@ -317,17 +319,25 @@ def load_online_finetuner(
 
     # estimate batch repeat for microbatching
     repeat_batch_n_times = 1
-    gradient_accumulation = config.trainer.gradient_accumulation
+    grad_accumulation = config.trainer.grad_accumulation.num_batches
     if unit.display_name == "GRPO":
-        if unit._loss_config.group_size > unit._loss_config.forward_group_size:
+        if (
+            unit._config.loss_config.group_size
+            > unit._config.loss_config.forward_group_size
+        ):
             repeat_batch_n_times = int(
-                unit._loss_config.group_size / unit._loss_config.forward_group_size
+                unit._config.loss_config.group_size
+                / unit._config.loss_config.forward_group_size
             )
             # adjust grad accum so that it assumed repeated batches
-            gradient_accumulation = (
-                repeat_batch_n_times * config.trainer.gradient_accumulation
+            grad_accumulation = repeat_batch_n_times * grad_accumulation
+            log.info(
+                f"Using micro-batching: group_size={unit._config.loss_config.group_size}, forward_group_size={unit._config.loss_config.forward_group_size}, thus effective grad_accumulation={grad_accumulation}, repeat_batch_n_time={repeat_batch_n_times}"
             )
-        elif unit._loss_config.group_size < unit._loss_config.forward_group_size:
+        elif (
+            unit._config.loss_config.group_size
+            < unit._config.loss_config.forward_group_size
+        ):
             raise RuntimeError(
                 " GRPO forward_group_size must be smaller than group_size"
             )
@@ -336,7 +346,7 @@ def load_online_finetuner(
         batching=batching,
         example_shuffle_window=config.dataset.example_shuffle_window,
         batch_shuffle_window=config.dataset.batch_shuffle_window,
-        num_accumulate=gradient_accumulation,
+        num_accumulate=grad_accumulation,
         num_prefetch=config.dataset.num_prefetch,
         source_encode_mode=config.dataset.source_encode_mode,
         seed=seed,
@@ -355,7 +365,7 @@ def load_online_finetuner(
     )
 
     if config.dataset.valid_split:
-        valid_batching = StaticBatching(32)
+        valid_batching = StaticBatching(64)
         valid_read_options = PromptReadOptions(
             batching=valid_batching,
             example_shuffle_window=config.dataset.example_shuffle_window,
@@ -363,7 +373,7 @@ def load_online_finetuner(
             num_accumulate=1,
             num_prefetch=config.dataset.num_prefetch,
             source_encode_mode=config.dataset.source_encode_mode,
-            max_num_batches=500,  ## TODO make confifurable ?
+            # max_num_batches=500,  ## TODO make confifurable ?
             seed=seed,
             extras=config.dataset.extras,
             src_key=config.dataset.src_key,
@@ -407,7 +417,9 @@ def load_online_finetuner(
 
     return create_trainer(
         context,
-        config,
+        config.trainer,
+        config.regime,
+        config.common,
         output_dir,
         unit,
         data_reader,
@@ -418,4 +430,5 @@ def load_online_finetuner(
         optimizer,
         lr_scheduler,
         seed,
+        hyper_params=config,
     )

@@ -6,13 +6,14 @@
 
 from __future__ import annotations
 
-from typing import final
+from typing import TYPE_CHECKING, final
 
+from torch import Tensor
 from torch.nn import Module
+from typing_extensions import override
 
-from fairseq2.models.sequence import SequenceBatch
-from fairseq2.models.transformer import TransformerFrontend
-from fairseq2.nn.transformer import TransformerEncoder
+from fairseq2.models.transformer import TransformerEncoder, TransformerFrontend
+from fairseq2.nn import BatchLayout
 
 # TODO(balioglu): This implementation is not complete. As of this commit, only
 # the encoder and encoder-frontend are available for parity check purposes.
@@ -32,19 +33,31 @@ class JepaModel(Module):
 
     def __init__(
         self,
+        model_dim: int,
         encoder_frontend: TransformerFrontend,
         encoder: TransformerEncoder,
     ) -> None:
         super().__init__()
 
-        self.model_dim = encoder.model_dim
+        self.model_dim = model_dim
 
         self.encoder_frontend = encoder_frontend
+
         self.encoder = encoder
 
-    def forward(self, batch: SequenceBatch) -> SequenceBatch:
-        seqs, padding_mask = self.encoder_frontend(batch.seqs, batch.padding_mask)
+    def forward(
+        self, seqs: Tensor, seqs_layout: BatchLayout
+    ) -> tuple[Tensor, BatchLayout]:
+        seqs, seqs_layout = self.encoder_frontend(seqs, seqs_layout)
 
-        seqs, padding_mask = self.encoder(seqs, padding_mask)
+        seqs = self.encoder(seqs, seqs_layout)
 
-        return SequenceBatch(seqs, padding_mask)
+        return seqs, seqs_layout
+
+    if TYPE_CHECKING:
+        __call__ = forward
+
+    @override
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return f"model_dim={self.model_dim}"

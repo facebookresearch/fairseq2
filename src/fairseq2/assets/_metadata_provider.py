@@ -17,7 +17,7 @@ from importlib_resources.readers import MultiplexedPath
 from typing_extensions import override
 
 from fairseq2.error import ContractError, InternalError
-from fairseq2.utils.file import FileSystem
+from fairseq2.file_system import FileSystem
 from fairseq2.utils.yaml import YamlError, YamlLoader
 
 

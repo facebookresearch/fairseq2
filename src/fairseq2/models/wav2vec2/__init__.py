@@ -33,13 +33,13 @@ from fairseq2.models.wav2vec2._feature_extractor import (
     Wav2Vec2FeatureExtractor as Wav2Vec2FeatureExtractor,
 )
 from fairseq2.models.wav2vec2._frontend import Wav2Vec2Frontend as Wav2Vec2Frontend
+from fairseq2.models.wav2vec2._hub import (
+    get_wav2vec2_model_hub as get_wav2vec2_model_hub,
+)
 from fairseq2.models.wav2vec2._masker import (
     StandardWav2Vec2Masker as StandardWav2Vec2Masker,
 )
 from fairseq2.models.wav2vec2._masker import Wav2Vec2Masker as Wav2Vec2Masker
-from fairseq2.models.wav2vec2._masker import (
-    extract_masked_elements as extract_masked_elements,
-)
 from fairseq2.models.wav2vec2._model import Wav2Vec2Features as Wav2Vec2Features
 from fairseq2.models.wav2vec2._model import Wav2Vec2Loss as Wav2Vec2Loss
 from fairseq2.models.wav2vec2._model import Wav2Vec2Model as Wav2Vec2Model
@@ -51,20 +51,11 @@ from fairseq2.models.wav2vec2._position_encoder import (
     Wav2Vec2StackedPositionEncoder as Wav2Vec2StackedPositionEncoder,
 )
 from fairseq2.models.wav2vec2._vector_quantizer import (
-    GumbelVectorQuantizer as GumbelVectorQuantizer,
+    GumbelWav2Vec2VectorQuantizer as GumbelWav2Vec2VectorQuantizer,
 )
 from fairseq2.models.wav2vec2._vector_quantizer import (
-    GumbelVectorQuantizerOutput as GumbelVectorQuantizerOutput,
+    Wav2Vec2VectorQuantizer as Wav2Vec2VectorQuantizer,
 )
 from fairseq2.models.wav2vec2._vector_quantizer import (
-    VectorQuantizer as VectorQuantizer,
+    Wav2Vec2VectorQuantizerOutput as Wav2Vec2VectorQuantizerOutput,
 )
-from fairseq2.models.wav2vec2._vector_quantizer import (
-    VectorQuantizerOutput as VectorQuantizerOutput,
-)
-
-# isort: split
-
-from fairseq2.models import ModelHubAccessor
-
-get_wav2vec2_model_hub = ModelHubAccessor(Wav2Vec2Model, Wav2Vec2Config)
