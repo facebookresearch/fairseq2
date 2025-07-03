@@ -507,6 +507,10 @@ def update_num_dummy_batches(
 def update_avg_reward(metric_bag: MetricBag, avg_reward):
     metric_bag.get(Mean, "avg_reward").update(avg_reward, weight=1)
 
+@torch.inference_mode()
+def update_std_reward(metric_bag: MetricBag, std_reward):
+    metric_bag.get(Mean, "std_reward").update(std_reward, weight=1)
+
 
 @torch.inference_mode()
 def update_avg_rollout_length(metric_bag: MetricBag, avg_rollout_length):
