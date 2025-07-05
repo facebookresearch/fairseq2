@@ -7,16 +7,17 @@
 from __future__ import annotations
 
 import socket
-
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import cast, final, Literal
+from typing import Literal, cast, final
 
 import torch
+from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import AsrDataset, GENERIC_ASR_DATASET_FAMILY
+from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset
 from fairseq2.datasets.speech import ManifestDatasetInterface, SpeechReadOptions
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
@@ -60,15 +61,13 @@ from fairseq2.recipes.config import (
 )
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.wav2vec2.batch_weighted_datareader import (
-    BatchMixtureDataset,
     MIXTURE_DATASET_FAMILY,
+    BatchMixtureDataset,
 )
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
-from torch import Tensor
-from typing_extensions import override
 
 
 @dataclass(kw_only=True)
@@ -170,6 +169,12 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     npc: int = 10
     """The number of parallel calls to use in the pipeline."""
 
+    always_read_tsv: bool = False
+    """If ``True``, always read the TSV manifest, regardless of whether parquet datasets exist."""
+
+    extras: dict[str, object] = field(default_factory=dict)
+    """The dataset-specific extra options."""
+
     # Upsampling
     beta_corpus: float | None = None
     beta_language: float | None = None
@@ -183,14 +188,13 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     spec_aug_time_mask_param: int = 80
     """Maximum time mask length."""
 
-    always_read_tsv: bool = False
-    """If ``True``, always read the TSV manifest, regardless of whether parquet datasets exist."""
-
-    extras: dict[str, object] = field(default_factory=dict)
-    """The dataset-specific extra options."""
-
+    # Zero/Few-shot
     n_context_examples: int = 0
     """The number of context examples to use when providing context."""
+    bucket_size_train: int = 2000
+    """Minimum size of pool for choosing context examples, for training set."""
+    bucket_size_eval: int = 30
+    """Minimum size of pool for choosing context examples, for eval sets."""
 
 
 @dataclass(kw_only=True)
@@ -431,7 +435,7 @@ def load_wav2vec2_asr_trainer(
         spec_aug_freq_mask_param=config.dataset.spec_aug_freq_mask_param,
         spec_aug_time_mask_param=config.dataset.spec_aug_time_mask_param,
         n_context_examples=config.dataset.n_context_examples,
-        bucket_size=2000,
+        bucket_size=config.dataset.bucket_size_train,
         deterministic_context=False,
     )
 
@@ -477,7 +481,7 @@ def load_wav2vec2_asr_trainer(
             seed=seed,
             extras=config.dataset.extras,
             n_context_examples=config.dataset.n_context_examples,
-            bucket_size=30,
+            bucket_size=config.dataset.bucket_size_eval,
             deterministic_context=True,
         )
 
