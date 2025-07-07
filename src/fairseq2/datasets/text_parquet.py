@@ -119,12 +119,16 @@ class ParquetTextDataset(ParquetDatasetInterface, TextDataset):
         )  # FIXME: make it configurable
 
         files_circular_shift = options.extras.get("files_circular_shift", False)
-        assert isinstance(files_circular_shift, bool)
+        assert isinstance(
+            files_circular_shift, bool
+        ), "files_circular_shift must be bool"
 
         fragment_shuffle_window = options.extras.get(
             "fragment_shuffle_window", -1 if is_train_streaming else 0
         )
-        assert isinstance(fragment_shuffle_window, int)
+        assert isinstance(
+            fragment_shuffle_window, int
+        ), "fragment_shuffle_window must be int"
 
         fragment_config = FragmentStreamingConfig(
             parquet_path=parquet_files,
@@ -146,23 +150,27 @@ class ParquetTextDataset(ParquetDatasetInterface, TextDataset):
         ).build_pipeline(rank=rank, world_size=world_size)
 
         num_parallel_fragments = options.extras.get("num_parallel_fragments", npc)
-        assert isinstance(num_parallel_fragments, int)
+        assert isinstance(
+            num_parallel_fragments, int
+        ), "num_parallel_fragments must be int"
         assert num_parallel_fragments > 0, "num_parallel_fragments must be > 0"
 
         columns = options.extras.get("columns", columns)  # type: ignore
-        assert columns is None or isinstance(columns, NamedColumns)
+        assert columns is None or isinstance(
+            columns, NamedColumns
+        ), "columns must be NamedColumns"
 
         cache = options.extras.get("cache", False)
-        assert isinstance(cache, bool)
+        assert isinstance(cache, bool), "cache must be bool"
 
         add_fragment_traces = options.extras.get("add_fragment_traces", False)
-        assert isinstance(add_fragment_traces, bool)
+        assert isinstance(add_fragment_traces, bool), "add_fragment_traces must be bool"
 
         loading_config = FragmentLoadingConfig(
             columns=columns,
             add_fragment_traces=add_fragment_traces,
             num_parallel_fragments=num_parallel_fragments,
-            nb_prefetch=options.num_prefetch,
+            nb_prefetch=min(options.num_prefetch, 3 * num_parallel_fragments),
             non_deterministic_read=True,
             cache=cache,
             drop_null=False,
@@ -195,7 +203,7 @@ class ParquetTextDataset(ParquetDatasetInterface, TextDataset):
 
         if min_seq_len > 0:
             log.warning(
-                f"The `min_seq_len={min_seq_len}`  is ignored for JSONL datasets because of packing."
+                f"The `min_seq_len={min_seq_len}` is ignored for ParquetTextDataset because of packing."
             )
 
         builder = ParquetTextDataset.get_example_loading_builder(
