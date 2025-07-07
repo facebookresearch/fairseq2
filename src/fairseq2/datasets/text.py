@@ -6,11 +6,12 @@
 
 from __future__ import annotations
 
+import fnmatch
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, cast, final
+from typing import Any, Final, List, cast, final
 
 from typing_extensions import override
 
@@ -54,6 +55,7 @@ class TextDataset(ABC):
         min_seq_len: int,
         max_seq_len: int,
         options: TextReadOptions | None = None,
+        split: str | None = None,
     ) -> DataReader[SequenceBatch]:
         """Create a dataset reader.
 
@@ -71,11 +73,10 @@ class TextDataset(ABC):
             this value will be dropped.
         :param options:
             The read options.
+        :param split:
+            The split to read (based on files names pattern).
+            If ``None``, read files will be taken.
         """
-
-
-# TODO: FIX, INFER
-npc = 10
 
 
 GENERIC_TEXT_DATASET_FAMILY: Final = "generic_text"
@@ -114,6 +115,44 @@ class GenericTextDataset(TextDataset):
 
         return GenericTextDataset(name, files)
 
+    @staticmethod
+    def filter_split(
+        files: Sequence[Path],
+        split: str | None,
+        extention: str,
+        *,
+        split_pattern: str | Sequence[str] | None = None,
+    ) -> Sequence[Path]:
+        """Filter the dataset files by split.
+
+        :param split:
+            The split to filter by.
+        """
+        if split is None:
+            return list(files)  # copy
+
+        # Prepare pattern list
+        if split_pattern is None:
+            patterns: List[str] = [
+                f"**/{split}.{extention}",
+                f"{split}/*.{extention}",
+            ]
+        else:
+            # Accept str, list[str], tuple[str], … and interpolate placeholders
+            raw = (
+                [split_pattern]
+                if isinstance(split_pattern, str)
+                else list(split_pattern)
+            )
+            patterns = [pattern.format(split=split, ext=extention) for pattern in raw]
+        # Filter the file paths using the patterns
+        filtered_paths = [
+            path
+            for path in files
+            if any(fnmatch.fnmatch(str(path), pattern) for pattern in patterns)
+        ]
+        return filtered_paths
+
     @override
     def create_reader(
         self,
@@ -123,16 +162,24 @@ class GenericTextDataset(TextDataset):
         min_seq_len: int,
         max_seq_len: int,
         options: TextReadOptions | None = None,
+        split: str | None = None,
     ) -> DataReader[SequenceBatch]:
         if options is None:
             options = TextReadOptions()
 
         seed = options.seed
+        split_pattern = options.extras.get("split_pattern", None)
+        split_files = GenericTextDataset.filter_split(
+            self._files,
+            split,
+            extention="txt",
+            split_pattern=split_pattern,  # type: ignore[arg-type]
+        )
 
-        if len(self._files) == 1:
-            builder = read_text(self._files[0], key="text", rtrim=True)
+        if len(split_files) == 1:
+            builder = read_text(split_files[0], key="text", rtrim=True)
         else:
-            builder = read_sequence(self._files)
+            builder = read_sequence(split_files)
 
             def read_file(file: Path) -> DataPipeline:
                 return read_text(file, key="text", rtrim=True).and_return()
@@ -155,7 +202,7 @@ class GenericTextDataset(TextDataset):
 
             return example
 
-        builder.map(encode, num_parallel_calls=npc)
+        builder.map(encode)
 
         batching = options.batching
 
@@ -198,7 +245,7 @@ class GenericTextDataset(TextDataset):
         # Collate bucketed examples into a batch.
         collater = Collater(pad_value=pad_idx)
 
-        builder.map(collater, num_parallel_calls=npc)
+        builder.map(collater, num_parallel_calls=options.npc)
 
         # Return only the first `max_num_batches`.
         if options.max_num_batches is not None:

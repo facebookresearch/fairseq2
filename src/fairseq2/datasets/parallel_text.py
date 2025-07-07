@@ -105,10 +105,6 @@ class ParallelTextDataset(ABC):
         """Return the directions included ``split``."""
 
 
-# TODO: FIX, INFER
-npc = 10
-
-
 GENERIC_PARALLEL_TEXT_DATASET_FAMILY: Final = "generic_parallel_text"
 
 
@@ -335,7 +331,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
 
             return example
 
-        builder.map(encode, num_parallel_calls=npc)
+        builder.map(encode)
 
         batching = options.batching
 
@@ -393,7 +389,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
             ]
         )
 
-        builder.map(collater, num_parallel_calls=npc)
+        builder.map(collater, num_parallel_calls=options.npc)
 
         # Return only the first `max_num_batches`.
         if options.max_num_batches is not None:
