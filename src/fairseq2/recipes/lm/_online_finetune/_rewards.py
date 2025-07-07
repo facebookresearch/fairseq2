@@ -547,11 +547,18 @@ class GeneralVerifier(VLLMOutputReward):
 
         # if self._gangs.dp.rank == 0:
         #     breakpoint()
-        batch_rewards = generate_rewards(
+        # batch_rewards = generate_rewards(
+        #     vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.reward_model
+        # )
+
+        batch_rewards = generate_rewards_generative(
             vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.reward_model
         )
 
-        # reshape batch_rewards to [Batch, Rollouts]
+        # if self._gangs.dp.rank == 0:
+        #     breakpoint()
+
+        # reshape batch_rewards to [Batch, Rolslouts]
         B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
         batch_rewards = [batch_rewards[i * R : (i + 1) * R] for i in range(B)]
 
