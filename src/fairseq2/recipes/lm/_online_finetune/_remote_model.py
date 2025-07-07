@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections import Counter
 from dataclasses import dataclass, field
 import os
 from typing_extensions import override
@@ -212,9 +213,11 @@ class RemoteVllmModel:
         vllm_engine_args,
         sampling_params: dict,
         init_update_process_group: bool,
+        context: RuntimeContext,
         gangs: Gangs,
     ):
         self._gangs = gangs
+        self._context = context
 
         self.num_replicas = num_replicas
         self.ray_actor_name = ray_actor_name
@@ -412,43 +415,6 @@ class RemoteVllmModel:
         rewards = [o.outputs.data.item() for o in ray_outputs_flat]
         return rewards
 
-    def reward_from_generative_model(self, prompt_list):
-        def extract_score(output):
-            matches = re.findall(
-                r"<score>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score>", output
-            )
-            return float(matches[-1]) if matches else 0.0
-
-        def get_len_norm_avg_score(scores, lengths):
-            avg_score = 0.0
-            for score, length in zip(scores, lengths):
-                avg_score += score / length
-
-            return round(avg_score / len(scores), 4)
-
-        def get_avg_score(scores):
-            avg_score = 0.0
-            for score in scores:
-                avg_score += score
-
-            return round(avg_score / len(scores), 4)
-
-        rewards = []
-        judgments = self.rollout_from_model(prompt_list=prompt_list, string_input=True)
-
-        rewards = []
-        for per_rollout_judgments in judgments:
-            per_rollout_scores = [
-                extract_score(judgment.text)
-                for judgment in per_rollout_judgments.outputs
-            ]
-            per_rollout_lengths = [
-                len(judgment.token_ids) for judgment in per_rollout_judgments.outputs
-            ]
-            rewards.append(get_avg_score(per_rollout_scores))
-
-        return rewards
-
 
 @dataclass(kw_only=True)
 class HFRayActorConfig(RayActorConfig):
@@ -568,12 +534,6 @@ class RemoteHFModel:
         # rewards = [o.outputs.data.item() for o in ray_outputs_flat]
         return ray_outputs_flat
 
-    def reward_from_generative_model(self, prompt_list):
-
-        raise NotImplementedError(
-            "RemoteHFModel.reward_from_generative_model is not implemented. "
-        )
-
 
 class RemoteModelHandler(ABC):
     @abstractmethod
@@ -609,6 +569,7 @@ class RemoteRayModelHandler(RemoteModelHandler):
                     actor_config.vllm_engine_args,
                     actor_config.vllm_sampling_params,
                     actor_config.init_update_process_group,
+                    context,
                     gangs,
                 )
             else:

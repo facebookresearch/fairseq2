@@ -159,9 +159,15 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
 from fairseq2.recipes.lm._online_finetune._rewards import (
     GenerativePointwiseVerifier as GenerativePointwiseVerifier,
 )
-
 from fairseq2.recipes.lm._online_finetune._rewards import (
     GenerativePointwiseVerifierHandler as GenerativePointwiseVerifierHandler,
+)
+
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    GenerativePairwiseVerifier as GenerativePairwiseVerifier,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    GenerativePairwiseVerifierHandler as GenerativePairwiseVerifierHandler,
 )
 
 from fairseq2.recipes.lm._online_finetune._remote_model import (
@@ -176,4 +182,24 @@ from fairseq2.recipes.lm._train import TextDatasetSection as TextDatasetSection
 from fairseq2.recipes.lm._train import load_clm_trainer as load_clm_trainer
 from fairseq2.recipes.lm._train import (
     register_clm_train_configs as register_clm_train_configs,
+)
+
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    JudgmentExtractorHandler as JudgmentExtractorHandler,
+)
+
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    J1PointwiseExtractor as J1PointwiseExtractor,
+)
+
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    J1PointwiseExtractorHandler as J1PointwiseExtractorHandler,
+)
+
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    J1PairwiseScoreExtractor as J1PairwiseScoreExtractor,
+)
+
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    J1PairwiseScoreExtractorHandler as J1PairwiseScoreExtractorHandler,
 )
