@@ -129,7 +129,7 @@ class GenericTextDataset(TextDataset):
             The split to filter by.
         """
         if split is None:
-            return files
+            return list(files)  # copy
 
         # Prepare pattern list
         if split_pattern is None:
