@@ -83,11 +83,15 @@ class JsonlDataset(TextDataset):
 
         if min_seq_len > 0:
             log.warning(
-                f"The `min_seq_len={min_seq_len}`  is ignored for JSONL datasets because of packing."
+                f"The `min_seq_len={min_seq_len}`  is ignored because of packing."
             )
 
+        split_pattern = options.extras.get("split_pattern", None)
         split_files = GenericTextDataset.filter_split(
-            self._files, split, extention="jsonl"
+            self._files,
+            split,
+            extention="jsonl",
+            split_pattern=split_pattern,  # type: ignore[arg-type]
         )
 
         if len(split_files) < file_world_size:

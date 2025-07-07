@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, cast, final
+from typing import Any, Final, List, cast, final
 
 from typing_extensions import override
 
@@ -117,7 +117,11 @@ class GenericTextDataset(TextDataset):
 
     @staticmethod
     def filter_split(
-        files: Sequence[Path], split: str | None, extention: str
+        files: Sequence[Path],
+        split: str | None,
+        extention: str,
+        *,
+        split_pattern: str | Sequence[str] | None = None,
     ) -> Sequence[Path]:
         """Filter the dataset files by split.
 
@@ -127,16 +131,25 @@ class GenericTextDataset(TextDataset):
         if split is None:
             return files
 
-        # filtering based on two following patterns:
-        pattern1 = f"**/{split}.{extention}"
-        pattern2 = f"{split}/*.{extention}"
-
+        # Prepare pattern list
+        if split_pattern is None:
+            patterns: List[str] = [
+                f"**/{split}.{extention}",
+                f"{split}/*.{extention}",
+            ]
+        else:
+            # Accept str, list[str], tuple[str], … and interpolate placeholders
+            raw = (
+                [split_pattern]
+                if isinstance(split_pattern, str)
+                else list(split_pattern)
+            )
+            patterns = [pattern.format(split=split, ext=extention) for pattern in raw]
         # Filter the file paths using the patterns
         filtered_paths = [
             path
             for path in files
-            if fnmatch.fnmatch(str(path), pattern1)
-            or fnmatch.fnmatch(str(path), pattern2)
+            if any(fnmatch.fnmatch(str(path), pattern) for pattern in patterns)
         ]
         return filtered_paths
 
@@ -155,8 +168,12 @@ class GenericTextDataset(TextDataset):
             options = TextReadOptions()
 
         seed = options.seed
+        split_pattern = options.extras.get("split_pattern", None)
         split_files = GenericTextDataset.filter_split(
-            self._files, split, extention="txt"
+            self._files,
+            split,
+            extention="txt",
+            split_pattern=split_pattern,  # type: ignore[arg-type]
         )
 
         if len(split_files) == 1:
