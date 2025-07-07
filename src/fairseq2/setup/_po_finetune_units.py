@@ -23,10 +23,17 @@ from fairseq2.recipes.lm import (
     GeneralVerifierHandler,
     AtheneVerifierHandler,
     GenerativePointwiseVerifierHandler,
+    GenerativePairwiseVerifierHandler,
     VLLMOutputRewardHandler,
     RemoteModelHandler,
     NoEnvAtheneRewardPipeline,
+<<<<<<< HEAD
     NoEnvGeneralVerifierPipeline,
+=======
+    JudgmentExtractorHandler,
+    J1PointwiseExtractorHandler,
+    J1PairwiseScoreExtractorHandler
+>>>>>>> a7ffaa50c30ebd29e36fe0172e9bce575ac30e45
 )
 
 
@@ -98,13 +105,28 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
     # GenerativePointwiseVerifier
     handler = GenerativePointwiseVerifierHandler()
     registry.register(handler.name, handler)
-
+    
+    # GenerativePairwiseVerifier
+    handler = GenerativePairwiseVerifierHandler()
+    registry.register(handler.name, handler)
+    
     registry = context.get_registry(RemoteModelHandler)
 
     # NoEnvAtheneRewardPipeline
     handler = NoEnvAtheneRewardPipeline
     registry.register(handler.name, handler)
+<<<<<<< HEAD
 
     # NoEnvGeneralVerifierPipeline
     handler = NoEnvGeneralVerifierPipeline
+=======
+    
+    # Generative judgment extractors
+    registry = context.get_registry(JudgmentExtractorHandler)
+    
+    handler = J1PointwiseExtractorHandler()
+    registry.register(handler.name, handler)
+    
+    handler = J1PairwiseScoreExtractorHandler()
+>>>>>>> a7ffaa50c30ebd29e36fe0172e9bce575ac30e45
     registry.register(handler.name, handler)

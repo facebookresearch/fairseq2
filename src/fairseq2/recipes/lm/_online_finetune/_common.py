@@ -191,7 +191,11 @@ def generate_rewards(
     return rewards_per_rank[0]
 
 
-def generate_rewards_generative(prompts: List[List[int]], dp_gang, vllm_model):
+def generate_rewards_generative(
+    prompts: List[List[int]], 
+    dp_gang, 
+    vllm_model,
+):
     prompts_to_generate = [None] * dp_gang.size
     if dp_gang.rank == 0:
         dp_gang.gather_object(prompts, prompts_to_generate, 0)
@@ -203,7 +207,7 @@ def generate_rewards_generative(prompts: List[List[int]], dp_gang, vllm_model):
         for rank_prompts in prompts_to_generate:
             flat_request_list.extend(rank_prompts)
 
-        rewards = vllm_model.reward_from_generative_model(flat_request_list)
+        rewards = vllm_model.rollout_from_model(flat_request_list, string_input=True)
 
         rewards_to_scatter = []
         rewards_per_rank = [None]
@@ -391,6 +395,8 @@ def log_rollouts(prompt_batch: PromptBatch, rollouts, split_name, num_rollouts=1
     """
     if "prompt_raw" in prompt_batch.meta_info:
         prompt = prompt_batch.meta_info.get("prompt_raw")[0]
+    elif "raw_prompt" in prompt_batch.meta_info:
+        prompt = prompt_batch.meta_info.get("raw_prompt")[0]
     else:
         # raw text prompt doesn't exist for this dataset
         prompt = "DUMMY PROMPT"
@@ -500,6 +506,10 @@ def update_num_dummy_batches(
 @torch.inference_mode()
 def update_avg_reward(metric_bag: MetricBag, avg_reward):
     metric_bag.get(Mean, "avg_reward").update(avg_reward, weight=1)
+
+@torch.inference_mode()
+def update_std_reward(metric_bag: MetricBag, std_reward):
+    metric_bag.get(Mean, "std_reward").update(std_reward, weight=1)
 
 
 @torch.inference_mode()

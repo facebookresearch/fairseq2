@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections import Counter
 from dataclasses import dataclass, field
 import os
 from typing_extensions import override
@@ -51,6 +52,9 @@ class VllmEngineArgs:
     trust_remote_code: bool = False
     model_impl: str = "auto"
     enforce_eager: bool = True
+    gpu_memory_utilization: float = 0.9
+    max_num_batched_tokens: int | None = None
+    enable_chunked_prefill: bool = False
     hf_overrides: object = None
     dtype: str = "auto"
     override_pooler_config: PoolerConfig = field(default_factory=lambda: PoolerConfig())
@@ -86,7 +90,7 @@ class NoEnvLLM(LLM):
         # stop ray from manipulating CUDA_VISIBLE_DEVICES
         # at the top-level
         del os.environ["CUDA_VISIBLE_DEVICES"]
-        os.environ["VLLM_USE_V1"] = "0"
+        # os.environ["VLLM_USE_V1"] = "1"
         super().__init__(*args, **kwargs)
 
         self.ready = True  # Set a flag or return a signal
@@ -129,13 +133,14 @@ class NoEnvGeneralVerifierPipeline(GeneralVerifierPipeline):
         return "general_verifier_pipeline"
 
 
-class MyWorker(Worker):
+class WorkerExtension:
     """
-    The `MyWorker` class inherits from `Worker` to provide custom functions.
-    For simplicity, we define the `MyWorker` class in this self-contained
-    script. Normally, we should define the `MyWorker` class in a separate
-    file and pass the qualified name of the class to the `worker_cls`
-    parameter.
+    The class for vLLM's worker to inherit from.
+    By defining an extension class, the code can work no matter what is
+    the underlying worker class. This way, the code can be compatible
+    with both vLLM V0 and V1.
+    NOTE: we define this class in a separate module, and the main module
+    should pass the full qualified name as `worker_extension_cls` argument.
     """
 
     def init_weight_update_group(
@@ -159,10 +164,7 @@ class MyWorker(Worker):
             weight, src=0, stream=torch.cuda.current_stream()
         )
 
-        # wrap in fs2 style dict
-        # weights = {"model_key": "model", "model": {name: weight}}.items()
         self.model_runner.model.load_weights(weights=[(name, weight)])
-        # self.model_runner.model.load_weights(weights=weights)
 
         del weight
 
@@ -230,9 +232,11 @@ class RemoteVllmModel:
         vllm_engine_args,
         sampling_params: dict,
         init_update_process_group: bool,
+        context: RuntimeContext,
         gangs: Gangs,
     ):
         self._gangs = gangs
+        self._context = context
 
         self.num_replicas = num_replicas
         self.ray_actor_name = ray_actor_name
@@ -301,12 +305,15 @@ class RemoteVllmModel:
             model=vllm_engine_args.model,
             tokenizer=vllm_engine_args.tokenizer,
             enforce_eager=vllm_engine_args.enforce_eager,
-            worker_cls=MyWorker,
+            worker_extension_cls="fairseq2.recipes.lm._online_finetune._remote_model.WorkerExtension",
             tensor_parallel_size=vllm_engine_args.tensor_parallel_size,
             task=vllm_engine_args.task,
             trust_remote_code=vllm_engine_args.trust_remote_code,
             model_impl=vllm_engine_args.model_impl,
             hf_overrides=vllm_engine_args.hf_overrides,
+            gpu_memory_utilization=vllm_engine_args.gpu_memory_utilization,
+            max_num_batched_tokens=vllm_engine_args.max_num_batched_tokens,
+            enable_chunked_prefill=vllm_engine_args.enable_chunked_prefill,
             override_pooler_config=vllm_engine_args.override_pooler_config,
             dtype=vllm_engine_args.dtype,
             distributed_executor_backend="ray",
@@ -430,62 +437,6 @@ class RemoteVllmModel:
 
         return rewards
 
-    def reward_from_generative_model(self, prompt_list):
-        def extract_score(s):
-            if "Final Decision: Yes" in s:
-                return 1.0
-            else:
-                return 0.0
-
-        judgments = self.rollout_from_model(prompt_list=prompt_list, string_input=True)
-
-        rewards = []
-        for judgment in judgments:
-            for output in judgment.outputs:
-                reward = extract_score(output.text)
-                rewards.append(reward)
-
-        # if self._gangs.dp.rank == 0:
-        #     breakpoint()
-        return rewards
-
-    # def reward_from_generative_model(self, prompt_list):
-    #     def extract_score(output):
-    #         matches = re.findall(
-    #             r"<score>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score>", output
-    #         )
-    #         return float(matches[-1]) if matches else 0.0
-
-    #     def get_len_norm_avg_score(scores, lengths):
-    #         avg_score = 0.0
-    #         for score, length in zip(scores, lengths):
-    #             avg_score += score / length
-
-    #         return round(avg_score / len(scores), 4)
-
-    #     def get_avg_score(scores):
-    #         avg_score = 0.0
-    #         for score in scores:
-    #             avg_score += score
-
-    #         return round(avg_score / len(scores), 4)
-
-    #     rewards = []
-    #     judgments = self.rollout_from_model(prompt_list=prompt_list, string_input=True)
-
-    #     rewards = []
-    #     for per_rollout_judgments in judgments:
-    #         per_rollout_scores = [
-    #             extract_score(judgment.text)
-    #             for judgment in per_rollout_judgments.outputs
-    #         ]
-    #         per_rollout_lengths = [
-    #             len(judgment.token_ids) for judgment in per_rollout_judgments.outputs
-    #         ]
-    #         rewards.append(get_avg_score(per_rollout_scores))
-
-    #     return rewards
-
 
 @dataclass(kw_only=True)
 class HFRayActorConfig(RayActorConfig):
@@ -605,12 +556,6 @@ class RemoteHFModel:
         # rewards = [o.outputs.data.item() for o in ray_outputs_flat]
         return ray_outputs_flat
 
-    def reward_from_generative_model(self, prompt_list):
-
-        raise NotImplementedError(
-            "RemoteHFModel.reward_from_generative_model is not implemented. "
-        )
-
 
 class RemoteModelHandler(ABC):
     @abstractmethod
@@ -643,6 +588,7 @@ class RemoteRayModelHandler(RemoteModelHandler):
                     actor_config.vllm_engine_args,
                     actor_config.vllm_sampling_params,
                     actor_config.init_update_process_group,
+                    context,
                     gangs,
                 )
             else:

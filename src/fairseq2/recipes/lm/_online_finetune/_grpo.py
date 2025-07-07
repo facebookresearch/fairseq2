@@ -46,6 +46,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     update_grpo_batch_metrics,
     compute_reference_logps,
     collate_with_target_mask,
+    update_std_reward,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_model import (
@@ -189,7 +190,8 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     ) -> tuple[Tensor, int]:
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
-            policy_sampling_params.n = 1
+            # For a pairwise RM, need to sample at least two judgments
+            policy_sampling_params.n = 2 if self._reward.reward_name == "generative_pairwise_verifier" else 1
             for (
                 k,
                 v,
@@ -206,7 +208,9 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         if self._config.loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Valid")
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
+        log.info(f"Rewards: {reward_output['rewards']}")
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
+        std_reward = torch.tensor(reward_output["rewards"]).float().std()
 
         rollout_lengths = get_rollout_lengths(rollouts)
         avg_rollout_length = torch.tensor(rollout_lengths).float().mean()
@@ -217,6 +221,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         update_avg_reward(metric_bag, avg_reward)
         update_batch_metrics(metric_bag, prompt_batch, train=False)
+        update_std_reward(metric_bag, std_reward)
         # returning dummy loss since trainer expects it
         return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
 
@@ -339,6 +344,9 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )
 
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
+        std_reward = torch.tensor(reward_output["rewards"]).float().std()
+        
+        update_std_reward(metric_bag, std_reward)
         update_avg_reward(metric_bag, avg_reward)
 
         loss = grpo_loss
@@ -505,11 +513,14 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
 
         vllm_reward_model = vllm_actors.get(config.vllm_reward_model_actor_name, None)
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
-        reward_handler = reward_registry.get(config.reward.name)
+        reward_name = config.reward.name
+        reward_handler = reward_registry.get(reward_name)
         reward = reward_handler.create(
             reward_model=vllm_reward_model,
+            reward_name=reward_name,
             reward_config=config.reward.config,
             gangs=gangs,
+            context=self._context
         )
 
         # TODO: decide converter as part of the model handler
