@@ -126,7 +126,7 @@ class CausalLMTrainConfig:
 
 @dataclass(kw_only=True)
 class TextDatasetSection(DatasetSection):
-    name: str | None = "foo"
+    name: str | None = None
 
     family: str = JSONL_DATASET_FAMILY  # PARQUET_TEXT_DATASET_FAMILY
 
@@ -153,53 +153,6 @@ def register_clm_train_configs(context: RuntimeContext) -> None:
     @preset("llama3_8b")
     def llama3_8b() -> CausalLMTrainConfig:
         return CausalLMTrainConfig()
-
-    @preset("llama3_2_3b_fineweb2_from_scratch")
-    def llama3_2_3b_fineweb2_from_scratch() -> CausalLMTrainConfig:
-        config = CausalLMTrainConfig()
-        config.dataset.family = "parquet_text"
-        config.dataset.name = "fineweb2"
-        config.dataset.max_num_tokens = 8192 * 4
-        config.dataset.max_seq_len = 8192
-
-        config.dataset.path = Path("/checkpoint/mms/artyomko/tmp/fineweb-2_grouped")
-        config.model.arch = "llama3_2_3b"
-        # config.model.name = "meres_llama3_2_3b"
-        config.tokenizer.name = "meres_llama3_2_3b"
-
-        return config
-
-    @preset("llama3_2_3b_fineweb2_from_scratch_f16")
-    def llama3_2_3b_fineweb2_from_scratch_f16() -> CausalLMTrainConfig:
-        config = llama3_2_3b_fineweb2_from_scratch()
-        config.trainer.dtype = torch.float16
-        config.optimizer.config.impl = "auto"
-        return config
-
-    @preset("llama3_2_3b_fineweb2")
-    def llama3_2_3b_fineweb2() -> CausalLMTrainConfig:
-        config = CausalLMTrainConfig()
-        config.dataset.family = "parquet_text"
-        config.dataset.name = "fineweb2"
-        config.dataset.max_num_tokens = 8192 * 4
-        config.dataset.max_seq_len = 8192
-        config.dataset.path = Path("/checkpoint/mms/artyomko/tmp/fineweb-2_grouped")
-
-        config.model.arch = "llama3_2_3b"
-        config.model.name = "meres_llama3_2_3b"
-        config.tokenizer.name = "meres_llama3_2_3b"
-        config.model.path = Path(
-            "/checkpoint/meres/shared/meta_llama3.2/Llama3.2-3B/consolidated.00.pth"
-        )
-
-        return config
-
-    @preset("llama3_2_3b_fineweb2_f16")
-    def llama3_2_3b_fineweb2_f16() -> CausalLMTrainConfig:
-        config = llama3_2_3b_fineweb2()
-        config.trainer.dtype = torch.float16
-        config.optimizer.config.impl = "auto"
-        return config
 
 
 def load_clm_trainer(
