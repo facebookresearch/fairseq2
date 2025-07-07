@@ -128,8 +128,8 @@ class GenericTextDataset(TextDataset):
             return files
 
         # filtering based on two following patterns:
-        pattern1 = f"**/*{split}*.{extention}"
-        pattern2 = f"*{split}*/*.{extention}"
+        pattern1 = f"**/{split}.{extention}"
+        pattern2 = f"{split}/*.{extention}"
 
         # Filter the file paths using the patterns
         filtered_paths = [
