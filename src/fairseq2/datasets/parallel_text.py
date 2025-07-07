@@ -331,7 +331,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
 
             return example
 
-        builder.map(encode, num_parallel_calls=1)
+        builder.map(encode)
 
         batching = options.batching
 

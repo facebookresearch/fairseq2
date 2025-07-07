@@ -205,9 +205,9 @@ class GenericPreferenceDataset(PreferenceDataset):
         source_encoder = tokenizer.create_encoder(mode=options.source_encode_mode)
         target_encoder = tokenizer.create_encoder(mode=options.target_encode_mode)
 
-        builder.map(source_encoder, selector="src", num_parallel_calls=1)
-        builder.map(target_encoder, selector="tgt_chosen", num_parallel_calls=1)
-        builder.map(target_encoder, selector="tgt_rejected", num_parallel_calls=1)
+        builder.map(source_encoder, selector="src")
+        builder.map(target_encoder, selector="tgt_chosen")
+        builder.map(target_encoder, selector="tgt_rejected")
 
         def cat_source_and_target(example: dict[str, Any]) -> dict[str, Any]:
             id_ = example.get("id", None)
@@ -260,7 +260,7 @@ class GenericPreferenceDataset(PreferenceDataset):
                 "keep_jsonl_keys": jsonl_content,
             }
 
-        builder.map(cat_source_and_target, num_parallel_calls=1)
+        builder.map(cat_source_and_target)
 
         batching = options.batching
 
@@ -383,7 +383,7 @@ class GenericPreferenceDataset(PreferenceDataset):
             for line in fp:
                 lines.append(line)
 
-        return read_sequence(lines).map(json.loads, num_parallel_calls=1)
+        return read_sequence(lines).map(json.loads)
 
 
 get_preference_dataset_hub = DatasetHubAccessor(PreferenceDataset)

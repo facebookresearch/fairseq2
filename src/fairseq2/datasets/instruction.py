@@ -234,8 +234,8 @@ class GenericInstructionDataset(InstructionDataset):
         source_encoder = tokenizer.create_encoder(mode=options.source_encode_mode)
         target_encoder = tokenizer.create_encoder(mode=options.target_encode_mode)
 
-        builder.map(source_encoder, selector="src", num_parallel_calls=1)
-        builder.map(target_encoder, selector="tgt", num_parallel_calls=1)
+        builder.map(source_encoder, selector="src")
+        builder.map(target_encoder, selector="tgt")
 
         def cat_source_and_target(example: dict[str, Any]) -> dict[str, Any]:
             id_ = example.get("id")
@@ -249,7 +249,7 @@ class GenericInstructionDataset(InstructionDataset):
 
             return {"id": id_, "indices": indices, "target_mask": target_mask}
 
-        builder.map(cat_source_and_target, num_parallel_calls=1)
+        builder.map(cat_source_and_target)
 
         batching = options.batching
 
@@ -369,7 +369,7 @@ class GenericInstructionDataset(InstructionDataset):
 
             return {"id": id_, "prompt": source, "indices": indices}
 
-        builder.map(encode, num_parallel_calls=1)
+        builder.map(encode)
 
         # Filter out long examples.
         def skip(example: dict[str, Any]) -> bool:
@@ -417,7 +417,7 @@ class GenericInstructionDataset(InstructionDataset):
             for line in fp:
                 lines.append(line)
 
-        return read_sequence(lines).map(json.loads, num_parallel_calls=1)
+        return read_sequence(lines).map(json.loads)
 
     @override
     def splits(self) -> set[str]:

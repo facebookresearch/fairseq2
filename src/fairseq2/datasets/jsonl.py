@@ -101,7 +101,7 @@ class JsonlDataset(TextDataset):
             builder.shard(file_rank, file_world_size, allow_uneven=True)
 
         def read_file(file: Path) -> DataPipeline:
-            return read_text(file).map(json.loads, num_parallel_calls=1).and_return()
+            return read_text(file).map(json.loads).and_return()
 
         builder.yield_from(read_file)
 
@@ -139,7 +139,7 @@ class JsonlDataset(TextDataset):
         def encode(example: dict[str, Any]) -> Tensor:
             return text_encoder(example[text_column_name])
 
-        builder.map(encode, num_parallel_calls=1)
+        builder.map(encode)
 
         batching = options.batching
 
