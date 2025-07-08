@@ -570,12 +570,6 @@ class GeneralVerifier(VLLMOutputReward):
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
 
-        # if self._gangs.dp.rank == 0:
-        #     breakpoint()
-        # batch_rewards = generate_rewards(
-        #     vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.reward_model
-        # )
-
         batch_rewards = generate_rewards_generative(
             vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.reward_model
         )
@@ -716,6 +710,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         prompt_key,
         tokenizer,
     ):
+
         self.answer_key = answer_key
         self.prompt_key = prompt_key
         self._gangs = gangs
@@ -731,15 +726,42 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         judgment_extractor_handler = judgment_extractor_registry.get(judgment_extractor)
         self.judgment_extractor = judgment_extractor_handler.create()
 
-    def wrap_text(self, prompt_text, rollout_text):
-        content = self.judgment_extractor.prompt().format(
-            instruction=prompt_text, response=rollout_text
+    # def wrap_text(self, prompt_text, reference_answer, rollout_text):
+    #     content = self.judgment_extractor.prompt().format(
+    #         instruction=prompt_text, response=rollout_text
+    #     )
+    #     wrapped_text = [{"role": "user", "content": content}]
+    #     chat_str = self.tokenizer.apply_chat_template(
+    #         wrapped_text, tokenize=False, add_generation_prompt=True
+    #     )
+    #     return chat_str
+
+    def extract_answer(self, rollout_text: str):
+        try:
+            from math_verify import parse
+        except ImportError:
+            raise ImportError(
+                "install mathverify from https://github.com/huggingface/Math-Verify"
+            )
+        extracted_answer = parse(rollout_text)
+        return extracted_answer
+
+    def wrap_text(self, prompt_text, reference_answer, rollout_text):
+
+        question = prompt_text
+        ground_truth = reference_answer
+        student_answer = self.extract_answer(rollout_text)
+
+        prompt = (
+            f"User: ### Question: {question}\n\n"
+            f"### Ground Truth Answer: {ground_truth}\n\n"
+            f"### Student Answer: {student_answer}\n\n"
+            "For the above question, please verify if the student's answer is equivalent to the ground truth answer.\n"
+            "Do not solve the question by yourself; just check if the student's answer is equivalent to the ground truth answer.\n"
+            'If the student\'s answer is correct, output "Final Decision: Yes". If the student\'s answer is incorrect, output "Final Decision: No". Assistant:'
         )
-        wrapped_text = [{"role": "user", "content": content}]
-        chat_str = self.tokenizer.apply_chat_template(
-            wrapped_text, tokenize=False, add_generation_prompt=True
-        )
-        return chat_str
+
+        return prompt
 
     @override
     def process_rollouts(
@@ -753,15 +775,19 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
             vllm_outputs = [None] * len(prompt_batch.prompts)
 
         text_prompts = prompt_batch.meta_info.get(self.prompt_key)
+        reference_answers = prompt_batch.meta_info.get(self.answer_key)
         for i, (i_batch_request_output, prompt_text) in enumerate(
             zip(vllm_outputs, text_prompts)
         ):
 
             rollouts_text = []
             rollouts_tokens = []
+            i_reference_answer = reference_answers[i]
             for rollout_output in i_batch_request_output.outputs:
                 rollout_text = rollout_output.text
-                vllm_input = self.wrap_text(prompt_text, rollout_text)
+                vllm_input = self.wrap_text(
+                    prompt_text, i_reference_answer, rollout_text
+                )
                 vllm_inputs.append(vllm_input)
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)

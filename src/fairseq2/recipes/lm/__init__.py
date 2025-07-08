@@ -220,3 +220,7 @@ from fairseq2.recipes.lm._online_finetune._generative_judge import (
 from fairseq2.recipes.lm._online_finetune._generative_judge import (
     J1PairwiseScoreExtractorHandler as J1PairwiseScoreExtractorHandler,
 )
+
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    GeneralVerifierExtractorHandler as GeneralVerifierExtractorHandler,
+)
