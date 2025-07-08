@@ -71,9 +71,11 @@ Below are the user's question and the two responses:
 [The End of Assistant B's Answer]
 """
 
+
 from abc import ABC, abstractmethod
 from typing_extensions import override
 from fairseq2.logging import log
+from typing import Any
 import re
 
 
@@ -99,14 +101,131 @@ All judgment extractors are expected to:
 
 
 class JudgmentExtractor(ABC):
+    """
+    This class defines the interface for extracting judgments from generative models,
+    including formatting prompts for the reward model, extracting scalar scores from
+    model responses, and aggregating multiple judgments into a single value.
+    """
+
     @abstractmethod
     def prompt(self) -> str: ...
 
     @abstractmethod
+    def format_prompt(self, prompt_text, **kwargs: Any) -> str: ...
+
+    """
+    Format the prompt text and additional arguments into a string suitable for input to the reward model.
+    This method is responsible for formatting the question and responses as input to the reward model.
+    Args:
+        prompt_text (str): The main prompt or question text to be formatted.
+        **kwargs (Any): Additional keyword arguments that may be required for formatting such as rollout_text, reference_answer, etc.
+    Returns:
+        str: The formatted prompt string ready for the reward model.
+    """
+
+    @abstractmethod
     def extract(self, generation) -> float | str: ...
+
+    """
+    Extract the final scalar reward score from the model's response.
+    This should be implemented to process the given `generation`
+    and return either a float representing the reward score or a string with
+    additional information.
+
+    Args:
+        generation: The model's generated response to be evaluated.
+
+    Returns:
+        float | str: The extracted scalar reward score or a string with details.
+
+    Note:
+        This method is intended for extracting the final scalar reward score from the model's response.
+    """
 
     @abstractmethod
     def aggregate(self, judgments) -> float | str: ...
+
+    """
+    Aggregate multiple responses (judgments) from the reward model into a single value.
+    This should combine the results of several model outputs (e.g., scores or preferences)
+    into a final scalar or summary value, such as an average score or majority preference.
+
+    Args:
+        judgments: A list of individual judgments (e.g., scores or preferences) to aggregate.
+
+    Returns:
+        float | str: The aggregated result, such as an average score or consensus preference.
+    """
+
+
+class GeneralVerifierExtractorHandler(JudgmentExtractorHandler):
+    def __init__(self):
+        pass
+
+    @override
+    def create(self):
+        return GeneralVerifierExtractor()
+
+    @property
+    @override
+    def name(self):
+        return "general_verifier_extractor"
+
+    @property
+    @override
+    def config_kls(self):
+        return None
+
+
+class GeneralVerifierExtractor(JudgmentExtractor):
+    def __init__(self):
+        try:
+            from math_verify import parse
+        except ImportError:
+            raise ImportError(
+                "install mathverify from https://github.com/huggingface/Math-Verify"
+            )
+
+        self.parse = parse
+
+    @override
+    def prompt(self):
+        raise NotImplementedError(
+            "Using the string provided by the general verifier code in format_prompt instead"
+        )
+
+    @override
+    def format_prompt(self, prompt_text, rollout_text, reference_answer):
+
+        question = str(prompt_text)
+        ground_truth = str(reference_answer)
+        student_answer = str(self.parse(rollout_text))
+
+        prompt = (
+            f"User: ### Question: {question}\n\n"
+            f"### Ground Truth Answer: {ground_truth}\n\n"
+            f"### Student Answer: {student_answer}\n\n"
+            "For the above question, please verify if the student's answer is equivalent to the ground truth answer.\n"
+            "Do not solve the question by yourself; just check if the student's answer is equivalent to the ground truth answer.\n"
+            'If the student\'s answer is correct, output "Final Decision: Yes". If the student\'s answer is incorrect, output "Final Decision: No". Assistant:'
+        )
+
+        return prompt
+
+    @override
+    def extract(self, generation):
+        if "Final Decision: Yes" in generation:
+            return 1.0
+        else:
+            return 0.0
+
+    @override
+    def aggregate(self, judgments):
+        avg_score = 0.0
+        for score in judgments:
+            avg_score += score
+
+        return round(avg_score / len(judgments), 4)
 
 
 class J1PointwiseExtractorHandler(JudgmentExtractorHandler):
@@ -135,6 +254,15 @@ class J1PointwiseExtractor(JudgmentExtractor):
     @override
     def prompt(self):
         return POINTWISE_J1_PROMPT
+
+    @override
+    def format_prompt(self, prompt_text, rollout_text, reference_answer):
+        content = self.prompt().format(instruction=prompt_text, response=rollout_text)
+        wrapped_text = [{"role": "user", "content": content}]
+        chat_str = self.tokenizer.apply_chat_template(
+            wrapped_text, tokenize=False, add_generation_prompt=True
+        )
+        return chat_str
 
     @override
     def extract(self, generation):
@@ -180,6 +308,19 @@ class J1PairwiseScoreExtractor(JudgmentExtractor):
     @override
     def prompt(self):
         return PAIRWISE_WITH_SCORES_J1_PROMPT
+
+    @override
+    def format_prompt(self, prompt_text, rollout_A_text, rollout_B_text):
+        content = self.prompt().format(
+            instruction=prompt_text,
+            response_A=rollout_A_text,
+            response_B=rollout_B_text,
+        )
+        wrapped_text = [{"role": "user", "content": content}]
+        chat_str = self.tokenizer.apply_chat_template(
+            wrapped_text, tokenize=False, add_generation_prompt=True
+        )
+        return chat_str
 
     @override
     def extract(self, generation):

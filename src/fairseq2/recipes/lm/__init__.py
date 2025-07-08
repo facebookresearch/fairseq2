@@ -132,6 +132,7 @@ from fairseq2.recipes.lm._online_finetune._recipe import (
 from fairseq2.recipes.lm._online_finetune._online_dpo import (
     OnlineDpoFinetuneUnitHandler as OnlineDpoFinetuneUnitHandler,
 )
+
 # from fairseq2.recipes.lm._online_finetune._group_dpo import (
 #     GroupDpoFinetuneUnitHandler as GroupDpoFinetuneUnitHandler,
 # )
@@ -152,6 +153,7 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
 from fairseq2.recipes.lm._online_finetune._rewards import (
     AtheneVerifierHandler as AtheneVerifierHandler,
 )
+
 from fairseq2.recipes.lm._online_finetune._rewards import (
     MathVerifyHandler as MathVerifyHandler,
 )
@@ -174,7 +176,14 @@ from fairseq2.recipes.lm._online_finetune._remote_model import (
     RemoteModelHandler as RemoteModelHandler,
 )
 
-from fairseq2.recipes.lm._online_finetune._remote_model import NoEnvAtheneRewardPipeline as NoEnvAtheneRewardPipeline
+from fairseq2.recipes.lm._online_finetune._remote_model import (
+    NoEnvAtheneRewardPipeline as NoEnvAtheneRewardPipeline,
+)
+
+from fairseq2.recipes.lm._online_finetune._remote_model import (
+    NoEnvGeneralVerifierPipeline as NoEnvGeneralVerifierPipeline,
+)
+
 
 from fairseq2.recipes.lm._train import CausalLMTrainConfig as CausalLMTrainConfig
 from fairseq2.recipes.lm._train import CausalLMTrainUnit as CausalLMTrainUnit
@@ -202,4 +211,8 @@ from fairseq2.recipes.lm._online_finetune._generative_judge import (
 
 from fairseq2.recipes.lm._online_finetune._generative_judge import (
     J1PairwiseScoreExtractorHandler as J1PairwiseScoreExtractorHandler,
+)
+
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    GeneralVerifierExtractorHandler as GeneralVerifierExtractorHandler,
 )

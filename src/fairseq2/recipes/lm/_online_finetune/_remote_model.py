@@ -15,6 +15,9 @@ from vllm.engine.arg_utils import PoolerConfig
 from fairseq2.gang import Gangs
 from fairseq2.nn._batch_layout import BatchLayout
 from fairseq2.recipes.lm._online_finetune.third_party.athene import AtheneRewardPipeline
+from fairseq2.recipes.lm._online_finetune.third_party.general_verifier import (
+    GeneralVerifierPipeline,
+)
 from fairseq2.utils.structured import StructureError, structure
 from typing import Any, Dict, Union
 from vllm.worker.worker import Worker
@@ -111,6 +114,29 @@ class NoEnvAtheneRewardPipeline(AtheneRewardPipeline):
     @property
     def name(self):
         return "athene_reward_pipeline"
+
+
+@ray.remote
+class NoEnvGeneralVerifierPipeline(GeneralVerifierPipeline):
+    """
+    This is for running general verifier pipeline with HF backend.
+    It's not necessary since we can run this RM with VLLM backend,
+    but it provides a good example of how to create a pipeline.
+    """
+
+    def __init__(self, *args, **kwargs):
+        # stop ray from manipulating CUDA_VISIBLE_DEVICES
+        # at the top-level
+        del os.environ["CUDA_VISIBLE_DEVICES"]
+        super().__init__(*args, **kwargs)
+        self.ready = True  # Set a flag or return a signal
+
+    def is_ready(self):
+        return self.ready
+
+    @property
+    def name(self):
+        return "general_verifier_pipeline"
 
 
 class WorkerExtension:
@@ -412,6 +438,7 @@ class RemoteVllmModel:
         ray_outputs = ray.get(outputs)
         ray_outputs_flat = [o for sublist in ray_outputs for o in sublist]
         rewards = [o.outputs.data.item() for o in ray_outputs_flat]
+
         return rewards
 
 

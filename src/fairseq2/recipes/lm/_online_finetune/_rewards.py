@@ -335,7 +335,7 @@ class AtheneVerifier(VLLMOutputReward):
         self.reward_name = reward_name
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
 
-    def wrap_text(self, prompt_text, rollout_text):
+    def format_prompt(self, prompt_text, rollout_text):
         messages = [
             {
                 "role": "user",
@@ -369,7 +369,7 @@ class AtheneVerifier(VLLMOutputReward):
             rollouts_tokens = []
             for rollout_output in i_batch_request_output.outputs:
                 rollout_text = rollout_output.text
-                vllm_input = self.wrap_text(prompt_text, rollout_text)
+                vllm_input = self.format_prompt(prompt_text, rollout_text)
                 vllm_inputs.append(vllm_input)
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)
@@ -529,16 +529,6 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         judgment_extractor_handler = judgment_extractor_registry.get(judgment_extractor)
         self.judgment_extractor = judgment_extractor_handler.create()
 
-    def wrap_text(self, prompt_text, rollout_text):
-        content = self.judgment_extractor.prompt().format(
-            instruction=prompt_text, response=rollout_text
-        )
-        wrapped_text = [{"role": "user", "content": content}]
-        chat_str = self.tokenizer.apply_chat_template(
-            wrapped_text, tokenize=False, add_generation_prompt=True
-        )
-        return chat_str
-
     @override
     def process_rollouts(
         self, vllm_outputs: list[RequestOutput], prompt_batch: PromptBatch
@@ -551,15 +541,19 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
             vllm_outputs = [None] * len(prompt_batch.prompts)
 
         text_prompts = prompt_batch.meta_info.get(self.prompt_key)
+        reference_answers = prompt_batch.meta_info.get(self.answer_key)
         for i, (i_batch_request_output, prompt_text) in enumerate(
             zip(vllm_outputs, text_prompts)
         ):
 
             rollouts_text = []
             rollouts_tokens = []
+            i_reference_answer = reference_answers[i]
             for rollout_output in i_batch_request_output.outputs:
                 rollout_text = rollout_output.text
-                vllm_input = self.wrap_text(prompt_text, rollout_text)
+                vllm_input = self.judgment_extractor.format_prompt(
+                    prompt_text, rollout_text, i_reference_answer
+                )
                 vllm_inputs.append(vllm_input)
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)
@@ -727,18 +721,6 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
         judgment_extractor_handler = judgment_extractor_registry.get(judgment_extractor)
         self.judgment_extractor = judgment_extractor_handler.create()
 
-    def wrap_text(self, prompt_text, rollout_A_text, rollout_B_text):
-        content = self.judgment_extractor.prompt().format(
-            instruction=prompt_text,
-            response_A=rollout_A_text,
-            response_B=rollout_B_text,
-        )
-        wrapped_text = [{"role": "user", "content": content}]
-        chat_str = self.tokenizer.apply_chat_template(
-            wrapped_text, tokenize=False, add_generation_prompt=True
-        )
-        return chat_str
-
     @override
     def process_rollouts(
         self, vllm_outputs: list[RequestOutput], prompt_batch: PromptBatch
@@ -771,7 +753,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
                     if a != b:
                         rollout_A_text = i_batch_request_output.outputs[a].text
                         rollout_B_text = i_batch_request_output.outputs[b].text
-                        vllm_input = self.wrap_text(
+                        vllm_input = self.judgment_extractor.format_prompt(
                             prompt_text, rollout_A_text, rollout_B_text
                         )
                         vllm_inputs.append(vllm_input)
