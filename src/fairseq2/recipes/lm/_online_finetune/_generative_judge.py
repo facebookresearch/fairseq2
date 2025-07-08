@@ -117,7 +117,7 @@ class JudgmentExtractor(ABC):
     def prompt(self) -> str: ...
 
     @abstractmethod
-    def wrap_text(self, prompt_text, **kwargs: Any) -> str: ...
+    def format_prompt(self, prompt_text, **kwargs: Any) -> str: ...
 
     @abstractmethod
     def extract(self, generation) -> float | str: ...
@@ -161,7 +161,7 @@ class GeneralVerifierExtractor(JudgmentExtractor):
         return GENERAL_VERIFIER_PROMPT
 
     @override
-    def wrap_text(self, prompt_text, rollout_text, reference_answer):
+    def format_prompt(self, prompt_text, rollout_text, reference_answer):
 
         question = prompt_text
         ground_truth = reference_answer
@@ -222,7 +222,7 @@ class J1PointwiseExtractor(JudgmentExtractor):
         return POINTWISE_J1_PROMPT
 
     @override
-    def wrap_text(self, prompt_text, rollout_text, reference_answer):
+    def format_prompt(self, prompt_text, rollout_text, reference_answer):
         content = self.judgment_extractor.prompt().format(
             instruction=prompt_text, response=rollout_text
         )
@@ -278,7 +278,7 @@ class J1PairwiseScoreExtractor(JudgmentExtractor):
         return PAIRWISE_WITH_SCORES_J1_PROMPT
 
     @override
-    def wrap_text(self, prompt_text, rollout_A_text, rollout_B_text):
+    def format_prompt(self, prompt_text, rollout_A_text, rollout_B_text):
         content = self.judgment_extractor.prompt().format(
             instruction=prompt_text,
             response_A=rollout_A_text,

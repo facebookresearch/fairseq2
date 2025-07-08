@@ -335,7 +335,7 @@ class AtheneVerifier(VLLMOutputReward):
         self.reward_name = reward_name
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
 
-    def wrap_text(self, prompt_text, rollout_text):
+    def format_prompt(self, prompt_text, rollout_text):
         messages = [
             {
                 "role": "user",
@@ -369,7 +369,7 @@ class AtheneVerifier(VLLMOutputReward):
             rollouts_tokens = []
             for rollout_output in i_batch_request_output.outputs:
                 rollout_text = rollout_output.text
-                vllm_input = self.wrap_text(prompt_text, rollout_text)
+                vllm_input = self.format_prompt(prompt_text, rollout_text)
                 vllm_inputs.append(vllm_input)
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)
@@ -552,7 +552,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
             i_reference_answer = reference_answers[i]
             for rollout_output in i_batch_request_output.outputs:
                 rollout_text = rollout_output.text
-                vllm_input = self.judgment_extractor.wrap_text(
+                vllm_input = self.judgment_extractor.format_prompt(
                     prompt_text, rollout_text, i_reference_answer
                 )
                 vllm_inputs.append(vllm_input)
@@ -754,7 +754,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
                     if a != b:
                         rollout_A_text = i_batch_request_output.outputs[a].text
                         rollout_B_text = i_batch_request_output.outputs[b].text
-                        vllm_input = self.judgment_extractor.wrap_text(
+                        vllm_input = self.judgment_extractor.format_prompt(
                             prompt_text, rollout_A_text, rollout_B_text
                         )
                         vllm_inputs.append(vllm_input)
