@@ -155,14 +155,6 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
 )
 
 from fairseq2.recipes.lm._online_finetune._rewards import (
-    GeneralVerifier as GeneralVerifier,
-)
-
-from fairseq2.recipes.lm._online_finetune._rewards import (
-    GeneralVerifierHandler as GeneralVerifierHandler,
-)
-
-from fairseq2.recipes.lm._online_finetune._rewards import (
     MathVerifyHandler as MathVerifyHandler,
 )
 
