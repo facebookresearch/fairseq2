@@ -101,27 +101,10 @@ All judgment extractors are expected to:
 
 
 class JudgmentExtractor(ABC):
-    """ "
-    Abstract base class for creating methods specific to each individual reward model.
-
+    """
     This class defines the interface for extracting judgments from generative models,
     including formatting prompts for the reward model, extracting scalar scores from
     model responses, and aggregating multiple judgments into a single value.
-
-    Subclasses should implement methods tailored to the requirements of a particular
-    reward model.
-
-    Methods:
-        prompt() -> str:
-            Return the base prompt string for the reward model.
-
-        format_prompt(prompt_text, **kwargs: Any) -> str:
-
-        extract(generation) -> float | str:
-            Extract the final scalar reward score or relevant information from the model's response.
-
-        aggregate(judgments) -> float | str:
-            Aggregate multiple judgments into a single scalar or summary value.
     """
 
     @abstractmethod
@@ -145,8 +128,7 @@ class JudgmentExtractor(ABC):
 
     """
     Extract the final scalar reward score from the model's response.
-
-    This abstract method should be implemented to process the given `generation`
+    This should be implemented to process the given `generation`
     and return either a float representing the reward score or a string with
     additional information.
 
@@ -165,8 +147,7 @@ class JudgmentExtractor(ABC):
 
     """
     Aggregate multiple responses (judgments) from the reward model into a single value.
-
-    This method should combine the results of several model outputs (e.g., scores or preferences)
+    This should combine the results of several model outputs (e.g., scores or preferences)
     into a final scalar or summary value, such as an average score or majority preference.
 
     Args:
