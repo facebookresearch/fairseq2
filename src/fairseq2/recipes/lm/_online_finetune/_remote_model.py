@@ -118,6 +118,12 @@ class NoEnvAtheneRewardPipeline(AtheneRewardPipeline):
 
 @ray.remote
 class NoEnvGeneralVerifierPipeline(GeneralVerifierPipeline):
+    """
+    This is for running general verifier pipeline with HF backend.
+    It's not necessary since we can run this RM with VLLM backend,
+    but it provides a good example of how to create a pipeline.
+    """
+
     def __init__(self, *args, **kwargs):
         # stop ray from manipulating CUDA_VISIBLE_DEVICES
         # at the top-level
