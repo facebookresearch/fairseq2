@@ -76,6 +76,7 @@ from typing_extensions import override
 from fairseq2.logging import log
 import re
 
+
 class JudgmentExtractorHandler(ABC):
     @abstractmethod
     def create(self): ...
@@ -88,23 +89,26 @@ class JudgmentExtractorHandler(ABC):
     @abstractmethod
     def config_kls(self) -> type[object]: ...
 
-'''
+
+"""
 All judgment extractors are expected to:
 (1) define their judgment prompt
 (2) implement their judgment (i.e., scores, preferences, etc) extraction logic from the CoTs
 (3) implement their aggregation logic over judgments, if sampling multiple CoTs
-'''
+"""
+
+
 class JudgmentExtractor(ABC):
     @abstractmethod
     def prompt(self) -> str: ...
-    
+
     @abstractmethod
     def extract(self, generation) -> float | str: ...
-    
+
     @abstractmethod
     def aggregate(self, judgments) -> float | str: ...
 
-    
+
 class J1PointwiseExtractorHandler(JudgmentExtractorHandler):
     def __init__(self):
         pass
@@ -123,15 +127,15 @@ class J1PointwiseExtractorHandler(JudgmentExtractorHandler):
     def config_kls(self):
         return None
 
-    
+
 class J1PointwiseExtractor(JudgmentExtractor):
     def __init__(self):
         pass
-    
+
     @override
     def prompt(self):
         return POINTWISE_J1_PROMPT
-    
+
     @override
     def extract(self, generation):
         matches = re.findall(
@@ -140,16 +144,16 @@ class J1PointwiseExtractor(JudgmentExtractor):
         if matches and float(matches[-1].strip()) > 10.0:
             log.info(f"Judge output = {generation}")
         return float(matches[-1].strip()) if matches else 0.0
-    
+
     @override
     def aggregate(self, judgments):
         avg_score = 0.0
         for score in judgments:
             avg_score += score
-        
-        return round(avg_score/len(judgments), 4)
 
-    
+        return round(avg_score / len(judgments), 4)
+
+
 class J1PairwiseScoreExtractorHandler(JudgmentExtractorHandler):
     def __init__(self):
         pass
@@ -167,19 +171,24 @@ class J1PairwiseScoreExtractorHandler(JudgmentExtractorHandler):
     @override
     def config_kls(self):
         return None
-    
+
+
 class J1PairwiseScoreExtractor(JudgmentExtractor):
     def __init__(self):
         pass
-    
+
     @override
     def prompt(self):
         return PAIRWISE_WITH_SCORES_J1_PROMPT
-    
+
     @override
     def extract(self, generation):
-        score_a_matches = re.findall(r"<score_A>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score_A>", generation)
-        score_b_matches = re.findall(r"<score_B>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score_B>", generation)
+        score_a_matches = re.findall(
+            r"<score_A>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score_A>", generation
+        )
+        score_b_matches = re.findall(
+            r"<score_B>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score_B>", generation
+        )
 
         if score_a_matches and score_b_matches:
             score_a = score_a_matches[-1]
@@ -189,14 +198,17 @@ class J1PairwiseScoreExtractor(JudgmentExtractor):
             return (float(score_a.strip()), float(score_b.strip()))
         else:
             return (0.0, 0.0)
-        
+
     @override
     def aggregate(self, judgments):
         avg_score = (0.0, 0.0)
         for score in judgments:
-            avg_score = (avg_score[0]+score[0], avg_score[1]+score[1])
-        
-        return (round(avg_score[0]/len(judgments), 4), round(avg_score[1]/len(judgments), 4))
+            avg_score = (avg_score[0] + score[0], avg_score[1] + score[1])
+
+        return (
+            round(avg_score[0] / len(judgments), 4),
+            round(avg_score[1] / len(judgments), 4),
+        )
 
 
 class J1PairwisePreferenceExtractorHandler(JudgmentExtractorHandler):
@@ -217,15 +229,15 @@ class J1PairwisePreferenceExtractorHandler(JudgmentExtractorHandler):
     def config_kls(self):
         return None
 
-    
+
 class J1PairwisePreferenceExtractor(JudgmentExtractor):
     def __init__(self):
         pass
-    
+
     @override
     def prompt(self):
         return PAIRWISE_J1_PROMPT
-    
+
     @override
     def extract(self, generation):
         matches = list(
@@ -233,7 +245,7 @@ class J1PairwisePreferenceExtractor(JudgmentExtractor):
         )
 
         return matches[-1].strip() if matches else None
-    
+
     @override
     def aggregate(self, judgments):
         pass

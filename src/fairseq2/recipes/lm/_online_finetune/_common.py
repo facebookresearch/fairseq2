@@ -192,8 +192,8 @@ def generate_rewards(
 
 
 def generate_rewards_generative(
-    prompts: List[List[int]], 
-    dp_gang, 
+    prompts: List[List[int]],
+    dp_gang,
     vllm_model,
 ):
     prompts_to_generate = [None] * dp_gang.size
@@ -506,6 +506,7 @@ def update_num_dummy_batches(
 @torch.inference_mode()
 def update_avg_reward(metric_bag: MetricBag, avg_reward):
     metric_bag.get(Mean, "avg_reward").update(avg_reward, weight=1)
+
 
 @torch.inference_mode()
 def update_std_reward(metric_bag: MetricBag, std_reward):
