@@ -403,8 +403,6 @@ class RemoteVllmModel:
                     "sampling_params": sampling_params,
                     "use_tqdm": False,
                 }
-                # if self._gangs.dp.rank == 0 and string_input:
-                #     breakpoint()
                 output = self.vllm_workers[replica_i].generate.remote(**generate_args)
                 outputs.append(output)
 
