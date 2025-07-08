@@ -191,7 +191,9 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
             # For a pairwise RM, need to sample at least two judgments
-            policy_sampling_params.n = 2 if self._reward.reward_name == "generative_pairwise_verifier" else 1
+            policy_sampling_params.n = (
+                2 if self._reward.reward_name == "generative_pairwise_verifier" else 1
+            )
             for (
                 k,
                 v,
@@ -345,7 +347,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         std_reward = torch.tensor(reward_output["rewards"]).float().std()
-        
+
         update_std_reward(metric_bag, std_reward)
         update_avg_reward(metric_bag, avg_reward)
 
@@ -520,7 +522,7 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             reward_name=reward_name,
             reward_config=config.reward.config,
             gangs=gangs,
-            context=self._context
+            context=self._context,
         )
 
         # TODO: decide converter as part of the model handler
