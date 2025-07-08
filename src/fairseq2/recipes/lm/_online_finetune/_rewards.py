@@ -530,43 +530,6 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         judgment_extractor_handler = judgment_extractor_registry.get(judgment_extractor)
         self.judgment_extractor = judgment_extractor_handler.create()
 
-    # def wrap_text(self, prompt_text, reference_answer, rollout_text):
-    #     content = self.judgment_extractor.prompt().format(
-    #         instruction=prompt_text, response=rollout_text
-    #     )
-    #     wrapped_text = [{"role": "user", "content": content}]
-    #     chat_str = self.tokenizer.apply_chat_template(
-    #         wrapped_text, tokenize=False, add_generation_prompt=True
-    #     )
-    #     return chat_str
-
-    def extract_answer(self, rollout_text: str):
-        try:
-            from math_verify import parse
-        except ImportError:
-            raise ImportError(
-                "install mathverify from https://github.com/huggingface/Math-Verify"
-            )
-        extracted_answer = parse(rollout_text)
-        return extracted_answer
-
-    def wrap_text(self, prompt_text, reference_answer, rollout_text):
-
-        question = prompt_text
-        ground_truth = reference_answer
-        student_answer = self.extract_answer(rollout_text)
-
-        prompt = (
-            f"User: ### Question: {question}\n\n"
-            f"### Ground Truth Answer: {ground_truth}\n\n"
-            f"### Student Answer: {student_answer}\n\n"
-            "For the above question, please verify if the student's answer is equivalent to the ground truth answer.\n"
-            "Do not solve the question by yourself; just check if the student's answer is equivalent to the ground truth answer.\n"
-            'If the student\'s answer is correct, output "Final Decision: Yes". If the student\'s answer is incorrect, output "Final Decision: No". Assistant:'
-        )
-
-        return prompt
-
     @override
     def process_rollouts(
         self, vllm_outputs: list[RequestOutput], prompt_batch: PromptBatch
@@ -589,8 +552,8 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
             i_reference_answer = reference_answers[i]
             for rollout_output in i_batch_request_output.outputs:
                 rollout_text = rollout_output.text
-                vllm_input = self.wrap_text(
-                    prompt_text, i_reference_answer, rollout_text
+                vllm_input = self.judgment_extractor.wrap_text(
+                    prompt_text, rollout_text, i_reference_answer
                 )
                 vllm_inputs.append(vllm_input)
                 rollouts_text.append(rollout_output.text)
@@ -759,18 +722,6 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
         judgment_extractor_handler = judgment_extractor_registry.get(judgment_extractor)
         self.judgment_extractor = judgment_extractor_handler.create()
 
-    def wrap_text(self, prompt_text, rollout_A_text, rollout_B_text):
-        content = self.judgment_extractor.prompt().format(
-            instruction=prompt_text,
-            response_A=rollout_A_text,
-            response_B=rollout_B_text,
-        )
-        wrapped_text = [{"role": "user", "content": content}]
-        chat_str = self.tokenizer.apply_chat_template(
-            wrapped_text, tokenize=False, add_generation_prompt=True
-        )
-        return chat_str
-
     @override
     def process_rollouts(
         self, vllm_outputs: list[RequestOutput], prompt_batch: PromptBatch
@@ -803,7 +754,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
                     if a != b:
                         rollout_A_text = i_batch_request_output.outputs[a].text
                         rollout_B_text = i_batch_request_output.outputs[b].text
-                        vllm_input = self.wrap_text(
+                        vllm_input = self.judgment_extractor.wrap_text(
                             prompt_text, rollout_A_text, rollout_B_text
                         )
                         vllm_inputs.append(vllm_input)

@@ -87,6 +87,7 @@ If the student's answer is correct, output "Final Decision: Yes". If the student
 from abc import ABC, abstractmethod
 from typing_extensions import override
 from fairseq2.logging import log
+from typing import Any
 import re
 
 
@@ -116,6 +117,9 @@ class JudgmentExtractor(ABC):
     def prompt(self) -> str: ...
 
     @abstractmethod
+    def wrap_text(self, prompt_text, **kwargs: Any) -> str: ...
+
+    @abstractmethod
     def extract(self, generation) -> float | str: ...
 
     @abstractmethod
@@ -143,11 +147,36 @@ class GeneralVerifierExtractorHandler(JudgmentExtractorHandler):
 
 class GeneralVerifierExtractor(JudgmentExtractor):
     def __init__(self):
-        pass
+        try:
+            from math_verify import parse
+        except ImportError:
+            raise ImportError(
+                "install mathverify from https://github.com/huggingface/Math-Verify"
+            )
+
+        self.parse = parse
 
     @override
     def prompt(self):
         return GENERAL_VERIFIER_PROMPT
+
+    @override
+    def wrap_text(self, prompt_text, rollout_text, reference_answer):
+
+        question = prompt_text
+        ground_truth = reference_answer
+        student_answer = self.parse(rollout_text)
+
+        prompt = (
+            f"User: ### Question: {question}\n\n"
+            f"### Ground Truth Answer: {ground_truth}\n\n"
+            f"### Student Answer: {student_answer}\n\n"
+            "For the above question, please verify if the student's answer is equivalent to the ground truth answer.\n"
+            "Do not solve the question by yourself; just check if the student's answer is equivalent to the ground truth answer.\n"
+            'If the student\'s answer is correct, output "Final Decision: Yes". If the student\'s answer is incorrect, output "Final Decision: No". Assistant:'
+        )
+
+        return prompt
 
     @override
     def extract(self, generation):
@@ -193,6 +222,17 @@ class J1PointwiseExtractor(JudgmentExtractor):
         return POINTWISE_J1_PROMPT
 
     @override
+    def wrap_text(self, prompt_text, rollout_text, reference_answer):
+        content = self.judgment_extractor.prompt().format(
+            instruction=prompt_text, response=rollout_text
+        )
+        wrapped_text = [{"role": "user", "content": content}]
+        chat_str = self.tokenizer.apply_chat_template(
+            wrapped_text, tokenize=False, add_generation_prompt=True
+        )
+        return chat_str
+
+    @override
     def extract(self, generation):
         matches = re.findall(
             r"<score>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score>", generation
@@ -236,6 +276,19 @@ class J1PairwiseScoreExtractor(JudgmentExtractor):
     @override
     def prompt(self):
         return PAIRWISE_WITH_SCORES_J1_PROMPT
+
+    @override
+    def wrap_text(self, prompt_text, rollout_A_text, rollout_B_text):
+        content = self.judgment_extractor.prompt().format(
+            instruction=prompt_text,
+            response_A=rollout_A_text,
+            response_B=rollout_B_text,
+        )
+        wrapped_text = [{"role": "user", "content": content}]
+        chat_str = self.tokenizer.apply_chat_template(
+            wrapped_text, tokenize=False, add_generation_prompt=True
+        )
+        return chat_str
 
     @override
     def extract(self, generation):
