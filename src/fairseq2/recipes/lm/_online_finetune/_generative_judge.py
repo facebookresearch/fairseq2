@@ -71,18 +71,6 @@ Below are the user's question and the two responses:
 [The End of Assistant B's Answer]
 """
 
-GENERAL_VERIFIER_PROMPT = """\
-User: ### Question: {question}
-
-### Ground Truth Answer: {ground_truth}
-
-### Student Answer: {student_answer}
-
-For the above question, please verify if the student's answer is equivalent to the ground truth answer.
-Do not solve the question by yourself; just check if the student's answer is equivalent to the ground truth answer.
-If the student's answer is correct, output "Final Decision: Yes". If the student's answer is incorrect, output "Final Decision: No". Assistant:\
-"""
-
 
 from abc import ABC, abstractmethod
 from typing_extensions import override
@@ -158,14 +146,16 @@ class GeneralVerifierExtractor(JudgmentExtractor):
 
     @override
     def prompt(self):
-        return GENERAL_VERIFIER_PROMPT
+        raise NotImplementedError(
+            "Using the string provided by the general verifier code in format_prompt instead"
+        )
 
     @override
     def format_prompt(self, prompt_text, rollout_text, reference_answer):
 
-        question = prompt_text
-        ground_truth = reference_answer
-        student_answer = self.parse(rollout_text)
+        question = str(prompt_text)
+        ground_truth = str(reference_answer)
+        student_answer = str(self.parse(rollout_text))
 
         prompt = (
             f"User: ### Question: {question}\n\n"
@@ -223,9 +213,7 @@ class J1PointwiseExtractor(JudgmentExtractor):
 
     @override
     def format_prompt(self, prompt_text, rollout_text, reference_answer):
-        content = self.judgment_extractor.prompt().format(
-            instruction=prompt_text, response=rollout_text
-        )
+        content = self.prompt().format(instruction=prompt_text, response=rollout_text)
         wrapped_text = [{"role": "user", "content": content}]
         chat_str = self.tokenizer.apply_chat_template(
             wrapped_text, tokenize=False, add_generation_prompt=True
@@ -279,7 +267,7 @@ class J1PairwiseScoreExtractor(JudgmentExtractor):
 
     @override
     def format_prompt(self, prompt_text, rollout_A_text, rollout_B_text):
-        content = self.judgment_extractor.prompt().format(
+        content = self.prompt().format(
             instruction=prompt_text,
             response_A=rollout_A_text,
             response_B=rollout_B_text,
