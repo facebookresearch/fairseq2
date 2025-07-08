@@ -101,17 +101,80 @@ All judgment extractors are expected to:
 
 
 class JudgmentExtractor(ABC):
+    """ "
+    Abstract base class for creating methods specific to each individual reward model.
+
+    This class defines the interface for extracting judgments from generative models,
+    including formatting prompts for the reward model, extracting scalar scores from
+    model responses, and aggregating multiple judgments into a single value.
+
+    Subclasses should implement methods tailored to the requirements of a particular
+    reward model.
+
+    Methods:
+        prompt() -> str:
+            Return the base prompt string for the reward model.
+
+        format_prompt(prompt_text, **kwargs: Any) -> str:
+
+        extract(generation) -> float | str:
+            Extract the final scalar reward score or relevant information from the model's response.
+
+        aggregate(judgments) -> float | str:
+            Aggregate multiple judgments into a single scalar or summary value.
+    """
+
     @abstractmethod
     def prompt(self) -> str: ...
 
     @abstractmethod
     def format_prompt(self, prompt_text, **kwargs: Any) -> str: ...
 
+    """
+    Format the prompt text and additional arguments into a string suitable for input to the reward model.
+    This method is responsible for formatting the question and responses as input to the reward model.
+    Args:
+        prompt_text (str): The main prompt or question text to be formatted.
+        **kwargs (Any): Additional keyword arguments that may be required for formatting such as rollout_text, reference_answer, etc.
+    Returns:
+        str: The formatted prompt string ready for the reward model.
+    """
+
     @abstractmethod
     def extract(self, generation) -> float | str: ...
 
+    """
+    Extract the final scalar reward score from the model's response.
+
+    This abstract method should be implemented to process the given `generation`
+    and return either a float representing the reward score or a string with
+    additional information.
+
+    Args:
+        generation: The model's generated response to be evaluated.
+
+    Returns:
+        float | str: The extracted scalar reward score or a string with details.
+
+    Note:
+        This method is intended for extracting the final scalar reward score from the model's response.
+    """
+
     @abstractmethod
     def aggregate(self, judgments) -> float | str: ...
+
+    """
+    Aggregate multiple responses (judgments) from the reward model into a single value.
+
+    This method should combine the results of several model outputs (e.g., scores or preferences)
+    into a final scalar or summary value, such as an average score or majority preference.
+
+    Args:
+        judgments: A list of individual judgments (e.g., scores or preferences) to aggregate.
+
+    Returns:
+        float | str: The aggregated result, such as an average score or consensus preference.
+    """
 
 
 class GeneralVerifierExtractorHandler(JudgmentExtractorHandler):
