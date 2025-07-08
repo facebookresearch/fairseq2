@@ -514,7 +514,6 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         prompt_key,
         tokenizer,
     ):
-
         self.answer_key = answer_key
         self.prompt_key = prompt_key
         self._gangs = gangs
