@@ -78,6 +78,7 @@ setup(
             "polars>=1.19.0",
             "xxhash~=3.5",
         ],
+        "ray": ["ray~=2.40"],
     },
     entry_points={"console_scripts": ["fairseq2=fairseq2.cli:main"]},
 )
