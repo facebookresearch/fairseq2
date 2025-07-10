@@ -221,8 +221,8 @@ class GeneralVerifierExtractor(JudgmentExtractor):
         ground_truth_list = self.parse(rollout_text, self.gold_extraction_config)
         student_answer_list = self.parse(rollout_text, self.student_extraction_config)
 
-        ground_truth = ground_truth_list[0] if ground_truth_list else ""
-        student_answer = student_answer_list[0] if student_answer_list else ""
+        ground_truth = ground_truth_list[1] if ground_truth_list else "None"
+        student_answer = student_answer_list[1] if student_answer_list else "None"
 
         prompt = (
             f"User: ### Question: {question}\n\n"
