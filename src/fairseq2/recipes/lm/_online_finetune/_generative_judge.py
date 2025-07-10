@@ -214,15 +214,23 @@ class GeneralVerifierExtractor(JudgmentExtractor):
             "Using the string provided by the general verifier code in format_prompt instead"
         )
 
+    def get_preferred_index(self, lst):
+        if len(lst) > 1:
+            return lst[1]
+        elif len(lst) == 1:
+            return lst[0]
+        else:
+            return "None"
+
     @override
     def format_prompt(self, prompt_text, rollout_text, reference_answer):
 
         question = prompt_text
-        ground_truth_list = self.parse(rollout_text, self.gold_extraction_config)
+        ground_truth_list = self.parse(reference_answer, self.gold_extraction_config)
         student_answer_list = self.parse(rollout_text, self.student_extraction_config)
 
-        ground_truth = ground_truth_list[1] if ground_truth_list else "None"
-        student_answer = student_answer_list[1] if student_answer_list else "None"
+        ground_truth = self.get_preferred_index(ground_truth_list)
+        student_answer = self.get_preferred_index(student_answer_list)
 
         prompt = (
             f"User: ### Question: {question}\n\n"
