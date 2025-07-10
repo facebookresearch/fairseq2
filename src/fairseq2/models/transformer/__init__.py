@@ -23,6 +23,7 @@ from fairseq2.models.transformer._attention_bias import (
 from fairseq2.models.transformer._attention_bias import (
     maybe_get_attention_bias_tensor as maybe_get_attention_bias_tensor,
 )
+from fairseq2.models.transformer._block_mask import BlockMaskCache as BlockMaskCache
 from fairseq2.models.transformer._checkpoint import (
     convert_transformer_checkpoint as convert_transformer_checkpoint,
 )
@@ -144,6 +145,7 @@ from fairseq2.models.transformer._sdpa._default import (
 )
 from fairseq2.models.transformer._sdpa._flash2 import Flash2SDPA as Flash2SDPA
 from fairseq2.models.transformer._sdpa._flash3 import Flash3SDPA as Flash3SDPA
+from fairseq2.models.transformer._sdpa._flex import FlexSDPA as FlexSDPA
 from fairseq2.models.transformer._sdpa._naive import NaiveSDPA as NaiveSDPA
 from fairseq2.models.transformer._sdpa._naive import (
     naive_scaled_dot_product_attention as naive_scaled_dot_product_attention,
