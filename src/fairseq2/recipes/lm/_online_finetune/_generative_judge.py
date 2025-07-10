@@ -73,6 +73,7 @@ Below are the user's question and the two responses:
 
 
 from abc import ABC, abstractmethod
+import sys
 from typing_extensions import override
 from fairseq2.logging import log
 from typing import Any
@@ -197,9 +198,12 @@ class GeneralVerifierExtractor(JudgmentExtractor):
     @override
     def format_prompt(self, prompt_text, rollout_text, reference_answer):
 
-        question = str(prompt_text)
-        ground_truth = str(reference_answer)
-        student_answer = str(self.parse(rollout_text))
+        question = prompt_text
+        ground_truth = reference_answer
+        student_answer = self.parse(rollout_text)
+        if type(student_answer) is not str:
+            # fixes error from math_verify parser where it sometimes returns very long numbers
+            student_answer = student_answer[0:2048]
 
         prompt = (
             f"User: ### Question: {question}\n\n"
