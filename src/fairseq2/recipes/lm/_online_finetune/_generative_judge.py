@@ -182,11 +182,30 @@ class GeneralVerifierExtractor(JudgmentExtractor):
     def __init__(self):
         try:
             from math_verify import parse
+            from math_verify.parser import (
+                LatexExtractionConfig,
+                ExprExtractionConfig,
+                NormalizationConfig,
+            )
         except ImportError:
             raise ImportError(
                 "install mathverify from https://github.com/huggingface/Math-Verify"
             )
 
+        self.label_normalizer = NormalizationConfig(
+            basic_latex=True,
+            units=True,
+            malformed_operators=True,
+            nits=True,
+            boxed="none",
+            equations=False,
+        )
+        self.gold_extraction_config = (
+            LatexExtractionConfig(normalization_config=self.label_normalizer),
+        )
+        self.student_extraction_config = (
+            LatexExtractionConfig(boxed_match_priority=0),
+        )
         self.parse = parse
 
     @override
@@ -199,11 +218,11 @@ class GeneralVerifierExtractor(JudgmentExtractor):
     def format_prompt(self, prompt_text, rollout_text, reference_answer):
 
         question = prompt_text
-        ground_truth = reference_answer
-        student_answer = self.parse(rollout_text)
-        if type(student_answer) is not str:
-            # fixes error from math_verify parser where it sometimes returns very long numbers
-            student_answer = student_answer[0:2048]
+        ground_truth_list = self.parse(rollout_text, self.gold_extraction_config)
+        student_answer_list = self.parse(rollout_text, self.student_extraction_config)
+
+        ground_truth = ground_truth_list[0] if ground_truth_list else ""
+        student_answer = student_answer_list[0] if student_answer_list else ""
 
         prompt = (
             f"User: ### Question: {question}\n\n"
