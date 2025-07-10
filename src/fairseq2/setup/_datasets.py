@@ -12,8 +12,8 @@ from fairseq2.context import RuntimeContext
 from fairseq2.datasets import DatasetHandler, DatasetLoader, StandardDatasetHandler
 from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, GenericAsrDataset
 from fairseq2.datasets.asr_parquet import (
-    PARQUET_ASR_DATASET_FAMILY,
     GenericAsrParquetDataset,
+    PARQUET_ASR_DATASET_FAMILY,
 )
 from fairseq2.datasets.instruction import (
     GENERIC_INSTRUCTION_DATASET_FAMILY,
@@ -27,10 +27,14 @@ from fairseq2.datasets.preference import (
     GENERIC_PREFERENCE_DATASET_FAMILY,
     GenericPreferenceDataset,
 )
+from fairseq2.datasets.sonarspeech import (
+    GENERIC_SONAR_SPEECH_DATASET_FAMILY,
+    GenericSonarSpeechDataset,
+)
 from fairseq2.datasets.speech import GENERIC_SPEECH_DATASET_FAMILY, GenericSpeechDataset
 from fairseq2.datasets.speech_parquet import (
-    PARQUET_SPEECH_DATASET_FAMILY,
     GenericSpeechParquetDataset,
+    PARQUET_SPEECH_DATASET_FAMILY,
 )
 from fairseq2.datasets.text import GENERIC_TEXT_DATASET_FAMILY, GenericTextDataset
 from fairseq2.registry import Registry
@@ -88,6 +92,12 @@ def register_dataset_families(context: RuntimeContext) -> None:
         GenericTextDataset.from_path,
     )
     # fmt: on
+
+    registrar.register_family(
+        GENERIC_SONAR_SPEECH_DATASET_FAMILY,
+        GenericSonarSpeechDataset,
+        GenericSonarSpeechDataset.from_path,
+    )
 
 
 @final

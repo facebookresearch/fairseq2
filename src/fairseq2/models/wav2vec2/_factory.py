@@ -6,11 +6,10 @@
 
 from __future__ import annotations
 
-from torch.nn import GELU, SiLU
-
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.transformer import (
+    create_default_sdpa,
     FeedForwardNetwork,
     MultiheadAttention,
     RelativePositionalEncoding,
@@ -22,10 +21,7 @@ from fairseq2.models.transformer import (
     TransformerEncoder,
     TransformerEncoderLayer,
     TransformerNormOrder,
-    create_default_sdpa,
 )
-from fairseq2.nn import PositionEncoder, RotaryEncoder, init_bert_projection
-from fairseq2.utils.lazy import Lazy
 
 # isort: split
 
@@ -45,6 +41,10 @@ from fairseq2.models.wav2vec2._vector_quantizer import (
     GumbelVectorQuantizer,
     VectorQuantizer,
 )
+from fairseq2.nn import init_bert_projection, PositionEncoder, RotaryEncoder
+from fairseq2.utils.lazy import Lazy
+
+from torch.nn import GELU, SiLU
 
 
 def create_wav2vec2_model(config: Wav2Vec2Config) -> Wav2Vec2Model:

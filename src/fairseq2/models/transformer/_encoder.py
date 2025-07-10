@@ -9,19 +9,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from collections.abc import Iterator
-from typing import Any, Protocol, Sequence, final
+from typing import Any, final, Protocol, Sequence
 
 import torch
-from torch import Generator, Tensor
-from torch.autograd import Function
-from torch.nn import Dropout, Module
-from torch.utils.hooks import RemovableHandle
-from typing_extensions import override
 
 from fairseq2.error import InvalidOperationError
-from fairseq2.nn import LayerNorm, LayerStack
-from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import CPU, DataType, Device
 
 # isort: split
 
@@ -29,9 +21,17 @@ from fairseq2.models.transformer._attention_mask import AttentionMaskFactory
 from fairseq2.models.transformer._encoder_layer import TransformerEncoderLayer
 from fairseq2.models.transformer._norm_order import TransformerNormOrder
 from fairseq2.models.transformer._normalization import (
-    LayerNormFactory,
     create_standard_layer_norm,
+    LayerNormFactory,
 )
+from fairseq2.nn import LayerNorm, LayerStack
+from fairseq2.nn.padding import PaddingMask
+from fairseq2.typing import CPU, DataType, Device
+from torch import Generator, Tensor
+from torch.autograd import Function
+from torch.nn import Dropout, Module
+from torch.utils.hooks import RemovableHandle
+from typing_extensions import override
 
 
 class TransformerEncoder(LayerStack, ABC):

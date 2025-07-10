@@ -12,16 +12,16 @@ from typing import final
 
 import torch
 import torch.nn as nn
+
+from fairseq2.gang import Gang
+from fairseq2.nn.utils.module import to_empty
+from fairseq2.tensor_parallel import gather, reduce, reduce_on_backward
+from fairseq2.typing import DataType, Device, META
 from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import embedding
 from torch.nn.parameter import Parameter
 from typing_extensions import override
-
-from fairseq2.gang import Gang
-from fairseq2.nn.utils.module import to_empty
-from fairseq2.tensor_parallel import gather, reduce, reduce_on_backward
-from fairseq2.typing import META, DataType, Device
 
 
 class Embedding(Module, ABC):
@@ -482,7 +482,8 @@ class ShardedEmbedding(Embedding):
 def init_scaled_embedding(embed: StandardEmbedding) -> None:
     """Initialize ``embed`` from
     :math:`\\mathcal{N}(0, \\frac{1}{\\text{embedding_dim}})`."""
-    nn.init.normal_(embed.weight, std=embed.embedding_dim**-0.5)
+    # nn.init.normal_(embed.weight, std=embed.embedding_dim**-0.5)
+    nn.init.normal_(embed.weight, mean=0, std=1e-4)
 
     if embed.pad_idx is not None:
         with torch.no_grad():

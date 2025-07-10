@@ -10,10 +10,10 @@ from collections.abc import Sequence
 from typing import cast, final
 
 import torch
-from torch import Tensor
 
 from fairseq2.data import Collater, SequenceData
 from fairseq2.typing import Device
+from torch import Tensor
 
 
 @final
@@ -178,7 +178,7 @@ def get_seqs_and_padding_mask(
     if not data["is_ragged"]:
         return seqs, None
 
-    seq_lens = data["seq_lens"]
+    seq_lens = torch.LongTensor(data["seq_lens"])
 
     if device is not None:
         seq_lens = seq_lens.to(device)

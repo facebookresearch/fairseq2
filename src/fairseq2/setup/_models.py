@@ -6,9 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TypeVar, final
-
-from torch.nn import Module
+from typing import final, TypeVar
 
 from fairseq2.context import RuntimeContext
 from fairseq2.models import (
@@ -20,79 +18,88 @@ from fairseq2.models import (
     StandardModelHandler,
 )
 from fairseq2.models.jepa import (
+    convert_jepa_checkpoint,
+    create_jepa_model,
     JEPA_MODEL_FAMILY,
     JepaConfig,
     JepaModel,
-    convert_jepa_checkpoint,
-    create_jepa_model,
     register_jepa_configs,
 )
 from fairseq2.models.jepa.classifier import (
+    create_jepa_classifier_model,
     JEPA_CLASSIFIER_MODEL_FAMILY,
     JepaClassifierConfig,
     JepaClassifierModel,
-    create_jepa_classifier_model,
     register_jepa_classifier_configs,
 )
 from fairseq2.models.llama import (
-    LLAMA_MODEL_FAMILY,
-    LLaMAConfig,
     compile_llama_model,
     convert_llama_checkpoint,
     create_llama_model,
+    LLAMA_MODEL_FAMILY,
+    LLaMAConfig,
     register_llama_configs,
     shard_llama_model,
 )
 from fairseq2.models.mistral import (
-    MISTRAL_MODEL_FAMILY,
-    MistralConfig,
     convert_mistral_checkpoint,
     create_mistral_model,
+    MISTRAL_MODEL_FAMILY,
+    MistralConfig,
     register_mistral_configs,
 )
 from fairseq2.models.nllb import register_nllb_configs
 from fairseq2.models.s2t_transformer import (
-    S2T_TRANSFORMER_MODEL_FAMILY,
-    S2TTransformerConfig,
     convert_s2t_transformer_checkpoint,
     create_s2t_transformer_model,
     register_s2t_transformer_configs,
+    S2T_TRANSFORMER_MODEL_FAMILY,
+    S2TTransformerConfig,
 )
 from fairseq2.models.transformer import (
-    TRANSFORMER_MODEL_FAMILY,
-    TransformerConfig,
-    TransformerModel,
     convert_transformer_checkpoint,
     create_transformer_model,
     register_transformer_configs,
+    TRANSFORMER_MODEL_FAMILY,
+    TransformerConfig,
+    TransformerModel,
 )
 from fairseq2.models.transformer_lm import TransformerLanguageModel
 from fairseq2.models.w2vbert import (
-    W2VBERT_MODEL_FAMILY,
-    W2VBertConfig,
-    W2VBertModel,
     convert_w2vbert_checkpoint,
     create_w2vbert_model,
     register_w2vbert_configs,
+    W2VBERT_MODEL_FAMILY,
+    W2VBertConfig,
+    W2VBertModel,
 )
 from fairseq2.models.wav2vec2 import (
-    WAV2VEC2_MODEL_FAMILY,
-    Wav2Vec2Config,
-    Wav2Vec2Model,
     convert_wav2vec2_checkpoint,
     create_wav2vec2_model,
     register_wav2vec2_configs,
+    WAV2VEC2_MODEL_FAMILY,
+    Wav2Vec2Config,
+    Wav2Vec2Model,
 )
 from fairseq2.models.wav2vec2.asr import (
-    WAV2VEC2_ASR_MODEL_FAMILY,
-    Wav2Vec2AsrConfig,
-    Wav2Vec2AsrModel,
     convert_wav2vec2_asr_checkpoint,
     create_wav2vec2_asr_model,
     register_wav2vec2_asr_configs,
+    WAV2VEC2_ASR_MODEL_FAMILY,
+    Wav2Vec2AsrConfig,
+    Wav2Vec2AsrModel,
+)
+from fairseq2.models.wav2vec2.sonar import (
+    create_sonar_speech_model,
+    register_sonar_speech_encoder_configs,
+    SonarSpeechEncoderConfig,
+    SonarSpeechEncoderModel,
+    WAV2VEC2_SONAR_SPEECH_MODEL_FAMILY,
 )
 from fairseq2.registry import Registry
 from fairseq2.utils.file import StandardTensorLoader
+
+from torch.nn import Module
 
 
 def register_model_families(context: RuntimeContext) -> None:
@@ -228,6 +235,20 @@ def register_model_families(context: RuntimeContext) -> None:
     )
 
     register_wav2vec2_asr_configs(context)
+
+    # wav2vec 2.0 Sonar Speech
+    default_arch = "7b_fleurs"
+
+    registrar.register_family(
+        WAV2VEC2_SONAR_SPEECH_MODEL_FAMILY,
+        SonarSpeechEncoderModel,
+        SonarSpeechEncoderConfig,
+        default_arch,
+        create_sonar_speech_model,
+        checkpoint_converter=convert_wav2vec2_asr_checkpoint,
+    )
+
+    register_sonar_speech_encoder_configs(context)
 
     # fmt: on
 

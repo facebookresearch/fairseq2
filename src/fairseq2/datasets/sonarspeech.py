@@ -26,82 +26,58 @@ from fairseq2.datasets import (
     DatasetHubAccessor,
     UnknownSplitError,
 )
+from fairseq2.datasets.asr import AsrDataset
 from fairseq2.datasets.speech import (
     GenericSpeechDataset,
     ManifestDatasetInterface,
     SpeechReadOptions,
 )
 from fairseq2.gang import Gang
-from fairseq2.models.seq2seq import Seq2SeqBatch
+from fairseq2.models.seq2seq import Seq2SeqBatch, SonarSpeechSeq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import Device
-
 from typing_extensions import override
 
 
-class AsrDataset(ABC):
-    """Represents an automatic speech recognition dataset."""
-
-    @abstractmethod
-    def create_reader(
-        self,
-        split: str,
-        tokenizer: TextTokenizer,
-        gang: Gang,
-        min_audio_len: int,
-        max_audio_len: int,
-        options: SpeechReadOptions | None = None,
-    ) -> DataReader[Seq2SeqBatch]:
-        """Create a dataset reader.
-
-        :param split:
-            The split to read.
-        :param tokenizer:
-            The tokenizer to encode target text.
-        :param gang:
-            The gang over which to shard the dataset.
-        :param min_audio_len:
-            The minimum audio length of each example. Examples shorter than this
-            value will be dropped.
-        :param max_audio_len:
-            The maximum audio length of each example. Examples longer than this
-            value will be dropped.
-        :param options:
-            The read options.
-        """
-
-    @abstractmethod
-    def splits(self) -> set[str]:
-        """Return the set of splits."""
-
-
-GENERIC_ASR_DATASET_FAMILY: Final = "generic_asr"
+GENERIC_SONAR_SPEECH_DATASET_FAMILY: Final = "generic_sonar_speech"
 
 get_asr_dataset_hub = DatasetHubAccessor(AsrDataset)
 
 
-class GenericAsrDataset(ManifestDatasetInterface, AsrDataset):
+class GenericSonarSpeechDataset(ManifestDatasetInterface, AsrDataset):
     """Represents a generic manifest-based ASR dataset."""
 
     @staticmethod
-    def to_batch(example: Dict[str, Any], device: Device | None = None) -> Seq2SeqBatch:
+    def to_batch(
+        example: Dict[str, Any], device: Device | None = None
+    ) -> SonarSpeechSeq2SeqBatch:
+        print(example)
         source_data = cast(SequenceData, example["audio_feature"])
+        # print(source_data)
         target_data = cast(SequenceData, example["text"])
-        print(source_data)
+        # print(target_data)
+        target_embeddings = example["text_sonar_emb"]
+
         source_seqs, source_padding_mask = get_seqs_and_padding_mask(
             source_data, device=device
         )
-        print(source_padding_mask)
         target_seqs, target_padding_mask = get_seqs_and_padding_mask(
             target_data, device=device
         )
+        target_embeddings, _ = get_seqs_and_padding_mask(
+            target_embeddings, device=device
+        )
+        if target_embeddings.ndim == 3:
+            target_embeddings = target_embeddings.squeeze(1)
 
-        return Seq2SeqBatch(
+        # print(f"source padding mask: {source_padding_mask}")
+        return SonarSpeechSeq2SeqBatch(
             source_seqs,
             source_padding_mask,
             target_seqs,
             target_padding_mask,
             example,
+            target_embeddings,
         )
 
     def build_example_reading_frontend(
@@ -147,7 +123,7 @@ class GenericAsrDataset(ManifestDatasetInterface, AsrDataset):
         min_audio_len: int,
         max_audio_len: int,
         options: SpeechReadOptions | None = None,
-    ) -> DataPipelineReader[Seq2SeqBatch]:
+    ) -> DataPipelineReader[SonarSpeechSeq2SeqBatch]:
         options, builder = self.build_example_reading_frontend(split, gang, options)
         builder = GenericAsrDataset.build_asr_main_pipeline(
             builder,
@@ -157,7 +133,7 @@ class GenericAsrDataset(ManifestDatasetInterface, AsrDataset):
             min_audio_len=min_audio_len,
             max_audio_len=max_audio_len,
         )
-        return DataPipelineReader[Seq2SeqBatch](
+        return DataPipelineReader[SonarSpeechSeq2SeqBatch](
             self._name, split, builder.and_return(), gang, options
         )
 

@@ -13,16 +13,16 @@ from dataclasses import dataclass
 from typing import cast, final
 
 import torch
-from torch import Tensor
-from torch.amp.grad_scaler import GradScaler
-from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
-from torch.optim import Optimizer
-from typing_extensions import override
 
 from fairseq2.error import InvalidOperationError
 from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.typing import Device
+from torch import Tensor
+from torch.amp.grad_scaler import GradScaler
+from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
+from torch.optim import Optimizer
+from typing_extensions import override
 
 
 @final
@@ -212,6 +212,7 @@ class DynamicLossScaler:
 
     def backward(self, loss: Tensor) -> None:
         """Compute the gradient of ``loss`` after scaling it to avoid underflow."""
+        torch.autograd.set_detect_anomaly(True)
         self._grad_scaler.scale(loss).backward()
 
     def get_scale(self) -> float:

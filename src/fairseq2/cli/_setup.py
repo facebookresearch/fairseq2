@@ -7,6 +7,10 @@
 from __future__ import annotations
 
 from fairseq2.chatbots import UnknownChatbotError
+
+# isort: split
+
+from fairseq2.cli._cli import Cli
 from fairseq2.cli.commands.assets import ListAssetsHandler, ShowAssetHandler
 from fairseq2.cli.commands.chatbot import RunChatbotHandler
 from fairseq2.cli.commands.llama import (
@@ -61,36 +65,36 @@ from fairseq2.recipes.common import (
 from fairseq2.recipes.lm import (
     InstructionFinetuneConfig,
     LMLossEvalConfig,
-    POFinetuneConfig,
-    TextGenerateConfig,
     load_instruction_finetuner,
     load_lm_loss_evaluator,
     load_po_finetuner,
     load_text_generator,
+    POFinetuneConfig,
+    TextGenerateConfig,
 )
 from fairseq2.recipes.mt import (
-    MTEvalConfig,
-    MTTrainConfig,
-    TextTranslateConfig,
     load_mt_evaluator,
     load_mt_trainer,
     load_text_translator,
+    MTEvalConfig,
+    MTTrainConfig,
+    TextTranslateConfig,
 )
 from fairseq2.recipes.wav2vec2 import (
-    Wav2Vec2EvalConfig,
-    Wav2Vec2TrainConfig,
     load_wav2vec2_evaluator,
     load_wav2vec2_trainer,
+    Wav2Vec2EvalConfig,
+    Wav2Vec2TrainConfig,
 )
 from fairseq2.recipes.wav2vec2.asr import (
-    Wav2Vec2AsrTrainConfig,
     load_wav2vec2_asr_trainer,
+    Wav2Vec2AsrTrainConfig,
+)
+from fairseq2.recipes.wav2vec2.sonar import (
+    load_sonar_speech_trainer,
+    SonarSpeechTrainConfig,
 )
 from fairseq2.utils.validation import ValidationError
-
-# isort: split
-
-from fairseq2.cli._cli import Cli
 
 
 def setup_cli(context: RuntimeContext) -> Cli:
@@ -111,6 +115,7 @@ def setup_cli(context: RuntimeContext) -> Cli:
     _register_mt_cli(cli)
     _register_wav2vec2_asr_cli(cli)
     _register_wav2vec2_cli(cli)
+    _register_wav2vec2_sonar_cli(cli)
 
     _register_user_error_types(cli)
 
@@ -325,6 +330,23 @@ def _register_wav2vec2_asr_cli(cli: Cli) -> None:
         name="train",
         handler=train_handler,
         help="train a wav2vec 2.0 ASR model",
+    )
+
+
+def _register_wav2vec2_sonar_cli(cli: Cli) -> None:
+    group = cli.add_group("wav2vec2_sonar", help="sonar2 speech encoder recipes")
+
+    # Train
+    train_handler = RecipeCommandHandler(
+        loader=load_sonar_speech_trainer,
+        config_kls=SonarSpeechTrainConfig,
+        default_preset="base_10h",
+    )
+
+    group.add_command(
+        name="train",
+        handler=train_handler,
+        help="train a sonar2 speech encoder model",
     )
 
 

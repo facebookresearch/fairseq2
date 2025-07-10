@@ -11,8 +11,6 @@ from dataclasses import dataclass
 from typing import final
 
 import torch
-from torch import Tensor
-from torcheval.metrics import MulticlassAccuracy
 
 from fairseq2.gang import Gang
 from fairseq2.metrics import Mean
@@ -25,6 +23,8 @@ from fairseq2.models.wav2vec2 import (
     Wav2Vec2Output,
 )
 from fairseq2.recipes import BaseMetricBag, Model
+from torch import Tensor
+from torcheval.metrics import MulticlassAccuracy
 
 
 @dataclass(kw_only=True)

@@ -9,14 +9,14 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from torch import Tensor
-from torch.nn import Module
-from typing_extensions import override
-
 from fairseq2.device import SupportsDeviceTransfer
 from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import Device
+
+from torch import Tensor
+from torch.nn import Module
+from typing_extensions import override
 
 
 class Seq2SeqModel(Module, ABC):
@@ -130,3 +130,28 @@ def as_auto_regressive_input(batch: Seq2SeqBatch) -> tuple[Seq2SeqBatch, Sequenc
     target_batch = SequenceBatch(targets, padding_mask)
 
     return batch, target_batch
+
+
+@dataclass
+class SonarSpeechSeq2SeqBatch(Seq2SeqBatch):
+    """Add target embeddings for teacher-student training."""
+
+    target_embedds: Tensor = None
+    """The target embeddings. *Shape:* :math:`(N, 1, *)`, where :math:`N` is
+    the batch size, and :math:`*`
+    is any number of sequence-specific dimensions including none."""
+
+    @override
+    def to(self, device: Device) -> None:
+        """Moves the batch to ``device``."""
+        self.source_seqs = self.source_seqs.to(device)
+
+        if self.source_padding_mask is not None:
+            self.source_padding_mask = self.source_padding_mask.to(device)
+
+        self.target_seqs = self.target_seqs.to(device)
+
+        if self.target_padding_mask is not None:
+            self.target_padding_mask = self.target_padding_mask.to(device)
+
+        self.target_embedds = self.target_embedds.to(device)
