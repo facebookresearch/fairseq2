@@ -48,6 +48,7 @@ from fairseq2.utils.stopwatch import Stopwatch
 
 # isort: split
 
+from fairseq2.debug.simple_trace import SimpleTracer
 from fairseq2.recipes._early_stopper import EarlyStopper
 from fairseq2.recipes._error import (
     InconsistentGradientNormError,
@@ -473,6 +474,9 @@ class Trainer(Recipe, Generic[BatchT]):
 
         self._last_lr = 0.0
 
+        # Hard-coded tracer for debugging
+        self._tracer = SimpleTracer(f"rank_{gangs.root.rank:02d}_of_{gangs.root.size:02d}")
+
     @override
     def run(self) -> None:
         if self._state != _TrainerState.NOT_STARTED:
@@ -710,6 +714,9 @@ class Trainer(Recipe, Generic[BatchT]):
                         "The train unit has failed. See the nested exception for details."
                     ) from ex
 
+            self._tracer.set_step(0)
+            # self._tracer.trace_model_weights(model=self._model.module, prefix="pre_step")
+
             batches.reverse()
 
             num_batches = len(batches)
@@ -723,6 +730,7 @@ class Trainer(Recipe, Generic[BatchT]):
                     with self._maybe_no_sync(batch_nr, num_batches):
                         with record_function(f"step_{step_nr}_{batch_nr}_forward"):
                             loss, num_batch_targets = self._compute_loss(batch)
+                            self._tracer.trace_tensor(tensor=loss, name="loss", category="activations")
 
                         # If the unit does not return the number of logit targets
                         # of this batch, we assume that the loss is the mean loss
@@ -746,6 +754,8 @@ class Trainer(Recipe, Generic[BatchT]):
                     raise
 
             self._batches = None
+            
+            self._tracer.trace_model_gradients(model=self._model.module, prefix="post_bwd")
 
             # This function gathers the total number of logit targets across all
             # processes and divides the gradients by it. This is needed when the
@@ -754,6 +764,8 @@ class Trainer(Recipe, Generic[BatchT]):
             if num_targets > 0:
                 normalize_gradients(self._model.module, gangs.dp, num_targets)
 
+            #self._tracer.trace_model_gradients(model=self._model.module, prefix="post_grad_norm")
+            
             self._loss_scaler.unscale_gradients_()
 
             # Clip the gradients.
@@ -763,12 +775,16 @@ class Trainer(Recipe, Generic[BatchT]):
                 if self._gradient_check:
                     if not check_gradient_norms(grad_norm, gangs.dp, step_nr):
                         raise InconsistentGradientNormError(step_nr)
-
+            
+            # self._tracer.trace_model_gradients(model=self._model.module, prefix="post_grad_norm_2")
             # Update the parameters.
             with record_function(f"step_{step_nr}_optimizer"):
                 _, scale_result = self._loss_scaler.run_optimizer_step(step_nr)
 
             self._optimizer.zero_grad(set_to_none=True)
+
+            # self._tracer.trace_model_weights(model=self._model.module, prefix="post_step")
+            self._tracer.save_log()
 
         if scale_result.overflow:
             if scale_result.min_reached:
@@ -883,12 +899,13 @@ class Trainer(Recipe, Generic[BatchT]):
             self._checkpoint(block)
 
     def _should_checkpoint(self) -> bool:
-        return self._should_do(
-            self._checkpoint_after_n_steps,
-            self._checkpoint_every_n_steps,
-            self._checkpoint_after_n_data_epochs,
-            self._checkpoint_every_n_data_epochs,
-        )
+        return False
+        #        return self._should_do(
+        #            self._checkpoint_after_n_steps,
+        #            self._checkpoint_every_n_steps,
+        #            self._checkpoint_after_n_data_epochs,
+        #            self._checkpoint_every_n_data_epochs,
+        #        )
 
     def _checkpoint(self, block: bool) -> None:
         step_nr = self._step_nr
@@ -1044,12 +1061,13 @@ class Trainer(Recipe, Generic[BatchT]):
         return score
 
     def _should_validate(self) -> bool:
-        return self._should_do(
-            self._validate_after_n_steps,
-            self._validate_every_n_steps,
-            self._validate_after_n_data_epochs,
-            self._validate_every_n_data_epochs,
-        )
+        return False
+        #        return self._should_do(
+        #            self._validate_after_n_steps,
+        #            self._validate_every_n_steps,
+        #            self._validate_after_n_data_epochs,
+        #            self._validate_every_n_data_epochs,
+        #        )
 
     def _validate(self) -> float | None:
         log.info("Starting validation after step {}.", self._step_nr)
@@ -1186,7 +1204,6 @@ class Trainer(Recipe, Generic[BatchT]):
     @override
     def step_nr(self) -> int:
         return self._step_nr
-
 
 class _TrainerState(Enum):
     NOT_STARTED = 0
