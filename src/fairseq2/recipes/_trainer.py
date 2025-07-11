@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from contextlib import nullcontext
 from enum import Enum
 from typing import Final, Generic, Mapping, TypeVar, final
-
+import os
 import torch
 import torch.distributed
 from rich.pretty import pretty_repr
@@ -476,6 +476,14 @@ class Trainer(Recipe, Generic[BatchT]):
 
         # Hard-coded tracer for debugging
         self._tracer = SimpleTracer(f"rank_{gangs.root.rank:02d}_of_{gangs.root.size:02d}")
+
+        os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+        
+        torch.backends.cudnn.deterministic = True # torch_section.cudnn_deterministic
+        
+        torch.backends.cudnn.benchmark = False # torch_section.cudnn_benchmark
+        
+        torch.backends.cuda.matmul.allow_tf32 = True # torch_section.allow_tf32
 
     @override
     def run(self) -> None:

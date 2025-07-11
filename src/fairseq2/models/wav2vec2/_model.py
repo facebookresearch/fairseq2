@@ -228,12 +228,15 @@ class Wav2Vec2Model(Module):
         indices = repeat_interleave(indices, dim=0, repeat=self.num_distractors)
 
         # (N, S x L)
-        rand_indices = torch.randint(
-            low=0,
-            high=seq_len - 1,
-            size=(batch_size, seq_len * self.num_distractors),
-            device=device,
-        )
+        #rand_indices = torch.randint(
+        #    low=0,
+        #    high=seq_len - 1,
+        #    size=(batch_size, seq_len * self.num_distractors),
+        #    device=device,
+        #)
+        rand_indices = torch.arange(
+             seq_len * self.num_distractors, device=device
+        ).unsqueeze(0).expand(batch_size, -1) % (seq_len - 1)
 
         # (N, S x L)
         rand_indices[rand_indices >= indices] += 1
