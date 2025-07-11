@@ -226,15 +226,14 @@ class GeneralVerifierExtractor(JudgmentExtractor):
     def format_prompt(self, prompt_text, rollout_text, reference_answer):
 
         question = prompt_text
-        ground_truth_list = self.parse(reference_answer, self.gold_extraction_config)
+
         student_answer_list = self.parse(rollout_text, self.student_extraction_config)
 
-        ground_truth = self.get_preferred_index(ground_truth_list)
         student_answer = self.get_preferred_index(student_answer_list)
 
         prompt = (
             f"User: ### Question: {question}\n\n"
-            f"### Ground Truth Answer: {ground_truth}\n\n"
+            f"### Ground Truth Answer: {reference_answer}\n\n"
             f"### Student Answer: {student_answer}\n\n"
             "For the above question, please verify if the student's answer is equivalent to the ground truth answer.\n"
             "Do not solve the question by yourself; just check if the student's answer is equivalent to the ground truth answer.\n"
