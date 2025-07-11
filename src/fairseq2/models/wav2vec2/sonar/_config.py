@@ -81,19 +81,19 @@ def register_sonar_speech_encoder_configs(context: RuntimeContext) -> None:
 
         return SonarSpeechEncoderConfig()
 
-    @arch("7b_fleurs")
-    def fleurs_7b() -> SonarSpeechEncoderConfig:
+    @arch("7b")
+    def sonar_7b() -> SonarSpeechEncoderConfig:
         config = SonarSpeechEncoderConfig()
         config.encoder_config = w2v2_encoder_registry.get("7b")
 
         config.model_dim = 2048
         config.embedd_dim = 1024
-        config.num_decoder_layers = 6
+        config.num_decoder_layers = 3
 
         return config
 
-    @arch("1b_fleurs")
-    def fleurs_1b() -> SonarSpeechEncoderConfig:
+    @arch("1b")
+    def sonar_1b() -> SonarSpeechEncoderConfig:
         config = SonarSpeechEncoderConfig()
         config.encoder_config = w2v2_encoder_registry.get("1b")
 
@@ -102,8 +102,8 @@ def register_sonar_speech_encoder_configs(context: RuntimeContext) -> None:
 
         return config
 
-    @arch("7b_fleurs_mean")
-    def fleurs_7b_mean() -> SonarSpeechEncoderConfig:
+    @arch("7b_mean")
+    def sonar_7b_mean() -> SonarSpeechEncoderConfig:
         config = SonarSpeechEncoderConfig()
         config.encoder_config = w2v2_encoder_registry.get("7b")
 
@@ -113,8 +113,8 @@ def register_sonar_speech_encoder_configs(context: RuntimeContext) -> None:
 
         return config
 
-    @arch("1b_fleurs_mean")
-    def fleurs_1b_mean() -> SonarSpeechEncoderConfig:
+    @arch("1b_mean")
+    def sonar_1b_mean() -> SonarSpeechEncoderConfig:
         config = SonarSpeechEncoderConfig()
         config.encoder_config = w2v2_encoder_registry.get("1b")
 

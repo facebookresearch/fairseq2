@@ -482,8 +482,7 @@ class ShardedEmbedding(Embedding):
 def init_scaled_embedding(embed: StandardEmbedding) -> None:
     """Initialize ``embed`` from
     :math:`\\mathcal{N}(0, \\frac{1}{\\text{embedding_dim}})`."""
-    # nn.init.normal_(embed.weight, std=embed.embedding_dim**-0.5)
-    nn.init.normal_(embed.weight, mean=0, std=1e-4)
+    nn.init.normal_(embed.weight, std=embed.embedding_dim**-0.5)
 
     if embed.pad_idx is not None:
         with torch.no_grad():

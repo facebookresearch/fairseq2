@@ -6,6 +6,8 @@
 
 from typing import Optional
 
+import torch
+
 from fairseq2.models.transformer import (
     create_default_sdpa,
     create_standard_layer_norm,
@@ -167,8 +169,11 @@ class SonarSpeechEncoderFactory:
         )
 
     def create_projection_out(self) -> Linear:
-        return Linear(
+        proj = Linear(
             input_dim=self.config.model_dim,
             output_dim=self.config.embedd_dim,
             bias=False,
         )
+        torch.nn.init.normal_(proj.weight, mean=0, std=1e-5)
+
+        return proj
