@@ -37,6 +37,21 @@ from fairseq2.data.text.tokenizers.tiktoken import (
 )
 from fairseq2.device import Device
 
+# llama3 chat template with assistant mask support, see https://github.com/huggingface/transformers/issues/28950
+LLAMA3_CHAT_TEMPLATE = """{{- bos_token }}
+{%- for message in messages %}
+    {%- if message.role == 'user' or message.role == 'system' %}
+        {{- '<|start_header_id|>' + message['role'] + '<|end_header_id|>\\n\\n' + message['content'] | trim + '<|eot_id|>' }}
+    {%- else %}
+        {%- generation %}
+        {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' + message['content'] | trim + '<|eot_id|>' }}
+        {%- endgeneration %}
+    {%- endif %}
+{%- endfor %}
+{%- if add_generation_prompt %}
+    {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' }}
+{%- endif %}"""
+
 
 @final
 class LLaMA3Tokenizer(TextTokenizer):
@@ -282,6 +297,7 @@ def load_llama3_hg_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
             boh_token="<|start_header_id|>",
             eoh_token="<|end_header_id|>",
         )
+        model.overwrite_chat_template(LLAMA3_CHAT_TEMPLATE)
     except (OSError, RuntimeError) as ex:
         raise TextTokenizerLoadError(
             card.name, f"The '{card.name}' text tokenizer model cannot be loaded. See the nested exception for details."  # fmt: skip

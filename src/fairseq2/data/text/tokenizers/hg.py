@@ -46,6 +46,8 @@ if TYPE_CHECKING:
     class HuggingFaceTokenModel:
         def encode(self, text: str) -> list[int]: ...
 
+        def overwrite_chat_template(self, chat_template: str) -> None: ...
+
         def decode(
             self, token_indices: list[int], skip_special_tokens: bool = False
         ) -> str: ...
@@ -110,6 +112,9 @@ else:
 
         def encode(self, text: str) -> list[int]:
             return self._tok.encode(text, add_special_tokens=False)
+
+        def overwrite_chat_template(self, chat_template: str) -> None:
+            self._tok.chat_template = chat_template
 
         def decode(
             self, token_indices: list[int], skip_special_tokens: bool = False
