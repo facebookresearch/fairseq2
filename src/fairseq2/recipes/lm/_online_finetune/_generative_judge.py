@@ -73,7 +73,6 @@ Below are the user's question and the two responses:
 
 
 from abc import ABC, abstractmethod
-import sys
 from typing_extensions import override
 from fairseq2.logging import log
 from typing import Any
@@ -192,17 +191,6 @@ class GeneralVerifierExtractor(JudgmentExtractor):
                 "install mathverify from https://github.com/huggingface/Math-Verify"
             )
 
-        self.label_normalizer = NormalizationConfig(
-            basic_latex=True,
-            units=True,
-            malformed_operators=True,
-            nits=True,
-            boxed="none",
-            equations=False,
-        )
-        self.gold_extraction_config = (
-            LatexExtractionConfig(normalization_config=self.label_normalizer),
-        )
         self.student_extraction_config = (
             LatexExtractionConfig(boxed_match_priority=0),
         )
@@ -215,6 +203,9 @@ class GeneralVerifierExtractor(JudgmentExtractor):
         )
 
     def get_preferred_index(self, lst):
+        """
+        math_verify parse returns a list of parsed answers, we want want the item at idex 1, which is a string
+        """
         if len(lst) > 1:
             return lst[1]
         elif len(lst) == 1:
@@ -225,14 +216,11 @@ class GeneralVerifierExtractor(JudgmentExtractor):
     @override
     def format_prompt(self, prompt_text, rollout_text, reference_answer):
 
-        question = prompt_text
-
         student_answer_list = self.parse(rollout_text, self.student_extraction_config)
-
         student_answer = self.get_preferred_index(student_answer_list)
 
         prompt = (
-            f"User: ### Question: {question}\n\n"
+            f"User: ### Question: {prompt_text}\n\n"
             f"### Ground Truth Answer: {reference_answer}\n\n"
             f"### Student Answer: {student_answer}\n\n"
             "For the above question, please verify if the student's answer is equivalent to the ground truth answer.\n"
