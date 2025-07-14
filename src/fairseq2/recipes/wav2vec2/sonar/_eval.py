@@ -149,7 +149,7 @@ def load_sonar_speech_evaluator(
 
     tokenizer = load_text_tokenizer(context, config.tokenizer)
 
-    dataset = load_dataset(SpeechDataset, context, config.dataset, gangs)
+    dataset = load_dataset(GenericSonarSpeechDataset, context, config.dataset, gangs)
 
     # Initialize the unut.
     criterion = SonarSpeechCriterion(model)

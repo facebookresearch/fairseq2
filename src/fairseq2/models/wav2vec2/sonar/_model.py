@@ -123,6 +123,8 @@ class SonarSpeechEncoderModel(SonarEncoderModel):
                 padding_mask=batch.source_padding_mask,
                 example=batch.example,
             )
+        else:
+            target_embeddings = None
 
         seqs, padding_mask, _ = self.encoder_frontend.extract_features(
             batch.seqs, batch.padding_mask

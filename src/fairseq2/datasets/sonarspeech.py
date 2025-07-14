@@ -51,11 +51,8 @@ class GenericSonarSpeechDataset(ManifestDatasetInterface, AsrDataset):
     def to_batch(
         example: Dict[str, Any], device: Device | None = None
     ) -> SonarSpeechSeq2SeqBatch:
-        print(example)
         source_data = cast(SequenceData, example["audio_feature"])
-        # print(source_data)
         target_data = cast(SequenceData, example["text"])
-        # print(target_data)
         target_embeddings = example["text_sonar_emb"]
 
         source_seqs, source_padding_mask = get_seqs_and_padding_mask(

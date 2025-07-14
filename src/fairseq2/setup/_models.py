@@ -237,7 +237,7 @@ def register_model_families(context: RuntimeContext) -> None:
     register_wav2vec2_asr_configs(context)
 
     # wav2vec 2.0 Sonar Speech
-    default_arch = "7b_fleurs"
+    default_arch = "7b"
 
     registrar.register_family(
         WAV2VEC2_SONAR_SPEECH_MODEL_FAMILY,

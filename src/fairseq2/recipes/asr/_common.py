@@ -7,11 +7,9 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, TextIO, final
+from typing import Any, Dict, final, TextIO
 
 import torch
-from torch import Tensor
-from typing_extensions import override
 
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
 from fairseq2.gang import Gang
@@ -21,6 +19,8 @@ from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes import BaseMetricBag, Model, UnitError
+from torch import Tensor
+from typing_extensions import override
 
 
 @final
@@ -46,7 +46,7 @@ class AsrCriterion:
         loss, extra_metrics = output.compute_loss(
             batch.target_seqs, batch.target_padding_mask
         )
-
+        print(loss)
         metric_bag.update_ctc_loss(batch, loss)
 
         metric_bag.update_batch_metrics(batch)

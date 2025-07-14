@@ -33,14 +33,14 @@ class SonarSpeechCriterion:
     def __init__(self, model: Model | None = None) -> None:
         self._model = model
         self.mse_loss_fn = MSELoss(reduction="none")
+        # self.cosine_loss_fn = CosineEmbeddingLoss(reduction="none")
 
     def __call__(
         self, batch: SonarSpeechSeq2SeqBatch, metric_bag: SonarSpeechMetricBag
     ) -> tuple[Tensor, int]:
         output = self._forward(batch)
 
-        # print(output.text_embeddings.shape, output.speech_embeddings.shape)
-        mse_loss = self.mse_loss_fn(output.speech_embeddings, output.text_embeddings)
+        mse_loss = self.mse_loss_fn(output.text_embeddings, output.speech_embeddings)
         mse_loss = mse_loss.sum(dim=1)
 
         cosine_sim = F.cosine_similarity(
@@ -91,7 +91,7 @@ class SonarSpeechMetricBag(BaseMetricBag):
     def update_mse_loss(self, batch: SonarSpeechSeq2SeqBatch, loss: Tensor) -> None:
         n = batch.batch_size
 
-        self.mse_loss.update(loss.detach() / n / math.log(2), weight=n)
+        self.mse_loss.update(loss.detach() / n, weight=n)
 
     @torch.inference_mode()
     def update_cosine_sim(self, batch: SonarSpeechSeq2SeqBatch, sim: Tensor) -> None:

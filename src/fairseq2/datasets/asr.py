@@ -87,11 +87,9 @@ class GenericAsrDataset(ManifestDatasetInterface, AsrDataset):
     def to_batch(example: Dict[str, Any], device: Device | None = None) -> Seq2SeqBatch:
         source_data = cast(SequenceData, example["audio_feature"])
         target_data = cast(SequenceData, example["text"])
-        print(source_data)
         source_seqs, source_padding_mask = get_seqs_and_padding_mask(
             source_data, device=device
         )
-        print(source_padding_mask)
         target_seqs, target_padding_mask = get_seqs_and_padding_mask(
             target_data, device=device
         )

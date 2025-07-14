@@ -374,6 +374,8 @@ def load_sonar_speech_trainer(
             batching=batching,
             dtype=config.trainer.dtype,
             normalize_audio=config.dataset.normalize_audio,
+            example_shuffle_window=1,
+            batch_shuffle_window=1,
             sync_mode=SyncMode.UNTIL_LAST,
             num_prefetch=config.dataset.num_prefetch,
             seed=seed,
@@ -382,7 +384,7 @@ def load_sonar_speech_trainer(
 
         valid_units = []
         valid_data_readers = []
-        valid_splits = (config.dataset.valid_split).split(",")
+        valid_splits = [s.strip() for s in (config.dataset.valid_split).split(",")]
         for i in range(len(valid_splits)):
             valid_unit = SonarSpeechEvalUnit(criterion, gangs)
             valid_units.append(valid_unit)
