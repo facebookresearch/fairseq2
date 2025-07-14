@@ -734,8 +734,8 @@ class Trainer(Recipe, Generic[BatchT]):
 
                 try:
                     batch.to(gangs.root.device)
-
                     with self._maybe_no_sync(batch_nr, num_batches):
+
                         with record_function(f"step_{step_nr}_{batch_nr}_forward"):
                             loss, num_batch_targets = self._compute_loss(batch)
                             self._tracer.trace_tensor(tensor=loss, name="loss", category="activations")
@@ -750,6 +750,12 @@ class Trainer(Recipe, Generic[BatchT]):
                             loss = loss / num_batches
                         else:
                             num_targets += num_batch_targets
+
+                        import os
+                        from fairseq2.utils.env import get_rank
+                        if get_rank(os.environ) == 0:
+                            from pudb.remote import set_trace
+                            set_trace(host="rsccpu4029.hco1.facebook.com", port=12345, term_size=(80*3, 24*3), reverse=True)
 
                         with record_function(f"step_{step_nr}_{batch_nr}_backward"):
                             self._loss_scaler.backward(loss)

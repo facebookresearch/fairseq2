@@ -98,9 +98,9 @@ class TorchSDPA(SDPA):
         self.attn_dropout_p = attn_dropout_p
 
         self._has_warned = False
-        self._enable_memory_efficient = True
+        self._enable_memory_efficient = False
 
-    def enable_memory_efficient(self, value: bool = True) -> None:
+    def enable_memory_efficient(self, value: bool = False) -> None:
         """Enable or disable the memory efficient SDPA implementation."""
         self._enable_memory_efficient = value
 
