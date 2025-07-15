@@ -28,6 +28,70 @@ from fairseq2.data.text.tokenizers.hg import (
 )
 from fairseq2.device import Device
 
+# llama3 chat template with assistant mask support
+QWEN_CHAT_TEMPLATE="""{%- if tools %}
+    {{- '<|im_start|>system\\n' }}
+    {%- if messages[0].role == 'system' %}
+        {{- messages[0].content + '\\n\\n' }}
+    {%- endif %}
+    {{- "# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>" }}
+    {%- for tool in tools %}
+        {{- "\\n" }}
+        {{- tool | tojson }}
+    {%- endfor %}
+    {{- '\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\"name\": <function-name>, \"arguments\": <args-json-object>}\\n</tool_call><|im_end|>\\n' }}
+{%- else %}
+    {%- if messages[0].role == 'system' %}
+        {{- '<|im_start|>system\\n' + messages[0].content + '<|im_end|>\\n' }}
+    {%- endif %}
+{%- endif %}
+{%- set ns = namespace(multi_step_tool=true, last_query_index=messages|length - 1) %}
+{%- for message in messages[::-1] %}
+    {%- set index = (messages|length - 1) - loop.index0 %}
+    {%- if ns.multi_step_tool and message.role == "user" and message.content is string and not(message.content.startswith('<tool_response>') and message.content.endswith('</tool_response>')) %}
+        {%- set ns.multi_step_tool = false %}
+        {%- set ns.last_query_index = index %}
+    {%- endif %}
+{%- endfor %}
+{%- for message in messages %}
+    {%- if message.content is string %}
+        {%- set content = message.content %}
+    {%- else %}
+        {%- set content = '' %}
+    {%- endif %}
+    {%- if (message.role == "user") or (message.role == "system" and not loop.first) %}
+        {{- '<|im_start|>' + message.role + '\\n' + content + '<|im_end|>' + '\\n' }}
+    {%- elif message.role == "assistant" %}
+        {%- set reasoning_content = '' %}
+        {%- if message.reasoning_content is string %}
+            {%- set reasoning_content = message.reasoning_content %}
+        {%- else %}
+            {%- if '</think>' in content %}
+                {%- set reasoning_content = content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}
+                {%- set content = content.split('</think>')[-1].lstrip('\\n') %}
+            {%- endif %}
+        {%- endif %}
+        {{- '<|im_start|>' + message.role }}
+        {% generation %}
+        {%- if loop.index0 > ns.last_query_index %}
+            {%- if loop.last or (not loop.last and reasoning_content) %}
+                {{- '<think>\\n' + reasoning_content.strip('\\n') + '\\n</think>\\n\\n' + content.lstrip('\\n') }}
+            {%- else %}
+                {{- content }}
+            {%- endif %}
+        {%- else %}
+            {{- content }}
+        {%- endif %}
+        {{- '<|im_end|>' }}
+        {% endgeneration %}
+    {%- endif %}
+{%- endfor %}
+{%- if add_generation_prompt %}
+    {{- '<|im_start|>assistant\\n' }}
+    {%- if enable_thinking is defined and enable_thinking is false %}
+        {{- '<think>\\n\\n</think>\\n\\n' }}
+    {%- endif %}
+{%- endif %}"""
 
 @final
 class QwenTokenizer(TextTokenizer):
@@ -123,6 +187,7 @@ def load_qwen_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
             boh_token=None,
             eoh_token=None,
         )
+        model.overwrite_chat_template(QWEN_CHAT_TEMPLATE)
     except (OSError, RuntimeError) as ex:
         raise TextTokenizerLoadError(
             card.name, f"The '{card.name}' text tokenizer model cannot be loaded. See the nested exception for details."  # fmt: skip
