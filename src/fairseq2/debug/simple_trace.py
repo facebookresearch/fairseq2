@@ -465,3 +465,656 @@ def print_comparison_summary(results: Dict[str, Any]):
                         print(f"       Values: [{vals_str}]")
     
     print("=" * 60)
+
+def analyze_layer_differences(results: Dict[str, Any], threshold: float = 1e-6) -> Dict[str, Any]:
+    """
+    Analyze differences per layer/model part with structured output.
+    
+    Args:
+        results: Output from compare_runs()
+        threshold: Threshold for considering a difference significant
+        
+    Returns:
+        Dictionary with structured analysis per layer/component
+    """
+    layer_analysis = {}
+    
+    for comp in results["comparisons"]:
+        name = comp["name"]
+        category = comp["category"]
+        
+        # Extract layer/component identifier
+        layer_id = _extract_layer_id(name)
+        
+        # Create unique key for this layer/component combination
+        key = f"{category}_{layer_id}"
+        
+        if key not in layer_analysis:
+            layer_analysis[key] = {
+                "layer_id": layer_id,
+                "category": category,
+                "tensors": [],
+                "total_differences": 0,
+                "difference_indices": [],
+                "top_differences": [],
+                "total_magnitude": 0.0,
+                "tensor_count": 0
+            }
+        
+        # Use the already computed comparison data
+        max_diff = comp.get("max_diff", 0.0)
+        mean_diff = comp.get("mean_diff", 0.0)
+        is_identical = comp.get("identical", True)
+        
+        # Check if this tensor has significant differences
+        has_differences = not is_identical and max_diff > threshold
+        
+        # For tensors with differences, we need to reload them to get detailed analysis
+        if has_differences:
+            # Try to reconstruct filepaths from the artifacts
+            artifacts1, artifacts2 = _get_artifact_paths_from_results(results)
+            key_lookup = f"{category}_{comp.get('key', '').split('_', 1)[-1]}"
+            
+            if key_lookup in artifacts1 and key_lookup in artifacts2:
+                tensor1 = torch.load(artifacts1[key_lookup])
+                tensor2 = torch.load(artifacts2[key_lookup])
+                tensor_analysis = _analyze_tensor_differences(tensor1, tensor2, threshold)
+            else:
+                # Fallback: create analysis from existing comparison data
+                tensor_analysis = _create_analysis_from_comparison(comp, threshold)
+        else:
+            # No significant differences
+            tensor_analysis = {
+                "num_differences": 0,
+                "difference_indices": [],
+                "top_differences": [],
+                "total_magnitude": 0.0,
+                "shape": comp.get("shape1", [])
+            }
+        
+        layer_analysis[key]["tensors"].append({
+            "name": name,
+            "tensor_analysis": tensor_analysis,
+            "comparison": comp  # Keep original comparison for reference
+        })
+        
+        # Aggregate statistics
+        layer_analysis[key]["total_differences"] += tensor_analysis["num_differences"]
+        layer_analysis[key]["difference_indices"].extend(tensor_analysis["difference_indices"])
+        layer_analysis[key]["top_differences"].extend(tensor_analysis["top_differences"])
+        layer_analysis[key]["total_magnitude"] += tensor_analysis["total_magnitude"]
+        layer_analysis[key]["tensor_count"] += 1
+    
+    # Post-process each layer's analysis
+    for key in layer_analysis:
+        layer = layer_analysis[key]
+        
+        # Sort and limit difference indices (compact representation)
+        layer["difference_indices"] = _compact_indices(layer["difference_indices"][:20])
+        
+        # Sort and limit top differences
+        layer["top_differences"].sort(key=lambda x: x["magnitude"], reverse=True)
+        layer["top_differences"] = layer["top_differences"][:3]
+        
+        # Calculate average magnitude
+        layer["avg_magnitude"] = layer["total_magnitude"] / layer["tensor_count"] if layer["tensor_count"] > 0 else 0.0
+    
+    return layer_analysis
+
+
+def _extract_layer_id(tensor_name: str) -> str:
+    """Extract layer/component identifier from tensor name."""
+    import re
+    
+    # Handle encoder layers
+    layer_match = re.search(r'encoder_layers_(\d+)', tensor_name)
+    if layer_match:
+        return f"layer_{int(layer_match.group(1)):03d}"
+    
+    # Handle other components
+    if "encoder_frontend" in tensor_name or "frontend" in tensor_name:
+        return "frontend"
+    elif "final_proj" in tensor_name or "classifier" in tensor_name or "head" in tensor_name:
+        return "final_proj"
+    elif "loss" in tensor_name:
+        return "loss"
+    elif "embedding" in tensor_name:
+        return "embedding"
+    else:
+        # Try to extract a meaningful component name
+        parts = tensor_name.split("_")
+        if len(parts) >= 2:
+            return f"{parts[0]}_{parts[1]}"
+        return "other"
+
+
+def _get_artifact_paths_from_results(results: Dict[str, Any]) -> tuple:
+    """Extract artifact paths from results (this is a workaround since compare_runs doesn't store paths)."""
+    # This is a limitation - we need the original run directories to reload tensors
+    # For now, return empty dicts and rely on fallback analysis
+    return {}, {}
+
+
+def analyze_layer_differences_detailed(run1_dir: str, run2_dir: str, threshold: float = 1e-6) -> Dict[str, Any]:
+    """
+    Analyze differences per layer/model part with detailed index information.
+    This version reloads tensors to get exact differing indices.
+    
+    Args:
+        run1_dir: Path to first run directory
+        run2_dir: Path to second run directory  
+        threshold: Threshold for considering a difference significant
+        
+    Returns:
+        Dictionary with detailed analysis per layer/component
+    """
+    from pathlib import Path
+    import torch
+    
+    run1_path = Path(run1_dir)
+    run2_path = Path(run2_dir)
+    
+    # Collect all artifacts from both runs
+    categories = ["weights", "gradients", "activations", "step_data"]
+    artifacts1 = {}
+    artifacts2 = {}
+    
+    for category in categories:
+        cat_dir1 = run1_path / category
+        cat_dir2 = run2_path / category
+        
+        if cat_dir1.exists():
+            for file_path in cat_dir1.glob("*.pt"):
+                key = f"{category}_{file_path.name}"
+                artifacts1[key] = file_path
+                
+        if cat_dir2.exists():
+            for file_path in cat_dir2.glob("*.pt"):
+                key = f"{category}_{file_path.name}"
+                artifacts2[key] = file_path
+    
+    # Find common artifacts
+    common_keys = set(artifacts1.keys()) & set(artifacts2.keys())
+    
+    layer_analysis = {}
+    
+    for key in sorted(common_keys):
+        # Load tensors
+        tensor1 = torch.load(artifacts1[key])
+        tensor2 = torch.load(artifacts2[key])
+        
+        # Extract info from filename
+        filename = artifacts1[key].name
+        category = key.split('_')[0]
+        name_part = filename.replace('.pt', '')
+        
+        # Extract step and name from filename
+        step_str = "unknown"
+        name = name_part
+        if name_part.startswith('step_'):
+            parts = name_part.split('_', 2)
+            if len(parts) >= 2:
+                step_str = parts[1]
+                name = '_'.join(parts[2:]) if len(parts) > 2 else parts[1]
+        
+        # Extract layer/component identifier
+        layer_id = _extract_layer_id(name)
+        
+        # Create unique key for this layer/component combination
+        analysis_key = f"{category}_{layer_id}"
+        
+        if analysis_key not in layer_analysis:
+            layer_analysis[analysis_key] = {
+                "layer_id": layer_id,
+                "category": category,
+                "tensors": [],
+                "total_differences": 0,
+                "all_difference_indices": [],
+                "top_differences": [],
+                "total_magnitude": 0.0,
+                "tensor_count": 0
+            }
+        
+        # Analyze this tensor pair
+        tensor_analysis = _analyze_tensor_differences_detailed(tensor1, tensor2, threshold)
+        
+        layer_analysis[analysis_key]["tensors"].append({
+            "name": name,
+            "step": step_str,
+            "filename": filename,
+            "tensor_analysis": tensor_analysis
+        })
+        
+        # Aggregate statistics
+        layer_analysis[analysis_key]["total_differences"] += tensor_analysis["num_differences"]
+        layer_analysis[analysis_key]["all_difference_indices"].extend(tensor_analysis["difference_indices"])
+        layer_analysis[analysis_key]["top_differences"].extend(tensor_analysis["top_differences"])
+        layer_analysis[analysis_key]["total_magnitude"] += tensor_analysis["total_magnitude"]
+        layer_analysis[analysis_key]["tensor_count"] += 1
+    
+    # Post-process each layer's analysis
+    for analysis_key in layer_analysis:
+        layer = layer_analysis[analysis_key]
+        
+        # Sort and limit top differences
+        layer["top_differences"].sort(key=lambda x: x["magnitude"], reverse=True)
+        layer["top_differences"] = layer["top_differences"][:3]
+        
+        # Calculate average magnitude
+        layer["avg_magnitude"] = layer["total_magnitude"] / layer["tensor_count"] if layer["tensor_count"] > 0 else 0.0
+    
+    return layer_analysis
+
+
+def _analyze_tensor_differences_detailed(tensor1: Tensor, tensor2: Tensor, threshold: float) -> Dict[str, Any]:
+    """Analyze differences between two tensors with detailed index information."""
+    diff = torch.abs(tensor1 - tensor2)
+    
+    # Find indices where difference exceeds threshold
+    significant_diff_mask = diff > threshold
+    significant_indices = torch.nonzero(significant_diff_mask, as_tuple=False).cpu()
+    
+    # Convert to list of tuples/ints
+    if significant_indices.numel() == 0:
+        difference_indices = []
+    elif significant_indices.shape[1] == 1:
+        # 1D tensor - convert to list of ints
+        difference_indices = [int(idx.item()) for idx in significant_indices.flatten()]
+    else:
+        # Multi-dimensional - convert to list of tuples
+        difference_indices = [tuple(idx.tolist()) for idx in significant_indices]
+    
+    # Get top differences
+    flat_diff = diff.flatten()
+    top_k = min(3, len(flat_diff))
+    
+    top_differences = []
+    if top_k > 0:
+        top_values, top_indices = torch.topk(flat_diff, top_k)
+        
+        for i in range(top_k):
+            flat_idx = top_indices[i].item()
+            unravel_idx = torch.unravel_index(torch.tensor(flat_idx), tensor1.shape)
+            
+            if len(unravel_idx) == 1:
+                index = int(unravel_idx[0].item())
+            else:
+                index = tuple(idx.item() for idx in unravel_idx)
+                
+            top_differences.append({
+                "magnitude": float(top_values[i].item()),
+                "index": index,
+                "value1": float(tensor1.flatten()[flat_idx].item()),
+                "value2": float(tensor2.flatten()[flat_idx].item())
+            })
+    
+    return {
+        "num_differences": len(difference_indices),
+        "difference_indices": difference_indices,
+        "top_differences": top_differences,
+        "total_magnitude": float(torch.sum(diff).item()),
+        "shape": list(tensor1.shape)
+    }
+
+
+def print_structured_differences_detailed(run1_dir: str, run2_dir: str, threshold: float = 1e-6):
+    """Print detailed structured difference analysis with exact differing indices."""
+    layer_analysis = analyze_layer_differences_detailed(run1_dir, run2_dir, threshold)
+    
+    if not layer_analysis:
+        print("No significant differences found!")
+        return
+    
+    print("=" * 80)
+    print("DETAILED STRUCTURED DIFFERENCE ANALYSIS")
+    print("=" * 80)
+    print(f"Threshold: {threshold:.2e}")
+    print()
+    
+    # Group by category
+    categories = {}
+    for key, analysis in layer_analysis.items():
+        cat = analysis["category"]
+        if cat not in categories:
+            categories[cat] = []
+        categories[cat].append((key, analysis))
+    
+    for category in sorted(categories.keys()):
+        print(f"\n{'='*60}")
+        print(f"CATEGORY: {category.upper()}")
+        print(f"{'='*60}")
+        
+        # Sort layers within category
+        layers = sorted(categories[category], key=lambda x: x[1]["layer_id"])
+        
+        for key, analysis in layers:
+            layer_id = analysis["layer_id"]
+            total_diffs = analysis["total_differences"]
+            tensor_count = analysis["tensor_count"]
+            
+            print(f"\n{layer_id.upper()}:")
+            print(f"  Tensors analyzed: {tensor_count}")
+            print(f"  Total differing elements > {threshold:.2e}: {total_diffs}")
+            
+            if total_diffs > 0:
+                # Show compact representation of differing indices (top 20)
+                all_indices = analysis["all_difference_indices"]
+                indices_str = _compact_indices(all_indices[:20])
+                more_count = max(0, len(all_indices) - 20)
+                if more_count > 0:
+                    print(f"  Differing indices (first 20 of {len(all_indices)}): {indices_str} ... +{more_count} more")
+                else:
+                    print(f"  Differing indices: {indices_str}")
+                
+                # Show top 3 maximum differences
+                print(f"  Top 3 maximum differences:")
+                for i, diff in enumerate(analysis["top_differences"], 1):
+                    magnitude = diff["magnitude"]
+                    index = diff["index"]
+                    val1 = diff["value1"]
+                    val2 = diff["value2"]
+                    print(f"    {i}. Index {index}: |{val1:.6e} - {val2:.6e}| = {magnitude:.6e}")
+                
+                # Show total magnitude
+                total_mag = analysis["total_magnitude"]
+                avg_mag = analysis["avg_magnitude"]
+                print(f"  Total magnitude: {total_mag:.6e}")
+                print(f"  Average magnitude per tensor: {avg_mag:.6e}")
+                
+                # Show detailed tensor breakdown
+                print(f"  Tensor breakdown:")
+                for tensor_info in analysis["tensors"]:
+                    t_name = tensor_info["name"]
+                    t_step = tensor_info["step"]
+                    t_analysis = tensor_info["tensor_analysis"]
+                    t_diffs = t_analysis["num_differences"]
+                    t_mag = t_analysis["total_magnitude"]
+                    t_shape = t_analysis["shape"]
+                    
+                    if t_diffs > 0:
+                        print(f"    ❌ {t_name} (step {t_step}, shape {t_shape}):")
+                        print(f"       {t_diffs} differing elements, magnitude {t_mag:.6e}")
+                        
+                        # Show indices for this tensor (compact, first 10)
+                        t_indices = t_analysis["difference_indices"]
+                        if len(t_indices) <= 10:
+                            t_indices_str = _compact_indices(t_indices)
+                            print(f"       Indices: {t_indices_str}")
+                        else:
+                            t_indices_str = _compact_indices(t_indices[:10])
+                            print(f"       Indices (first 10 of {len(t_indices)}): {t_indices_str} ... +{len(t_indices)-10} more")
+                        
+                        # Show top difference for this tensor
+                        if t_analysis["top_differences"]:
+                            top_diff = t_analysis["top_differences"][0]
+                            print(f"       Max diff: {top_diff['magnitude']:.6e} at {top_diff['index']}")
+                    else:
+                        print(f"    ✅ {t_name} (step {t_step}, shape {t_shape}): identical")
+            else:
+                print(f"  ✅ All tensors identical within threshold")
+
+
+def analyze_layer_differences_simple(results: Dict[str, Any], threshold: float = 1e-6) -> Dict[str, Any]:
+    """
+    Simplified analysis using only the comparison data from compare_runs().
+    This version doesn't reload tensors, so it's less detailed but more reliable.
+    """
+    layer_analysis = {}
+    
+    for comp in results["comparisons"]:
+        name = comp["name"]
+        category = comp["category"]
+        max_diff = comp.get("max_diff", 0.0)
+        
+        # Extract layer/component identifier
+        layer_id = _extract_layer_id(name)
+        
+        # Create unique key for this layer/component combination
+        key = f"{category}_{layer_id}"
+        
+        if key not in layer_analysis:
+            layer_analysis[key] = {
+                "layer_id": layer_id,
+                "category": category,
+                "tensors": [],
+                "total_differences": 0,
+                "max_differences": [],
+                "total_magnitude": 0.0,
+                "tensor_count": 0
+            }
+        
+        # Check if this tensor has significant differences
+        has_differences = max_diff > threshold
+        
+        tensor_info = {
+            "name": name,
+            "max_diff": max_diff,
+            "mean_diff": comp.get("mean_diff", 0.0),
+            "has_differences": has_differences,
+            "shape": comp.get("shape1", []),
+            "max_diff_index": comp.get("max_diff_index"),
+            "max_diff_value1": comp.get("max_diff_value1"),
+            "max_diff_value2": comp.get("max_diff_value2")
+        }
+        
+        layer_analysis[key]["tensors"].append(tensor_info)
+        
+        # Aggregate statistics
+        if has_differences:
+            layer_analysis[key]["total_differences"] += 1
+            layer_analysis[key]["max_differences"].append({
+                "name": name,
+                "magnitude": max_diff,
+                "index": comp.get("max_diff_index"),
+                "value1": comp.get("max_diff_value1"),
+                "value2": comp.get("max_diff_value2")
+            })
+        
+        # Estimate total magnitude using mean_diff * tensor size
+        tensor_size = 1
+        for dim in comp.get("shape1", []):
+            tensor_size *= dim
+        estimated_magnitude = comp.get("mean_diff", 0.0) * tensor_size
+        layer_analysis[key]["total_magnitude"] += estimated_magnitude
+        layer_analysis[key]["tensor_count"] += 1
+    
+    # Post-process each layer's analysis
+    for key in layer_analysis:
+        layer = layer_analysis[key]
+        
+        # Sort max differences by magnitude
+        layer["max_differences"].sort(key=lambda x: x["magnitude"], reverse=True)
+        layer["max_differences"] = layer["max_differences"][:3]  # Keep top 3
+        
+        # Calculate average magnitude
+        layer["avg_magnitude"] = layer["total_magnitude"] / layer["tensor_count"] if layer["tensor_count"] > 0 else 0.0
+    
+    return layer_analysis
+    """Analyze differences between two tensors."""
+    diff = torch.abs(tensor1 - tensor2)
+    
+    # Find indices where difference exceeds threshold
+    significant_diff_mask = diff > threshold
+    significant_indices = torch.nonzero(significant_diff_mask).cpu().numpy()
+    
+    # Get top differences
+    flat_diff = diff.flatten()
+    top_k = min(3, len(flat_diff))
+    top_values, top_indices = torch.topk(flat_diff, top_k)
+    
+    top_differences = []
+    for i in range(top_k):
+        flat_idx = top_indices[i].item()
+        unravel_idx = torch.unravel_index(torch.tensor(flat_idx), tensor1.shape)
+        top_differences.append({
+            "magnitude": float(top_values[i].item()),
+            "index": tuple(unravel_idx.tolist()) if len(unravel_idx) > 1 else int(unravel_idx.item()),
+            "value1": float(tensor1.flatten()[flat_idx].item()),
+            "value2": float(tensor2.flatten()[flat_idx].item())
+        })
+    
+    return {
+        "num_differences": len(significant_indices),
+        "difference_indices": [tuple(idx) if len(idx) > 1 else int(idx[0]) for idx in significant_indices],
+        "top_differences": top_differences,
+        "total_magnitude": float(torch.sum(diff).item()),
+        "shape": list(tensor1.shape)
+    }
+
+
+def _compact_indices(indices: list) -> str:
+    """Convert list of indices to compact string representation."""
+    if not indices:
+        return "[]"
+    
+    # For scalar indices, try to find ranges
+    if all(isinstance(idx, int) for idx in indices):
+        indices.sort()
+        ranges = []
+        start = indices[0]
+        end = indices[0]
+        
+        for i in range(1, len(indices)):
+            if indices[i] == end + 1:
+                end = indices[i]
+            else:
+                if start == end:
+                    ranges.append(str(start))
+                else:
+                    ranges.append(f"{start}-{end}")
+                start = end = indices[i]
+        
+        # Add the last range
+        if start == end:
+            ranges.append(str(start))
+        else:
+            ranges.append(f"{start}-{end}")
+        
+        return "[" + ", ".join(ranges) + "]"
+    
+    # For tuple indices, just show first few
+    if len(indices) <= 5:
+        return str(indices)
+    else:
+        return str(indices[:5]) + f"... ({len(indices)} total)"
+
+
+def print_structured_differences_simple(results: Dict[str, Any], threshold: float = 1e-6):
+    """Print structured difference analysis using only comparison data (no tensor reloading)."""
+    layer_analysis = analyze_layer_differences_simple(results, threshold)
+    
+    if not layer_analysis:
+        print("No significant differences found!")
+        return
+    
+    print("=" * 80)
+    print("STRUCTURED DIFFERENCE ANALYSIS")
+    print("=" * 80)
+    print(f"Threshold: {threshold:.2e}")
+    print()
+    
+    # Group by category
+    categories = {}
+    for key, analysis in layer_analysis.items():
+        cat = analysis["category"]
+        if cat not in categories:
+            categories[cat] = []
+        categories[cat].append((key, analysis))
+    
+    for category in sorted(categories.keys()):
+        print(f"\n{'='*60}")
+        print(f"CATEGORY: {category.upper()}")
+        print(f"{'='*60}")
+        
+        # Sort layers within category
+        layers = sorted(categories[category], key=lambda x: x[1]["layer_id"])
+        
+        for key, analysis in layers:
+            layer_id = analysis["layer_id"]
+            total_diffs = analysis["total_differences"]
+            tensor_count = analysis["tensor_count"]
+            
+            print(f"\n{layer_id.upper()}:")
+            print(f"  Tensors analyzed: {tensor_count}")
+            print(f"  Tensors with differences > {threshold:.2e}: {total_diffs}")
+            
+            if total_diffs > 0:
+                # Show top 3 maximum differences
+                print(f"  Top 3 maximum differences:")
+                for i, diff in enumerate(analysis["max_differences"], 1):
+                    magnitude = diff["magnitude"]
+                    index = diff["index"]
+                    val1 = diff["value1"]
+                    val2 = diff["value2"]
+                    tensor_name = diff["name"]
+                    print(f"    {i}. {tensor_name}")
+                    print(f"       Max diff: {magnitude:.6e} at index {index}")
+                    if val1 is not None and val2 is not None:
+                        print(f"       Values: {val1:.6e} vs {val2:.6e}")
+                
+                # Show total magnitude estimate
+                total_mag = analysis["total_magnitude"]
+                avg_mag = analysis["avg_magnitude"]
+                print(f"  Estimated total magnitude: {total_mag:.6e}")
+                print(f"  Average magnitude per tensor: {avg_mag:.6e}")
+                
+                # Show tensor breakdown
+                print(f"  Tensor breakdown:")
+                for tensor_info in analysis["tensors"]:
+                    t_name = tensor_info["name"]
+                    t_shape = tensor_info["shape"]
+                    has_diff = tensor_info["has_differences"]
+                    max_diff = tensor_info["max_diff"]
+                    if has_diff:
+                        print(f"    ❌ {t_name} (shape {t_shape}): max_diff {max_diff:.6e}")
+                    else:
+                        print(f"    ✅ {t_name} (shape {t_shape}): identical")
+            else:
+                print(f"  ✅ All tensors identical within threshold")
+
+
+def print_difference_summary_by_category_simple(results: Dict[str, Any], threshold: float = 1e-6):
+    """Print a high-level summary using only comparison data."""
+    layer_analysis = analyze_layer_differences_simple(results, threshold)
+    
+    print("=" * 60)
+    print("DIFFERENCE SUMMARY BY CATEGORY")
+    print("=" * 60)
+    print(f"Threshold: {threshold:.2e}")
+    print()
+    
+    # Aggregate by category
+    category_stats = {}
+    for key, analysis in layer_analysis.items():
+        cat = analysis["category"]
+        if cat not in category_stats:
+            category_stats[cat] = {
+                "layers": 0,
+                "total_tensor_differences": 0,
+                "total_magnitude": 0.0,
+                "max_magnitude": 0.0,
+                "tensors": 0
+            }
+        
+        stats = category_stats[cat]
+        stats["layers"] += 1
+        stats["total_tensor_differences"] += analysis["total_differences"]
+        stats["total_magnitude"] += analysis["total_magnitude"]
+        stats["tensors"] += analysis["tensor_count"]
+        
+        # Update max magnitude
+        for diff in analysis["max_differences"]:
+            stats["max_magnitude"] = max(stats["max_magnitude"], diff["magnitude"])
+    
+    # Print summary
+    for category in sorted(category_stats.keys()):
+        stats = category_stats[category]
+        print(f"{category.upper()}:")
+        print(f"  Components: {stats['layers']}")
+        print(f"  Total tensors: {stats['tensors']}")
+        print(f"  Tensors with differences: {stats['total_tensor_differences']}")
+        print(f"  Estimated total magnitude: {stats['total_magnitude']:.6e}")
+        print(f"  Max difference: {stats['max_magnitude']:.6e}")
+        if stats['layers'] > 0:
+            print(f"  Avg different tensors per component: {stats['total_tensor_differences']/stats['layers']:.1f}")
+        print()
