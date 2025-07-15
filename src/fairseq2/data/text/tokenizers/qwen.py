@@ -29,7 +29,7 @@ from fairseq2.data.text.tokenizers.hg import (
 from fairseq2.device import Device
 
 # llama3 chat template with assistant mask support
-QWEN_CHAT_TEMPLATE="""{%- if tools %}
+QWEN_CHAT_TEMPLATE = """{%- if tools %}
     {{- '<|im_start|>system\\n' }}
     {%- if messages[0].role == 'system' %}
         {{- messages[0].content + '\\n\\n' }}
@@ -92,6 +92,7 @@ QWEN_CHAT_TEMPLATE="""{%- if tools %}
         {{- '<think>\\n\\n</think>\\n\\n' }}
     {%- endif %}
 {%- endif %}"""
+
 
 @final
 class QwenTokenizer(TextTokenizer):
