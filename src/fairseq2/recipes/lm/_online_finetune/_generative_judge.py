@@ -181,11 +181,19 @@ class GeneralVerifierExtractor(JudgmentExtractor):
     def __init__(self):
         try:
             from math_verify import parse
+            from math_verify.parser import (
+                LatexExtractionConfig,
+                ExprExtractionConfig,
+                NormalizationConfig,
+            )
         except ImportError:
             raise ImportError(
                 "install mathverify from https://github.com/huggingface/Math-Verify"
             )
 
+        self.student_extraction_config = (
+            LatexExtractionConfig(boxed_match_priority=0),
+        )
         self.parse = parse
 
     @override
@@ -194,16 +202,26 @@ class GeneralVerifierExtractor(JudgmentExtractor):
             "Using the string provided by the general verifier code in format_prompt instead"
         )
 
+    def get_preferred_index(self, lst):
+        """
+        math_verify parse returns a list of parsed answers, we want want the item at idex 1, which is a string
+        """
+        if len(lst) > 1:
+            return lst[1]
+        elif len(lst) == 1:
+            return lst[0]
+        else:
+            return "None"
+
     @override
     def format_prompt(self, prompt_text, rollout_text, reference_answer):
 
-        question = str(prompt_text)
-        ground_truth = str(reference_answer)
-        student_answer = str(self.parse(rollout_text))
+        student_answer_list = self.parse(rollout_text, self.student_extraction_config)
+        student_answer = self.get_preferred_index(student_answer_list)
 
         prompt = (
-            f"User: ### Question: {question}\n\n"
-            f"### Ground Truth Answer: {ground_truth}\n\n"
+            f"User: ### Question: {prompt_text}\n\n"
+            f"### Ground Truth Answer: {reference_answer}\n\n"
             f"### Student Answer: {student_answer}\n\n"
             "For the above question, please verify if the student's answer is equivalent to the ground truth answer.\n"
             "Do not solve the question by yourself; just check if the student's answer is equivalent to the ground truth answer.\n"
