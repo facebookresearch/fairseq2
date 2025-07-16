@@ -101,7 +101,9 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
 
     @staticmethod
     def add_audio_decoding(
-        builder: DataPipelineBuilder, options: SpeechReadOptions
+        builder: DataPipelineBuilder,
+        options: SpeechReadOptions,
+        selector: str = "[*].audio",
     ) -> DataPipelineBuilder:
 
         audio_decoder = AudioDecoder(
@@ -111,7 +113,7 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
         def decoded_audio(_bytes: NDArray[np.int8]) -> Dict[str, AudioDecoderOutput]:
             return {"data": audio_decoder(MemoryBlock(_bytes.tobytes()))}
 
-        builder.map(decoded_audio, selector="[*].audio", num_parallel_calls=options.npc)
+        builder.map(decoded_audio, selector=selector, num_parallel_calls=options.npc)
 
         return builder
 
