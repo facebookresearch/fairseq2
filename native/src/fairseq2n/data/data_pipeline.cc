@@ -21,6 +21,7 @@
 #include "fairseq2n/data/detail/file_system.h"
 #include "fairseq2n/data/dynamic_bucket_data_source.h"
 #include "fairseq2n/data/filter_data_source.h"
+#include "fairseq2n/data/flatten_data_source.h"
 #include "fairseq2n/data/list_data_source.h"
 #include "fairseq2n/data/map_data_source.h"
 #include "fairseq2n/data/prefetch_data_source.h"
@@ -478,6 +479,17 @@ data_pipeline_builder::prefetch(std::size_t num_examples) &&
     factory_ = [=, inner = std::move(factory_)]
     {
         return std::make_unique<prefetch_data_source>(inner(), num_examples);
+    };
+
+    return std::move(*this);
+}
+
+data_pipeline_builder
+data_pipeline_builder::flatten(std::optional<std::string> selector) &&
+{
+    factory_ = [selector = std::move(selector), inner = std::move(factory_)]
+    {
+        return std::make_unique<flatten_data_source>(inner(), selector);
     };
 
     return std::move(*this);
