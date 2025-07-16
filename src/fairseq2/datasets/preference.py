@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, cast, final
 
+from fairseq2.data.text.tokenizers.hg import HuggingFaceTokenModel
 import torch
 from typing_extensions import override
 
@@ -59,6 +60,8 @@ class PreferenceReadOptions(DataReadOptions):
 
     target_encode_mode: str = "prompt_response"
     """The tokenizer mode to encode the target text."""
+
+    chat_mode: bool = False
 
 
 @dataclass
@@ -201,66 +204,142 @@ class GenericPreferenceDataset(PreferenceDataset):
 
         seed += gang.rank
 
-        # Encode source and target texts.
-        source_encoder = tokenizer.create_encoder(mode=options.source_encode_mode)
-        target_encoder = tokenizer.create_encoder(mode=options.target_encode_mode)
+        if options.chat_mode is True:
+            if not isinstance(
+                getattr(tokenizer, "_model", None), HuggingFaceTokenModel
+            ):
+                raise RuntimeError(
+                    "Huggingface tokenizer must be used when chat_mode is True"
+                )
 
-        builder.map(source_encoder, selector="src")
-        builder.map(target_encoder, selector="tgt_chosen")
-        builder.map(target_encoder, selector="tgt_rejected")
+            def encoding_chat(example: dict[str, Any]) -> dict[str, Any]:
+                id_ = example.get("id")
+                chat_chosen = example.get("chat_chosen")
+                chat_rejected = example.get("chat_rejected")
 
-        def cat_source_and_target(example: dict[str, Any]) -> dict[str, Any]:
-            id_ = example.get("id", None)
+                encoded_output_chosen = tokenizer._model._tok.apply_chat_template(
+                    chat_chosen,
+                    return_dict=True,
+                    return_assistant_tokens_mask=True,
+                    return_tensors="pt",
+                )
 
-            source_indices = example["src"]
-            target_indices_chosen = example["tgt_chosen"]
-            target_indices_rejected = example["tgt_rejected"]
+                indices_chosen = encoded_output_chosen["input_ids"][0]
+                target_mask_chosen = encoded_output_chosen["assistant_masks"][0].bool()
 
-            indices_chosen = torch.cat([source_indices, target_indices_chosen])
-            indices_rejected = torch.cat([source_indices, target_indices_rejected])
+                encoded_output_rejected = tokenizer._model._tok.apply_chat_template(
+                    chat_rejected,
+                    return_dict=True,
+                    return_assistant_tokens_mask=True,
+                    return_tensors="pt",
+                )
 
-            if options.mask_source_tokens:
-                source_len = len(source_indices)
-                target_mask_chosen = torch.arange(len(indices_chosen)) >= source_len
-                target_mask_rejected = torch.arange(len(indices_rejected)) >= source_len
-            else:
-                target_mask_chosen = torch.full([len(indices_chosen)], True)
-                target_mask_rejected = torch.full([len(indices_rejected)], True)
+                indices_rejected = encoded_output_rejected["input_ids"][0]
+                target_mask_rejected = encoded_output_rejected["assistant_masks"][
+                    0
+                ].bool()
 
-            total_tokens = (
-                2 * len(source_indices)
-                + len(target_indices_chosen)
-                + len(target_indices_rejected)
-            )
+                if not options.mask_source_tokens:
+                    # no source masking i.e. mask has all 1s
+                    target_mask_chosen._fill(True)
+                    target_mask_rejected._fill(True)
 
-            # below is an example of using extras field of data reader options
-            if "keep_jsonl_keys" in options.extras:
-                jsonl_keys = options.extras["keep_jsonl_keys"]
-                if not (
-                    isinstance(jsonl_keys, list)
-                    and all(isinstance(i, str) for i in jsonl_keys)
-                ):
-                    raise ValueError(f"{jsonl_keys} must be a list of strings")
-                jsonl_content = {k: example.get(k, None) for k in jsonl_keys}
-            else:
-                jsonl_content = None
+                total_tokens = len(indices_chosen) + len(indices_rejected)
 
-            return {
-                "id": id_,
-                "indices_prompt": source_indices,
-                "indices_chosen": indices_chosen,
-                "indices_rejected": indices_rejected,
-                "reference_score_chosen": example.get("reference_score_chosen", None),
-                "reference_score_rejected": example.get(
-                    "reference_score_rejected", None
-                ),
-                "target_mask_chosen": target_mask_chosen,
-                "target_mask_rejected": target_mask_rejected,
-                "total_tokens": total_tokens,
-                "keep_jsonl_keys": jsonl_content,
-            }
+                # below is an example of using extras field of data reader options
+                if "keep_jsonl_keys" in options.extras:
+                    jsonl_keys = options.extras["keep_jsonl_keys"]
+                    if not (
+                        isinstance(jsonl_keys, list)
+                        and all(isinstance(i, str) for i in jsonl_keys)
+                    ):
+                        raise ValueError(f"{jsonl_keys} must be a list of strings")
+                    jsonl_content = {k: example.get(k, None) for k in jsonl_keys}
+                else:
+                    jsonl_content = None
 
-        builder.map(cat_source_and_target)
+                return {
+                    "id": id_,
+                    "indices_chosen": indices_chosen,
+                    "indices_rejected": indices_rejected,
+                    "reference_score_chosen": example.get(
+                        "reference_score_chosen", None
+                    ),
+                    "reference_score_rejected": example.get(
+                        "reference_score_rejected", None
+                    ),
+                    "target_mask_chosen": target_mask_chosen,
+                    "target_mask_rejected": target_mask_rejected,
+                    "total_tokens": total_tokens,
+                    "keep_jsonl_keys": jsonl_content,
+                }
+
+            builder.map(encoding_chat)
+        else:
+            # Encode source and target texts.
+            source_encoder = tokenizer.create_encoder(mode=options.source_encode_mode)
+            target_encoder = tokenizer.create_encoder(mode=options.target_encode_mode)
+
+            builder.map(source_encoder, selector="src")
+            builder.map(target_encoder, selector="tgt_chosen")
+            builder.map(target_encoder, selector="tgt_rejected")
+
+            def cat_source_and_target(example: dict[str, Any]) -> dict[str, Any]:
+                id_ = example.get("id", None)
+
+                source_indices = example["src"]
+                target_indices_chosen = example["tgt_chosen"]
+                target_indices_rejected = example["tgt_rejected"]
+
+                indices_chosen = torch.cat([source_indices, target_indices_chosen])
+                indices_rejected = torch.cat([source_indices, target_indices_rejected])
+
+                if options.mask_source_tokens:
+                    source_len = len(source_indices)
+                    target_mask_chosen = torch.arange(len(indices_chosen)) >= source_len
+                    target_mask_rejected = (
+                        torch.arange(len(indices_rejected)) >= source_len
+                    )
+                else:
+                    target_mask_chosen = torch.full([len(indices_chosen)], True)
+                    target_mask_rejected = torch.full([len(indices_rejected)], True)
+
+                total_tokens = (
+                    2 * len(source_indices)
+                    + len(target_indices_chosen)
+                    + len(target_indices_rejected)
+                )
+
+                # below is an example of using extras field of data reader options
+                if "keep_jsonl_keys" in options.extras:
+                    jsonl_keys = options.extras["keep_jsonl_keys"]
+                    if not (
+                        isinstance(jsonl_keys, list)
+                        and all(isinstance(i, str) for i in jsonl_keys)
+                    ):
+                        raise ValueError(f"{jsonl_keys} must be a list of strings")
+                    jsonl_content = {k: example.get(k, None) for k in jsonl_keys}
+                else:
+                    jsonl_content = None
+
+                return {
+                    "id": id_,
+                    "indices_prompt": source_indices,
+                    "indices_chosen": indices_chosen,
+                    "indices_rejected": indices_rejected,
+                    "reference_score_chosen": example.get(
+                        "reference_score_chosen", None
+                    ),
+                    "reference_score_rejected": example.get(
+                        "reference_score_rejected", None
+                    ),
+                    "target_mask_chosen": target_mask_chosen,
+                    "target_mask_rejected": target_mask_rejected,
+                    "total_tokens": total_tokens,
+                    "keep_jsonl_keys": jsonl_content,
+                }
+
+            builder.map(cat_source_and_target)
 
         batching = options.batching
 
