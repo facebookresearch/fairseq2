@@ -325,6 +325,29 @@ if TYPE_CHECKING or DOC_MODE:
                 The number of examples to prefetch.
             """
 
+        def flatten(self, selector: str | None = None) -> Self:
+            """Flatten the examples in the data pipeline.
+
+            Three layouts of initial examples will be supported, but at the
+            moment only the first is implemented:
+
+            - If no selector is specified, the input can be a list,
+              and the outputs will be the flattened individual elements.
+            - If no selector is specified, the input can be a dictionary with
+              all values being lists with n elements,
+              and the output will be n examples, each being a dictionary
+              with the same keys, but with the values being the value of
+              the i-th element.
+            - If a selector is specified, the example should be a dictionary with
+              the selected column as a key, and the value should be a list,
+              and this is the list that will be flattened.
+              All other columns will be copied as-is to each example.
+
+            :param selector:
+                The column to flatten. See :ref:`basics/data-pipeline/column-selection`
+                for details. Not supported for the moment.
+            """
+
         def repeat(
             self, num_repeats: int | None = None, reset_rng: bool = False
         ) -> Self:

@@ -32,6 +32,7 @@ target_sources(fairseq2n
         data/file_mapper.cc
         data/file_stream.cc
         data/filter_data_source.cc
+        data/flatten_data_source.cc
         data/immutable_string.cc
         data/list_data_source.cc
         data/map_data_source.cc

@@ -173,6 +173,9 @@ public:
     prefetch(std::size_t num_examples) &&;
 
     data_pipeline_builder
+    flatten(std::optional<std::string> selector = std::nullopt) &&;
+
+    data_pipeline_builder
     repeat(std::optional<std::size_t> num_repeats = std::nullopt, bool reset_rng = false) &&;
 
     data_pipeline_builder

@@ -558,6 +558,15 @@ def_data_pipeline(py::module_ &data_module)
             },
             py::arg("num_examples"))
         .def(
+            "flatten",
+            [](data_pipeline_builder &self, std::optional<std::string> maybe_selector) -> data_pipeline_builder &
+            {
+                self = std::move(self).flatten(maybe_selector);
+
+                return self;
+            },
+            py::arg("selector") = std::nullopt)
+        .def(
             "repeat",
             [](
                 data_pipeline_builder &self,
