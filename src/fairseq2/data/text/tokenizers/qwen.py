@@ -28,7 +28,7 @@ from fairseq2.data.text.tokenizers.hg import (
 )
 from fairseq2.device import Device
 
-# llama3 chat template with assistant mask support
+# qwen chat template with assistant mask support. ALWAYS HAS THINKING TOKENS HERE
 QWEN_CHAT_TEMPLATE = """{%- if tools %}
     {{- '<|im_start|>system\\n' }}
     {%- if messages[0].role == 'system' %}
@@ -72,7 +72,7 @@ QWEN_CHAT_TEMPLATE = """{%- if tools %}
             {%- endif %}
         {%- endif %}
         {{- '<|im_start|>' + message.role }}
-        {% generation %}
+        {%- generation %}
         {%- if loop.index0 > ns.last_query_index %}
             {%- if loop.last or (not loop.last and reasoning_content) %}
                 {{- '<think>\\n' + reasoning_content.strip('\\n') + '\\n</think>\\n\\n' + content.lstrip('\\n') }}
@@ -83,7 +83,7 @@ QWEN_CHAT_TEMPLATE = """{%- if tools %}
             {{- content }}
         {%- endif %}
         {{- '<|im_end|>' }}
-        {% endgeneration %}
+        {%- endgeneration %}
     {%- endif %}
 {%- endfor %}
 {%- if add_generation_prompt %}
