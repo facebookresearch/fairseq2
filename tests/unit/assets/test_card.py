@@ -180,20 +180,9 @@ class TestAssetCard:
 
     def test_as_uri_raises_error_when_field_is_not_uri_or_absolute_path(self) -> None:
         with pytest.raises(
-            AssetCardError, match=r"The value of the 'field1' field of the 'test-card' asset card is expected to be a URI or an absolute pathname, but is 'foo1' instead\.$",  # fmt: skip
+            AssetCardError, match=r"The value of the 'field1' field of the 'test-card' asset card is a relative pathname \('foo1'\) and cannot be converted to a URI\.$",  # fmt: skip
         ):
             self.card.field("field1").as_uri()
-
-    def test_as_filename_works(self) -> None:
-        value = self.card.field("field1").as_filename()
-
-        assert value == "foo1"
-
-    def test_as_filename_raises_error_when_field_is_not_filename(self) -> None:
-        with pytest.raises(
-            AssetCardError, match=r"^The value of the 'field6' field of the 'test-card' asset card is expected to be a filename, but is 'invalid/filename' instead\.$",  # fmt: skip
-        ):
-            self.card.field("field6").as_filename()
 
     def test_set_works(self) -> None:
         self.card.field("field1").set("xyz")

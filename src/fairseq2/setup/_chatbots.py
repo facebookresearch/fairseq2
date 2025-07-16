@@ -12,7 +12,7 @@ from fairseq2.chatbots.mistral import MistralChatbotHandler
 from fairseq2.context import RuntimeContext
 
 
-def register_chatbots(context: RuntimeContext) -> None:
+def _register_chatbots(context: RuntimeContext) -> None:
     registry = context.get_registry(ChatbotHandler)
 
     handler: ChatbotHandler

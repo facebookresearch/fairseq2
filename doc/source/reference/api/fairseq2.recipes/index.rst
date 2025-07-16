@@ -12,4 +12,3 @@ different model architectures.
 
     lm/index
     wav2vec2/index
-    trainer

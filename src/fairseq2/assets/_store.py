@@ -14,12 +14,15 @@ from typing import Protocol, final
 
 from typing_extensions import override
 
+from fairseq2.error import ContractError
+
+# isort: split
+
 from fairseq2.assets._card import AssetCard, AssetCardError, AssetCardNotFoundError
 from fairseq2.assets._metadata_provider import (
     AssetMetadataNotFoundError,
     AssetMetadataProvider,
 )
-from fairseq2.error import ContractError
 
 
 class AssetLookupScope(Enum):

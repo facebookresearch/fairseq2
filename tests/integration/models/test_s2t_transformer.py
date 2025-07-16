@@ -72,7 +72,7 @@ def assert_translation(
 ) -> None:
     fbank = torch.load(TEST_FBANK_PATH, weights_only=True).to(device)
 
-    generator = BeamSearchSeq2SeqGenerator(model)
+    generator = BeamSearchSeq2SeqGenerator(model, tokenizer.vocab_info)
 
     converter = SequenceToTextConverter(
         generator, tokenizer, task="translation", target_lang="de"

@@ -19,7 +19,7 @@ from fairseq2.data.text.tokenizers._error import (
     text_tokenizer_asset_card_error as text_tokenizer_asset_card_error,
 )
 from fairseq2.data.text.tokenizers._handler import (
-    StandardTextTokenizerHandler as StandardTextTokenizerHandler,
+    DelegatingTextTokenizerHandler as DelegatingTextTokenizerHandler,
 )
 from fairseq2.data.text.tokenizers._handler import (
     TextTokenizerHandler as TextTokenizerHandler,

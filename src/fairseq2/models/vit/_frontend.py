@@ -12,10 +12,17 @@ from torch import Tensor
 from torch.nn import Dropout
 from typing_extensions import override
 
+from fairseq2.error import NotSupportedError
 from fairseq2.models.transformer import TransformerFrontend
+from fairseq2.nn import (
+    BatchLayout,
+    IncrementalStateBag,
+    InterpolatedPositionEncoder,
+)
+
+# isort: split
+
 from fairseq2.models.vit._feature_extractor import PatchFeatureExtractor
-from fairseq2.nn import IncrementalStateBag, InterpolatedPositionEncoder
-from fairseq2.nn.padding import PaddingMask
 
 
 @final
@@ -23,13 +30,13 @@ class StandardViTFrontend(TransformerFrontend):
     """Represents a standard Vision Transformer front-end as described in
     :cite:t:`https://doi.org/10.48550/arXiv.2010.11929`."""
 
-    feature_extractor: PatchFeatureExtractor
+    patch_feature_extractor: PatchFeatureExtractor
     pos_encoder: InterpolatedPositionEncoder
     dropout: Dropout | None
 
     def __init__(
         self,
-        feature_extractor: PatchFeatureExtractor,
+        patch_feature_extractor: PatchFeatureExtractor,
         pos_encoder: InterpolatedPositionEncoder,
         *,
         dropout_p: float = 0.0,
@@ -39,43 +46,43 @@ class StandardViTFrontend(TransformerFrontend):
         :param pos_encoder: The interpolated position encoder.
         :param dropout_p: The dropout probability on extracted patch features.
         """
-        feature_dim = feature_extractor.feature_dim
+        super().__init__()
 
-        super().__init__(feature_dim)
-
-        self.feature_extractor = feature_extractor
-
-        if pos_encoder.encoding_dim != feature_dim:
-            raise ValueError(
-                f"`pos_encoder.encoding_dim` must be equal to `feature_extractor.feature_dim` ({feature_dim}), but is {pos_encoder.encoding_dim} instead."
-            )
+        self.patch_feature_extractor = patch_feature_extractor
 
         self.pos_encoder = pos_encoder
 
         if dropout_p > 0.0:
-            self.dropout = Dropout(dropout_p)
+            dropout = Dropout(dropout_p)
         else:
-            self.register_module("dropout", None)
+            dropout = None
+
+        self.register_module("dropout", dropout)
 
     @override
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
+        seqs_layout: BatchLayout,
         *,
         state_bag: IncrementalStateBag | None = None,
-    ) -> tuple[Tensor, PaddingMask | None]:
-        if padding_mask is not None:
-            raise ValueError(f"`{type(self)}` does not support padding mask.")
-
+    ) -> tuple[Tensor, BatchLayout]:
         if state_bag is not None:
-            raise ValueError(f"`{type(self)}` does not support incremental decoding.")
+            raise NotSupportedError(
+                f"`{StandardViTFrontend}` does not support incremental decoding."
+            )
 
-        seqs = self.feature_extractor(seqs)
+        if seqs_layout.packed:
+            raise ValueError("`seqs` must not be a packed batch.")
+
+        if seqs_layout.padded:
+            raise ValueError("`seqs` must not be a padded batch.")
+
+        seqs = self.patch_feature_extractor(seqs)
 
         seqs = self.pos_encoder(seqs)
 
         # (N, *, E) -> (N, S, E)
         seqs = seqs.flatten(1, -2)
 
-        return seqs, None
+        return seqs, seqs_layout

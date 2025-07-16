@@ -15,20 +15,26 @@ from fairseq2.recipes.lm import (
     POFinetuneUnitHandler,
     SimPOFinetuneUnitHandler,
     OnlineDpoFinetuneUnitHandler,
-    GroupDpoFinetuneUnitHandler,
+    # GroupDpoFinetuneUnitHandler,
     GrpoFinetuneUnitHandler,
     OnlineFinetuneUnitHandler,
     GSM8kVerifierHandler,
     MathVerifyHandler,
     AtheneVerifierHandler,
     GenerativePointwiseVerifierHandler,
+    GenerativePairwiseVerifierHandler,
     VLLMOutputRewardHandler,
     RemoteModelHandler,
     NoEnvAtheneRewardPipeline,
+    NoEnvGeneralVerifierPipeline,
+    JudgmentExtractorHandler,
+    GeneralVerifierExtractorHandler,
+    J1PointwiseExtractorHandler,
+    J1PairwiseScoreExtractorHandler,
 )
 
 
-def register_po_finetune_units(context: RuntimeContext) -> None:
+def _register_po_finetune_units(context: RuntimeContext) -> None:
     registry = context.get_registry(POFinetuneUnitHandler)
 
     handler: POFinetuneUnitHandler
@@ -54,7 +60,7 @@ def register_po_finetune_units(context: RuntimeContext) -> None:
     registry.register(handler.name, handler)
 
 
-def register_online_finetune_units(context: RuntimeContext) -> None:
+def _register_online_finetune_units(context: RuntimeContext) -> None:
     registry = context.get_registry(OnlineFinetuneUnitHandler)
 
     # finetune units
@@ -65,9 +71,9 @@ def register_online_finetune_units(context: RuntimeContext) -> None:
     handler = OnlineDpoFinetuneUnitHandler(context)
     registry.register(handler.name, handler)
 
-    # Group DPO
-    handler = GroupDpoFinetuneUnitHandler(context)
-    registry.register(handler.name, handler)
+    # # Group DPO
+    # handler = GroupDpoFinetuneUnitHandler(context)
+    # registry.register(handler.name, handler)
 
     # GRPO
     handler = GrpoFinetuneUnitHandler(context)
@@ -93,8 +99,28 @@ def register_online_finetune_units(context: RuntimeContext) -> None:
     handler = GenerativePointwiseVerifierHandler()
     registry.register(handler.name, handler)
 
+    # GenerativePairwiseVerifier
+    handler = GenerativePairwiseVerifierHandler()
+    registry.register(handler.name, handler)
+
     registry = context.get_registry(RemoteModelHandler)
 
     # NoEnvAtheneRewardPipeline
     handler = NoEnvAtheneRewardPipeline
+    registry.register(handler.name, handler)
+
+    # NoEnvGeneralVerifierPipeline
+    handler = NoEnvGeneralVerifierPipeline
+    registry.register(handler.name, handler)
+
+    # Generative judgment extractors
+    registry = context.get_registry(JudgmentExtractorHandler)
+
+    handler = J1PointwiseExtractorHandler()
+    registry.register(handler.name, handler)
+
+    handler = J1PairwiseScoreExtractorHandler()
+    registry.register(handler.name, handler)
+
+    handler = GeneralVerifierExtractorHandler()
     registry.register(handler.name, handler)

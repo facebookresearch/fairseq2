@@ -14,6 +14,11 @@ from typing import Final, final
 from torch.optim import Optimizer
 from typing_extensions import override
 
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import ValidationError, ValidationResult, validate
+
+# isort: split
+
 from fairseq2.optim.lr_scheduler._error import UnspecifiedNumberOfStepsError
 from fairseq2.optim.lr_scheduler._handler import LRSchedulerHandler
 from fairseq2.optim.lr_scheduler._lr_scheduler import (
@@ -21,8 +26,6 @@ from fairseq2.optim.lr_scheduler._lr_scheduler import (
     LRSchedulerBase,
     get_per_param_group,
 )
-from fairseq2.utils.structured import structure
-from fairseq2.utils.validation import ValidationError, ValidationResult, validate
 
 
 @final

@@ -10,6 +10,33 @@ from torch.nn import GELU, SiLU
 
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
+from fairseq2.models.transformer import (
+    SDPA,
+    FeedForwardNetwork,
+    IdentityBias,
+    MultiheadAttention,
+    RelativePositionalEncoding,
+    RelativePositionSDPA,
+    StandardFeedForwardNetwork,
+    StandardMultiheadAttention,
+    StandardTransformerEncoder,
+    StandardTransformerEncoderLayer,
+    TransformerEncoder,
+    TransformerEncoderLayer,
+    TransformerNormOrder,
+    create_default_sdpa,
+)
+from fairseq2.nn import (
+    LayerNorm,
+    PositionEncoder,
+    RotaryEncoder,
+    StandardLayerNorm,
+    init_bert_projection,
+)
+from fairseq2.utils.lazy import Lazy
+
+# isort: split
+
 from fairseq2.models.wav2vec2._config import Wav2Vec2Config, Wav2Vec2EncoderConfig
 from fairseq2.models.wav2vec2._feature_extractor import (
     Wav2Vec2FbankFeatureExtractor,
@@ -23,25 +50,9 @@ from fairseq2.models.wav2vec2._position_encoder import (
     Wav2Vec2StackedPositionEncoder,
 )
 from fairseq2.models.wav2vec2._vector_quantizer import (
-    GumbelVectorQuantizer,
-    VectorQuantizer,
+    GumbelWav2Vec2VectorQuantizer,
+    Wav2Vec2VectorQuantizer,
 )
-from fairseq2.nn import PositionEncoder, RotaryEncoder, init_bert_projection
-from fairseq2.nn.transformer import (
-    FeedForwardNetwork,
-    MultiheadAttention,
-    RelativePositionalEncoding,
-    RelativePositionSDPA,
-    StandardFeedForwardNetwork,
-    StandardMultiheadAttention,
-    StandardTransformerEncoder,
-    StandardTransformerEncoderLayer,
-    TransformerEncoder,
-    TransformerEncoderLayer,
-    TransformerNormOrder,
-    create_default_sdpa,
-)
-from fairseq2.utils.lazy import Lazy
 
 
 def create_wav2vec2_model(config: Wav2Vec2Config) -> Wav2Vec2Model:
@@ -57,13 +68,16 @@ class Wav2Vec2Factory:
     def create_model(self) -> Wav2Vec2Model:
         config = self._config
 
-        encoder_frontend, encoder = self.create_encoder()
+        encoder_frontend = self.create_encoder_frontend()
+
+        encoder = self.create_encoder()
 
         masker = self.create_masker()
 
         quantizer = self.create_quantizer()
 
         return Wav2Vec2Model(
+            config.encoder_config.model_dim,
             encoder_frontend,
             encoder,
             masker,
@@ -75,16 +89,19 @@ class Wav2Vec2Factory:
             quantizer_encoder_grad=config.quantizer_encoder_grad,
         )
 
-    def create_encoder(self) -> tuple[Wav2Vec2Frontend, TransformerEncoder]:
+    def create_encoder_frontend(self) -> Wav2Vec2Frontend:
         config = self._config
 
         factory = Wav2Vec2EncoderFactory(config.encoder_config)
 
-        encoder_frontend = factory.create_encoder_frontend()
+        return factory.create_encoder_frontend()
 
-        encoder = factory.create_encoder()
+    def create_encoder(self) -> TransformerEncoder:
+        config = self._config
 
-        return encoder_frontend, encoder
+        factory = Wav2Vec2EncoderFactory(config.encoder_config)
+
+        return factory.create_encoder()
 
     def create_masker(self) -> Wav2Vec2Masker:
         config = self._config
@@ -99,10 +116,10 @@ class Wav2Vec2Factory:
             config.min_num_spatial_mask_spans,
         )
 
-    def create_quantizer(self) -> VectorQuantizer:
+    def create_quantizer(self) -> Wav2Vec2VectorQuantizer:
         config = self._config
 
-        return GumbelVectorQuantizer(
+        return GumbelWav2Vec2VectorQuantizer(
             config.encoder_config.feature_dim,
             config.quantized_dim,
             config.num_codebooks,
@@ -122,10 +139,10 @@ class Wav2Vec2EncoderFactory:
 
         feature_extractor = self.create_feature_extractor()
 
-        if config.pos_encoder_type != "conv":
-            pos_encoder = None
-        else:
+        if config.pos_encoder_type == "conv":
             pos_encoder = self.create_position_encoder()
+        else:
+            pos_encoder = None
 
         return Wav2Vec2Frontend(
             config.model_dim,
@@ -151,7 +168,7 @@ class Wav2Vec2EncoderFactory:
                 config.feature_extractor_layer_descs,
                 config.feature_extractor_bias,
                 layer_norm=config.feature_extractor_layer_norm_convs,
-                gradient_scale=config.feature_gradient_scale,
+                grad_scale=config.feature_grad_scale,
             )
 
     def create_position_encoder(self) -> PositionEncoder:
@@ -191,8 +208,13 @@ class Wav2Vec2EncoderFactory:
 
             layers.append(layer)
 
+        if config.norm_order == TransformerNormOrder.PRE:
+            layer_norm = self.create_layer_norm()
+        else:
+            layer_norm = None
+
         return StandardTransformerEncoder(
-            layers, layer_drop_p=config.layer_drop_p, norm_order=config.norm_order
+            layers, layer_norm, layer_drop_p=config.layer_drop_p
         )
 
     def create_rel_pos_encoding(self) -> RelativePositionalEncoding:
@@ -205,15 +227,24 @@ class Wav2Vec2EncoderFactory:
     ) -> TransformerEncoderLayer:
         config = self._config
 
-        self_attn = self.create_attention(lazy_rel_pos_encoding)
+        self_attn = self.create_self_attention(lazy_rel_pos_encoding)
+
+        self_attn_layer_norm = self.create_layer_norm()
 
         ffn = self.create_ffn()
 
+        ffn_layer_norm = self.create_layer_norm()
+
         return StandardTransformerEncoderLayer(
-            self_attn, ffn, dropout_p=config.dropout_p, norm_order=config.norm_order
+            self_attn,
+            self_attn_layer_norm,
+            ffn,
+            ffn_layer_norm,
+            norm_order=config.norm_order,
+            dropout_p=config.dropout_p,
         )
 
-    def create_attention(
+    def create_self_attention(
         self, lazy_rel_pos_encoding: Lazy[RelativePositionalEncoding]
     ) -> MultiheadAttention:
         config = self._config
@@ -225,7 +256,9 @@ class Wav2Vec2EncoderFactory:
         else:
             pos_encoder = None
 
-        sdpa = create_default_sdpa(attn_dropout_p=config.attn_dropout_p)
+        attn_bias = IdentityBias()
+
+        sdpa: SDPA
 
         if config.pos_encoder_type == "relative":
             rel_pos_encoding = lazy_rel_pos_encoding.retrieve()
@@ -234,28 +267,31 @@ class Wav2Vec2EncoderFactory:
                 config.model_dim,
                 config.num_encoder_attn_heads,
                 rel_pos_encoding,
-                inner_sdpa=sdpa,
+                attn_bias,
             )
+        else:
+            sdpa = create_default_sdpa(attn_bias, dropout_p=config.attn_dropout_p)
 
         return StandardMultiheadAttention(
             config.model_dim,
             config.num_encoder_attn_heads,
+            sdpa,
             qkv_proj_init_fn=init_bert_projection,
             pos_encoder=pos_encoder,
-            sdpa=sdpa,
             output_proj_init_fn=init_bert_projection,
         )
 
     def create_ffn(self, use_swish: bool = False) -> FeedForwardNetwork:
         config = self._config
 
+        activation = SiLU() if use_swish else GELU()
+
         return StandardFeedForwardNetwork(
             config.model_dim,
             config.ffn_inner_dim,
             bias=True,
-            inner_activation=SiLU() if use_swish else GELU(),
+            inner_activation=activation,
             inner_dropout_p=config.ffn_inner_dropout_p,
-            norm_order=config.norm_order,
             proj_init_fn=init_bert_projection,
         )
 
@@ -276,24 +312,50 @@ class Wav2Vec2EncoderFactory:
 
             layers.append(layer)
 
-        return StandardTransformerEncoder(layers, norm_order=TransformerNormOrder.POST)
+        return StandardTransformerEncoder(layers)
 
     def create_conformer_block(
         self, lazy_rel_pos_encoding: Lazy[RelativePositionalEncoding]
     ) -> ConformerBlock:
         config = self._config
 
+        ffn1_layer_norm = self.create_layer_norm()
+
         ffn1 = self.create_ffn(use_swish=True)
 
-        self_attn = self.create_attention(lazy_rel_pos_encoding)
+        self_attn_layer_norm = self.create_layer_norm()
+
+        self_attn = self.create_self_attention(lazy_rel_pos_encoding)
+
+        conv_layer_norm = self.create_layer_norm()
 
         conv = self.create_conformer_conv()
 
+        ffn2_layer_norm = self.create_layer_norm()
+
         ffn2 = self.create_ffn(use_swish=True)
 
-        return ConformerBlock(ffn1, self_attn, conv, ffn2, dropout_p=config.dropout_p)
+        layer_norm = self.create_layer_norm()
+
+        return ConformerBlock(
+            ffn1_layer_norm,
+            ffn1,
+            self_attn_layer_norm,
+            self_attn,
+            conv_layer_norm,
+            conv,
+            ffn2_layer_norm,
+            ffn2,
+            layer_norm,
+            dropout_p=config.dropout_p,
+        )
 
     def create_conformer_conv(self) -> ConformerConvolution:
         config = self._config
 
         return ConformerConvolution(config.model_dim, config.depthwise_conv_kernel_size)
+
+    def create_layer_norm(self) -> LayerNorm:
+        config = self._config
+
+        return StandardLayerNorm(config.model_dim, bias=True)

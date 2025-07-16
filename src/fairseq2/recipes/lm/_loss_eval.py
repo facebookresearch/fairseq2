@@ -18,8 +18,9 @@ from fairseq2.datasets.instruction import (
     InstructionDataset,
     InstructionReadOptions,
 )
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.sequence import SequenceBatch
+from fairseq2.device import CPU
+from fairseq2.models.clm import CausalLM
+from fairseq2.recipes import Evaluator
 from fairseq2.recipes.common import (
     create_evaluator,
     load_dataset,
@@ -27,6 +28,7 @@ from fairseq2.recipes.common import (
     register_extra_asset_paths,
     setup_gangs,
     setup_reference_model,
+    setup_torch,
 )
 from fairseq2.recipes.config import (
     CommonSection,
@@ -34,26 +36,32 @@ from fairseq2.recipes.config import (
     EvaluatorSection,
     GangSection,
     ReferenceModelSection,
+    TextTokenizerSection,
 )
-from fairseq2.recipes.evaluator import Evaluator
-from fairseq2.recipes.lm._instruction_finetune import (
-    InstructionFinetuneCriterion,
-    InstructionLossEvalUnit,
-)
-from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
+# isort: split
+
+from fairseq2.recipes.lm._instruction_finetune import (
+    InstructionFinetuneCriterion,
+    InstructionLossEvalUnit,
+)
+
 
 @dataclass(kw_only=True)
-class LMLossEvalConfig:
+class CausalLMLossEvalConfig:
     model: ReferenceModelSection = field(
         default_factory=lambda: ReferenceModelSection(name="llama3_1_8b")
     )
 
-    dataset: LMLossEvalDatasetSection = field(
-        default_factory=lambda: LMLossEvalDatasetSection()
+    dataset: CausalLMLossEvalDatasetSection = field(
+        default_factory=lambda: CausalLMLossEvalDatasetSection()
+    )
+
+    tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="llama3_instruct")
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
@@ -66,7 +74,7 @@ class LMLossEvalConfig:
 
 
 @dataclass(kw_only=True)
-class LMLossEvalDatasetSection(DatasetSection):
+class CausalLMLossEvalDatasetSection(DatasetSection):
     name: str = "foo"
 
     family: str = GENERIC_INSTRUCTION_DATASET_FAMILY
@@ -91,29 +99,29 @@ class LMLossEvalDatasetSection(DatasetSection):
     """The dataset-specific extra options."""
 
 
-def register_lm_loss_eval_configs(context: RuntimeContext) -> None:
-    registry = context.get_config_registry(LMLossEvalConfig)
+def register_clm_loss_eval_configs(context: RuntimeContext) -> None:
+    registry = context.get_config_registry(CausalLMLossEvalConfig)
 
     preset = registry.decorator
 
     @preset("llama3_1_base_eval")
-    def llama3_1_base_eval() -> LMLossEvalConfig:
-        return LMLossEvalConfig()
+    def llama3_1_base_eval() -> CausalLMLossEvalConfig:
+        return CausalLMLossEvalConfig()
 
 
 @torch.inference_mode()
-def load_lm_loss_evaluator(
+def load_clm_loss_evaluator(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Evaluator[SequenceBatch]:
-    config = structure(config, LMLossEvalConfig)
+) -> Evaluator:
+    config = structure(config, CausalLMLossEvalConfig)
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common.assets)
 
-    torch.set_float32_matmul_precision("high")
+    setup_torch(context, config.common.torch, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_gangs(context, config.gang)
 
     seed = config.common.seed
 
@@ -122,23 +130,22 @@ def load_lm_loss_evaluator(
     seed += 1
 
     model = setup_reference_model(
-        DecoderModel,
+        CausalLM,
         context,
-        config.model.name,
+        config.model,
         gangs,
         config.evaluator.dtype,
         config.evaluator.amp,
-        config.evaluator.torch_compile,
     )
 
-    dataset = load_dataset(InstructionDataset, context, config, gangs)
+    dataset = load_dataset(InstructionDataset, context, config.dataset, gangs)
 
-    tokenizer = load_text_tokenizer(context, config)
+    tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the unit.
-    criterion = InstructionFinetuneCriterion(model)
+    criterion = InstructionFinetuneCriterion(model.module)
 
-    unit = InstructionLossEvalUnit(criterion, gangs)
+    unit = InstructionLossEvalUnit(model, criterion)
 
     batching = LengthBatching(config.dataset.max_num_elements)
 
@@ -159,8 +166,20 @@ def load_lm_loss_evaluator(
         read_options,
     )
 
+    units = [unit]
+
+    data_readers = [data_reader]
+
     seed += 1
 
     return create_evaluator(
-        context, config, output_dir, [unit], [data_reader], gangs, seed
+        context,
+        config.evaluator,
+        config.common,
+        output_dir,
+        units,
+        data_readers,
+        gangs,
+        seed,
+        hyper_params=config,
     )

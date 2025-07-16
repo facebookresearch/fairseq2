@@ -11,8 +11,9 @@ from typing import Any, TypeVar, final
 
 from fairseq2.assets import AssetDownloadManager, StandardAssetStore
 from fairseq2.config_registry import ConfigRegistry
+from fairseq2.file_system import FileSystem
 from fairseq2.registry import Registry
-from fairseq2.utils.file import FileSystem
+from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.stopwatch import Stopwatch
 
 T = TypeVar("T")
@@ -24,6 +25,7 @@ class RuntimeContext:
     _asset_store: StandardAssetStore
     _asset_download_manager: AssetDownloadManager
     _file_system: FileSystem
+    _progress_reporter: ProgressReporter
     _registries: dict[type, Registry[Any]]
     _config_registries: dict[type, ConfigRegistry[Any]]
     _wall_watch: Stopwatch
@@ -34,15 +36,17 @@ class RuntimeContext:
         asset_store: StandardAssetStore,
         asset_download_manager: AssetDownloadManager,
         file_system: FileSystem,
+        progress_reporter: ProgressReporter,
     ) -> None:
         self._env = env
         self._asset_store = asset_store
         self._asset_download_manager = asset_download_manager
         self._file_system = file_system
+        self._progress_reporter = progress_reporter
         self._registries = {}
         self._config_registries = {}
 
-        self._wall_watch = Stopwatch(start=True)
+        self._wall_watch = Stopwatch()
 
     @property
     def env(self) -> MutableMapping[str, str]:
@@ -59,6 +63,10 @@ class RuntimeContext:
     @property
     def file_system(self) -> FileSystem:
         return self._file_system
+
+    @property
+    def progress_reporter(self) -> ProgressReporter:
+        return self._progress_reporter
 
     def get_registry(self, kls: type[T]) -> Registry[T]:
         registry = self._registries.get(kls)
@@ -81,21 +89,3 @@ class RuntimeContext:
     @property
     def wall_watch(self) -> Stopwatch:
         return self._wall_watch
-
-
-_default_context: RuntimeContext | None = None
-
-
-def set_runtime_context(context: RuntimeContext) -> None:
-    global _default_context
-
-    _default_context = context
-
-
-def get_runtime_context() -> RuntimeContext:
-    if _default_context is None:
-        raise RuntimeError(
-            "fairseq2 is not initialized. Make sure to call `fairseq2.setup_fairseq2()`."
-        )
-
-    return _default_context

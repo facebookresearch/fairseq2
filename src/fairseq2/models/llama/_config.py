@@ -6,11 +6,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Final
+from typing import Final, List, Literal
 
 from fairseq2.context import RuntimeContext
-from fairseq2.data import VocabularyInfo
 
 LLAMA_MODEL_FAMILY: Final = "llama"
 
@@ -29,12 +29,14 @@ class LLaMAConfig:
     max_seq_len: int = 2048
     """The maximum sequence length."""
 
-    vocab_info: VocabularyInfo = field(
-        default_factory=lambda: VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        )
-    )
-    """The vocabulary information."""
+    vocab_size: int = 32_000
+    """The size of the vocabulary."""
+
+    pad_idx: int | None = None
+    """The index of the PAD symbol in the vocabulary."""
+
+    tied_embeddings: bool = False
+    """If ``True``, ties the embedding table and the output projection layer."""
 
     num_layers: int = 32
     """The number of decoder layers."""
@@ -60,7 +62,7 @@ class LLaMAConfig:
     feed-forward networks.
     """
 
-    ffn_inner_dim_to_multiple: int = 256
+    ffn_inner_dim_multiple_of: int = 256
     """The dimensionality of inner projection layers in feed-forward networks is
     rounded up to the nearest multiple of this value."""
 
@@ -70,20 +72,43 @@ class LLaMAConfig:
     use_scaled_rope: bool = False
     """If ``True``, scales Rotary encoder frequencies to the context length."""
 
-    rope_scaling: LLaMARopeScalingConfig = field(
-        default_factory=lambda: LLaMARopeScalingConfig()
+    rope_scale: LLaMARoPEScaleConfig = field(
+        default_factory=lambda: LLaMARoPEScaleConfig()
     )
     """
     If not ``None``, specifies scaling parameters for the Rotary position
     encoder, aiming to increase the context length.
     """
 
-    dropout_p: float = 0.1
+    dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""
+
+    init_std: float | None = None
+    """
+    If not ``None``, the standard deviation to initialize input embeddings and
+    projection weights; otherwise, ``model_dim ** -0.5`` will be used instead.
+    """
+
+    init_std_scale: Literal["none", "layer", "stack"] = "layer"
+    """
+    The method to use to scale ``init_std`` per layer. If 'none', no scaling
+    will be applied. If 'layer', ``init_std`` will be scaled by the depth of
+    the layer. If 'stack', ``init_std`` will be scaled by the total depth of
+    the decoder.
+    """
+
+    shard_embed_dim: bool = True
+    """If ``True``, shards the embedding dimension for tensor parallelism."""
+
+    hg_config_class: str = "LlamaConfig"
+    """The name of the Hugging Face configuration class."""
+
+    hg_architecture: str | Sequence[str] = "LlamaForCausalLM"
+    """The name(s) under which Hugging Face refers to this architecture."""
 
 
 @dataclass
-class LLaMARopeScalingConfig:
+class LLaMARoPEScaleConfig:
     """
     Holds the frequency scaling configuration for the Rotary position encoder
     in LLaMA models.
@@ -170,7 +195,7 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config.num_key_value_heads = 8
         config.ffn_inner_dim = 8192 * 4
         config.ffn_inner_dim_multiplier = 1.3  # See A.2.1 in LLaMA 2
-        config.ffn_inner_dim_to_multiple = 4096
+        config.ffn_inner_dim_multiple_of = 4096
 
         return config
 
@@ -179,16 +204,14 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config = llama2_7b()
 
         config.max_seq_len = 8192
-
-        config.vocab_info = VocabularyInfo(
-            size=128_256, unk_idx=None, bos_idx=128_000, eos_idx=128_001, pad_idx=None
-        )
-
+        config.vocab_size = 128_256
+        config.pad_idx = 128_004
         config.num_key_value_heads = 8
         config.ffn_inner_dim = 4096 * 4
         config.ffn_inner_dim_multiplier = 1.3
-        config.ffn_inner_dim_to_multiple = 1024
+        config.ffn_inner_dim_multiple_of = 1024
         config.rope_theta = 500_000.0
+        config.shard_embed_dim = False
 
         return config
 
@@ -197,12 +220,10 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config = llama2_70b()
 
         config.max_seq_len = 8192
-
-        config.vocab_info = VocabularyInfo(
-            size=128_256, unk_idx=None, bos_idx=128_000, eos_idx=128_001, pad_idx=None
-        )
-
+        config.vocab_size = 128_256
+        config.pad_idx = 128_004
         config.rope_theta = 500_000.0
+        config.shard_embed_dim = False
 
         return config
 
@@ -231,12 +252,12 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config.model_dim = 3072
         config.ffn_inner_dim = 3072 * 4
         config.ffn_inner_dim_multiplier = 1.0
-        config.ffn_inner_dim_to_multiple = 256
+        config.ffn_inner_dim_multiple_of = 256
         config.num_attn_heads = 24
         config.num_key_value_heads = 8
         config.num_layers = 28
         config.use_scaled_rope = True
-        config.rope_scaling.factor = 32.0
+        config.rope_scale.factor = 32.0
 
         return config
 
@@ -245,13 +266,14 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config = llama3_1_8b()
 
         config.model_dim = 2048
+        config.tied_embeddings = True
         config.ffn_inner_dim = 2048 * 4
         config.ffn_inner_dim_multiplier = 1.5
-        config.ffn_inner_dim_to_multiple = 256
+        config.ffn_inner_dim_multiple_of = 256
         config.num_attn_heads = 32
         config.num_key_value_heads = 8
         config.num_layers = 16
         config.use_scaled_rope = True
-        config.rope_scaling.factor = 32.0
+        config.rope_scale.factor = 32.0
 
         return config

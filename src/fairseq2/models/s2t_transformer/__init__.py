@@ -30,10 +30,6 @@ from fairseq2.models.s2t_transformer._feature_extractor import (
 from fairseq2.models.s2t_transformer._frontend import (
     S2TTransformerFrontend as S2TTransformerFrontend,
 )
-
-# isort: split
-
-from fairseq2.models import ModelHubAccessor
-from fairseq2.models.transformer import TransformerModel
-
-get_s2t_transformer_model_hub = ModelHubAccessor(TransformerModel, S2TTransformerConfig)
+from fairseq2.models.s2t_transformer._hub import (
+    get_s2t_transformer_model_hub as get_s2t_transformer_model_hub,
+)

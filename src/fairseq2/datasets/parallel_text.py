@@ -8,13 +8,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from functools import partial
 from pathlib import Path
 from typing import Any, Final, cast, final
 
 from typing_extensions import override
 
 from fairseq2.data import (
+    CollateOptionsOverride,
     Collater,
     DataPipeline,
     DataPipelineBuilder,
@@ -31,14 +31,12 @@ from fairseq2.datasets import (
     DatasetHubAccessor,
     DatasetLoadError,
     LengthBatching,
+    Seq2SeqBatch,
     StaticBatching,
     UnknownSplitError,
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
-from fairseq2.models.seq2seq import Seq2SeqBatch
-from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import Device
 
 
 @dataclass(kw_only=True)
@@ -79,7 +77,8 @@ class ParallelTextDataset(ABC):
     def create_reader(
         self,
         split: str,
-        tokenizer: TextTokenizer,
+        source_tokenizer: TextTokenizer,
+        target_tokenizer: TextTokenizer,
         gang: Gang,
         min_seq_len: int,
         max_seq_len: int,
@@ -87,20 +86,14 @@ class ParallelTextDataset(ABC):
     ) -> DataReader[Seq2SeqBatch]:
         """Create a dataset reader.
 
-        :param split:
-            The split to read.
-        :param tokenizer:
-            The tokenizer to encode text.
-        :param gang:
-            The gang over which to shard the dataset.
-        :param min_seq_len:
-            The minimum sequence length of each example. Examples shorter than
-            this value will be dropped.
-        :param max_seq_len:
-            The maximum sequence length of each example. Examples longer than
-            this value will be dropped.
-        :param options:
-            The read options.
+        :param split: The split to read.
+        :param source_tokenizer: The tokenizer to encode source text.
+        :param gang: The gang over which to shard the dataset.
+        :param min_seq_len: The minimum sequence length of each example.
+            Examples shorter than this value will be dropped.
+        :param max_seq_len: The maximum sequence length of each example.
+            Examples longer than this value will be dropped.
+        :param options: The read options.
         """
 
     @abstractmethod
@@ -173,7 +166,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
             manifest_file = path.joinpath(split).joinpath("MANIFEST")
 
             try:
-                with manifest_file.open() as fp:
+                with manifest_file.open(encoding="utf-8") as fp:
                     content = list(fp)
             except OSError as ex:
                 raise DatasetLoadError(
@@ -254,7 +247,8 @@ class GenericParallelTextDataset(ParallelTextDataset):
     def create_reader(
         self,
         split: str,
-        tokenizer: TextTokenizer,
+        source_tokenizer: TextTokenizer,
+        target_tokenizer: TextTokenizer,
         gang: Gang,
         min_seq_len: int,
         max_seq_len: int,
@@ -291,11 +285,11 @@ class GenericParallelTextDataset(ParallelTextDataset):
             if direction.origin:
                 source_mode = f"{source_mode}_{direction.origin}"
 
-            source_encoder = tokenizer.create_encoder(
+            source_encoder = source_tokenizer.create_encoder(
                 task="translation", lang=direction.source_lang, mode=source_mode
             )
 
-            target_encoder = tokenizer.create_encoder(
+            target_encoder = target_tokenizer.create_encoder(
                 task="translation", lang=direction.target_lang, mode="target"
             )
 
@@ -386,7 +380,18 @@ class GenericParallelTextDataset(ParallelTextDataset):
         seed += 1
 
         # Collate bucketed examples into a batch.
-        collater = Collater(pad_value=tokenizer.vocab_info.pad_idx)
+        collater = Collater(
+            overrides=[
+                CollateOptionsOverride(
+                    selector="source_indices",
+                    pad_value=source_tokenizer.vocab_info.pad_idx,
+                ),
+                CollateOptionsOverride(
+                    selector="target_indices",
+                    pad_value=target_tokenizer.vocab_info.pad_idx,
+                ),
+            ]
+        )
 
         builder.map(collater, num_parallel_calls=npc)
 
@@ -397,9 +402,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
         # Prefetch `num_prefetch` batches in background.
         builder.prefetch(options.num_prefetch)
 
-        f = partial(self._to_batch, device=gang.device)
-
-        pipeline = builder.map(f).and_return()
+        pipeline = builder.map(self._to_batch).and_return()
 
         return DataPipelineReader[Seq2SeqBatch](
             self._name, split, pipeline, gang, options
@@ -444,23 +447,19 @@ class GenericParallelTextDataset(ParallelTextDataset):
         )
 
     @staticmethod
-    def _to_batch(example: dict[str, Any], device: Device) -> Seq2SeqBatch:
+    def _to_batch(example: dict[str, Any]) -> Seq2SeqBatch:
         source_data = cast(SequenceData, example["source_indices"])
         target_data = cast(SequenceData, example["target_indices"])
 
-        source_seqs, source_padding_mask = get_seqs_and_padding_mask(
-            source_data, device
-        )
-        target_seqs, target_padding_mask = get_seqs_and_padding_mask(
-            target_data, device
-        )
+        source_seqs, source_seq_lens = source_data["seqs"], source_data["seq_lens"]
+        target_seqs, target_seq_lens = target_data["seqs"], target_data["seq_lens"]
 
         return Seq2SeqBatch(
             source_seqs,
-            source_padding_mask,
+            source_seq_lens,
             target_seqs,
-            target_padding_mask,
-            example,
+            target_seq_lens,
+            example=example,
         )
 
     @override

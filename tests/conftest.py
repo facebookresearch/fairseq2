@@ -14,7 +14,7 @@ from pytest import Config, Parser, Session
 
 import tests.common
 from fairseq2 import setup_fairseq2
-from fairseq2.typing import Device
+from fairseq2.device import Device
 
 
 def pytest_addoption(parser: Parser) -> None:

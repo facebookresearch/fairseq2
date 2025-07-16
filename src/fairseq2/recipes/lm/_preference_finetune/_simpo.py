@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Final, cast, final
+from typing import Final, final
 
 import torch
 import torch.distributed
@@ -15,20 +15,22 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.datasets.preference import PreferenceBatch
-from fairseq2.gang import Gang, Gangs
-from fairseq2.metrics import Mean
-from fairseq2.models.sequence import SequenceModelOutput, as_auto_regressive_input
-from fairseq2.recipes.config import get_config_section
-from fairseq2.recipes.lm._preference_finetune._common import (
-    POCriterionSection,
-    POFinetuneMetricBag,
-    _gather_lprobs_avg,
-)
-from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import TrainUnit
+from fairseq2.gang import Gangs
+from fairseq2.metrics import Mean, MetricBag
+from fairseq2.recipes import Model, TrainUnit
+from fairseq2.recipes.metrics import update_nll_loss, update_seq_batch_metrics
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+
+# isort: split
+
+from fairseq2.recipes.lm._preference_finetune._common import (
+    _gather_lprobs_avg,
+    update_logps_metrics,
+    update_sequence_length_metrics,
+)
+from fairseq2.recipes.lm._preference_finetune._config import POFinetuneConfig
+from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
 
 
 @final
@@ -39,12 +41,10 @@ class SimPOFinetuneUnit(TrainUnit[PreferenceBatch]):
     _beta: float
     _gamma: float
     _nll_scale: float
-    _metric_bag: SimPOFinetuneMetricBag
 
     def __init__(
         self,
         model: Model,
-        gangs: Gangs,
         beta: float = 0.1,
         gamma: float = 0.5,
         nll_scale: float = 1.0,
@@ -54,55 +54,59 @@ class SimPOFinetuneUnit(TrainUnit[PreferenceBatch]):
         self._gamma = gamma
         self._nll_scale = nll_scale
 
-        self._metric_bag = SimPOFinetuneMetricBag(gangs.dp)
-
     @override
-    def __call__(self, batch: PreferenceBatch) -> tuple[Tensor, int]:
+    def __call__(
+        self, batch: PreferenceBatch, metric_bag: MetricBag
+    ) -> tuple[Tensor, int]:
         chosen_batch = batch.chosen
-        chosen_input_batch, chosen_target_batch = as_auto_regressive_input(chosen_batch)
+        chosen_input_batch, chosen_target_batch = chosen_batch.as_auto_regressive()
+
         rejected_batch = batch.rejected
-        rejected_input_batch, rejected_target_batch = as_auto_regressive_input(
-            rejected_batch
+        rejected_input_batch, rejected_target_batch = (
+            rejected_batch.as_auto_regressive()
         )
 
-        chosen_output = cast(
-            SequenceModelOutput, self._model.module(chosen_input_batch)
+        chosen_seqs, chosen_seqs_layout = chosen_input_batch.as_input()
+
+        nll_loss, chosen_logits = self._model.module(
+            chosen_seqs,
+            chosen_seqs_layout,
+            targets=chosen_target_batch.seqs,
+            target_mask=chosen_target_batch.target_mask,
+            return_logits=True,
         )
-        rejected_output = cast(
-            SequenceModelOutput, self._model.module(rejected_input_batch)
-        )
+
+        rejected_seqs, rejected_seqs_layout = rejected_input_batch.as_input()
+
+        rejected_logits = self._model.module(rejected_seqs, rejected_seqs_layout)
 
         chosen_logps, average_chosen_logps = _gather_lprobs_avg(
-            chosen_output, chosen_target_batch
+            chosen_logits, chosen_target_batch
         )
         rejected_logps, average_rejected_logps = _gather_lprobs_avg(
-            rejected_output, rejected_target_batch
+            rejected_logits, rejected_target_batch
         )
 
         simpo_loss = self._compute_simpo_loss(
             average_chosen_logps, average_rejected_logps
         )
 
-        nll_loss = chosen_output.compute_loss(
-            chosen_target_batch.seqs, loss_mask=chosen_target_batch.target_mask
-        )
+        update_simpo_loss(metric_bag, simpo_loss, batch)
 
-        self._metric_bag.update_simpo_loss(batch, simpo_loss)
+        update_nll_loss(metric_bag, nll_loss, chosen_batch.num_target_elements)
 
-        self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
+        update_sequence_length_metrics(metric_bag, batch)
 
-        self._metric_bag.update_sequence_lengths(batch)
+        update_logps_metrics(metric_bag, batch, chosen_logps, rejected_logps)
 
-        self._metric_bag.update_logps(batch, chosen_logps, rejected_logps)
-
-        self._metric_bag.update_batch_metrics(chosen_batch)
+        update_seq_batch_metrics(metric_bag, chosen_batch)
 
         loss = (
             simpo_loss
             + self._nll_scale
             * nll_loss
             * chosen_target_batch.batch_size
-            / chosen_target_batch.num_target_elements()
+            / chosen_target_batch.num_target_elements
         )  # nll normalization applied locally per-rank
 
         return loss, chosen_target_batch.batch_size
@@ -120,34 +124,14 @@ class SimPOFinetuneUnit(TrainUnit[PreferenceBatch]):
     def model(self) -> Model:
         return self._model
 
-    @property
-    @override
-    def metric_bag(self) -> SimPOFinetuneMetricBag:
-        return self._metric_bag
 
-
-class SimPOFinetuneMetricBag(POFinetuneMetricBag):
-    """Holds the metrics of a SimPO preference finetuning task."""
-
-    simpo_loss: Mean
-
-    def __init__(self, gang: Gang) -> None:
-        super().__init__(gang)
-
-        self.register_metric("simpo_loss", Mean(device=gang.device), persistent=False)
-
-    @torch.inference_mode()
-    def update_simpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
-        """Update the SimPO loss metric.
-
-        :param batch:
-            The batch processed by the model.
-        :param loss:
-            The SimPO loss of ``batch``.
-        """
-        self.simpo_loss.update(
-            loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
-        )
+@torch.inference_mode()
+def update_simpo_loss(
+    metric_bag: MetricBag, loss: Tensor, batch: PreferenceBatch
+) -> None:
+    metric_bag.get(Mean, "simpo_loss").update(
+        loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
+    )
 
 
 SIMPO_FINETUNE_UNIT: Final = "simpo"
@@ -169,19 +153,13 @@ class SimPOFinetuneConfig:
 class SimPOFinetuneUnitHandler(POFinetuneUnitHandler):
     @override
     def create(
-        self, model: Model, gangs: Gangs, recipe_config: object
+        self, model: Model, gangs: Gangs, recipe_config: POFinetuneConfig
     ) -> TrainUnit[PreferenceBatch]:
-        criterion_section = get_config_section(
-            recipe_config, "criterion", POCriterionSection
-        )
-
-        config = structure(criterion_section, SimPOFinetuneConfig)
+        config = structure(recipe_config.criterion.config, SimPOFinetuneConfig)
 
         validate(config)
 
-        return SimPOFinetuneUnit(
-            model, gangs, config.beta, config.gamma, config.nll_scale
-        )
+        return SimPOFinetuneUnit(model, config.beta, config.gamma, config.nll_scale)
 
     @property
     @override

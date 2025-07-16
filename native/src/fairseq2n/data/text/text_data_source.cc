@@ -69,25 +69,18 @@ text_data_source::reset(bool)
     } catch (const std::exception &) {
         handle_error();
     }
-
-    num_lines_read_ = 0;
 }
 
 void
 text_data_source::record_position(tape &t, bool) const
 {
-    t.record(num_lines_read_);
+    line_reader_->record_position(t);
 }
 
 void
 text_data_source::reload_position(tape &t, bool)
 {
-    auto num_lines_read = t.read<std::size_t>();
-
-    reset(false);
-
-    for (std::size_t i = 0; i < num_lines_read; ++i)
-        read_next_line();
+    line_reader_->reload_position(t);
 }
 
 data_source_finitude_type
@@ -119,8 +112,6 @@ text_data_source::read_next_line()
     while (!(line = line_reader_->next()).empty())
         if (!opts_.skip_empty() || !is_empty(line))
             break;
-
-    num_lines_read_++;
 
     return line;
 }

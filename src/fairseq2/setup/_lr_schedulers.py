@@ -17,7 +17,7 @@ from fairseq2.optim.lr_scheduler import (
 )
 
 
-def register_lr_schedulers(context: RuntimeContext) -> None:
+def _register_lr_schedulers(context: RuntimeContext) -> None:
     registry = context.get_registry(LRSchedulerHandler)
 
     handler: LRSchedulerHandler

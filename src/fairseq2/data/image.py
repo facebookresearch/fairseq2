@@ -12,7 +12,7 @@ from fairseq2n import DOC_MODE
 from torch import Tensor
 
 from fairseq2.data import MemoryBlock
-from fairseq2.typing import Device
+from fairseq2.device import Device
 
 if TYPE_CHECKING or DOC_MODE:
 

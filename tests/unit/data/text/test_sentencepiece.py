@@ -19,7 +19,7 @@ from fairseq2.data.text.tokenizers.sentencepiece import (
     SentencePieceEncoder,
     SentencePieceModel,
 )
-from fairseq2.typing import DataType
+from fairseq2.data_type import DataType
 from tests.common import assert_equal, device
 
 TEST_SPM_PATH: Final = Path(__file__).parent.joinpath("test.spm")
@@ -153,6 +153,9 @@ class TestSentencePieceModel:
 
         bos_idx = model.bos_idx
         eos_idx = model.eos_idx
+
+        assert bos_idx is not None
+        assert eos_idx is not None
 
         e = [foo1_idx, bos_idx] + self.token_indices + [foo2_idx, eos_idx, foo3_idx]
 

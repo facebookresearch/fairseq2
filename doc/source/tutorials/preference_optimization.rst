@@ -209,7 +209,7 @@ fairseq2 supports four different preference optimization methods:
                 _set_:
                     version: v1
                     granularity: layer
-                    hsdp: false
+                    hybrid: false
                     reshard_after_forward: true
                     fp32_reduce: true
         optimizer:
@@ -257,8 +257,7 @@ fairseq2 supports four different preference optimization methods:
                 checkpoint_every_n_data_epochs: null
                 keep_last_n_checkpoints: 1
                 keep_best_n_checkpoints: null
-                keep_last_n_models: null
-                keep_best_n_models: null
+                keep_checkpoint_every_n_steps: null
                 publish_metrics_after_n_steps: 0
                 publish_metrics_every_n_steps: 10
                 publish_metrics_after_n_data_epochs: 0

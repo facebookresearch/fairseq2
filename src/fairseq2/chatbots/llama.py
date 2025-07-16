@@ -23,9 +23,10 @@ from fairseq2.chatbots import (
 from fairseq2.data.text.tokenizers import TextTokenEncoder, TextTokenizer
 from fairseq2.data.text.tokenizers.llama import LLaMA3Tokenizer
 from fairseq2.generation import SequenceGenerator
-from fairseq2.models.decoder import DecoderModel
+from fairseq2.models.clm import CausalLM
 from fairseq2.models.llama import LLAMA_MODEL_FAMILY
 from fairseq2.nn.utils.module import infer_device
+from fairseq2.utils.tensor import to_tensor
 
 
 @final
@@ -34,7 +35,7 @@ class LLaMA1DialogEncoder(ChatDialogEncoder):
     _eos_idx: Tensor
     _text_encoder: TextTokenEncoder
 
-    def __init__(self, model: DecoderModel, tokenizer: TextTokenizer) -> None:
+    def __init__(self, model: CausalLM, tokenizer: TextTokenizer) -> None:
         bos_idx = tokenizer.vocab_info.bos_idx
         eos_idx = tokenizer.vocab_info.eos_idx
 
@@ -48,8 +49,8 @@ class LLaMA1DialogEncoder(ChatDialogEncoder):
                 "The device of `generator.model` is not valid. See the nested exception for details."
             ) from ex
 
-        self._bos_idx = torch.tensor([bos_idx], device=device)
-        self._eos_idx = torch.tensor([eos_idx], device=device)
+        self._bos_idx = to_tensor([bos_idx], device=device)
+        self._eos_idx = to_tensor([eos_idx], device=device)
 
         self._text_encoder = tokenizer.create_raw_encoder(device=device)
 
@@ -101,7 +102,7 @@ class LLaMA3DialogEncoder(ChatDialogEncoder):
     _text_encoder: TextTokenEncoder
     _break: Tensor
 
-    def __init__(self, model: DecoderModel, tokenizer: TextTokenizer) -> None:
+    def __init__(self, model: CausalLM, tokenizer: TextTokenizer) -> None:
         bos_idx = tokenizer.vocab_info.bos_idx
         eos_idx = tokenizer.vocab_info.eos_idx
         boh_idx = tokenizer.vocab_info.boh_idx
@@ -119,10 +120,10 @@ class LLaMA3DialogEncoder(ChatDialogEncoder):
                 "The device of `generator.model` is not valid. See the nested exception for details."
             ) from ex
 
-        self._bos_idx = torch.tensor([bos_idx], device=device)
-        self._eos_idx = torch.tensor([eos_idx], device=device)
-        self._boh_idx = torch.tensor([boh_idx], device=device)
-        self._eoh_idx = torch.tensor([eoh_idx], device=device)
+        self._bos_idx = to_tensor([bos_idx], device=device)
+        self._eos_idx = to_tensor([eos_idx], device=device)
+        self._boh_idx = to_tensor([boh_idx], device=device)
+        self._eoh_idx = to_tensor([eoh_idx], device=device)
 
         self._text_encoder = tokenizer.create_raw_encoder(device=device)
 
@@ -193,7 +194,7 @@ class LLaMAChatbotHandler(ChatbotHandler):
         else:
             dialog_encoder = LLaMA1DialogEncoder(model, tokenizer)
 
-        text_decoder = tokenizer.create_decoder()
+        text_decoder = tokenizer.create_decoder(skip_special_tokens=True)
 
         return StandardChatbot(
             generator, dialog_encoder, text_decoder, supports_system_prompt=True

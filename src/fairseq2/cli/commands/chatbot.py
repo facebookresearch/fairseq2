@@ -16,14 +16,14 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.chatbots import Chatbot, ChatbotHandler, ChatMessage, UnknownChatbotError
-from fairseq2.cli import CliArgumentError, CliCommandHandler
+from fairseq2.cli import CliCommandError, CliCommandHandler
 from fairseq2.cli.utils.argparse import parse_dtype
 from fairseq2.cli.utils.cluster import set_torch_distributed_variables
 from fairseq2.cli.utils.rich import get_console
-from fairseq2.cluster import ClusterError, UnknownClusterError
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
-from fairseq2.error import InternalError, ProgramError
+from fairseq2.device import CPU
+from fairseq2.error import InternalError
 from fairseq2.gang import Gang, GangError
 from fairseq2.generation import (
     SamplingSequenceGenerator,
@@ -31,14 +31,20 @@ from fairseq2.generation import (
     TopPSampler,
 )
 from fairseq2.logging import log
-from fairseq2.models.decoder import DecoderModel
+from fairseq2.models.clm import CausalLM
+from fairseq2.recipes import RecipeError
 from fairseq2.recipes.common import (
     load_text_tokenizer,
     setup_gangs,
     setup_reference_model,
+    setup_torch,
 )
-from fairseq2.recipes.config import GangSection, ReferenceModelSection
-from fairseq2.typing import CPU
+from fairseq2.recipes.config import (
+    GangSection,
+    ReferenceModelSection,
+    TextTokenizerSection,
+    TorchSection,
+)
 from fairseq2.utils.rng import RngBag
 
 
@@ -58,7 +64,7 @@ class RunChatbotHandler(CliCommandHandler):
         parser.add_argument(
             "--dtype",
             type=parse_dtype,
-            default=torch.bfloat16,
+            default=torch.float16,
             help="data type of the model (default: %(default)s)",
         )
 
@@ -112,53 +118,61 @@ class RunChatbotHandler(CliCommandHandler):
 
         view = CliChatbotView(args.model_name, console)
 
-        try:
-            set_torch_distributed_variables(context, args.cluster)
-        except UnknownClusterError as ex:
-            s = ", ".join(ex.supported_clusters)
+        set_torch_distributed_variables(context, args.cluster)
 
-            raise CliArgumentError(
-                "cluster", f"'{ex.cluster}' is not a known cluster. Must be one of: auto, none, {s}"  # fmt: skip
-            ) from None
-        except ClusterError as ex:
-            if ex.cluster == "slurm":
-                message = f"'{ex.cluster}' cluster environment cannot be set. See logged stack trace for details. If you are within an allocated Slurm job (i.e. `salloc`), make sure to run with `srun`. If you want to run without Slurm, use `--cluster none`."
-            else:
-                message = f"'{ex.cluster}' cluster environment cannot be set. See logged stack trace for details."
+        torch_section = TorchSection()
 
-            raise ProgramError(message) from ex
+        setup_torch(context, torch_section, output_dir=None)
 
-        args.gang = GangSection(
+        gang_section = GangSection(
             tensor_parallel_size=args.tensor_parallel_size, timeout=999
         )
 
-        torch.set_float32_matmul_precision("high")
-
-        gangs = setup_gangs(context, args)
+        try:
+            gangs = setup_gangs(context, gang_section)
+        except RecipeError as ex:
+            raise CliCommandError(
+                "The chatbot setup has failed. See the nested exception for details."
+            ) from ex
 
         if gangs.dp.size > 1:
-            log.warning("Using redundant data parallelism which may reduce token throughput. It is recommended to use one device per model shard (i.e. a single device for a non-sharded model).")  # fmt: skip
+            log.warning("Using redundant data parallelism which may reduce throughput.")  # fmt: skip
 
-        args.model = ReferenceModelSection(name=args.model_name)
+        model_section = ReferenceModelSection(name=args.model_name)
 
-        model = setup_reference_model(
-            DecoderModel,
-            context,
-            args.model_name,
-            gangs,
-            args.dtype,
-            mp=False,
-            torch_compile=False,
-        )
+        try:
+            model = setup_reference_model(
+                CausalLM,
+                context,
+                model_section,
+                gangs,
+                args.dtype,
+                mp=False,
+            )
+        except RecipeError as ex:
+            raise CliCommandError(
+                "The chatbot setup has failed. See the nested exception for details."
+            ) from ex
 
-        module = cast(DecoderModel, model.module)
+        tokenizer_section = TextTokenizerSection(name=args.model_name)
 
-        tokenizer = load_text_tokenizer(context, args)
+        try:
+            tokenizer = load_text_tokenizer(context, tokenizer_section)
+        except RecipeError as ex:
+            raise CliCommandError(
+                "The chatbot setup has failed. See the nested exception for details."
+            ) from ex
+
+        module = cast(CausalLM, model.module)
 
         sampler = TopPSampler(p=args.top_p)
 
         generator = SamplingSequenceGenerator(
-            module, sampler, temperature=args.temperature, max_gen_len=args.max_gen_len
+            module,
+            tokenizer.vocab_info,
+            sampler,
+            temperature=args.temperature,
+            max_gen_len=args.max_gen_len,
         )
 
         card = context.asset_store.retrieve_card(args.model_name)
@@ -181,8 +195,8 @@ class RunChatbotHandler(CliCommandHandler):
         try:
             program.run()
         except GangError as ex:
-            raise ProgramError(
-                "A collective call has failed. See the nested exception for details."
+            raise CliCommandError(
+                "A collective communication operation has failed. See the nested exception for details."
             ) from ex
         except KeyboardInterrupt:
             console.print()
@@ -267,7 +281,7 @@ class ChatbotProgram:
     def _receive_reply(self) -> None:
         self._view.print_reply("")
 
-        text_decoder = self._tokenizer.create_decoder()
+        text_decoder = self._tokenizer.create_decoder(skip_special_tokens=True)
 
         hook = _PrintHook(self._view, text_decoder)
 

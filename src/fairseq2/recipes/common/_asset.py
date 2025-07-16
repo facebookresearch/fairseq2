@@ -17,47 +17,49 @@ from fairseq2.assets import (
 )
 from fairseq2.checkpoint import FileCheckpointMetadataLoader
 from fairseq2.context import RuntimeContext
-from fairseq2.error import ProgramError
+from fairseq2.file_system import FileSystem
 from fairseq2.logging import log
-from fairseq2.recipes.config import CommonSection, get_config_section
-from fairseq2.utils.file import FileSystem
-from fairseq2.utils.yaml import StandardYamlLoader
+from fairseq2.recipes import RecipeError
+from fairseq2.recipes.config import AssetsSection
+from fairseq2.utils.yaml import RuamelYamlLoader
 
 
-def register_extra_asset_paths(context: RuntimeContext, recipe_config: object) -> None:
+def register_extra_asset_paths(
+    context: RuntimeContext, assets_section: AssetsSection
+) -> None:
     asset_store = context.asset_store
 
     file_system = context.file_system
 
-    yaml_loader = StandardYamlLoader(file_system)
+    yaml_loader = RuamelYamlLoader(file_system)
 
     asset_metadata_file_loader = StandardAssetMetadataFileLoader(yaml_loader)
 
-    extra_path_registrar = ExtraPathRegistrar(
+    extra_path_registrar = _ExtraPathRegistrar(
         asset_store, file_system, asset_metadata_file_loader
     )
 
     try:
-        extra_path_registrar.register(recipe_config)
+        extra_path_registrar.register(assets_section)
     except AssetMetadataLoadError as ex:
-        raise ProgramError(
+        raise RecipeError(
             "`common.assets.extra_path` cannot be registered as an asset card path. See the nested exception for details."
         ) from ex
 
-    checkpoint_dir_registrar = CheckpointDirectoryRegistrar(
+    checkpoint_dir_registrar = _CheckpointDirectoryRegistrar(
         asset_store, file_system, asset_metadata_file_loader
     )
 
     try:
-        checkpoint_dir_registrar.register(recipe_config)
+        checkpoint_dir_registrar.register(assets_section)
     except AssetMetadataLoadError as ex:
-        raise ProgramError(
+        raise RecipeError(
             "`common.assets.checkpoint_dir` cannot be registered as an asset card path. See the nested exception for details."
         ) from ex
 
 
 @final
-class ExtraPathRegistrar:
+class _ExtraPathRegistrar:
     _asset_store: StandardAssetStore
     _file_system: FileSystem
     _asset_metadata_file_loader: AssetMetadataFileLoader
@@ -72,10 +74,8 @@ class ExtraPathRegistrar:
         self._file_system = file_system
         self._asset_metadata_file_loader = asset_metadata_file_loader
 
-    def register(self, recipe_config: object) -> None:
-        common_section = get_config_section(recipe_config, "common", CommonSection)
-
-        extra_path = common_section.assets.extra_path
+    def register(self, assets_section: AssetsSection) -> None:
+        extra_path = assets_section.extra_path
         if extra_path is None:
             return
 
@@ -101,7 +101,7 @@ class ExtraPathRegistrar:
 
 
 @final
-class CheckpointDirectoryRegistrar:
+class _CheckpointDirectoryRegistrar:
     _asset_store: StandardAssetStore
     _file_system: FileSystem
     _asset_metadata_file_loader: AssetMetadataFileLoader
@@ -116,10 +116,8 @@ class CheckpointDirectoryRegistrar:
         self._file_system = file_system
         self._asset_metadata_file_loader = asset_metadata_file_loader
 
-    def register(self, recipe_config: object) -> None:
-        common_section = get_config_section(recipe_config, "common", CommonSection)
-
-        checkpoint_dir = common_section.assets.checkpoint_dir
+    def register(self, assets_section: AssetsSection) -> None:
+        checkpoint_dir = assets_section.checkpoint_dir
         if checkpoint_dir is None:
             return
 

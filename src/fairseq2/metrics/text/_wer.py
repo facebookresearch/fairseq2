@@ -15,8 +15,9 @@ from torch import Tensor
 from torcheval.metrics import Metric
 from typing_extensions import Self, override
 
-from fairseq2.nn.padding import PaddingMask, get_seq_lens
-from fairseq2.typing import Device
+from fairseq2.device import Device
+from fairseq2.nn import BatchLayout
+from fairseq2.utils.tensor import to_tensor
 
 
 @final
@@ -51,10 +52,10 @@ class WerMetric(Metric[tuple[Tensor, Tensor]]):
         self,
         refs: Sequence[str],
         ref_seqs: Tensor,
-        ref_padding_mask: PaddingMask | None,
+        ref_seqs_layout: BatchLayout,
         hyps: Sequence[str],
         hyp_seqs: Tensor,
-        hyp_padding_mask: PaddingMask | None,
+        hyp_seqs_layout: BatchLayout,
     ) -> Self:
         """
         :param refs:
@@ -63,19 +64,18 @@ class WerMetric(Metric[tuple[Tensor, Tensor]]):
             The reference sequences. *Shape:* :math:`(N,S_{ref})`, where
             :math:`N` is the batch size and :math:`S_{ref}` is the sequence
             length of the references.
-        :param ref_padding_mask:
-            The padding mask of ``ref_seqs``. *Shape:* Same as ``ref_seqs``.
         :param hyps:
             The hypothesis strings.
         :param hyp_seqs:
             The hypothesis sequences. *Shape:* :math:`(N,S_{hyp})`, where
             :math:`N` is the batch size and :math:`S_{hyp}` is the sequence
             length of the hypotheses.
-        :param hyp_seqs:
-            The padding mask of ``hyp_seqs``. *Shape:* Same as ``hyp_seqs``.
         """
-        ref_seq_lens = get_seq_lens(ref_seqs, ref_padding_mask)
-        hyp_seq_lens = get_seq_lens(hyp_seqs, hyp_padding_mask)
+        if ref_seqs_layout.packed or hyp_seqs_layout.packed:
+            raise ValueError("`refs` and `hyps` must not be packed batches.")
+
+        ref_seq_lens = ref_seqs_layout.seq_lens
+        hyp_seq_lens = hyp_seqs_layout.seq_lens
 
         for ref, ref_seq, ref_seq_len, hyp, hyp_seq, hyp_seq_len in zip(
             refs, ref_seqs, ref_seq_lens, hyps, hyp_seqs, hyp_seq_lens
@@ -104,8 +104,8 @@ class WerMetric(Metric[tuple[Tensor, Tensor]]):
             uer = self.unit_err * 100.0 / self.unit_len
             wer = self.word_err * 100.0 / self.word_len
         else:
-            uer = torch.tensor(-1.0, dtype=torch.float32)
-            wer = torch.tensor(-1.0, dtype=torch.float32)
+            uer = to_tensor(-1.0, dtype=torch.float32)
+            wer = to_tensor(-1.0, dtype=torch.float32)
 
         return uer, wer
 

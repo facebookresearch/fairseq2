@@ -19,13 +19,11 @@ from fairseq2.assets import (
     AssetCardError,
     AssetCardNotFoundError,
     AssetLookupScope,
-    AssetMetadataLoadError,
     AssetStore,
 )
-from fairseq2.cli import CliArgumentError, CliCommandHandler
+from fairseq2.cli import CliArgumentError, CliCommandError, CliCommandHandler
 from fairseq2.cli.utils.rich import get_console
 from fairseq2.context import RuntimeContext
-from fairseq2.error import ProgramError
 from fairseq2.logging import log
 
 
@@ -69,12 +67,7 @@ class ListAssetsHandler(CliCommandHandler):
 
         scope = AssetLookupScope.USER if user else AssetLookupScope.SYSTEM
 
-        try:
-            asset_names = asset_store.retrieve_names(scope=scope)
-        except AssetMetadataLoadError as ex:
-            raise ProgramError(
-                "Asset metadata cannot be loaded. See the nested exception for details."
-            ) from ex
+        asset_names = asset_store.retrieve_names(scope=scope)
 
         for asset_name in asset_names:
             try:
@@ -191,12 +184,8 @@ class ShowAssetHandler(CliCommandHandler):
                 "name", f"'{args.name}' is not a known asset. Use `fairseq2 assets list` to see the available assets."  # fmt: skip
             ) from None
         except AssetCardError as ex:
-            raise ProgramError(
+            raise CliCommandError(
                 f"The '{args.name}' asset card cannot be read. See the nested exception for details."
-            ) from ex
-        except AssetMetadataLoadError as ex:
-            raise ProgramError(
-                "Asset metadata cannot be loaded. See the nested exception for details."
             ) from ex
 
         while card is not None:

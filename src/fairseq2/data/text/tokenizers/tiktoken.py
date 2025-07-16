@@ -21,7 +21,68 @@ from fairseq2.data.text.tokenizers import (
     TextTokenDecoder,
     TextTokenEncoder,
 )
-from fairseq2.typing import Device
+from fairseq2.device import Device
+from fairseq2.utils.tensor import to_tensor
+
+
+def load_tiktoken_model(
+    path: Path,
+    split_regex: str,
+    *,
+    unk_token: str | None = None,
+    bos_token: str | None = None,
+    eos_token: str | None = None,
+    pad_token: str | None = None,
+    boh_token: str | None = None,
+    eoh_token: str | None = None,
+    special_tokens: Sequence[str] | None = None,
+) -> TiktokenModel:
+    """
+    :param path: The path to the tiktoken BPE file.
+    :param split_regex: The regex pattern used to split the input text.
+    :param unk_token: The token that represents an unknown element.
+    :param bos_token: The token that represents the beginning of a sequence.
+    :param eos_token: The token that represents the end of a sequence.
+    :param pad_token: The token that is used to pad a sequence.
+    :param boh_token: The token that represents the beginning of a header.
+    :param eoh_token: The token that represents the end of a header.
+    :param special_tokens: The special tokens to include in the tokenizer.
+    """
+    tokens = load_tiktoken_bpe(str(path))
+
+    num_tokens = len(tokens)
+
+    if special_tokens:
+        special_token_map = {
+            token: num_tokens + i for i, token in enumerate(special_tokens)
+        }
+    else:
+        special_token_map = {}
+
+    encoding = Encoding(
+        name=path.stem,
+        pat_str=split_regex,
+        mergeable_ranks=tokens,
+        special_tokens=special_token_map,
+    )
+
+    def maybe_index(token: str | None) -> int | None:
+        if token:
+            return encoding.encode_single_token(token)
+
+        return None
+
+    vocab_info = VocabularyInfo(
+        encoding.n_vocab,
+        unk_idx=maybe_index(unk_token),
+        bos_idx=maybe_index(bos_token),
+        eos_idx=maybe_index(eos_token),
+        pad_idx=maybe_index(pad_token),
+        boh_idx=maybe_index(boh_token),
+        eoh_idx=maybe_index(eoh_token),
+    )
+
+    return TiktokenModel(encoding, num_tokens, vocab_info)
 
 
 @final
@@ -31,66 +92,13 @@ class TiktokenModel:
     _vocab_info: VocabularyInfo
 
     def __init__(
-        self,
-        path: Path,
-        split_regex: str,
-        *,
-        unk_token: str | None = None,
-        bos_token: str | None = None,
-        eos_token: str | None = None,
-        pad_token: str | None = None,
-        boh_token: str | None = None,
-        eoh_token: str | None = None,
-        special_tokens: Sequence[str] | None = None,
+        self, encoding: Encoding, num_tokens: int, vocab_info: VocabularyInfo
     ) -> None:
-        """
-        :param path: The path to the tiktoken BPE file.
-        :param split_regex: The regex pattern string that is used to split the
-            input text.
-        :param unk_token: The token that represents an unknown element.
-        :param bos_token: The token that represents the beginning of a sequence.
-        :param eos_token: The token that represents the end of a sequence.
-        :param pad_token: The token that is used to pad a sequence.
-        :param boh_token: The token that represents the beginning of a header.
-        :param eoh_token: The token that represents the end of a header.
-        :param special_tokens: The extra special tokens to include in the
-            tokenizer.
-        """
-        tokens = load_tiktoken_bpe(str(path))
-
-        num_tokens = len(tokens)
+        self._encoding = encoding
 
         self._num_bpe_tokens = num_tokens
 
-        if special_tokens:
-            special_token_map = {
-                token: num_tokens + i for i, token in enumerate(special_tokens)
-            }
-        else:
-            special_token_map = {}
-
-        self._encoding = Encoding(
-            name=path.stem,
-            pat_str=split_regex,
-            mergeable_ranks=tokens,
-            special_tokens=special_token_map,
-        )
-
-        def maybe_index(token: str | None) -> int | None:
-            if token:
-                return self._encoding.encode_single_token(token)
-
-            return None
-
-        self._vocab_info = VocabularyInfo(
-            self._encoding.n_vocab,
-            unk_idx=maybe_index(unk_token),
-            bos_idx=maybe_index(bos_token),
-            eos_idx=maybe_index(eos_token),
-            pad_idx=maybe_index(pad_token),
-            boh_idx=maybe_index(boh_token),
-            eoh_idx=maybe_index(eoh_token),
-        )
+        self._vocab_info = vocab_info
 
     @property
     def encoding(self) -> Encoding:
@@ -108,13 +116,11 @@ class TiktokenModel:
 
 @final
 class TiktokenEncoder(TextTokenEncoder):
-    """Represents a tiktoken decoder."""
-
     _encoding: Encoding
     _prefix_indices: list[int]
     _suffix_indices: list[int]
-    _prefix_index_tensor: Tensor | None
-    _suffix_index_tensor: Tensor | None
+    _prefix_indices_pt: Tensor | None
+    _suffix_indices_pt: Tensor | None
     _device: Device | None
     _pin_memory: bool
 
@@ -128,16 +134,11 @@ class TiktokenEncoder(TextTokenEncoder):
         pin_memory: bool = False,
     ) -> None:
         """
-        :param encoding:
-            The tiktoken :class:`Encoding` object.
-        :param prefix_tokens:
-            The prefix tokens to encode with input text.
-        :param suffix_tokens:
-            The suffix tokens to encode with input text.
-        :param device:
-            The device on which to construct tensors.
-        :param pin_memory:
-            If ``True``, uses pinned memory while constructing tensors.
+        :param encoding: The tiktoken :class:`Encoding` object.
+        :param prefix_tokens: The prefix tokens to encode with input text.
+        :param suffix_tokens: The suffix tokens to encode with input text.
+        :param device: The device on which to construct tensors.
+        :param pin_memory: If ``True``, uses pinned memory for tensors.
         """
         self._encoding = model.encoding
 
@@ -147,13 +148,13 @@ class TiktokenEncoder(TextTokenEncoder):
                 self._encoding.encode_single_token(t) for t in prefix_tokens
             ]
 
-            self._prefix_index_tensor = torch.tensor(
+            self._prefix_indices_pt = to_tensor(
                 self._prefix_indices, dtype=torch.int64, device=device
             )
         else:
             self._prefix_indices = []
 
-            self._prefix_index_tensor = None
+            self._prefix_indices_pt = None
 
         # Suffix
         if suffix_tokens:
@@ -161,15 +162,16 @@ class TiktokenEncoder(TextTokenEncoder):
                 self._encoding.encode_single_token(t) for t in suffix_tokens
             ]
 
-            self._suffix_index_tensor = torch.tensor(
+            self._suffix_indices_pt = to_tensor(
                 self._suffix_indices, dtype=torch.int64, device=device
             )
         else:
             self._suffix_indices = []
 
-            self._suffix_index_tensor = None
+            self._suffix_indices_pt = None
 
         self._device = device
+
         self._pin_memory = pin_memory
 
     @override
@@ -197,34 +199,38 @@ class TiktokenEncoder(TextTokenEncoder):
     @property
     @override
     def prefix_indices(self) -> Tensor | None:
-        return self._prefix_index_tensor
+        return self._prefix_indices_pt
 
     @property
     @override
     def suffix_indices(self) -> Tensor | None:
-        return self._suffix_index_tensor
+        return self._suffix_indices_pt
 
 
 @final
 class TiktokenDecoder(TextTokenDecoder):
-    """Represents a tiktoken decoder."""
-
     _encoding: Encoding
     _num_bpe_tokens: int
+    _skip_special_tokens: bool
 
-    def __init__(self, model: TiktokenModel) -> None:
+    def __init__(
+        self, model: TiktokenModel, *, skip_special_tokens: bool = False
+    ) -> None:
         self._encoding = model.encoding
         self._num_bpe_tokens = model.num_bpe_tokens
+        self._skip_special_tokens = skip_special_tokens
 
     @override
     def __call__(self, token_indices: Tensor) -> str:
-        if token_indices.dim() != 1:
+        if token_indices.ndim != 1:
             raise ValueError(
-                f"`token_indices` must be one dimensional, but has {token_indices.dim()} dimensions instead."
+                f"`token_indices` must be one dimensional, but has {token_indices.ndim} dimensions instead."
             )
 
-        # Do not decode special tokens.
-        indices = [i for i in token_indices.tolist() if i < self._num_bpe_tokens]
+        indices = token_indices.tolist()
+
+        if self._skip_special_tokens:
+            indices = [i for i in indices if i < self._num_bpe_tokens]
 
         return self._encoding.decode(indices)
 
@@ -232,7 +238,7 @@ class TiktokenDecoder(TextTokenDecoder):
     def decode_from_tokens(self, tokens: Sequence[str]) -> str:
         indices = [self._encoding.encode_single_token(t) for t in tokens]
 
-        # Do not decode special tokens.
-        indices = [i for i in indices if i < self._num_bpe_tokens]
+        if self._skip_special_tokens:
+            indices = [i for i in indices if i < self._num_bpe_tokens]
 
         return self._encoding.decode(indices)

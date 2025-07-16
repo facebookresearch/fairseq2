@@ -6,12 +6,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Final
 
 from fairseq2.context import RuntimeContext
-from fairseq2.data import VocabularyInfo
-from fairseq2.nn.transformer import TransformerNormOrder
+
+# isort: split
+
+from fairseq2.models.transformer._norm_order import TransformerNormOrder
 
 TRANSFORMER_MODEL_FAMILY: Final = "transformer"
 
@@ -30,12 +32,11 @@ class TransformerConfig:
     max_seq_len: int = 1024
     """The maximum sequence length."""
 
-    vocab_info: VocabularyInfo = field(
-        default_factory=lambda: VocabularyInfo(
-            size=32768, unk_idx=None, bos_idx=None, eos_idx=1, pad_idx=0
-        )
-    )
-    """The vocabulary information."""
+    vocab_size: int = 32_768
+    """The size of the vocabulary."""
+
+    pad_idx: int = 0
+    """The index of the PAD symbol in the vocabulary."""
 
     num_encoder_layers: int = 6
     """The number of encoder layers."""

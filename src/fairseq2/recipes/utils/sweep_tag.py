@@ -7,9 +7,8 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Hashable, Iterable, Sequence, Set
+from collections.abc import Iterable, Sequence
 from enum import Enum
-from functools import cache
 from hashlib import sha1
 from typing import final
 
@@ -21,24 +20,16 @@ from fairseq2.utils.structured import StructureError
 @final
 class SweepTagGenerator:
     _world_size: int
-    _allowed_keys: Set[Hashable]
-    _format: str
+    _sweep_format: str
 
-    def __init__(
-        self, world_size: int, allowed_keys: Set[Hashable], fmt: str | None = None
-    ) -> None:
-        """
-        :param allowed_keys: The recipe configuration keys allowed to be used in
-            sweep tags.
-        """
+    def __init__(self, world_size: int, sweep_format: str | None = None) -> None:
         self._world_size = world_size
-        self._allowed_keys = allowed_keys
 
-        if fmt is None:
-            self._format = "ps_{preset}.ws_{world_size}.{hash}"
+        if sweep_format is None:
+            self._sweep_format = "ps_{preset}.ws_{world_size}.{hash}"
         else:
-            self._format = fmt.strip()
-            if not self._format:
+            self._sweep_format = sweep_format.strip()
+            if not self._sweep_format:
                 raise ValueError("`fmt` must not be empty.")
 
             self._safe_format({}, dry_run=True)
@@ -91,10 +82,9 @@ class SweepTagGenerator:
 
         if isinstance(obj, dict):
             for key, value in obj.items():
-                if key in self._allowed_keys:
-                    self._collect_tags(
-                        value, tags, path=f"{path}.{key}" if path else f"{key}"
-                    )
+                self._collect_tags(
+                    value, tags, path=f"{path}.{key}" if path else f"{key}"
+                )
 
             return
 
@@ -141,7 +131,7 @@ class SweepTagGenerator:
 
         state = State.LITERAL
 
-        for c in self._format:
+        for c in self._sweep_format:
             match state:
                 case State.LITERAL:
                     if c == "{":
@@ -230,53 +220,3 @@ class SweepFormatPlaceholderError(ValueError):
         super().__init__(message)
 
         self.unknown_keys = unknown_keys
-
-
-def get_sweep_keys(extra_sweep_keys: Set[Hashable] | None) -> Set[Hashable]:
-    sweep_keys = get_default_sweep_keys()
-
-    if extra_sweep_keys is not None:
-        sweep_keys = sweep_keys | extra_sweep_keys
-
-    return sweep_keys
-
-
-@cache
-def get_default_sweep_keys() -> Set[Hashable]:
-    return {
-        "batch_shuffle_window",
-        "betas",
-        "data_parallelism",
-        "dataset",
-        "dtype",
-        "example_shuffle_window",
-        "final_lr_ratio",
-        "final_lr_scale",
-        "fp16_loss_scale",
-        "fsdp_reshard_after_forward",
-        "fsdp_wrap_granularity",
-        "gradient_accumulation",
-        "label_smoothing",
-        "lr",
-        "lr_stage_ratios",
-        "max_gradient_norm",
-        "max_num_elements",
-        "max_num_steps",
-        "max_num_tokens",
-        "max_seq_len",
-        "mixed_precision",
-        "model",
-        "model_arch",
-        "model_config",
-        "num_lr_warmup_steps",
-        "pretrained_model",
-        "seed",
-        "split",
-        "start_lr",
-        "start_lr_scale",
-        "tensor_parallel_size",
-        "tokenizer",
-        "train_split",
-        "valid_split",
-        "weight_decay",
-    }

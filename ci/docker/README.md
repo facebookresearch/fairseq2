@@ -7,7 +7,7 @@ The images with the `manylinux` tag are used to build and test fairseq2 on
 Linux. They have the tag format `fairseq2-ci-manylinux_<ARCH>:<VERSION>-<VARIANT>`,
 where `<ARCH>` is the architecture (e.g. `x86_64`), `<VERSION>` is the current
 version of the image (e.g. `1`), and `<VARIANT>` is either `cpu` or a CUDA
-version specifier (e.g. `cu117`).
+version specifier (e.g. `cu126`).
 
 The images are based of PyPA's [manylinux2014](https://github.com/pypa/manylinux)
 to ensure maximum binary compatibility with different Linux distributions.

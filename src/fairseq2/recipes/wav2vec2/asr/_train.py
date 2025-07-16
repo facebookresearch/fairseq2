@@ -15,18 +15,26 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
-from fairseq2.datasets import LengthBatching, SyncMode
+from fairseq2.datasets import LengthBatching, Seq2SeqBatch, SyncMode
 from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
-from fairseq2.gang import Gang
+from fairseq2.device import CPU
+from fairseq2.gang import GangError
 from fairseq2.logging import log
-from fairseq2.models.seq2seq import Seq2SeqBatch
+from fairseq2.metrics import MetricBag
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
 from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import TRI_STAGE_LR, TriStageLRConfig
-from fairseq2.recipes.asr import AsrCriterion, AsrEvalUnit, AsrMetricBag, AsrScorer
+from fairseq2.recipes import Model, RecipeError, Trainer, TrainUnit
+from fairseq2.recipes.asr import (
+    AsrEvalUnit,
+    AsrScorer,
+    update_asr_batch_metrics,
+    update_ctc_loss,
+)
 from fairseq2.recipes.common import (
+    check_has_checkpoint,
     create_checkpoint_manager,
     create_lr_scheduler,
     create_optimizer,
@@ -38,12 +46,14 @@ from fairseq2.recipes.common import (
     prepare_model,
     register_extra_asset_paths,
     setup_data_parallel_model,
-    setup_gangs,
+    setup_torch,
+    setup_training_gangs,
 )
 from fairseq2.recipes.config import (
     CommonSection,
     DatasetSection,
     GangSection,
+    GradAccumulationSection,
     LRSchedulerSection,
     ModelSection,
     OptimizerSection,
@@ -52,10 +62,7 @@ from fairseq2.recipes.config import (
     TextTokenizerSection,
     TrainerSection,
 )
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import Trainer, TrainUnit
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
@@ -75,7 +82,7 @@ class Wav2Vec2AsrTrainConfig:
         default_factory=lambda: Wav2Vec2AsrTrainDatasetSection()
     )
 
-    text_tokenizer: TextTokenizerSection = field(
+    tokenizer: TextTokenizerSection = field(
         default_factory=lambda: TextTokenizerSection(name="librispeech_asr")
     )
 
@@ -83,7 +90,8 @@ class Wav2Vec2AsrTrainConfig:
 
     trainer: Wav2Vec2AsrTrainerSection = field(
         default_factory=lambda: Wav2Vec2AsrTrainerSection(
-            dtype=torch.float16, gradient_accumulation=4
+            dtype=torch.float16,
+            grad_accumulation=GradAccumulationSection(num_batches=4),
         )
     )
 
@@ -105,9 +113,7 @@ class Wav2Vec2AsrTrainConfig:
     regime: RegimeSection = field(
         default_factory=lambda: RegimeSection(
             num_steps=20_000,
-            score_metric="wer",
-            lower_score_better=True,
-            validate_after_n_steps=10_000,
+            validate_after_n_steps=9999,
             validate_every_n_steps=1_000,
             publish_metrics_every_n_steps=200,
         )
@@ -192,7 +198,7 @@ def register_wav2vec2_asr_train_configs(context: RuntimeContext) -> None:
         config.pretrained_model.name = "wav2vec2_large"
         config.dataset.max_audio_len = 640_000
         config.dataset.max_num_elements = 1_280_000
-        config.trainer.gradient_accumulation = 5
+        config.trainer.grad_accumulation.num_batches = 5
         config.optimizer.config.lr = 0.0001
 
         return config
@@ -213,16 +219,16 @@ def register_wav2vec2_asr_train_configs(context: RuntimeContext) -> None:
 
 def load_wav2vec2_asr_trainer(
     context: RuntimeContext, config: object, output_dir: Path
-) -> Trainer[Seq2SeqBatch]:
+) -> Trainer:
     config = structure(config, Wav2Vec2AsrTrainConfig)
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common.assets)
 
-    torch.set_float32_matmul_precision("high")
+    setup_torch(context, config.common.torch, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_training_gangs(context, config.gang, config.trainer)
 
     checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
@@ -232,22 +238,30 @@ def load_wav2vec2_asr_trainer(
 
     seed += 1
 
+    has_checkpoint = check_has_checkpoint(checkpoint_manager)
+
     model = load_base_model(
-        Wav2Vec2AsrModel, context, config, output_dir, gangs, checkpoint_manager
+        Wav2Vec2AsrModel,
+        context,
+        config.model,
+        config.trainer,
+        output_dir,
+        gangs,
+        has_checkpoint,
     )
 
     module = cast(Wav2Vec2AsrModel, model.module)
 
-    # If we start the training with an empty ASR model, use the weights of a
-    # pretrained wav2vec 2.0 model.
-    if model.is_empty_initialized:
+    # If we start the training with a newly initialized ASR model, use the
+    # weights of a pretrained wav2vec 2.0 model.
+    if model.newly_initialized:
         pt_model = load_reference_model(
             Wav2Vec2Model,
             context,
-            config.pretrained_model.name,
+            config.pretrained_model,
             gangs,
             config.trainer.dtype,
-            mp=config.trainer.mixed_precision is not None,
+            mp=config.trainer.mixed_precision != "off",
         )
 
         pt_module = cast(Wav2Vec2Model, pt_model.module)
@@ -265,33 +279,38 @@ def load_wav2vec2_asr_trainer(
         if gangs.dp.rank == 0:
             to_device(module, gangs.root.device)
 
-        gangs.root.barrier()
+        try:
+            gangs.root.barrier()
+        except GangError as ex:
+            raise RecipeError(
+                "The collective barrier after the pretrained model load operation has failed. See the nested exception for details."
+            ) from ex
 
     # We never train the feature extractor.
     freeze_parameters(module.encoder_frontend.feature_extractor)
 
-    prepare_model(context, config, model, gangs)
+    prepare_model(context, model, config.model, config.trainer)
 
     static_graph = config.trainer.freeze_encoder_for_n_steps == 0
 
-    model = setup_data_parallel_model(context, config, model, gangs, static_graph)
+    model = setup_data_parallel_model(
+        context, config.trainer, model, gangs, has_checkpoint, static_graph
+    )
 
     log_model(log, model.module, gangs)
 
-    optimizer = create_optimizer(context, config, model)
+    optimizer = create_optimizer(context, config.optimizer, model)
 
-    lr_scheduler = create_lr_scheduler(context, config, optimizer)
+    lr_scheduler = create_lr_scheduler(
+        context, config.lr_scheduler, config.regime, optimizer
+    )
 
-    dataset = load_dataset(AsrDataset, context, config, gangs)
+    dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
 
-    tokenizer = load_text_tokenizer(context, config)
+    tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the train unit.
-    criterion = AsrCriterion(model)
-
-    unit = Wav2Vec2AsrTrainUnit(
-        criterion, gangs.dp, config.trainer.freeze_encoder_for_n_steps
-    )
+    unit = Wav2Vec2AsrTrainUnit(model, config.trainer.freeze_encoder_for_n_steps)
 
     batching = LengthBatching(config.dataset.max_num_elements)
 
@@ -301,7 +320,7 @@ def load_wav2vec2_asr_trainer(
         normalize_audio=config.dataset.normalize_audio,
         example_shuffle_window=config.dataset.example_shuffle_window,
         batch_shuffle_window=config.dataset.batch_shuffle_window,
-        num_accumulate=config.trainer.gradient_accumulation,
+        num_accumulate=config.trainer.grad_accumulation.num_batches,
         num_prefetch=config.dataset.num_prefetch,
         seed=seed,
         extras=config.dataset.extras,
@@ -320,11 +339,9 @@ def load_wav2vec2_asr_trainer(
 
     # Initialize the validation unit.
     if config.dataset.valid_split is not None:
-        valid_scorer = AsrScorer(tokenizer)
+        scorer = AsrScorer(tokenizer)
 
-        valid_criterion = AsrCriterion(model, valid_scorer)
-
-        valid_unit = AsrEvalUnit(valid_criterion, gangs)
+        valid_unit = AsrEvalUnit(model, scorer)
 
         read_options = AsrReadOptions(
             batching=batching,
@@ -357,7 +374,9 @@ def load_wav2vec2_asr_trainer(
 
     return create_trainer(
         context,
-        config,
+        config.trainer,
+        config.regime,
+        config.common,
         output_dir,
         unit,
         data_reader,
@@ -368,68 +387,78 @@ def load_wav2vec2_asr_trainer(
         optimizer,
         lr_scheduler,
         seed,
+        hyper_params=config,
+        score_metric="wer",
     )
 
 
 @final
 class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
-    _module: Wav2Vec2AsrModel
-    _criterion: AsrCriterion
+    _model: Model
     _freeze_encoder_for_n_steps: int
-    _metric_bag: AsrMetricBag
+    _frozen: bool
 
-    def __init__(
-        self, criterion: AsrCriterion, gang: Gang, freeze_encoder_for_n_steps: int
-    ) -> None:
+    def __init__(self, model: Model, freeze_encoder_for_n_steps: int) -> None:
         """
         :param freeze_encoder_for_n_steps: The encoder will be frozen for this
             number of steps.
         """
-        module = criterion.model.base_module
+        self._model = model
 
-        if not isinstance(module, Wav2Vec2AsrModel):
-            raise TypeError(
-                f"`criterion.model.base_module` must be of type `{Wav2Vec2AsrModel}`, but is of type `{type(module)}` instead."
-            )
-
-        self._module = module
-        self._criterion = criterion
         self._freeze_encoder_for_n_steps = freeze_encoder_for_n_steps
 
-        self._metric_bag = AsrMetricBag(gang)
-
-    @override
-    def __call__(self, batch: Seq2SeqBatch) -> tuple[Tensor, int]:
-        return self._criterion(batch, self._metric_bag)
+        self._frozen = False
 
     @override
     def set_step_nr(self, step_nr: int) -> None:
-        module = self._module
+        base_module = cast(Wav2Vec2AsrModel, self._model.base_module)
 
         if step_nr <= self._freeze_encoder_for_n_steps:
+            if self._frozen:
+                return
+
             if step_nr == 1:
                 log.info("Freezing the encoder for the first {} steps.", self._freeze_encoder_for_n_steps)  # fmt: skip
 
-            freeze_parameters(module.encoder_frontend)
-            freeze_parameters(module.encoder)
+            freeze_parameters(base_module.encoder_frontend)
+            freeze_parameters(base_module.encoder)
 
-            if module.masker is not None:
-                freeze_parameters(module.masker)
+            if base_module.masker is not None:
+                freeze_parameters(base_module.masker)
+
+            self._frozen = True
         else:
+            if not self._frozen:
+                return
+
             if step_nr == self._freeze_encoder_for_n_steps + 1:
                 log.info("Unfreezing the encoder after step {}.", step_nr - 1)
 
-            freeze_parameters(module, False)
+            freeze_parameters(base_module, False)
 
             # We never train the feature extractor.
-            freeze_parameters(module.encoder_frontend.feature_extractor)
+            freeze_parameters(base_module.encoder_frontend.feature_extractor)
+
+            self._frozen = False
+
+    @override
+    def __call__(
+        self, batch: Seq2SeqBatch, metric_bag: MetricBag
+    ) -> tuple[Tensor, int]:
+        source_seqs, source_seqs_layout = batch.as_source_input()
+        target_seqs, target_seqs_layout = batch.as_target_input()
+
+        ctc_loss = self._model.module(
+            source_seqs, source_seqs_layout, target_seqs, target_seqs_layout
+        )
+
+        update_ctc_loss(metric_bag, ctc_loss, batch.batch_size)
+
+        update_asr_batch_metrics(metric_bag, batch)
+
+        return ctc_loss, batch.batch_size
 
     @property
     @override
     def model(self) -> Model:
-        return self._criterion.model
-
-    @property
-    @override
-    def metric_bag(self) -> AsrMetricBag:
-        return self._metric_bag
+        return self._model

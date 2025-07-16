@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Set
 from pathlib import Path
 from typing import Final, final
 
@@ -15,6 +15,8 @@ from typing_extensions import override
 from fairseq2.assets import AssetCard, AssetCardError
 from fairseq2.data import VocabularyInfo
 from fairseq2.data.text.tokenizers import (
+    TextTokenDecoder,
+    TextTokenEncoder,
     TextTokenizer,
     TextTokenizerLoadError,
     text_tokenizer_asset_card_error,
@@ -23,9 +25,9 @@ from fairseq2.data.text.tokenizers.sentencepiece import (
     SentencePieceDecoder,
     SentencePieceEncoder,
     SentencePieceModel,
-    vocab_info_from_sentencepiece,
+    get_sentencepiece_vocabulary_info,
 )
-from fairseq2.typing import Device
+from fairseq2.device import Device
 
 
 @final
@@ -33,37 +35,24 @@ class NllbTokenizer(TextTokenizer):
     """Represents an NLLB tokenizer."""
 
     _model: SentencePieceModel
-    _langs: set[str]
+    _langs: Set[str]
     _default_lang: str
     _vocab_info: VocabularyInfo
 
-    def __init__(self, path: Path, langs: Sequence[str], default_lang: str) -> None:
+    def __init__(
+        self, model: SentencePieceModel, langs: Set[str], default_lang: str
+    ) -> None:
         """
-        :param path:
-            The path to the SentencePiece model file.
-        :param langs:
-            The list of supported languages.
-        :param default_lang:
-            The fall-back language if no language is specified.
+        :param langs: The list of supported languages.
+        :param default_lang: The fall-back language if no language is specified.
         """
-        # Each language is represented by a `__lang__` control symbol.
-        control_symbols = [f"__{lang}__" for lang in langs]
+        self._model = model
 
-        # Internal control symbols that are not relevant for eval use.
-        control_symbols.extend(["<MINED_DATA>", "<MMT_BT_DATA>", "<SMT_BT_DATA>"])
-
-        # The SentencePiece model of NLLB is peculiar as it does not define a
-        # PAD symbol. We use an undocumented feature of our C++ API to insert
-        # it to the model at index 0.
-        control_symbols.append("<pad>@0")
-
-        self._model = SentencePieceModel(path, control_symbols)
-
-        self._langs = set(langs)
+        self._langs = langs
 
         self._default_lang = default_lang
 
-        self._vocab_info = vocab_info_from_sentencepiece(self._model)
+        self._vocab_info = get_sentencepiece_vocabulary_info(model)
 
     @override
     def create_encoder(
@@ -74,7 +63,7 @@ class NllbTokenizer(TextTokenizer):
         mode: str | None = None,
         device: Device | None = None,
         pin_memory: bool = False,
-    ) -> SentencePieceEncoder:
+    ) -> TextTokenEncoder:
         """Constructs a token encoder.
 
         :param task:
@@ -138,11 +127,11 @@ class NllbTokenizer(TextTokenizer):
     @override
     def create_raw_encoder(
         self, *, device: Device | None = None, pin_memory: bool = False
-    ) -> SentencePieceEncoder:
+    ) -> TextTokenEncoder:
         return SentencePieceEncoder(self._model, device=device, pin_memory=pin_memory)
 
     @override
-    def create_decoder(self) -> SentencePieceDecoder:
+    def create_decoder(self, *, skip_special_tokens: bool = False) -> TextTokenDecoder:
         return SentencePieceDecoder(self._model)
 
     @property
@@ -160,18 +149,27 @@ def load_nllb_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
     except AssetCardError as ex:
         raise text_tokenizer_asset_card_error(card.name) from ex
 
+    # Each language is represented by a `__lang__` control symbol.
+    control_symbols = [f"__{lang}__" for lang in langs]
+
+    # Internal control symbols that are not relevant for eval use.
+    control_symbols.extend(["<MINED_DATA>", "<MMT_BT_DATA>", "<SMT_BT_DATA>"])
+
+    # The SentencePiece model of NLLB is peculiar as it does not define a
+    # PAD symbol. We use an undocumented feature of our C++ API to insert
+    # it to the model at index 0.
+    control_symbols.append("<pad>@0")
+
+    try:
+        model = SentencePieceModel(path, control_symbols)
+    except (OSError, RuntimeError) as ex:
+        raise TextTokenizerLoadError(
+            card.name, f"The '{card.name}' text tokenizer model cannot be loaded. See the nested exception for details."  # fmt: skip
+        ) from ex
+
     try:
         default_lang = card.field("default_lang").as_(str)
     except AssetCardError as ex:
         raise text_tokenizer_asset_card_error(card.name) from ex
 
-    try:
-        return NllbTokenizer(path, langs, default_lang)
-    except ValueError as ex:
-        raise TextTokenizerLoadError(
-            card.name, f"The '{card.name}' asset card does not contain a valid text tokenizer configuration of the '{NLLB_TOKENIZER_FAMILY}' family. See the nested exception for details."  # fmt: skip
-        ) from ex
-    except RuntimeError as ex:
-        raise TextTokenizerLoadError(
-            card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
-        ) from ex
+    return NllbTokenizer(model, set(langs), default_lang)

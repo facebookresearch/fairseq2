@@ -10,12 +10,17 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping
 from typing import TypeVar, final
 
+import torch
 from typing_extensions import Self, override
 
 from fairseq2.data import DataPipeline, DataPipelineError
+from fairseq2.gang import Gang, GangError, all_sum
+from fairseq2.logging import log
+from fairseq2.utils.tensor import to_tensor
+
+# isort: split
+
 from fairseq2.datasets._config import DataReadOptions, SyncMode
-from fairseq2.datasets._utils import _min_num_batches, _sum_num_batches
-from fairseq2.gang import Gang, GangError
 
 BatchT_co = TypeVar("BatchT_co", covariant=True)
 
@@ -85,12 +90,17 @@ class DataPipelineReader(DataReader[BatchT]):
         pipeline: DataPipeline,
         gang: Gang,
         options: DataReadOptions,
+        *,
+        strict_state: bool = True,
     ) -> None:
         """
         :param name: The name of the dataset.
         :param pipeline: The data pipeline to iterate over.
         :param gang: The gang over which the underlying dataset is sharded.
         :param options: The read options.
+        :param strict_state: If ``True``, the entire state of the data pipeline
+            including shuffling and bucketing buffers will be included in the
+            state dictionary.
         """
         self._dataset_name = dataset_name
         self._split = split
@@ -99,6 +109,7 @@ class DataPipelineReader(DataReader[BatchT]):
         self._gang = gang
         self._options = options
         self._eod = False
+        self._strict_state = strict_state
 
     @override
     def __iter__(self) -> Self:
@@ -163,7 +174,7 @@ class DataPipelineReader(DataReader[BatchT]):
 
     @override
     def state_dict(self) -> dict[str, object]:
-        return self._pipeline.state_dict()
+        return self._pipeline.state_dict(strict=self._strict_state)
 
     @override
     def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
@@ -185,3 +196,32 @@ class DataPipelineReader(DataReader[BatchT]):
     @override
     def num_accumulate(self) -> int:
         return self._options.num_accumulate
+
+
+def _min_num_batches(num_batches: int, gang: Gang) -> int:
+    all_num_batches = torch.zeros((gang.size,), device=gang.device, dtype=torch.int64)
+
+    num_batches_pt = to_tensor([num_batches], device=gang.device)
+
+    gang.all_gather(all_num_batches, num_batches_pt)
+
+    min_num_batches = int(all_num_batches.min())
+    if min_num_batches != 0:
+        return min_num_batches
+
+    # If not all processes have reached end of data, report the ones that have
+    # reached for debugging purposes.
+    if log.is_enabled_for_debug() and all_num_batches.sum() > 0:
+        ranks = all_num_batches.bool().logical_not_().nonzero().squeeze(-1).tolist()
+
+        s = ", ".join(str(r) for r in ranks)
+
+        log.debug("End of data reached at rank(s) {}.", s)
+
+    return 0
+
+
+def _sum_num_batches(num_batches: int, gang: Gang) -> int:
+    total_num_batches = all_sum(gang, num_batches)
+
+    return int(total_num_batches)

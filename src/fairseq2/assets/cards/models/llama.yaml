@@ -75,10 +75,6 @@ use_v2_tokenizer: true
 
 name: llama3_instruct
 base: llama3
-model_config:
-  vocab_info:
-    _set_:
-      eos_idx: 128009  # EOT (end-of-turn)
 use_eot: true  # instruct tokenizer to use EOT instead of EOS
 
 ---
@@ -128,13 +124,6 @@ num_shards: 8
 
 ---
 
-name: llama3_3_70b_instruct
-base: llama3_instruct
-model_arch: llama3_1_70b
-num_shards: 8
-
----
-
 name: llama3_1_70b_instruct
 base: llama3_instruct
 model_arch: llama3_1_70b
@@ -163,3 +152,20 @@ model_arch: llama3_2_3b
 name: llama3_2_3b_instruct
 base: llama3_instruct
 model_arch: llama3_2_3b
+
+---
+
+name: llama3_3_70b_instruct
+base: llama3_instruct
+model_arch: llama3_1_70b
+num_shards: 8
+
+---
+
+name: r1_distilled_llama3_1_8b_instruct
+model_family: llama
+model_arch: llama3_1_8b
+checkpoint: "hg://deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+tokenizer: "hg://deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+tokenizer_family: llama
+use_v2_tokenizer: true

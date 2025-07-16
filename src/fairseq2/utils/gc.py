@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import gc
 from abc import ABC, abstractmethod
-from typing import final
+from typing import Any, final
 
-from typing_extensions import override
+from typing_extensions import Self, override
 
 from fairseq2.logging import log
 
@@ -21,6 +21,14 @@ class GarbageCollector(ABC):
 
     @abstractmethod
     def step(self) -> None: ...
+
+    def __enter__(self) -> Self:
+        self.enable()
+
+        return self
+
+    def __exit__(self, *ex: Any) -> None:
+        self.enable(False)
 
 
 @final
@@ -62,7 +70,7 @@ class CPythonGarbageCollector(GarbageCollector):
         self._step += 1
 
         if self._step == self._collect_every_n_step:
-            log.info("Running garbage collection for the oldest two generations.")  # fmt: skip
+            log.info("Running garbage collection.")
 
             gc.collect(generation=1)
 

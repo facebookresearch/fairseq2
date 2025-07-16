@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import final
 
+from fairseq2 import get_runtime_context
 from fairseq2.assets import (
     AssetCard,
     AssetCardError,
@@ -15,7 +16,10 @@ from fairseq2.assets import (
     AssetCardNotFoundError,
     AssetStore,
 )
-from fairseq2.context import get_runtime_context
+from fairseq2.registry import Provider
+
+# isort: split
+
 from fairseq2.data.text.tokenizers._error import (
     UnknownTextTokenizerError,
     UnknownTextTokenizerFamilyError,
@@ -24,7 +28,6 @@ from fairseq2.data.text.tokenizers._error import (
 from fairseq2.data.text.tokenizers._handler import TextTokenizerHandler
 from fairseq2.data.text.tokenizers._ref import resolve_text_tokenizer_reference
 from fairseq2.data.text.tokenizers._tokenizer import TextTokenizer
-from fairseq2.registry import Provider
 
 
 @final

@@ -6,13 +6,15 @@
 
 from __future__ import annotations
 
-import torch
 from torch import Tensor
 from torcheval.metrics import Max as MaxBase
 from torcheval.metrics import Mean as MeanBase
 from torcheval.metrics import Min as MinBase
 from torcheval.metrics import Sum as SumBase
 from typing_extensions import Self, override
+
+from fairseq2.device import CPU
+from fairseq2.utils.tensor import to_tensor
 
 
 class Min(MinBase):
@@ -21,7 +23,7 @@ class Min(MinBase):
     @override
     def update(self, input_: int | float | Tensor) -> Self:
         if isinstance(input_, (int, float)):
-            input_ = torch.tensor(input_)
+            input_ = to_tensor(input_, device=CPU)
 
         super().update(input_)
 
@@ -34,7 +36,7 @@ class Max(MaxBase):
     @override
     def update(self, input_: int | float | Tensor) -> Self:
         if isinstance(input_, (int, float)):
-            input_ = torch.tensor(input_)
+            input_ = to_tensor(input_, device=CPU)
 
         super().update(input_)
 
@@ -52,7 +54,7 @@ class Mean(MeanBase):
         weight: int | float | Tensor = 1.0,
     ) -> Self:
         if isinstance(input_, (int, float)):
-            input_ = torch.tensor(input_)
+            input_ = to_tensor(input_, device=CPU)
 
         super().update(input_, weight=weight)
 
@@ -70,7 +72,7 @@ class Sum(SumBase):
         weight: int | float | Tensor = 1.0,
     ) -> Self:
         if isinstance(input_, (int, float)):
-            input_ = torch.tensor(input_)
+            input_ = to_tensor(input_, device=CPU)
 
         super().update(input_, weight=weight)
 

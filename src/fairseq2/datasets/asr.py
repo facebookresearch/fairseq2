@@ -29,6 +29,7 @@ from fairseq2.data import (
 from fairseq2.data.audio import AudioDecoder
 from fairseq2.data.text import StrSplitter, read_text
 from fairseq2.data.text.tokenizers import TextTokenizer
+from fairseq2.data_type import DataType
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
@@ -37,14 +38,12 @@ from fairseq2.datasets import (
     DatasetHubAccessor,
     DatasetLoadError,
     LengthBatching,
+    Seq2SeqBatch,
     StaticBatching,
     UnknownSplitError,
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
-from fairseq2.models.seq2seq import Seq2SeqBatch
-from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import DataType
 
 
 @dataclass(kw_only=True)
@@ -132,6 +131,11 @@ class GenericAsrDataset(AsrDataset):
             raise DatasetLoadError(
                 name, f"The splits under the '{path}' directory of the '{name}' dataset cannot be determined. See the nested exception for details."  # fmt: skip
             ) from ex
+
+        if not splits:
+            raise DatasetLoadError(
+                name, f"The '{path}' directory of the '{name}' dataset does not contain any splits."  # fmt: skip
+            )
 
         return GenericAsrDataset(name, path, splits)
 
@@ -268,19 +272,15 @@ class GenericAsrDataset(AsrDataset):
             source_data = cast(SequenceData, example["audio"]["data"]["waveform"])
             target_data = cast(SequenceData, example["text"])
 
-            source_seqs, source_padding_mask = get_seqs_and_padding_mask(
-                source_data, gang.device
-            )
-            target_seqs, target_padding_mask = get_seqs_and_padding_mask(
-                target_data, gang.device
-            )
+            source_seqs, source_seq_lens = source_data["seqs"], source_data["seq_lens"]
+            target_seqs, target_seq_lens = target_data["seqs"], target_data["seq_lens"]
 
             return Seq2SeqBatch(
                 source_seqs,
-                source_padding_mask,
+                source_seq_lens,
                 target_seqs,
-                target_padding_mask,
-                example,
+                target_seq_lens,
+                example=example,
             )
 
         pipeline = builder.map(to_batch).and_return()
@@ -293,7 +293,7 @@ class GenericAsrDataset(AsrDataset):
         manifest_file = self._manifest_dir.joinpath(f"{split}.tsv")
 
         try:
-            with manifest_file.open() as fp:
+            with manifest_file.open(encoding="utf-8") as fp:
                 line = fp.readline().rstrip()
         except OSError as ex:
             raise DataReadError(

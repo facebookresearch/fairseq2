@@ -26,7 +26,22 @@ public:
     read_chunk() override;
 
     void
+    seek(std::size_t offset) override;
+
+    std::size_t
+    position() const override;
+
+    void
     reset() override;
+
+    void
+    record_position(tape &t) const override;
+
+    void
+    reload_position(tape &t) override;
+
+    bool
+    supports_seek() const noexcept override;
 
 private:
     memory_block block_;

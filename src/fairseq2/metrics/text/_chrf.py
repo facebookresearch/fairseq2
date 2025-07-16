@@ -15,7 +15,8 @@ from torch import Tensor
 from torcheval.metrics import Metric
 from typing_extensions import Self, override
 
-from fairseq2.typing import Device
+from fairseq2.device import Device
+from fairseq2.utils.tensor import to_tensor
 
 
 @final
@@ -50,7 +51,7 @@ class ChrfMetric(Metric[Tensor]):
         all_stats = chrf._extract_corpus_statistics(hyps, [refs])
 
         for stats in all_stats:
-            self.stats += torch.tensor(stats, device=self.device, dtype=torch.int64)
+            self.stats += to_tensor(stats, device=self.device, dtype=torch.int64)
 
         return self
 
@@ -61,7 +62,7 @@ class ChrfMetric(Metric[Tensor]):
 
         score_output = chrf._compute_score_from_stats(self.stats.tolist())
 
-        return torch.tensor(score_output.score, device=self.device)
+        return to_tensor(score_output.score, device=self.device)
 
     @override
     @torch.inference_mode()

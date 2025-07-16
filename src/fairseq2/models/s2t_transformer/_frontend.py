@@ -16,9 +16,7 @@ from typing_extensions import override
 from fairseq2.error import NotSupportedError
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.transformer import TransformerFrontend
-from fairseq2.nn import IncrementalStateBag, Linear, PositionEncoder, Projection
-from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import DataType, Device
+from fairseq2.nn import BatchLayout, IncrementalStateBag, PositionEncoder, Projection
 
 
 @final
@@ -37,11 +35,9 @@ class S2TTransformerFrontend(TransformerFrontend):
         model_dim: int,
         feature_extractor: SequenceFeatureExtractor | None,
         pos_encoder: PositionEncoder | None,
+        proj: Projection | None,
         *,
-        proj: bool = False,
         dropout_p: float = 0.0,
-        device: Device | None = None,
-        dtype: DataType | None = None,
     ) -> None:
         """
         :param model_dim:
@@ -51,76 +47,55 @@ class S2TTransformerFrontend(TransformerFrontend):
             extracted externally before being fed to the model.
         :param pos_encoder:
             The position encoder.
-        :param proj:
-            If ``True``, applies projection to extracted features before dropout
-            as described in Section 2 of
+        :param proj: The projection to extracted features before dropout as
+            described in Section 2 of
             :cite:t:`https://doi.org/10.48550/arxiv.2005.08100`.
         :param dropout_p:
             The dropout probability on extracted features.
         """
-        super().__init__(model_dim)
+        super().__init__()
 
-        if feature_extractor is not None:
-            if feature_extractor.feature_dim != model_dim:
-                raise ValueError(
-                    f"`feature_dim` of `feature_extractor` must be equal to `model_dim` ({model_dim}), but is {feature_extractor.feature_dim} instead."
-                )
-
-            self.feature_extractor = feature_extractor
-        else:
-            self.register_module("feature_extractor", None)
+        self.register_module("feature_extractor", feature_extractor)
 
         self.scale = math.sqrt(model_dim)
 
-        if pos_encoder is not None:
-            if pos_encoder.encoding_dim != model_dim:
-                raise ValueError(
-                    f"`encoding_dim` of `pos_encoder` must be equal to `model_dim` ({model_dim}), but is {pos_encoder.encoding_dim} instead."
-                )
+        self.register_module("pos_encoder", pos_encoder)
 
-            self.pos_encoder = pos_encoder
-        else:
-            self.register_module("pos_encoder", None)
-
-        if proj:
-            self.proj = Linear(
-                model_dim, model_dim, bias=True, device=device, dtype=dtype
-            )
-        else:
-            self.register_module("proj", None)
+        self.register_module("proj", proj)
 
         if dropout_p > 0.0:
-            self.dropout = Dropout(dropout_p)
+            dropout = Dropout(dropout_p)
         else:
-            self.register_module("dropout", None)
+            dropout = None
+
+        self.register_module("dropout", dropout)
 
     @override
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
+        seqs_layout: BatchLayout,
         *,
         state_bag: IncrementalStateBag | None = None,
-    ) -> tuple[Tensor, PaddingMask | None]:
+    ) -> tuple[Tensor, BatchLayout]:
         if state_bag is not None:
             raise NotSupportedError(
-                "`S2TTransformerFrontend` does not support incremental decoding."
+                f"`{S2TTransformerFrontend}` does not support incremental decoding."
             )
 
         if self.feature_extractor is not None:
-            features, padding_mask = self.feature_extractor(seqs, padding_mask)
-        else:
-            features = seqs
+            seqs, seqs_layout = self.feature_extractor(seqs, seqs_layout)
 
-        features = features * self.scale
+        if self.scale != 1.0:
+            seqs = seqs * self.scale
 
         if self.pos_encoder is not None:
-            features = self.pos_encoder(features, padding_mask)
+            seqs = self.pos_encoder(seqs, seqs_layout)
 
         if self.proj is not None:
-            features = self.proj(features)
+            seqs = self.proj(seqs)
 
         if self.dropout is not None:
-            features = self.dropout(features)
+            seqs = self.dropout(seqs)
 
-        return features, padding_mask
+        return seqs, seqs_layout

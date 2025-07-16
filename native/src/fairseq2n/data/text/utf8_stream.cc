@@ -12,6 +12,7 @@
 
 #include <iconv.h>
 
+#include "fairseq2n/exception.h"
 #include "fairseq2n/data/text/detail/utf.h"
 #include "fairseq2n/detail/error.h"
 #include "fairseq2n/detail/exception.h"
@@ -53,10 +54,10 @@ utf8_stream::read_chunk()
     if (is_utf8_)
         return std::exchange(encoded_chunk_, {});
 
-    ensure_iconv_initialized();
+    if (iconv_ == invalid_iconv_)
+        initialize_iconv();
 
-    // If iconv is initialized in this call, `is_utf8_` might be updated. Let's
-    // double check it.
+    // If we called `initialize_iconv()`, double check `is_utf8_`.
     if (is_utf8_)
         return std::exchange(encoded_chunk_, {});
 
@@ -64,9 +65,25 @@ utf8_stream::read_chunk()
 }
 
 void
+utf8_stream::seek(std::size_t)
+{
+    throw_<not_supported_error>(
+        "`utf8_stream` does not support `seek` operation.");
+}
+
+std::size_t
+utf8_stream::position() const
+{
+    return bytes_read_;
+}
+
+void
 utf8_stream::reset()
 {
-    inner_->reset();
+    if (iconv_ != invalid_iconv_)
+        reset_iconv();
+
+    bytes_read_ = 0;
 
     encoded_chunk_ = {};
 
@@ -74,7 +91,42 @@ utf8_stream::reset()
 
     is_eod_ = false;
 
-    reset_iconv();
+    inner_->reset();
+}
+
+void
+utf8_stream::record_position(tape &t) const
+{
+    t.record(bytes_read_);
+
+    inner_->record_position(t);
+}
+
+void
+utf8_stream::reload_position(tape &t)
+{
+    if (iconv_ == invalid_iconv_) {
+        if (!is_utf8_)
+            // Read the first chunk to initialize `iconv`.
+            read_chunk();
+    } else
+        reset_iconv();
+
+    bytes_read_ = t.read<std::size_t>();
+
+    encoded_chunk_ = {};
+
+    leftover_bits_ = {};
+
+    is_eod_ = false;
+
+    inner_->reload_position(t);
+}
+
+bool
+utf8_stream::supports_seek() const noexcept
+{
+    return false;
 }
 
 memory_block
@@ -157,6 +209,8 @@ utf8_stream::decode_encoded_chunk(writable_memory_span &output)
 
     std::size_t result = ::iconv(iconv_, &input_data, &input_left, &output_data, &output_left);
 
+    bytes_read_ += input_chars.size() - input_left;
+
     encoded_chunk_ = encoded_chunk_.share_last(input_left);
 
     output = output.last(output_left);
@@ -181,11 +235,8 @@ utf8_stream::decode_encoded_chunk(writable_memory_span &output)
 }
 
 void
-utf8_stream::ensure_iconv_initialized()
+utf8_stream::initialize_iconv()
 {
-    if (iconv_ != invalid_iconv_)
-        return;
-
     if (encoding_.empty()) {
         encoding_ = infer_bom_encoding(encoded_chunk_);
 
@@ -213,8 +264,7 @@ utf8_stream::ensure_iconv_initialized()
 inline void
 utf8_stream::reset_iconv() noexcept
 {
-    if (iconv_ != invalid_iconv_)
-        ::iconv(iconv_, nullptr, nullptr, nullptr, nullptr);
+    ::iconv(iconv_, nullptr, nullptr, nullptr, nullptr);
 }
 
 // NOLINTNEXTLINE(performance-no-int-to-ptr)

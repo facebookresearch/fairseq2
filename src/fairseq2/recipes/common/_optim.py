@@ -18,39 +18,34 @@ from fairseq2.optim.lr_scheduler import (
     NoopLR,
     UnknownLRSchedulerError,
 )
+from fairseq2.recipes import Model
 from fairseq2.recipes.config import (
     LRSchedulerSection,
     OptimizerSection,
     RegimeSection,
-    get_config_section,
 )
-from fairseq2.recipes.model import Model
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import StructureError
 
 
 def create_optimizer(
-    context: RuntimeContext, recipe_config: object, model: Model
+    context: RuntimeContext, optimizer_section: OptimizerSection, model: Model
 ) -> Optimizer:
     optimizer_handlers = context.get_registry(OptimizerHandler)
 
-    creator = OptimizerCreator(optimizer_handlers)
+    creator = _OptimizerCreator(optimizer_handlers)
 
-    return creator.create(recipe_config, model)
+    return creator.create(optimizer_section, model)
 
 
 @final
-class OptimizerCreator:
+class _OptimizerCreator:
     _optimizer_handlers: Provider[OptimizerHandler]
 
     def __init__(self, optimizer_handlers: Provider[OptimizerHandler]) -> None:
         self._optimizer_handlers = optimizer_handlers
 
-    def create(self, recipe_config: object, model: Model) -> Optimizer:
-        optimizer_section = get_config_section(
-            recipe_config, "optimizer", OptimizerSection
-        )
-
+    def create(self, optimizer_section: OptimizerSection, model: Model) -> Optimizer:
         try:
             handler = self._optimizer_handlers.get(optimizer_section.name)
         except LookupError:
@@ -67,27 +62,31 @@ class OptimizerCreator:
 
 
 def create_lr_scheduler(
-    context: RuntimeContext, recipe_config: object, optimizer: Optimizer
+    context: RuntimeContext,
+    lr_scheduler_section: LRSchedulerSection,
+    regime_section: RegimeSection,
+    optimizer: Optimizer,
 ) -> LRScheduler:
     lr_scheduler_handlers = context.get_registry(LRSchedulerHandler)
 
-    creator = LRSchedulerCreator(lr_scheduler_handlers)
+    creator = _LRSchedulerCreator(lr_scheduler_handlers)
 
-    return creator.create(recipe_config, optimizer)
+    return creator.create(lr_scheduler_section, regime_section, optimizer)
 
 
 @final
-class LRSchedulerCreator:
+class _LRSchedulerCreator:
     _lr_scheduler_handlers: Provider[LRSchedulerHandler]
 
     def __init__(self, lr_scheduler_handlers: Provider[LRSchedulerHandler]) -> None:
         self._lr_scheduler_handlers = lr_scheduler_handlers
 
-    def create(self, recipe_config: object, optimizer: Optimizer) -> LRScheduler:
-        lr_scheduler_section = get_config_section(
-            recipe_config, "lr_scheduler", LRSchedulerSection
-        )
-
+    def create(
+        self,
+        lr_scheduler_section: LRSchedulerSection,
+        regime_section: RegimeSection,
+        optimizer: Optimizer,
+    ) -> LRScheduler:
         if lr_scheduler_section.name is None:
             return NoopLR(optimizer)
 
@@ -95,8 +94,6 @@ class LRSchedulerCreator:
             handler = self._lr_scheduler_handlers.get(lr_scheduler_section.name)
         except LookupError:
             raise UnknownLRSchedulerError(lr_scheduler_section.name) from None
-
-        regime_section = get_config_section(recipe_config, "regime", RegimeSection)
 
         try:
             return handler.create(

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Set
 from pathlib import Path
 from typing import Final, final
 
@@ -14,6 +15,8 @@ from typing_extensions import override
 from fairseq2.assets import AssetCard, AssetCardError
 from fairseq2.data import VocabularyInfo
 from fairseq2.data.text.tokenizers import (
+    TextTokenDecoder,
+    TextTokenEncoder,
     TextTokenizer,
     TextTokenizerLoadError,
     text_tokenizer_asset_card_error,
@@ -22,9 +25,9 @@ from fairseq2.data.text.tokenizers.sentencepiece import (
     SentencePieceDecoder,
     SentencePieceEncoder,
     SentencePieceModel,
-    vocab_info_from_sentencepiece,
+    get_sentencepiece_vocabulary_info,
 )
-from fairseq2.typing import Device
+from fairseq2.device import Device
 
 
 @final
@@ -33,12 +36,16 @@ class S2TTransformerTokenizer(TextTokenizer):
 
     _model: SentencePieceModel
     _task: str
-    _target_langs: set[str]
+    _target_langs: Set[str]
     _default_target_lang: str
     _vocab_info: VocabularyInfo
 
     def __init__(
-        self, path: Path, task: str, target_langs: set[str], default_target_lang: str
+        self,
+        model: SentencePieceModel,
+        task: str,
+        target_langs: Set[str],
+        default_target_lang: str,
     ) -> None:
         """
         :param path:
@@ -56,13 +63,15 @@ class S2TTransformerTokenizer(TextTokenizer):
                 f"`task` must be 'transcripton' or 'translation', but is '{task}' instead."
             )
 
-        self._model = SentencePieceModel(path)
+        self._model = model
 
         self._task = task
+
         self._target_langs = target_langs
+
         self._default_target_lang = default_target_lang
 
-        self._vocab_info = vocab_info_from_sentencepiece(self._model)
+        self._vocab_info = get_sentencepiece_vocabulary_info(model)
 
     @override
     def create_encoder(
@@ -73,7 +82,7 @@ class S2TTransformerTokenizer(TextTokenizer):
         mode: str | None = None,
         device: Device | None = None,
         pin_memory: bool = False,
-    ) -> SentencePieceEncoder:
+    ) -> TextTokenEncoder:
         """Constructs a token encoder.
 
         :param task:
@@ -118,11 +127,11 @@ class S2TTransformerTokenizer(TextTokenizer):
     @override
     def create_raw_encoder(
         self, *, device: Device | None = None, pin_memory: bool = False
-    ) -> SentencePieceEncoder:
+    ) -> TextTokenEncoder:
         return SentencePieceEncoder(self._model, device=device, pin_memory=pin_memory)
 
     @override
-    def create_decoder(self) -> SentencePieceDecoder:
+    def create_decoder(self, *, skip_special_tokens: bool = False) -> TextTokenDecoder:
         return SentencePieceDecoder(self._model)
 
     @property
@@ -135,6 +144,13 @@ S2T_TRANSFORMER_TOKENIZER_FAMILY: Final = "s2t_transformer"
 
 
 def load_s2t_transformer_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
+    try:
+        model = SentencePieceModel(path)
+    except (OSError, RuntimeError) as ex:
+        raise TextTokenizerLoadError(
+            card.name, f"The '{card.name}' text tokenizer model cannot be loaded. See the nested exception for details."  # fmt: skip
+        ) from ex
+
     valid_tasks = {"translation", "transcription"}
 
     try:
@@ -147,15 +163,6 @@ def load_s2t_transformer_tokenizer(path: Path, card: AssetCard) -> TextTokenizer
     except AssetCardError as ex:
         raise text_tokenizer_asset_card_error(card.name) from ex
 
-    try:
-        return S2TTransformerTokenizer(
-            path, task, set(target_langs), default_target_lang=target_langs[0]
-        )
-    except ValueError as ex:
-        raise TextTokenizerLoadError(
-            card.name, f"The '{card.name}' asset card does not contain a valid text tokenizer configuration of the '{S2T_TRANSFORMER_TOKENIZER_FAMILY}' family. See the nested exception for details."  # fmt: skip
-        ) from ex
-    except RuntimeError as ex:
-        raise TextTokenizerLoadError(
-            card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
-        ) from ex
+    return S2TTransformerTokenizer(
+        model, task, set(target_langs), default_target_lang=target_langs[0]
+    )

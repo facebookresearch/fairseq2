@@ -10,11 +10,11 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import IO, TypeAlias, final
 
-import yaml
+from ruamel.yaml import YAML
+from ruamel.yaml.error import YAMLError
 from typing_extensions import override
-from yaml import YAMLError
 
-from fairseq2.utils.file import FileMode, FileSystem
+from fairseq2.file_system import FileMode, FileSystem
 
 
 class YamlLoader(ABC):
@@ -31,10 +31,13 @@ YamlError: TypeAlias = YAMLError
 
 
 @final
-class StandardYamlLoader(YamlLoader):
+class RuamelYamlLoader(YamlLoader):
+    _yaml: YAML
     _file_system: FileSystem
 
     def __init__(self, file_system: FileSystem) -> None:
+        self._yaml = YAML(typ="safe", pure=True)
+
         self._file_system = file_system
 
     @override
@@ -47,16 +50,22 @@ class StandardYamlLoader(YamlLoader):
             finally:
                 fp.close()
 
-        itr = yaml.safe_load_all(input_)
+        itr = self._yaml.load_all(input_)
 
         return list(itr)
 
 
 @final
-class StandardYamlDumper(YamlDumper):
+class RuamelYamlDumper(YamlDumper):
+    _yaml: YAML
     _file_system: FileSystem
 
     def __init__(self, file_system: FileSystem) -> None:
+        self._yaml = YAML(typ="safe", pure=True)
+
+        self._yaml.default_flow_style = False
+        self._yaml.sort_base_mapping_type_on_output = False  # type: ignore[assignment]
+
         self._file_system = file_system
 
     @override
@@ -69,8 +78,10 @@ class StandardYamlDumper(YamlDumper):
             finally:
                 fp.close()
         else:
-            yaml.safe_dump(obj, output, sort_keys=False)
+            self._yaml.dump(obj, output)
 
 
 def read_yaml(s: str) -> object:
-    return yaml.safe_load(s)
+    yaml = YAML(typ="safe", pure=True)
+
+    return yaml.load(s)

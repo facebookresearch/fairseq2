@@ -26,28 +26,33 @@ from fairseq2.datasets import (
     UnknownDatasetFamilyError,
     dataset_asset_card_error,
 )
-from fairseq2.error import ProgramError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
-from fairseq2.recipes.config import DatasetSection, get_config_section
-from fairseq2.recipes.error import DatasetPathNotFoundError
+from fairseq2.recipes import RecipeError
+from fairseq2.recipes.config import DatasetSection
 from fairseq2.registry import Provider
+
+# isort: split
+
+from fairseq2.recipes.common._error import DatasetPathNotFoundError
 
 DatasetT = TypeVar("DatasetT")
 
 
 def load_dataset(
-    kls: type[DatasetT], context: RuntimeContext, recipe_config: object, gangs: Gangs
+    kls: type[DatasetT],
+    context: RuntimeContext,
+    dataset_section: DatasetSection,
+    gangs: Gangs,
 ) -> DatasetT:
     dataset_handlers = context.get_registry(DatasetHandler)
 
     dataset_loader: DatasetLoader
 
-    dataset_section = get_config_section(recipe_config, "dataset", DatasetSection)
     if dataset_section.path is not None:
-        dataset_loader = PathBasedDatasetLoader(kls, dataset_handlers)
+        dataset_loader = _PathBasedDatasetLoader(kls, dataset_handlers)
     elif dataset_section.name is not None:
-        dataset_loader = CardBasedDatasetLoader(
+        dataset_loader = _CardBasedDatasetLoader(
             kls, context.asset_store, dataset_handlers
         )
     else:
@@ -56,9 +61,9 @@ def load_dataset(
         )
 
     try:
-        dataset = dataset_loader.load(recipe_config, gangs)
+        dataset = dataset_loader.load(dataset_section, gangs)
     except DatasetLoadError as ex:
-        raise ProgramError(
+        raise RecipeError(
             f"The '{ex.dataset_name}' dataset cannot be loaded. See the nested exception for details."
         ) from ex
 
@@ -67,11 +72,11 @@ def load_dataset(
 
 class DatasetLoader(ABC):
     @abstractmethod
-    def load(self, recipe_config: object, gangs: Gangs) -> object: ...
+    def load(self, dataset_section: DatasetSection, gangs: Gangs) -> object: ...
 
 
 @final
-class CardBasedDatasetLoader(DatasetLoader):
+class _CardBasedDatasetLoader(DatasetLoader):
     _kls: type[object]
     _asset_store: AssetStore
     _dataset_handlers: Provider[DatasetHandler]
@@ -87,12 +92,10 @@ class CardBasedDatasetLoader(DatasetLoader):
         self._dataset_handlers = dataset_handlers
 
     @override
-    def load(self, recipe_config: object, gangs: Gangs) -> object:
-        dataset_section = get_config_section(recipe_config, "dataset", DatasetSection)
-
+    def load(self, dataset_section: DatasetSection, gangs: Gangs) -> object:
         dataset_name = dataset_section.name
         if dataset_name is None:
-            raise ValueError("`recipe_config.dataset.name` must be specified.")
+            raise ValueError("`dataset_section.name` must be specified.")
 
         try:
             card = self._asset_store.retrieve_card(dataset_name)
@@ -124,7 +127,7 @@ class CardBasedDatasetLoader(DatasetLoader):
             gangs.root.barrier()
         except GangError as ex:
             raise DatasetLoadError(
-                dataset_name, f"The collective barrier after the load of the '{dataset_name}' dataset has failed. See the nested exception for details."  # fmt: skip
+                dataset_name, f"The collective barrier after the '{dataset_name}' dataset load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
         log.info("Dataset loaded.")
@@ -133,7 +136,7 @@ class CardBasedDatasetLoader(DatasetLoader):
 
 
 @final
-class PathBasedDatasetLoader(DatasetLoader):
+class _PathBasedDatasetLoader(DatasetLoader):
     _kls: type[object]
     _dataset_handlers: Provider[DatasetHandler]
 
@@ -144,16 +147,14 @@ class PathBasedDatasetLoader(DatasetLoader):
         self._dataset_handlers = dataset_handlers
 
     @override
-    def load(self, recipe_config: object, gangs: Gangs) -> object:
-        dataset_section = get_config_section(recipe_config, "dataset", DatasetSection)
-
+    def load(self, dataset_section: DatasetSection, gangs: Gangs) -> object:
         dataset_family = dataset_section.family
 
         data_path = dataset_section.path
         if data_path is None:
-            raise ValueError("`recipe.dataset.path` must be specified.")
+            raise ValueError("`dataset_section.path` must be specified.")
 
-        dataset_name = "custom"
+        dataset_name = data_path.name
 
         try:
             handler = self._dataset_handlers.get(dataset_family)
@@ -174,7 +175,7 @@ class PathBasedDatasetLoader(DatasetLoader):
             gangs.root.barrier()
         except GangError as ex:
             raise DatasetLoadError(
-                dataset_name, f"The collective barrier after the load of the '{dataset_name}' dataset has failed. See the nested exception for details."  # fmt: skip
+                dataset_name, f"The collective barrier after the '{dataset_name}' dataset load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
         log.info("Dataset loaded.")

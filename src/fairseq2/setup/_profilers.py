@@ -10,7 +10,7 @@ from fairseq2.context import RuntimeContext
 from fairseq2.profilers import ProfilerHandler, TorchProfilerHandler
 
 
-def register_profilers(context: RuntimeContext) -> None:
+def _register_profilers(context: RuntimeContext) -> None:
     registry = context.get_registry(ProfilerHandler)
 
     # PyTorch

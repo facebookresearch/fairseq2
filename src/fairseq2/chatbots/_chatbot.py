@@ -17,7 +17,8 @@ from typing_extensions import override
 from fairseq2.data.text.tokenizers import TextTokenDecoder
 from fairseq2.error import ContractError
 from fairseq2.generation import SequenceGenerator, SequenceGeneratorOutput
-from fairseq2.nn.padding import PaddingMask, pad_seqs
+from fairseq2.nn import BatchLayout
+from fairseq2.nn.utils.padding import pad_seqs
 
 
 @dataclass
@@ -101,8 +102,13 @@ class StandardChatbot(Chatbot):
     ) -> tuple[ChatMessage, SequenceGeneratorOutput]:
         dialog_seq = self._dialog_encoder.encode(dialog)
 
+        # (S) -> (1, S)
+        dialog_seqs = dialog_seq.unsqueeze(0)
+
+        dialog_seqs_layout = BatchLayout.of(dialog_seqs)
+
         responses, generator_output = self._generate_response(
-            dialog_seq.unsqueeze(0), dialog_padding_mask=None
+            dialog_seqs, dialog_seqs_layout
         )
 
         return responses[0], generator_output
@@ -119,7 +125,7 @@ class StandardChatbot(Chatbot):
             - The response messages of the bot.
             - The output of the underlying sequence generator.
         """
-        dialog_seq_list = []
+        dialog_seqs = []
 
         for idx, dialog in enumerate(dialogs):
             try:
@@ -129,16 +135,16 @@ class StandardChatbot(Chatbot):
                     "`dialogs[{idx}]` is not valid. See the nested exception for details."
                 ) from ex
 
-            dialog_seq_list.append(dialog_seq)
+            dialog_seqs.append(dialog_seq)
 
-        dialog_seqs, dialog_padding_mask = pad_seqs(dialog_seq_list)
+        dialog_seqs_pt, dialog_seqs_layout = pad_seqs(dialog_seqs)
 
-        return self._generate_response(dialog_seqs, dialog_padding_mask)
+        return self._generate_response(dialog_seqs_pt, dialog_seqs_layout)
 
     def _generate_response(
-        self, dialog_seqs: Tensor, dialog_padding_mask: PaddingMask | None
+        self, dialog_seqs: Tensor, dialog_seqs_layout: BatchLayout
     ) -> tuple[list[ChatMessage], SequenceGeneratorOutput]:
-        generator_output = self._generator(dialog_seqs, dialog_padding_mask)
+        generator_output = self._generator(dialog_seqs, dialog_seqs_layout)
 
         responses: list[ChatMessage] = []
 

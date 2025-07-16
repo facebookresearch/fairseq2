@@ -56,9 +56,6 @@ from fairseq2.generation._generator import GenerationCounters as GenerationCount
 from fairseq2.generation._generator import Hypothesis as Hypothesis
 from fairseq2.generation._generator import Seq2SeqGenerator as Seq2SeqGenerator
 from fairseq2.generation._generator import (
-    Seq2SeqGeneratorOutput as Seq2SeqGeneratorOutput,
-)
-from fairseq2.generation._generator import (
     SequenceGenerationError as SequenceGenerationError,
 )
 from fairseq2.generation._generator import SequenceGenerator as SequenceGenerator

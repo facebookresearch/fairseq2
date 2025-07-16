@@ -10,7 +10,7 @@ from fairseq2.cluster import ClusterHandler, SlurmClusterHandler
 from fairseq2.context import RuntimeContext
 
 
-def register_clusters(context: RuntimeContext) -> None:
+def _register_clusters(context: RuntimeContext) -> None:
     registry = context.get_registry(ClusterHandler)
 
     # Slurm

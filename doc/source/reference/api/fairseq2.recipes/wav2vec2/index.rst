@@ -17,8 +17,6 @@ Classes
 
 .. autoclass:: Wav2Vec2EvalConfig
 
-.. autoclass:: Wav2Vec2MetricBag
-
 .. autoclass:: Wav2Vec2Criterion
 
 

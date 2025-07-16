@@ -59,19 +59,6 @@ def model_asset_card_error(name: str) -> ModelLoadError:
     )
 
 
-class ShardedModelLoadError(ModelLoadError):
-    num_shards: int
-    tp_size: int
-
-    def __init__(self, model_name: str, num_shards: int, tp_size: int) -> None:
-        super().__init__(
-            model_name, f"The number of checkpoint shards of the '{model_name}' model is expected to match the tensor parallel size ({tp_size}), but is {num_shards} instead."  # fmt: skip
-        )
-
-        self.num_shards = num_shards
-        self.tp_size = tp_size
-
-
 class ModelConfigLoadError(Exception):
     model_name: str
 

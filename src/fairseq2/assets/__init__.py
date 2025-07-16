@@ -18,7 +18,14 @@ from fairseq2.assets._download_manager import (
     AssetDownloadManager as AssetDownloadManager,
 )
 from fairseq2.assets._download_manager import (
+    CompositeAssetDownloadManager as CompositeAssetDownloadManager,
+)
+from fairseq2.assets._download_manager import HuggingFaceHub as HuggingFaceHub
+from fairseq2.assets._download_manager import (
     InProcAssetDownloadManager as InProcAssetDownloadManager,
+)
+from fairseq2.assets._download_manager import (
+    NoopAssetDownloadManager as NoopAssetDownloadManager,
 )
 from fairseq2.assets._metadata_provider import (
     AssetMetadataFileLoader as AssetMetadataFileLoader,

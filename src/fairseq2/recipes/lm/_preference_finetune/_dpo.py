@@ -7,42 +7,37 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final, cast, final
+from typing import Final, final
 
 import torch
 import torch.distributed
 from torch import Tensor
-from torcheval.metrics import Mean
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
+from fairseq2.datasets import SequenceBatch
 from fairseq2.datasets.preference import PreferenceBatch
-from fairseq2.gang import Gang, Gangs
+from fairseq2.gang import Gangs
 from fairseq2.logging import log
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.sequence import (
-    SequenceBatch,
-    SequenceModelOutput,
-    as_auto_regressive_input,
-)
+from fairseq2.metrics import Mean, MetricBag
+from fairseq2.models.clm import CausalLM
 from fairseq2.nn.utils.module import freeze_parameters
+from fairseq2.recipes import Model, TrainUnit
 from fairseq2.recipes.common import setup_reference_model
-from fairseq2.recipes.config import (
-    ReferenceModelSection,
-    TrainerSection,
-    get_config_section,
-)
-from fairseq2.recipes.lm._preference_finetune._common import (
-    POCriterionSection,
-    POFinetuneMetricBag,
-    _gather_lprobs_avg,
-)
-from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import TrainUnit
-from fairseq2.typing import DataType
+from fairseq2.recipes.config import ReferenceModelSection
+from fairseq2.recipes.metrics import update_nll_loss, update_seq_batch_metrics
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+
+# isort: split
+
+from fairseq2.recipes.lm._preference_finetune._common import (
+    _gather_lprobs_avg,
+    update_logps_metrics,
+    update_sequence_length_metrics,
+)
+from fairseq2.recipes.lm._preference_finetune._config import POFinetuneConfig
+from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
 
 
 @final
@@ -54,14 +49,12 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
     _beta: float
     _nll_scale: float
     _nll_length_normalization: bool
-    _metric_bag: DpoFinetuneMetricBag
     _length_normalization: bool
 
     def __init__(
         self,
         model: Model,
         reference_model: Model | None,
-        gangs: Gangs,
         beta: float = 0.1,
         nll_scale: float = 1.0,
         nll_length_normalization: bool = True,
@@ -74,15 +67,16 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
         self._nll_length_normalization = nll_length_normalization
         self._length_normalization = length_normalization
 
-        self._metric_bag = DpoFinetuneMetricBag(gangs.dp)
-
     @override
-    def __call__(self, batch: PreferenceBatch) -> tuple[Tensor, int]:
+    def __call__(
+        self, batch: PreferenceBatch, metric_bag: MetricBag
+    ) -> tuple[Tensor, int]:
         chosen_batch = batch.chosen
-        chosen_input_batch, chosen_target_batch = as_auto_regressive_input(chosen_batch)
+        chosen_input_batch, chosen_target_batch = chosen_batch.as_auto_regressive()
+
         rejected_batch = batch.rejected
-        rejected_input_batch, rejected_target_batch = as_auto_regressive_input(
-            rejected_batch
+        rejected_input_batch, rejected_target_batch = (
+            rejected_batch.as_auto_regressive()
         )
         if (
             chosen_target_batch.target_mask is None
@@ -90,33 +84,45 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
         ):
             raise RuntimeError("target_mask attributes must exist for DPO loss")
 
-        chosen_output = cast(
-            SequenceModelOutput, self._model.module(chosen_input_batch)
-        )
-        rejected_output = cast(
-            SequenceModelOutput, self._model.module(rejected_input_batch)
+        chosen_seqs, chosen_seqs_layout = chosen_input_batch.as_input()
+
+        nll_loss, chosen_logits = self._model.module(
+            chosen_seqs,
+            chosen_seqs_layout,
+            targets=chosen_target_batch.seqs,
+            target_mask=chosen_target_batch.target_mask,
+            return_logits=True,
         )
 
+        rejected_seqs, rejected_seqs_layout = rejected_input_batch.as_input()
+
+        rejected_logits = self._model.module(rejected_seqs, rejected_seqs_layout)
+
         chosen_logps, average_chosen_logps = _gather_lprobs_avg(
-            chosen_output, chosen_target_batch
+            chosen_logits, chosen_target_batch
         )
         rejected_logps, average_rejected_logps = _gather_lprobs_avg(
-            rejected_output, rejected_target_batch
+            rejected_logits, rejected_target_batch
         )
 
         if self._reference_model is not None:
+            chosen_seqs, chosen_seqs_layout = chosen_batch.as_input()
+            rejected_seqs, rejected_seqs_layout = rejected_batch.as_input()
+
             with torch.no_grad():
-                ref_chosen_output = cast(
-                    SequenceModelOutput, self._reference_model.module(chosen_batch)
+                # TODO: fix!
+                ref_chosen_logits = self._reference_model.module(
+                    chosen_seqs, chosen_seqs_layout
                 )
-                ref_rejected_output = cast(
-                    SequenceModelOutput, self._reference_model.module(rejected_batch)
+                ref_rejected_logits = self._reference_model.module(
+                    rejected_seqs, rejected_seqs_layout
                 )
+
                 ref_chosen_logps, ref_average_chosen_logps = _gather_lprobs_avg(
-                    ref_chosen_output, chosen_target_batch
+                    ref_chosen_logits, chosen_target_batch
                 )
                 ref_rejected_logps, ref_average_rejected_logps = _gather_lprobs_avg(
-                    ref_rejected_output, rejected_target_batch
+                    ref_rejected_logits, rejected_target_batch
                 )
         elif (
             batch.reference_score_chosen is not None
@@ -148,19 +154,15 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
                 chosen_logps, ref_chosen_logps, rejected_logps, ref_rejected_logps
             )
 
-        nll_loss = chosen_output.compute_loss(
-            chosen_target_batch.seqs, loss_mask=chosen_target_batch.target_mask
-        )
+        update_dpo_loss(metric_bag, dpo_loss, batch)
 
-        self._metric_bag.update_dpo_loss(batch, dpo_loss)
+        update_nll_loss(metric_bag, nll_loss, chosen_batch.num_target_elements)
 
-        self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
+        update_sequence_length_metrics(metric_bag, batch)
 
-        self._metric_bag.update_sequence_lengths(batch)
+        update_logps_metrics(metric_bag, batch, chosen_logps, rejected_logps)
 
-        self._metric_bag.update_logps(batch, chosen_logps, rejected_logps)
-
-        self._metric_bag.update_batch_metrics(chosen_batch)
+        update_seq_batch_metrics(metric_bag, chosen_batch)
 
         if self._nll_length_normalization:
             nll_loss = (
@@ -177,10 +179,10 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
         return loss, chosen_target_batch.batch_size
 
     def _gather_lprobs(
-        self, output: SequenceModelOutput, target: SequenceBatch
+        self, logits: Tensor, target: SequenceBatch
     ) -> tuple[Tensor, Tensor]:
         assert target.target_mask is not None
-        logprobs = torch.log_softmax(output.logits, dim=-1)
+        logprobs = torch.log_softmax(logits, dim=-1)
         per_token_logps = torch.gather(logprobs, -1, target.seqs.unsqueeze(-1)).squeeze(
             -1
         )
@@ -209,34 +211,14 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
     def model(self) -> Model:
         return self._model
 
-    @property
-    @override
-    def metric_bag(self) -> DpoFinetuneMetricBag:
-        return self._metric_bag
 
-
-class DpoFinetuneMetricBag(POFinetuneMetricBag):
-    """Holds the metrics of a DPO preference finetuning task."""
-
-    dpo_loss: Mean
-
-    def __init__(self, gang: Gang) -> None:
-        super().__init__(gang)
-
-        self.register_metric("dpo_loss", Mean(device=gang.device), persistent=False)
-
-    @torch.inference_mode()
-    def update_dpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
-        """Update the DPO loss metric.
-
-        :param batch:
-            The batch processed by the model.
-        :param loss:
-            The DPO loss of ``batch``.
-        """
-        self.dpo_loss.update(
-            loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
-        )
+@torch.inference_mode()
+def update_dpo_loss(
+    metric_bag: MetricBag, loss: Tensor, batch: PreferenceBatch
+) -> None:
+    metric_bag.get(Mean, "dpo_loss").update(
+        loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
+    )
 
 
 DPO_FINETUNE_UNIT: Final = "dpo"
@@ -244,7 +226,7 @@ DPO_FINETUNE_UNIT: Final = "dpo"
 
 @dataclass(kw_only=True)
 class DpoFinetuneConfig:
-    reference_model: ReferenceModelSection = field(
+    reference_model: ReferenceModelSection | None = field(
         default_factory=lambda: ReferenceModelSection(name="llama3_1_8b_instruct")
     )
     """
@@ -252,9 +234,6 @@ class DpoFinetuneConfig:
     log-probabilities for chosen and rejected targets as float values in the
     data example (fields `reference_score_rejected` and  `reference_score_chosen`).
     """
-
-    reference_dtype: DataType = torch.bfloat16
-    """The data type of the reference model."""
 
     # Loss
     beta: float = 0.1
@@ -277,31 +256,22 @@ class DpoFinetuneUnitHandler(POFinetuneUnitHandler):
 
     @override
     def create(
-        self, model: Model, gangs: Gangs, recipe_config: object
+        self, model: Model, gangs: Gangs, recipe_config: POFinetuneConfig
     ) -> TrainUnit[PreferenceBatch]:
-        criterion_section = get_config_section(
-            recipe_config, "criterion", POCriterionSection
-        )
-
-        config = structure(criterion_section.config, DpoFinetuneConfig)
+        config = structure(recipe_config.criterion.config, DpoFinetuneConfig)
 
         validate(config)
 
         if config.reference_model is not None:
             log.info("Setting up DPO with reference model.")
 
-            trainer_section = get_config_section(
-                recipe_config, "trainer", TrainerSection
-            )
-
             reference_model = setup_reference_model(
-                DecoderModel,
+                CausalLM,
                 self._context,
-                config.reference_model.name,
+                config.reference_model,
                 gangs,
-                config.reference_dtype,
+                recipe_config.trainer.dtype,
                 mp=False,
-                torch_compile=trainer_section.torch_compile,
             )
 
             freeze_parameters(reference_model.module)
@@ -313,7 +283,6 @@ class DpoFinetuneUnitHandler(POFinetuneUnitHandler):
         return DpoFinetuneUnit(
             model,
             reference_model,
-            gangs,
             config.beta,
             config.nll_scale,
             config.length_normalization,

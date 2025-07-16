@@ -17,31 +17,34 @@ from fairseq2.profilers import (
     ProfilerHandler,
     UnknownProfilerError,
 )
-from fairseq2.recipes.config import CommonSection, get_config_section
+from fairseq2.recipes.config import CommonSection
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import StructureError
 
 
 def create_profiler(
-    context: RuntimeContext, recipe_config: object, gangs: Gangs, output_dir: Path
+    context: RuntimeContext,
+    common_section: CommonSection,
+    gangs: Gangs,
+    output_dir: Path,
 ) -> Profiler:
     profiler_handlers = context.get_registry(ProfilerHandler)
 
-    creator = ProfilerCreator(profiler_handlers)
+    creator = _ProfilerCreator(profiler_handlers)
 
-    return creator.create(recipe_config, gangs, output_dir)
+    return creator.create(common_section, gangs, output_dir)
 
 
 @final
-class ProfilerCreator:
+class _ProfilerCreator:
     _profiler_handlers: Provider[ProfilerHandler]
 
     def __init__(self, profiler_handlers: Provider[ProfilerHandler]) -> None:
         self._profiler_handlers = profiler_handlers
 
-    def create(self, recipe_config: object, gangs: Gangs, output_dir: Path) -> Profiler:
-        common_section = get_config_section(recipe_config, "common", CommonSection)
-
+    def create(
+        self, common_section: CommonSection, gangs: Gangs, output_dir: Path
+    ) -> Profiler:
         profilers = []
 
         for profiler_name, profiler_config in common_section.profilers.items():

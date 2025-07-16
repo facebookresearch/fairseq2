@@ -13,7 +13,7 @@ from rich.console import Console
 
 from fairseq2.cli.utils.rich import set_console
 from fairseq2.context import RuntimeContext
-from fairseq2.error import AlreadyExistsError, InvalidOperationError, ProgramError
+from fairseq2.error import AlreadyExistsError, InvalidOperationError
 from fairseq2.logging import log
 
 
@@ -121,14 +121,14 @@ class Cli:
 
         try:
             return args.command.run(context, args)  # type: ignore[no-any-return]
+        except CliCommandError:
+            log.exception("Command failed. See the logged stack trace for details.")
+
+            return 1
         except CliArgumentError as ex:
             log.error(str(ex), ex=ex.__cause__)
 
             return 2
-        except ProgramError:
-            log.exception("Command failed. See logged stack trace for details.")
-
-            return 1
         except Exception as ex:
             if type(ex) in self._user_error_types:
                 log.error(str(ex))
@@ -390,6 +390,10 @@ class CliCommandHandler(ABC):
         self, context: RuntimeContext, parser: ArgumentParser, args: Namespace
     ) -> int:
         """Run the command."""
+
+
+class CliCommandError(Exception):
+    pass
 
 
 class CliArgumentError(Exception):

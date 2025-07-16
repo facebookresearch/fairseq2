@@ -7,18 +7,29 @@
 from __future__ import annotations
 
 import math
-from functools import partial
 
 import torch
+import torch.nn as nn
 from torch import Tensor
 
-from fairseq2.models.llama._config import LLaMAConfig, LLaMARopeScalingConfig
 from fairseq2.models.transformer import (
+    CausalAttentionBias,
+    FeedForwardNetwork,
+    GLUFeedForwardNetwork,
+    MultiheadAttention,
+    StandardMultiheadAttention,
     TransformerEmbeddingFrontend,
     TransformerFrontend,
-    init_final_projection,
+    TransformerNormOrder,
+    create_default_sdpa,
 )
-from fairseq2.models.transformer_decoder import TransformerDecoderModel
+from fairseq2.models.transformer_lm import (
+    StandardTransformerLMDecoder,
+    StandardTransformerLMDecoderLayer,
+    TransformerLM,
+    TransformerLMDecoder,
+    TransformerLMDecoderLayer,
+)
 from fairseq2.nn import (
     Embedding,
     LayerNorm,
@@ -28,23 +39,16 @@ from fairseq2.nn import (
     RMSNorm,
     RotaryEncoder,
     StandardEmbedding,
+    TiedProjection,
 )
-from fairseq2.nn.transformer import (
-    FeedForwardNetwork,
-    GLUFeedForwardNetwork,
-    MultiheadAttention,
-    StandardMultiheadAttention,
-    StandardTransformerDecoder,
-    StandardTransformerDecoderLayer,
-    TransformerDecoder,
-    TransformerDecoderLayer,
-    TransformerNormOrder,
-    create_default_sdpa,
-)
-from fairseq2.typing import DataType, Device
+from fairseq2.utils.tensor import to_tensor
+
+# isort: split
+
+from fairseq2.models.llama._config import LLaMAConfig, LLaMARoPEScaleConfig
 
 
-def create_llama_model(config: LLaMAConfig) -> TransformerDecoderModel:
+def create_llama_model(config: LLaMAConfig) -> TransformerLM:
     return LLaMAFactory(config).create_model()
 
 
@@ -54,106 +58,157 @@ class LLaMAFactory:
     def __init__(self, config: LLaMAConfig) -> None:
         self._config = config
 
-    def create_model(self) -> TransformerDecoderModel:
-        config = self._config
-
-        decoder_frontend = self.create_decoder_frontend()
-
-        decoder = self.create_decoder()
-
-        final_proj = self.create_final_proj()
-
-        return TransformerDecoderModel(
-            decoder_frontend,
-            decoder,
-            final_proj,
-            max_seq_len=config.max_seq_len,
-            vocab_info=config.vocab_info,
-        )
-
-    def create_decoder_frontend(self) -> TransformerFrontend:
+    def create_model(self) -> TransformerLM:
         config = self._config
 
         embed = self.create_embedding()
 
-        return TransformerEmbeddingFrontend(
-            embed, pos_encoder=None, no_scale=True, dropout_p=config.dropout_p
+        decoder_frontend = self.create_decoder_frontend(embed)
+
+        decoder = self.create_decoder()
+
+        final_proj = self.create_final_projection(embed)
+
+        return TransformerLM(
+            config.model_dim,
+            decoder_frontend,
+            decoder,
+            final_proj,
+            config.pad_idx,
+            config.max_seq_len,
         )
 
     def create_embedding(self) -> Embedding:
         config = self._config
 
+        init_std = config.init_std
+
+        def init_embed(embed: StandardEmbedding) -> None:
+            embed_dim = embed.weight.shape[1]
+
+            std = init_std or (embed_dim**-0.5)
+
+            _init_truncated_normal(embed.weight, bias=None, std=std)
+
         return StandardEmbedding(
-            num_embeddings=config.vocab_info.size, embedding_dim=config.model_dim
+            config.vocab_size, config.model_dim, config.pad_idx, init_fn=init_embed
         )
 
-    def create_decoder(self) -> TransformerDecoder:
+    def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
+        config = self._config
+
+        return TransformerEmbeddingFrontend(
+            config.model_dim,
+            embed,
+            pos_encoder=None,
+            no_scale=True,
+            dropout_p=config.dropout_p,
+        )
+
+    def create_decoder(self) -> TransformerLMDecoder:
         config = self._config
 
         pos_encoder = self.create_position_encoder()
 
         layers = []
 
-        for _ in range(config.num_layers):
-            layer = self.create_decoder_layer(pos_encoder)
+        for idx in range(config.num_layers):
+            layer = self.create_decoder_layer(idx, pos_encoder)
 
             layers.append(layer)
 
-        return StandardTransformerDecoder(
-            layers,
-            dropout_p=config.dropout_p,
-            norm_order=TransformerNormOrder.PRE,
-            layer_norm_factory=self.create_layer_norm,
-        )
+        layer_norm = self.create_layer_norm()
+
+        return StandardTransformerLMDecoder(layers, layer_norm)
 
     def create_position_encoder(self) -> PositionEncoder:
         config = self._config
 
         if config.use_scaled_rope:
-            freqs_init_fn = partial(
-                init_llama_scaled_freqs, rope_scaling=config.rope_scaling
-            )
+            rope_scale = config.rope_scale
+
+            def init_rope_freqs(pos_encoder: RotaryEncoder) -> Tensor:
+                return init_llama_rope_freqs(pos_encoder, rope_scale)
+
+            freqs_init_fn = init_rope_freqs
         else:
             freqs_init_fn = None
 
+        encoding_dim = config.model_dim // config.num_attn_heads
+
         return RotaryEncoder(
-            config.model_dim // config.num_attn_heads,
+            encoding_dim,
             config.max_seq_len,
             theta=config.rope_theta,
             freqs_init_fn=freqs_init_fn,
         )
 
     def create_decoder_layer(
-        self, pos_encoder: PositionEncoder
-    ) -> TransformerDecoderLayer:
-        self_attn = self.create_attention(pos_encoder)
-
-        ffn = self.create_ffn()
-
-        return StandardTransformerDecoderLayer(
-            self_attn,
-            encoder_decoder_attn=None,
-            ffn=ffn,
-            norm_order=TransformerNormOrder.PRE,
-            layer_norm_factory=self.create_layer_norm,
-        )
-
-    def create_attention(self, pos_encoder: PositionEncoder) -> MultiheadAttention:
+        self, layer_idx: int, pos_encoder: PositionEncoder
+    ) -> TransformerLMDecoderLayer:
         config = self._config
 
-        sdpa = create_default_sdpa(attn_dropout_p=config.dropout_p)
+        self_attn = self.create_self_attention(layer_idx, pos_encoder)
+
+        self_attn_layer_norm = self.create_layer_norm()
+
+        ffn = self.create_ffn(layer_idx)
+
+        ffn_layer_norm = self.create_layer_norm()
+
+        return StandardTransformerLMDecoderLayer(
+            self_attn,
+            self_attn_layer_norm,
+            ffn,
+            ffn_layer_norm,
+            norm_order=TransformerNormOrder.PRE,
+            dropout_p=config.dropout_p,
+        )
+
+    def create_self_attention(
+        self, layer_idx: int, pos_encoder: PositionEncoder
+    ) -> MultiheadAttention:
+        config = self._config
+
+        attn_bias = CausalAttentionBias()
+
+        sdpa = create_default_sdpa(attn_bias)
+
+        init_std = config.init_std
+
+        std_scale_factor = self.get_std_scale_factor(layer_idx)
+
+        def init_projection(proj: Linear) -> None:
+            input_dim = proj.weight.shape[1]
+
+            std = init_std or (input_dim**-0.5)
+
+            _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
 
         return StandardMultiheadAttention(
             config.model_dim,
             config.num_attn_heads,
+            sdpa,
             num_key_value_heads=config.num_key_value_heads,
-            sdpa=sdpa,
+            qkv_proj_init_fn=init_projection,
             pos_encoder=pos_encoder,
+            output_proj_init_fn=init_projection,
             bias=False,
         )
 
-    def create_ffn(self) -> FeedForwardNetwork:
+    def create_ffn(self, layer_idx: int) -> FeedForwardNetwork:
         config = self._config
+
+        init_std = config.init_std
+
+        std_scale_factor = self.get_std_scale_factor(layer_idx)
+
+        def init_projection(proj: Linear) -> None:
+            input_dim = proj.weight.shape[1]
+
+            std = init_std or (input_dim**-0.5)
+
+            _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
 
         ffn_inner_dim = int(config.ffn_inner_dim * config.ffn_inner_dim_multiplier)
 
@@ -162,29 +217,68 @@ class LLaMAFactory:
             ffn_inner_dim,
             bias=False,
             inner_dim_scale=config.ffn_inner_dim_scale,
-            inner_dim_to_multiple=config.ffn_inner_dim_to_multiple,
-            inner_dropout_p=config.dropout_p,
+            inner_dim_to_multiple=config.ffn_inner_dim_multiple_of,
+            proj_init_fn=init_projection,
         )
 
-    def create_final_proj(self) -> Projection:
+    def create_final_projection(self, embed: Embedding) -> Projection:
         config = self._config
 
+        if config.tied_embeddings:
+            if not isinstance(embed, StandardEmbedding):
+                raise TypeError(
+                    f"`embed` must be of type `{StandardEmbedding}` when `config.tied_embeddings` is `True`, but is of type `{type(embed)}` instead."
+                )
+
+            return TiedProjection(embed.weight, bias=None)
+
+        init_std = config.init_std
+
+        def init_projection(proj: Linear) -> None:
+            input_dim = proj.weight.shape[1]
+
+            std = init_std or (input_dim**-0.5)
+
+            _init_truncated_normal(proj.weight, proj.bias, std=std)
+
         return Linear(
-            config.model_dim,
-            config.vocab_info.size,
-            bias=False,
-            init_fn=init_final_projection,
+            config.model_dim, config.vocab_size, bias=False, init_fn=init_projection
         )
 
-    @staticmethod
-    def create_layer_norm(
-        model_dim: int, *, device: Device | None = None, dtype: DataType | None = None
-    ) -> LayerNorm:
-        return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
+    def create_layer_norm(self) -> LayerNorm:
+        config = self._config
+
+        return RMSNorm(config.model_dim, bias=False)
+
+    def get_std_scale_factor(self, layer_idx: int) -> float:
+        config = self._config
+
+        match config.init_std_scale:
+            case "layer":
+                n = layer_idx
+            case "stack":
+                n = config.num_layers
+            case "none":
+                return 1.0
+            case _:
+                raise ValueError(
+                    f"`config.init_std_scale` must be 'none', 'layer', or 'stack', but is '{config.init_std_scale}' instead."
+                )
+
+        return (2 * (n + 1)) ** 0.5  # type: ignore[no-any-return]
 
 
-def init_llama_scaled_freqs(
-    pos_encoder: RotaryEncoder, rope_scaling: LLaMARopeScalingConfig
+def _init_truncated_normal(
+    weight: Tensor, bias: Tensor | None, *, std: float = 1.0
+) -> None:
+    nn.init.trunc_normal_(weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
+
+    if bias is not None:
+        nn.init.zeros_(bias)
+
+
+def init_llama_rope_freqs(
+    pos_encoder: RotaryEncoder, rope_scale: LLaMARoPEScaleConfig
 ) -> Tensor:
     device = pos_encoder.freqs.device
 
@@ -198,11 +292,11 @@ def init_llama_scaled_freqs(
     if device.type == "meta":
         return freqs  # type: ignore[no-any-return]
 
-    old_context_len = rope_scaling.original_context_length
+    old_context_len = rope_scale.original_context_length
 
-    scale_factor = rope_scaling.factor
+    scale_factor = rope_scale.factor
 
-    l_freq_factor, h_freq_factor = rope_scaling.frequency_factors
+    l_freq_factor, h_freq_factor = rope_scale.frequency_factors
 
     l_freq_wavelen = old_context_len / l_freq_factor
     h_freq_wavelen = old_context_len / h_freq_factor
@@ -226,4 +320,4 @@ def init_llama_scaled_freqs(
 
         new_freqs.append((1 - smooth) * freq / scale_factor + smooth * freq)
 
-    return torch.tensor(new_freqs, dtype=freqs.dtype, device=device)
+    return to_tensor(new_freqs, dtype=freqs.dtype, device=device)

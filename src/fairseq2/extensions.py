@@ -14,7 +14,9 @@ from importlib_metadata import entry_points
 from fairseq2.logging import log
 
 
-def run_extensions(extension_name: str, *args: Any, **kwargs: Any) -> None:
+def run_extensions(
+    extension_name: str, signature: str, *args: Any, **kwargs: Any
+) -> None:
     should_trace = "FAIRSEQ2_EXTENSION_TRACE" in os.environ
 
     for entry_point in entry_points(group=extension_name):
@@ -30,14 +32,14 @@ def run_extensions(extension_name: str, *args: Any, **kwargs: Any) -> None:
 
             if should_trace:
                 raise ExtensionError(
-                    entry_point.value, f"The '{entry_point.value}' entry point is not a valid extension function."  # fmt: skip
+                    entry_point.value, f"The '{entry_point.value}' entry point cannot be run as an extension function since its signature does not match `{signature}`."  # fmt: skip
                 ) from None
 
             log.warning("'{}' entry point is not a valid extension function. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value)  # fmt: skip
         except Exception as ex:
             if should_trace:
                 raise ExtensionError(
-                    entry_point.value, f"'{entry_point.value}' extension function failed. See the nested exception for details."  # fmt: skip
+                    entry_point.value, f"'{entry_point.value}' extension function has failed. See the nested exception for details."  # fmt: skip
                 ) from ex
 
             log.warning("'{}' extension function failed. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value)  # fmt: skip

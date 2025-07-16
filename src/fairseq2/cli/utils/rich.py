@@ -23,9 +23,7 @@ from rich.progress import (
 from rich.text import Text
 from typing_extensions import Self, override
 
-from fairseq2.context import RuntimeContext
-from fairseq2.recipes.utils.progress import ProgressReporter, ProgressTask
-from fairseq2.utils.env import get_rank
+from fairseq2.utils.progress import ProgressReporter, ProgressTask
 
 _console: Console | None = None
 
@@ -80,9 +78,11 @@ class RichProgressReporter(ProgressReporter):
 
     @override
     def create_task(
-        self, name: str, total: int | None, completed: int = 0
+        self, name: str, total: int | None, completed: int = 0, *, start: bool = True
     ) -> ProgressTask:
-        task_id = self._progress.add_task(name, total=total, completed=completed)
+        task_id = self._progress.add_task(
+            name, start=start, total=total, completed=completed
+        )
 
         return RichProgressTask(self._progress, task_id)
 
@@ -107,7 +107,11 @@ class RichProgressTask(ProgressTask):
         self._task_id = task_id
 
     @override
-    def step(self, value: int) -> None:
+    def start(self) -> None:
+        self._progress.start_task(self._task_id)
+
+    @override
+    def step(self, value: int = 1) -> None:
         self._progress.update(self._task_id, advance=value)
 
     @override
@@ -119,6 +123,9 @@ class BasicMofNCompleteColumn(ProgressColumn):
     @override
     def render(self, task: Task) -> Text:
         if task.total is None:
+            if not task.started:
+                return Text()
+
             s = f"{task.completed:5d}"
         else:
             s = f"{task.completed:5d}/{task.total}"
@@ -126,9 +133,7 @@ class BasicMofNCompleteColumn(ProgressColumn):
         return Text(s, style="progress.download")
 
 
-def create_rich_progress_reporter(context: RuntimeContext) -> ProgressReporter:
+def create_rich_progress_reporter(rank: int) -> ProgressReporter:
     console = get_error_console()
-
-    rank = get_rank(context.env)
 
     return RichProgressReporter(console, rank)

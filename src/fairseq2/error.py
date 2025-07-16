@@ -25,11 +25,3 @@ class AlreadyExistsError(Exception):
 
 class NotSupportedError(Exception):
     pass
-
-
-class ProgramError(Exception):
-    pass
-
-
-class SetupError(Exception):
-    pass

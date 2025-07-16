@@ -6,12 +6,12 @@
 
 from __future__ import annotations
 
-from fairseq2.device import (
+from fairseq2.gang import Gangs
+from fairseq2.utils.device_stat import (
     CudaDeviceStatTracker,
     DeviceStatTracker,
     NoopDeviceStatTracker,
 )
-from fairseq2.gang import Gangs
 
 
 def create_device_stat_tracker(gangs: Gangs) -> DeviceStatTracker:

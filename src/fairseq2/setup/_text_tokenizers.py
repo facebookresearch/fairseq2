@@ -10,7 +10,7 @@ from typing import final
 
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import (
-    StandardTextTokenizerHandler,
+    DelegatingTextTokenizerHandler,
     TextTokenizerHandler,
     TextTokenizerLoader,
 )
@@ -30,6 +30,10 @@ from fairseq2.data.text.tokenizers.nllb import (
     NLLB_TOKENIZER_FAMILY,
     load_nllb_tokenizer,
 )
+from fairseq2.data.text.tokenizers.qwen import (
+    QWEN_TOKENIZER_FAMILY,
+    load_qwen_tokenizer,
+)
 from fairseq2.data.text.tokenizers.s2t_transformer import (
     S2T_TRANSFORMER_TOKENIZER_FAMILY,
     load_s2t_transformer_tokenizer,
@@ -37,7 +41,7 @@ from fairseq2.data.text.tokenizers.s2t_transformer import (
 from fairseq2.registry import Registry
 
 
-def register_text_tokenizer_families(context: RuntimeContext) -> None:
+def _register_text_tokenizer_families(context: RuntimeContext) -> None:
     # fmt: off
     registrar = TextTokenizerRegistrar(context)
 
@@ -61,11 +65,15 @@ def register_text_tokenizer_families(context: RuntimeContext) -> None:
         MISTRAL_TOKENIZER_FAMILY, load_mistral_tokenizer
     )
 
+    # Qwen
+    registrar.register_family(
+        QWEN_TOKENIZER_FAMILY, load_qwen_tokenizer
+    )
+
     # S2T Transformer
     registrar.register_family(
         S2T_TRANSFORMER_TOKENIZER_FAMILY, load_s2t_transformer_tokenizer
     )
-
     # fmt: on
 
 
@@ -82,6 +90,6 @@ class TextTokenizerRegistrar:
     def register_family(self, family: str, loader: TextTokenizerLoader) -> None:
         asset_download_manager = self._context.asset_download_manager
 
-        handler = StandardTextTokenizerHandler(family, loader, asset_download_manager)
+        handler = DelegatingTextTokenizerHandler(family, loader, asset_download_manager)
 
         self._registry.register(handler.family, handler)

@@ -9,8 +9,11 @@ from __future__ import annotations
 import torch
 from torch import Tensor
 
+from fairseq2.models.utils.checkpoint import convert_checkpoint
+
+# isort: split
+
 from fairseq2.models.jepa._config import JepaConfig
-from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
 def convert_jepa_checkpoint(
@@ -83,6 +86,4 @@ def _convert_jepa_encoder_checkpoint(
         # fmt: on
     }
 
-    checkpoint = convert_model_state_dict(new_checkpoint, key_map)
-
-    return {"model": checkpoint}
+    return convert_checkpoint(new_checkpoint, key_map)

@@ -33,9 +33,8 @@ warn_unused_ignores = false
 module = "torch.distributed.*,torch.optim.*"
 implicit_reexport = true
 
-# TODO: fix!
 [[tool.mypy.overrides]]
-module = "fairseq2.data.parquet.tools,tests.integration.parquet.*"
+module = "fairseq2.data.parquet.*,tests.unit.data.parquet.*,tests.integration.parquet.*"
 ignore_errors = true
 
 [tool.pytest.ini_options]

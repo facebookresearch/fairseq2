@@ -42,6 +42,12 @@ public:
     void
     reset();
 
+    void
+    record_position(tape &t) const;
+
+    void
+    reload_position(tape &);
+
 private:
     bool
     load_next_record();
@@ -62,6 +68,8 @@ private:
     std::unique_ptr<byte_stream> stream_;
     memory_block current_chunk_{};
     std::vector<memory_block> previous_chunks_{};
+    std::size_t stream_offset_ = 0;
+    std::size_t chunk_offset_ = 0;
     std::size_t record_len_ = 0;
     std::size_t record_end_offset_ = 0;
 };

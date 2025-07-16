@@ -18,12 +18,7 @@ from fairseq2.models.w2vbert._factory import W2VBertFactory as W2VBertFactory
 from fairseq2.models.w2vbert._factory import (
     create_w2vbert_model as create_w2vbert_model,
 )
+from fairseq2.models.w2vbert._hub import get_w2vbert_model_hub as get_w2vbert_model_hub
 from fairseq2.models.w2vbert._model import W2VBertLoss as W2VBertLoss
 from fairseq2.models.w2vbert._model import W2VBertModel as W2VBertModel
 from fairseq2.models.w2vbert._model import W2VBertOutput as W2VBertOutput
-
-# isort: split
-
-from fairseq2.models import ModelHubAccessor
-
-get_w2vbert_model_hub = ModelHubAccessor(W2VBertModel, W2VBertConfig)
