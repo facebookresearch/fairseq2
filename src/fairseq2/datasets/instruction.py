@@ -26,7 +26,7 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.data.text.tokenizers import TextTokenizer
-from fairseq2.data.text.tokenizers.hg import HuggingFaceTokenModel
+from fairseq2.data.text.tokenizers.hg import HuggingFaceTokenEncoder
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
@@ -41,8 +41,6 @@ from fairseq2.datasets import (
 from fairseq2.datasets.utils._manifest import _load_files_and_weights
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
-
-from fairseq2.data.text.tokenizers.hg import HuggingFaceTokenEncoder
 
 
 @dataclass(kw_only=True)

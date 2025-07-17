@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, final, Union, Any
+from typing import TYPE_CHECKING, Any, final
 
 import torch
 from torch import Tensor
