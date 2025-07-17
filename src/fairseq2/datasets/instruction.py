@@ -42,6 +42,8 @@ from fairseq2.datasets.utils._manifest import _load_files_and_weights
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 
+from fairseq2.data.text.tokenizers.hg import HuggingFaceTokenEncoder
+
 
 @dataclass(kw_only=True)
 class InstructionReadOptions(DataReadOptions):
@@ -234,30 +236,31 @@ class GenericInstructionDataset(InstructionDataset):
         seed += gang.rank
 
         if options.chat_mode is True:
-            if not isinstance(
-                getattr(tokenizer, "_model", None), HuggingFaceTokenModel
-            ):
+            # not passing any encoding modes here, because we use apply_chat_template here
+            encoder = tokenizer.create_encoder()
+            if not isinstance(encoder, HuggingFaceTokenEncoder):
                 raise RuntimeError(
                     "Huggingface tokenizer must be used when chat_mode is True"
                 )
+            else:
 
-            def encoding_chat(example: dict[str, Any]) -> dict[str, Any]:
-                id_ = example.get("id")
-                chat = example.get("chat")
+                def encoding_chat(example: dict[str, Any]) -> dict[str, Any]:
+                    id_ = example.get("id")
+                    chat = example.get("chat")
 
-                encoded_output = tokenizer._model._tok.apply_chat_template(
-                    chat,
-                    return_dict=True,
-                    return_assistant_tokens_mask=True,
-                    return_tensors="pt",
-                )
+                    encoded_output = encoder.apply_chat_template(
+                        chat,
+                        return_dict=True,
+                        return_assistant_tokens_mask=True,
+                        return_tensors="pt",
+                    )
 
-                indices = encoded_output["input_ids"][0]
-                target_mask = encoded_output["assistant_masks"][0].bool()
+                    indices = encoded_output["input_ids"][0]
+                    target_mask = encoded_output["assistant_masks"][0].bool()
 
-                return {"id": id_, "indices": indices, "target_mask": target_mask}
+                    return {"id": id_, "indices": indices, "target_mask": target_mask}
 
-            builder.map(encoding_chat)
+                builder.map(encoding_chat)
 
         else:
 
@@ -339,9 +342,9 @@ class GenericInstructionDataset(InstructionDataset):
 
         # Wrap examples with `SequenceBatch`.
         def to_batch(example: dict[str, Any]) -> SequenceBatch:
-            indices = cast(SequenceData, example["indices"])
 
-            seqs, seq_lens = indices["seqs"], indices["seq_lens"]
+            seqs: torch.Tensor = example["indices"]["seqs"]
+            seq_lens: torch.Tensor = example["indices"]["seq_lens"]
 
             target_mask = example["target_mask"]["seqs"]
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, final
+from typing import TYPE_CHECKING, final, Union, Any
 
 import torch
 from torch import Tensor
@@ -19,6 +19,7 @@ try:
         AutoTokenizer,
         PreTrainedTokenizer,
     )
+    from transformers.tokenization_utils_base import BatchEncoding
 except ImportError:
     _has_hg_transformers = False
 else:
@@ -44,6 +45,8 @@ if TYPE_CHECKING:
 
     @final
     class HuggingFaceTokenModel:
+        _tok: PreTrainedTokenizer
+
         def encode(self, text: str) -> list[int]: ...
 
         def overwrite_chat_template(self, chat_template: str) -> None: ...
@@ -211,6 +214,11 @@ class HuggingFaceTokenEncoder(TextTokenEncoder):
         indices = self(text).tolist()
 
         return self._model.convert_ids_to_tokens(indices)
+
+    def apply_chat_template(self, chat: Any, **kwargs: Any) -> Any | BatchEncoding:
+        # pass all kwargs to HG tokenizer as is here
+        encoded_output = self._model._tok.apply_chat_template(chat, **kwargs)
+        return encoded_output
 
     @property
     @override
