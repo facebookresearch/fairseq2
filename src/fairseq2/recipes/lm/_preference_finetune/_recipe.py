@@ -166,6 +166,7 @@ def load_po_finetuner(
         target_encode_mode=config.dataset.target_encode_mode,
         seed=seed,
         extras=config.dataset.extras,
+        chat_mode=config.dataset.chat_mode,
     )
 
     data_reader = dataset.create_reader(

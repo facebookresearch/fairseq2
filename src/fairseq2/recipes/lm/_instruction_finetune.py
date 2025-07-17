@@ -144,6 +144,9 @@ class InstructionFinetuneDatasetSection(DatasetSection):
     target_encode_mode: str = "prompt_response"
     """The encode mode for the target, determines what special tokens to add."""
 
+    chat_mode: bool = False
+    """If True, dataset jsonl must have 'chat' field with openai-like messages List[Dict] entries"""
+
     min_seq_len: int = 1
     """The minimum sequence length."""
 
@@ -276,6 +279,7 @@ def load_instruction_finetuner(
         num_prefetch=config.dataset.num_prefetch,
         source_encode_mode=config.dataset.source_encode_mode,
         target_encode_mode=config.dataset.target_encode_mode,
+        chat_mode=config.dataset.chat_mode,
         seed=seed,
         extras=config.dataset.extras,
     )
