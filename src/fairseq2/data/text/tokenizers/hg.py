@@ -19,7 +19,9 @@ try:
         AutoTokenizer,
         PreTrainedTokenizer,
     )
-    from transformers.tokenization_utils_base import BatchEncoding  # type: ignore[import-not-found, attr-defined]
+    from transformers.tokenization_utils_base import (  # type: ignore[import-not-found, attr-defined]
+        BatchEncoding,
+    )
 except ImportError:
     _has_hg_transformers = False
 else:
