@@ -31,7 +31,7 @@ class AdafactorConfig:
     """The learning rate."""
 
     beta2_decay: float = -0.8
-    """the decay rate of beta2. 
+    """the decay rate of beta2.
     beta2 standardly refers to the coefficient used for computing the running average of the gradient squared."""
 
     eps: Tuple[Optional[float], float] = (None, 0.001)
