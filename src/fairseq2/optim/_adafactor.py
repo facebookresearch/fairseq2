@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Final, final, Optional, Tuple
+from typing import Final, Optional, Tuple, final
 
 from torch.optim import Adafactor, Optimizer
 from typing_extensions import override
@@ -26,18 +26,19 @@ ADAFACTOR_OPTIMIZER: Final = "adafactor"
 @dataclass(kw_only=True)
 class AdafactorConfig:
     """ """
+
     lr: float = 1e-2
     """The learning rate."""
 
-    beta2_decay: Optional[float] = -0.8
+    beta2_decay: float = -0.8
     """the decay rate of beta2. 
     beta2 standardly refers to the coefficient used for computing the running average of the gradient squared."""
 
-    eps: Tuple[Optional[float], Optional[float]] = (None, 0.001)
+    eps: Tuple[Optional[float], float] = (None, 0.001)
     """epsilon1 is the term added to the denominator of the update calculation to improve numerical stability.
     epsilon2 is the term used to avoid having too small a weight update when applying parameter scaling.."""
 
-    d: Optional[float] = 1.0
+    d: float = 1.0
     """the clipping threshold, used to avoid larger-than-desired updates."""
 
     weight_decay: float = 0.0
@@ -58,16 +59,6 @@ class AdafactorHandler(OptimizerHandler):
 
         validate(config)
 
-        kwargs = {}
-
-        impl = config.impl
-        if impl != "auto":
-            if impl == "naive":
-                # Disables both 'foreach' and 'fused'.
-                kwargs["foreach"] = False
-            else:
-                kwargs[impl] = True
-
         return Adafactor(
             params,
             lr=config.lr,
@@ -77,7 +68,6 @@ class AdafactorHandler(OptimizerHandler):
             weight_decay=config.weight_decay,
             foreach=config.foreach,
             maximize=config.maximize,
-            **kwargs,
         )
 
     @property
