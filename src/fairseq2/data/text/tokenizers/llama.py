@@ -223,7 +223,7 @@ def load_llama3_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
 
     # Optionally, the model card can specify a different split_regex (e.g. to support more languages).
     # Extract it from the card or one of its ancestor cards.
-    base_card = card
+    base_card: AssetCard | None = card
     while base_card is not None:
         if base_card.field("split_regex").exists():
             split_regex = card.field("split_regex").as_(str)
