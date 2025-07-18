@@ -17,11 +17,8 @@ from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SequenceBatch
-from fairseq2.datasets.text import (
-    GENERIC_TEXT_DATASET_FAMILY,
-    TextDataset,
-    TextReadOptions,
-)
+from fairseq2.datasets.jsonl import JSONL_DATASET_FAMILY
+from fairseq2.datasets.text import TextDataset, TextReadOptions
 from fairseq2.device import CPU
 from fairseq2.metrics import MetricBag
 from fairseq2.models.clm import CausalLM
@@ -129,14 +126,11 @@ class CausalLMTrainConfig:
 
 @dataclass(kw_only=True)
 class TextDatasetSection(DatasetSection):
-    name: str = "foo"  # TODO: change!
+    name: str | None = None
 
-    family: str = GENERIC_TEXT_DATASET_FAMILY
+    family: str = JSONL_DATASET_FAMILY  # PARQUET_TEXT_DATASET_FAMILY
 
     path: Path | None = None
-
-    min_seq_len: int = 1
-    """The minimum sequence length."""
 
     max_seq_len: int = 8192
     """The maximum sequence length."""
@@ -144,13 +138,7 @@ class TextDatasetSection(DatasetSection):
     max_num_tokens: int = 8192 * 2
     """The maximum number of tokens per batch."""
 
-    example_shuffle_window: int = 10_000
-    """The size of the sliding window for shuffling examples."""
-
-    batch_shuffle_window: int = 1000
-    """The size of the sliding window for shuffling batches."""
-
-    num_prefetch: int = 4
+    num_prefetch: int = 10
     """The number of batches to prefetch in background."""
 
     extras: dict[str, object] = field(default_factory=dict)
@@ -215,8 +203,6 @@ def load_clm_trainer(
 
     read_options = TextReadOptions(
         batching=batching,
-        example_shuffle_window=config.dataset.example_shuffle_window,
-        batch_shuffle_window=config.dataset.batch_shuffle_window,
         num_accumulate=config.trainer.grad_accumulation.num_batches,
         num_prefetch=config.dataset.num_prefetch,
         seed=seed,
@@ -225,11 +211,13 @@ def load_clm_trainer(
 
     text_encoder = tokenizer.create_encoder(mode="default")
 
+    min_seq_len = 1
+
     data_reader = dataset.create_reader(
         text_encoder,
         tokenizer.vocab_info.pad_idx,
         gangs.dp,
-        config.dataset.min_seq_len,
+        min_seq_len,
         config.dataset.max_seq_len,
         read_options,
     )
