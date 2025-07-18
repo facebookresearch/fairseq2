@@ -25,7 +25,11 @@ ADAFACTOR_OPTIMIZER: Final = "adafactor"
 
 @dataclass(kw_only=True)
 class AdafactorConfig:
-    """ """
+    """
+    Adafactor is an optimizer that saves memory compared to AdamW
+    by using low-rank representation of gradient running averages.
+    It is recommended to use higher learning rate with it.
+    """
 
     lr: float = 1e-2
     """The learning rate."""
