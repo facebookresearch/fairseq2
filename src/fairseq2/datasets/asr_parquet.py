@@ -8,9 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
-from typing import Final, List, Tuple, final
-
-from typing_extensions import override
+from typing import Final, final, List, Tuple
 
 from fairseq2.data import CollateOptionsOverride, Collater, DataPipelineBuilder
 from fairseq2.data.parquet import NamedColumns
@@ -25,6 +23,8 @@ from fairseq2.datasets.speech_parquet import (
 from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.models.seq2seq import Seq2SeqBatch
+
+from typing_extensions import override
 
 PARQUET_ASR_DATASET_FAMILY: Final = "generic_parquet_asr"
 
@@ -154,6 +154,11 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
             builder, options, GenericSpeechDataset.rename_feature
         )
 
+        # Tokenizer langauge name as well
+        builder = GenericAsrParquetDataset.add_lang_tokenization_pipeline(
+            builder, tokenizer
+        )
+
         # Collate bucketed examples into a batch.
         text_collate_opts = CollateOptionsOverride(
             "text", pad_value=tokenizer.vocab_info.pad_idx
@@ -170,8 +175,27 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
         # Prefetch `num_prefetch` batches in background.
         builder.prefetch(options.num_prefetch)
 
-        # Wrap examples with `Seq2SeqBatch`.
+        builder = builder.map(
+            lambda x: x.to(gang.device),
+            selector="lang_tokens.seqs,lang_tokens.seq_lens",
+        )
 
+        # Wrap examples with `Seq2SeqBatch`.
         builder = builder.map(partial(GenericAsrDataset.to_batch, device=gang.device))
 
+        return builder
+
+    @staticmethod
+    def add_lang_tokenization_pipeline(
+        builder: DataPipelineBuilder,
+        tokenizer: TextTokenizer,
+    ) -> DataPipelineBuilder:
+        text_encoder = tokenizer.create_encoder()
+
+        def tokenizer_lang(batch):
+            for bb in batch:
+                bb["lang_tokens"] = text_encoder(bb["lang"].lower())
+            return batch
+
+        builder.map(tokenizer_lang)
         return builder
