@@ -33,10 +33,10 @@ from fairseq2.datasets.speech import (
     ManifestDatasetInterface,
     SpeechReadOptions,
 )
+from fairseq2.device import Device
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import Device
 
 
 class AsrDataset(ABC):

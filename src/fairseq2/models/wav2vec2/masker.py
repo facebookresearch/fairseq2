@@ -22,9 +22,10 @@ from fairseq2.nn import BatchLayout
 from fairseq2.nn.padding import PaddingMask  # TODO:cirquit resolve this import later
 from fairseq2.nn.utils.fairseq1_mask import compute_mask_indices
 from fairseq2.nn.utils.mask import RowMaskFactory, compute_row_mask
-from fairseq2.typing import DataType, Device, get_name_or_self
+from fairseq2.typing import get_name_or_self
 
 # TODO:cirquit unclear whether to use fairseq2.data_type of fairseq2.typing
+
 
 class Wav2Vec2Masker(Module, ABC):
     """Masks extracted wav2vec 2.0 features."""

@@ -12,7 +12,11 @@ from typing import Final, List, Tuple, final
 
 from typing_extensions import override
 
-from fairseq2.data import CollateOptionsOverride, Collater, DataPipelineBuilder
+from fairseq2.data.data_pipeline import (
+    CollateOptionsOverride,
+    Collater,
+    DataPipelineBuilder,
+)
 from fairseq2.data.parquet import NamedColumns
 from fairseq2.data.text.tokenizers import TextTokenizer
 from fairseq2.datasets import DataPipelineReader, DataReader

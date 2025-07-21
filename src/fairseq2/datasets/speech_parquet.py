@@ -18,8 +18,13 @@ import torch
 from numpy.typing import NDArray
 from typing_extensions import override
 
-from fairseq2.data import Collater, DataPipelineBuilder, MemoryBlock, read_sequence
 from fairseq2.data.audio import AudioDecoder, AudioDecoderOutput
+from fairseq2.data.data_pipeline import (
+    Collater,
+    DataPipelineBuilder,
+    MemoryBlock,
+    read_sequence,
+)
 from fairseq2.data.parquet import (
     FragmentLoadingConfig,
     FragmentStreamingConfig,
@@ -27,7 +32,12 @@ from fairseq2.data.parquet import (
     ParquetFragmentLoader,
     ParquetFragmentStreamer,
 )
-from fairseq2.datasets import DataPipelineReader, SyncMode, UnknownSplitError
+from fairseq2.datasets import (
+    DataPipelineReader,
+    SequenceBatch,
+    SyncMode,
+    UnknownSplitError,
+)
 from fairseq2.datasets.speech import (
     GenericSpeechDataset,
     SpeechDataset,
@@ -35,7 +45,6 @@ from fairseq2.datasets.speech import (
 )
 from fairseq2.gang import Gang
 from fairseq2.logging import log
-from fairseq2.models.sequence import SequenceBatch
 
 PARQUET_SPEECH_DATASET_FAMILY: Final = "generic_parquet_speech"
 

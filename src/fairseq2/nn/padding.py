@@ -12,8 +12,8 @@ from typing import cast, final
 import torch
 from torch import Tensor
 
-from fairseq2.data import Collater, SequenceData
-from fairseq2.typing import Device
+from fairseq2.data.data_pipeline import Collater, SequenceData
+from fairseq2.device import Device
 
 
 @final

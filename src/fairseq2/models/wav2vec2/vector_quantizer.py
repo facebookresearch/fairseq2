@@ -17,8 +17,9 @@ from torch.nn import Module, Parameter
 from torch.nn.functional import gumbel_softmax
 from typing_extensions import override
 
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.nn import Linear
-from fairseq2.typing import DataType, Device
 
 
 class Wav2Vec2VectorQuantizer(Module, ABC):
@@ -40,14 +41,13 @@ class Wav2Vec2VectorQuantizer(Module, ABC):
 
         self.output_dim = output_dim
 
-
     @abstractmethod
     def forward(self, x: Tensor) -> Wav2Vec2VectorQuantizerOutput: ...
 
     if TYPE_CHECKING:
         __call__ = forward
 
-# TODO:cirquit - changed the name from VectorQuantizerOutput to Wav2Vec2VectorQuantizerOutput
+
 @dataclass
 class Wav2Vec2VectorQuantizerOutput(ABC):
     """Holds the output of a vector quantizer."""
@@ -62,7 +62,7 @@ class Wav2Vec2VectorQuantizerOutput(ABC):
     @abstractmethod
     def get_target_indices(self, num_codebooks: int) -> Tensor: ...
 
-# TODO:cirquit - added the wav2vec2 prefix (it was already in the middle from recipe, maybe worth to align)
+
 @final
 class GumbelWav2Vec2VectorQuantizer(Wav2Vec2VectorQuantizer):
     """Quantizes input data using Gumbel-Softmax."""
@@ -145,7 +145,7 @@ class GumbelWav2Vec2VectorQuantizer(Wav2Vec2VectorQuantizer):
         self.num_updates.zero_()
 
     @override
-    def forward(self, x: Tensor) -> GumbelVectorQuantizerOutput:
+    def forward(self, x: Tensor) -> GumbelWav2Vec2VectorQuantizerOutput:
         current_temp = self._compute_current_temp()
 
         bsz, tsz, fsz = x.shape
@@ -167,7 +167,7 @@ class GumbelWav2Vec2VectorQuantizer(Wav2Vec2VectorQuantizer):
             .scatter_(-1, k.view(-1, 1), 1.0)
             .view(bsz * tsz, self.num_codebooks, -1)
         )
-        hard_probs = torch.mean(hard_x.float(), dim=0) # TODO:cirquit - added FP32 cast here due to it being present on main and recipe, but not on main_w2v2
+        hard_probs = torch.mean(hard_x, dim=0)
 
         # @torch.compile(fullgraph=True)
         def calculate_perplexity(probs: torch.Tensor) -> torch.Tensor:
@@ -206,7 +206,7 @@ class GumbelWav2Vec2VectorQuantizer(Wav2Vec2VectorQuantizer):
 
         x = compute_sum(x).view(bsz, tsz, -1)
 
-        return GumbelVectorQuantizerOutput(
+        return GumbelWav2Vec2VectorQuantizerOutput(
             x,
             cb,
             self.num_codebooks,
@@ -233,9 +233,9 @@ def init_entry_projection(proj: Linear) -> None:
 
     nn.init.zeros_(proj.bias)
 
-# TODO:cirquit rename by convention (either add Wav2Vec2 or not)
+
 @dataclass
-class GumbelVectorQuantizerOutput(VectorQuantizerOutput):
+class GumbelWav2Vec2VectorQuantizerOutput(Wav2Vec2VectorQuantizerOutput):
     cb: Tensor
     num_codebooks: int
     num_codebook_entries: int

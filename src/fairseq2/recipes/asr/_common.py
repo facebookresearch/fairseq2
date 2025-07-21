@@ -14,12 +14,11 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
+from fairseq2.datasets import Seq2SeqBatch, SequenceBatch
 from fairseq2.gang import Gang
 from fairseq2.metrics import Mean
 from fairseq2.metrics.text import WerMetric
 from fairseq2.models.asr import AsrModel, AsrModelOutput
-from fairseq2.models.seq2seq import Seq2SeqBatch
-from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes import BaseMetricBag, Model, UnitError
 
 

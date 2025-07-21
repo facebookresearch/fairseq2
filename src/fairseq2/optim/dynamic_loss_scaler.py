@@ -19,10 +19,10 @@ from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
 from torch.optim import Optimizer
 from typing_extensions import override
 
+from fairseq2.device import Device
 from fairseq2.error import InvalidOperationError
 from fairseq2.gang import Gang
 from fairseq2.logging import log
-from fairseq2.typing import Device
 
 
 @final

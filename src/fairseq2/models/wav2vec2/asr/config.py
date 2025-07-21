@@ -9,12 +9,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Final
 
-from fairseq2.data import VocabularyInfo
+from fairseq2.data.tokenizers.vocab_info import VocabularyInfo
 from fairseq2.models.wav2vec2 import Wav2Vec2Config, Wav2Vec2EncoderConfig
 from fairseq2.runtime.config_registry import ConfigRegistrar, get_config
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 
-WAV2VEC2_ASR_MODEL_FAMILY: Final = "wav2vec2_asr"
+WAV2VEC2_ASR_FAMILY: Final = "wav2vec2_asr"
+
 
 @dataclass(kw_only=True)
 class Wav2Vec2AsrConfig:

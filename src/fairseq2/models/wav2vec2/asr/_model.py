@@ -11,13 +11,14 @@ from typing import final
 from torch.nn import Dropout
 from typing_extensions import override
 
+from fairseq2.data_type import DataType
+from fairseq2.datasets import SequenceBatch
+from fairseq2.device import Device
 from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.seq2seq import Seq2SeqBatch
-from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.transformer import TransformerEncoder
 from fairseq2.models.wav2vec2 import Wav2Vec2Frontend, Wav2Vec2Masker
 from fairseq2.nn import Projection
-from fairseq2.typing import DataType, Device
 
 
 @final

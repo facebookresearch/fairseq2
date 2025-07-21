@@ -12,13 +12,13 @@ import torch
 from torch import Tensor
 from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
+from fairseq2.device import CPU
+from fairseq2.models.transformer import TransformerNormOrder
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.models.wav2vec2._config import Wav2Vec2Config
-from fairseq2.nn.transformer import TransformerNormOrder
-from fairseq2.typing import CPU
+from fairseq2.models.wav2vec2.config import Wav2Vec2Config
 
 
-def convert_wav2vec2_checkpoint(
+def _convert_wav2vec2_checkpoint(
     checkpoint: dict[str, object], config: Wav2Vec2Config
 ) -> dict[str, object]:
     try:
