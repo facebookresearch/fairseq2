@@ -340,15 +340,11 @@ class GenericInstructionDataset(InstructionDataset):
 
         # Wrap examples with `SequenceBatch`.
         def to_batch(example: dict[str, Any]) -> SequenceBatch:
+            indices = cast(SequenceData, example["indices"])
 
-            seqs: torch.Tensor = example["indices"]["seqs"]
-            seq_lens: torch.Tensor = example["indices"]["seq_lens"]
+            seqs, seq_lens = indices["seqs"], indices["seq_lens"]
 
-            target_mask = example["target_mask"]["seqs"]
-
-            return SequenceBatch(
-                seqs, seq_lens.tolist(), target_mask=target_mask, example=example
-            )
+            return SequenceBatch(seqs, seq_lens, example=example)
 
         pipeline = builder.map(to_batch).and_return()
 
