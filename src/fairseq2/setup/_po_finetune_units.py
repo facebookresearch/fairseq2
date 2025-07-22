@@ -20,6 +20,7 @@ from fairseq2.recipes.lm import (
     OnlineFinetuneUnitHandler,
     GSM8kVerifierHandler,
     MathVerifyHandler,
+    SkyworkVerifierHandler,
     AtheneVerifierHandler,
     GenerativePointwiseVerifierHandler,
     GenerativePairwiseVerifierHandler,
@@ -85,6 +86,10 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
 
     # GSM8kVerifier
     handler = GSM8kVerifierHandler()
+    registry.register(handler.name, handler)
+    
+    # SkyworkVerifier
+    handler = SkyworkVerifierHandler()
     registry.register(handler.name, handler)
 
     # AtheneVerifier
