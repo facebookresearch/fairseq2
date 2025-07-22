@@ -14,10 +14,7 @@ from typing import Any, Final, final
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.data import (
-    DataPipeline,
-    read_sequence,
-)
+from fairseq2.data import DataPipeline, DataPipelineBuilder, read_sequence
 from fairseq2.data.text import read_text
 from fairseq2.data.text.tokenizers import TextTokenEncoder
 from fairseq2.datasets import (
@@ -27,14 +24,12 @@ from fairseq2.datasets import (
     LengthBatching,
     SequenceBatch,
 )
-from fairseq2.datasets.text import TextDataset, TextReadOptions
+from fairseq2.datasets.text import GenericTextDataset, TextDataset, TextReadOptions
+from fairseq2.device import Device
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
+from fairseq2.logging import log
 from fairseq2.nn import BatchLayout
-
-# TODO: FIX, INFER
-npc = 10
-
 
 JSONL_DATASET_FAMILY: Final = "jsonl"
 
@@ -75,54 +70,102 @@ class JsonlDataset(TextDataset):
         min_seq_len: int,
         max_seq_len: int,
         options: TextReadOptions | None = None,
+        split: str | None = None,
     ) -> DataReader[SequenceBatch]:
         if options is None:
             options = TextReadOptions()
 
         file_rank = gang.rank
-
         file_world_size = gang.size
 
-        if len(self._files) < file_world_size:
+        text_column_name = options.extras.get("text_column_name", "text")
+        assert isinstance(text_column_name, str)
+
+        if min_seq_len > 0:
+            log.warning(
+                f"The `min_seq_len={min_seq_len}`  is ignored because of packing."
+            )
+
+        split_pattern = options.extras.get("split_pattern", None)
+        split_files = GenericTextDataset.filter_split(
+            self._files,
+            split,
+            extention="jsonl",
+            split_pattern=split_pattern,  # type: ignore[arg-type]
+        )
+
+        if len(split_files) < file_world_size:
             raise NotSupportedError(
                 "The number of dataset files must be greater than or equal to the number of world size."
             )
 
-        builder = read_sequence(self._files)
+        builder = read_sequence(split_files)
 
         if file_world_size > 1:
             builder.shard(file_rank, file_world_size, allow_uneven=True)
 
         def read_file(file: Path) -> DataPipeline:
-            return read_text(file).map(json.loads, num_parallel_calls=1).and_return()
+            return read_text(file).map(json.loads).and_return()
 
         builder.yield_from(read_file)
 
+        pipeline = JsonlDataset.build_pipeline_backend(
+            builder,
+            options,
+            text_encoder,
+            pad_idx=pad_idx,
+            max_seq_len=max_seq_len,
+            text_column_name=text_column_name,
+            device=gang.device,
+        )
+        return DataPipelineReader[SequenceBatch](
+            self._name, "default", pipeline, gang, options
+        )
+
+    @staticmethod
+    def build_pipeline_backend(
+        builder: DataPipelineBuilder,
+        options: TextReadOptions,
+        text_encoder: TextTokenEncoder,
+        max_seq_len: int,
+        pad_idx: int | None,
+        text_column_name: str,
+        device: Device,
+    ) -> DataPipeline:
+        if pad_idx is None:
+            pad_idx = 0
+
+        seed = options.seed
+        if options.example_shuffle_window != 1:
+            builder.shuffle(options.example_shuffle_window, seed)
+
         # Tokenize.
         def encode(example: dict[str, Any]) -> Tensor:
-            return text_encoder(example["text"])
+            return text_encoder(example[text_column_name])
 
-        builder.map(encode, num_parallel_calls=1)
+        builder.map(encode)
 
         batching = options.batching
 
         if isinstance(batching, LengthBatching):
             max_num_elements = batching.max_num_elements
 
+            pinned_memory = device.type == "cuda"
+            # Pack.
             builder.pack(
-                max_num_elements + 1, max_seq_len, truncate=True, pinned_memory=True
+                max_num_elements + 1,
+                max_seq_len,
+                pad_value=pad_idx,
+                truncate=True,
+                pinned_memory=pinned_memory,
             )
+            BatchLayout.compiled_max_seq_len = max_seq_len
         else:
             raise NotSupportedError(f"`{batching}` is not supported.")
-
-        BatchLayout.compiled_max_seq_len = max_seq_len
 
         # Return only the first `max_num_batches`.
         if options.max_num_batches is not None:
             builder.take(options.max_num_batches)
-
-        # Prefetch `num_prefetch` batches in background.
-        builder.prefetch(options.num_prefetch)
 
         # Convert to `SequenceBatch`.
         def to_batch(example: dict[str, Any]) -> SequenceBatch:
@@ -130,8 +173,6 @@ class JsonlDataset(TextDataset):
 
             return SequenceBatch(seqs, seq_lens, packed=True)
 
-        pipeline = builder.map(to_batch).and_return()
+        pipeline = builder.map(to_batch).prefetch(options.num_prefetch).and_return()
 
-        return DataPipelineReader[SequenceBatch](
-            self._name, "default", pipeline, gang, options
-        )
+        return pipeline

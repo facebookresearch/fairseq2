@@ -7,13 +7,17 @@
 from __future__ import annotations
 
 from fairseq2.context import RuntimeContext
-from fairseq2.optim import AdamWHandler, OptimizerHandler
+from fairseq2.optim import AdafactorHandler, AdamWHandler, OptimizerHandler
 
 
 def _register_optimizers(context: RuntimeContext) -> None:
     registry = context.get_registry(OptimizerHandler)
+    handler: OptimizerHandler
 
     # AdamW
     handler = AdamWHandler()
+    registry.register(handler.name, handler)
 
+    # Adafactor
+    handler = AdafactorHandler()
     registry.register(handler.name, handler)
