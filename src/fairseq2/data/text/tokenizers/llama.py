@@ -37,6 +37,21 @@ from fairseq2.data.text.tokenizers.tiktoken import (
 )
 from fairseq2.device import Device
 
+# llama3 chat template with assistant mask support, see https://github.com/huggingface/transformers/issues/28950
+LLAMA3_CHAT_TEMPLATE = """{{- bos_token }}
+{%- for message in messages %}
+    {%- if message.role == 'user' or message.role == 'system' %}
+        {{- '<|start_header_id|>' + message['role'] + '<|end_header_id|>\\n\\n' + message['content'] | trim + '<|eot_id|>' }}
+    {%- else %}
+        {%- generation %}
+        {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' + message['content'] | trim + '<|eot_id|>' }}
+        {%- endgeneration %}
+    {%- endif %}
+{%- endfor %}
+{%- if add_generation_prompt %}
+    {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' }}
+{%- endif %}"""
+
 
 @final
 class LLaMA3Tokenizer(TextTokenizer):
@@ -242,6 +257,15 @@ def load_llama3_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
     except AssetCardError as ex:
         raise text_tokenizer_asset_card_error(card.name) from ex
 
+    # Optionally, the model card can specify a different split_regex (e.g. to support more languages).
+    # Extract it from the card or one of its ancestor cards.
+    base_card: AssetCard | None = card
+    while base_card is not None:
+        if base_card.field("split_regex").exists():
+            split_regex = card.field("split_regex").as_(str)
+            break
+        base_card = base_card.base
+
     eos_token = "<|eot_id|>" if use_eot else "<|end_of_text|>"
 
     special_tokens = [
@@ -303,6 +327,7 @@ def load_llama3_hg_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
             boh_token="<|start_header_id|>",
             eoh_token="<|end_header_id|>",
         )
+        model.overwrite_chat_template(LLAMA3_CHAT_TEMPLATE)
     except (OSError, RuntimeError) as ex:
         raise TextTokenizerLoadError(
             card.name, f"The '{card.name}' text tokenizer model cannot be loaded. See the nested exception for details."  # fmt: skip
