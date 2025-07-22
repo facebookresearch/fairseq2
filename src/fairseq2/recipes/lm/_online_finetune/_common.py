@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import List, cast
 
 import ray
+import re
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -416,6 +417,16 @@ def get_rollout_lengths(rollouts: List[SequenceData]):
             token_ids_len = len(token_ids)
             rollout_lengths.append(token_ids_len)
     return rollout_lengths
+
+def strip_think_tokens(rollouts: List[SequenceData]):
+    for sample in rollouts:
+        for rollout in sample.outputs:
+            rollout_text = rollout.text
+            rollout.text = re.sub(
+                r"<think>.*?</think>", "", rollout_text, flags=re.DOTALL
+            ).strip()
+    
+    return rollouts
 
 
 class StatefulRolloutBag:

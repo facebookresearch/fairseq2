@@ -47,6 +47,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     compute_reference_logps,
     collate_with_target_mask,
     update_std_reward,
+    strip_think_tokens
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_model import (
@@ -209,6 +210,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )
         if self._config.loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Valid")
+        rollouts = strip_think_tokens(rollouts)
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
         log.info(f"Rewards: {reward_output['rewards']}")
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
@@ -266,6 +268,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             if self._config.loss_config.log_rollouts:
                 log_rollouts(prompt_batch, rollouts, "Train")
 
+            rollouts = strip_think_tokens(rollouts)
             reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
             self._rollout_bag.save(rollouts, reward_output)
 
