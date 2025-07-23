@@ -47,7 +47,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     compute_reference_logps,
     collate_with_target_mask,
     update_std_reward,
-    strip_think_tokens
+    strip_think_tokens,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_model import (

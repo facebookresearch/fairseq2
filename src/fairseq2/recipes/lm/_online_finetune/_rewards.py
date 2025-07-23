@@ -50,23 +50,28 @@ class VLLMOutputRewardHandler(ABC):
     @abstractmethod
     def create(
         self, reward_model: Any, gangs: Gangs, reward_config: object
-    ) -> VLLMOutputReward: ...
+    ) -> VLLMOutputReward:
+        ...
 
     @property
     @abstractmethod
-    def name(self) -> str: ...
+    def name(self) -> str:
+        ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]: ...
+    def config_kls(self) -> type[object]:
+        ...
 
 
 class VLLMOutputReward(ABC):
     @abstractmethod
-    def process_rollouts(self, vllm_outputs: list[RequestOutput]): ...
+    def process_rollouts(self, vllm_outputs: list[RequestOutput]):
+        ...
 
     @abstractmethod
-    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts): ...
+    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts):
+        ...
 
 
 class GSM8kVerifierHandler(VLLMOutputRewardHandler):
@@ -274,7 +279,8 @@ class MathVerifyVerifier(VLLMOutputReward):
         )
 
         return batch, is_bad_batch, reward_output
-    
+
+
 class SkyworkVerifierHandler(VLLMOutputRewardHandler):
     def __init__(self):
         pass
@@ -305,9 +311,19 @@ class SkyworkVerifierHandler(VLLMOutputRewardHandler):
     @override
     def config_kls(self):
         return None
-    
+
+
 class SkyworkVerifier(VLLMOutputReward):
-    def __init__(self, gangs, context, reward_model, reward_name, answer_key, prompt_key, tokenizer):
+    def __init__(
+        self,
+        gangs,
+        context,
+        reward_model,
+        reward_name,
+        answer_key,
+        prompt_key,
+        tokenizer,
+    ):
         self.answer_key = answer_key
         self.prompt_key = prompt_key
         self._gangs = gangs
@@ -322,8 +338,10 @@ class SkyworkVerifier(VLLMOutputReward):
             {"role": "assistant", "content": rollout_text},
         ]
         chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False)
-        if self.tokenizer.bos_token is not None and chat_str.startswith(self.tokenizer.bos_token):
-            chat_str = chat_str[len(self.tokenizer.bos_token):]
+        if self.tokenizer.bos_token is not None and chat_str.startswith(
+            self.tokenizer.bos_token
+        ):
+            chat_str = chat_str[len(self.tokenizer.bos_token) :]
 
         return chat_str
 
@@ -441,7 +459,6 @@ class SkyworkVerifier(VLLMOutputReward):
         )
 
         return batch, is_bad_batch, reward_output
-
 
 
 class AtheneVerifierHandler(VLLMOutputRewardHandler):

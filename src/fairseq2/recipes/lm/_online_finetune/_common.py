@@ -418,6 +418,7 @@ def get_rollout_lengths(rollouts: List[SequenceData]):
             rollout_lengths.append(token_ids_len)
     return rollout_lengths
 
+
 def strip_think_tokens(rollouts: List[SequenceData]):
     for sample in rollouts:
         for rollout in sample.outputs:
@@ -425,7 +426,7 @@ def strip_think_tokens(rollouts: List[SequenceData]):
             rollout.text = re.sub(
                 r"<think>.*?</think>", "", rollout_text, flags=re.DOTALL
             ).strip()
-    
+
     return rollouts
 
 
