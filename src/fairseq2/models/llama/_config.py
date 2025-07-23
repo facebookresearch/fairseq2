@@ -250,6 +250,7 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config = llama3_1_8b()
 
         config.model_dim = 3072
+        config.tied_embeddings = True
         config.ffn_inner_dim = 3072 * 4
         config.ffn_inner_dim_multiplier = 1.0
         config.ffn_inner_dim_multiple_of = 256

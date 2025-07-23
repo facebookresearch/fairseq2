@@ -136,6 +136,9 @@ class POFinetuneDatasetSection(DatasetSection):
     extras: dict[str, object] = field(default_factory=dict)
     """The dataset-specific extra options."""
 
+    chat_mode: bool = False
+    """If True, dataset jsonl must have 'chat' field with openai-like messages List[Dict] entries"""
+
 
 @dataclass(kw_only=True)
 class POCriterionSection:

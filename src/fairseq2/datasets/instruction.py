@@ -26,6 +26,7 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.data.text.tokenizers import TextTokenizer
+from fairseq2.data.text.tokenizers.hg import HuggingFaceTokenEncoder
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
@@ -55,6 +56,8 @@ class InstructionReadOptions(DataReadOptions):
 
     target_encode_mode: str = "prompt_response"
     """The tokenizer mode to encode the target text."""
+
+    chat_mode: bool = False
 
 
 @dataclass
@@ -125,10 +128,6 @@ class InstructionDataset(ABC):
     @abstractmethod
     def splits(self) -> set[str]:
         """Return the set of splits."""
-
-
-# TODO: FIX, INFER
-npc = 10
 
 
 GENERIC_INSTRUCTION_DATASET_FAMILY: Final = "generic_instruction"
@@ -234,26 +233,55 @@ class GenericInstructionDataset(InstructionDataset):
 
         seed += gang.rank
 
-        # Encode source and target texts.
-        source_encoder = tokenizer.create_encoder(mode=options.source_encode_mode)
-        target_encoder = tokenizer.create_encoder(mode=options.target_encode_mode)
+        if options.chat_mode is True:
+            # not passing any encoding modes here, because we use apply_chat_template here
+            encoder = tokenizer.create_encoder()
+            if not isinstance(encoder, HuggingFaceTokenEncoder):
+                raise RuntimeError(
+                    "Huggingface tokenizer must be used when chat_mode is True"
+                )
+            else:
 
-        builder.map(source_encoder, selector="src", num_parallel_calls=npc)
-        builder.map(target_encoder, selector="tgt", num_parallel_calls=npc)
+                def encoding_chat(example: dict[str, Any]) -> dict[str, Any]:
+                    id_ = example.get("id")
+                    chat = example.get("chat")
 
-        def cat_source_and_target(example: dict[str, Any]) -> dict[str, Any]:
-            id_ = example.get("id")
+                    encoded_output = encoder.apply_chat_template(
+                        chat,
+                        return_dict=True,
+                        return_assistant_tokens_mask=True,
+                        return_tensors="pt",
+                    )
 
-            source_indices = example["src"]
-            target_indices = example["tgt"]
+                    indices = encoded_output["input_ids"][0]
+                    target_mask = encoded_output["assistant_masks"][0].bool()
 
-            indices = torch.cat([source_indices, target_indices])
+                    return {"id": id_, "indices": indices, "target_mask": target_mask}
 
-            target_mask = torch.arange(len(indices)) >= len(source_indices)
+                builder.map(encoding_chat)
 
-            return {"id": id_, "indices": indices, "target_mask": target_mask}
+        else:
 
-        builder.map(cat_source_and_target, num_parallel_calls=npc)
+            # Encode source and target texts.
+            source_encoder = tokenizer.create_encoder(mode=options.source_encode_mode)
+            target_encoder = tokenizer.create_encoder(mode=options.target_encode_mode)
+
+            builder.map(source_encoder, selector="src")
+            builder.map(target_encoder, selector="tgt")
+
+            def cat_source_and_target(example: dict[str, Any]) -> dict[str, Any]:
+                id_ = example.get("id")
+
+                source_indices = example["src"]
+                target_indices = example["tgt"]
+
+                indices = torch.cat([source_indices, target_indices])
+
+                target_mask = torch.arange(len(indices)) >= len(source_indices)
+
+                return {"id": id_, "indices": indices, "target_mask": target_mask}
+
+            builder.map(cat_source_and_target)
 
         batching = options.batching
 
@@ -301,7 +329,7 @@ class GenericInstructionDataset(InstructionDataset):
             pad_value=tokenizer.vocab_info.pad_idx, overrides=[target_mask_collate_opts]
         )
 
-        builder.map(collater, num_parallel_calls=npc)
+        builder.map(collater, num_parallel_calls=options.npc)
 
         # Return only the first `max_num_batches`.
         if options.max_num_batches is not None:
@@ -316,11 +344,7 @@ class GenericInstructionDataset(InstructionDataset):
 
             seqs, seq_lens = indices["seqs"], indices["seq_lens"]
 
-            target_mask = example["target_mask"]["seqs"]
-
-            return SequenceBatch(
-                seqs, seq_lens, target_mask=target_mask, example=example
-            )
+            return SequenceBatch(seqs, seq_lens, example=example)
 
         pipeline = builder.map(to_batch).and_return()
 
@@ -373,7 +397,7 @@ class GenericInstructionDataset(InstructionDataset):
 
             return {"id": id_, "prompt": source, "indices": indices}
 
-        builder.map(encode, num_parallel_calls=npc)
+        builder.map(encode)
 
         # Filter out long examples.
         def skip(example: dict[str, Any]) -> bool:
@@ -394,7 +418,7 @@ class GenericInstructionDataset(InstructionDataset):
         # Collate bucketed examples into a batch.
         collater = Collater(pad_value=tokenizer.vocab_info.pad_idx or 0)
 
-        builder.map(collater, num_parallel_calls=npc)
+        builder.map(collater, num_parallel_calls=options.npc)
 
         # Prefetch `num_prefetch` batches in background.
         builder.prefetch(options.num_prefetch)
@@ -421,7 +445,7 @@ class GenericInstructionDataset(InstructionDataset):
             for line in fp:
                 lines.append(line)
 
-        return read_sequence(lines).map(json.loads, num_parallel_calls=npc)
+        return read_sequence(lines).map(json.loads)
 
     @override
     def splits(self) -> set[str]:

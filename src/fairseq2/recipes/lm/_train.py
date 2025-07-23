@@ -126,9 +126,9 @@ class CausalLMTrainConfig:
 
 @dataclass(kw_only=True)
 class TextDatasetSection(DatasetSection):
-    name: str = "foo"  # TODO: change!
+    name: str | None = None
 
-    family: str = JSONL_DATASET_FAMILY
+    family: str = JSONL_DATASET_FAMILY  # PARQUET_TEXT_DATASET_FAMILY
 
     path: Path | None = None
 

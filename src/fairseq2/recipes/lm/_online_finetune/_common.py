@@ -98,7 +98,7 @@ def collate_with_target_mask(
 
     batch = SequenceBatch(
         seq_data["seqs"]["seqs"],
-        seq_data["seqs"]["seq_lens"].tolist(),
+        seq_data["seqs"]["seq_lens"],
         target_mask=seq_data["target_loss_mask"]["seqs"],
     )
     batch.to(device)
