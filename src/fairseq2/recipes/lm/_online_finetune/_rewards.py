@@ -695,7 +695,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
             JudgmentExtractorHandler
         )
         judgment_extractor_handler = judgment_extractor_registry.get(judgment_extractor)
-        self.judgment_extractor = judgment_extractor_handler.create()
+        self.judgment_extractor = judgment_extractor_handler.create(self.tokenizer)
 
     @override
     def process_rollouts(
@@ -716,12 +716,16 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
 
             rollouts_text = []
             rollouts_tokens = []
-            i_reference_answer = reference_answers[i]
             for rollout_output in i_batch_request_output.outputs:
                 rollout_text = rollout_output.text
-                vllm_input = self.judgment_extractor.format_prompt(
-                    prompt_text, rollout_text, i_reference_answer
-                )
+                if reference_answers is None:
+                    vllm_input = self.judgment_extractor.format_prompt(
+                        prompt_text, rollout_text
+                    )
+                else:
+                    vllm_input = self.judgment_extractor.format_prompt(
+                        prompt_text, rollout_text, reference_answers[i]
+                    )
                 vllm_inputs.append(vllm_input)
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)
@@ -887,7 +891,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
             JudgmentExtractorHandler
         )
         judgment_extractor_handler = judgment_extractor_registry.get(judgment_extractor)
-        self.judgment_extractor = judgment_extractor_handler.create()
+        self.judgment_extractor = judgment_extractor_handler.create(self.tokenizer)
 
     @override
     def process_rollouts(

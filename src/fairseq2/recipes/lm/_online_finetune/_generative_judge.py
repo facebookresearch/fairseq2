@@ -81,7 +81,7 @@ import re
 
 class JudgmentExtractorHandler(ABC):
     @abstractmethod
-    def create(self): ...
+    def create(self, tokenizer): ...
 
     @property
     @abstractmethod
@@ -163,8 +163,8 @@ class GeneralVerifierExtractorHandler(JudgmentExtractorHandler):
         pass
 
     @override
-    def create(self):
-        return GeneralVerifierExtractor()
+    def create(self, tokenizer):
+        return GeneralVerifierExtractor(tokenizer)
 
     @property
     @override
@@ -178,7 +178,7 @@ class GeneralVerifierExtractorHandler(JudgmentExtractorHandler):
 
 
 class GeneralVerifierExtractor(JudgmentExtractor):
-    def __init__(self):
+    def __init__(self, tokenizer):
         try:
             from math_verify import parse
             from math_verify.parser import (
@@ -251,8 +251,8 @@ class J1PointwiseExtractorHandler(JudgmentExtractorHandler):
         pass
 
     @override
-    def create(self):
-        return J1PointwiseExtractor()
+    def create(self, tokenizer):
+        return J1PointwiseExtractor(tokenizer)
 
     @property
     @override
@@ -266,15 +266,15 @@ class J1PointwiseExtractorHandler(JudgmentExtractorHandler):
 
 
 class J1PointwiseExtractor(JudgmentExtractor):
-    def __init__(self):
-        pass
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
 
     @override
     def prompt(self):
         return POINTWISE_J1_PROMPT
 
     @override
-    def format_prompt(self, prompt_text, rollout_text, reference_answer):
+    def format_prompt(self, prompt_text, rollout_text):
         content = self.prompt().format(instruction=prompt_text, response=rollout_text)
         wrapped_text = [{"role": "user", "content": content}]
         chat_str = self.tokenizer.apply_chat_template(
@@ -305,8 +305,8 @@ class J1PairwiseScoreExtractorHandler(JudgmentExtractorHandler):
         pass
 
     @override
-    def create(self):
-        return J1PairwiseScoreExtractor()
+    def create(self, tokenizer):
+        return J1PairwiseScoreExtractor(tokenizer)
 
     @property
     @override
@@ -320,8 +320,8 @@ class J1PairwiseScoreExtractorHandler(JudgmentExtractorHandler):
 
 
 class J1PairwiseScoreExtractor(JudgmentExtractor):
-    def __init__(self):
-        pass
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
 
     @override
     def prompt(self):
@@ -375,8 +375,8 @@ class J1PairwisePreferenceExtractorHandler(JudgmentExtractorHandler):
         pass
 
     @override
-    def create(self):
-        return J1PairwisePreferenceExtractor()
+    def create(self, tokenizer):
+        return J1PairwisePreferenceExtractor(tokenizer)
 
     @property
     @override
@@ -390,8 +390,8 @@ class J1PairwisePreferenceExtractorHandler(JudgmentExtractorHandler):
 
 
 class J1PairwisePreferenceExtractor(JudgmentExtractor):
-    def __init__(self):
-        pass
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
 
     @override
     def prompt(self):
