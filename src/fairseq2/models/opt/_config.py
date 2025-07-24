@@ -28,7 +28,7 @@ class OPTConfig:
     max_seq_len: int = 2048 + 1
     """The maximum sequence length."""
 
-    vocab_size: int = 50272
+    vocab_size: int = 258
     """The size of the vocabulary."""
 
     pad_idx: int | None = 1
@@ -61,3 +61,11 @@ def register_opt_configs(context: RuntimeContext) -> None:
     @arch("opt_125m")
     def opt_125m() -> OPTConfig:
         return OPTConfig()
+
+    @arch("opt_350m")
+    def opt_350m() -> OPTConfig:
+        config = opt_125m()
+
+        config.model_dim = 1024
+        config.num_layers = 24
+        config.num_attn_heads = 16
