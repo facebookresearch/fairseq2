@@ -170,6 +170,9 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     npc: int = 10
     """The number of parallel calls to use in the pipeline."""
 
+    max_num_batches: int | None = None
+    """The maximum number of batches for the dataloader to return."""
+
     # Upsampling
     beta_corpus: float | None = None
     beta_language: float | None = None
@@ -430,6 +433,7 @@ def load_wav2vec2_asr_trainer(
         spec_aug_p=config.dataset.spec_aug_p,
         spec_aug_freq_mask_param=config.dataset.spec_aug_freq_mask_param,
         spec_aug_time_mask_param=config.dataset.spec_aug_time_mask_param,
+        max_num_batches=config.dataset.max_num_batches,
         n_context_examples=config.dataset.n_context_examples,
         bucket_size=2000,
         deterministic_context=False,
@@ -475,6 +479,7 @@ def load_wav2vec2_asr_trainer(
             sync_mode=SyncMode.UNTIL_LAST,
             num_prefetch=config.dataset.num_prefetch,
             seed=seed,
+            max_num_batches=config.dataset.max_num_batches,
             extras=config.dataset.extras,
             n_context_examples=config.dataset.n_context_examples,
             bucket_size=30,
