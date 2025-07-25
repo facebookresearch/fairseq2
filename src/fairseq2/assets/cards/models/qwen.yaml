@@ -11,7 +11,7 @@ model_family: qwen
 model_arch: qwen25_3b
 model_config:
   _set_:
-    max_seq_len: 8192
+    max_seq_len: 32768
 checkpoint: "hg://qwen/qwen2.5-3b-instruct"
 tokenizer: "hg://qwen/qwen2.5-3b-instruct"
 tokenizer_family: qwen
