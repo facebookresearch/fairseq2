@@ -17,7 +17,7 @@ from fairseq2.gang import Gang
 
 from fairseq2.logging import log
 from fairseq2.metrics import Mean
-from fairseq2.metrics.text import WerMetric
+from fairseq2.metrics.text import BleuMetric, WerMetric
 from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
@@ -46,6 +46,8 @@ class AsrCriterion:
     ) -> tuple[Tensor, int]:
         log.info(f"s3: calling forward")
         output = self._forward(batch)
+        # self._model.module._gang = metric_bag._gang
+        # output = self._forward(batch, metric_bag._gang)
 
         log.info(f"s4: calling loss")
         loss, extra_metrics = output.compute_loss(
@@ -132,6 +134,7 @@ class AsrScorer:
         metric_bag.wer.update(
             refs, ref_seqs, ref_padding_mask, hyps, hyp_seqs, hyp_padding_mask
         )
+        metric_bag.bleu.update(refs, hyps)
 
         try:
             # Dump references.
@@ -160,6 +163,7 @@ class AsrScorer:
 class AsrMetricBag(BaseMetricBag):
     ctc_loss: Mean
     wer: WerMetric
+    bleu: BleuMetric
 
     def __init__(self, gang: Gang, train: bool = True) -> None:
         super().__init__(gang, train=train)
@@ -169,6 +173,8 @@ class AsrMetricBag(BaseMetricBag):
         self.register_metric("ctc_loss", Mean(device=self.device), persistent=False)
 
         self.register_metric("wer", WerMetric(device=self.device), persistent=False)
+
+        self.register_metric("bleu", BleuMetric(device=self.device), persistent=False)
 
     @torch.inference_mode()
     def update_ctc_loss(self, batch: Seq2SeqBatch, loss: Tensor) -> None:
