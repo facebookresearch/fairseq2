@@ -456,13 +456,10 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         vllm_reward_model = vllm_actors.get(config.vllm_reward_model_actor_name, None)
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         reward_handler = reward_registry.get(config.reward.name)
-        reward_name = config.reward.name
         reward = reward_handler.create(
             reward_model=vllm_reward_model,
-            reward_name=reward_name,
             reward_config=config.reward.config,
             gangs=gangs,
-            context=self._context,
         )
 
         # TODO: decide converter as part of the model handler
