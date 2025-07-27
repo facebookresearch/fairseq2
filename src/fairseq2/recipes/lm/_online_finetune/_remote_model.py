@@ -33,6 +33,7 @@ from vllm.utils import get_ip, get_open_port
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
 from fairseq2.context import RuntimeContext
+from transformers import AutoTokenizer
 
 
 @dataclass(kw_only=True)
@@ -259,6 +260,15 @@ class RemoteVllmModel:
             # gangs.root.barrier()/
 
         # populate sampling params using all values that were passed in the config
+
+        # if "qwen2" in vllm_engine_args.model.lower():
+        #     from vllm import envs
+
+        #     if envs.VLLM_USE_V1:
+        #         # I have no better idea.
+        #         tokenizer = AutoTokenizer.from_pretrained(vllm_engine_args.tokenizer)
+        #         sampling_params["allowed_token_ids"] = list(range(tokenizer.vocab_size))
+
         self.sampling_params = SamplingParams(**sampling_params)
 
         self._vllm_engine_args = vllm_engine_args
