@@ -6,23 +6,14 @@
 
 from __future__ import annotations
 
+import os
+import re
 from abc import ABC, abstractmethod
 from collections import Counter
 from dataclasses import dataclass, field
-import os
-from typing_extensions import override
-from vllm.engine.arg_utils import PoolerConfig
-from fairseq2.gang import Gangs
-from fairseq2.nn._batch_layout import BatchLayout
-from fairseq2.recipes.lm._online_finetune.third_party.athene import AtheneRewardPipeline
-from fairseq2.recipes.lm._online_finetune.third_party.general_verifier import (
-    GeneralVerifierPipeline,
-)
-from fairseq2.utils.structured import StructureError, structure
 from typing import Any, Dict, Union
-from vllm.worker.worker import Worker
+
 import ray
-import re
 import torch
 from ray.util.placement_group import placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
@@ -30,9 +21,17 @@ from typing_extensions import override
 from vllm import LLM, SamplingParams
 from vllm.engine.arg_utils import PoolerConfig
 from vllm.utils import get_ip, get_open_port
+from vllm.worker.worker import Worker
+
+from fairseq2.context import RuntimeContext
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
-from fairseq2.context import RuntimeContext
+from fairseq2.nn._batch_layout import BatchLayout
+from fairseq2.recipes.lm._online_finetune.third_party.athene import AtheneRewardPipeline
+from fairseq2.recipes.lm._online_finetune.third_party.general_verifier import (
+    GeneralVerifierPipeline,
+)
+from fairseq2.utils.structured import StructureError, structure
 
 
 @dataclass(kw_only=True)

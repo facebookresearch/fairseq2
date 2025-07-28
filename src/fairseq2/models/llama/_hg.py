@@ -9,10 +9,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import cast
 
-from torch import Tensor
 import torch
+from torch import Tensor
 
-from fairseq2.models.utils.checkpoint import convert_checkpoint, create_reverse_key_map, get_converted_key
+from fairseq2.models.utils.checkpoint import (
+    convert_checkpoint,
+    create_reverse_key_map,
+    get_converted_key,
+)
 from fairseq2.models.utils.hg import save_hg_checkpoint
 
 # isort: split
@@ -119,8 +123,8 @@ def _convert_to_hg_config(config: LLaMAConfig) -> dict[str, object]:
     }
 
 
-def _convert_parameter(name: str,
-    parameter: torch.nn.Parameter, config: LLaMAConfig
+def _convert_parameter(
+    name: str, parameter: torch.nn.Parameter, config: LLaMAConfig
 ) -> dict[str, object]:
     head_dim = config.model_dim // config.num_attn_heads
 

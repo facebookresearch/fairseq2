@@ -8,50 +8,50 @@ from __future__ import annotations
 
 from copy import copy
 from dataclasses import dataclass, field
-from typing import Dict, Final, List, cast, final, Any, Union
+from typing import Any, Dict, Final, List, Union, cast, final
 
 import torch
 from torch import Tensor
 from torch.nn import Module
-from fairseq2.metrics import MetricBag
 from typing_extensions import override
 from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
-from fairseq2.nn._batch_layout import BatchLayout
 
 from fairseq2.context import RuntimeContext
+from fairseq2.datasets import (
+    SequenceBatch,
+)
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gang, Gangs
 from fairseq2.logging import log
-from fairseq2.datasets import (
-    SequenceBatch,
-)
+from fairseq2.metrics import MetricBag
+from fairseq2.nn._batch_layout import BatchLayout
 from fairseq2.nn.data_parallel._fsdp import (
     fsdp_summon_full_parameters as fsdp_summon_full_parameters,
 )
-
+from fairseq2.recipes import Model, TrainUnit
 from fairseq2.recipes.lm._online_finetune._common import (
-    VllmSyncSection,
-    compute_token_level_entropy,
-    log_rollouts,
-    get_rollout_lengths,
-    generate_rollouts,
     StatefulRolloutBag,
+    VllmSyncSection,
+    collate_with_target_mask,
+    compute_reference_logps,
+    compute_token_level_entropy,
+    generate_rollouts,
+    get_rollout_lengths,
+    log_rollouts,
     update_avg_reward,
     update_avg_reward_len_norm,
     update_avg_rollout_length,
     update_batch_metrics,
-    update_logit_entropy,
-    update_grpo_loss,
     update_grpo_batch_metrics,
-    compute_reference_logps,
-    collate_with_target_mask,
+    update_grpo_loss,
+    update_logit_entropy,
     update_std_reward,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_model import (
-    RemoteVllmModel,
     RemoteHFModel,
+    RemoteVllmModel,
     maybe_sync_model,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
@@ -59,7 +59,6 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
     VLLMOutputReward,
     VLLMOutputRewardHandler,
 )
-from fairseq2.recipes import Model, TrainUnit
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
@@ -524,18 +523,6 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             gangs=gangs,
             context=self._context,
         )
-
-        # TODO: decide converter as part of the model handler
-        if "llama" in model.name:
-            from fairseq2.models.llama._hg import _convert_parameter
-
-            model._convert_parameter = _convert_parameter
-        elif "qwen" in model.name:
-            from fairseq2.models.qwen._hg import _convert_parameter
-
-            model._convert_parameter = _convert_parameter
-        else:
-            raise RuntimeError
 
         # sync models here before we start training
         if config.vllm_sync.sync_model_every_n_steps > 0:
