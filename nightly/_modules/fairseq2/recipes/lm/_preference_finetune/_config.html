@@ -450,7 +450,10 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;The number of batches to prefetch in background.&quot;&quot;&quot;</span>
 
     <span class="n">extras</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;The dataset-specific extra options.&quot;&quot;&quot;</span></div>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The dataset-specific extra options.&quot;&quot;&quot;</span>
+
+    <span class="n">chat_mode</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;If True, dataset jsonl must have &#39;chat&#39; field with openai-like messages List[Dict] entries&quot;&quot;&quot;</span></div>
 
 
 
@@ -498,7 +501,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../../_static/documentation_options.js?v=18e6157d"></script>
+</div><script src="../../../../../_static/documentation_options.js?v=eb39db9f"></script>
     <script src="../../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/scripts/furo.js?v=5fa4622c"></script>
