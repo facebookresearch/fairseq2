@@ -17,24 +17,22 @@ import torch.nn as nn
 from torch import Tensor
 from vllm import RequestOutput
 
-
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
     SequenceData,
 )
-from fairseq2.datasets.preference import PreferenceBatch
-from fairseq2.datasets.prompt import PromptBatch
-from fairseq2.gang import Gang, Gangs
 from fairseq2.datasets import (
     SequenceBatch,
 )
+from fairseq2.datasets.preference import PreferenceBatch
+from fairseq2.datasets.prompt import PromptBatch
+from fairseq2.gang import Gang, Gangs
+from fairseq2.logging import log
+from fairseq2.metrics import Mean, MetricBag, Sum
 from fairseq2.nn._batch_layout import BatchLayout
 from fairseq2.nn.utils.padding import pad_seqs
-
-from fairseq2.logging import log
 from fairseq2.recipes.lm._online_finetune._remote_model import RemoteVllmModel
-from fairseq2.metrics import Mean, Sum, MetricBag
 
 
 @dataclass(kw_only=True)
@@ -595,3 +593,18 @@ def compute_reference_logps(
     ).seqs
 
     return ref_logps
+
+
+def get_parameter_converter(model_config):
+
+    from fairseq2.models.llama import LLaMAConfig
+    from fairseq2.models.qwen import QwenConfig
+
+    if isinstance(model_config, QwenConfig):
+        from fairseq2.models.qwen._hg import _convert_parameter
+    elif isinstance(model_config, LLaMAConfig):
+        from fairseq2.models.llama._hg import _convert_parameter
+    else:
+        raise RuntimeError(f"{model_config} not supported in online recipe")
+
+    return _convert_parameter

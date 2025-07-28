@@ -72,11 +72,13 @@ Below are the user's question and the two responses:
 """
 
 
-from abc import ABC, abstractmethod
-from typing_extensions import override
-from fairseq2.logging import log
-from typing import Any
 import re
+from abc import ABC, abstractmethod
+from typing import Any
+
+from typing_extensions import override
+
+from fairseq2.logging import log
 
 
 class JudgmentExtractorHandler(ABC):
@@ -182,8 +184,8 @@ class GeneralVerifierExtractor(JudgmentExtractor):
         try:
             from math_verify import parse
             from math_verify.parser import (
-                LatexExtractionConfig,
                 ExprExtractionConfig,
+                LatexExtractionConfig,
                 NormalizationConfig,
             )
         except ImportError:
