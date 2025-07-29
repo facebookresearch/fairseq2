@@ -33,6 +33,7 @@ from fairseq2.datasets.prompt import (
 )
 from fairseq2.logging import log
 from fairseq2.models.clm import CausalLM
+from fairseq2.models.qwen import QwenConfig
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import COSINE_ANNEALING_LR, CosineAnnealingLRConfig
 from fairseq2.recipes.common import (
@@ -283,6 +284,8 @@ def load_online_finetuner(
 
     tokenizer = load_text_tokenizer(context, config.tokenizer)
 
+    vocab_size = tokenizer.vocab_info.size
+
     # initialize ray and vllm actors
     ray.init(
         address=f"ray://{config.vllm.ray_cluster_ip_address}:10001",
@@ -292,6 +295,14 @@ def load_online_finetuner(
     vllm_actors = {}
     # go over actor configs and initialize all of them
     for actor_config in config.vllm.ray_actors:
+        if (
+            isinstance(model.config, QwenConfig)
+            and actor_config.ray_actor_name == "vllm_policy"
+        ):
+            actor_config.vllm_sampling_params["allowed_token_ids"] = list(
+                range(vocab_size)
+            )
+
         log.info(f"Setting up '{actor_config.ray_actor_name}' vllm actor")
         actor = RemoteRayModelHandler().create(
             gangs=gangs, actor_config=actor_config, context=context
