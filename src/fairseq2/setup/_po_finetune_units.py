@@ -11,6 +11,7 @@ import ray
 from fairseq2.context import RuntimeContext
 from fairseq2.recipes.lm import (  # GroupDpoFinetuneUnitHandler,
     AtheneVerifierHandler,
+    SkyworkVerifierHandler,
     CpoFinetuneUnitHandler,
     DpoFinetuneUnitHandler,
     GeneralVerifierExtractorHandler,
