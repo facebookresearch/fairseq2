@@ -40,8 +40,10 @@ from fairseq2.setup._metric_recorders import _register_metric_recorders
 from fairseq2.setup._metrics import _register_metric_descriptors
 from fairseq2.setup._models import _register_model_families
 from fairseq2.setup._optim import _register_optimizers
-from fairseq2.setup._po_finetune_units import _register_po_finetune_units
-from fairseq2.setup._po_finetune_units import _register_online_finetune_units
+from fairseq2.setup._po_finetune_units import (
+    _register_online_finetune_units,
+    _register_po_finetune_units,
+)
 from fairseq2.setup._profilers import _register_profilers
 from fairseq2.setup._recipes import _register_recipes
 from fairseq2.setup._text_tokenizers import _register_text_tokenizer_families

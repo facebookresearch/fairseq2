@@ -1,5 +1,5 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 def convert_decisions_to_binary(string_list):

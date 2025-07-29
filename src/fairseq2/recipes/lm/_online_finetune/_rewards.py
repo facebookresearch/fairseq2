@@ -21,11 +21,11 @@ from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gangs
 from fairseq2.recipes.lm._online_finetune._common import (
+    _mute_output,
     collate_with_target_mask,
     generate_rewards,
     generate_rewards_generative,
     prepare_preference_batch_random_pair,
-    _mute_output,
 )
 from fairseq2.recipes.lm._online_finetune._generative_judge import (
     JudgmentExtractorHandler,
@@ -192,8 +192,8 @@ class MathVerifyVerifier(VLLMOutputReward):
         try:
             from math_verify.metric import math_metric
             from math_verify.parser import (
-                LatexExtractionConfig,
                 ExprExtractionConfig,
+                LatexExtractionConfig,
                 NormalizationConfig,
             )
         except ImportError:

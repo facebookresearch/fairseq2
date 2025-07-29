@@ -62,15 +62,15 @@ from fairseq2.recipes.lm import (
     CausalLMLossEvalConfig,
     CausalLMTrainConfig,
     InstructionFinetuneConfig,
-    POFinetuneConfig,
     OnlineFinetuneConfig,
+    POFinetuneConfig,
     TextGenerateConfig,
     load_clm_loss_evaluator,
     load_clm_trainer,
     load_instruction_finetuner,
+    load_online_finetuner,
     load_po_finetuner,
     load_text_generator,
-    load_online_finetuner,
 )
 from fairseq2.recipes.mt import (
     MTEvalConfig,
