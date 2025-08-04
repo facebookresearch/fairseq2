@@ -8,19 +8,17 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from functools import partial
-from typing import Any, Dict, Final, Tuple, cast
-
-from typing_extensions import override
+from typing import Any, cast, Dict, Final, Tuple
 
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
     DataPipeline,
     DataPipelineBuilder,
-    SequenceData,
     read_sequence,
+    SequenceData,
 )
-from fairseq2.data.text import StrSplitter, read_text
+from fairseq2.data.text import read_text, StrSplitter
 from fairseq2.data.text.tokenizers import TextTokenizer
 from fairseq2.datasets import (
     DataPipelineReader,
@@ -37,6 +35,8 @@ from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import Device
+
+from typing_extensions import override
 
 
 class AsrDataset(ABC):
@@ -175,6 +175,8 @@ class GenericAsrDataset(ManifestDatasetInterface, AsrDataset):
         builder.map(text_encoder, selector="text")
 
         unk_idx = tokenizer.vocab_info.unk_idx
+        if unk_idx is None:  # HACK!
+            unk_idx = 3
 
         def empty_text(example: Dict[str, Any]) -> bool:
             return bool((example["text"] != unk_idx).sum().item() > 0)
