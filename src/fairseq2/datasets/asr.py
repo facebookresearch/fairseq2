@@ -175,13 +175,12 @@ class GenericAsrDataset(ManifestDatasetInterface, AsrDataset):
         builder.map(text_encoder, selector="text")
 
         unk_idx = tokenizer.vocab_info.unk_idx
-        if unk_idx is None:  # HACK!
-            unk_idx = 3
 
         def empty_text(example: Dict[str, Any]) -> bool:
             return bool((example["text"] != unk_idx).sum().item() > 0)
 
-        builder = builder.filter(empty_text)
+        if unk_idx is not None:
+            builder = builder.filter(empty_text)
 
         if options is not None:
             remove_unknown = options.extras.get("remove_unknown", False)
