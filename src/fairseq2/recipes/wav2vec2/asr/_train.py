@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import socket
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, cast, final
@@ -123,6 +124,7 @@ class Wav2Vec2AsrTrainConfig:
             validate_after_n_steps=10_000,
             validate_every_n_steps=1_000,
             publish_metrics_every_n_steps=200,
+            keep_last_n_checkpoints=1,
         )
     )
 
@@ -167,6 +169,15 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     npc: int = 10
     """The number of parallel calls to use in the pipeline."""
 
+    max_num_batches: int | None = None
+    """The maximum number of batches for the dataloader to return."""
+
+    always_read_tsv: bool = False
+    """If ``True``, always read the TSV manifest, regardless of whether parquet datasets exist."""
+
+    extras: dict[str, object] = field(default_factory=dict)
+    """The dataset-specific extra options."""
+
     # Upsampling
     beta_corpus: float | None = None
     beta_language: float | None = None
@@ -180,14 +191,13 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     spec_aug_time_mask_param: int = 80
     """Maximum time mask length."""
 
-    always_read_tsv: bool = False
-    """If ``True``, always read the TSV manifest, regardless of whether parquet datasets exist."""
-
-    extras: dict[str, object] = field(default_factory=dict)
-    """The dataset-specific extra options."""
-
+    # Zero/Few-shot
     n_context_examples: int = 0
     """The number of context examples to use when providing context."""
+    bucket_size_train: int = 2000
+    """Minimum size of pool for choosing context examples, for training set."""
+    bucket_size_eval: int = 30
+    """Minimum size of pool for choosing context examples, for eval sets."""
 
 
 @dataclass(kw_only=True)
@@ -283,7 +293,12 @@ def load_wav2vec2_asr_trainer(
 
     # If we start the training with an empty ASR model, use the weights of a
     # pretrained wav2vec 2.0 model.
-    if model.is_empty_initialized:
+    machine_name = socket.gethostname()
+    if (
+        model.is_empty_initialized
+        and config.pretrained_encoder.name
+        and not machine_name.startswith("devvm")
+    ):
         tp = AsrModel if config.pretrained_encoder_is_ctc else Wav2Vec2Model
         pt_model = load_reference_model(
             tp,
@@ -422,8 +437,9 @@ def load_wav2vec2_asr_trainer(
         spec_aug_p=config.dataset.spec_aug_p,
         spec_aug_freq_mask_param=config.dataset.spec_aug_freq_mask_param,
         spec_aug_time_mask_param=config.dataset.spec_aug_time_mask_param,
+        max_num_batches=config.dataset.max_num_batches,
         n_context_examples=config.dataset.n_context_examples,
-        bucket_size=2000,
+        bucket_size=config.dataset.bucket_size_train,
         deterministic_context=False,
     )
 
@@ -467,9 +483,10 @@ def load_wav2vec2_asr_trainer(
             sync_mode=SyncMode.UNTIL_LAST,
             num_prefetch=config.dataset.num_prefetch,
             seed=seed,
+            max_num_batches=config.dataset.max_num_batches,
             extras=config.dataset.extras,
             n_context_examples=config.dataset.n_context_examples,
-            bucket_size=30,
+            bucket_size=config.dataset.bucket_size_eval,
             deterministic_context=True,
         )
 
