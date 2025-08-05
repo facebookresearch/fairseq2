@@ -464,6 +464,21 @@ def load_state_dict(
     ``state_dict`` does not contain any keys corresponding to descendants that are set to ``None``
     via :meth:`Module.register_module()`.
     """
+    # Key mapping
+    need_mapping = False
+    sample_key = list(state_dict.keys())[0]
+    if (
+        sample_key.startswith("module.")
+        and not sample_key in module.state_dict().keys()
+    ):
+        mapped_key = sample_key[7:]
+        if mapped_key in module.state_dict().keys():
+            need_mapping = True
+
+    if need_mapping:
+        key_mapping = lambda key: key[7:] if key.startswith("module.") else key
+        state_dict = {key_mapping(key): value for key, value in state_dict.items()}
+
     module.load_state_dict(state_dict, strict=strict)
 
     unexpected_keys = []
