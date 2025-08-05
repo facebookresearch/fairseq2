@@ -16,7 +16,7 @@ from typing_extensions import override
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
 from fairseq2.gang import Gang
 from fairseq2.metrics import Mean
-from fairseq2.metrics.text import WerMetric
+from fairseq2.metrics.text import BleuMetric, WerMetric
 from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
@@ -121,6 +121,8 @@ class AsrScorer:
             refs, ref_seqs, ref_padding_mask, hyps, hyp_seqs, hyp_padding_mask
         )
 
+        metric_bag.bleu.update(refs, hyps)
+
         try:
             # Dump references.
             stream = self._ref_output_stream
@@ -148,6 +150,7 @@ class AsrScorer:
 class AsrMetricBag(BaseMetricBag):
     ctc_loss: Mean
     wer: WerMetric
+    bleu: BleuMetric
 
     def __init__(self, gang: Gang, train: bool = True) -> None:
         super().__init__(gang, train=train)
@@ -157,6 +160,12 @@ class AsrMetricBag(BaseMetricBag):
         self.register_metric("ctc_loss", Mean(device=self.device), persistent=False)
 
         self.register_metric("wer", WerMetric(device=self.device), persistent=False)
+
+        self.register_metric(
+            "bleu",
+            BleuMetric(tokenizer="flores200", device=self.device),
+            persistent=False,
+        )
 
     @torch.inference_mode()
     def update_ctc_loss(self, batch: Seq2SeqBatch, loss: Tensor) -> None:
