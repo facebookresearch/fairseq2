@@ -402,3 +402,21 @@ def register_wav2vec2_asr_configs(context: RuntimeContext) -> None:
         config = bib1143_7b()
         config.vocab_info.size = 9656
         return config
+
+    @wav2vec2_asr_arch("3b_v3_tokenizer")
+    def v3_tokenizer_3b() -> Wav2Vec2AsrConfig:
+        config = bib1143_3b()
+        config.vocab_info.size = 9656
+        return config
+
+    @wav2vec2_asr_arch("1b_v3_tokenizer")
+    def v3_tokenizer_1b() -> Wav2Vec2AsrConfig:
+        config = bib1143_1b()
+        config.vocab_info.size = 9656
+        return config
+
+    @wav2vec2_asr_arch("300m_v3_tokenizer")
+    def v3_tokenizer_300m() -> Wav2Vec2AsrConfig:
+        config = bib1143_300m()
+        config.vocab_info.size = 9656
+        return config
