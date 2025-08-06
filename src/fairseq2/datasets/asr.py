@@ -166,6 +166,9 @@ class GenericAsrDataset(ManifestDatasetInterface, AsrDataset):
         tokenizer: TextTokenizer,
         options: SpeechReadOptions | None = None,
     ) -> DataPipelineBuilder:
+        if options is None:
+            options = SpeechReadOptions()
+
         # Tokenize target text.
         text_encoder = tokenizer.create_encoder()
 
@@ -181,6 +184,16 @@ class GenericAsrDataset(ManifestDatasetInterface, AsrDataset):
 
         if unk_idx is not None:
             builder = builder.filter(empty_text)
+
+        filter_long_text_threshold = options.extras.get(
+            "filter_long_text_threshold", None
+        )
+        if filter_long_text_threshold is not None:
+
+            def filter_long_text(example: Dict[str, Any]) -> bool:
+                return bool(example["text"].numel() <= filter_long_text_threshold)
+
+            builder = builder.filter(filter_long_text)
 
         if options is not None:
             remove_unknown = options.extras.get("remove_unknown", False)
