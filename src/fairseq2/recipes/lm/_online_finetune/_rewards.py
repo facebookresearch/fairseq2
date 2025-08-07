@@ -998,9 +998,9 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
 
             # Compute average pointwise rewards 
             avg_prompt_rewards = [0.0] * R
-            for prompt_reward, count in zip(prompt_rewards, counts):
-                if count > 0:
-                    avg_prompt_rewards.append(round(prompt_reward / count, 4))
+            for i in range(len(prompt_rewards)):
+                if counts[i] > 0:
+                    avg_prompt_rewards[i] = round(prompt_rewards[i] / counts[i], 4)
 
             batch_pointwise_rewards.append(avg_prompt_rewards)
             
