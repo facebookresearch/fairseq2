@@ -142,12 +142,16 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     ) -> tuple[Tensor, int]:
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
-            policy_sampling_params.n = 1
             for (
                 k,
                 v,
             ) in self._config.loss_config.validation_vllm_sampling_params.items():
                 policy_sampling_params.__setattr__(k, v)
+            
+            # For a pairwise RM, need to sample at least two judgments
+            policy_sampling_params.n = (
+                2 if self._reward.reward_name == "generative_pairwise_verifier" else 1
+            )
         else:
             policy_sampling_params = None
         rollouts = generate_rollouts(
