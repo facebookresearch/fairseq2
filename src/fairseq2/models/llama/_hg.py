@@ -115,4 +115,5 @@ def _convert_to_hg_config(config: LLaMAConfig) -> dict[str, object]:
         "rope_theta": config.rope_theta,
         "tie_word_embeddings": config.tied_embeddings,
         "vocab_size": config.vocab_size,
+        "head_dim": config.model_dim // config.num_attn_heads,
     }
