@@ -18,3 +18,4 @@ base: wav2vec2_asr
 
 name: librispeech_960h
 dataset_family: wav2vec2_ssl
+data: "/checkpoint/mms/shared/assets/datasets/librispeech_asr"
