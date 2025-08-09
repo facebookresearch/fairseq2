@@ -11,6 +11,7 @@ import ray
 from fairseq2.context import RuntimeContext
 from fairseq2.recipes.lm import (  # GroupDpoFinetuneUnitHandler,
     AtheneVerifierHandler,
+    SkyworkVerifierHandler,
     CpoFinetuneUnitHandler,
     DpoFinetuneUnitHandler,
     GeneralVerifierExtractorHandler,
@@ -85,6 +86,10 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
 
     # GSM8kVerifier
     handler = GSM8kVerifierHandler()
+    registry.register(handler.name, handler)
+    
+    # SkyworkVerifier
+    handler = SkyworkVerifierHandler()
     registry.register(handler.name, handler)
 
     # AtheneVerifier
