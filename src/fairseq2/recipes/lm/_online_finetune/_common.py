@@ -94,9 +94,13 @@ def collate_with_target_mask(
 
     seq_data = cast(SequenceData, collater(to_collate))
 
+    seq_lens = seq_data["seqs"]["seq_lens"]
+    assert isinstance(seq_lens, Tensor) or isinstance(seq_lens, list)
+    if isinstance(seq_lens, Tensor):
+        seq_lens = seq_lens.tolist()
     batch = SequenceBatch(
         seq_data["seqs"]["seqs"],
-        seq_data["seqs"]["seq_lens"],
+        seq_lens,
         target_mask=seq_data["target_loss_mask"]["seqs"],
     )
     batch.to(device)
