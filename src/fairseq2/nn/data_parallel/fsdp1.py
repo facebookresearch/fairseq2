@@ -191,22 +191,17 @@ def fsdp1_local_state_dict(module: FSDP1Module) -> dict[str, object]:
             action="ignore", message=r".*Please use DTensor instead.*"
         )
 
-        sdp_rank = dist.get_rank(module.process_group)
-
         for name, item in module.state_dict().items():
             if isinstance(item, ShardedTensor):
                 local_shards = item.local_shards()
                 if not local_shards:
                     continue  # means the tensor is sharded unevenly.
 
-                state_dict[name] = item.local_tensor().detach()
-            # Save replicated items only on the first intra-node (i.e. sharded)
-            # gang.
-            elif sdp_rank == 0:
-                if isinstance(item, Tensor):
-                    item = item.detach()
+                item = item.local_tensor().detach()
+            elif isinstance(item, Tensor):
+                item = item.detach()
 
-                state_dict[name] = item
+            state_dict[name] = item
 
     return state_dict
 
