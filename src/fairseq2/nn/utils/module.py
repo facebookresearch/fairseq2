@@ -7,7 +7,8 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from dataclasses import dataclass
 from itertools import chain
 from typing import Protocol, runtime_checkable
 
@@ -16,9 +17,9 @@ from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.nn.utils import remove_weight_norm  # type: ignore[attr-defined]
 
-from fairseq2.device import CPU, Device
 from fairseq2.gang import Gang
 from fairseq2.logging import log
+from fairseq2.typing import CPU, Device
 
 
 @runtime_checkable
@@ -237,7 +238,7 @@ def apply_to_parameters(
     """
     if no_memo:
         memo = None
-    elif memo is None:
+    elif memo is None and recurse:
         memo = {}
 
     if recurse:
@@ -274,8 +275,7 @@ def apply_to_parameters(
 
         setattr(module, param_name, new_param)
 
-        grad = param.grad
-        if grad is not None:
+        if (grad := param.grad) is not None:
             with torch.no_grad():
                 new_grad = call_fn(grad, requires_grad=grad.requires_grad)
 
@@ -298,7 +298,7 @@ def freeze_parameters(module: Module | None, value: bool = True) -> None:
 
 def select_parameters(
     module: Module, names: Sequence[str], *, exclude: bool = False
-) -> Iterator[tuple[str, Parameter]]:
+) -> Iterable[tuple[str, Parameter]]:
     """Select the parameters of ``module`` and its descendant modules whose
     names match ``names``.
 
@@ -310,7 +310,7 @@ def select_parameters(
         If ``True``, return the parameters that do not match ``names``.
 
     :returns:
-        An iterator of name-parameter tuples.
+        An iterable of name-parameter tuples.
     """
     for name, param in module.named_parameters():
         matched = any(name == pattern or re.match(pattern, name) for pattern in names)
@@ -460,9 +460,9 @@ def load_state_dict(
     """Copy parameters and buffers from ``state_dict`` into ``module`` and its
     descendant modules.
 
-    This implementation internally calls :meth:`Module.load_state_dict()`, and
-    also enforces that ``state_dict`` does not contain any keys corresponding to
-    descendants that are set to ``None`` via :meth:`Module.register_module()`.
+    This implementation internally calls :meth:`Module.load_state_dict()`, and also enforces that
+    ``state_dict`` does not contain any keys corresponding to descendants that are set to ``None``
+    via :meth:`Module.register_module()`.
     """
     module.load_state_dict(state_dict, strict=strict)
 
@@ -533,3 +533,69 @@ def _get_named_modules(
 
     if post_order:
         yield prefix, module
+
+
+@dataclass(kw_only=True)
+class ModuleSizeInfo:
+    """Holds the size information of a module."""
+
+    param_size: int = 0
+    """The total size of all parameters."""
+
+    param_size_bytes: int = 0
+    """The total size of all parameters, in bytes."""
+
+    trainable_param_size: int = 0
+    """The total size of all trainable parameters."""
+
+    trainable_param_size_bytes: int = 0
+    """The total size of all trainable parameters, in bytes."""
+
+    buffer_size: int = 0
+    """The total size of all buffers."""
+
+    buffer_size_bytes: int = 0
+    """The total size of all buffers, in bytes."""
+
+    total_size: int = 0
+    """The total size of the module."""
+
+    total_size_bytes: int = 0
+    """The total size of the module, in bytes."""
+
+
+def get_module_size(module: Module) -> ModuleSizeInfo:
+    """Return the size information of ``module`` and its descendant modules."""
+    info = ModuleSizeInfo()
+
+    for param in module.parameters():
+        if param is None:
+            continue
+
+        size = param.numel()
+        size_bytes = size * param.element_size()
+
+        info.param_size += size
+        info.param_size_bytes += size_bytes
+
+        if param.requires_grad:
+            info.trainable_param_size += size
+            info.trainable_param_size_bytes += size_bytes
+
+        info.total_size += size
+        info.total_size_bytes += size_bytes
+
+    for buffer in module.buffers():
+        if buffer is None:
+            continue
+
+        size = buffer.numel()
+        size_bytes = size * buffer.element_size()
+
+        info.buffer_size += size
+        info.buffer_size_bytes += size_bytes
+
+        info.total_size += size
+        info.total_size_bytes += size_bytes
+
+    return info
