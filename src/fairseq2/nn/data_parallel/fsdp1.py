@@ -13,7 +13,6 @@ from contextlib import contextmanager
 from typing import TypeAlias
 
 import torch
-import torch.distributed as dist
 from torch import Tensor
 from torch.distributed import ProcessGroup
 from torch.distributed._shard.sharded_tensor import ShardedTensor
