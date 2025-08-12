@@ -1,0 +1,30 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+model:
+  arch: "large"
+  config_overrides:
+    encoder_config:
+      first_pass_dropout_p: 0.1
+
+dataset:
+  name: "librispeech_960h"
+  train_split: "train"
+  valid_split: "valid" # multiple splits supported ("valid,test-clean")
+  max_audio_len: 320_000
+  max_num_elements: 1_200_000
+
+optimizer:
+  config:
+    lr: 3e-04
+
+lr_scheduler:
+  config:
+    num_warmup_steps: 20_000
+
+regime:
+  num_steps: 250_000
+  publish_metrics_every_n_steps: 100

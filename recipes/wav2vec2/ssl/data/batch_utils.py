@@ -4,21 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-
-"""
-Batching utilities and strategies for wav2vec2 training.
-
-MIGRATION NOTES:
-- Batching logic extracted from fairseq2:e9fbd6/src/fairseq2/datasets/speech.py
-- BatchingStrategy replaces v0.4 LengthBatching/StaticBatching classes
-- create_bucket_sizes migrated from fairseq2.data
-"""
-
 from enum import Enum
-from typing import Any, Dict, List
-
-import torch
-from torch import Tensor
+from typing import Any, Dict
 
 from fairseq2.data.data_pipeline import DataPipelineBuilder
 from fairseq2.datasets import SequenceBatch
@@ -26,17 +13,10 @@ from fairseq2.logging import log
 
 
 class BatchingStrategy(Enum):
-    """
-    Batching strategies for wav2vec2 training.
+    """Batching strategies for wav2vec2 training."""
 
-    ORIGINAL: fairseq2:e9fbd6/src/fairseq2/datasets/_config.py:16-30
-    Classes: StaticBatching, LengthBatching
-
-    NEW IMPLEMENTATION: Combined into enum for cleaner API
-    """
-
-    STATIC = "static"  # ORIGINAL: StaticBatching class
-    LENGTH = "length"  # ORIGINAL: LengthBatching class
+    STATIC = "static"
+    LENGTH = "length"
 
 
 def create_bucket_sizes(
@@ -48,11 +28,6 @@ def create_bucket_sizes(
 ) -> list[tuple[int, int]]:
     """
     Create optimal bucket sizes for length-based batching.
-
-    ORIGINAL: fairseq2:e9fbd6/src/fairseq2/data/__init__.py
-    Function: create_bucket_sizes()
-
-    NOTE: Copied exactly from original implementation for numerical parity
 
     :param max_num_elements:
         The maximum number of elements that each bucket can contain.
@@ -113,43 +88,15 @@ def create_bucket_sizes(
     return cropped_bucket_sizes
 
 
-# TODO: (cirquit) - this is not needed anymore, but was kind of a partial default for create_bucket_sizes call in length_batching. Using default of 8 in the config for this
-# def get_num_seqs_multiple_of(extras: Dict[str, Any]) -> int:
-#     """
-#     Get num_seqs_multiple_of from options.
-#
-#     ORIGINAL: fairseq2:e9fbd6/src/fairseq2/datasets/speech.py:459-465
-#     Function: get_num_seqs_multiple_of()
-#     """
-#     num_seqs_multiple_of = extras.get("num_seqs_multiple_of", 8)
-#     assert isinstance(
-#         num_seqs_multiple_of, int
-#     ), "num_seqs_multiple_of must be an integer"
-#     assert num_seqs_multiple_of > 0, "num_seqs_multiple_of must be positive"
-#     return num_seqs_multiple_of
-
-
 class BatchingPipeline:
-    """
-    Batching pipeline components.
-
-    ORIGINAL: fairseq2:e9fbd6/src/fairseq2/datasets/speech.py:468-520
-    Function: add_bucketing_pipeline()
-
-    NEW IMPLEMENTATION: Split into separate methods for cleaner composition
-    """
+    """Batching pipeline components."""
 
     @staticmethod
     def add_static_batching(
         builder: DataPipelineBuilder, batch_size: int, drop_remainder: bool = False
     ) -> DataPipelineBuilder:
-        """
-        Add static batching to pipeline.
-
-        ORIGINAL: fairseq2:e9fbd6/src/fairseq2/datasets/speech.py:504-509
-        In: add_bucketing_pipeline() -> StaticBatching branch
-        """
-        builder.bucket(batch_size, drop_remainder=drop_remainder)  # ORIGINAL: line 509
+        """Add static batching to pipeline."""
+        builder.bucket(batch_size, drop_remainder=drop_remainder)
         return builder
 
     @staticmethod
@@ -161,35 +108,27 @@ class BatchingPipeline:
         num_seqs_multiple_of: int,
         drop_remainder: bool = False,
     ) -> DataPipelineBuilder:
-        """
-        Add length-based batching to pipeline.
+        """Add length-based batching to pipeline"""
+        log.info(f"Using max_num_elements={max_num_elements}!")
 
-        ORIGINAL: fairseq2:e9fbd6/src/fairseq2/datasets/speech.py:478-503
-        In: add_bucketing_pipeline() -> LengthBatching branch
-        """
-        # Bucket by the audio length. - ORIGINAL: line 479
-        log.info(f"Using max_num_elements={max_num_elements}!")  # ORIGINAL: line 481
-
-        if max_num_elements % max_audio_len != 0:  # ORIGINAL: line 483
+        if max_num_elements % max_audio_len != 0:
             max_num_elements = (max_num_elements // max_audio_len) * max_audio_len
-            log.warning(
-                f"`max_num_elements` is rounded to {max_num_elements}"
-            )  # ORIGINAL: line 485
+            log.warning(f"`max_num_elements` is rounded to {max_num_elements}")
 
         bucket_sizes = create_bucket_sizes(
-            min_seq_len=min_audio_len,  # ORIGINAL: line 488
-            max_seq_len=max_audio_len,  # ORIGINAL: line 489
-            max_num_elements=max_num_elements,  # ORIGINAL: line 490
+            min_seq_len=min_audio_len,
+            max_seq_len=max_audio_len,
+            max_num_elements=max_num_elements,
             num_seqs_multiple_of=num_seqs_multiple_of,
         )
 
         builder.bucket_by_length(
             bucket_sizes,
-            selector="audio_size",  # ORIGINAL: line 498 (was columns parameter) (used to be [*].audio_size)
-            min_data_len=min_audio_len,  # ORIGINAL: line 499
-            skip_below_min_examples=True,  # ORIGINAL: line 500
-            skip_above_max_examples=True,  # ORIGINAL: line 501
-            drop_remainder=drop_remainder,  # ORIGINAL: line 502
+            selector="audio_size",  # ORIGINAL: line 498 (was columns parameter) (used to be [*].audio_size) TODO: cirquit
+            min_data_len=min_audio_len,
+            skip_below_min_examples=True,
+            skip_above_max_examples=True,
+            drop_remainder=drop_remainder,
         )
         return builder
 
@@ -197,16 +136,7 @@ class BatchingPipeline:
     def add_batch_shuffling(
         builder: DataPipelineBuilder, batch_shuffle_window: int, seed: int
     ) -> DataPipelineBuilder:
-        """
-        Add batch shuffling to pipeline.
-
-        ORIGINAL: fairseq2:e9fbd6/src/fairseq2/datasets/speech.py:513-520
-        In: add_bucketing_pipeline() -> batch shuffling logic
-        """
-        # Shuffle buckets. - ORIGINAL: line 513
-        # assert (
-        #    batch_shuffle_window > 0  # ORIGINAL: line 514-516
-        # ), f"{batch_shuffle_window=}: can apply full batch shuffling which may result in OOM"
+        """Add batch shuffling to pipeline."""
         if batch_shuffle_window == 0:
             log.warning(
                 f"Applying full batch shuffling ({batch_shuffle_window=}) may result in OOM."
@@ -214,8 +144,8 @@ class BatchingPipeline:
         elif batch_shuffle_window > 0:
             log.info(f"Shuffling inside batch window {batch_shuffle_window=}.")
 
-        if batch_shuffle_window != 1:  # ORIGINAL: line 518
-            builder.shuffle(batch_shuffle_window, seed)  # ORIGINAL: line 519
+        if batch_shuffle_window != 1:
+            builder.shuffle(batch_shuffle_window, seed)
         return builder
 
 
@@ -233,7 +163,7 @@ def create_sequence_batch(
     """
     audio_feature = batch_dict["audio_feature"]  # ORIGINAL: line 302
 
-    if no_padding:  # ORIGINAL: line 303
+    if no_padding:
         # no_padding=True: All sequences cropped to same length, no padding needed
         # audio_feature is a plain Tensor from Collater(pad_value=None)
         return SequenceBatch(audio_feature, seq_lens=None, example=batch_dict)
@@ -244,7 +174,7 @@ def create_sequence_batch(
             seqs = audio_feature["seqs"]
             seq_lens = audio_feature["seq_lens"]
 
-            # Convert seq_lens to list[int] if it's a tensor
+            # Convert seq_lens to list[int] if it's a tensor TODO: cirquit check if this is still needed
             if hasattr(seq_lens, "tolist"):
                 seq_lens = seq_lens.tolist()
             else:
@@ -253,4 +183,4 @@ def create_sequence_batch(
             return SequenceBatch(seqs, seq_lens=seq_lens, example=batch_dict)
         else:
             # Fallback: assume uniform lengths (should not happen with proper Collater setup)
-            return SequenceBatch(audio_feature, seq_lens=None, example=batch_dict)
+            return SequenceBatch(audio_feature, seq_lens=None, example=batch_dict) # type: ignore 
