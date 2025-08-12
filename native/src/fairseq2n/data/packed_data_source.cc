@@ -25,6 +25,8 @@ packed_data_source::next()
 
     std::int64_t fill_pos = 0;
 
+    bool filled = false;
+
     while (true) {
         at::Tensor tensor{};
 
@@ -93,31 +95,21 @@ packed_data_source::next()
 
         seq_lens.push_back(fill_size);
 
-        if (end_pos == capacity_)
-            break;
+        if (end_pos == capacity_) {
+            filled = true;
 
-        fill_pos += fill_size;
+            break;
+        }
+
+        fill_pos = end_pos;
+    }
+
+    if (truncate_ && !filled) {
+        if (drop_remainder_)
+            return std::nullopt;
     }
 
     if (batch.defined()) {
-        data_dict output{};
-
-        output.emplace("seqs", std::move(batch));
-        output.emplace("seq_lens", std::move(seq_lens));
-
-        return output;
-    }
-
-    if (drop_remainder_)
-        remainder_.reset();
-
-    if (remainder_.defined()) {
-        batch = std::exchange(remainder_, {});
-
-        std::int64_t seq_len = remainder_.size(0);
-
-        seq_lens.push_back(seq_len);
-
         data_dict output{};
 
         output.emplace("seqs", std::move(batch));
