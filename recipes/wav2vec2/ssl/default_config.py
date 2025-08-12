@@ -23,12 +23,12 @@ from fairseq2.recipe.config import (
     TrainerSection,
 )
 
-from .criterion import Wav2Vec2LossSection
-from .data import Wav2Vec2TrainDatasetSection
+from .criterion import Wav2Vec2SslLossSection
+from .data import Wav2Vec2SslDatasetSection
 
 
 @dataclass(kw_only=True)
-class Wav2Vec2TrainConfig:
+class Wav2Vec2SslConfig:
     """
     The default values correspond to the base ls960h training setup as described
     in :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
@@ -38,15 +38,15 @@ class Wav2Vec2TrainConfig:
         default_factory=lambda: ModelSection(
             family="wav2vec2",
             arch="base",
-            compile=False,  # TODO: (cirquit) check if we can enable
+            compile=False,
             compile_options=CompileOptionsSection(
                 fullgraph=False, dynamic=False
-            ),  # TODO: (cirquit) check if we can enable
+            ),
         )
     )
 
-    dataset: Wav2Vec2TrainDatasetSection = field(
-        default_factory=lambda: Wav2Vec2TrainDatasetSection()
+    dataset: Wav2Vec2SslDatasetSection = field(
+        default_factory=lambda: Wav2Vec2SslDatasetSection()
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
@@ -55,7 +55,9 @@ class Wav2Vec2TrainConfig:
         default_factory=lambda: TrainerSection(dtype=torch.float16)
     )
 
-    loss: Wav2Vec2LossSection = field(default_factory=lambda: Wav2Vec2LossSection())
+    loss: Wav2Vec2SslLossSection = field(
+        default_factory=lambda: Wav2Vec2SslLossSection()
+    )
 
     optimizer: OptimizerSection = field(
         default_factory=lambda: OptimizerSection(

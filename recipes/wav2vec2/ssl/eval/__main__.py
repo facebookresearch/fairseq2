@@ -4,12 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from __future__ import annotations
+from fairseq2.recipe.cli import eval_main
 
-from fairseq2.recipe.cli import train_main
+from .recipe import Wav2Vec2SslEvalRecipe
 
-from .recipe import Wav2Vec2TrainRecipe
+recipe = Wav2Vec2SslEvalRecipe()
 
-recipe = Wav2Vec2TrainRecipe()
-
-train_main(recipe)
+eval_main(recipe)

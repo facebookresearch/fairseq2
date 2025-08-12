@@ -1,4 +1,0 @@
-model:
-  config_overrides:
-    encoder_config:
-      first_pass_dropout_p: 0.1

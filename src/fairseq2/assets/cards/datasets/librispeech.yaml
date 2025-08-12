@@ -4,9 +4,18 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+name: librispeech_960h
+dataset_family: wav2vec2_ssl
+
+---
+
+name: librispeech_asr_960h
+dataset_family: wav2vec2_asr
+
+---
+
 name: librispeech_asr
 dataset_family: generic_asr
-tokenizer: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/librispeech_asr.model"
 tokenizer_family: char_tokenizer
 
 ---

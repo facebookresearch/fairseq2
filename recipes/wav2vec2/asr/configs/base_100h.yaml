@@ -1,0 +1,35 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+model:
+  arch: "base_100h"
+
+dataset:
+  name: "librilight_asr_10h"
+  train_split: "train"
+  valid_split: "dev_other"
+  max_audio_len: 800_000
+  max_num_elements: 3_200_000
+  num_accumulate: 4 # needs to be in sync with grad_accumulation.num_batches
+
+tokenizer:
+  name: "librispeech_asr"
+
+optimizer:
+  config:
+    lr: 3e-05
+
+trainer:
+  dtype: "torch.float16"
+  freeze_encoder_for_n_steps: 0
+  grad_accumulation:
+    num_batches: 4 # needs to be in sync with dataset.num_accumulate
+
+regime:
+  num_steps: 50_000
+  validate_after_n_steps: 9999
+  validate_every_n_steps: 1_000
+  publish_metrics_every_n_steps: 200
