@@ -25,6 +25,7 @@ from fairseq2.nn import BatchLayout, LayerNorm
 # isort: split
 
 from fairseq2.models.conformer._convolution import ConformerConvolution
+from fairseq2.models.transformer._block_mask import BlockMaskCache
 
 
 @final
@@ -131,10 +132,13 @@ class ConformerBlock(TransformerEncoderLayer):
         seqs: Tensor,
         seqs_layout: BatchLayout,
         attn_bias_cache: AttentionBiasCache,
+        block_mask_cache: BlockMaskCache,
     ) -> Tensor:
         seqs = self._forward_ffn1(seqs)
 
-        seqs = self._forward_self_attn(seqs, seqs_layout, attn_bias_cache)
+        seqs = self._forward_self_attn(
+            seqs, seqs_layout, attn_bias_cache, block_mask_cache
+        )
 
         seqs = self._forward_conv(seqs, seqs_layout)
 
@@ -161,6 +165,7 @@ class ConformerBlock(TransformerEncoderLayer):
         seqs: Tensor,
         seqs_layout: BatchLayout,
         attn_bias_cache: AttentionBiasCache,
+        block_mask_cache: BlockMaskCache,
     ) -> Tensor:
         residual = seqs
 
@@ -173,6 +178,7 @@ class ConformerBlock(TransformerEncoderLayer):
             keys_layout=seqs_layout,
             values=seqs,
             bias_cache=attn_bias_cache,
+            block_mask_cache=block_mask_cache,
         )
 
         if self.self_attn_dropout is not None:
