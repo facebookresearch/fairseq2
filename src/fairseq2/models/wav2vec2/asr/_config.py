@@ -439,6 +439,7 @@ def register_wav2vec2_asr_configs(context: RuntimeContext) -> None:
             boh_idx=4792,
             eoh_idx=4793,
         )
+        return config
 
     @wav2vec2_asr_arch("3b_v3_tokenizer")
     def v3_tokenizer_3b() -> Wav2Vec2AsrConfig:
