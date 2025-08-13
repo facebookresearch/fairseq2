@@ -11,6 +11,7 @@ import ray
 from fairseq2.context import RuntimeContext
 from fairseq2.recipes.lm import (  # GroupDpoFinetuneUnitHandler,
     AtheneVerifierHandler,
+    SkyworkVerifierHandler,
     CpoFinetuneUnitHandler,
     DpoFinetuneUnitHandler,
     GeneralVerifierExtractorHandler,
@@ -19,6 +20,7 @@ from fairseq2.recipes.lm import (  # GroupDpoFinetuneUnitHandler,
     GrpoFinetuneUnitHandler,
     GSM8kVerifierHandler,
     J1PairwiseScoreExtractorHandler,
+    J1PairwiseScoreWithRefAnswerExtractorHandler,
     J1PointwiseExtractorHandler,
     JudgmentExtractorHandler,
     MathVerifyHandler,
@@ -86,6 +88,10 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
     # GSM8kVerifier
     handler = GSM8kVerifierHandler()
     registry.register(handler.name, handler)
+    
+    # SkyworkVerifier
+    handler = SkyworkVerifierHandler()
+    registry.register(handler.name, handler)
 
     # AtheneVerifier
     handler = AtheneVerifierHandler()
@@ -120,6 +126,9 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
     registry.register(handler.name, handler)
 
     handler = J1PairwiseScoreExtractorHandler()
+    registry.register(handler.name, handler)
+
+    handler = J1PairwiseScoreWithRefAnswerExtractorHandler()
     registry.register(handler.name, handler)
 
     handler = GeneralVerifierExtractorHandler()

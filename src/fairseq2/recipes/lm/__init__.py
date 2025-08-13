@@ -49,6 +49,12 @@ from fairseq2.recipes.lm._online_finetune._generative_judge import (
     J1PairwiseScoreExtractorHandler as J1PairwiseScoreExtractorHandler,
 )
 from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    J1PairwiseScoreWithRefAnswerExtractor as J1PairwiseScoreWithRefAnswerExtractor,
+)
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    J1PairwiseScoreWithRefAnswerExtractorHandler as J1PairwiseScoreWithRefAnswerExtractorHandler,
+)
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
     J1PointwiseExtractor as J1PointwiseExtractor,
 )
 from fairseq2.recipes.lm._online_finetune._generative_judge import (
@@ -86,6 +92,12 @@ from fairseq2.recipes.lm._online_finetune._remote_model import (
 )
 from fairseq2.recipes.lm._online_finetune._remote_model import (
     RemoteModelHandler as RemoteModelHandler,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    SkyworkVerifier as SkyworkVerifier,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    SkyworkVerifierHandler as SkyworkVerifierHandler,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
     AtheneVerifier as AtheneVerifier,

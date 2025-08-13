@@ -71,6 +71,35 @@ Below are the user's question and the two responses:
 [The End of Assistant B's Answer]
 """
 
+PAIRWISE_WITH_SCORES_J1_PROMPT_WITH_REF_ANSWER = """
+You are given a user question, a reference answer, and two responses from two AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer.
+
+First, think about your evaluation process and provide your reasoning within <think> and </think> tags. This could include your evaluation criteria for a high-quality response to this specific user question, an analysis of the reference answer, a detailed comparison of the two responses, etc. Be explicit in your thought process, referencing your criteria and explaining how each response aligns with or deviates from them.
+
+Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
+
+Finally, assign the assistant's response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision, with a higher score indicating a higher-quality response that better satisfies the criteria. Enclose the scores within the tags <score_A> </score_A>, and <score_B> </score_B>.
+
+Format your output like this:
+<think> your_thinking_process </think>
+<score_A> your_score_a </score_A> <score_B> your_score_b </score_B>
+
+Below are the user's question, reference answer and the two responses:
+
+[User Question]
+{instruction}
+
+[Reference Answer]
+{ref_answer}
+
+[The Start of Assistant A's Answer]
+{response_A}
+[The End of Assistant A's Answer]
+
+[The Start of Assistant B's Answer]
+{response_B}
+[The End of Assistant B's Answer]
+"""
 
 import re
 from abc import ABC, abstractmethod
@@ -83,15 +112,18 @@ from fairseq2.logging import log
 
 class JudgmentExtractorHandler(ABC):
     @abstractmethod
-    def create(self): ...
+    def create(self, tokenizer):
+        ...
 
     @property
     @abstractmethod
-    def name(self) -> str: ...
+    def name(self) -> str:
+        ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]: ...
+    def config_kls(self) -> type[object]:
+        ...
 
 
 """
@@ -110,10 +142,12 @@ class JudgmentExtractor(ABC):
     """
 
     @abstractmethod
-    def prompt(self) -> str: ...
+    def prompt(self) -> str:
+        ...
 
     @abstractmethod
-    def format_prompt(self, prompt_text, **kwargs: Any) -> str: ...
+    def format_prompt(self, prompt_text, **kwargs: Any) -> str:
+        ...
 
     """
     Format the prompt text and additional arguments into a string suitable for input to the reward model.
@@ -126,7 +160,8 @@ class JudgmentExtractor(ABC):
     """
 
     @abstractmethod
-    def extract(self, generation) -> float | str: ...
+    def extract(self, generation) -> float | str:
+        ...
 
     """
     Extract the final scalar reward score from the model's response.
@@ -145,7 +180,8 @@ class JudgmentExtractor(ABC):
     """
 
     @abstractmethod
-    def aggregate(self, judgments) -> float | str: ...
+    def aggregate(self, judgments) -> float | str:
+        ...
 
     """
     Aggregate multiple responses (judgments) from the reward model into a single value.
@@ -165,8 +201,8 @@ class GeneralVerifierExtractorHandler(JudgmentExtractorHandler):
         pass
 
     @override
-    def create(self):
-        return GeneralVerifierExtractor()
+    def create(self, tokenizer):
+        return GeneralVerifierExtractor(tokenizer)
 
     @property
     @override
@@ -180,7 +216,7 @@ class GeneralVerifierExtractorHandler(JudgmentExtractorHandler):
 
 
 class GeneralVerifierExtractor(JudgmentExtractor):
-    def __init__(self):
+    def __init__(self, tokenizer):
         try:
             from math_verify import parse
             from math_verify.parser import (
@@ -253,8 +289,8 @@ class J1PointwiseExtractorHandler(JudgmentExtractorHandler):
         pass
 
     @override
-    def create(self):
-        return J1PointwiseExtractor()
+    def create(self, tokenizer):
+        return J1PointwiseExtractor(tokenizer)
 
     @property
     @override
@@ -268,15 +304,15 @@ class J1PointwiseExtractorHandler(JudgmentExtractorHandler):
 
 
 class J1PointwiseExtractor(JudgmentExtractor):
-    def __init__(self):
-        pass
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
 
     @override
     def prompt(self):
         return POINTWISE_J1_PROMPT
 
     @override
-    def format_prompt(self, prompt_text, rollout_text, reference_answer):
+    def format_prompt(self, prompt_text, rollout_text):
         content = self.prompt().format(instruction=prompt_text, response=rollout_text)
         wrapped_text = [{"role": "user", "content": content}]
         chat_str = self.tokenizer.apply_chat_template(
@@ -307,8 +343,8 @@ class J1PairwiseScoreExtractorHandler(JudgmentExtractorHandler):
         pass
 
     @override
-    def create(self):
-        return J1PairwiseScoreExtractor()
+    def create(self, tokenizer):
+        return J1PairwiseScoreExtractor(tokenizer)
 
     @property
     @override
@@ -322,15 +358,15 @@ class J1PairwiseScoreExtractorHandler(JudgmentExtractorHandler):
 
 
 class J1PairwiseScoreExtractor(JudgmentExtractor):
-    def __init__(self):
-        pass
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
 
     @override
     def prompt(self):
         return PAIRWISE_WITH_SCORES_J1_PROMPT
 
     @override
-    def format_prompt(self, prompt_text, rollout_A_text, rollout_B_text):
+    def format_prompt(self, prompt_text, rollout_A_text, rollout_B_text, ref_answer=None):
         content = self.prompt().format(
             instruction=prompt_text,
             response_A=rollout_A_text,
@@ -372,13 +408,54 @@ class J1PairwiseScoreExtractor(JudgmentExtractor):
         )
 
 
+class J1PairwiseScoreWithRefAnswerExtractorHandler(JudgmentExtractorHandler):
+    def __init__(self):
+        pass
+
+    @override
+    def create(self, tokenizer):
+        return J1PairwiseScoreWithRefAnswerExtractor(tokenizer)
+
+    @property
+    @override
+    def name(self):
+        return "j1_pairwise_score_extractor_with_ref_answer"
+
+    @property
+    @override
+    def config_kls(self):
+        return None
+
+
+
+class J1PairwiseScoreWithRefAnswerExtractor(J1PairwiseScoreExtractor):
+    @override
+    def prompt(self):
+        return PAIRWISE_WITH_SCORES_J1_PROMPT_WITH_REF_ANSWER
+
+    @override
+    def format_prompt(self, prompt_text, rollout_A_text, rollout_B_text, ref_answer):
+        assert ref_answer is not None, "Reference answer must be provided"
+        content = self.prompt().format(
+            instruction=prompt_text,
+            ref_answer=ref_answer,
+            response_A=rollout_A_text,
+            response_B=rollout_B_text,
+        )
+        wrapped_text = [{"role": "user", "content": content}]
+        chat_str = self.tokenizer.apply_chat_template(
+            wrapped_text, tokenize=False, add_generation_prompt=True
+        )
+        return chat_str
+
+
 class J1PairwisePreferenceExtractorHandler(JudgmentExtractorHandler):
     def __init__(self):
         pass
 
     @override
-    def create(self):
-        return J1PairwisePreferenceExtractor()
+    def create(self, tokenizer):
+        return J1PairwisePreferenceExtractor(tokenizer)
 
     @property
     @override
@@ -392,8 +469,8 @@ class J1PairwisePreferenceExtractorHandler(JudgmentExtractorHandler):
 
 
 class J1PairwisePreferenceExtractor(JudgmentExtractor):
-    def __init__(self):
-        pass
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
 
     @override
     def prompt(self):
