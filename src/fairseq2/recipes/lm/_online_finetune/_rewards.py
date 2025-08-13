@@ -914,21 +914,21 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
         judgment_extractor_handler = judgment_extractor_registry.get(judgment_extractor)
         self.judgment_extractor = judgment_extractor_handler.create(self.tokenizer)
         
-    def all_pairs(self, prompt_text, i_batch_request_output, vllm_inputs, prompt_pairwise_indices):
+    def all_pairs(self, prompt_text, i_batch_request_output, vllm_inputs, prompt_pairwise_indices, reference_answer=None):
         for a in range(len(i_batch_request_output.outputs)):
             for b in range(len(i_batch_request_output.outputs)):
                 if a != b:
                     rollout_A_text = i_batch_request_output.outputs[a].text
                     rollout_B_text = i_batch_request_output.outputs[b].text
                     vllm_input = self.judgment_extractor.format_prompt(
-                        prompt_text, rollout_A_text, rollout_B_text
+                        prompt_text, rollout_A_text, rollout_B_text, reference_answer
                     )
                     vllm_inputs.append(vllm_input)
                     prompt_pairwise_indices.append((a, b))
                     
         return vllm_inputs, prompt_pairwise_indices
     
-    def pairs_with_reference(self, prompt_text, i_batch_request_output, vllm_inputs, prompt_pairwise_indices):
+    def pairs_with_reference(self, prompt_text, i_batch_request_output, vllm_inputs, prompt_pairwise_indices, reference_answer=None):
         reference_idx = random.randint(0, len(i_batch_request_output.outputs)-1)
         reference_rollout = i_batch_request_output.outputs[reference_idx].text
         for a in range(len(i_batch_request_output.outputs)):
@@ -941,16 +941,15 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
                     rollout_A_text, rollout_B_text = rollout_B_text, rollout_A_text
                     prompt_pairwise_indices.append((reference_idx, a))
                 else:
-                    prompt_pairwise_indices.append((a, reference_idx))
-                
+                    prompt_pairwise_indices.append((a, reference_idx))          
                 vllm_input = self.judgment_extractor.format_prompt(
-                    prompt_text, rollout_A_text, rollout_B_text
+                    prompt_text, rollout_A_text, rollout_B_text, reference_answer
                 )
                 vllm_inputs.append(vllm_input)
                 
         return vllm_inputs, prompt_pairwise_indices
     
-    def random_pairs(self, prompt_text, i_batch_request_output, vllm_inputs, prompt_pairwise_indices):
+    def random_pairs(self, prompt_text, i_batch_request_output, vllm_inputs, prompt_pairwise_indices, reference_answer=None):
         all_pairs = [(i, j) for i in range(len(i_batch_request_output.outputs)) for j in range(len(i_batch_request_output.outputs)) if i != j]
         random_pairs = random.sample(all_pairs, len(i_batch_request_output.outputs))
         
@@ -960,7 +959,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
                     rollout_A_text = i_batch_request_output.outputs[a].text
                     rollout_B_text = i_batch_request_output.outputs[b].text
                     vllm_input = self.judgment_extractor.format_prompt(
-                        prompt_text, rollout_A_text, rollout_B_text
+                        prompt_text, rollout_A_text, rollout_B_text, reference_answer
                     )
                     vllm_inputs.append(vllm_input)
                     prompt_pairwise_indices.append((a, b))
@@ -1021,6 +1020,10 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
             vllm_outputs = [None] * len(prompt_batch.prompts)
 
         text_prompts = prompt_batch.meta_info.get(self.prompt_key)
+        try:
+            reference_answers = prompt_batch.meta_info.get(self.answer_key)
+        except:
+            reference_answers = [None] * len(prompt_batch.prompts)
         for i, (i_batch_request_output, prompt_text) in enumerate(
             zip(vllm_outputs, text_prompts)
         ):
@@ -1036,11 +1039,11 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
 
             prompt_pairwise_indices = []
             if batch_type == "all_pairs":
-                vllm_inputs, prompt_pairwise_indices = self.all_pairs(prompt_text, i_batch_request_output, vllm_inputs, prompt_pairwise_indices)
+                vllm_inputs, prompt_pairwise_indices = self.all_pairs(prompt_text, i_batch_request_output, vllm_inputs, prompt_pairwise_indices, reference_answers[i])
             elif batch_type == "reference":
-                vllm_inputs, prompt_pairwise_indices = self.pairs_with_reference(prompt_text, i_batch_request_output, vllm_inputs, prompt_pairwise_indices)
+                vllm_inputs, prompt_pairwise_indices = self.pairs_with_reference(prompt_text, i_batch_request_output, vllm_inputs, prompt_pairwise_indices, reference_answers[i])
             elif batch_type == "random_pairs":
-                vllm_inputs, prompt_pairwise_indices = self.random_pairs(prompt_text, i_batch_request_output, vllm_inputs, prompt_pairwise_indices)
+                vllm_inputs, prompt_pairwise_indices = self.random_pairs(prompt_text, i_batch_request_output, vllm_inputs, prompt_pairwise_indices, reference_answers[i])
 
             batch_pairwise_indices.append(prompt_pairwise_indices)
 

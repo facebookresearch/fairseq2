@@ -49,6 +49,12 @@ from fairseq2.recipes.lm._online_finetune._generative_judge import (
     J1PairwiseScoreExtractorHandler as J1PairwiseScoreExtractorHandler,
 )
 from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    J1PairwiseScoreWithRefAnswerExtractor as J1PairwiseScoreWithRefAnswerExtractor,
+)
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    J1PairwiseScoreWithRefAnswerExtractorHandler as J1PairwiseScoreWithRefAnswerExtractorHandler,
+)
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
     J1PointwiseExtractor as J1PointwiseExtractor,
 )
 from fairseq2.recipes.lm._online_finetune._generative_judge import (
