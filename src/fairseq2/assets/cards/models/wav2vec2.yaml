@@ -7,7 +7,8 @@
 name: wav2vec2_base
 model_family: wav2vec2
 model_arch: base
-checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_fs2_small.pt"
+checkpoint: "/checkpoint/mms/shared/assets/oss_models/wav2vec2_fs2_small.pt"
+#checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_fs2_small.pt"
 
 ---
 
@@ -28,5 +29,6 @@ checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_fs2_large_l
 name: wav2vec2_asr_base_10h
 model_family: wav2vec2_asr
 model_arch: base_10h
-checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_asr_fs2_base_10h.pt"
+checkpoint: "/checkpoint/mms/shared/assets/oss_models/wav2vec2_asr_fs2_base_10h.pt"
+#checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_asr_fs2_base_10h.pt"
 tokenizer_ref: librispeech_asr

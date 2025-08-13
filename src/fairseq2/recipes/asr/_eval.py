@@ -74,13 +74,13 @@ class AsrEvalConfig:
 
 @dataclass(kw_only=True)
 class AsrEvalDatasetSection(DatasetSection):
-    name: str | None = "librilight_asr_10h"
+    name: str | None = "librispeech_960h"
 
     family: str = GENERIC_ASR_DATASET_FAMILY
 
     path: Path | None = None
 
-    split: str = "test_other"
+    split: str = "test-other"
 
     min_audio_len: int = 1
     """The minimum audio sequence length."""

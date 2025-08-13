@@ -124,15 +124,15 @@ class Wav2Vec2AsrTrainConfig:
 
 @dataclass(kw_only=True)
 class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
-    name: str | None = "librilight_asr_10h"
+    name: str | None = "librispeech_960h"
 
     family: str = GENERIC_ASR_DATASET_FAMILY
 
     path: Path | None = None
 
-    train_split: str = "train"
+    train_split: str = "train-960"
 
-    valid_split: str | None = "dev_other"
+    valid_split: str | None = "dev-other"
 
     min_audio_len: int = 1
     """The minimum audio sequence length."""
