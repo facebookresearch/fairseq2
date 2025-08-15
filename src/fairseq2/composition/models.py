@@ -149,7 +149,7 @@ def _register_model_families(container: DependencyContainer) -> None:
     )
 
     register_mistral_configs(container)
-    
+
     # OPT
     register_model_family(
         container,
@@ -160,7 +160,7 @@ def _register_model_families(container: DependencyContainer) -> None:
         state_dict_converter=convert_opt_state_dict,
         compiler=compile_transformer_lm,
     )
-    
+
     register_opt_configs(container)
 
     # NLLB
