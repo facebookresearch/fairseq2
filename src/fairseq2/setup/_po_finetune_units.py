@@ -28,6 +28,7 @@ from fairseq2.recipes.lm import (  # GroupDpoFinetuneUnitHandler,
     OnlineFinetuneUnitHandler,
     OrpoFinetuneUnitHandler,
     POFinetuneUnitHandler,
+    PplDerivedVerifierHandler,
     RemoteModelHandler,
     SimPOFinetuneUnitHandler,
     VLLMOutputRewardHandler,
@@ -93,6 +94,10 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
 
     # MathVerify
     handler = MathVerifyHandler()
+    registry.register(handler.name, handler)
+
+    # PplDerivedVerifier
+    handler = PplDerivedVerifierHandler()
     registry.register(handler.name, handler)
 
     # GenerativePointwiseVerifier

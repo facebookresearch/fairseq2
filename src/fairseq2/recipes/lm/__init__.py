@@ -113,6 +113,12 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
     MathVerifyHandler as MathVerifyHandler,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
+    PplDerivedVerifier as PplDerivedVerifier,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    PplDerivedVerifierHandler as PplDerivedVerifierHandler,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
     VLLMOutputRewardHandler as VLLMOutputRewardHandler,
 )
 from fairseq2.recipes.lm._preference_finetune._config import (
