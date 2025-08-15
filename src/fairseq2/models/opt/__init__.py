@@ -6,16 +6,10 @@
 
 from __future__ import annotations
 
-from fairseq2.models.opt.interop import (
-    convert_opt_state_dict as convert_opt_state_dict,
-)
 from fairseq2.models.opt.config import OPT_MODEL_FAMILY as OPT_MODEL_FAMILY
 from fairseq2.models.opt.config import OPTConfig as OPTConfig
-from fairseq2.models.opt.config import (
-    register_opt_configs as register_opt_configs,
-)
+from fairseq2.models.opt.config import register_opt_configs as register_opt_configs
 from fairseq2.models.opt.factory import OPTFactory as OPTFactory
-from fairseq2.models.opt.factory import (
-    create_opt_model as create_opt_model,
-)
+from fairseq2.models.opt.factory import create_opt_model as create_opt_model
 from fairseq2.models.opt.hub import get_opt_model_hub as get_opt_model_hub
+from fairseq2.models.opt.interop import convert_opt_state_dict as convert_opt_state_dict

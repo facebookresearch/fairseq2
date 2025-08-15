@@ -12,7 +12,6 @@ from fairseq2.models.utils.checkpoint import convert_state_dict
 
 from fairseq2.models.opt.config import OPTConfig
 
-
 _OPT_HG_KEY_MAP = {
     # fmt: off
     r"^model\.decoder\.embed_tokens\.": r"decoder_frontend.embed.",

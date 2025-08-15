@@ -11,6 +11,6 @@ from fairseq2.models.transformer_lm import TransformerLM
 
 # isort: split
 
-from fairseq2.models.opt.config import OPTConfig, OPT_MODEL_FAMILY
+from fairseq2.models.opt.config import OPT_MODEL_FAMILY, OPTConfig
 
 get_opt_model_hub = ModelHubAccessor(OPT_MODEL_FAMILY, TransformerLM, OPTConfig)

@@ -33,7 +33,6 @@ from fairseq2.nn import (
     Linear,
     PositionEncoder,
     Projection,
-    RMSNorm,
     StandardEmbedding,
     StandardLayerNorm,
 )
@@ -156,7 +155,9 @@ class OPTFactory:
     def create_ffn(self) -> FeedForwardNetwork:
         config = self._config
 
-        return StandardFeedForwardNetwork(config.model_dim, config.ffn_inner_dim, bias=True)
+        return StandardFeedForwardNetwork(
+            config.model_dim, config.ffn_inner_dim, bias=True
+        )
 
     def create_layer_norm(self) -> LayerNorm:
         config = self._config
