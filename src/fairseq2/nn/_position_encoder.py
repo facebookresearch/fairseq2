@@ -99,13 +99,9 @@ class SinusoidalPositionEncoder(PositionEncoder):
         super().__init__(encoding_dim)
 
         if encoding_dim % 2 != 0:
-            raise ValueError(
-                f"`encoding_dim` must be even, but is {encoding_dim} instead."
-            )
+            raise ValueError(f"`encoding_dim` must be even, but is {encoding_dim} instead.")
 
-        freqs = torch.empty(
-            (max_seq_len + 1, encoding_dim), device=device, dtype=torch.float32
-        )
+        freqs = torch.empty((max_seq_len + 1, encoding_dim), device=device, dtype=torch.float32)
 
         self.register_buffer("freqs", freqs, persistent=False)
 
@@ -133,9 +129,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
         start_step = self.sin_offset
 
         # (S)
-        steps = torch.arange(
-            start_step, start_step + self.max_seq_len, device=device, dtype=dtype
-        )
+        steps = torch.arange(start_step, start_step + self.max_seq_len, device=device, dtype=dtype)
 
         _fill_sin_freq_table(self.freqs[1:], self.encoding_dim, steps)
 
@@ -194,9 +188,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
         return f"encoding_dim={self.encoding_dim}, max_seq_len={self.max_seq_len}"
 
 
-def _fill_sin_freq_table(
-    freqs: Tensor, encoding_dim: int, steps: Tensor, correction: int = 1
-) -> None:
+def _fill_sin_freq_table(freqs: Tensor, encoding_dim: int, steps: Tensor, correction: int = 1) -> None:
     freqs = freqs.flatten(0, -2)
 
     num_sin = encoding_dim // 2
@@ -234,6 +226,7 @@ class LearnedPositionEncoder(PositionEncoder):
         self,
         encoding_dim: int,
         max_seq_len: int,
+        offset: int = 1,
         *,
         device: Device | None = None,
         dtype: DataType | None = None,
@@ -247,11 +240,11 @@ class LearnedPositionEncoder(PositionEncoder):
         """
         super().__init__(encoding_dim)
 
-        self.weight = Parameter(
-            torch.empty((max_seq_len + 1, encoding_dim), device=device, dtype=dtype)
-        )
+        self.weight = Parameter(torch.empty((max_seq_len + 1, encoding_dim), device=device, dtype=dtype))
 
         self.max_seq_len = max_seq_len
+
+        self.offset = offset
 
         self.reset_parameters()
 
@@ -281,7 +274,7 @@ class LearnedPositionEncoder(PositionEncoder):
                 f"The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence is of length {max_seq_len} instead."
             )
 
-        indices = seqs_layout.position_indices + 1  # +1 for padding
+        indices = seqs_layout.position_indices + self.offset  # +1 for padding
 
         if not self.training and state_bag is not None:
             indices = state_bag.step_nr + indices
@@ -340,13 +333,9 @@ class RotaryEncoder(PositionEncoder):
         super().__init__(encoding_dim)
 
         if encoding_dim % 2 != 0:
-            raise ValueError(
-                f"`encoding_dim` must be even, but is {encoding_dim} instead."
-            )
+            raise ValueError(f"`encoding_dim` must be even, but is {encoding_dim} instead.")
 
-        freqs = torch.empty(
-            (max_seq_len + 1, encoding_dim // 2, 2), device=device, dtype=torch.float32
-        )
+        freqs = torch.empty((max_seq_len + 1, encoding_dim // 2, 2), device=device, dtype=torch.float32)
 
         self.register_buffer("freqs", freqs, persistent=False)
 
@@ -373,9 +362,7 @@ class RotaryEncoder(PositionEncoder):
 
         if self.freqs_init_fn is None:
             # (E / 2)
-            indices = torch.arange(
-                0, self.encoding_dim, step=2, device=device, dtype=torch.float32
-            )
+            indices = torch.arange(0, self.encoding_dim, step=2, device=device, dtype=torch.float32)
 
             freqs = 1.0 / (self.theta ** (indices / self.encoding_dim))
         else:
@@ -450,11 +437,7 @@ class RotaryEncoder(PositionEncoder):
     @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = (
-            f"encoding_dim={self.encoding_dim}, "
-            f"max_seq_len={self.max_seq_len}, "
-            f"theta={self.theta}"
-        )
+        s = f"encoding_dim={self.encoding_dim}, max_seq_len={self.max_seq_len}, theta={self.theta}"
 
         if self.freqs_init_fn is not None:
             freqs_init_fn = get_name_or_self(self.freqs_init_fn)
@@ -498,17 +481,11 @@ class ReferenceRotaryEncoder(PositionEncoder):
         super().__init__(encoding_dim)
 
         if encoding_dim % 2 != 0:
-            raise ValueError(
-                f"`encoding_dim` must be even, but is {encoding_dim} instead."
-            )
+            raise ValueError(f"`encoding_dim` must be even, but is {encoding_dim} instead.")
 
-        cos_freqs = torch.empty(
-            (max_seq_len + 1, encoding_dim), device=device, dtype=torch.float32
-        )
+        cos_freqs = torch.empty((max_seq_len + 1, encoding_dim), device=device, dtype=torch.float32)
 
-        sin_freqs = torch.empty(
-            (max_seq_len + 1, encoding_dim), device=device, dtype=torch.float32
-        )
+        sin_freqs = torch.empty((max_seq_len + 1, encoding_dim), device=device, dtype=torch.float32)
 
         self.register_buffer("cos_freqs", cos_freqs, persistent=False)
         self.register_buffer("sin_freqs", sin_freqs, persistent=False)
@@ -622,11 +599,7 @@ class ReferenceRotaryEncoder(PositionEncoder):
     @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        return (
-            f"encoding_dim={self.encoding_dim}, "
-            f"max_seq_len={self.max_seq_len}, "
-            f"theta={self.theta}"
-        )
+        return f"encoding_dim={self.encoding_dim}, max_seq_len={self.max_seq_len}, theta={self.theta}"
 
 
 class InterpolatedPositionEncoder(Module, ABC):
@@ -681,13 +654,9 @@ class SinusoidalNdPositionEncoder(InterpolatedPositionEncoder):
         super().__init__(encoding_dim)
 
         if encoding_dim % 2 != 0:
-            raise ValueError(
-                f"`encoding_dim` must be even, but is {encoding_dim} instead."
-            )
+            raise ValueError(f"`encoding_dim` must be even, but is {encoding_dim} instead.")
 
-        freqs = torch.empty(
-            grid_dims + (encoding_dim,), device=device, dtype=torch.float32
-        )
+        freqs = torch.empty(grid_dims + (encoding_dim,), device=device, dtype=torch.float32)
 
         self.grid_dims = grid_dims
 
@@ -779,24 +748,18 @@ class Sinusoidal2dPositionEncoder(SinusoidalNdPositionEncoder):
 
         idx = 0
 
-        _fill_sin_freq_table(
-            freqs[..., idx : idx + h_dim], h_dim, h_coords, correction=0
-        )
+        _fill_sin_freq_table(freqs[..., idx : idx + h_dim], h_dim, h_coords, correction=0)
 
         idx = h_dim
 
-        _fill_sin_freq_table(
-            freqs[..., idx : idx + w_dim], w_dim, w_coords, correction=0
-        )
+        _fill_sin_freq_table(freqs[..., idx : idx + w_dim], w_dim, w_coords, correction=0)
 
     @override
     def _interpolate_freqs_as(self, x: Tensor) -> Tensor:
         freqs = self.freqs
 
         if x.ndim != 4:
-            raise ValueError(
-                f"`x` must be 4 dimensional, but is {x.ndim} dimensional instead."
-            )
+            raise ValueError(f"`x` must be 4 dimensional, but is {x.ndim} dimensional instead.")
 
         frq_dims, inp_dims = freqs.shape[:-1], x.shape[1:-1]
 
@@ -873,9 +836,7 @@ class Sinusoidal3dPositionEncoder(SinusoidalNdPositionEncoder):
         h_steps = torch.arange(h, device=device, dtype=dtype)
         w_steps = torch.arange(w, device=device, dtype=dtype)
 
-        d_coords, h_coords, w_coords = torch.meshgrid(
-            d_steps, h_steps, w_steps, indexing="ij"
-        )
+        d_coords, h_coords, w_coords = torch.meshgrid(d_steps, h_steps, w_steps, indexing="ij")
 
         d_coords = d_coords.flatten()
         h_coords = h_coords.flatten()
@@ -894,30 +855,22 @@ class Sinusoidal3dPositionEncoder(SinusoidalNdPositionEncoder):
 
         idx = 0
 
-        _fill_sin_freq_table(
-            freqs[..., idx : idx + d_dim], d_dim, d_coords, correction=0
-        )
+        _fill_sin_freq_table(freqs[..., idx : idx + d_dim], d_dim, d_coords, correction=0)
 
         idx = d_dim
 
-        _fill_sin_freq_table(
-            freqs[..., idx : idx + h_dim], h_dim, h_coords, correction=0
-        )
+        _fill_sin_freq_table(freqs[..., idx : idx + h_dim], h_dim, h_coords, correction=0)
 
         idx = d_dim + h_dim
 
-        _fill_sin_freq_table(
-            freqs[..., idx : idx + w_dim], w_dim, w_coords, correction=0
-        )
+        _fill_sin_freq_table(freqs[..., idx : idx + w_dim], w_dim, w_coords, correction=0)
 
     @override
     def _interpolate_freqs_as(self, x: Tensor) -> Tensor:
         freqs = self.freqs
 
         if x.ndim != 5:
-            raise ValueError(
-                f"`x` must be 5 dimensional, but is {x.ndim} dimensional instead."
-            )
+            raise ValueError(f"`x` must be 5 dimensional, but is {x.ndim} dimensional instead.")
 
         frq_dims, inp_dims = freqs.shape[:-1], x.shape[1:-1]
 
