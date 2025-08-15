@@ -10,7 +10,8 @@ import math
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
+
 import torch
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets.preference import PreferenceBatch
@@ -39,6 +40,7 @@ class RewardModelConfig:
     prompt_key: str = "prompt"
     tokenizer: str | None = None
     judgment_extractor: str | None = None
+    additional_fields: Dict[str, Any] | None = None
 
 
 @dataclass(kw_only=True)
@@ -898,6 +900,9 @@ class PplDerivedVerifierHandler(VLLMOutputRewardHandler):
             # judgment_extractor=reward_config.judgment_extractor,
             answer_key=reward_config.answer_key,
             tokenizer=reward_config.tokenizer,
+            apply_ppl_diff_reward=reward_config.additional_fields.get(
+                "apply_ppl_diff_reward", True
+            ),
         )
 
     @property
@@ -920,6 +925,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         reward_name,
         answer_key,
         tokenizer,
+        apply_ppl_diff_reward,
     ):
         self.answer_key = answer_key
         self._gangs = gangs
@@ -927,7 +933,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         self.reward_model = reward_model
         self.reward_name = reward_name
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
-        self.apply_ppl_diff_reward = False  # TODO(lidli): make this configurable
+        self.apply_ppl_diff_reward = apply_ppl_diff_reward
 
     def _preprocess_reward_input(
         self,
