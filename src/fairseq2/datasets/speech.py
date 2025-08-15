@@ -15,13 +15,10 @@ from typing import Any, Callable, Dict, Final, List
 
 import numpy as np
 import torch
-from torch import Tensor
-from torch.nn.functional import layer_norm
-from typing_extensions import override
 
-from fairseq2.data import Collater, DataPipelineBuilder, FileMapper, create_bucket_sizes
+from fairseq2.data import Collater, create_bucket_sizes, DataPipelineBuilder, FileMapper
 from fairseq2.data.audio import AudioDecoder, WaveformToFbankConverter
-from fairseq2.data.text import StrSplitter, read_text
+from fairseq2.data.text import read_text, StrSplitter
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
@@ -39,6 +36,9 @@ from fairseq2.logging import log
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import DataType, Device
+from torch import Tensor
+from torch.nn.functional import layer_norm
+from typing_extensions import override
 
 try:
     import torchaudio  # type: ignore
@@ -192,6 +192,9 @@ class SpeechReadOptions(DataReadOptions):
 
     npc: int = 10
     """The number of parallel calls to use in the pipeline."""
+
+    max_bucket_size: int = -1
+    """The maximum bucket / batch size. If ``-1``, no maximum is applied."""
 
     # Upsampling
     beta_corpus: float | None = None
@@ -470,6 +473,7 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
         options: SpeechReadOptions,
         max_audio_len: int,
         min_audio_len: int,
+        max_bucket_size: int,
         seed: int,
         columns: str,
     ) -> DataPipelineBuilder:
@@ -484,6 +488,7 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
                 max_num_elements = (max_num_elements // max_audio_len) * max_audio_len
                 log.warning(f"`max_num_elements` is rounded to {max_num_elements}")
 
+            log.info(f"Using max_bucket_size={max_bucket_size}!")
             bucket_sizes = create_bucket_sizes(
                 min_seq_len=min_audio_len,
                 max_seq_len=max_audio_len,
@@ -491,7 +496,9 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
                 num_seqs_multiple_of=GenericSpeechDataset._get_num_seqs_multiple_of(
                     options
                 ),
+                max_bucket_size=max_bucket_size,
             )
+            log.info(f"{bucket_sizes=}")
 
             builder.bucket_by_length(
                 bucket_sizes,

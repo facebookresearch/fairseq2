@@ -8,13 +8,13 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypedDict, TypeVar, final
+from typing import Any, final, TYPE_CHECKING, TypedDict, TypeVar
+
+from fairseq2.data._memory import MemoryBlock
 
 from fairseq2n import DOC_MODE
 from torch import Tensor
 from typing_extensions import Self
-
-from fairseq2.data._memory import MemoryBlock
 
 if TYPE_CHECKING or DOC_MODE:
 
@@ -546,40 +546,18 @@ if TYPE_CHECKING or DOC_MODE:
 else:
     from fairseq2n.bindings.data.data_pipeline import (  # noqa: F401
         ByteStreamError as ByteStreamError,
-    )
-    from fairseq2n.bindings.data.data_pipeline import (  # noqa: F401
         CollateOptionsOverride as CollateOptionsOverride,
-    )
-    from fairseq2n.bindings.data.data_pipeline import Collater as Collater  # noqa: F401
-    from fairseq2n.bindings.data.data_pipeline import (  # noqa: F401
+        Collater as Collater,
         DataPipeline as DataPipeline,
-    )
-    from fairseq2n.bindings.data.data_pipeline import (  # noqa: F401
         DataPipelineBuilder as DataPipelineBuilder,
-    )
-    from fairseq2n.bindings.data.data_pipeline import (  # noqa: F401
         DataPipelineError as DataPipelineError,
-    )
-    from fairseq2n.bindings.data.data_pipeline import (  # noqa: F401
         FileMapper as FileMapper,
-    )
-    from fairseq2n.bindings.data.data_pipeline import (  # noqa: F401
-        RecordError as RecordError,
-    )
-    from fairseq2n.bindings.data.data_pipeline import (  # noqa: F401
         get_last_failed_example as get_last_failed_example,
-    )
-    from fairseq2n.bindings.data.data_pipeline import (  # noqa: F401
         list_files as list_files,
-    )
-    from fairseq2n.bindings.data.data_pipeline import (  # noqa: F401
         read_iterator as read_iterator,
-    )
-    from fairseq2n.bindings.data.data_pipeline import (  # noqa: F401
         read_sequence as read_sequence,
-    )
-    from fairseq2n.bindings.data.data_pipeline import (  # noqa: F401
         read_zipped_records as read_zipped_records,
+        RecordError as RecordError,
     )
 
 
@@ -600,6 +578,7 @@ def create_bucket_sizes(
     max_seq_len: int,
     min_seq_len: int = 1,
     num_seqs_multiple_of: int = 1,
+    max_bucket_size: int = -1,
 ) -> list[tuple[int, int]]:
     """Create optimal bucket sizes for :meth:`DataPipeline.bucket_by_length`.
 
@@ -644,6 +623,7 @@ def create_bucket_sizes(
 
     bucket_size = max_num_elements
 
+    # Create max sequence length for each bucket size
     while seq_len < max_seq_len:
         if seq_len >= min_seq_len:
             bucket_sizes.append((bucket_size, seq_len))
@@ -654,15 +634,21 @@ def create_bucket_sizes(
 
     bucket_sizes.append((bucket_size, max_seq_len))
 
-    if num_seqs_multiple_of == 1:
-        return bucket_sizes
-
+    # Comply with the num_seqs_multiple_of restriction
     cropped_bucket_sizes = []
-
     for bucket_size, seq_len in bucket_sizes:
         if bucket_size > num_seqs_multiple_of:
             bucket_size -= bucket_size % num_seqs_multiple_of
-
         cropped_bucket_sizes.append((bucket_size, seq_len))
 
-    return cropped_bucket_sizes
+    # Comply with the max_bucket_size restriction
+    if max_bucket_size != -1:
+        final_bucket_sizes = []
+        for bucket_size, seq_len in cropped_bucket_sizes:
+            if bucket_size > max_bucket_size:
+                seq_len = 1
+            final_bucket_sizes.append((bucket_size, seq_len))
+    else:
+        final_bucket_sizes = cropped_bucket_sizes
+
+    return final_bucket_sizes

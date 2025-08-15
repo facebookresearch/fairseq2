@@ -134,6 +134,7 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
             options,
             max_audio_len=max_audio_len,
             min_audio_len=min_audio_len,
+            max_bucket_size=options.max_bucket_size,
             seed=options.seed,
             columns="length",
         )
