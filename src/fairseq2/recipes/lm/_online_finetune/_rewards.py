@@ -6,30 +6,31 @@
 
 from __future__ import annotations
 
+import math
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any
-
+from typing import Any, List, Optional
 import torch
-from transformers import AutoTokenizer
-from typing_extensions import override
-from vllm import LLM, CompletionOutput, RequestOutput, SamplingParams
-
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gangs
+from fairseq2.logging import log
 from fairseq2.recipes.lm._online_finetune._common import (
     _mute_output,
     collate_with_target_mask,
     generate_rewards,
     generate_rewards_generative,
+    generate_rollouts,
     prepare_preference_batch_random_pair,
 )
 from fairseq2.recipes.lm._online_finetune._generative_judge import (
     JudgmentExtractorHandler,
 )
+from transformers import AutoTokenizer
+from typing_extensions import override
+from vllm import CompletionOutput, LLM, RequestOutput, SamplingParams
 
 
 @dataclass(kw_only=True)
@@ -147,7 +148,6 @@ class GSM8kVerifier(VLLMOutputReward):
     def prepare_preference_batch(
         self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
-
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         batch, is_bad_batch = prepare_preference_batch_random_pair(
@@ -266,7 +266,6 @@ class MathVerifyVerifier(VLLMOutputReward):
     def prepare_preference_batch(
         self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
-
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         batch, is_bad_batch = prepare_preference_batch_random_pair(
@@ -364,7 +363,6 @@ class AtheneVerifier(VLLMOutputReward):
         for i, (i_batch_request_output, prompt_text) in enumerate(
             zip(vllm_outputs, text_prompts)
         ):
-
             rollouts_text = []
             rollouts_tokens = []
             for rollout_output in i_batch_request_output.outputs:
@@ -390,7 +388,6 @@ class AtheneVerifier(VLLMOutputReward):
     def prepare_preference_batch(
         self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
-
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         chosen_batch = []
@@ -402,7 +399,6 @@ class AtheneVerifier(VLLMOutputReward):
         for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
             zip(reward_output["rewards"], reward_output["tokens"])
         ):
-
             chosen_rollout_position = i_batch_rewards.index(max(i_batch_rewards))
             rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards))
 
@@ -545,7 +541,6 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         for i, (i_batch_request_output, prompt_text) in enumerate(
             zip(vllm_outputs, text_prompts)
         ):
-
             rollouts_text = []
             rollouts_tokens = []
             i_reference_answer = reference_answers[i]
@@ -582,7 +577,6 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
     def prepare_preference_batch(
         self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
-
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         chosen_batch = []
@@ -594,7 +588,6 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
             zip(reward_output["rewards"], reward_output["tokens"])
         ):
-
             chosen_rollout_position = i_batch_rewards.index(max(i_batch_rewards))
             rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards))
 
@@ -806,7 +799,6 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
     def prepare_preference_batch(
         self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
-
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         chosen_batch = []
@@ -818,7 +810,289 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
         for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
             zip(reward_output["rewards"], reward_output["tokens"])
         ):
+            chosen_rollout_position = i_batch_rewards.index(max(i_batch_rewards))
+            rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards))
 
+            if chosen_rollout_position == rejected_rollout_position:
+                # cant form preference pair when we dont have such rollouts
+                # this will be dummy batch and we zero out loss
+                dummy_batch_ids.append(i_batch)
+
+            chosen_rollout_tokens = list(i_batch_tokens[chosen_rollout_position])
+            rejected_rollout_tokens = list(i_batch_tokens[rejected_rollout_position])
+            prompt_tokens = prompt_batch.prompts[i_batch]
+
+            chosen_tokens = prompt_tokens + chosen_rollout_tokens
+            chosen_batch.append(chosen_tokens)
+
+            rejected_tokens = prompt_tokens + rejected_rollout_tokens
+            rejected_batch.append(rejected_tokens)
+
+            prompt_lens.append(len(prompt_tokens))
+
+        filter_batch = lambda batch: [
+            item for index, item in enumerate(batch) if index not in dummy_batch_ids
+        ]
+
+        if len(dummy_batch_ids) == len(reward_output["tokens"]):
+            # entire batch does not have a valid preference pair
+            # we use it as dummy batch and zero the loss in the end
+            is_bad_batch = True
+        else:
+            # removing dummy pairs from the batch
+            chosen_batch = filter_batch(chosen_batch)
+            rejected_batch = filter_batch(rejected_batch)
+            prompt_lens = filter_batch(prompt_lens)
+            is_bad_batch = False
+
+        prompt_lens = torch.tensor(prompt_lens)
+
+        chosen_batch = [
+            torch.tensor(sequence, device=self._gangs.dp.device)
+            for sequence in chosen_batch
+        ]
+        chosen_batch = collate_with_target_mask(
+            chosen_batch, prompt_lens, device=self._gangs.dp.device
+        )
+
+        rejected_batch = [
+            torch.tensor(sequence, device=self._gangs.dp.device)
+            for sequence in rejected_batch
+        ]
+        rejected_batch = collate_with_target_mask(
+            rejected_batch, prompt_lens, device=self._gangs.dp.device
+        )
+
+        batch = PreferenceBatch(
+            chosen=chosen_batch,
+            rejected=rejected_batch,
+            reference_score_chosen=None,
+            reference_score_rejected=None,
+        )
+
+        return batch, is_bad_batch, reward_output
+
+
+class PplDerivedVerifierHandler(VLLMOutputRewardHandler):
+    def __init__(self):
+        pass
+
+    @override
+    def create(
+        self,
+        reward_model: Any,
+        reward_name: str,
+        reward_config: object,
+        gangs: Gangs,
+        context,
+    ) -> VLLMOutputReward:
+        assert (
+            reward_config.tokenizer is not None
+        ), "Ppl Drived Verifier requires a tokenizer"
+
+        return PplDerivedVerifier(
+            gangs,
+            context,
+            reward_model,
+            reward_name,
+            # judgment_extractor=reward_config.judgment_extractor,
+            answer_key=reward_config.answer_key,
+            tokenizer=reward_config.tokenizer,
+        )
+
+    @property
+    @override
+    def name(self) -> str:
+        return "ppl_derived_verifier"
+
+    @property
+    @override
+    def config_kls(self):
+        return None
+
+
+class PplDerivedVerifier(VLLMOutputReward):
+    def __init__(
+        self,
+        gangs,
+        context,
+        reward_model,
+        reward_name,
+        answer_key,
+        tokenizer,
+    ):
+        self.answer_key = answer_key
+        self._gangs = gangs
+        self._context = context
+        self.reward_model = reward_model
+        self.reward_name = reward_name
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
+        self.apply_ppl_diff_reward = False  # TODO(lidli): make this configurable
+
+    def _preprocess_reward_input(
+        self,
+        prefix_tokens: List[int],
+        reason: str,
+        completion: str,
+        n_prefix_truncate: Optional[int] = 100,
+        n_completion_truncate: int = 100,
+    ):
+        # TODO(lidli): can consider delegating tokenization to data preprocessing
+        # outside fairseq2.
+        if not reason.endswith("</think>"):
+            reason += "</think>"  # add the stop token itself. so we have the pair of <think> </think>
+        text_tokens_truncated, input_lens = [], []
+
+        prefix = self.tokenizer.decode(prefix_tokens)
+        input_token_len = len(prefix_tokens)
+
+        n_prefix_truncate = (
+            input_token_len
+            if n_prefix_truncate is None
+            else min(n_prefix_truncate, input_token_len)
+        )
+        if self.apply_ppl_diff_reward:
+            full_text = f"{prefix} {completion}"
+
+            # the tokenization process aligns with sft in mid-training, which applies
+            # no template and use the original llama tokenizer (think tokens are
+            # represented w/ regular text)
+            truncated_text_tokens = self.tokenizer.encode(
+                full_text,
+                add_special_tokens=False,  # avoid adding special token twice when prefix already has the special token
+            )[
+                input_token_len
+                - n_prefix_truncate : input_token_len
+                + n_completion_truncate
+            ]  # full text is truncated from input and completion
+            text_tokens_truncated.append(truncated_text_tokens)
+            input_lens.append(n_prefix_truncate)
+
+        input_w_reason = f"{prefix} {reason}"
+        full_text_w_reason = f"{prefix} {reason} {completion}"
+        input_token_len_w_reason = len(
+            self.tokenizer.encode(input_w_reason, add_special_tokens=False)
+        )
+        n_prefix_truncate_w_reason = (
+            n_prefix_truncate + input_token_len_w_reason - input_token_len
+        )  # reason + truncated prefix
+        truncated_text_tokens_w_reason = self.tokenizer.encode(
+            full_text_w_reason, add_special_tokens=False
+        )[
+            input_token_len_w_reason
+            - n_prefix_truncate_w_reason : input_token_len_w_reason
+            + n_completion_truncate
+        ]  # full texts encoded with truncation
+        text_tokens_truncated.append(truncated_text_tokens_w_reason)
+        input_lens.append(n_prefix_truncate_w_reason)
+
+        return text_tokens_truncated, input_lens
+
+    def extract_reward(self, prompt_logprobs: List[Any], prompt_len: int) -> float:
+        completion_logprobs = prompt_logprobs[prompt_len:]
+        completion_logprobs_vals = [
+            list(d.values())[0].logprob for d in completion_logprobs
+        ]  # TODO: douable check we skip the first None
+        mean_logp = sum(completion_logprobs_vals) / len(completion_logprobs_vals)
+        ppl = math.exp(-mean_logp)
+        return -ppl  # negative ppl as reward
+
+    def aggregate(self, rewards):
+        if self.apply_ppl_diff_reward:
+            assert len(rewards) == 2
+            return (
+                rewards[1] - rewards[0]
+            )  # NOTE: order is without reasoning augmentation, with reasoning augmentation -ppl
+        else:
+            assert len(rewards) == 1
+            return rewards[0]  # reason augmented case: -ppl as reward
+
+    @override
+    def process_rollouts(
+        self, vllm_outputs: list[RequestOutput], prompt_batch: PromptBatch
+    ):
+        all_input_tok_lens = []
+        vllm_inputs = []
+        batch_text = []
+        batch_tokens = []
+
+        if vllm_outputs is None:
+            vllm_outputs = [None] * len(prompt_batch.prompts)
+
+        completion_batch = prompt_batch.meta_info.get(self.answer_key)
+
+        log.debug(f"{prompt_batch.prompts=}")
+        log.debug(f"{vllm_outputs=}")
+        log.debug(f"{completion_batch=}")
+
+        for prefix, vllm_output, completion in zip(
+            prompt_batch.prompts, vllm_outputs, completion_batch
+        ):
+            rollouts_text = []
+            rollouts_tokens = []
+            for rollout_output in vllm_output.outputs:  # reasoning in rollouts
+                text_tokens_truncated, input_token_lens = self._preprocess_reward_input(
+                    prefix, rollout_output.text, completion
+                )
+                log.debug(f"{text_tokens_truncated=}, {input_token_lens=}")
+                all_input_tok_lens.extend(input_token_lens)
+                vllm_inputs.extend(
+                    text_tokens_truncated
+                )  # list of single (augmenting reasoning only) or paired rewards (no augmentation and augmentation)
+                rollouts_text.append(rollout_output.text)
+                rollouts_tokens.append(rollout_output.token_ids)
+
+            batch_text.append(rollouts_text)
+            batch_tokens.append(rollouts_tokens)
+        log.debug(f"{vllm_inputs=}")
+
+        rm_sampling_params = {
+            "n": 1,
+            "max_tokens": 1,
+            "prompt_logprobs": 0,
+            "detokenize": False,
+        }
+        rollouts = generate_rollouts(
+            vllm_inputs,
+            dp_gang=self._gangs.dp,
+            vllm_model=self.reward_model,
+            sampling_params=SamplingParams(**rm_sampling_params),
+            string_input=False,
+        )
+        batch_rewards = []
+        increment = 2 if self.apply_ppl_diff_reward else 1
+        for i in range(0, len(rollouts), increment):
+            curr_rewards = [
+                self.extract_reward(rollout.prompt_logprobs, prompt_len=input_len)
+                for rollout, input_len in zip(
+                    rollouts[i : i + increment],
+                    all_input_tok_lens[i : i + increment],
+                )
+            ]
+            log.debug(f"{curr_rewards=}")
+
+            batch_rewards.append(self.aggregate(curr_rewards))
+
+        # reshape batch_rewards to [Batch, Rollouts]
+        B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
+        batch_rewards = [batch_rewards[i * R : (i + 1) * R] for i in range(B)]
+
+        return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
+
+    def prepare_preference_batch(
+        self, prompt_batch: PromptBatch, rollouts
+    ) -> PreferenceBatch:
+        reward_output = self.process_rollouts(rollouts, prompt_batch)
+
+        chosen_batch = []
+        rejected_batch = []
+        prompt_lens = []
+        dummy_batch_ids = []  # keep posiitons of dummy pairs here
+
+        # choosing first rollouts with reward 1 as chosen and 0 as rejected (sort of random given that we sample rollouts randomly)
+        for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
+            zip(reward_output["rewards"], reward_output["tokens"])
+        ):
             chosen_rollout_position = i_batch_rewards.index(max(i_batch_rewards))
             rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards))
 
