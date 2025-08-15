@@ -225,6 +225,7 @@ class LearnedPositionEncoder(PositionEncoder):
         self,
         encoding_dim: int,
         max_seq_len: int,
+        offset: int = 1,
         *,
         device: Device | None = None,
         dtype: DataType | None = None,
@@ -243,6 +244,8 @@ class LearnedPositionEncoder(PositionEncoder):
         )
 
         self.max_seq_len = max_seq_len
+
+        self.offset = offset
 
         self.reset_parameters()
 
@@ -272,7 +275,7 @@ class LearnedPositionEncoder(PositionEncoder):
                 f"The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence is of length {max_seq_len} instead."
             )
 
-        indices = seqs_layout.position_indices + 1  # +1 for padding
+        indices = seqs_layout.position_indices + self.offset  # +1 for padding
 
         if not self.training and state_bag is not None:
             indices = state_bag.step_nr + indices
@@ -439,11 +442,7 @@ class RotaryEncoder(PositionEncoder):
     @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = (
-            f"encoding_dim={self.encoding_dim}, "
-            f"max_seq_len={self.max_seq_len}, "
-            f"theta={self.theta}"
-        )
+        s = f"encoding_dim={self.encoding_dim}, max_seq_len={self.max_seq_len}, theta={self.theta}"
 
         if self.freqs_init_fn is not None:
             freqs_init_fn = get_name_or_self(self.freqs_init_fn)
@@ -610,11 +609,7 @@ class ReferenceRotaryEncoder(PositionEncoder):
     @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        return (
-            f"encoding_dim={self.encoding_dim}, "
-            f"max_seq_len={self.max_seq_len}, "
-            f"theta={self.theta}"
-        )
+        return f"encoding_dim={self.encoding_dim}, max_seq_len={self.max_seq_len}, theta={self.theta}"
 
 
 class InterpolatedPositionEncoder(Module, ABC):
