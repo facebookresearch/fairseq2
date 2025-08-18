@@ -176,7 +176,7 @@ class AsrMetricBag(BaseMetricBag):
 
         self.register_metric(
             "bleu",
-            BleuMetric(tokenizer="flores200", device=self.device),
+            BleuMetric(tokenizer="13a", device=self.device),
             persistent=False,
         )
 
