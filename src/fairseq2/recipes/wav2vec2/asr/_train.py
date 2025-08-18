@@ -201,6 +201,8 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     """Minimum size of pool for choosing context examples, for training set."""
     bucket_size_eval: int = 30
     """Minimum size of pool for choosing context examples, for eval sets."""
+    batch_with_context_length: bool = True
+    """Use total batch of speech + context speech for length batching."""
 
 
 @dataclass(kw_only=True)
@@ -445,6 +447,7 @@ def load_wav2vec2_asr_trainer(
         bucket_size=config.dataset.bucket_size_train,
         deterministic_context=False,
         max_bucket_size=config.dataset.max_bucket_size,
+        batch_with_context_length=config.dataset.batch_with_context_length,
     )
 
     dataset: AsrDataset | BatchMixtureDataset
@@ -493,6 +496,7 @@ def load_wav2vec2_asr_trainer(
             bucket_size=config.dataset.bucket_size_eval,
             deterministic_context=True,
             max_bucket_size=config.dataset.max_bucket_size,
+            batch_with_context_length=config.dataset.batch_with_context_length,
         )
 
         valid_units = []
