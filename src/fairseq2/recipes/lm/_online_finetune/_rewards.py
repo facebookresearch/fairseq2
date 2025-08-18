@@ -1014,15 +1014,14 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
         batch_tokens = []
         batch_pairwise_indices = []
         
-        batch_type = "random_pairs"
+        batch_type = "reference"
 
         if vllm_outputs is None:
             vllm_outputs = [None] * len(prompt_batch.prompts)
 
         text_prompts = prompt_batch.meta_info.get(self.prompt_key)
-        try:
-            reference_answers = prompt_batch.meta_info.get(self.answer_key)
-        except:
+        reference_answers = prompt_batch.meta_info.get(self.answer_key)
+        if reference_answers is None:
             reference_answers = [None] * len(prompt_batch.prompts)
         for i, (i_batch_request_output, prompt_text) in enumerate(
             zip(vllm_outputs, text_prompts)
