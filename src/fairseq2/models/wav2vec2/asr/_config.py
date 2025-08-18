@@ -396,3 +396,9 @@ def register_wav2vec2_asr_configs(context: RuntimeContext) -> None:
         config.vocab_info.size = 3335
 
         return config
+
+    @wav2vec2_asr_arch("7b_v4")
+    def _7b_v4() -> Wav2Vec2AsrConfig:
+        config = bib1143_7b()
+        config.vocab_info.size = 9812
+        return config
