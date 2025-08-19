@@ -418,12 +418,25 @@ def get_rollout_lengths(rollouts: List[SequenceData]):
 
 
 def strip_think_tokens(rollouts: List[SequenceData]):
+    count_stripped, count_not_stripped, total_count, think_present = 0, 0, 0, 0
     for sample in rollouts:
         for rollout in sample.outputs:
             rollout_text = rollout.text
+            if "<think>" in rollout_text:
+                think_present += 1
+            if rollout.finish_reason == "length":
+                count_stripped += 1
+            if rollout.finish_reason == "stop":
+                count_not_stripped += 1
+            total_count +=1
             rollout.text = re.sub(
                 r"<think>.*?</think>", "", rollout_text, flags=re.DOTALL
             ).strip()
+    
+    log.info(f"Total count: {total_count}")
+    log.info(f"Think present: {think_present}")
+    log.info(f"Count stripped: {count_stripped/total_count}")
+    log.info(f"Count not stripped: {count_not_stripped/total_count}")
 
     return rollouts
 

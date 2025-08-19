@@ -100,6 +100,12 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
     AtheneVerifierHandler as AtheneVerifierHandler,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
+    SkyworkVerifier as SkyworkVerifier,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    SkyworkVerifierHandler as SkyworkVerifierHandler,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
     GenerativePairwiseVerifier as GenerativePairwiseVerifier,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
