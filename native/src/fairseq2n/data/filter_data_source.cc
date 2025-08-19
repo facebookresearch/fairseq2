@@ -49,7 +49,15 @@ filter_data_source::finitude_type() const noexcept
 bool
 filter_data_source::invoke_function(data &example)
 {
-    return predicate_fn_(example);
+    try {
+        return predicate_fn_(example);
+    } catch (const std::exception &ex) {
+        // Convert any exception into a recoverable data_pipeline_error
+        throw data_pipeline_error(
+            std::string("Error in filter function: ") + ex.what(),
+            example,  // Pass the example that caused the error
+            true);    // Mark as recoverable
+    }
 }
 
 } // fairseq2n::detail
