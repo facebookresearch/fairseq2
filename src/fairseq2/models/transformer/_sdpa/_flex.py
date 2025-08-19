@@ -8,11 +8,13 @@ from __future__ import annotations
 
 from typing import Callable, TypeAlias, final
 
+import torch
 from torch import Tensor
 from torch.nn.attention.flex_attention import flex_attention
 from typing_extensions import override
 
 from fairseq2.models.transformer._block_mask import BlockMaskCache
+from fairseq2.logging import log
 from fairseq2.nn import BatchLayout
 
 # isort: split
@@ -25,9 +27,10 @@ from fairseq2.models.transformer._sdpa._base import SDPA
 
 MaskFunction: TypeAlias = Callable[[Tensor, Tensor, Tensor, Tensor], Tensor]
 
-# TODO: Hitting some torch.compile issues with this enabled for different builds.
-# Commenting out for now until we can investigate.
-# flex_attention = torch.compile(flex_attention, dynamic=False)
+# NOTE: Flex attention only has performance benefits when torch.compiled, but this is
+# not possible on certain platforms (e.g., CPU).
+if torch.cuda.is_available():
+    flex_attention = torch.compile(flex_attention, dynamic=False)
 
 
 @final
