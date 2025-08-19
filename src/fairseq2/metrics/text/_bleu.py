@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import gc
 from collections.abc import Iterable, Sequence
 from typing import Final, final
 
@@ -16,6 +17,7 @@ from torch import Tensor
 from torcheval.metrics import Metric
 from typing_extensions import Self, override
 
+from fairseq2.logging import log
 from fairseq2.typing import Device
 
 DEFAULT_BLEU_TOKENIZER: Final = BLEU.TOKENIZER_DEFAULT
@@ -57,6 +59,15 @@ class BleuMetric(Metric[Tensor]):
 
         self._add_state("valid_ngrams", valid_ngrams)
         self._add_state("total_ngrams", total_ngrams)
+        self._metric_class = BLEU(
+            lowercase=False,
+            force=False,
+            tokenize=self.tokenizer,
+            smooth_method="exp",
+            smooth_value=None,
+            effective_order=False,
+        )
+        self._steps = 0
 
     @override
     @torch.inference_mode()
@@ -65,14 +76,16 @@ class BleuMetric(Metric[Tensor]):
         :param refs: The references.
         :param hyps: The hypotheses.
         """
-        bleu = corpus_bleu(hyps, [refs], tokenize=self.tokenizer)
+        bleu = self._metric_class.corpus_score(hyps, [refs])
 
         self.sys_len += bleu.sys_len
         self.ref_len += bleu.ref_len
 
-        self.valid_ngrams += torch.tensor(bleu.counts, device=self.device)
-        self.total_ngrams += torch.tensor(bleu.totals, device=self.device)
-
+        self.valid_ngrams += torch.tensor(bleu.counts, device=self.device).clone()
+        self.total_ngrams += torch.tensor(bleu.totals, device=self.device).clone()
+        self._steps += 1
+        if self._steps % 20 == 0:
+            gc.collect()
         return self
 
     @override
@@ -83,7 +96,6 @@ class BleuMetric(Metric[Tensor]):
 
         valid_ngrams = self.valid_ngrams.tolist()
         total_ngrams = self.total_ngrams.tolist()
-
         score_output = BLEU.compute_bleu(valid_ngrams, total_ngrams, sys_len, ref_len)
 
         return torch.tensor(score_output.score, device=self.device)
