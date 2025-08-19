@@ -12,7 +12,7 @@ if [ "$is_cross_cluster" = "true" ]; then
 fi
 
 # run in dest machine
-mkdir -p ${sub_dir}/checkpoints/step_${steps}/hg
+mkdir -p ${dest_ckpt_dir}/${sub_dir}/checkpoints/step_${steps}/hg
 rsync -av --exclude 'model.safetensors' /datasets/pretrained-llms/Llama-3.2-1B/* ${dest_ckpt_dir}/${sub_dir}/checkpoints/step_${steps}/hg
 
 if [ "$is_cross_cluster" = "true" ]; then
