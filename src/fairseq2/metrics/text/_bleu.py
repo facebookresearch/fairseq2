@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import gc
 from collections.abc import Iterable, Sequence
 from typing import Final, final
 
@@ -65,7 +64,6 @@ class BleuMetric(Metric[Tensor]):
             smooth_value=None,
             effective_order=False,
         )
-        self._steps = 0
 
     @override
     @torch.inference_mode()
@@ -81,9 +79,6 @@ class BleuMetric(Metric[Tensor]):
 
         self.valid_ngrams += torch.tensor(bleu.counts, device=self.device)
         self.total_ngrams += torch.tensor(bleu.totals, device=self.device)
-        self._steps += 1
-        if self._steps % 500 == 0:
-            gc.collect()
         return self
 
     @override
