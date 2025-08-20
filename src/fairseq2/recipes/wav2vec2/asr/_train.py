@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import re
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -68,6 +69,15 @@ from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+
+
+def strict_name(s):
+    """
+    Maps a string to a strict version containing only
+    alphanumeric characters, dash, underscore, and forward slash.
+    """
+    # Use regex to keep only allowed characters
+    return re.sub(r"[^a-zA-Z0-9\-_\/]", "", s)
 
 
 @dataclass(kw_only=True)
@@ -532,7 +542,7 @@ def load_wav2vec2_asr_trainer(
                 )
                 for name, valid_data_reader in multi_readers.items():
                     name = single_vsplit + "__" + name
-                    name = name.replace("=", "_").replace("'", "")
+                    name = strict_name(name.replace("=", "_"))
                     valid_unit = AsrEvalUnit(valid_criterion, gangs, name)
                     valid_units.append(valid_unit)
                     valid_data_readers.append(valid_data_reader)
