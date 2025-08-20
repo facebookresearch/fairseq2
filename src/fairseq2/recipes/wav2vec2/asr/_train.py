@@ -6,17 +6,17 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
+
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, cast, final
+from typing import cast, final, Literal
 
 import torch
-from torch import Tensor
-from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset
+from fairseq2.datasets.asr import AsrDataset, GENERIC_ASR_DATASET_FAMILY
 from fairseq2.datasets.speech import ManifestDatasetInterface, SpeechReadOptions
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
@@ -60,13 +60,15 @@ from fairseq2.recipes.config import (
 )
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.wav2vec2.batch_weighted_datareader import (
-    MIXTURE_DATASET_FAMILY,
     BatchMixtureDataset,
+    MIXTURE_DATASET_FAMILY,
 )
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+from torch import Tensor
+from typing_extensions import override
 
 
 @dataclass(kw_only=True)
@@ -299,6 +301,10 @@ def load_wav2vec2_asr_trainer(
 
     # If we start the training with an empty ASR model, use the weights of a
     # pretrained wav2vec 2.0 model.
+<<<<<<< HEAD
+=======
+
+>>>>>>> 03f9a0a4 (adding multi split eval for asr trainer [WIP])
     if model.is_empty_initialized and config.pretrained_encoder.name:
         tp = AsrModel if config.pretrained_encoder_is_ctc else Wav2Vec2Model
         pt_model = load_reference_model(
@@ -488,7 +494,7 @@ def load_wav2vec2_asr_trainer(
             num_prefetch=config.dataset.num_prefetch,
             seed=seed,
             max_num_batches=config.dataset.max_num_batches,
-            extras=config.dataset.extras,
+            extras=deepcopy(config.dataset.extras),
             n_context_examples=config.dataset.n_context_examples,
             bucket_size=config.dataset.bucket_size_eval,
             deterministic_context=True,
@@ -509,20 +515,45 @@ def load_wav2vec2_asr_trainer(
         else:
             # config.dataset.valid_split = "dev,test"
             valid_splits = [s.strip() for s in (config.dataset.valid_split).split(",")]
-        for single_vsplit in valid_splits:
-            name = single_vsplit.replace("=", "_")
-            valid_unit = AsrEvalUnit(valid_criterion, gangs, name)
-            valid_units.append(valid_unit)
 
-            valid_data_reader = dataset.create_reader(
-                single_vsplit,
-                tokenizer,
-                gangs.dp,
-                config.dataset.min_audio_len,
-                config.dataset.max_audio_len,
-                read_options,
-            )
-            valid_data_readers.append(valid_data_reader)
+        readers_partition_columns = config.dataset.extras.get(
+            "readers_partition_columns", None
+        )
+
+        if readers_partition_columns:
+            for single_vsplit in valid_splits:
+                multi_readers = dataset.create_multi_readers(
+                    readers_partition_columns=readers_partition_columns,
+                    split=single_vsplit,
+                    tokenizer=tokenizer,
+                    gang=gangs.dp,
+                    min_audio_len=config.dataset.min_audio_len,
+                    max_audio_len=config.dataset.max_audio_len,
+                    options=read_options,
+                )
+                for name, valid_data_reader in multi_readers.items():
+                    name = single_vsplit.replace("=", "_") + "__" + name
+                    valid_unit = AsrEvalUnit(valid_criterion, gangs, name)
+                    valid_units.append(valid_unit)
+                    valid_data_readers.append(valid_data_reader)
+        else:
+            # # rm partition_filters from read_options
+            # read_options.extras["partition_filters"] = None
+
+            for single_vsplit in valid_splits:
+                name = single_vsplit.replace("=", "_")
+                valid_unit = AsrEvalUnit(valid_criterion, gangs, name)
+                valid_units.append(valid_unit)
+
+                valid_data_reader = dataset.create_reader(
+                    single_vsplit,
+                    tokenizer,
+                    gangs.dp,
+                    config.dataset.min_audio_len,
+                    config.dataset.max_audio_len,
+                    read_options,
+                )
+                valid_data_readers.append(valid_data_reader)
     else:
         valid_units = []
 
