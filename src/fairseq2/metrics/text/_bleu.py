@@ -11,13 +11,11 @@ from collections.abc import Iterable, Sequence
 from typing import Final, final
 
 import torch
-from sacrebleu import corpus_bleu
 from sacrebleu.metrics.bleu import BLEU, MAX_NGRAM_ORDER
 from torch import Tensor
 from torcheval.metrics import Metric
 from typing_extensions import Self, override
 
-from fairseq2.logging import log
 from fairseq2.typing import Device
 
 DEFAULT_BLEU_TOKENIZER: Final = BLEU.TOKENIZER_DEFAULT
@@ -81,8 +79,8 @@ class BleuMetric(Metric[Tensor]):
         self.sys_len += bleu.sys_len
         self.ref_len += bleu.ref_len
 
-        self.valid_ngrams += torch.tensor(bleu.counts, device=self.device).clone()
-        self.total_ngrams += torch.tensor(bleu.totals, device=self.device).clone()
+        self.valid_ngrams += torch.tensor(bleu.counts, device=self.device)
+        self.total_ngrams += torch.tensor(bleu.totals, device=self.device)
         self._steps += 1
         if self._steps % 500 == 0:
             gc.collect()
