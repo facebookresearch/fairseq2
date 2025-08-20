@@ -38,15 +38,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.7.0']
+        torch: ['2.7.1']
         py: ['3.10', '3.11', '3.12']
-        variant: ['cpu', 'cu126']
+        variant: ['cpu', 'cu126', 'cu128']
         sanitizers: ['nosan']
         include:
           - run_integration_tests: false
 
           # Integration Tests
-          - torch: '2.7.0'
+          - torch: '2.7.1'
             py: '3.12'
             variant: 'cpu'
             sanitizers: 'nosan'
@@ -54,7 +54,7 @@ jobs:
 
           # TODO: fix lsan.out file!
           # ASAN/UBSAN
-          # - torch: '2.7.0'
+          # - torch: '2.7.1'
           #   py: '3.12'
           #   variant: 'cpu'
           #   sanitizers: 'asan_ubsan'
@@ -73,7 +73,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.7.0']
+        torch: ['2.7.1']
         py: ['3.10', '3.11', '3.12']
     with:
       torch: ${{ matrix.torch }}
@@ -87,9 +87,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.7.0']
+        torch: ['2.7.1']
         py: ['3.10', '3.11', '3.12']
-        variant: ['cu126']
+        variant: ['cu126', 'cu128']
     with:
       torch: ${{ matrix.torch }}
       py: ${{ matrix.py }}
@@ -105,7 +105,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.7.0']
+        torch: ['2.7.1']
         py: ['3.10', '3.11', '3.12']
     with:
       torch: ${{ matrix.torch }}
