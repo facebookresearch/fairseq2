@@ -957,30 +957,28 @@ class PplDerivedVerifier(VLLMOutputReward):
         n_prefix_truncate: Optional[int] = 100,
         n_completion_truncate: int = 100,
     ):
-        # TODO(lidli): can consider delegating tokenization to data preprocessing
-        # outside fairseq2.
+        # TODO(lidli): there are some redundant computation that can otherwise be shared. Improve it.
         if not reason.endswith("</think>"):
             reason += "</think>"  # add the stop token itself. so we have the pair of <think> </think>
+
         text_tokens_truncated, input_lens = [], []
-
-        prefix = self.tokenizer.decode(prefix_tokens)
         input_token_len = len(prefix_tokens)
-
+        completion_tokens = self.tokenizer.encode(
+            f" {completion}", add_special_tokens=False
+        )  # avoid adding special token twice when prefix already has the special token
         n_prefix_truncate = (
             input_token_len
             if n_prefix_truncate is None
             else min(n_prefix_truncate, input_token_len)
         )
-        if self.apply_ppl_diff_reward:
-            full_text = f"{prefix} {completion}"
 
+        # case where no reasoning is augmented
+        if self.apply_ppl_diff_reward:
             # the tokenization process aligns with sft in mid-training, which applies
             # no template and use the original llama tokenizer (think tokens are
             # represented w/ regular text)
-            truncated_text_tokens = self.tokenizer.encode(
-                full_text,
-                add_special_tokens=False,  # avoid adding special token twice when prefix already has the special token
-            )[
+            text_tokens = prefix_tokens + completion_tokens
+            truncated_text_tokens = text_tokens[
                 input_token_len
                 - n_prefix_truncate : input_token_len
                 + n_completion_truncate
@@ -988,17 +986,14 @@ class PplDerivedVerifier(VLLMOutputReward):
             text_tokens_truncated.append(truncated_text_tokens)
             input_lens.append(n_prefix_truncate)
 
-        input_w_reason = f"{prefix} {reason}"
-        full_text_w_reason = f"{prefix} {reason} {completion}"
-        input_token_len_w_reason = len(
-            self.tokenizer.encode(input_w_reason, add_special_tokens=False)
-        )
+        reason_tokens = self.tokenizer.encode(f" {reason}", add_special_tokens=False)
+
+        input_token_len_w_reason = input_token_len + len(reason_tokens)
         n_prefix_truncate_w_reason = (
             n_prefix_truncate + input_token_len_w_reason - input_token_len
-        )  # reason + truncated prefix
-        truncated_text_tokens_w_reason = self.tokenizer.encode(
-            full_text_w_reason, add_special_tokens=False
-        )[
+        )  # reason + truncated prefix len
+        text_tokens_w_reason = prefix_tokens + reason_tokens + completion_tokens
+        truncated_text_tokens_w_reason = text_tokens_w_reason[
             input_token_len_w_reason
             - n_prefix_truncate_w_reason : input_token_len_w_reason
             + n_completion_truncate
@@ -1041,7 +1036,6 @@ class PplDerivedVerifier(VLLMOutputReward):
 
         completion_batch = prompt_batch.meta_info.get(self.answer_key)
 
-        log.debug(f"{prompt_batch.prompts=}")
         log.debug(f"{vllm_outputs=}")
         log.debug(f"{completion_batch=}")
 
