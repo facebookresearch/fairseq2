@@ -67,9 +67,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     OnlineCriterionSection,
     get_parameter_converter,
 )
-from fairseq2.recipes.lm._online_finetune._grpo import (
-    GrpoFinetuneConfig,
-)
+from fairseq2.recipes.lm._online_finetune._grpo import GrpoFinetuneConfig
 from fairseq2.recipes.lm._online_finetune._handler import (
     OnlineFinetuneUnitHandler,
     UnknownOnlineFinetuneUnitError,

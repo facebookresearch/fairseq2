@@ -17,9 +17,7 @@ from typing_extensions import override
 from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
 
 from fairseq2.context import RuntimeContext
-from fairseq2.datasets import (
-    SequenceBatch,
-)
+from fairseq2.datasets import SequenceBatch
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gang, Gangs
@@ -39,6 +37,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     generate_rollouts,
     get_rollout_lengths,
     log_rollouts,
+    strip_think_tokens,
     update_avg_reward,
     update_avg_reward_len_norm,
     update_avg_rollout_length,
@@ -47,7 +46,6 @@ from fairseq2.recipes.lm._online_finetune._common import (
     update_grpo_loss,
     update_logit_entropy,
     update_std_reward,
-    strip_think_tokens,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_model import (
@@ -195,7 +193,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 v,
             ) in self._config.loss_config.validation_vllm_sampling_params.items():
                 policy_sampling_params.__setattr__(k, v)
-            
+
             # For a pairwise RM, need to sample at least two judgments
             policy_sampling_params.n = (
                 2 if self._reward.reward_name == "generative_pairwise_verifier" else 1

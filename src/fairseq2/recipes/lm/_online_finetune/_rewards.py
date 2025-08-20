@@ -6,12 +6,11 @@
 
 from __future__ import annotations
 
+import random
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
-from fairseq2.logging import log
-import random
 
 import torch
 from transformers import AutoTokenizer
@@ -22,6 +21,7 @@ from fairseq2.context import RuntimeContext
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gangs
+from fairseq2.logging import log
 from fairseq2.recipes.lm._online_finetune._common import (
     _mute_output,
     collate_with_target_mask,
@@ -729,6 +729,8 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
 
         text_prompts = prompt_batch.meta_info.get(self.prompt_key)
         reference_answers = prompt_batch.meta_info.get(self.answer_key)
+        if reference_answers is None:
+            reference_answers = [None] * len(prompt_batch.prompts)
         for i, (i_batch_request_output, prompt_text) in enumerate(
             zip(vllm_outputs, text_prompts)
         ):
@@ -737,14 +739,9 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
             rollouts_tokens = []
             for rollout_output in i_batch_request_output.outputs:
                 rollout_text = rollout_output.text
-                if reference_answers is None:
-                    vllm_input = self.judgment_extractor.format_prompt(
-                        prompt_text, rollout_text
-                    )
-                else:
-                    vllm_input = self.judgment_extractor.format_prompt(
-                        prompt_text, rollout_text, reference_answers[i]
-                    )
+                vllm_input = self.judgment_extractor.format_prompt(
+                    prompt_text, rollout_text, reference_answers[i]
+                )
                 vllm_inputs.append(vllm_input)
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)
@@ -755,7 +752,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         batch_judgments = generate_rewards_generative(
             vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.reward_model
         )
-        
+
         log.info(f"Sample judgment: {batch_judgments[0].outputs[0].text}")
 
         batch_rewards = []
@@ -913,168 +910,146 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
         )
         judgment_extractor_handler = judgment_extractor_registry.get(judgment_extractor)
         self.judgment_extractor = judgment_extractor_handler.create(self.tokenizer)
-        
-    def all_pairs(self, prompt_text, i_batch_request_output, vllm_inputs, batch_pairwise_indices):
+
+    def construct_all_pairs(
+        self,
+        prompt_text,
+        i_batch_request_output,
+        vllm_inputs,
+        batch_pairwise_indices,
+        reference_answer,
+    ):
         for a in range(len(i_batch_request_output.outputs)):
             for b in range(len(i_batch_request_output.outputs)):
                 if a != b:
                     rollout_A_text = i_batch_request_output.outputs[a].text
                     rollout_B_text = i_batch_request_output.outputs[b].text
                     vllm_input = self.judgment_extractor.format_prompt(
-                        prompt_text, rollout_A_text, rollout_B_text
+                        prompt_text, rollout_A_text, rollout_B_text, reference_answer
                     )
                     vllm_inputs.append(vllm_input)
                     batch_pairwise_indices.append((a, b))
-                    
+
         return vllm_inputs, batch_pairwise_indices
-    
-    def pairs_with_reference(self, prompt_text, i_batch_request_output, vllm_inputs, batch_pairwise_indices):
-        reference_idx = random.randint(0, len(i_batch_request_output.outputs)-1)
-        reference_rollout = i_batch_request_output.outputs[reference_idx].text
-        for a in range(len(i_batch_request_output.outputs)):
-            if a != reference_idx:
-                rollout_A_text = i_batch_request_output.outputs[a].text
-                rollout_B_text = reference_rollout
-                
-                to_swap = random.choice([True, False])
-                if to_swap:
-                    rollout_A_text, rollout_B_text = rollout_B_text, rollout_A_text
-                    batch_pairwise_indices.append((reference_idx, a))
-                else:
-                    batch_pairwise_indices.append((a, reference_idx))
-                
-                vllm_input = self.judgment_extractor.format_prompt(
-                    prompt_text, rollout_A_text, rollout_B_text
-                )
-                vllm_inputs.append(vllm_input)
-                
-        return vllm_inputs, batch_pairwise_indices
-    
-    def pairs_with_pivot(self, prompt_text, i_batch_request_output, vllm_inputs, batch_pairwise_indices, batch_pivot_pos):
-        pivot_idx = random.randint(0, len(i_batch_request_output.outputs)-1)
+
+    def construct_pairs_with_pivot(
+        self,
+        prompt_text,
+        i_batch_request_output,
+        vllm_inputs,
+        batch_pairwise_indices,
+        batch_pivot_pos,
+        reference_answer,
+    ):
+        pivot_idx = random.randint(0, len(i_batch_request_output.outputs) - 1)
         pivot_rollout = i_batch_request_output.outputs[pivot_idx].text
         for a in range(len(i_batch_request_output.outputs)):
             rollout_A_text = i_batch_request_output.outputs[a].text
             rollout_B_text = pivot_rollout
-            
+
             batch_pairwise_indices.append((a, pivot_idx))
-            batch_pivot_pos.append(1) # specifies which position is the reference index
+            batch_pivot_pos.append(1)  # specifies which position is the pivot index
             vllm_input = self.judgment_extractor.format_prompt(
-                prompt_text, rollout_A_text, rollout_B_text
-            )
-            vllm_inputs.append(vllm_input)
-            
-            batch_pairwise_indices.append((pivot_idx, a))
-            batch_pivot_pos.append(0)
-            vllm_input = self.judgment_extractor.format_prompt(
-                prompt_text, rollout_B_text, rollout_A_text
+                prompt_text, rollout_A_text, rollout_B_text, reference_answer
             )
             vllm_inputs.append(vllm_input)
 
-                
+            batch_pairwise_indices.append((pivot_idx, a))
+            batch_pivot_pos.append(0)
+            vllm_input = self.judgment_extractor.format_prompt(
+                prompt_text, rollout_B_text, rollout_A_text, reference_answer
+            )
+            vllm_inputs.append(vllm_input)
+
         return vllm_inputs, batch_pairwise_indices, batch_pivot_pos
-    
-    def random_pairs(self, prompt_text, i_batch_request_output, vllm_inputs, batch_pairwise_indices):
-        all_pairs = [(i, j) for i in range(len(i_batch_request_output.outputs)) for j in range(len(i_batch_request_output.outputs)) if i != j]
+
+    def construct_random_pairs(
+        self,
+        prompt_text,
+        i_batch_request_output,
+        vllm_inputs,
+        batch_pairwise_indices,
+        reference_answer,
+    ):
+        all_pairs = [
+            (i, j)
+            for i in range(len(i_batch_request_output.outputs))
+            for j in range(len(i_batch_request_output.outputs))
+            if i != j
+        ]
         random_pairs = random.sample(all_pairs, len(i_batch_request_output.outputs))
-        
+
         for a in range(len(i_batch_request_output.outputs)):
             for b in range(len(i_batch_request_output.outputs)):
                 if (a, b) in random_pairs:
                     rollout_A_text = i_batch_request_output.outputs[a].text
                     rollout_B_text = i_batch_request_output.outputs[b].text
                     vllm_input = self.judgment_extractor.format_prompt(
-                        prompt_text, rollout_A_text, rollout_B_text
+                        prompt_text, rollout_A_text, rollout_B_text, reference_answer
                     )
                     vllm_inputs.append(vllm_input)
                     batch_pairwise_indices.append((a, b))
-                    
+
         return vllm_inputs, batch_pairwise_indices
-    
-    def convert_pairwise_rewards_to_pointwise(self, batch_pairwise_rewards, batch_pairwise_indices, batch_text, batch_type):
+
+    def convert_pairwise_rewards_to_pointwise(
+        self,
+        batch_pairwise_rewards,
+        batch_pairwise_indices,
+        batch_text,
+        batch_type,
+        batch_pivot_pos,
+    ):
         B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
         batch_pointwise_rewards = []
-        
+
         for i in range(B):
             # Extract the pairwise rewards for each input
-            if batch_type == "all_pairs":
-                prompt_pairwise_rewards = batch_pairwise_rewards[
-                    i * R * (R - 1) : (i + 1) * R * (R - 1)
-                ]
-                prompt_pairwise_indices = batch_pairwise_indices[
-                    i * R * (R - 1) : (i + 1) * R * (R - 1)
-                ]
-            elif batch_type == "pivot":
-                prompt_pairwise_rewards = batch_pairwise_rewards[
-                    i * (R - 1) : (i + 1) * (R - 1)
-                ]
-                prompt_pairwise_indices = batch_pairwise_indices[
-                    i * (R - 1) : (i + 1) * (R - 1)
-                ]
+            if batch_type == "pivot":
+                idx_start, idx_end = i * 2 * R, (i + 1) * 2 * R  # 2R pairs
             elif batch_type == "random_pairs":
-                prompt_pairwise_rewards = batch_pairwise_rewards[
-                    i * R : (i + 1) * R
-                ]
-                prompt_pairwise_indices = batch_pairwise_indices[
-                    i * R : (i + 1) * R
-                ]
-                
+                idx_start, idx_end = i * R, (i + 1) * R  # R pairs
+            elif batch_type == "all_pairs":
+                idx_start, idx_end = i * R * (R - 1), (i + 1) * R * (
+                    R - 1
+                )  # R(R-1) pairs
+
+            prompt_pairwise_rewards = batch_pairwise_rewards[idx_start:idx_end]
+            prompt_pairwise_indices = batch_pairwise_indices[idx_start:idx_end]
+
+            # If not pivot, create dummy pivots because both rewards will be considered
+            prompt_pivot_pos = (
+                batch_pivot_pos[idx_start:idx_end]
+                if batch_type == "pivot"
+                else [0] * (idx_end - idx_start + 1)
+            )
+
             # Sum the rewards for each rollout and count how many times each rollout appears in pairwise judgments
             prompt_rewards = [0.0] * R
             counts = [0] * R
-            for index, rewards in zip(prompt_pairwise_indices, prompt_pairwise_rewards):
-                prompt_rewards[index[0]] += rewards[0]
-                prompt_rewards[index[1]] += rewards[1]
-                counts[index[0]] += 1
-                counts[index[1]] += 1
 
-            # Compute average pointwise rewards 
-            avg_prompt_rewards = [0.0] * R
-            for i in range(len(prompt_rewards)):
-                if counts[i] > 0:
-                    avg_prompt_rewards[i] = round(prompt_rewards[i] / counts[i], 4)
-
-            batch_pointwise_rewards.append(avg_prompt_rewards)
-            
-        return batch_pointwise_rewards
-    
-    def convert_pairwise_rewards_to_pointwise_new(self, batch_pairwise_rewards, batch_pairwise_indices, batch_pivot_pos, batch_text, batch_type):
-        B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
-        batch_pointwise_rewards = []
-        
-        for i in range(B):
-            # Extract the pairwise rewards for each input
-            assert batch_type == "pivot"
-            prompt_pairwise_rewards = batch_pairwise_rewards[
-                i * 2 * R : (i + 1) * 2 * R
-            ]
-            prompt_pairwise_indices = batch_pairwise_indices[
-                i * 2 * R : (i + 1) * 2 * R
-            ]
-            prompt_pivot_pos = batch_pivot_pos[
-                i * 2 * R : (i + 1) * 2 * R
-            ]
-                
-            # Sum the rewards for each rollout and count how many times each rollout appears in pairwise judgments
-            prompt_rewards = [0.0] * R
-            counts = [0] * R
-            for index, rewards, pivot_pos in zip(prompt_pairwise_indices, prompt_pairwise_rewards, prompt_pivot_pos):
-                non_pivot_pos = 1-pivot_pos
-                # Only compute rewards for the non_reference
-                # Rewards is a pair (score_A, score_B)
+            for index, rewards, pivot_pos in zip(
+                prompt_pairwise_indices, prompt_pairwise_rewards, prompt_pivot_pos
+            ):
+                non_pivot_pos = 1 - pivot_pos
                 prompt_rewards[index[non_pivot_pos]] += rewards[non_pivot_pos]
-                # prompt_rewards[index[non_pivot_pos]] += (rewards[non_pivot_pos] - rewards[pivot_pos])
                 counts[index[non_pivot_pos]] += 1
 
-            log.info(f"Counts: {counts}")
+                # If not pivot setup, consider rewards of the other (pivot) rollout as well
+                if batch_type != "pivot":
+                    prompt_rewards[index[non_pivot_pos]] += rewards[non_pivot_pos]
+                    counts[index[non_pivot_pos]] += 1
+
+            log.info(f"Counts of each rollout: {counts}")
+
             # Compute average pointwise rewards
             avg_prompt_rewards = [0.0] * R
-            for i in range(len(prompt_rewards)):
-                if counts[i] > 0:
-                    avg_prompt_rewards[i] = round(prompt_rewards[i] / counts[i], 4)
+            for j in range(len(prompt_rewards)):
+                if counts[j] > 0:
+                    avg_prompt_rewards[j] = round(prompt_rewards[j] / counts[j], 4)
 
             batch_pointwise_rewards.append(avg_prompt_rewards)
-            
+
         return batch_pointwise_rewards
 
     @override
@@ -1086,13 +1061,16 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
         batch_tokens = []
         batch_pairwise_indices = []
         batch_pivot_pos = []
-        
-        batch_type = "pivot"
+
+        batch_type = "pivot"  # all_pairs, pivot, random_pairs
 
         if vllm_outputs is None:
             vllm_outputs = [None] * len(prompt_batch.prompts)
 
         text_prompts = prompt_batch.meta_info.get(self.prompt_key)
+        reference_answers = prompt_batch.meta_info.get(self.answer_key)
+        if reference_answers is None:
+            reference_answers = [None] * len(prompt_batch.prompts)
         for i, (i_batch_request_output, prompt_text) in enumerate(
             zip(vllm_outputs, text_prompts)
         ):
@@ -1107,20 +1085,45 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
             batch_tokens.append(rollouts_tokens)
 
             if batch_type == "all_pairs":
-                vllm_inputs, batch_pairwise_indices = self.all_pairs(prompt_text, i_batch_request_output, vllm_inputs, batch_pairwise_indices)
+                vllm_inputs, batch_pairwise_indices = self.construct_all_pairs(
+                    prompt_text,
+                    i_batch_request_output,
+                    vllm_inputs,
+                    batch_pairwise_indices,
+                    reference_answers[i],
+                )
             elif batch_type == "pivot":
-                vllm_inputs, batch_pairwise_indices, batch_pivot_pos = self.pairs_with_pivot(prompt_text, i_batch_request_output, vllm_inputs, batch_pairwise_indices, batch_pivot_pos)
+                (
+                    vllm_inputs,
+                    batch_pairwise_indices,
+                    batch_pivot_pos,
+                ) = self.construct_pairs_with_pivot(
+                    prompt_text,
+                    i_batch_request_output,
+                    vllm_inputs,
+                    batch_pairwise_indices,
+                    batch_pivot_pos,
+                    reference_answers[i],
+                )
             elif batch_type == "random_pairs":
-                vllm_inputs, batch_pairwise_indices = self.random_pairs(prompt_text, i_batch_request_output, vllm_inputs, batch_pairwise_indices)
+                vllm_inputs, batch_pairwise_indices = self.construct_random_pairs(
+                    prompt_text,
+                    i_batch_request_output,
+                    vllm_inputs,
+                    batch_pairwise_indices,
+                    reference_answers[i],
+                )
 
         batch_pairwise_judgments = generate_rewards_generative(
             vllm_inputs,
             dp_gang=self._gangs.dp,
             vllm_model=self.reward_model,
         )
-        
-        log.info(f"Here: {len(batch_pairwise_judgments)}")
-        log.info(f"Here: {len(batch_pairwise_judgments[0].outputs)}")
+
+        log.info(f"Number of pairwise comparisons: {len(batch_pairwise_judgments)}")
+        log.info(
+            f"Number of judgments per pairwise comparison: {len(batch_pairwise_judgments[0].outputs)}"
+        )
         log.info(f"Sample judgment: {batch_pairwise_judgments[0].outputs[0].text}")
 
         batch_pairwise_rewards = []
@@ -1133,10 +1136,16 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
                 self.judgment_extractor.aggregate(per_rollout_rewards)
             )
 
-        batch_rewards = self.convert_pairwise_rewards_to_pointwise_new(batch_pairwise_rewards, batch_pairwise_indices, batch_pivot_pos, batch_text, batch_type)
-        
+        batch_rewards = self.convert_pairwise_rewards_to_pointwise(
+            batch_pairwise_rewards,
+            batch_pairwise_indices,
+            batch_text,
+            batch_type,
+            batch_pivot_pos,
+        )
+
         log.info(f"Batch Rewards: {batch_rewards}")
-        
+
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
