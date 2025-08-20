@@ -167,6 +167,12 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     npc: int = 10
     """The number of parallel calls to use in the pipeline."""
 
+    always_read_tsv: bool = False
+    """If ``True``, always read the TSV manifest, regardless of whether parquet datasets exist."""
+
+    extras: dict[str, object] = field(default_factory=dict)
+    """The dataset-specific extra options."""
+
     # Upsampling
     beta_corpus: float | None = None
     beta_language: float | None = None
@@ -180,14 +186,13 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     spec_aug_time_mask_param: int = 80
     """Maximum time mask length."""
 
-    always_read_tsv: bool = False
-    """If ``True``, always read the TSV manifest, regardless of whether parquet datasets exist."""
-
-    extras: dict[str, object] = field(default_factory=dict)
-    """The dataset-specific extra options."""
-
+    # Zero/Few-shot
     n_context_examples: int = 0
     """The number of context examples to use when providing context."""
+    bucket_size_train: int = 2000
+    """Minimum size of pool for choosing context examples, for training set."""
+    bucket_size_eval: int = 30
+    """Minimum size of pool for choosing context examples, for eval sets."""
 
 
 @dataclass(kw_only=True)
@@ -423,7 +428,7 @@ def load_wav2vec2_asr_trainer(
         spec_aug_freq_mask_param=config.dataset.spec_aug_freq_mask_param,
         spec_aug_time_mask_param=config.dataset.spec_aug_time_mask_param,
         n_context_examples=config.dataset.n_context_examples,
-        bucket_size=2000,
+        bucket_size=config.dataset.bucket_size_train,
         deterministic_context=False,
     )
 
@@ -469,7 +474,7 @@ def load_wav2vec2_asr_trainer(
             seed=seed,
             extras=config.dataset.extras,
             n_context_examples=config.dataset.n_context_examples,
-            bucket_size=30,
+            bucket_size=config.dataset.bucket_size_eval,
             deterministic_context=True,
         )
 
