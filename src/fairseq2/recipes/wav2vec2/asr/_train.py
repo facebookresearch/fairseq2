@@ -173,6 +173,9 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     extras: dict[str, object] = field(default_factory=dict)
     """The dataset-specific extra options."""
 
+    max_num_batches: int | None = None
+    """The maximum number of batches for the dataloader to return."""
+
     # Upsampling
     beta_corpus: float | None = None
     beta_language: float | None = None
@@ -288,7 +291,7 @@ def load_wav2vec2_asr_trainer(
 
     # If we start the training with an empty ASR model, use the weights of a
     # pretrained wav2vec 2.0 model.
-    if model.is_empty_initialized:
+    if model.is_empty_initialized and config.pretrained_encoder.name:
         tp = AsrModel if config.pretrained_encoder_is_ctc else Wav2Vec2Model
         pt_model = load_reference_model(
             tp,
@@ -427,6 +430,7 @@ def load_wav2vec2_asr_trainer(
         spec_aug_p=config.dataset.spec_aug_p,
         spec_aug_freq_mask_param=config.dataset.spec_aug_freq_mask_param,
         spec_aug_time_mask_param=config.dataset.spec_aug_time_mask_param,
+        max_num_batches=config.dataset.max_num_batches,
         n_context_examples=config.dataset.n_context_examples,
         bucket_size=config.dataset.bucket_size_train,
         deterministic_context=False,
@@ -472,6 +476,7 @@ def load_wav2vec2_asr_trainer(
             sync_mode=SyncMode.UNTIL_LAST,
             num_prefetch=config.dataset.num_prefetch,
             seed=seed,
+            max_num_batches=config.dataset.max_num_batches,
             extras=config.dataset.extras,
             n_context_examples=config.dataset.n_context_examples,
             bucket_size=config.dataset.bucket_size_eval,
