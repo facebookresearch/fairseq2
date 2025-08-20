@@ -71,7 +71,7 @@ from torch import Tensor
 from typing_extensions import override
 
 
-def strict_name(s):
+def strict_name(s: str) -> str:
     """
     Maps a string to a strict version containing only
     alphanumeric characters, dash, underscore, and forward slash.
@@ -528,7 +528,7 @@ def load_wav2vec2_asr_trainer(
 
         if readers_partition_columns:
             for single_vsplit in valid_splits:
-                multi_readers = dataset.create_multi_readers(
+                multi_readers = dataset.create_multi_readers(  # type: ignore
                     readers_partition_columns=readers_partition_columns,
                     split=single_vsplit,
                     tokenizer=tokenizer,
