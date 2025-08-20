@@ -862,12 +862,18 @@ class GenerativePairwiseVerifierHandler(VLLMOutputRewardHandler):
                 "Generative judges require implementing and specifying a judgment extractor"
             )
 
+        if reward_config.pair_type is None:
+            raise RuntimeError(
+                "Pairwise generative judges require specifying how the pairs should be created"
+            )
+
         return GenerativePairwiseVerifier(
             gangs,
             context,
             reward_model,
             reward_name,
             judgment_extractor=reward_config.judgment_extractor,
+            pair_type=reward_config.pair_type,
             answer_key=reward_config.answer_key,
             prompt_key=reward_config.prompt_key,
             tokenizer=reward_config.tokenizer,
@@ -892,6 +898,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
         reward_model,
         reward_name,
         judgment_extractor,
+        pair_type,
         answer_key,
         prompt_key,
         tokenizer,
@@ -903,6 +910,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
         self.reward_model = reward_model
         self.reward_name = reward_name
         self.judgment_extractor = judgment_extractor
+        self.pair_type = pair_type
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
 
         judgment_extractor_registry = self._context.get_registry(
@@ -997,7 +1005,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
         batch_pairwise_rewards,
         batch_pairwise_indices,
         batch_text,
-        batch_type,
+        pair_type,
         batch_pivot_pos,
     ):
         B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
@@ -1005,11 +1013,11 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
 
         for i in range(B):
             # Extract the pairwise rewards for each input
-            if batch_type == "pivot":
+            if pair_type == "pivot":
                 idx_start, idx_end = i * 2 * R, (i + 1) * 2 * R  # 2R pairs
-            elif batch_type == "random_pairs":
+            elif pair_type == "random_pairs":
                 idx_start, idx_end = i * R, (i + 1) * R  # R pairs
-            elif batch_type == "all_pairs":
+            elif pair_type == "all_pairs":
                 idx_start, idx_end = i * R * (R - 1), (i + 1) * R * (
                     R - 1
                 )  # R(R-1) pairs
@@ -1020,7 +1028,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
             # If not pivot, create dummy pivots because both rewards will be considered
             prompt_pivot_pos = (
                 batch_pivot_pos[idx_start:idx_end]
-                if batch_type == "pivot"
+                if pair_type == "pivot"
                 else [0] * (idx_end - idx_start + 1)
             )
 
@@ -1036,7 +1044,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
                 counts[index[non_pivot_pos]] += 1
 
                 # If not pivot setup, consider rewards of the other (pivot) rollout as well
-                if batch_type != "pivot":
+                if pair_type != "pivot":
                     prompt_rewards[index[non_pivot_pos]] += rewards[non_pivot_pos]
                     counts[index[non_pivot_pos]] += 1
 
@@ -1062,8 +1070,6 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
         batch_pairwise_indices = []
         batch_pivot_pos = []
 
-        batch_type = "pivot"  # all_pairs, pivot, random_pairs
-
         if vllm_outputs is None:
             vllm_outputs = [None] * len(prompt_batch.prompts)
 
@@ -1084,7 +1090,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
 
-            if batch_type == "all_pairs":
+            if self.pair_type == "all_pairs":
                 vllm_inputs, batch_pairwise_indices = self.construct_all_pairs(
                     prompt_text,
                     i_batch_request_output,
@@ -1092,7 +1098,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
                     batch_pairwise_indices,
                     reference_answers[i],
                 )
-            elif batch_type == "pivot":
+            elif self.pair_type == "pivot":
                 (
                     vllm_inputs,
                     batch_pairwise_indices,
@@ -1105,7 +1111,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
                     batch_pivot_pos,
                     reference_answers[i],
                 )
-            elif batch_type == "random_pairs":
+            elif self.pair_type == "random_pairs":
                 vllm_inputs, batch_pairwise_indices = self.construct_random_pairs(
                     prompt_text,
                     i_batch_request_output,
@@ -1140,7 +1146,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
             batch_pairwise_rewards,
             batch_pairwise_indices,
             batch_text,
-            batch_type,
+            self.pair_type,
             batch_pivot_pos,
         )
 
