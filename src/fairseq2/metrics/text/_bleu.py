@@ -10,7 +10,6 @@ from collections.abc import Iterable, Sequence
 from typing import Final, final
 
 import torch
-from sacrebleu import corpus_bleu
 from sacrebleu.metrics.bleu import BLEU, MAX_NGRAM_ORDER
 from torch import Tensor
 from torcheval.metrics import Metric
@@ -57,6 +56,14 @@ class BleuMetric(Metric[Tensor]):
 
         self._add_state("valid_ngrams", valid_ngrams)
         self._add_state("total_ngrams", total_ngrams)
+        self._metric_class = BLEU(
+            lowercase=False,
+            force=False,
+            tokenize=self.tokenizer,
+            smooth_method="exp",
+            smooth_value=None,
+            effective_order=False,
+        )
 
     @override
     @torch.inference_mode()
@@ -65,14 +72,13 @@ class BleuMetric(Metric[Tensor]):
         :param refs: The references.
         :param hyps: The hypotheses.
         """
-        bleu = corpus_bleu(hyps, [refs], tokenize=self.tokenizer)
+        bleu = self._metric_class.corpus_score(hyps, [refs])
 
         self.sys_len += bleu.sys_len
         self.ref_len += bleu.ref_len
 
         self.valid_ngrams += torch.tensor(bleu.counts, device=self.device)
         self.total_ngrams += torch.tensor(bleu.totals, device=self.device)
-
         return self
 
     @override
@@ -83,7 +89,6 @@ class BleuMetric(Metric[Tensor]):
 
         valid_ngrams = self.valid_ngrams.tolist()
         total_ngrams = self.total_ngrams.tolist()
-
         score_output = BLEU.compute_bleu(valid_ngrams, total_ngrams, sys_len, ref_len)
 
         return torch.tensor(score_output.score, device=self.device)
