@@ -10,15 +10,13 @@ import re
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, cast, final
+from typing import cast, final, Literal
 
 import torch
-from torch import Tensor
-from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset
+from fairseq2.datasets.asr import AsrDataset, GENERIC_ASR_DATASET_FAMILY
 from fairseq2.datasets.speech import ManifestDatasetInterface, SpeechReadOptions
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
@@ -62,13 +60,15 @@ from fairseq2.recipes.config import (
 )
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.wav2vec2.batch_weighted_datareader import (
-    MIXTURE_DATASET_FAMILY,
     BatchMixtureDataset,
+    MIXTURE_DATASET_FAMILY,
 )
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+from torch import Tensor
+from typing_extensions import override
 
 
 def strict_name(s):
@@ -310,10 +310,6 @@ def load_wav2vec2_asr_trainer(
 
     # If we start the training with an empty ASR model, use the weights of a
     # pretrained wav2vec 2.0 model.
-<<<<<<< HEAD
-=======
-
->>>>>>> 03f9a0a4 (adding multi split eval for asr trainer [WIP])
     if model.is_empty_initialized and config.pretrained_encoder.name:
         tp = AsrModel if config.pretrained_encoder_is_ctc else Wav2Vec2Model
         pt_model = load_reference_model(
@@ -503,6 +499,7 @@ def load_wav2vec2_asr_trainer(
             num_prefetch=config.dataset.num_prefetch,
             seed=seed,
             max_num_batches=config.dataset.max_num_batches,
+            npc=config.dataset.npc,
             extras=deepcopy(config.dataset.extras),
             n_context_examples=config.dataset.n_context_examples,
             bucket_size=config.dataset.bucket_size_eval,
@@ -561,7 +558,7 @@ def load_wav2vec2_asr_trainer(
                     gangs.dp,
                     config.dataset.min_audio_len,
                     config.dataset.max_audio_len,
-                    read_options,
+                    deepcopy(read_options),
                 )
                 valid_data_readers.append(valid_data_reader)
     else:
