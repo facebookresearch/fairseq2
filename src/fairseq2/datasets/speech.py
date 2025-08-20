@@ -193,6 +193,12 @@ class SpeechReadOptions(DataReadOptions):
     npc: int = 10
     """The number of parallel calls to use in the pipeline."""
 
+    max_batch_size: int = -1
+    """The maximum batch size (num examples). If ``-1``, no maximum is applied."""
+
+    min_samples_per_char: int = 160
+    """If a sample has more than ``sample_rate / min_samples_per_char`` chars per second, it's filtered out."""
+
     # Upsampling
     beta_corpus: float | None = None
     beta_language: float | None = None
@@ -470,6 +476,7 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
         options: SpeechReadOptions,
         max_audio_len: int,
         min_audio_len: int,
+        max_bucket_size: int,
         seed: int,
         columns: str,
     ) -> DataPipelineBuilder:
@@ -493,8 +500,16 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
                 ),
             )
 
+            # Comply with the max batch size (bucket size) constraint
+            final_bucket_sizes = bucket_sizes
+            if max_bucket_size != -1:
+                final_bucket_sizes = []
+                for bucket_size, seq_len in bucket_sizes:
+                    if bucket_size <= max_bucket_size:
+                        final_bucket_sizes.append((bucket_size, seq_len))
+
             builder.bucket_by_length(
-                bucket_sizes,
+                final_bucket_sizes,
                 selector=columns,
                 min_data_len=min_audio_len,
                 skip_below_min_examples=True,  # this should be neutral
@@ -561,6 +576,7 @@ class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
             options,
             max_audio_len=max_audio_len,
             min_audio_len=min_audio_len,
+            max_bucket_size=options.max_batch_size,
             seed=seed,
             columns="audio_size",
         )

@@ -230,6 +230,7 @@ class GenericAsrDataset(ManifestDatasetInterface, AsrDataset):
             options,
             max_audio_len,
             min_audio_len,
+            max_bucket_size=options.max_batch_size,
             seed=options.seed,
             columns="audio_size",
         )

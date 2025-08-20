@@ -285,6 +285,7 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
             options,
             max_audio_len=max_audio_len,
             min_audio_len=min_audio_len,
+            max_bucket_size=options.max_batch_size,
             seed=seed,
             columns="length",
         )
