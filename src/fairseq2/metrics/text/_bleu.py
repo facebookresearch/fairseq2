@@ -84,7 +84,7 @@ class BleuMetric(Metric[Tensor]):
         self.valid_ngrams += torch.tensor(bleu.counts, device=self.device).clone()
         self.total_ngrams += torch.tensor(bleu.totals, device=self.device).clone()
         self._steps += 1
-        if self._steps % 20 == 0:
+        if self._steps % 500 == 0:
             gc.collect()
         return self
 
