@@ -32,9 +32,9 @@ jobs:
     name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
     strategy:
       matrix:
-        torch: ['2.7.0']
+        torch: ['2.7.1']
         py: ['3.10', '3.11', '3.12']
-        variant: ['cpu', 'cu126']
+        variant: ['cpu', 'cu126', 'cu128']
       max-parallel: 1
     uses: ./.github/workflows/_publish_s3.yaml
     with:
@@ -48,7 +48,7 @@ jobs:
     name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, macos-arm64)
     strategy:
       matrix:
-        torch: ['2.7.0']
+        torch: ['2.7.1']
         py: ['3.10', '3.11', '3.12']
       max-parallel: 1
     uses: ./.github/workflows/_publish_s3.yaml
@@ -70,9 +70,9 @@ jobs:
     uses: ./.github/workflows/_publish_pypi.yaml
     strategy:
       matrix:
-        torch: ['2.7.0']
+        torch: ['2.7.1']
         py: ['3.10', '3.11', '3.12']
-        variant: ['cu126']
+        variant: ['cu126', 'cu128']
       max-parallel: 1
     with:
       os: 'linux'
@@ -88,7 +88,7 @@ jobs:
     uses: ./.github/workflows/_publish_pypi.yaml
     strategy:
       matrix:
-        torch: ['2.7.0']
+        torch: ['2.7.1']
         py: ['3.10', '3.11', '3.12']
       max-parallel: 1
     with:
