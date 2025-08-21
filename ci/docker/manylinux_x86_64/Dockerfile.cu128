@@ -1,0 +1,14 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+FROM ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:3-cpu
+
+# Install CUDA.
+COPY build-scripts/install-cuda-12.8.sh /build-scripts/
+
+RUN /build-scripts/install-cuda-12.8.sh && rm -rf /build-scripts
+
+ENV PATH=/usr/local/cuda-12.8/bin:$PATH
