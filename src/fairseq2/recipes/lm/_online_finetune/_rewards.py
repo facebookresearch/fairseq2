@@ -40,6 +40,7 @@ class RewardModelConfig:
     prompt_key: str = "prompt"
     tokenizer: str | None = None
     judgment_extractor: str | None = None
+    pair_type: str | None = None
 
 
 @dataclass(kw_only=True)
