@@ -176,6 +176,12 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     max_num_batches: int | None = None
     """The maximum number of batches for the dataloader to return."""
 
+    max_batch_size: int = -1
+    """The maximum batch size (num examples). If ``-1``, no maximum is applied."""
+
+    min_samples_per_char: int = 160
+    """If a sample has more than ``sample_rate / min_samples_per_char`` chars per second, it's filtered out."""
+
     # Upsampling
     beta_corpus: float | None = None
     beta_language: float | None = None
@@ -434,6 +440,8 @@ def load_wav2vec2_asr_trainer(
         n_context_examples=config.dataset.n_context_examples,
         bucket_size=config.dataset.bucket_size_train,
         deterministic_context=False,
+        max_batch_size=config.dataset.max_batch_size,
+        min_samples_per_char=config.dataset.min_samples_per_char,
     )
 
     dataset: AsrDataset | BatchMixtureDataset
@@ -481,6 +489,8 @@ def load_wav2vec2_asr_trainer(
             n_context_examples=config.dataset.n_context_examples,
             bucket_size=config.dataset.bucket_size_eval,
             deterministic_context=True,
+            max_batch_size=config.dataset.max_batch_size,
+            min_samples_per_char=config.dataset.min_samples_per_char,
         )
 
         valid_units = []
