@@ -6,15 +6,14 @@
 
 from __future__ import annotations
 
+import socket
+
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from contextlib import nullcontext
-from typing import Generic, TypeVar, final
+from typing import final, Generic, TypeVar
 
 import torch
-from torch import Tensor
-from torch.profiler import record_function
-from typing_extensions import override
 
 from fairseq2.checkpoint import CheckpointError, CheckpointManager, CheckpointSaveError
 from fairseq2.datasets import DataReader, DataReadError
@@ -25,17 +24,20 @@ from fairseq2.logging import log
 from fairseq2.metrics import MetricBagError, MetricDescriptor
 from fairseq2.metrics.recorders import MetricRecorder, MetricRecordError
 from fairseq2.profilers import Profiler
-from fairseq2.typing import CPU, ContextManager, DataType
-from fairseq2.utils.device_stat import DeviceStatTracker
-from fairseq2.utils.progress import ProgressReporter, ProgressTask
-from fairseq2.utils.rng import RngBag
-from fairseq2.utils.stopwatch import Stopwatch
 
 # isort: split
 
 from fairseq2.recipes._error import RecipeError, UnitError
 from fairseq2.recipes._evaluator import EvalUnit
 from fairseq2.recipes._metrics import extend_batch_metrics
+from fairseq2.typing import ContextManager, CPU, DataType
+from fairseq2.utils.device_stat import DeviceStatTracker
+from fairseq2.utils.progress import ProgressReporter, ProgressTask
+from fairseq2.utils.rng import RngBag
+from fairseq2.utils.stopwatch import Stopwatch
+from torch import Tensor
+from torch.profiler import record_function
+from typing_extensions import override
 
 
 class Validator(ABC):
@@ -243,7 +245,14 @@ class StandardValidator(Validator, Generic[BatchT]):
                     f"The {s} unit has failed. See the nested exception for details."
                 ) from ex
 
+            machine_name = socket.gethostname()
+            if machine_name.startswith("devvm"):
+                _max_num_valid_steps = 5
+            else:
+                _max_num_valid_steps = 50000000000
+            c = 0
             while not eod:
+                log.info(f"s1: Running validation step {c}.")
                 try:
                     self._checkpoint_manager.maybe_complete_async_checkpoint()
                 except CheckpointSaveError as ex:
@@ -252,10 +261,13 @@ class StandardValidator(Validator, Generic[BatchT]):
                     ) from ex
 
                 batches = self._read_next_batches(unit, data_reader)
-                if batches is None:
+                log.info(f"s2: Read batches step {c}.")
+                if batches is None or c == _max_num_valid_steps:
                     eod = True
                 else:
                     self._run_step(unit, batches, progress_task)
+                log.info(f"s7: Done with step {c}.")
+                c += 1
 
             with self._compute_watch:
                 with record_function("finalize"):

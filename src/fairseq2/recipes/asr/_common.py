@@ -7,20 +7,23 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, TextIO, final
+import re
+from typing import Any, Dict, final, TextIO
 
 import torch
-from torch import Tensor
-from typing_extensions import override
 
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
 from fairseq2.gang import Gang
+
+from fairseq2.logging import log
 from fairseq2.metrics import Mean
 from fairseq2.metrics.text import BleuMetric, WerMetric
 from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes import BaseMetricBag, Model, UnitError
+from torch import Tensor
+from typing_extensions import override
 
 
 @final
@@ -41,8 +44,10 @@ class AsrCriterion:
     def __call__(
         self, batch: Seq2SeqBatch, metric_bag: AsrMetricBag
     ) -> tuple[Tensor, int]:
+        log.info(f"s3: calling forward")
         output = self._forward(batch)
 
+        log.info(f"s4: calling loss")
         loss, extra_metrics = output.compute_loss(
             batch.target_seqs, batch.target_padding_mask
         )
@@ -53,8 +58,10 @@ class AsrCriterion:
 
         metric_bag.update_extra_metrics(batch, extra_metrics)
 
+        log.info(f"s5: calling scorer")
         if self._scorer is not None:
             self._scorer(batch, output, metric_bag)
+        log.info(f"s6: done scorer")
 
         return loss, batch.batch_size
 
@@ -117,11 +124,18 @@ class AsrScorer:
         refs = [self._text_decoder(s) for s in ref_seqs]
         hyps = [self._text_decoder(s) for s in hyp_seqs]
 
+        for i, (r, h) in enumerate(zip(refs, hyps)):
+            # if torch.rand([]) < 0.01 or bool(re.search(r"[\u0590-\u05FF]", r)):
+            if "lang" in batch.example:
+                log.info(f"Lang: {batch.example['lang'][i]}")
+            log.info(f"Reference: {r}")
+            log.info(f"Hypothesis: {h}")
+
         metric_bag.wer.update(
             refs, ref_seqs, ref_padding_mask, hyps, hyp_seqs, hyp_padding_mask
         )
 
-        metric_bag.bleu.update(refs, hyps)
+        # metric_bag.bleu.update(refs, hyps)
 
         try:
             # Dump references.
@@ -161,11 +175,11 @@ class AsrMetricBag(BaseMetricBag):
 
         self.register_metric("wer", WerMetric(device=self.device), persistent=False)
 
-        self.register_metric(
-            "bleu",
-            BleuMetric(tokenizer="13a", device=self.device),
-            persistent=False,
-        )
+        # self.register_metric(
+        #     "bleu",
+        #     BleuMetric(tokenizer="13a", device=self.device),
+        #     persistent=False,
+        # )
 
     @torch.inference_mode()
     def update_ctc_loss(self, batch: Seq2SeqBatch, loss: Tensor) -> None:
