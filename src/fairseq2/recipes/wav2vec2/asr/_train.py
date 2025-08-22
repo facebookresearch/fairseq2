@@ -10,13 +10,15 @@ import re
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import cast, final, Literal
+from typing import Literal, cast, final
 
 import torch
+from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import AsrDataset, GENERIC_ASR_DATASET_FAMILY
+from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset
 from fairseq2.datasets.speech import ManifestDatasetInterface, SpeechReadOptions
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
@@ -60,24 +62,22 @@ from fairseq2.recipes.config import (
 )
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.wav2vec2.batch_weighted_datareader import (
-    BatchMixtureDataset,
     MIXTURE_DATASET_FAMILY,
+    BatchMixtureDataset,
 )
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
-from torch import Tensor
-from typing_extensions import override
 
 
-def strict_name(s: str) -> str:
+def _strict_name(s: str) -> str:
     """
     Maps a string to a strict version containing only
     alphanumeric characters, dash, underscore, and forward slash.
     """
     # Use regex to keep only allowed characters
-    return re.sub(r"[^a-zA-Z0-9\-_\/]", "", s)
+    return re.sub(r"[^a-zA-Z0-9\-_\/]", "_", s)
 
 
 @dataclass(kw_only=True)
@@ -487,11 +487,12 @@ def load_wav2vec2_asr_trainer(
 
     # Initialize the validation unit.
     if config.dataset.valid_split is not None:
+        eval_read_options = deepcopy(read_options)
         valid_scorer = AsrScorer(tokenizer)
 
         valid_criterion = AsrCriterion(model, valid_scorer)
 
-        read_options = SpeechReadOptions(
+        eval_read_options = SpeechReadOptions(
             batching=batching,
             dtype=config.trainer.dtype,
             normalize_audio=config.dataset.normalize_audio,
@@ -507,6 +508,11 @@ def load_wav2vec2_asr_trainer(
             max_batch_size=config.dataset.max_batch_size,
             min_samples_per_char=config.dataset.min_samples_per_char,
             batch_with_context_length=config.dataset.batch_with_context_length,
+        )
+
+        # replace partition_filters from read_options
+        eval_read_options.extras["partition_filters"] = eval_read_options.extras.get(
+            "eval_partition_filters"
         )
 
         valid_units = []
@@ -528,6 +534,8 @@ def load_wav2vec2_asr_trainer(
 
         if readers_partition_columns:
             for single_vsplit in valid_splits:
+                # currently implemented only for mixture_lance_asr family
+                assert hasattr(dataset, "create_multi_readers")
                 multi_readers = dataset.create_multi_readers(  # type: ignore
                     readers_partition_columns=readers_partition_columns,
                     split=single_vsplit,
@@ -535,18 +543,15 @@ def load_wav2vec2_asr_trainer(
                     gang=gangs.dp,
                     min_audio_len=config.dataset.min_audio_len,
                     max_audio_len=config.dataset.max_audio_len,
-                    options=read_options,
+                    options=deepcopy(eval_read_options),
                 )
                 for name, valid_data_reader in multi_readers.items():
-                    name = single_vsplit + "__" + name
-                    name = strict_name(name.replace("=", "_"))
+                    name = single_vsplit + "_" + name
+                    name = _strict_name(name)
                     valid_unit = AsrEvalUnit(valid_criterion, gangs, name)
                     valid_units.append(valid_unit)
                     valid_data_readers.append(valid_data_reader)
         else:
-            # # rm partition_filters from read_options
-            # read_options.extras["partition_filters"] = None
-
             for single_vsplit in valid_splits:
                 name = single_vsplit.replace("=", "_")
                 valid_unit = AsrEvalUnit(valid_criterion, gangs, name)
@@ -558,7 +563,7 @@ def load_wav2vec2_asr_trainer(
                     gangs.dp,
                     config.dataset.min_audio_len,
                     config.dataset.max_audio_len,
-                    deepcopy(read_options),
+                    deepcopy(eval_read_options),
                 )
                 valid_data_readers.append(valid_data_reader)
     else:
