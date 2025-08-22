@@ -48,6 +48,13 @@ class SafeFragment:
 
     def __init__(self, fragment: pa.dataset.ParquetFileFragment):
         self.fragment = fragment
+        self.memory_pool = None
+        try:
+            self.memory_pool = pa.jemalloc_memory_pool()
+            pa.jemalloc_set_decay_ms(10)
+        except pa.ArrowNotImplementedError:
+            log.info("jemalloc not available, skipping memory pool init")
+            pass
 
     def __repr__(self) -> str:
         out = ""
@@ -95,6 +102,7 @@ class SafeFragment:
                 columns=fragment_columns,
                 use_threads=use_threads,
                 filter=filters if can_apply_on_phyiscal_schema else None,
+                memory_pool=self.memory_pool,
             )
         except OSError as e:
             log.info(

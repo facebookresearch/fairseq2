@@ -43,7 +43,7 @@ class ParquetDatasetLimitOptions:
 @dataclass
 class FragmentStreamingConfig:
     """
-    This config describes the streaming of fragments from the a parquet dataset.
+    This config describes the streaming of fragments from a parquet dataset.
     """
 
     parquet_path: str | List[str] = str()
@@ -68,8 +68,8 @@ class FragmentStreamingConfig:
 
     partition_filters: Optional[str | List[str]] = None
     """
-    Filters that should be applied only on partition columns for fast partition prunning.
-    Filters are passed as an str expression that will be transformed through `eval(...)`.
+    Filters that should be applied only on partition columns for fast partition pruning.
+    Filters are passed as a str expression that will be transformed through `eval(...)`.
 
     If several filters are provided, they will be combined with `AND` operator.
 
@@ -162,9 +162,7 @@ class FragmentStreamingConfig:
         """
         Add an extra partition filter to the dataset.
         """
-        from fairseq2.data.parquet.fragment_streaming.primitives import (
-            process_filter,
-        )
+        from fairseq2.data.parquet.fragment_streaming.primitives import process_filter
 
         config = deepcopy(self)
 
