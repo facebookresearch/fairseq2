@@ -106,6 +106,13 @@ matrix shows the supported combinations.
   <tbody>
     <tr>
       <td rowspan=2><code>HEAD</code></td>
+      <td><code>2.8.0</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
+      <td><code>cpu</code>, <code>cu126</code>, <code>cu128</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
+      <td rowspan=2><code>HEAD</code></td>
       <td><code>2.7.1</code></td>
       <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>cpu</code>, <code>cu126</code>, <code>cu128</code></td>
@@ -143,12 +150,12 @@ matrix shows the supported combinations.
 
 To install a specific combination, first follow the installation instructions on
 [pytorch.org](https://pytorch.org/get-started/locally) for the desired PyTorch
-version, and then use the following command (shown for PyTorch `2.7.1` and
+version, and then use the following command (shown for PyTorch `2.8.0` and
 variant `cu126`):
 
 ```sh
 pip install fairseq2\
-  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.7.1/cu126
+  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.8.0/cu126
 ```
 
 > [!WARNING]
@@ -163,12 +170,12 @@ pip install fairseq2\
 For Linux, we also host nightly builds on FAIR's package repository. The
 supported variants are identical to the ones listed in *Variants* above. Once
 you have installed the desired PyTorch version, you can use the following
-command to install the corresponding nightly package  (shown for PyTorch `2.7.1`
-and variant `cu126`):
+command to install the corresponding nightly package  (shown for PyTorch `2.8.0`
+and variant `cu128`):
 
 ```sh
 pip install fairseq2\
-  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.7.1/cu126
+  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.8.0/cu128
 ```
 
 
@@ -211,6 +218,12 @@ the supported combinations.
   <tbody>
     <tr>
       <td><code>HEAD</code></td>
+      <td><code>2.8.0</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
+      <td><code>arm64</code></td>
+    </tr>
+    <tr>
+      <td><code>HEAD</code></td>
       <td><code>2.7.1</code></td>
       <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>arm64</code></td>
@@ -226,11 +239,11 @@ the supported combinations.
 
 To install a specific combination, first follow the installation instructions on
 [pytorch.org](https://pytorch.org/get-started/locally) for the desired PyTorch
-version, and then use the following command (shown for PyTorch `2.7.1`):
+version, and then use the following command (shown for PyTorch `2.8.0`):
 
 ```sh
 pip install fairseq2\
-  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.7.1/cpu
+  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.8.0/cpu
 ```
 
 > [!WARNING]
@@ -245,11 +258,11 @@ pip install fairseq2\
 For macOS, we also host nightly builds on FAIR's package repository. The
 supported variants are identical to the ones listed in *Variants* above. Once
 you have installed the desired PyTorch version, you can use the following
-command to install the corresponding nightly package  (shown for PyTorch `2.7.1`):
+command to install the corresponding nightly package  (shown for PyTorch `2.8.0`):
 
 ```sh
 pip install fairseq2\
-  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.7.1/cpu
+  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.8.0/cpu
 ```
 
 
