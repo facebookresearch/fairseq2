@@ -7,7 +7,7 @@
 from enum import Enum
 from typing import Any, Dict, cast
 
-from fairseq2.data.data_pipeline import DataPipelineBuilder
+from fairseq2.data.data_pipeline import DataPipelineBuilder, create_bucket_sizes
 from fairseq2.datasets import SequenceBatch
 from fairseq2.logging import log
 
@@ -17,75 +17,6 @@ class BatchingStrategy(Enum):
 
     STATIC = "static"
     LENGTH = "length"
-
-
-def create_bucket_sizes(
-    *,
-    max_num_elements: int,
-    max_seq_len: int,
-    min_seq_len: int = 1,
-    num_seqs_multiple_of: int = 1,
-) -> list[tuple[int, int]]:
-    """
-    Create optimal bucket sizes for length-based batching.
-
-    :param max_num_elements:
-        The maximum number of elements that each bucket can contain.
-    :param max_seq_len:
-        The maximum sequence length.
-    :param min_seq_len:
-        The minimum sequence length.
-    :param num_seqs_multiple_of:
-        The number of sequences contained in each bucket must be a multiple of this value.
-    """
-    if max_seq_len > max_num_elements:
-        raise ValueError(
-            f"`max_seq_len` must be less than or equal to `max_num_elements` ({max_num_elements}), but is {max_seq_len} instead."
-        )
-
-    if min_seq_len < 1:
-        raise ValueError(
-            f"`min_seq_len` must be greater than zero, but is {min_seq_len} instead."
-        )
-
-    if min_seq_len > max_seq_len:
-        raise ValueError(
-            f"`min_seq_len` must be less than or equal to `max_seq_len` ({max_seq_len}), but is {min_seq_len} instead."
-        )
-
-    if num_seqs_multiple_of < 1:
-        raise ValueError(
-            f"`num_seqs_multiple_of` must be greater than or equal to 1, but is {num_seqs_multiple_of} instead."
-        )
-
-    if max_num_elements % max_seq_len != 0:
-        raise ValueError(
-            f"`max_num_elements` must be equal to a multiple of `max_seq_len`, but is {max_num_elements} instead."
-        )
-
-    bucket_sizes = []
-    seq_len = 1
-    bucket_size = max_num_elements
-
-    while seq_len < max_seq_len:
-        if seq_len >= min_seq_len:
-            bucket_sizes.append((bucket_size, seq_len))
-
-        bucket_size = max_num_elements // (seq_len + 1)
-        seq_len = max_num_elements // bucket_size
-
-    bucket_sizes.append((bucket_size, max_seq_len))
-
-    if num_seqs_multiple_of == 1:
-        return bucket_sizes
-
-    cropped_bucket_sizes = []
-    for bucket_size, seq_len in bucket_sizes:
-        if bucket_size > num_seqs_multiple_of:
-            bucket_size -= bucket_size % num_seqs_multiple_of
-        cropped_bucket_sizes.append((bucket_size, seq_len))
-
-    return cropped_bucket_sizes
 
 
 class BatchingPipeline:
