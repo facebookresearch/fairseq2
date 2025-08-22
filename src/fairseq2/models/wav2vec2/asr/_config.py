@@ -464,3 +464,39 @@ def register_wav2vec2_asr_configs(context: RuntimeContext) -> None:
         config = bib1143_300m()
         config.vocab_info.size = 9656
         return config
+
+    @wav2vec2_asr_arch("3b_v4_tokenizer_updated")
+    def v4_tokenizer_updated_3b() -> Wav2Vec2AsrConfig:
+        config = bib1143_3b()
+        config.vocab_info = VocabularyInfo(
+            size=9812,
+            unk_idx=3,
+            bos_idx=0,
+            eos_idx=2,
+            pad_idx=1,
+        )
+        return config
+
+    @wav2vec2_asr_arch("1b_v4_tokenizer_updated")
+    def v4_tokenizer_updated_1b() -> Wav2Vec2AsrConfig:
+        config = bib1143_1b()
+        config.vocab_info = VocabularyInfo(
+            size=9812,
+            unk_idx=3,
+            bos_idx=0,
+            eos_idx=2,
+            pad_idx=1,
+        )
+        return config
+
+    @wav2vec2_asr_arch("300m_v4_tokenizer_updated")
+    def v4_tokenizer_updated_300m() -> Wav2Vec2AsrConfig:
+        config = bib1143_300m()
+        config.vocab_info = VocabularyInfo(
+            size=9812,
+            unk_idx=3,
+            bos_idx=0,
+            eos_idx=2,
+            pad_idx=1,
+        )
+        return config
