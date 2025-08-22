@@ -223,6 +223,9 @@ class SpeechReadOptions(DataReadOptions):
     """If ``True``, the context examples will be selected deterministically from the \
     audio path. Should be True for eval sets and False for train sets."""
 
+    batch_with_context_length: bool = True
+    """Use total batch of speech + context speech for length batching."""
+
 
 class SpeechDataset(ABC):
     """Represents a speech dataset."""
