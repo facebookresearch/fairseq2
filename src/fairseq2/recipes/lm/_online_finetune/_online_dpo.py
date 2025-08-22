@@ -63,6 +63,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     compute_reference_logps,
     collate_with_target_mask,
     update_avg_loss_zeroer,
+    strip_think_tokens,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_model import (
@@ -164,6 +165,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )
         if self._config.loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Valid")
+
+        rollouts = strip_think_tokens(rollouts)
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
 
@@ -209,6 +212,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )
         if self._config.loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Train")
+
+        rollouts = strip_think_tokens(rollouts)
 
         batch: PreferenceBatch
         batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
@@ -456,10 +461,13 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         vllm_reward_model = vllm_actors.get(config.vllm_reward_model_actor_name, None)
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         reward_handler = reward_registry.get(config.reward.name)
+        reward_name = config.reward.name
         reward = reward_handler.create(
             reward_model=vllm_reward_model,
+            reward_name=reward_name,
             reward_config=config.reward.config,
             gangs=gangs,
+            context=self._context,
         )
 
         # TODO: decide converter as part of the model handler
@@ -467,12 +475,16 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             from fairseq2.models.llama._hg import _convert_parameter
 
             model._convert_parameter = _convert_parameter
-        elif "qwen" in model.name:
+        else:
             from fairseq2.models.qwen._hg import _convert_parameter
 
             model._convert_parameter = _convert_parameter
-        else:
-            raise RuntimeError
+
+        # sync models here before we start training
+        if config.vllm_sync.sync_model_every_n_steps > 0:
+            maybe_sync_model(gangs, model, vllm_model, -1, -1, force_sync=True)
+        if config.vllm_sync.sync_ref_model_every_n_steps > 0:
+            maybe_sync_model(gangs, model, reference_model, -1, -1, force_sync=True)
 
         return OnlineDpoFinetuneUnit(
             model, reference_model, vllm_model, vllm_actors, reward, gangs, config
