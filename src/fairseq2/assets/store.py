@@ -202,7 +202,7 @@ class AssetEnvironmentDetector:
 
     def detect(self) -> str | None:
         for env_resolver in self._env_resolvers:
-            env = env_resolver(self._resolver)
+            env = env_resolver()
             if env is not None:
                 return env
 

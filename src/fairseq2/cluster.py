@@ -177,7 +177,7 @@ class SlurmHandler(ClusterHandler):
 
     @override
     def supports_current_cluster(self) -> bool:
-        return self._env.has("SLURM_PROC_ID")
+        return self._env.has("SLURM_PROCID")
 
     @property
     @override
