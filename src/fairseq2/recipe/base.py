@@ -69,8 +69,8 @@ class RecipeContext:
     def model(self) -> Model:
         return self._resolver.resolve(Model)
 
-    def dataset_as(self, kls: type[T]) -> T:
-        dataset = self._resolver.resolve(object, key="dataset")
+    def dataset_as(self, kls: type[T], key: str = "dataset") -> T:
+        dataset = self._resolver.resolve(object, key=key)
 
         if not isinstance(dataset, kls):
             raise TypeError(
