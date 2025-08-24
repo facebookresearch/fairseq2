@@ -17,9 +17,7 @@ from typing_extensions import override
 from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
 
 from fairseq2.context import RuntimeContext
-from fairseq2.datasets import (
-    SequenceBatch,
-)
+from fairseq2.datasets import SequenceBatch
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gang, Gangs
@@ -39,6 +37,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     generate_rollouts,
     get_rollout_lengths,
     log_rollouts,
+    strip_think_tokens,
     update_avg_reward,
     update_avg_reward_len_norm,
     update_avg_rollout_length,
@@ -189,15 +188,16 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     ) -> tuple[Tensor, int]:
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
-            # For a pairwise RM, need to sample at least two judgments
-            policy_sampling_params.n = (
-                2 if self._reward.reward_name == "generative_pairwise_verifier" else 1
-            )
             for (
                 k,
                 v,
             ) in self._config.loss_config.validation_vllm_sampling_params.items():
                 policy_sampling_params.__setattr__(k, v)
+
+            # For a pairwise RM, need to sample at least two judgments
+            policy_sampling_params.n = (
+                2 if self._reward.reward_name == "generative_pairwise_verifier" else 1
+            )
         else:
             policy_sampling_params = None
         rollouts = generate_rollouts(
@@ -208,6 +208,9 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )
         if self._config.loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Valid")
+        rollouts = strip_think_tokens(rollouts)
+        log.info(f"Sampling params: {len(rollouts[0].outputs)}")
+        log.info(f"Rollouts: {len(rollouts[0].outputs)}")
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
         log.info(f"Rewards: {reward_output['rewards']}")
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
@@ -262,9 +265,10 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 dp_gang=self._gangs.dp,
                 vllm_model=self._vllm_model,
             )
-            if self._config.loss_config.log_rollouts:
-                log_rollouts(prompt_batch, rollouts, "Train")
+            # if self._config.loss_config.log_rollouts:
+            #     log_rollouts(prompt_batch, rollouts, "Train")
 
+            rollouts = strip_think_tokens(rollouts)
             reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
             self._rollout_bag.save(rollouts, reward_output)
 
