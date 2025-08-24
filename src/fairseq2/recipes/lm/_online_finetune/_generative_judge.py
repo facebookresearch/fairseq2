@@ -47,7 +47,7 @@ Format your output like this:
 <think> your_thinking_process </think> 
 <score> your_score </score>
 
-Below are the user's question and the assistant's response:
+Below are the user's question, reference answer and the assistant's response:
 
 [User Question]
 {instruction}
@@ -111,13 +111,9 @@ Below are the user's question and the two responses:
 """
 
 PAIRWISE_WITH_SCORES_J1_PROMPT_WITH_REF_ANSWER = """
-You are given a user question, a reference answer, and two responses from two AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer.
+You are given a user question and two responses from two AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
 
-First, think about your evaluation process and provide your reasoning within <think> and </think> tags. This could include your evaluation criteria for a high-quality response to this specific user question, an analysis of the reference answer, a detailed comparison of the two responses, etc. Be explicit in your thought process, referencing your criteria and explaining how each response aligns with or deviates from them.
-
-Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
-
-Finally, assign the assistant's response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision, with a higher score indicating a higher-quality response that better satisfies the criteria. Enclose the scores within the tags <score_A> </score_A>, and <score_B> </score_B>.
+Think carefully about how to assess the quality of the responses and finally, assign each response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision, with a higher score indicating a higher-quality response that better satisfies the criteria. Enclose the scores within the tags <score_A> </score_A>, and <score_B> </score_B>.
 
 Format your output like this:
 <think> your_thinking_process </think>
