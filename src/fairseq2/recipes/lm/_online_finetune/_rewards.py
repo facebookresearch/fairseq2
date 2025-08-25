@@ -940,7 +940,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         prefix_tokens: List[int],
         reason: str,
         completion: str,
-        n_prefix_truncate: Optional[int] = 100,
+        n_prefix_truncate: Optional[int] = None,
         n_completion_truncate: int = 100,
     ):
         # TODO(lidli): there are some redundant computation that can otherwise be shared. Improve it.
