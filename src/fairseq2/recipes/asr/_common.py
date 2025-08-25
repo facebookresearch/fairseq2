@@ -7,20 +7,21 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, TextIO, final
+from typing import Any, Dict, final, TextIO
 
 import torch
-from torch import Tensor
-from typing_extensions import override
 
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
 from fairseq2.gang import Gang
+from fairseq2.logging import log
 from fairseq2.metrics import Mean
 from fairseq2.metrics.text import BleuMetric, WerMetric
 from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes import BaseMetricBag, Model, UnitError
+from torch import Tensor
+from typing_extensions import override
 
 
 @final
@@ -116,6 +117,21 @@ class AsrScorer:
 
         refs = [self._text_decoder(s) for s in ref_seqs]
         hyps = [self._text_decoder(s) for s in hyp_seqs]
+
+        verbose = True
+        if verbose:
+            for i, (r, h) in enumerate(zip(refs, hyps)):
+                if "lang" in batch.example:  # type: ignore
+                    lang = batch.example["lang"][i]  # type: ignore
+                else:
+                    lang = "??"
+                if "audio_id" in batch.example:  # type: ignore
+                    audio_id = batch.example["audio_id"][i]  # type: ignore
+                else:
+                    audio_id = "??"
+                log.info(
+                    f"Lang: {lang}, Audio ID: {audio_id}, Reference: {r}, Hypothesis: {h}"
+                )
 
         metric_bag.wer.update(
             refs, ref_seqs, ref_padding_mask, hyps, hyp_seqs, hyp_padding_mask

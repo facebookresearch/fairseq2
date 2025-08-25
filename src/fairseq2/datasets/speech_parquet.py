@@ -6,17 +6,17 @@
 
 from __future__ import annotations
 
+import hashlib
+
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Final, List, Set, final
+from typing import Any, Dict, Final, final, List, Set
 
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 import torch
-from numpy.typing import NDArray
-from typing_extensions import override
 
 from fairseq2.data import Collater, DataPipelineBuilder, MemoryBlock, read_sequence
 from fairseq2.data.audio import AudioDecoder, AudioDecoderOutput
@@ -36,6 +36,8 @@ from fairseq2.datasets.speech import (
 from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.models.sequence import SequenceBatch
+from numpy.typing import NDArray
+from typing_extensions import override
 
 PARQUET_SPEECH_DATASET_FAMILY: Final = "generic_parquet_speech"
 
@@ -106,12 +108,31 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
         selector: str = "[*].audio",
     ) -> DataPipelineBuilder:
 
+        def get_audio_id(_bytes: NDArray[np.int8]) -> Dict[str, str]:
+            arr_bytes = _bytes.tobytes()
+            return {"audio_id": hashlib.sha256(arr_bytes).hexdigest()}
+
+        def get_audio_id_from_example(example: Dict[str, Any]) -> Dict[str, Any]:
+            audio_bytes = example["audio"].tobytes()
+            example["audio_id"] = hashlib.sha256(audio_bytes).hexdigest()
+            return example
+
+        compute_audio_id = options.extras.get("compute_audio_id", False)
+        if compute_audio_id:
+            builder.map(
+                get_audio_id_from_example,
+                selector="[*]",
+                num_parallel_calls=options.npc,
+            )
+
         audio_decoder = AudioDecoder(
             dtype=torch.float32 if options.normalize_audio else options.dtype
         )
 
         def decoded_audio(_bytes: NDArray[np.int8]) -> Dict[str, AudioDecoderOutput]:
-            return {"data": audio_decoder(MemoryBlock(_bytes.tobytes()))}
+            example = {"data": audio_decoder(MemoryBlock(_bytes.tobytes()))}
+            # example["audio_id"] = hashlib.sha256(_bytes.tobytes()).hexdigest()
+            return example
 
         builder.map(decoded_audio, selector=selector, num_parallel_calls=options.npc)
 
