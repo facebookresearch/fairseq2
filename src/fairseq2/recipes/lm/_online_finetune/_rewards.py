@@ -1012,12 +1012,14 @@ class PplDerivedVerifier(VLLMOutputReward):
                 )  # NOTE: order is without reasoning augmentation, with reasoning augmentation -ppl
             elif self.reward_formula == "diff_percent":
                 return (
-                    (reward - rewards[0]) / (-rewards[0]) for reward in rewards[1:]
-                ) * 100
+                    (reward - rewards[0]) / (-rewards[0]) * 100
+                    for reward in rewards[1:]
+                )
             else:
                 raise NotImplementedError
         else:
             return rewards  # reason augmented case: -ppl as reward
+        
     @override
     def process_rollouts(
         self, vllm_outputs: list[RequestOutput], prompt_batch: PromptBatch
