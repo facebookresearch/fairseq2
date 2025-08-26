@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import re
 from abc import ABC, abstractmethod
@@ -33,6 +34,7 @@ from transformers import AutoTokenizer
 from typing_extensions import override
 from vllm import CompletionOutput, LLM, RequestOutput, SamplingParams
 
+# log._logger.setLevel(logging.DEBUG)
 
 @dataclass(kw_only=True)
 class RewardModelConfig:
@@ -917,6 +919,12 @@ class PplDerivedVerifierHandler(VLLMOutputRewardHandler):
             apply_ppl_diff_reward=reward_config.additional_fields.get(
                 "apply_ppl_diff_reward", True
             ),
+            completion_window=reward_config.additional_fields.get(
+                "completion_window", 100
+            ),
+            reward_formula=reward_config.additional_fields.get(
+                "reward_formula", "diff"
+            ),
         )
 
     @property
@@ -940,6 +948,8 @@ class PplDerivedVerifier(VLLMOutputReward):
         answer_key,
         tokenizer,
         apply_ppl_diff_reward,
+        completion_window,
+        reward_formula,
     ):
         self.answer_key = answer_key
         self._gangs = gangs
@@ -948,60 +958,56 @@ class PplDerivedVerifier(VLLMOutputReward):
         self.reward_name = reward_name
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
         self.apply_ppl_diff_reward = apply_ppl_diff_reward
+        self.completion_window = completion_window
+        self.reward_formula = reward_formula
 
     def _preprocess_reward_input(
         self,
         prefix_tokens: List[int],
-        reason: str,
+        reason: Optional[str],
         completion: str,
         n_prefix_truncate: Optional[int] = None,
         n_completion_truncate: int = 100,
     ):
-        # TODO(lidli): there are some redundant computation that can otherwise be shared. Improve it.
-        if not reason.endswith("</think>"):
-            reason += "</think>"  # add the stop token itself. so we have the pair of <think> </think>
-
-        text_tokens_truncated, input_lens = [], []
-        input_token_len = len(prefix_tokens)
+        # no reasoning augmented.
+        if reason is None:
+            prefix_tokens = self.tokenizer.encode(
+                self.tokenizer.decode(
+                    prefix_tokens, add_special_token=False
+                ).removesuffix(
+                    " <think>"
+                ),  # TODO
+                add_special_tokens=False,
+            )
+        n_prefix_tokens = len(prefix_tokens)
+        n_prefix_truncate = (
+            n_prefix_tokens
+            if n_prefix_truncate is None
+            else min(n_prefix_truncate, n_prefix_tokens)
+        )
         completion_tokens = self.tokenizer.encode(
             f" {completion}", add_special_tokens=False
-        )  # avoid adding special token twice when prefix already has the special token
-        n_prefix_truncate = (
-            input_token_len
-            if n_prefix_truncate is None
-            else min(n_prefix_truncate, input_token_len)
         )
-
-        # case where no reasoning is augmented
-        if self.apply_ppl_diff_reward:
-            # the tokenization process aligns with sft in mid-training, which applies
-            # no template and use the original llama tokenizer (think tokens are
-            # represented w/ regular text)
+        if reason is None:
             text_tokens = prefix_tokens + completion_tokens
-            truncated_text_tokens = text_tokens[
-                input_token_len
-                - n_prefix_truncate : input_token_len
-                + n_completion_truncate
-            ]  # full text is truncated from input and completion
-            text_tokens_truncated.append(truncated_text_tokens)
-            input_lens.append(n_prefix_truncate)
+            n_input_tokens = n_prefix_truncate
+            n_input_tokens_all = n_prefix_tokens
+        else:
+            if not reason.endswith("</think>"):
+                reason += "</think>"  # add the stop token itself. so we have the pair of <think> </think>
+            reason_tokens = self.tokenizer.encode(
+                f" {reason}", add_special_tokens=False
+            )
+            text_tokens = prefix_tokens + reason_tokens + completion_tokens
+            n_input_tokens = n_prefix_truncate + len(reason_tokens)
+            n_input_tokens_all = n_prefix_tokens + len(reason_tokens)
 
-        reason_tokens = self.tokenizer.encode(f" {reason}", add_special_tokens=False)
-
-        input_token_len_w_reason = input_token_len + len(reason_tokens)
-        n_prefix_truncate_w_reason = (
-            n_prefix_truncate + input_token_len_w_reason - input_token_len
-        )  # reason + truncated prefix len
-        text_tokens_w_reason = prefix_tokens + reason_tokens + completion_tokens
-        truncated_text_tokens_w_reason = text_tokens_w_reason[
-            input_token_len_w_reason
-            - n_prefix_truncate_w_reason : input_token_len_w_reason
+        text_tokens = text_tokens[
+            n_input_tokens_all
+            - n_input_tokens : n_input_tokens_all
             + n_completion_truncate
-        ]  # full texts encoded with truncation
-        text_tokens_truncated.append(truncated_text_tokens_w_reason)
-        input_lens.append(n_prefix_truncate_w_reason)
-
-        return text_tokens_truncated, input_lens
+        ]
+        return text_tokens, n_input_tokens
 
     def extract_reward(self, prompt_logprobs: List[Any], prompt_len: int) -> float:
         completion_logprobs = prompt_logprobs[prompt_len:]
@@ -1014,14 +1020,18 @@ class PplDerivedVerifier(VLLMOutputReward):
 
     def aggregate(self, rewards):
         if self.apply_ppl_diff_reward:
-            assert len(rewards) == 2
-            return (
-                rewards[1] - rewards[0]
-            )  # NOTE: order is without reasoning augmentation, with reasoning augmentation -ppl
+            if self.reward_formula == "diff":
+                return (
+                    reward - rewards[0] for reward in rewards[1:]
+                )  # NOTE: order is without reasoning augmentation, with reasoning augmentation -ppl
+            elif self.reward_formula == "diff_percent":
+                return (
+                    (reward - rewards[0]) / (-rewards[0]) for reward in rewards[1:]
+                ) * 100
+            else:
+                raise NotImplementedError
         else:
-            assert len(rewards) == 1
-            return rewards[0]  # reason augmented case: -ppl as reward
-
+            return rewards  # reason augmented case: -ppl as reward
     @override
     def process_rollouts(
         self, vllm_outputs: list[RequestOutput], prompt_batch: PromptBatch
@@ -1044,21 +1054,36 @@ class PplDerivedVerifier(VLLMOutputReward):
         ):
             rollouts_text = []
             rollouts_tokens = []
-            for rollout_output in vllm_output.outputs:  # reasoning in rollouts
-                text_tokens_truncated, input_token_lens = self._preprocess_reward_input(
-                    prefix, rollout_output.text, completion
+
+            # case where no reasoning is augmented
+            if self.apply_ppl_diff_reward:
+                text_tokens, n_input_tokens = self._preprocess_reward_input(
+                    prefix,
+                    None,
+                    completion,
+                    n_completion_truncate=self.completion_window,
                 )
-                log.debug(f"{text_tokens_truncated=}, {input_token_lens=}")
-                all_input_tok_lens.extend(input_token_lens)
-                vllm_inputs.extend(
-                    text_tokens_truncated
-                )  # list of single (augmenting reasoning only) or paired rewards (no augmentation and augmentation)
+                log.debug(f"{text_tokens=}, {n_input_tokens=}")
+                all_input_tok_lens.append(n_input_tokens)
+                vllm_inputs.append(text_tokens)
+
+            for rollout_output in vllm_output.outputs:  # reasoning in rollouts
+                text_tokens, n_input_tokens = self._preprocess_reward_input(
+                    prefix,
+                    rollout_output.text,
+                    completion,
+                    n_completion_truncate=self.completion_window,
+                )
+                log.debug(f"{text_tokens=}, {n_input_tokens=}")
+                all_input_tok_lens.append(n_input_tokens)
+                vllm_inputs.append(text_tokens)
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)
 
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
         log.debug(f"{vllm_inputs=}")
+        log.debug(f"{all_input_tok_lens=}")
 
         rm_sampling_params = {
             "n": 1,
@@ -1074,18 +1099,15 @@ class PplDerivedVerifier(VLLMOutputReward):
             string_input=False,
         )
         batch_rewards = []
-        increment = 2 if self.apply_ppl_diff_reward else 1
-        for i in range(0, len(rollouts), increment):
-            curr_rewards = [
-                self.extract_reward(rollout.prompt_logprobs, prompt_len=input_len)
-                for rollout, input_len in zip(
-                    rollouts[i : i + increment],
-                    all_input_tok_lens[i : i + increment],
-                )
-            ]
-            log.debug(f"{curr_rewards=}")
 
-            batch_rewards.append(self.aggregate(curr_rewards))
+        curr_rewards = [
+            self.extract_reward(rollout.prompt_logprobs, prompt_len=input_len)
+            for rollout, input_len in zip(rollouts, all_input_tok_lens)
+        ]
+        log.info(f"{curr_rewards=}")
+
+        batch_rewards.extend(self.aggregate(curr_rewards))
+        log.info(f"{batch_rewards=}")
 
         # reshape batch_rewards to [Batch, Rollouts]
         B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
