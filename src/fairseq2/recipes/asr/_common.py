@@ -145,9 +145,13 @@ class AsrScorer:
                     corpus = batch.example["corpus"][i]  # type: ignore
                 else:
                     corpus = "??"
+                if "split" in batch.example:  # type: ignore
+                    split = batch.example["split"][i]  # type: ignore
+                else:
+                    split = "??"
 
                 log.info(
-                    f"Lang: {lang}, Corpus: {corpus}, Audio ID: {audio_id}, Pesq: {pesq}, Sisdr: {sisdr}, Stoi: {stoi}, Reference: {r}, Hypothesis: {h}"
+                    f"Lang: {lang}, Corpus: {corpus}, Split: {split}, Audio ID: {audio_id}, Pesq: {pesq}, Sisdr: {sisdr}, Stoi: {stoi}, Reference: {r}, Hypothesis: {h}"
                 )
 
         metric_bag.wer.update(
