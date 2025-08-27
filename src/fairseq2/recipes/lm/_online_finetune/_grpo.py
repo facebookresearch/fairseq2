@@ -206,9 +206,10 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             vllm_model=self._vllm_model,
             sampling_params=policy_sampling_params,
         )
+        rollouts = strip_think_tokens(rollouts)
+        log.info("After stripping")
         if self._config.loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Valid")
-        rollouts = strip_think_tokens(rollouts)
         log.info(f"Sampling params: {len(rollouts[0].outputs)}")
         log.info(f"Rollouts: {len(rollouts[0].outputs)}")
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
@@ -269,6 +270,8 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             #     log_rollouts(prompt_batch, rollouts, "Train")
 
             rollouts = strip_think_tokens(rollouts)
+            log.info('After stripping')
+            log_rollouts(prompt_batch, rollouts, "Train")
             reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
             self._rollout_bag.save(rollouts, reward_output)
 

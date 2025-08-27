@@ -971,6 +971,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
             vllm_inputs.append(vllm_input)
 
         return vllm_inputs, batch_pairwise_indices, batch_pivot_pos
+        
 
     def construct_random_pairs(
         self,
@@ -1006,6 +1007,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
         batch_pairwise_rewards,
         batch_pairwise_indices,
         batch_text,
+        batch_tokens,
         pair_type,
         batch_pivot_pos,
     ):
@@ -1050,12 +1052,22 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
                     counts[index[non_pivot_pos]] += 1
 
             log.info(f"Counts of each rollout: {counts}")
+            
+            log.info(f"Number of rollouts wrt batch tokens = {len(batch_tokens[i])}")
+            assert len(batch_tokens[i]) == R
 
             # Compute average pointwise rewards
             avg_prompt_rewards = [0.0] * R
             for j in range(len(prompt_rewards)):
                 if counts[j] > 0:
                     avg_prompt_rewards[j] = round(prompt_rewards[j] / counts[j], 4)
+                    # num_tokens = len(batch_tokens[i][j])
+                    # log.info(f"Num tokens: {num_tokens}")
+                    # correctness_reward = prompt_rewards[j] / counts[j]
+                    # log.info(f"Correctness reward: {correctness_reward}")
+                    # length_penalty = 0.001 * num_tokens
+                    # avg_prompt_rewards[j] = round(correctness_reward - length_penalty, 4)
+                    log.info(f"Overall reward: {avg_prompt_rewards[j]}")
 
             batch_pointwise_rewards.append(avg_prompt_rewards)
 
@@ -1147,6 +1159,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
             batch_pairwise_rewards,
             batch_pairwise_indices,
             batch_text,
+            batch_tokens,
             self.pair_type,
             batch_pivot_pos,
         )
