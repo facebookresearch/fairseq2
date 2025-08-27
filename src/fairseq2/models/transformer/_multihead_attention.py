@@ -36,6 +36,7 @@ from fairseq2.typing import get_name_or_self
 # isort: split
 
 from fairseq2.models.transformer._attention_bias import AttentionBiasCache
+from fairseq2.models.transformer._block_mask import BlockMaskCache
 from fairseq2.models.transformer._sdpa._base import SDPA
 
 
@@ -58,6 +59,7 @@ class MultiheadAttention(Module, ABC):
         keys_layout: BatchLayout,
         values: Tensor,
         bias_cache: AttentionBiasCache,
+        block_mask_cache: BlockMaskCache,
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
@@ -393,6 +395,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         keys_layout: BatchLayout,
         values: Tensor,
         bias_cache: AttentionBiasCache,
+        block_mask_cache: BlockMaskCache,
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
@@ -463,7 +466,14 @@ class StandardMultiheadAttention(MultiheadAttention):
         # attns:        (N, S, H, V_h)
         # attn_weights: (N, H, S, S_kv)
         attns, attn_weights = self.sdpa(
-            q, seqs_layout, k, keys_layout, v, bias_cache, needs_weights=needs_weights
+            q,
+            seqs_layout,
+            k,
+            keys_layout,
+            v,
+            bias_cache,
+            block_mask_cache,
+            needs_weights=needs_weights,
         )
 
         del q

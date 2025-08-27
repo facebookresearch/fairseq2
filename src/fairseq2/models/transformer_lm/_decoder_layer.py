@@ -17,6 +17,7 @@ from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.models.transformer import (
     AttentionBiasCache,
+    BlockMaskCache,
     FeedForwardNetwork,
     MultiheadAttention,
     TransformerNormOrder,
@@ -39,6 +40,7 @@ class TransformerLMDecoderLayer(Module, ABC):
         seqs: Tensor,
         seqs_layout: BatchLayout,
         attn_bias_cache: AttentionBiasCache,
+        block_mask_cache: BlockMaskCache,
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
@@ -146,10 +148,13 @@ class StandardTransformerLMDecoderLayer(TransformerLMDecoderLayer):
         seqs: Tensor,
         seqs_layout: BatchLayout,
         attn_bias_cache: AttentionBiasCache,
+        block_mask_cache: BlockMaskCache,
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
-        seqs = self._forward_self_attn(seqs, seqs_layout, attn_bias_cache, state_bag)
+        seqs = self._forward_self_attn(
+            seqs, seqs_layout, attn_bias_cache, block_mask_cache, state_bag
+        )
 
         seqs = self._forward_ffn(seqs)
 
@@ -160,6 +165,7 @@ class StandardTransformerLMDecoderLayer(TransformerLMDecoderLayer):
         seqs: Tensor,
         seqs_layout: BatchLayout,
         attn_bias_cache: AttentionBiasCache,
+        block_mask_cache: BlockMaskCache,
         state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         residual = seqs
@@ -174,6 +180,7 @@ class StandardTransformerLMDecoderLayer(TransformerLMDecoderLayer):
             keys_layout=seqs_layout,
             values=seqs,
             bias_cache=attn_bias_cache,
+            block_mask_cache=block_mask_cache,
             state_bag=state_bag,
         )
 
