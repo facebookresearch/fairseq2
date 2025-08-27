@@ -140,7 +140,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             ) in self._config.loss_config.validation_vllm_sampling_params.items():
                 policy_sampling_params.__setattr__(k, v)
 
-            # For a pairwise RM, need to sample at least two judgments
+            # For a pairwise RM, need to sample at least two rollouts
             policy_sampling_params.n = (
                 2 if self._reward.reward_name == "generative_pairwise_verifier" else 1
             )
