@@ -125,7 +125,7 @@ class OnlineFinetuneConfig:
 
     lr_scheduler: LRSchedulerSection = field(
         default_factory=lambda: LRSchedulerSection(
-            name=COSINE_ANNEALING_LR, config=CosineAnnealingLRConfig(final_lr_scale=0.2)
+            name=COSINE_ANNEALING_LR, config=CosineAnnealingLRConfig(final_lr_scale=1.0)
         )
     )
 
@@ -206,39 +206,39 @@ class DropoutConfig:
     dropout_p: float = 0.0
 
 
-def register_online_finetune_configs(context: RuntimeContext) -> None:
-    registry = context.get_config_registry(OnlineFinetuneConfig)
+# def register_online_finetune_configs(context: RuntimeContext) -> None:
+#     registry = context.get_config_registry(OnlineFinetuneConfig)
 
-    preset = registry.decorator
+#     preset = registry.decorator
 
-    @preset("llama3_1_instruct")
-    def llama3_1_instruct() -> OnlineFinetuneConfig:
-        config = OnlineFinetuneConfig()
+#     @preset("llama3_1_instruct")
+#     def llama3_1_instruct() -> OnlineFinetuneConfig:
+#         config = OnlineFinetuneConfig()
 
-        config.model.config = DropoutConfig()
-        config.regime.validate_before_training = True
+#         config.model.config = DropoutConfig()
+#         config.regime.validate_before_training = True
 
-        return config
+#         return config
 
-    @preset("llama3_1_instruct_grpo")
-    def llama3_1_instruct() -> OnlineFinetuneConfig:
-        config = OnlineFinetuneConfig()
+#     @preset("llama3_1_instruct_grpo")
+#     def llama3_1_instruct() -> OnlineFinetuneConfig:
+#         config = OnlineFinetuneConfig()
 
-        config.model.config = DropoutConfig()
-        config.criterion.config = GrpoFinetuneConfig()
+#         config.model.config = DropoutConfig()
+#         config.criterion.config = GrpoFinetuneConfig()
 
-        return config
+#         return config
 
-    @preset("llama3_1_instruct_constant_lr")
-    def llama3_1_instruct_constant_lr() -> OnlineFinetuneConfig:
-        config = llama3_1_instruct()
+#     @preset("llama3_1_instruct_constant_lr")
+#     def llama3_1_instruct_constant_lr() -> OnlineFinetuneConfig:
+#         config = llama3_1_instruct()
 
-        assert isinstance(config.optimizer.config, AdamWConfig)
-        assert isinstance(config.lr_scheduler.config, CosineAnnealingLRConfig)
+#         assert isinstance(config.optimizer.config, AdamWConfig)
+#         assert isinstance(config.lr_scheduler.config, CosineAnnealingLRConfig)
 
-        config.lr_scheduler.config.final_lr = config.optimizer.config.lr
+#         config.lr_scheduler.config.final_lr = config.optimizer.config.lr
 
-        return config
+#         return config
 
 
 def load_online_finetuner(
@@ -309,6 +309,18 @@ def load_online_finetuner(
             gangs=gangs, actor_config=actor_config, context=context
         )
         vllm_actors[actor_config.ray_actor_name] = actor
+
+    # checked non-blocked actor status
+    if gangs.dp.rank == 0 and gangs.tp.rank == 0:
+        model_status = []
+        for actor_config in config.vllm.ray_actors:
+            if not actor_config.blocking_initialization:
+                model_status.extend(
+                    vllm_actors[actor_config.ray_actor_name].is_model_ready()
+                )
+        ray.get(model_status)
+
+    gangs.root.barrier()
 
     # Initialize the train unit.
     unit_handlers = context.get_registry(OnlineFinetuneUnitHandler)

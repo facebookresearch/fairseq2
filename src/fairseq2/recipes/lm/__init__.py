@@ -76,8 +76,12 @@ from fairseq2.recipes.lm._online_finetune._recipe import (
 from fairseq2.recipes.lm._online_finetune._recipe import (
     OnlineFinetuneUnitHandler,
     load_online_finetuner,
+)
+
+from fairseq2.recipes.lm._online_finetune._presets import (
     register_online_finetune_configs,
 )
+
 from fairseq2.recipes.lm._online_finetune._remote_model import (
     NoEnvAtheneRewardPipeline as NoEnvAtheneRewardPipeline,
 )

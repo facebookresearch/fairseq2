@@ -298,7 +298,7 @@ def prepare_preference_batch_random_pair(
         reference_score_rejected=None,
     )
 
-    return batch, is_bad_batch
+    return batch, is_bad_batch, dummy_batch_ids
 
 
 def prepare_group_dpo_batch(

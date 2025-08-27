@@ -150,9 +150,16 @@ class GSM8kVerifier(VLLMOutputReward):
 
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
-        batch, is_bad_batch = prepare_preference_batch_random_pair(
+        batch, is_bad_batch, dummy_batch_ids = prepare_preference_batch_random_pair(
             prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs
         )
+
+        prompt_lengths = [
+            l
+            for idx, l in enumerate(prompt_batch.prompt_lengths)
+            if idx not in dummy_batch_ids
+        ]
+        reward_output["prompt_lengths"] = prompt_lengths
 
         return batch, is_bad_batch, reward_output
 
@@ -269,9 +276,16 @@ class MathVerifyVerifier(VLLMOutputReward):
 
         reward_output = self.process_rollouts(rollouts, prompt_batch)
 
-        batch, is_bad_batch = prepare_preference_batch_random_pair(
+        batch, is_bad_batch, dummy_batch_ids = prepare_preference_batch_random_pair(
             prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs
         )
+
+        prompt_lengths = [
+            l
+            for idx, l in enumerate(prompt_batch.prompt_lengths)
+            if idx not in dummy_batch_ids
+        ]
+        reward_output["prompt_lengths"] = prompt_lengths
 
         return batch, is_bad_batch, reward_output
 

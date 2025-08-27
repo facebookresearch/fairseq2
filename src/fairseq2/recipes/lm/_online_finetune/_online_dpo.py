@@ -264,12 +264,18 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )
         update_logit_entropy(metric_bag, tgt_logit_entropy)
 
+        prompt_lengths = (
+            prompt_batch.prompt_lengths
+            if is_bad_batch
+            else reward_output["prompt_lengths"]
+        )
+
         token_ref_chosen_logps = compute_reference_logps(
             self._gangs,
             self._reference_model,
             chosen_input_batch_seqs,
             chosen_input_batch_layout,
-            prompt_batch.prompt_lengths,
+            prompt_lengths,
         )
 
         token_ref_rejected_logps = compute_reference_logps(
@@ -277,7 +283,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             self._reference_model,
             rejected_input_batch_seqs,
             rejected_input_batch_layout,
-            prompt_batch.prompt_lengths,
+            prompt_lengths,
         )
 
         ref_average_chosen_logps = token_ref_chosen_logps.mean(dim=-1)
