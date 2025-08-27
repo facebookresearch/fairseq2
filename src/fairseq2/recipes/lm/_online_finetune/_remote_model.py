@@ -40,6 +40,7 @@ class RayActorConfig(ABC):
     backend: str = "vllm"  # vllm or hf
     num_replicas: int = 1
     init_update_process_group: bool = False
+    blocking_initialization: bool = False
 
 
 @dataclass(kw_only=True)
@@ -237,11 +238,13 @@ class RemoteVllmModel:
         vllm_engine_args,
         sampling_params: dict,
         init_update_process_group: bool,
+        blocking_initialization: bool,
         context: RuntimeContext,
         gangs: Gangs,
     ):
         self._gangs = gangs
         self._context = context
+        self.blocking_initialization = blocking_initialization
 
         self.num_replicas = num_replicas
         self.ray_actor_name = ray_actor_name
@@ -249,41 +252,37 @@ class RemoteVllmModel:
 
         self.vllm_workers = []
         self.update_process_groups = []
+        self.tensor_parallel_size = vllm_engine_args.tensor_parallel_size
+        self.init_update_process_group = init_update_process_group
 
         if gangs.dp.rank != 0 and gangs.tp.rank != 0:
             raise ValueError("vllm worker should only be initialized on DP & TP rank 0")
 
         for replica_i in range(self.num_replicas):
-            self.setup_replica(replica_i, vllm_engine_args, init_update_process_group)
-            # gangs.root.barrier()/
+            vllm_worker = self.setup_vllm_worker(
+                f"{self.ray_actor_name}_{replica_i}", vllm_engine_args, self._gangs
+            )
+            self.vllm_workers.append(vllm_worker)
+
+        if self.blocking_initialization:
+            self.setup_process_groups_for_model_sync(
+                vllm_engine_args.tensor_parallel_size, init_update_process_group
+            )
+            log.info(f"Replica {replica_i} setup completed")
+        else:
+            log.info(f"Replica {replica_i} setup started")
 
         # populate sampling params using all values that were passed in the config
         self.sampling_params = SamplingParams(**sampling_params)
 
         self._vllm_engine_args = vllm_engine_args
 
-    def setup_replica(
-        self, replica_i: int, vllm_engine_args, init_update_process_group
-    ):
-        if (
-            len(self.vllm_workers) != replica_i
-            or len(self.update_process_groups) != replica_i
-        ):
-            raise RuntimeError(
-                "new replica is being created while previous ones are not setup yet"
-            )
-
-        vllm_worker = self.setup_vllm_worker(
-            f"{self.ray_actor_name}_{replica_i}", vllm_engine_args, self._gangs
+    def is_model_ready(self):
+        self.setup_process_groups_for_model_sync(
+            self.tensor_parallel_size, self.init_update_process_group
         )
-        self.vllm_workers.append(vllm_worker)
-
-        update_process_group = self.setup_process_group_for_model_sync(
-            replica_i, vllm_engine_args.tensor_parallel_size, init_update_process_group
-        )
-        self.update_process_groups.append(update_process_group)
-
-        log.info(f"Replica {replica_i} setup completed")
+        ready_refs = [llm.is_ready.remote() for llm in self.vllm_workers]
+        return ready_refs
 
     def setup_vllm_worker(self, ray_actor_name, vllm_engine_args, gangs: Gangs):
 
@@ -324,10 +323,19 @@ class RemoteVllmModel:
             distributed_executor_backend="ray",
         )
 
-        # we block here until the engine is initialized
-        ray.get(llm.is_ready.remote())
+        if self.blocking_initialization:
+            # we block here until the engine is initialized
+            ray.get(llm.is_ready.remote())
 
         return llm
+
+    def setup_process_groups_for_model_sync(
+        self, vllm_tensor_parallel_size, init_update_process_group=True
+    ):
+        for replica_i in range(self.num_replicas):
+            self.setup_process_group_for_model_sync(
+                replica_i, vllm_tensor_parallel_size, init_update_process_group
+            )
 
     def setup_process_group_for_model_sync(
         self, replica_i, vllm_tensor_parallel_size, init_update_process_group=True
@@ -356,7 +364,7 @@ class RemoteVllmModel:
         )
         ray.get(handle)
 
-        return model_update_group
+        self.update_process_groups.append(model_update_group)
 
     def sync_weights_with_vllm(self, model, trainer_step_nr, converter=None):
         """
@@ -371,7 +379,6 @@ class RemoteVllmModel:
                 )  # remove fsdp added substring
                 if converter:
                     name, p = converter(name, p, model.config)
-                # print(f'sync call {name}')
                 handle = self.vllm_workers[replica_i].collective_rpc.remote(
                     "update_weight", args=(name, p.dtype, p.shape)
                 )
@@ -445,6 +452,7 @@ class RemoteVllmModel:
 class HFRayActorConfig(RayActorConfig):
     pipeline_name: str = ""
     tensor_parallel_size: int = 4
+    blocking_initialization: bool = False
 
 
 class RemoteHFModel:
@@ -456,12 +464,13 @@ class RemoteHFModel:
         pipeline_name: str,
         context: RuntimeContext,
         gangs: Gangs,
+        blocking_initialization: bool = False,
     ):
         self._gangs = gangs
 
         self.num_replicas = num_replicas
         self.ray_actor_name = ray_actor_name
-
+        self.blocking_initialization = blocking_initialization
         self.hf_workers = []
 
         if gangs.dp.rank != 0 and gangs.tp.rank != 0:
@@ -495,6 +504,10 @@ class RemoteHFModel:
 
         log.info(f"Replica {replica_i} setup completed")
 
+    def is_model_ready(self):
+        ready_refs = [llm.is_ready.remote() for llm in self.hf_workers]
+        return ready_refs
+
     def setup_hf_worker(
         self,
         ray_actor_name,
@@ -527,8 +540,9 @@ class RemoteHFModel:
             get_if_exists=True,
         ).remote()
 
-        # we block here until the engine is initialized
-        ray.get(llm.is_ready.remote())
+        if self.blocking_initialization:
+            # we block here until the engine is initialized
+            ray.get(llm.is_ready.remote())
 
         return llm
 
@@ -591,6 +605,7 @@ class RemoteRayModelHandler(RemoteModelHandler):
                     actor_config.vllm_engine_args,
                     actor_config.vllm_sampling_params,
                     actor_config.init_update_process_group,
+                    actor_config.blocking_initialization,
                     context,
                     gangs,
                 )

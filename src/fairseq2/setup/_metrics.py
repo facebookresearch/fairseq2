@@ -87,6 +87,7 @@ def _register_metric_descriptors(context: RuntimeContext) -> None:
     register("rollout_lengths",    "Rollout Length",                      70, format_as_float)
     register("chosen_lengths",     "Chosen Sequence Length",              70, format_as_float)
     register("rejected_lengths",   "Rejected Sequence Length",            70, format_as_float)
+    register("avg_rollout_length", "Average Rollout Length",              70, format_as_float)
 
     # Memory
     register("peak_active_mem_bytes",   "Peak Active Device Memory",       920, format_as_byte_size)
