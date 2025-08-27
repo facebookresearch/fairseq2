@@ -206,41 +206,6 @@ class DropoutConfig:
     dropout_p: float = 0.0
 
 
-# def register_online_finetune_configs(context: RuntimeContext) -> None:
-#     registry = context.get_config_registry(OnlineFinetuneConfig)
-
-#     preset = registry.decorator
-
-#     @preset("llama3_1_instruct")
-#     def llama3_1_instruct() -> OnlineFinetuneConfig:
-#         config = OnlineFinetuneConfig()
-
-#         config.model.config = DropoutConfig()
-#         config.regime.validate_before_training = True
-
-#         return config
-
-#     @preset("llama3_1_instruct_grpo")
-#     def llama3_1_instruct() -> OnlineFinetuneConfig:
-#         config = OnlineFinetuneConfig()
-
-#         config.model.config = DropoutConfig()
-#         config.criterion.config = GrpoFinetuneConfig()
-
-#         return config
-
-#     @preset("llama3_1_instruct_constant_lr")
-#     def llama3_1_instruct_constant_lr() -> OnlineFinetuneConfig:
-#         config = llama3_1_instruct()
-
-#         assert isinstance(config.optimizer.config, AdamWConfig)
-#         assert isinstance(config.lr_scheduler.config, CosineAnnealingLRConfig)
-
-#         config.lr_scheduler.config.final_lr = config.optimizer.config.lr
-
-#         return config
-
-
 def load_online_finetuner(
     context: RuntimeContext, config: object, output_dir: Path
 ) -> Trainer[PreferenceBatch]:
