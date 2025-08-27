@@ -129,8 +129,21 @@ class AsrScorer:
                     audio_id = batch.example["audio_id"][i]  # type: ignore
                 else:
                     audio_id = "??"
+                if "pesq" in batch.example:  # type: ignore
+                    pesq = round(batch.example["pesq"][i], 2)  # type: ignore
+                else:
+                    pesq = "??"
+                if "sisdr" in batch.example:  # type: ignore
+                    sisdr = round(batch.example["sisdr"][i], 2)  # type: ignore
+                else:
+                    sisdr = "??"
+                if "stoi" in batch.example:  # type: ignore
+                    stoi = round(batch.example["stoi"][i], 2)  # type: ignore
+                else:
+                    stoi = "??"
+
                 log.info(
-                    f"Lang: {lang}, Audio ID: {audio_id}, Reference: {r}, Hypothesis: {h}"
+                    f"Lang: {lang}, Audio ID: {audio_id}, Pesq: {pesq}, Sisdr: {sisdr}, Stoi: {stoi}, Reference: {r}, Hypothesis: {h}"
                 )
 
         metric_bag.wer.update(

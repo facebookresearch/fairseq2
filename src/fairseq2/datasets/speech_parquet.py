@@ -108,22 +108,19 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
         selector: str = "[*].audio",
     ) -> DataPipelineBuilder:
 
-        def get_audio_id(_bytes: NDArray[np.int8]) -> Dict[str, str]:
-            arr_bytes = _bytes.tobytes()
-            return {"audio_id": hashlib.sha256(arr_bytes).hexdigest()}
+        # HACK for on-the-fly audio IDs. Deprecate in favor of precomputed IDs
+        # def get_audio_id_from_example(example: Dict[str, Any]) -> Dict[str, Any]:
+        #     audio_bytes = example["audio"].tobytes()
+        #     example["audio_id"] = hashlib.sha256(audio_bytes).hexdigest()
+        #     return example
 
-        def get_audio_id_from_example(example: Dict[str, Any]) -> Dict[str, Any]:
-            audio_bytes = example["audio"].tobytes()
-            example["audio_id"] = hashlib.sha256(audio_bytes).hexdigest()
-            return example
-
-        compute_audio_id = options.extras.get("compute_audio_id", False)
-        if compute_audio_id:
-            builder.map(
-                get_audio_id_from_example,
-                selector="[*]",
-                num_parallel_calls=options.npc,
-            )
+        # compute_audio_id = options.extras.get("compute_audio_id", False)
+        # if compute_audio_id:
+        #     builder.map(
+        #         get_audio_id_from_example,
+        #         selector="[*]",
+        #         num_parallel_calls=options.npc,
+        #     )
 
         audio_decoder = AudioDecoder(
             dtype=torch.float32 if options.normalize_audio else options.dtype
