@@ -66,7 +66,7 @@ def register_online_finetune_configs(context: RuntimeContext) -> None:
 
         dataset_config = OnlineFinetuneDatasetSection(
             name="wildchat",
-            path="/checkpoint/ram/chenxwh/data/online_dpo/wildchat_1k",
+            path="./wildchat_1k",
             train_split="train",
             valid_split="valid",
             batch_size=1,
@@ -80,8 +80,8 @@ def register_online_finetune_configs(context: RuntimeContext) -> None:
             num_replicas=2,
             init_update_process_group=True,
             vllm_engine_args=VllmEngineArgs(
-                model="/datasets/pretrained-llms/Qwen3-4B/",
-                tokenizer="/datasets/pretrained-llms/Qwen3-4B/",
+                model="./Qwen3-4B/",
+                tokenizer="./Qwen3-4B/",
                 tensor_parallel_size=2,
                 enforce_eager=False,
                 gpu_memory_utilization=0.7,
@@ -101,8 +101,8 @@ def register_online_finetune_configs(context: RuntimeContext) -> None:
             num_replicas=1,
             init_update_process_group=True,
             vllm_engine_args=VllmEngineArgs(
-                model="/datasets/pretrained-llms/Qwen3-4B/",
-                tokenizer="/datasets/pretrained-llms/Qwen3-4B/",
+                model="./Qwen3-4B/",
+                tokenizer="./Qwen3-4B/",
                 tensor_parallel_size=2,
                 enforce_eager=False,
                 gpu_memory_utilization=0.7,

@@ -264,6 +264,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )
         update_logit_entropy(metric_bag, tgt_logit_entropy)
 
+        # reward_output["prompt_lengths"] excludes lengths that correspond to examples that we filter out due to no preference signal.
         prompt_lengths = (
             prompt_batch.prompt_lengths
             if is_bad_batch
