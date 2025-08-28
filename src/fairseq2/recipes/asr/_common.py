@@ -7,20 +7,21 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, TextIO, final
+from typing import Any, Dict, final, TextIO
 
 import torch
-from torch import Tensor
-from typing_extensions import override
 
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
 from fairseq2.gang import Gang
+from fairseq2.logging import log
 from fairseq2.metrics import Mean
 from fairseq2.metrics.text import BleuMetric, WerMetric
 from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes import BaseMetricBag, Model, UnitError
+from torch import Tensor
+from typing_extensions import override
 
 
 @final
@@ -64,6 +65,22 @@ class AsrCriterion:
     @property
     def model(self) -> Model:
         return self._model
+
+
+import editdistance
+
+
+def compute_asr_metrics(
+    hypothesis: str,
+    reference: str,
+):
+    ref_words = reference.split()
+    hyp_words = hypothesis.split()
+    ref_chars = list(reference)
+    hyp_chars = list(hypothesis)
+    wer = round(100 * editdistance.eval(hyp_words, ref_words) / len(ref_words), 2)
+    cer = round(100 * editdistance.eval(hyp_chars, ref_chars) / len(ref_chars), 2)
+    return wer, cer
 
 
 @final
@@ -116,6 +133,44 @@ class AsrScorer:
 
         refs = [self._text_decoder(s) for s in ref_seqs]
         hyps = [self._text_decoder(s) for s in hyp_seqs]
+
+        verbose = True
+        if verbose:
+            for i, (r, h) in enumerate(zip(refs, hyps)):
+                if "lang" in batch.example:  # type: ignore
+                    lang = batch.example["lang"][i]  # type: ignore
+                else:
+                    lang = "??"
+                if "audio_id" in batch.example:  # type: ignore
+                    audio_id = batch.example["audio_id"][i]  # type: ignore
+                else:
+                    audio_id = "??"
+                if "pesq" in batch.example:  # type: ignore
+                    pesq = round(batch.example["pesq"][i], 2)  # type: ignore
+                else:
+                    pesq = "??"
+                if "sisdr" in batch.example:  # type: ignore
+                    sisdr = round(batch.example["sisdr"][i], 2)  # type: ignore
+                else:
+                    sisdr = "??"
+                if "stoi" in batch.example:  # type: ignore
+                    stoi = round(batch.example["stoi"][i], 2)  # type: ignore
+                else:
+                    stoi = "??"
+                if "corpus" in batch.example:  # type: ignore
+                    corpus = batch.example["corpus"][i]  # type: ignore
+                else:
+                    corpus = "??"
+                if "split" in batch.example:  # type: ignore
+                    split = batch.example["split"][i]  # type: ignore
+                else:
+                    split = "??"
+
+                wer, cer = compute_asr_metrics(hypothesis=h, reference=r)
+
+                log.info(
+                    f"Lang: {lang}, Corpus: {corpus}, Split: {split}, Audio ID: {audio_id}, Pesq: {pesq}, Sisdr: {sisdr}, Stoi: {stoi}, Reference: {r}, Hypothesis: {h}, WER: {wer}, CER: {cer}"
+                )
 
         metric_bag.wer.update(
             refs, ref_seqs, ref_padding_mask, hyps, hyp_seqs, hyp_padding_mask
