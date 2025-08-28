@@ -141,9 +141,13 @@ class AsrScorer:
                     stoi = round(batch.example["stoi"][i], 2)  # type: ignore
                 else:
                     stoi = "??"
+                if "corpus" in batch.example:  # type: ignore
+                    corpus = batch.example["corpus"][i]  # type: ignore
+                else:
+                    corpus = "??"
 
                 log.info(
-                    f"Lang: {lang}, Audio ID: {audio_id}, Pesq: {pesq}, Sisdr: {sisdr}, Stoi: {stoi}, Reference: {r}, Hypothesis: {h}"
+                    f"Lang: {lang}, Corpus: {corpus}, Audio ID: {audio_id}, Pesq: {pesq}, Sisdr: {sisdr}, Stoi: {stoi}, Reference: {r}, Hypothesis: {h}"
                 )
 
         metric_bag.wer.update(
