@@ -58,6 +58,15 @@ class BleuMetric(Metric[Tensor]):
         self._add_state("valid_ngrams", valid_ngrams)
         self._add_state("total_ngrams", total_ngrams)
 
+        self._metric_class = BLEU(
+            lowercase=False,
+            force=False,
+            tokenize=self.tokenizer,
+            smooth_method="exp",
+            smooth_value=None,
+            effective_order=False,
+        )
+
     @override
     @torch.inference_mode()
     def update(self, refs: Sequence[str], hyps: Sequence[str]) -> Self:
@@ -65,7 +74,7 @@ class BleuMetric(Metric[Tensor]):
         :param refs: The references.
         :param hyps: The hypotheses.
         """
-        bleu = corpus_bleu(hyps, [refs], tokenize=self.tokenizer)
+        bleu = self._metric_class.corpus_score(hyps, [refs])
 
         self.sys_len += bleu.sys_len
         self.ref_len += bleu.ref_len
