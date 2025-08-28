@@ -67,6 +67,22 @@ class AsrCriterion:
         return self._model
 
 
+import editdistance
+
+
+def compute_asr_metrics(
+    hypothesis: str,
+    reference: str,
+):
+    ref_words = reference.split()
+    hyp_words = hypothesis.split()
+    ref_chars = list(reference)
+    hyp_chars = list(hypothesis)
+    wer = round(100 * editdistance.eval(hyp_words, ref_words) / len(ref_words), 2)
+    cer = round(100 * editdistance.eval(hyp_chars, ref_chars) / len(ref_chars), 2)
+    return wer, cer
+
+
 @final
 class AsrScorer:
     _text_decoder: TextTokenDecoder
@@ -150,8 +166,10 @@ class AsrScorer:
                 else:
                     split = "??"
 
+                wer, cer = compute_asr_metrics(hypothesis=h, reference=r)
+
                 log.info(
-                    f"Lang: {lang}, Corpus: {corpus}, Split: {split}, Audio ID: {audio_id}, Pesq: {pesq}, Sisdr: {sisdr}, Stoi: {stoi}, Reference: {r}, Hypothesis: {h}"
+                    f"Lang: {lang}, Corpus: {corpus}, Split: {split}, Audio ID: {audio_id}, Pesq: {pesq}, Sisdr: {sisdr}, Stoi: {stoi}, Reference: {r}, Hypothesis: {h}, WER: {wer}, CER: {cer}"
                 )
 
         metric_bag.wer.update(
