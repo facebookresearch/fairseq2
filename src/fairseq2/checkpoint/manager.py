@@ -12,7 +12,7 @@ from concurrent.futures import Future
 from dataclasses import dataclass
 from os import scandir
 from pathlib import Path
-from typing import Protocol, cast, final, runtime_checkable
+from typing import List, Protocol, cast, final, runtime_checkable
 
 import torch
 from torch import Tensor
@@ -424,7 +424,7 @@ class StandardCheckpointManager(CheckpointManager):
                 raise OperationalError("A thread pool queue operation failed.") from ex
 
     def _check_safe_state_dict(self, kind: str, state_dict: dict[str, object]) -> None:
-        def check_item(item: object) -> None:
+        def check_item(item: object, path: List[str] | None = None) -> None:
             if item is None:
                 return
 
@@ -434,17 +434,22 @@ class StandardCheckpointManager(CheckpointManager):
             if isinstance(item, (bool, int, float, str, Path)):
                 return
 
+            if path is None:
+                path = []
+
             if isinstance(item, Mapping):
                 for k, v in item.items():
-                    check_item(k)
-                    check_item(v)
+                    check_item(k, path=path + [str(k)])
+                    check_item(v, path=path + [str(k)])
+                return
 
             if isinstance(item, (list, tuple, Set)):
-                for e in item:
-                    check_item(e)
+                for i, e in enumerate(item):
+                    check_item(e, path=path + [str(i)])
+                return
 
             raise ValueError(
-                f"`{kind}` must contain objects of safe types only, but it contains an object of type `{type(item)}`."
+                f"`{kind}` must contain objects of safe types only, but at `{'.'.join(path)}`, it contains an object of type `{type(item)}`."
             )
 
         check_item(state_dict)
@@ -722,6 +727,8 @@ class StandardCheckpointManager(CheckpointManager):
             # Delete the checkpoint.
             try:
                 self._file_system.remove_directory(step_dir)
+            except FileNotFoundError:
+                pass
             except OSError as ex:
                 raise_operational_system_error(ex)
 

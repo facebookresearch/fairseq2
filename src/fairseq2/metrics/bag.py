@@ -13,6 +13,7 @@ from typing import Any, TypeVar, final
 from torcheval.metrics import Metric
 from torcheval.metrics.toolkit import sync_and_compute_collection
 
+from fairseq2.checkpoint import Stateful
 from fairseq2.device import Device
 from fairseq2.error import InternalError, InvalidOperationError
 from fairseq2.gang import Gang, GangError
@@ -93,7 +94,12 @@ class MetricBag:
         state_dict: dict[str, object] = {}
 
         for name, metric in self._metrics.items():
-            state_dict[name] = metric
+            if isinstance(metric, Stateful):
+                state_dict[name] = metric.state_dict()
+            else:
+                raise ValueError(
+                    f"Cannot extract the state dict of the metric `{metric}`, as it appears to be not Stateful."
+                )
 
         return state_dict
 
@@ -102,6 +108,7 @@ class MetricBag:
 
         for name, metric in state_dict.items():
             if not isinstance(metric, Metric):
+                # TODO: start deserializing the metrics from their state dicts extracted above.
                 raise TypeError(
                     f"`state_dict['{name}']` must be of type `{Metric}`, but is of type `{type(metric)}` instead."
                 )
