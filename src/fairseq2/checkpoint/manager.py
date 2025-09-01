@@ -12,7 +12,7 @@ from concurrent.futures import Future
 from dataclasses import dataclass
 from os import scandir
 from pathlib import Path
-from typing import Protocol, cast, final, runtime_checkable, List, Optional
+from typing import List, Protocol, cast, final, runtime_checkable
 
 import torch
 from torch import Tensor
@@ -34,9 +34,11 @@ from fairseq2.utils.threading import ThreadPool
 
 @runtime_checkable
 class Stateful(Protocol):
-    def state_dict(self) -> dict[str, object]: ...
+    def state_dict(self) -> dict[str, object]:
+        ...
 
-    def load_state_dict(self, state_dict: dict[str, object]) -> None: ...
+    def load_state_dict(self, state_dict: dict[str, object]) -> None:
+        ...
 
 
 class CheckpointManager(Closable):
@@ -54,7 +56,8 @@ class CheckpointManager(Closable):
         ready_callback: CheckpointReadyCallback | None = None,
         saved_callback: CheckpointSavedCallback | None = None,
         blocking: bool = False,
-    ) -> None: ...
+    ) -> None:
+        ...
 
     @abstractmethod
     def save_model_only(
@@ -65,48 +68,59 @@ class CheckpointManager(Closable):
         ready_callback: CheckpointReadyCallback | None = None,
         saved_callback: CheckpointSavedCallback | None = None,
         blocking: bool = False,
-    ) -> None: ...
+    ) -> None:
+        ...
 
     @abstractmethod
-    def maybe_complete_save_operation(
-        self, *, blocking: bool = False
-    ) -> bool | None: ...
+    def maybe_complete_save_operation(self, *, blocking: bool = False) -> bool | None:
+        ...
 
     @property
     @abstractmethod
-    def is_saving(self) -> bool: ...
+    def is_saving(self) -> bool:
+        ...
 
     @abstractmethod
-    def save_score(self, step_nr: int, score: float) -> None: ...
+    def save_score(self, step_nr: int, score: float) -> None:
+        ...
 
     @abstractmethod
-    def load_trainer_state(self, step_nr: int, trainer: Stateful) -> None: ...
+    def load_trainer_state(self, step_nr: int, trainer: Stateful) -> None:
+        ...
 
     @abstractmethod
-    def load_model_state(self, step_nr: int, model: Stateful) -> None: ...
+    def load_model_state(self, step_nr: int, model: Stateful) -> None:
+        ...
 
     @abstractmethod
-    def load_optimizer_state(self, step_nr: int, optimizer: Stateful) -> None: ...
+    def load_optimizer_state(self, step_nr: int, optimizer: Stateful) -> None:
+        ...
 
     @abstractmethod
-    def load_data_reader_state(self, step_nr: int, data_reader: Stateful) -> None: ...
+    def load_data_reader_state(self, step_nr: int, data_reader: Stateful) -> None:
+        ...
 
     @abstractmethod
-    def load_scores(self) -> list[tuple[float, int]]: ...
+    def load_scores(self) -> list[tuple[float, int]]:
+        ...
 
     @abstractmethod
-    def delete_checkpoint(self, step_nr: int) -> None: ...
+    def delete_checkpoint(self, step_nr: int) -> None:
+        ...
 
     @abstractmethod
-    def has_checkpoint(self, *, exclude_model_only: bool = False) -> bool: ...
+    def has_checkpoint(self, *, exclude_model_only: bool = False) -> bool:
+        ...
 
     @abstractmethod
-    def get_step_numbers(self, *, exclude_model_only: bool = False) -> list[int]: ...
+    def get_step_numbers(self, *, exclude_model_only: bool = False) -> list[int]:
+        ...
 
     @abstractmethod
     def maybe_get_last_step_number(
         self, *, exclude_model_only: bool = False
-    ) -> int | None: ...
+    ) -> int | None:
+        ...
 
     @abstractmethod
     def get_stale_step_numbers(
@@ -114,15 +128,18 @@ class CheckpointManager(Closable):
         keep_last_n: int | None,
         keep_best_n: int | None,
         keep_every_n_steps: int | None,
-    ) -> list[int]: ...
+    ) -> list[int]:
+        ...
 
 
 class CheckpointReadyCallback(Protocol):
-    def __call__(self, step_nr: int, blocking: bool) -> None: ...
+    def __call__(self, step_nr: int, blocking: bool) -> None:
+        ...
 
 
 class CheckpointSavedCallback(Protocol):
-    def __call__(self, step_nr: int, blocking: bool) -> None: ...
+    def __call__(self, step_nr: int, blocking: bool) -> None:
+        ...
 
 
 class CheckpointNotFoundError(Exception):
@@ -424,7 +441,7 @@ class StandardCheckpointManager(CheckpointManager):
                 raise OperationalError("A thread pool queue operation failed.") from ex
 
     def _check_safe_state_dict(self, kind: str, state_dict: dict[str, object]) -> None:
-        def check_item(item: object, path: Optional[List[str]] = None) -> None:
+        def check_item(item: object, path: List[str] | None = None) -> None:
             if item is None:
                 return
 
@@ -433,7 +450,7 @@ class StandardCheckpointManager(CheckpointManager):
 
             if isinstance(item, (bool, int, float, str, Path)):
                 return
-            
+
             if path is None:
                 path = []
 
