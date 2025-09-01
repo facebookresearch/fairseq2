@@ -93,7 +93,7 @@ class MetricBag:
         state_dict: dict[str, object] = {}
 
         for name, metric in self._metrics.items():
-            state_dict[name] = metric
+            state_dict[name] = metric.state_dict()
 
         return state_dict
 
