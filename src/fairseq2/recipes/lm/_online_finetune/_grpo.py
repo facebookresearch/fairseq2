@@ -34,6 +34,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     collate_with_target_mask,
     compute_reference_logps,
     compute_token_level_entropy,
+    format_think_tags,
     generate_rollouts,
     get_rollout_lengths,
     log_rollouts,
@@ -195,9 +196,12 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 policy_sampling_params.__setattr__(k, v)
 
             # For a pairwise RM, need to sample at least two rollouts
-            policy_sampling_params.n = (
-                2 if self._reward.reward_name == "generative_pairwise_verifier" else 1
-            )
+            if self._reward.reward_name == "generative_pairwise_verifier":
+                policy_sampling_params.n = 2
+            elif self._reward.reward_name == "generative_kwise_verifier":
+                policy_sampling_params.n = self._config.reward.config.k
+            else:
+                policy_sampling_params.n = 1
         else:
             policy_sampling_params = None
         rollouts = generate_rollouts(
@@ -206,7 +210,11 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             vllm_model=self._vllm_model,
             sampling_params=policy_sampling_params,
         )
-        rollouts = strip_think_tokens(rollouts)
+        if self._config.reward.config.strip_thinking:
+            rollouts = strip_think_tokens(rollouts)
+        else:
+            rollouts = format_think_tags(rollouts)
+
         log.info("After stripping")
         if self._config.loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Valid")
@@ -269,8 +277,11 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             # if self._config.loss_config.log_rollouts:
             #     log_rollouts(prompt_batch, rollouts, "Train")
 
-            rollouts = strip_think_tokens(rollouts)
-            log.info('After stripping')
+            if self._config.reward.config.strip_thinking:
+                rollouts = strip_think_tokens(rollouts)
+            else:
+                rollouts = format_think_tags(rollouts)
+            log.info("After stripping")
             log_rollouts(prompt_batch, rollouts, "Train")
             reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
             self._rollout_bag.save(rollouts, reward_output)

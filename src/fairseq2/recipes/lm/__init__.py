@@ -49,6 +49,12 @@ from fairseq2.recipes.lm._online_finetune._generative_judge import (
     J1PairwiseScoreExtractorHandler as J1PairwiseScoreExtractorHandler,
 )
 from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    J1KwiseScoreExtractor as J1KwiseScoreExtractor,
+)
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    J1KwiseScoreExtractorHandler as J1KwiseScoreExtractorHandler,
+)
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
     J1PointwiseExtractor as J1PointwiseExtractor,
 )
 from fairseq2.recipes.lm._online_finetune._generative_judge import (
@@ -110,6 +116,12 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
     GenerativePointwiseVerifierHandler as GenerativePointwiseVerifierHandler,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    GenerativeKwiseVerifier as GenerativeKwiseVerifier,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    GenerativeKwiseVerifierHandler as GenerativeKwiseVerifierHandler,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import GSM8kVerifier as GSM8kVerifier
 from fairseq2.recipes.lm._online_finetune._rewards import (

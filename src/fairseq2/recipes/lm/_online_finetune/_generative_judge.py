@@ -20,7 +20,7 @@
 # """
 
 POINTWISE_J1_PROMPT = """
-You are given a user question and a response from an AI assistant. Your task is to act as an impartial judge and evaluate how well the response fulfills the user's instructions. You will be shown multiple responses to the same prompt, but only one at a time. Evaluate each response independently. 
+You are given a user question and a response from an AI assistant. Your task is to act as an impartial judge and evaluate how well the response fulfills the user's instructions. Do not allow the length of the response to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
 
 Think carefully about how to assess the quality of the response and finally assign the assistant's response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision. A higher score should indicate a higher-quality response. Enclose the score within <score> and </score> tags.
 
@@ -110,6 +110,72 @@ Below are the user's question and the two responses:
 [The End of Assistant B's Answer]
 """
 
+KWISE_WITH_SCORES_J1_PROMPT = """
+You are given a user question and {k} responses from {k} AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
+
+Think carefully about how to assess the quality of the responses and finally, assign each response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision, with a higher score indicating a higher-quality response that better satisfies the criteria. Enclose the scores within the tags <score_assistant_1> </score_assistant_1>, <score_assistant_2> </score_assistant_2> and so on.
+
+Format your output like this:
+<think> your_thinking_process </think>
+<score_assistant_1> your_score_1 </score_assistant_1> 
+<score_assistant_2> your_score_2 </score_assistant_2>
+<score_assistant_3> your_score_3 </score_assistant_3>
+...
+
+Below are the user's question and the two responses:
+
+[User Question]
+{instruction}
+
+{responses}
+"""
+
+KWISE_WITH_SCORES_J1_PROMPT_WITH_REF_ANSWER = """
+You are given a user question and {k} responses from {k} AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
+
+Think carefully about how to assess the quality of the responses and finally, assign each response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision, with a higher score indicating a higher-quality response that better satisfies the criteria. Enclose the scores within the tags <score_assistant_1> </score_assistant_1>, <score_assistant_2> </score_assistant_2> and so on.
+
+Format your output like this:
+<think> your_thinking_process </think>
+<score_assistant_1> your_score_1 </score_assistant_1> 
+<score_assistant_2> your_score_2 </score_assistant_2>
+<score_assistant_3> your_score_3 </score_assistant_3>
+...
+
+Below are the user's question and the two responses:
+
+[User Question]
+{instruction}
+
+[Reference Answer]
+{reference_answer}
+
+{responses}
+"""
+
+# PAIRWISE_WITH_SCORES_J1_PROMPT = """
+# You are given a user question and two responses from two AI assistants. You are also given their thinking process. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Care any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
+
+# Carefully analyze the assistants' thought process, assess the quality of the responses and finally, assign each response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision, with a higher score indicating a higher-quality response that better satisfies the criteria. Enclose the scores within the tags <score_A> </score_A>, and <score_B> </score_B>.
+
+# Format your output like this:
+# <think> your_thinking_process </think>
+# <score_A> your_score_a </score_A> <score_B> your_score_b </score_B>
+
+# Below are the user's question and the two responses:
+
+# [User Question]
+# {instruction}
+
+# [The Start of Assistant A's Answer]
+# {response_A}
+# [The End of Assistant A's Answer]
+
+# [The Start of Assistant B's Answer]
+# {response_B}
+# [The End of Assistant B's Answer]
+# """
+
 PAIRWISE_WITH_SCORES_J1_PROMPT_WITH_REF_ANSWER = """
 You are given a user question and two responses from two AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
 
@@ -147,18 +213,15 @@ from fairseq2.logging import log
 
 class JudgmentExtractorHandler(ABC):
     @abstractmethod
-    def create(self, tokenizer):
-        ...
+    def create(self, tokenizer): ...
 
     @property
     @abstractmethod
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]:
-        ...
+    def config_kls(self) -> type[object]: ...
 
 
 """
@@ -177,12 +240,10 @@ class JudgmentExtractor(ABC):
     """
 
     @abstractmethod
-    def prompt(self) -> str:
-        ...
+    def prompt(self) -> str: ...
 
     @abstractmethod
-    def format_prompt(self, prompt_text, **kwargs: Any) -> str:
-        ...
+    def format_prompt(self, prompt_text, **kwargs: Any) -> str: ...
 
     """
     Format the prompt text and additional arguments into a string suitable for input to the reward model.
@@ -195,8 +256,7 @@ class JudgmentExtractor(ABC):
     """
 
     @abstractmethod
-    def extract(self, generation) -> float | str:
-        ...
+    def extract(self, generation) -> float | str: ...
 
     """
     Extract the final scalar reward score from the model's response.
@@ -215,8 +275,7 @@ class JudgmentExtractor(ABC):
     """
 
     @abstractmethod
-    def aggregate(self, judgments) -> float | str:
-        ...
+    def aggregate(self, judgments) -> float | str: ...
 
     """
     Aggregate multiple responses (judgments) from the reward model into a single value.
@@ -472,3 +531,83 @@ class J1PairwiseScoreExtractor(JudgmentExtractor):
             round(avg_score[0] / len(judgments), 4),
             round(avg_score[1] / len(judgments), 4),
         )
+
+
+class J1KwiseScoreExtractorHandler(JudgmentExtractorHandler):
+    def __init__(self):
+        pass
+
+    @override
+    def create(self, tokenizer, k):
+        return J1KwiseScoreExtractor(tokenizer, k)
+
+    @property
+    @override
+    def name(self):
+        return "j1_kwise_score_extractor"
+
+    @property
+    @override
+    def config_kls(self):
+        return None
+
+
+class J1KwiseScoreExtractor(JudgmentExtractor):
+    def __init__(self, tokenizer, k):
+        self.tokenizer = tokenizer
+        self.k = k
+
+    @override
+    def prompt(self, reference_answer):
+        return (
+            KWISE_WITH_SCORES_J1_PROMPT
+            if reference_answer is None
+            else KWISE_WITH_SCORES_J1_PROMPT_WITH_REF_ANSWER
+        )
+
+    @override
+    def format_prompt(self, prompt_text, rollouts, reference_answer):
+        prompt_template = self.prompt(reference_answer)
+        content = (
+            prompt_template.format(
+                k=self.k, instruction=prompt_text, responses=rollouts
+            )
+            if reference_answer is None
+            else prompt_template.format(
+                k=self.k,
+                instruction=prompt_text,
+                responses=rollouts,
+                reference_answer=reference_answer,
+            )
+        )
+
+        wrapped_text = [{"role": "user", "content": content}]
+        chat_str = self.tokenizer.apply_chat_template(
+            wrapped_text, tokenize=False, add_generation_prompt=True
+        )
+        return chat_str
+
+    @override
+    def extract(self, generation):
+        scores = []
+        for i in range(self.k):
+            score_matches = re.findall(
+                rf"<score_assistant_{i+1}>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score_assistant_{i+1}>",
+                generation,
+            )
+            if score_matches:
+                scores.append(float(score_matches[-1].strip()))
+            else:
+                scores.append(0.0)
+
+        return scores
+
+    @override
+    def aggregate(self, judgments):
+        avg_score = [0.0] * self.k
+        for scores in judgments:
+            for i, score in enumerate(scores):
+                avg_score[i] += score
+
+        avg_score = [round(avg_score[i] / len(judgments), 4) for i in range(self.k)]
+        return avg_score

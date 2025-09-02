@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import itertools
+import math
 import random
 import re
 from abc import ABC, abstractmethod
@@ -41,6 +43,8 @@ class RewardModelConfig:
     tokenizer: str | None = None
     judgment_extractor: str | None = None
     pair_type: str | None = None
+    k: int | None = None
+    strip_thinking: bool | None = None
 
 
 @dataclass(kw_only=True)
@@ -53,28 +57,23 @@ class VLLMOutputRewardHandler(ABC):
     @abstractmethod
     def create(
         self, reward_model: Any, gangs: Gangs, reward_config: object
-    ) -> VLLMOutputReward:
-        ...
+    ) -> VLLMOutputReward: ...
 
     @property
     @abstractmethod
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]:
-        ...
+    def config_kls(self) -> type[object]: ...
 
 
 class VLLMOutputReward(ABC):
     @abstractmethod
-    def process_rollouts(self, vllm_outputs: list[RequestOutput]):
-        ...
+    def process_rollouts(self, vllm_outputs: list[RequestOutput]): ...
 
     @abstractmethod
-    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts):
-        ...
+    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts): ...
 
 
 class GSM8kVerifierHandler(VLLMOutputRewardHandler):
@@ -971,7 +970,6 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
             vllm_inputs.append(vllm_input)
 
         return vllm_inputs, batch_pairwise_indices, batch_pivot_pos
-        
 
     def construct_random_pairs(
         self,
@@ -1052,7 +1050,7 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
                     counts[index[non_pivot_pos]] += 1
 
             log.info(f"Counts of each rollout: {counts}")
-            
+
             log.info(f"Number of rollouts wrt batch tokens = {len(batch_tokens[i])}")
             assert len(batch_tokens[i]) == R
 
@@ -1162,6 +1160,311 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
             batch_tokens,
             self.pair_type,
             batch_pivot_pos,
+        )
+
+        log.info(f"Batch Rewards: {batch_rewards}")
+
+        return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
+
+    def prepare_preference_batch(
+        self, prompt_batch: PromptBatch, rollouts
+    ) -> PreferenceBatch:
+
+        reward_output = self.process_rollouts(rollouts, prompt_batch)
+
+        chosen_batch = []
+        rejected_batch = []
+        prompt_lens = []
+        dummy_batch_ids = []  # keep posiitons of dummy pairs here
+
+        # choosing first rollouts with reward 1 as chosen and 0 as rejected (sort of random given that we sample rollouts randomly)
+        for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
+            zip(reward_output["rewards"], reward_output["tokens"])
+        ):
+
+            chosen_rollout_position = i_batch_rewards.index(max(i_batch_rewards))
+            rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards))
+
+            if chosen_rollout_position == rejected_rollout_position:
+                # cant form preference pair when we dont have such rollouts
+                # this will be dummy batch and we zero out loss
+                dummy_batch_ids.append(i_batch)
+
+            chosen_rollout_tokens = list(i_batch_tokens[chosen_rollout_position])
+            rejected_rollout_tokens = list(i_batch_tokens[rejected_rollout_position])
+            prompt_tokens = prompt_batch.prompts[i_batch]
+
+            chosen_tokens = prompt_tokens + chosen_rollout_tokens
+            chosen_batch.append(chosen_tokens)
+
+            rejected_tokens = prompt_tokens + rejected_rollout_tokens
+            rejected_batch.append(rejected_tokens)
+
+            prompt_lens.append(len(prompt_tokens))
+
+        filter_batch = lambda batch: [
+            item for index, item in enumerate(batch) if index not in dummy_batch_ids
+        ]
+
+        if len(dummy_batch_ids) == len(reward_output["tokens"]):
+            # entire batch does not have a valid preference pair
+            # we use it as dummy batch and zero the loss in the end
+            is_bad_batch = True
+        else:
+            # removing dummy pairs from the batch
+            chosen_batch = filter_batch(chosen_batch)
+            rejected_batch = filter_batch(rejected_batch)
+            prompt_lens = filter_batch(prompt_lens)
+            is_bad_batch = False
+
+        prompt_lens = torch.tensor(prompt_lens)
+
+        chosen_batch = [
+            torch.tensor(sequence, device=self._gangs.dp.device)
+            for sequence in chosen_batch
+        ]
+        chosen_batch = collate_with_target_mask(
+            chosen_batch, prompt_lens, device=self._gangs.dp.device
+        )
+
+        rejected_batch = [
+            torch.tensor(sequence, device=self._gangs.dp.device)
+            for sequence in rejected_batch
+        ]
+        rejected_batch = collate_with_target_mask(
+            rejected_batch, prompt_lens, device=self._gangs.dp.device
+        )
+
+        batch = PreferenceBatch(
+            chosen=chosen_batch,
+            rejected=rejected_batch,
+            reference_score_chosen=None,
+            reference_score_rejected=None,
+        )
+
+        return batch, is_bad_batch, reward_output
+
+
+class GenerativeKwiseVerifierHandler(VLLMOutputRewardHandler):
+    def __init__(self):
+        pass
+
+    @override
+    def create(self, reward_model, reward_name, reward_config, gangs, context):
+        if reward_config.tokenizer is None:
+            raise RuntimeError("Generative judges require tokenizer")
+
+        if reward_config.judgment_extractor is None:
+            raise RuntimeError(
+                "Generative judges require implementing and specifying a judgment extractor"
+            )
+
+        if reward_config.k is None:
+            raise RuntimeError(
+                "Kwise generative judges require specifying the size of the tuple k"
+            )
+
+        return GenerativeKwiseVerifier(
+            gangs,
+            context,
+            reward_model,
+            reward_name,
+            judgment_extractor=reward_config.judgment_extractor,
+            k=reward_config.k,
+            answer_key=reward_config.answer_key,
+            prompt_key=reward_config.prompt_key,
+            tokenizer=reward_config.tokenizer,
+        )
+
+    @property
+    @override
+    def name(self):
+        return "generative_kwise_verifier"
+
+    @property
+    @override
+    def config_kls(self):
+        return None
+
+
+class GenerativeKwiseVerifier(VLLMOutputReward):
+    def __init__(
+        self,
+        gangs,
+        context,
+        reward_model,
+        reward_name,
+        judgment_extractor,
+        k,
+        answer_key,
+        prompt_key,
+        tokenizer,
+    ):
+        self.answer_key = answer_key
+        self.prompt_key = prompt_key
+        self._gangs = gangs
+        self._context = context
+        self.reward_model = reward_model
+        self.reward_name = reward_name
+        self.judgment_extractor = judgment_extractor
+        self.k = k
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
+
+        judgment_extractor_registry = self._context.get_registry(
+            JudgmentExtractorHandler
+        )
+        judgment_extractor_handler = judgment_extractor_registry.get(judgment_extractor)
+        self.judgment_extractor = judgment_extractor_handler.create(
+            self.tokenizer, self.k
+        )
+
+    def construct_all_k_tuples(
+        self,
+        prompt_text,
+        i_batch_request_output,
+        vllm_inputs,
+        batch_kwise_indices,
+        reference_answer,
+        R,
+        k,
+    ):
+        all_k_tuples = list(itertools.combinations(list(range(R)), k))
+        for k_tuple in all_k_tuples:
+            k_list = list(k_tuple)
+            random.shuffle(k_list)
+            batch_kwise_indices.append(k_list)
+            response_string = ""
+            for assistant_id, idx in enumerate(k_list):
+                rollout = i_batch_request_output.outputs[idx].text
+                response_string += f"[Start of Assistant {assistant_id+1} Answer]\n{rollout}\n[End of Assistant {assistant_id+1} Answer]\n\n"
+            response_string = response_string.strip()
+
+            vllm_input = self.judgment_extractor.format_prompt(
+                prompt_text, response_string, reference_answer
+            )
+            vllm_inputs.append(vllm_input)
+
+        return vllm_inputs, batch_kwise_indices
+
+    def convert_kwise_rewards_to_pointwise(
+        self,
+        batch_kwise_rewards,
+        batch_kwise_indices,
+        batch_text,
+        batch_tokens,
+        k,
+    ):
+        B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
+        batch_pointwise_rewards = []
+
+        for prompt_idx in range(B):
+            # Extract the kwise rewards for each input
+            num = math.comb(R, k)
+            idx_start, idx_end = (
+                prompt_idx * num,
+                (prompt_idx + 1) * num,
+            )  # R choose k tuples
+
+            prompt_kwise_rewards = batch_kwise_rewards[idx_start:idx_end]
+            prompt_kwise_indices = batch_kwise_indices[idx_start:idx_end]
+
+            # Sum the rewards for each rollout and count how many times each rollout appears in pairwise judgments
+            prompt_rewards = [0.0] * R
+            counts = [0] * R
+
+            # For example, indices would be [0, 3, 4] which means rollout 0, 3 and 4
+            # rewards would be [7, 8, 9] which means rollout 0 has reward 7 and so on
+            for indices, rewards in zip(prompt_kwise_indices, prompt_kwise_rewards):
+                for rollout_idx in range(k):
+                    prompt_rewards[indices[rollout_idx]] += rewards[rollout_idx]
+                    counts[indices[rollout_idx]] += 1
+
+            log.info(f"Counts of each rollout: {counts}")
+
+            log.info(
+                f"Number of rollouts wrt batch tokens = {len(batch_tokens[prompt_idx])}"
+            )
+            assert len(batch_tokens[prompt_idx]) == R
+
+            # Compute average pointwise rewards
+            avg_prompt_rewards = [0.0] * R
+            for j in range(R):
+                if counts[j] > 0:
+                    avg_prompt_rewards[j] = round(prompt_rewards[j] / counts[j], 4)
+                    log.info(f"Overall reward: {avg_prompt_rewards[j]}")
+
+            batch_pointwise_rewards.append(avg_prompt_rewards)
+
+        return batch_pointwise_rewards
+
+    @override
+    def process_rollouts(
+        self, vllm_outputs: list[RequestOutput], prompt_batch: PromptBatch
+    ):
+        vllm_inputs = []
+        batch_text = []
+        batch_tokens = []
+        batch_kwise_indices = []
+
+        if vllm_outputs is None:
+            vllm_outputs = [None] * len(prompt_batch.prompts)
+
+        text_prompts = prompt_batch.meta_info.get(self.prompt_key)
+        reference_answers = prompt_batch.meta_info.get(self.answer_key)
+        if reference_answers is None:
+            reference_answers = [None] * len(prompt_batch.prompts)
+        for i, (i_batch_request_output, prompt_text) in enumerate(
+            zip(vllm_outputs, text_prompts)
+        ):
+            rollouts_text = [
+                rollout_output.text for rollout_output in i_batch_request_output.outputs
+            ]
+            rollouts_tokens = [
+                rollout_output.token_ids
+                for rollout_output in i_batch_request_output.outputs
+            ]
+            batch_text.append(rollouts_text)
+            batch_tokens.append(rollouts_tokens)
+
+            R = len(rollouts_text)
+            vllm_inputs, batch_kwise_indices = self.construct_all_k_tuples(
+                prompt_text,
+                i_batch_request_output,
+                vllm_inputs,
+                batch_kwise_indices,
+                reference_answers[i],
+                R,
+                self.k,
+            )
+
+        batch_kwise_judgments = generate_rewards_generative(
+            vllm_inputs,
+            dp_gang=self._gangs.dp,
+            vllm_model=self.reward_model,
+        )
+
+        log.info(f"Number of kwise comparisons: {len(batch_kwise_judgments)}")
+        log.info(
+            f"Number of judgments per kwise comparison: {len(batch_kwise_judgments[0].outputs)}"
+        )
+        log.info(f"Sample judgment: {batch_kwise_judgments[0].outputs[0].text}")
+
+        batch_kwise_rewards = []
+        for per_rollout_judgments in batch_kwise_judgments:
+            per_rollout_rewards = [
+                self.judgment_extractor.extract(judgment.text)
+                for judgment in per_rollout_judgments.outputs
+            ]
+            batch_kwise_rewards.append(
+                self.judgment_extractor.aggregate(per_rollout_rewards)
+            )
+
+        batch_rewards = self.convert_kwise_rewards_to_pointwise(
+            batch_kwise_rewards,
+            batch_kwise_indices,
+            batch_text,
+            batch_tokens,
+            self.k,
         )
 
         log.info(f"Batch Rewards: {batch_rewards}")

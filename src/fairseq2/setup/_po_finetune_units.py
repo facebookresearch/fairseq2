@@ -16,10 +16,12 @@ from fairseq2.recipes.lm import (  # GroupDpoFinetuneUnitHandler,
     DpoFinetuneUnitHandler,
     GeneralVerifierExtractorHandler,
     GenerativePairwiseVerifierHandler,
+    GenerativeKwiseVerifierHandler,
     GenerativePointwiseVerifierHandler,
     GrpoFinetuneUnitHandler,
     GSM8kVerifierHandler,
     J1PairwiseScoreExtractorHandler,
+    J1KwiseScoreExtractorHandler,
     J1PointwiseExtractorHandler,
     JudgmentExtractorHandler,
     MathVerifyHandler,
@@ -107,6 +109,10 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
     # GenerativePairwiseVerifier
     handler = GenerativePairwiseVerifierHandler()
     registry.register(handler.name, handler)
+    
+    # GenerativeKwiseVerifier
+    handler = GenerativeKwiseVerifierHandler()
+    registry.register(handler.name, handler)
 
     registry = context.get_registry(RemoteModelHandler)
 
@@ -125,6 +131,9 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
     registry.register(handler.name, handler)
 
     handler = J1PairwiseScoreExtractorHandler()
+    registry.register(handler.name, handler)
+    
+    handler = J1KwiseScoreExtractorHandler()
     registry.register(handler.name, handler)
 
     handler = GeneralVerifierExtractorHandler()

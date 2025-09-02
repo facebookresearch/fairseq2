@@ -564,18 +564,15 @@ class RemoteModelHandler(ABC):
     @abstractmethod
     def create(
         self, gangs: Gangs, unit_config: object
-    ) -> Union[RemoteVllmModel, RemoteHFModel]:
-        ...
+    ) -> Union[RemoteVllmModel, RemoteHFModel]: ...
 
     @property
     @abstractmethod
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]:
-        ...
+    def config_kls(self) -> type[object]: ...
 
 
 class RemoteRayModelHandler(RemoteModelHandler):

@@ -439,6 +439,17 @@ def strip_think_tokens(rollouts: List[SequenceData]):
     return rollouts
 
 
+def format_think_tags(rollouts: List[SequenceData]):
+    for sample in rollouts:
+        for rollout in sample.outputs:
+            rollout_text = rollout.text
+            rollout.text = rollout_text.replace(
+                "<think>", "[Start of Assistant Thinking]"
+            ).replace("</think>", "[End of Assistant Thinking]")
+
+    return rollouts
+
+
 class StatefulRolloutBag:
     """A stateful container for managing and reusing model rollouts across multiple micro-batches.
 
