@@ -110,7 +110,8 @@ class Wav2Vec2SslEvalRecipe(EvalRecipe):
 @final
 class Wav2Vec2SslEvalUnit(EvalUnit[SequenceBatch]):
     """
-    wav2vec2 SSL evaluation unit. Identical implementation to the similar named unit in the training recipe, but could be changed if needed.
+    wav2vec2 SSL evaluation unit. Identical implementation to the similar
+    named unit in the training recipe, but can be modified if needed.
     """
 
     _criterion: Wav2Vec2SslCriterion

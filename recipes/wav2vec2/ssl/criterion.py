@@ -16,8 +16,6 @@ from fairseq2.metrics import MetricBag
 from fairseq2.model import Model
 from fairseq2.models.wav2vec2 import Wav2Vec2Loss, Wav2Vec2Model, Wav2Vec2Output
 
-# isort: split
-
 from .metrics import (
     update_wav2vec2_accuracy,
     update_wav2vec2_batch_metrics,

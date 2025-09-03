@@ -15,8 +15,8 @@ from fairseq2.logging import log
 class BatchingStrategy(Enum):
     """Batching strategies for wav2vec2 training."""
 
-    STATIC = "static"
-    LENGTH = "length"
+    STATIC = "STATIC"
+    LENGTH = "LENGTH"
 
 
 class BatchingPipeline:
@@ -117,7 +117,7 @@ def create_sequence_batch(
             seqs = audio_feature["seqs"]
             seq_lens = audio_feature["seq_lens"]
 
-            # Convert seq_lens to list[int] if it's a tensor
+            # Convert seq_lens to list[int] if it's a tensor # TODO - does not happen anymore since v0.5
             if hasattr(seq_lens, "tolist"):
                 seq_lens = seq_lens.tolist()
             else:
@@ -126,4 +126,6 @@ def create_sequence_batch(
             return SequenceBatch(seqs, seq_lens=seq_lens, example=batch_dict)
         else:
             # Fallback: assume uniform lengths (should not happen with proper Collater setup)
-            return SequenceBatch(audio_feature, seq_lens=None, example=batch_dict)
+            return SequenceBatch(
+                audio_feature, seq_lens=None, example=batch_dict  # type: ignore
+            )

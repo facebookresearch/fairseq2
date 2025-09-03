@@ -4,17 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-
-"""
-Audio preprocessing pipeline components for wav2vec2 training.
-All functions are pure and composable.
-
-MIGRATION NOTES:
-- Migrated from fairseq2:e9fbd6/src/fairseq2/datasets/speech.py
-- All audio processing logic extracted for clean separation
-- Maintains 1:1 numerical parity with original implementation
-"""
-
 from __future__ import annotations
 
 import random
@@ -59,8 +48,6 @@ def convert_to_mono(waveform: Tensor) -> Tensor:
     if waveform.dim() == 2:
         # reduce channels inplace to save the memory
         size = waveform.size(1)
-        # result = torch.sum(waveform, dim=1) / size  # Original used reduce() but this is equivalent TODO: cirquit test this for performance?
-        # waveform = result
         result = reduce(
             torch.Tensor.add_, [waveform[:, i] for i in range(1, size)], waveform[:, 0]
         )
