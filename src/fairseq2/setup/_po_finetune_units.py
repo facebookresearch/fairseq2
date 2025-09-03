@@ -12,6 +12,7 @@ from fairseq2.context import RuntimeContext
 from fairseq2.recipes.lm import (  # GroupDpoFinetuneUnitHandler,
     AtheneVerifierHandler,
     SkyworkVerifierHandler,
+    AceMathVerifierHandler,
     CpoFinetuneUnitHandler,
     DpoFinetuneUnitHandler,
     GeneralVerifierExtractorHandler,
@@ -27,6 +28,7 @@ from fairseq2.recipes.lm import (  # GroupDpoFinetuneUnitHandler,
     MathVerifyHandler,
     NoEnvAtheneRewardPipeline,
     NoEnvGeneralVerifierPipeline,
+    NoEnvAceMathRMPipeline,
     OnlineDpoFinetuneUnitHandler,
     OnlineFinetuneUnitHandler,
     OrpoFinetuneUnitHandler,
@@ -93,6 +95,10 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
     # SkyworkVerifier
     handler = SkyworkVerifierHandler()
     registry.register(handler.name, handler)
+    
+    # AceMath RM
+    handler = AceMathVerifierHandler()
+    registry.register(handler.name, handler)
 
     # AtheneVerifier
     handler = AtheneVerifierHandler()
@@ -122,6 +128,10 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
 
     # NoEnvGeneralVerifierPipeline
     handler = NoEnvGeneralVerifierPipeline
+    registry.register(handler.name, handler)
+    
+    # NoEnvAceMathRMPipeline
+    handler = NoEnvAceMathRMPipeline
     registry.register(handler.name, handler)
 
     # Generative judgment extractors

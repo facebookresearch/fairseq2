@@ -91,6 +91,9 @@ from fairseq2.recipes.lm._online_finetune._remote_model import (
     NoEnvGeneralVerifierPipeline as NoEnvGeneralVerifierPipeline,
 )
 from fairseq2.recipes.lm._online_finetune._remote_model import (
+    NoEnvAceMathRMPipeline as NoEnvAceMathRMPipeline,
+)
+from fairseq2.recipes.lm._online_finetune._remote_model import (
     RemoteModelHandler as RemoteModelHandler,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
@@ -104,6 +107,12 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
     SkyworkVerifierHandler as SkyworkVerifierHandler,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    AceMathVerifier as AceMathVerifier,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    AceMathVerifierHandler as AceMathVerifierHandler,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
     GenerativePairwiseVerifier as GenerativePairwiseVerifier,

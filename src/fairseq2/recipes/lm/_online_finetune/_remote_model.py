@@ -31,6 +31,9 @@ from fairseq2.recipes.lm._online_finetune.third_party.athene import AtheneReward
 from fairseq2.recipes.lm._online_finetune.third_party.general_verifier import (
     GeneralVerifierPipeline,
 )
+from fairseq2.recipes.lm._online_finetune.third_party.ace_math import (
+    AceMathRMPipeline,
+)
 from fairseq2.utils.structured import StructureError, structure
 
 
@@ -48,6 +51,7 @@ class VllmEngineArgs:
     tokenizer: str = "/datasets/pretrained-llms/Llama-3.1-8B-Instruct"
     task: str = "generate"
     tensor_parallel_size: int = 4
+    max_model_len: int | None = None
     trust_remote_code: bool = False
     model_impl: str = "auto"
     enforce_eager: bool = True
@@ -136,6 +140,26 @@ class NoEnvGeneralVerifierPipeline(GeneralVerifierPipeline):
     @property
     def name(self):
         return "general_verifier_pipeline"
+    
+@ray.remote
+class NoEnvAceMathRMPipeline(AceMathRMPipeline):
+    """
+    This is for running Ace Math RM pipeline with HF backend.
+    """
+
+    def __init__(self, *args, **kwargs):
+        # stop ray from manipulating CUDA_VISIBLE_DEVICES
+        # at the top-level
+        del os.environ["CUDA_VISIBLE_DEVICES"]
+        super().__init__(*args, **kwargs)
+        self.ready = True  # Set a flag or return a signal
+
+    def is_ready(self):
+        return self.ready
+
+    @property
+    def name(self):
+        return "ace_math_rm_pipeline"
 
 
 class WorkerExtension:
@@ -309,6 +333,7 @@ class RemoteVllmModel:
         ).remote(
             model=vllm_engine_args.model,
             tokenizer=vllm_engine_args.tokenizer,
+            max_model_len=vllm_engine_args.max_model_len,
             enforce_eager=vllm_engine_args.enforce_eager,
             worker_extension_cls="fairseq2.recipes.lm._online_finetune._remote_model.WorkerExtension",
             tensor_parallel_size=vllm_engine_args.tensor_parallel_size,
@@ -437,6 +462,8 @@ class RemoteVllmModel:
         ray_outputs = ray.get(outputs)
         ray_outputs_flat = [o for sublist in ray_outputs for o in sublist]
         rewards = [o.outputs.data.item() for o in ray_outputs_flat]
+        
+        log.info(f"Rewards = {rewards}")
 
         return rewards
 
@@ -537,7 +564,7 @@ class RemoteHFModel:
             "RemoteHFModel.rollout_from_model is not implemented. "
         )
 
-    def reward_from_model(self, prompt_list, batch_size=64):
+    def reward_from_model(self, prompt_list, batch_size=4):
         # NOTE: need to batch inputs to hf.encode model for current models that aren't supported by hf
         rewards = []
         outputs = []
