@@ -13,13 +13,13 @@ from itertools import chain
 from typing import Protocol, runtime_checkable
 
 import torch
-from torch import Tensor
-from torch.nn import Module, Parameter
-from torch.nn.utils import remove_weight_norm  # type: ignore[attr-defined]
 
 from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.typing import CPU, Device
+from torch import Tensor
+from torch.nn import Module, Parameter
+from torch.nn.utils import remove_weight_norm  # type: ignore[attr-defined]
 
 
 @runtime_checkable
@@ -210,7 +210,12 @@ def share_parameters(source_module: Module, target_module: Module) -> None:
 
     # Do not memoize. No need anyways, and would also break the sync between the
     # traversed tensors and the iterator.
-    apply_to_parameters(target_module, lambda _: next(it), no_memo=True)
+    # apply_to_parameters(
+    #     target_module, lambda _: next(it), no_memo=True, skip_freqs=True
+    # )
+    apply_to_parameters(
+        target_module, lambda _: next(it), no_memo=True, skip_freqs=False
+    )
 
 
 def apply_to_parameters(
@@ -220,6 +225,7 @@ def apply_to_parameters(
     recurse: bool = True,
     memo: dict[Tensor, Tensor] | None = None,
     no_memo: bool = False,
+    skip_freqs: bool = False,
 ) -> None:
     """Apply ``fn`` to the parameters and buffers of ``module``.
 
@@ -245,7 +251,12 @@ def apply_to_parameters(
         for child in module.children():
             if child is not None:
                 apply_to_parameters(
-                    child, fn, recurse=recurse, memo=memo, no_memo=no_memo
+                    child,
+                    fn,
+                    recurse=recurse,
+                    memo=memo,
+                    no_memo=no_memo,
+                    skip_freqs=skip_freqs,
                 )
 
     def call_fn(
@@ -273,6 +284,12 @@ def apply_to_parameters(
         with torch.no_grad():
             new_param = call_fn(param, is_param=True, requires_grad=param.requires_grad)
 
+        if param.shape != new_param.shape:
+            log.warning(
+                f"The shape of {param_name} changed from {param.shape} to {new_param.shape}."
+            )
+            continue
+
         setattr(module, param_name, new_param)
 
         if (grad := param.grad) is not None:
@@ -283,6 +300,15 @@ def apply_to_parameters(
 
     for buffer_name, buffer in module.named_buffers(recurse=False):
         if buffer is None:
+            continue
+
+        if skip_freqs and buffer_name == "freqs":
+            log.warning(
+                f"The `freqs` buffer of `module` was not updated :{buffer_name}."
+            )
+            target = call_fn(buffer)
+            log.info(f"{target=} {buffer=}")
+            setattr(module, buffer_name, buffer)
             continue
 
         setattr(module, buffer_name, call_fn(buffer))
@@ -464,6 +490,21 @@ def load_state_dict(
     ``state_dict`` does not contain any keys corresponding to descendants that are set to ``None``
     via :meth:`Module.register_module()`.
     """
+    # Key mapping
+    need_mapping = False
+    sample_key = list(state_dict.keys())[0]
+    if (
+        sample_key.startswith("module.")
+        and not sample_key in module.state_dict().keys()
+    ):
+        mapped_key = sample_key[7:]
+        if mapped_key in module.state_dict().keys():
+            need_mapping = True
+
+    if need_mapping:
+        key_mapping = lambda key: key[7:] if key.startswith("module.") else key
+        state_dict = {key_mapping(key): value for key, value in state_dict.items()}
+
     module.load_state_dict(state_dict, strict=strict)
 
     unexpected_keys = []
