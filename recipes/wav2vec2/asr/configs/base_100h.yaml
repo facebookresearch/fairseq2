@@ -6,6 +6,10 @@
 
 model:
   arch: "base_100h"
+  family: "wav2vec2_asr"
+
+pretrained_model:
+  name: "wav2vec2_base"
 
 dataset:
   name: "librilight_asr_10h"

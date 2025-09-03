@@ -204,7 +204,7 @@ class Wav2Vec2AsrDataset:
             if audio_dir.exists():
                 return audio_dir
             else:
-                raise ValueError  # TODO: (cirquit) Test this
+                raise ValueError
         except ValueError:
             raise DataReadError(
                 self._name,

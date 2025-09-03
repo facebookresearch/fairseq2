@@ -26,7 +26,7 @@ from .data import (
     Wav2Vec2SslDatasetConfig,
     open_wav2vec2_ssl_dataset,
 )
-from .default_config import Wav2Vec2SslConfig
+from .default_config import Wav2Vec2SslRecipeConfig
 
 
 @final
@@ -43,7 +43,7 @@ class Wav2Vec2SslRecipe(TrainRecipe):
 
     @override
     def create_trainer(self, context: RecipeContext) -> Trainer:
-        config = context.config_as(Wav2Vec2SslConfig)
+        config = context.config_as(Wav2Vec2SslRecipeConfig)
 
         criterion = Wav2Vec2SslCriterion(
             context.model,
@@ -144,7 +144,7 @@ class Wav2Vec2SslRecipe(TrainRecipe):
     @property
     @override
     def config_kls(self) -> type[object]:
-        return Wav2Vec2SslConfig
+        return Wav2Vec2SslRecipeConfig
 
 
 @final

@@ -11,7 +11,6 @@ from typing import cast, final
 
 import torch
 from torch import Tensor
-from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.datasets import Seq2SeqBatch, SyncMode, register_dataset_family
@@ -28,7 +27,6 @@ from fairseq2.recipe.base import RecipeContext, TrainRecipe
 from fairseq2.recipe.eval_model import load_reference_model
 from fairseq2.runtime.dependency import DependencyContainer
 from fairseq2.trainer import Trainer, TrainUnit
-from recipes.wav2vec2.asr.wer_calculator import WerCalculator
 
 from .criterion import Wav2Vec2AsrCriterion
 from .data import (
@@ -37,7 +35,8 @@ from .data import (
     Wav2Vec2AsrDatasetConfig,
     open_wav2vec2_asr_dataset,
 )
-from .default_config import Wav2Vec2AsrConfig
+from .default_config import Wav2Vec2AsrRecipeConfig
+from .wer_calculator import WerCalculator
 
 
 @final
@@ -55,7 +54,9 @@ class Wav2Vec2AsrRecipe(TrainRecipe):
         )
 
     @staticmethod
-    def fix_wav2vec2_position_encoder_weights(module: Module) -> Module:
+    def fix_wav2vec2_position_encoder_weights(
+        module: Wav2Vec2AsrModel,
+    ) -> Wav2Vec2AsrModel:
         """Fix legacy checkpoints: convert deprecated weight_norm (g/v) to single weight.
         Required for compatibility when loading old wav2vec2 checkpoints into ASR model.
 
@@ -67,41 +68,82 @@ class Wav2Vec2AsrRecipe(TrainRecipe):
         )
         return module
 
+    def prepare_ctc_training_from_encoder(
+        self, context: RecipeContext, asr_module: Wav2Vec2AsrModel
+    ):
+        log.info("Initializing the asr model with pretrained ssl model (encoder only).")
+        w2v2_model = load_reference_model(
+            context.resolver, "pretrained_model"
+        )  # TODO: refactor after rebase onto v0.5.0a2
+        w2v2_module = cast(Wav2Vec2Model, w2v2_model.module)
+
+        share_parameters(w2v2_module.encoder_frontend, asr_module.encoder_frontend)  # type: ignore
+        share_parameters(w2v2_module.encoder, asr_module.encoder)  # type: ignore
+        if asr_module.masker is not None:
+            share_parameters(w2v2_module.masker, asr_module.masker)  # type: ignore
+
+        del w2v2_model
+
     @override
     def prepare_model(self, context: RecipeContext, model: Model) -> Model:
-        """Initialize ASR model with pretrained wav2vec2 encoder weights.
-        Shares encoder_frontend, encoder, and masker parameters from pretrained model to enable
-        transfer learning while keeping the final projection layer trainable.
+        """Initialize ASR model depending on the configuration.
+        Configuration allows to either omit the model names or set them to an empty string.
+        (1) Finetuning: model.name defined and pretrained.model undefined
+        (2) ASR training from pretrained_model: model.name undefined and pretrained_model.name defined -> training CTC with shared encoder_frontend, encoder, optional masker and an additional final projection
         """
-        asr_module = cast(Wav2Vec2AsrModel, model.module)
+        config = context.config_as(Wav2Vec2AsrRecipeConfig)
+        asr_module: Wav2Vec2AsrModel = cast(Wav2Vec2AsrModel, model.module)
         asr_module = Wav2Vec2AsrRecipe.fix_wav2vec2_position_encoder_weights(asr_module)
 
-        if model.newly_initialized:
-            log.info("Initializing the asr model with the pretrained wav2vec2 model.")
+        # Considering None or empty strings to be undefined
+        model_checkpoint_defined = not (
+            config.model.name == "" or config.model.name is None
+        )
+        pretrained_model_checkpoint_defined = not (
+            config.pretrained_model.name == "" or config.pretrained_model.name is None
+        )
 
-            # Loading the `pretrained_model` section (== config.pretrained_model)
-            # TODO: cirquit - fix this after rebasing on the new version
-            w2v2_model = load_reference_model(context.resolver, "pretrained_model")
-            w2v2_module = cast(Wav2Vec2Model, w2v2_model.module)
+        # partially redundant checks for predictable branching
+        training_from_pretrained_model = (
+            model.newly_initialized
+            and not model_checkpoint_defined
+            and pretrained_model_checkpoint_defined
+        )
 
-            share_parameters(w2v2_module.encoder_frontend, asr_module.encoder_frontend)  # type: ignore
-            share_parameters(w2v2_module.encoder, asr_module.encoder)  # type: ignore
-            if asr_module.masker is not None:
-                share_parameters(w2v2_module.masker, asr_module.masker)  # type: ignore
+        training_from_checkpoint = (
+            not model.newly_initialized
+            and model_checkpoint_defined
+            and not pretrained_model_checkpoint_defined
+        )
 
-            del w2v2_model  # ~50% memory savings right here
+        if training_from_pretrained_model:
+            self.prepare_ctc_training_from_encoder(
+                context=context, asr_module=asr_module
+            )
+        elif training_from_checkpoint:
+            log.info("Found asr checkpoint, starting training.")
+        else:
+            raise ValueError(
+                "Recipe configuration is invalid:\n"
+                + f"- {config.model.name=}\n"
+                + f"- {config.pretrained_model.name=}\n"
+                + f"- {model.newly_initialized=}\n"
+                + "Supported configurations: \n"
+                + "- From checkpoint (model.name defined + pretrained_model.name undefined)\n"
+                + "- From pretrained_model (model.name undefined + model.arch and pretrained_model.name defined)"
+            )
 
-            # Make sure that the final projection layer is instantiated along with
-            # the pretrained parameters if it was on the meta device.
-            if context.gangs.dp.rank == 0:
-                to_device(asr_module, context.gangs.root.device)
+        # Make sure that the final projection layer is instantiated along with
+        # the pretrained parameters if it was on the meta device.
+        if context.gangs.dp.rank == 0:
+            to_device(asr_module, context.gangs.root.device)
 
-            try:
-                context.gangs.root.barrier()
-            except GangError as ex:
-                raise OperationalError(
-                    "The collective barrier after the pretrained model load operation has failed. See the nested exception for details."
-                ) from ex
+        try:
+            context.gangs.root.barrier()
+        except GangError as ex:
+            raise OperationalError(
+                "The collective barrier after the pretrained model load operation has failed. See the nested exception for details."
+            ) from ex
 
         # Always freeze feature extractor
         freeze_parameters(asr_module.encoder_frontend.feature_extractor)  # type: ignore
@@ -113,7 +155,7 @@ class Wav2Vec2AsrRecipe(TrainRecipe):
         """
         The pretrained model loading happens in `self.prepare_model`.
         """
-        config = context.config_as(Wav2Vec2AsrConfig)
+        config = context.config_as(Wav2Vec2AsrRecipeConfig)
 
         criterion = Wav2Vec2AsrCriterion(context.model)
 
@@ -207,7 +249,7 @@ class Wav2Vec2AsrRecipe(TrainRecipe):
     @property
     @override
     def config_kls(self) -> type[object]:
-        return Wav2Vec2AsrConfig
+        return Wav2Vec2AsrRecipeConfig
 
 
 @final

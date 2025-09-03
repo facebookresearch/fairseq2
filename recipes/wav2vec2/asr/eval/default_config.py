@@ -21,7 +21,7 @@ from ..data import Wav2Vec2AsrDatasetSection
 
 
 @dataclass(kw_only=True)
-class Wav2Vec2AsrEvalConfig:
+class Wav2Vec2AsrEvalRecipeConfig:
     """wav2vec2 ASR evaluation configuration."""
 
     # ReferenceModelSection instead of ModelSection because we are

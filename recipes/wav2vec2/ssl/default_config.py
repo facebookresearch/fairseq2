@@ -28,7 +28,7 @@ from .data import Wav2Vec2SslDatasetSection
 
 
 @dataclass(kw_only=True)
-class Wav2Vec2SslConfig:
+class Wav2Vec2SslRecipeConfig:
     """
     The default values correspond to the base ls960h training setup as described
     in :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
@@ -39,9 +39,7 @@ class Wav2Vec2SslConfig:
             family="wav2vec2",
             arch="base",
             compile=False,
-            compile_options=CompileOptionsSection(
-                fullgraph=False, dynamic=False
-            ),
+            compile_options=CompileOptionsSection(fullgraph=False, dynamic=False),
         )
     )
 

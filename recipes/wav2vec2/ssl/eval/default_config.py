@@ -21,7 +21,7 @@ from ..data import Wav2Vec2SslDatasetSection
 
 
 @dataclass(kw_only=True)
-class Wav2Vec2SslEvalConfig:
+class Wav2Vec2SslEvalRecipeConfig:
     """
     Configuration for wav2vec2 SSL evaluation runner.
     """
