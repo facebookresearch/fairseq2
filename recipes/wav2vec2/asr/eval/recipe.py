@@ -26,7 +26,7 @@ from ..data import (
     open_wav2vec2_asr_dataset,
 )
 from ..wer_calculator import WerCalculator
-from .default_config import Wav2Vec2AsrEvalConfig
+from .default_config import Wav2Vec2AsrEvalRecipeConfig
 
 
 @final
@@ -43,7 +43,7 @@ class Wav2Vec2AsrEvalRecipe(EvalRecipe):
 
     @override
     def create_evaluator(self, context: RecipeContext) -> Evaluator:
-        config = context.config_as(Wav2Vec2AsrEvalConfig)
+        config = context.config_as(Wav2Vec2AsrEvalRecipeConfig)
 
         # Evaluation equivalent of the training criterion
         valid_criterion = Wav2Vec2AsrCriterion(
@@ -101,7 +101,7 @@ class Wav2Vec2AsrEvalRecipe(EvalRecipe):
     @property
     @override
     def config_kls(self) -> type[object]:
-        return Wav2Vec2AsrEvalConfig
+        return Wav2Vec2AsrEvalRecipeConfig
 
 
 @final

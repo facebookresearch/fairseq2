@@ -97,7 +97,6 @@ def create_sequence_batch(
         if isinstance(audio_feature, dict) and "seq_lens" in audio_feature:
             seqs = audio_feature["seqs"]
             seq_lens = audio_feature["seq_lens"]
-
             return SequenceBatch(seqs, seq_lens=seq_lens, example=batch_dict)
         else:
             # Fallback: assume uniform lengths (should not happen with proper Collater setup)

@@ -24,7 +24,7 @@ from ..data import (
     Wav2Vec2SslDatasetConfig,
     open_wav2vec2_ssl_dataset,
 )
-from .default_config import Wav2Vec2SslEvalConfig
+from .default_config import Wav2Vec2SslEvalRecipeConfig
 
 
 @final
@@ -41,7 +41,7 @@ class Wav2Vec2SslEvalRecipe(EvalRecipe):
 
     @override
     def create_evaluator(self, context: RecipeContext) -> Evaluator:
-        config = context.config_as(Wav2Vec2SslEvalConfig)
+        config = context.config_as(Wav2Vec2SslEvalRecipeConfig)
 
         criterion = Wav2Vec2SslCriterion(
             context.model,
@@ -104,7 +104,7 @@ class Wav2Vec2SslEvalRecipe(EvalRecipe):
     @property
     @override
     def config_kls(self) -> type[object]:
-        return Wav2Vec2SslEvalConfig
+        return Wav2Vec2SslEvalRecipeConfig
 
 
 @final

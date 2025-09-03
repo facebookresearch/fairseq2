@@ -19,6 +19,21 @@ While both recipes share similar audio processing pipelines (normalization, batc
 - Different loss functions (contrastive vs CTC)
 - Different model architectures (encoder-only vs encoder+projection)
 
+**Datasets**
+
+Both recipes use a manifest-based dataset reader which expects to find a `{split}.tsv` file under their `data: ` field in their asset definition. `ssl` uses librispeech and `asr` uses the librilight (10h) dataset. Librilight expects to find a `{split}.wrd` file with transcription of each file and is positionally synchronized (text in line 21 in `train.wrd` corresponds to the audio file in the `train.tsv` manifest).
+
+Check the dataset implementation for more details.
+
+For minimal reproduction, add a path in the librilight.yaml and librispeech.yaml asset cards that point to their manifests, e.g.:
+
+```yaml
+name: librilight_asr_10h
+dataset_family: wav2vec2_asr
+dataset_config:
+  data: "/my/path/to/my/librilight/manifest/train.tsv"
+```
+
 **Code Organization & How To Run**
 
 ```bash
@@ -37,5 +52,3 @@ python -m asr --config-file asr/configs/my_config.yaml $OUTPUT_DIR
 
 python -m asr.eval --config-file asr/eval/configs/my_eval_config.yaml $OUTPUT_DIR
 ```
-
-The idea is to keep the main recipe coupled with the evaluation runner but share the dataset implementation.

@@ -41,7 +41,7 @@ class Wav2Vec2AsrTrainerSection(TrainerSection):
 
 
 @dataclass(kw_only=True)
-class Wav2Vec2AsrConfig:
+class Wav2Vec2AsrRecipeConfig:
     """
     wav2vec2 ASR training configuration.
     The default values correspond to the base_10h training setup.
@@ -57,7 +57,7 @@ class Wav2Vec2AsrConfig:
         )
     )
 
-    # Pretrained model (needed if we start training from that checkpoint to share the encoder)
+    # Pretrained model (needed if we start training from an SSL checkpoint to share the encoder)
     pretrained_model: ReferenceModelSection = field(
         default_factory=lambda: ReferenceModelSection(
             name="wav2vec2_base",
