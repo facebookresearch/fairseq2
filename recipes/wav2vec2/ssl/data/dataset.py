@@ -65,8 +65,8 @@ class Wav2Vec2SslDatasetSection(DatasetSection):
     # Batching configuration
     batching_strategy: BatchingStrategy = BatchingStrategy.LENGTH
     """Batching strategy is defined through an enum:
-    - BatchingStrategy.LENGTH ("length") = Specifies batching where each batch has a maximum number of elements.
-    - BatchingStrategy.STATIC ("static") = Specifies batching where each batch has the same number of examples.
+    - BatchingStrategy.LENGTH ("LENGTH") = Specifies batching where each batch has a maximum number of elements.
+    - BatchingStrategy.STATIC ("STATIC") = Specifies batching where each batch has the same number of examples.
     """
 
     batch_size: int | None = None

@@ -70,10 +70,5 @@ def update_wav2vec2_batch_metrics(metric_bag: MetricBag, batch: SequenceBatch) -
     num_examples = batch.batch_size
     num_elements = batch.num_elements
 
-    metric_bag.get(Sum, "num_examples").update(num_examples)
-    metric_bag.get(Sum, "num_elements").update(num_elements)
-
-    # Training-specific metrics
-    # Note: In v0.5 we assume training mode since this is the train recipe. TODO: cirquit
     metric_bag.get(Sum, "total_num_examples").update(num_examples)
     metric_bag.get(Sum, "total_num_elements").update(num_elements)

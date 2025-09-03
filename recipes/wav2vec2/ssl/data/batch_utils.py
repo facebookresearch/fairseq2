@@ -15,8 +15,8 @@ from fairseq2.logging import log
 class BatchingStrategy(Enum):
     """Batching strategies for wav2vec2 training."""
 
-    STATIC = "static"
-    LENGTH = "length"
+    STATIC = "STATIC"
+    LENGTH = "LENGTH"
 
 
 class BatchingPipeline:
@@ -55,7 +55,7 @@ class BatchingPipeline:
 
         return builder.bucket_by_length(
             bucket_sizes,
-            selector="audio_size",  # ORIGINAL: line 498 (was columns parameter) (used to be [*].audio_size) TODO: cirquit
+            selector="audio_size",
             min_data_len=min_audio_len,
             skip_below_min_examples=True,
             skip_above_max_examples=True,
@@ -84,14 +84,8 @@ def create_sequence_batch(
 ) -> SequenceBatch:
     """
     Convert batch dictionary to SequenceBatch with proper sequence length handling.
-
-    ORIGINAL: fairseq2:e9fbd6/src/fairseq2/datasets/speech.py:296-309
-    Function: to_batch()
-
-    v0.5 Migration: Replaced PaddingMask usage with direct SequenceBatch construction
-    using seq_lens from Collater output.
     """
-    audio_feature = batch_dict["audio_feature"]  # ORIGINAL: line 302
+    audio_feature = batch_dict["audio_feature"]
 
     if no_padding:
         # no_padding=True: All sequences cropped to same length, no padding needed
@@ -103,12 +97,6 @@ def create_sequence_batch(
         if isinstance(audio_feature, dict) and "seq_lens" in audio_feature:
             seqs = audio_feature["seqs"]
             seq_lens = audio_feature["seq_lens"]
-
-            # Convert seq_lens to list[int] if it's a tensor TODO: cirquit check if this is still needed
-            if hasattr(seq_lens, "tolist"):
-                seq_lens = seq_lens.tolist()
-            else:
-                seq_lens = list(seq_lens)
 
             return SequenceBatch(seqs, seq_lens=seq_lens, example=batch_dict)
         else:
