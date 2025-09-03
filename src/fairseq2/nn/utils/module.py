@@ -210,7 +210,12 @@ def share_parameters(source_module: Module, target_module: Module) -> None:
 
     # Do not memoize. No need anyways, and would also break the sync between the
     # traversed tensors and the iterator.
-    apply_to_parameters(target_module, lambda _: next(it), no_memo=True)
+    # apply_to_parameters(
+    #     target_module, lambda _: next(it), no_memo=True, skip_freqs=True
+    # )
+    apply_to_parameters(
+        target_module, lambda _: next(it), no_memo=True, skip_freqs=False
+    )
 
 
 def apply_to_parameters(
@@ -220,6 +225,7 @@ def apply_to_parameters(
     recurse: bool = True,
     memo: dict[Tensor, Tensor] | None = None,
     no_memo: bool = False,
+    skip_freqs: bool = False,
 ) -> None:
     """Apply ``fn`` to the parameters and buffers of ``module``.
 
@@ -245,7 +251,12 @@ def apply_to_parameters(
         for child in module.children():
             if child is not None:
                 apply_to_parameters(
-                    child, fn, recurse=recurse, memo=memo, no_memo=no_memo
+                    child,
+                    fn,
+                    recurse=recurse,
+                    memo=memo,
+                    no_memo=no_memo,
+                    skip_freqs=skip_freqs,
                 )
 
     def call_fn(
@@ -273,6 +284,12 @@ def apply_to_parameters(
         with torch.no_grad():
             new_param = call_fn(param, is_param=True, requires_grad=param.requires_grad)
 
+        if param.shape != new_param.shape:
+            log.warning(
+                f"The shape of {param_name} changed from {param.shape} to {new_param.shape}."
+            )
+            continue
+
         setattr(module, param_name, new_param)
 
         if (grad := param.grad) is not None:
@@ -283,6 +300,15 @@ def apply_to_parameters(
 
     for buffer_name, buffer in module.named_buffers(recurse=False):
         if buffer is None:
+            continue
+
+        if skip_freqs and buffer_name == "freqs":
+            log.warning(
+                f"The `freqs` buffer of `module` was not updated :{buffer_name}."
+            )
+            target = call_fn(buffer)
+            log.info(f"{target=} {buffer=}")
+            setattr(module, buffer_name, buffer)
             continue
 
         setattr(module, buffer_name, call_fn(buffer))
