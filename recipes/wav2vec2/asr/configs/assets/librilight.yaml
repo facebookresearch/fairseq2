@@ -1,0 +1,20 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: wav2vec2_asr_librilight_10h
+dataset_family: wav2vec2_asr
+
+---
+
+name: wav2vec2_asr_librilight_10h@awscluster
+dataset_config:
+  data: "/fsx-ust/shared/assets/datasets/librilight/10h"
+
+---
+
+name: wav2vec2_asr_librilight_10h@faircluster
+dataset_config:
+  data: "/large_experiments/seamless/assets/datasets/librilight/10h"
