@@ -35,6 +35,7 @@ from .dataset import LM_SFT_DATASET, LMSFTDatasetConfig
 
 GENERIC_INSTRUCTION_DATASET_FAMILY: Final = "generic_instruction"
 
+
 @dataclass(kw_only=True)
 class InstructionFinetuneDatasetSection(DatasetSection):
     # name: str = "foo"  # TODO: change!
@@ -86,6 +87,7 @@ class InstructionFinetuneDatasetSection(DatasetSection):
     extras: dict[str, object] = field(default_factory=dict)
     """The dataset-specific extra options."""
 
+
 @dataclass(kw_only=True)
 class LMSFTConfig:
     model: ModelSection = field(
@@ -96,7 +98,6 @@ class LMSFTConfig:
             compile_options=CompileOptionsSection(fullgraph=True, dynamic=False),
         )
     )
-
 
     tokenizer: TokenizerSection = field(
         default_factory=lambda: TokenizerSection(name="llama3_2_1b")
@@ -146,7 +147,7 @@ class LMSFTConfig:
     common: CommonSection = field(
         default_factory=lambda: CommonSection(
             torch=TorchSection(
-                default_sdpa="flash2", compiled_region_activation_memory_budget=0.9
+                default_sdpa="torch", compiled_region_activation_memory_budget=0.9
             )
         )
     )
@@ -155,16 +156,10 @@ class LMSFTConfig:
         default_factory=lambda: InstructionFinetuneDatasetSection(
             family=LM_SFT_DATASET,
             config_overrides=LMSFTDatasetConfig(
-                path=Path(
-                    "/checkpoint/ram/jacklanchantin/data/alpaca/"
-                )
+                path=Path("/checkpoint/ram/jacklanchantin/data/alpaca/")
             ),
         )
     )
-
-
-
-
 
     # dataset: LMSFTDatasetSection = field(
     #     default_factory=lambda: LMSFTDatasetSection(

@@ -34,6 +34,7 @@ from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
     SequenceData,
+    DataPipelineBuilder,
 )
 from fairseq2.gang import Gangs, Gang
 from fairseq2.nn import BatchLayout
@@ -42,6 +43,8 @@ from collections.abc import MutableMapping
 from fairseq2.error import NotSupportedError
 from typing import Any, Final, cast, final
 import torch
+
+from fairseq2.datasets._utils import _load_files_and_weights
 
 # from .utils import CollateOptionsOverride, Collater, SequenceData
 
@@ -69,6 +72,15 @@ class LengthBatching:
 
 
 Batching: TypeAlias = StaticBatching | LengthBatching
+
+
+class DatasetLoadError(Exception):
+    dataset_name: str
+
+    def __init__(self, dataset_name: str, message: str) -> None:
+        super().__init__(message)
+
+        self.dataset_name = dataset_name
 
 
 @dataclass(kw_only=True)
@@ -179,12 +191,22 @@ class LMSFTDataset:
 
         self._splits = splits
 
+    def _read_jsonl(self, path: Path, tokenizer: Tokenizer) -> DataPipelineBuilder:
+        lines = []
+
+        # TODO(balioglu): Do in C++.
+        with path.open(encoding="utf-8") as fp:
+            for line in fp:
+                lines.append(line)
+
+        return read_sequence(lines).map(json.loads)
+
     @override
     def create_reader(
         self,
         split: str,
         tokenizer: Tokenizer,
-        gang: Gang,
+        gangs: Gangs,
         min_seq_len: int,
         max_seq_len: int,
         options: InstructionReadOptions | None = None,
@@ -226,9 +248,9 @@ class LMSFTDataset:
         seed += 1
 
         # Shard.
-        builder.shard(gang.rank, gang.size, allow_uneven=True)
+        builder.shard(gangs.dp.rank, gangs.dp.size, allow_uneven=True)
 
-        seed += gang.rank
+        seed += gangs.dp.rank
 
         if options.chat_mode is True:
             from fairseq2.data.text.tokenizers.hg import HuggingFaceTokenEncoder
@@ -348,7 +370,14 @@ class LMSFTDataset:
         pipeline = builder.map(to_batch).and_return()
 
         return DataPipelineReader[SequenceBatch](
-            self._name, split, pipeline, gang, options
+            self._name,
+            split,
+            pipeline,
+            gangs,
+            num_accumulate=options.num_accumulate,
+            drop_remainder=options.drop_remainder,
+            sync=options.sync_batches,
+            sync_mode=options.sync_mode,
         )
 
 
@@ -358,20 +387,41 @@ class LMSFTDatasetConfig:
 
 
 def open_lm_sft_dataset(name: str, config: LMSFTDatasetConfig) -> LMSFTDataset:
+    # path = config.path
+
+    # path = path.expanduser().resolve()
+
+    # if not path.is_dir():
+    #     files = [path]
+    # else:
+    #     try:
+    #         files = [f for f in path.glob("**/*.chunk.*.jsonl") if not f.is_dir()]
+    #     except OSError as ex:
+    #         raise DatasetOpenError(
+    #             name, f"The text files under the '{path}' directory of the '{name}' dataset cannot be retrieved. See the nested exception for details."  # fmt: skip
+    #         ) from ex
+
+    #     files.sort()
+
     path = config.path
+    splits: dict[str, tuple[Sequence[Path], Sequence[float]]] = {}
 
-    path = path.expanduser().resolve()
-
-    if not path.is_dir():
-        files = [path]
-    else:
+    if path.is_dir():
         try:
-            files = [f for f in path.glob("**/*.chunk.*.jsonl") if not f.is_dir()]
+            child_dirs = [p for p in path.iterdir() if p.is_dir()]
         except OSError as ex:
-            raise DatasetOpenError(
-                name, f"The text files under the '{path}' directory of the '{name}' dataset cannot be retrieved. See the nested exception for details."  # fmt: skip
+            raise DatasetLoadError(
+                name, f"The files under the '{path}' directory of the '{name}' dataset cannot be retrieved. See the nested exception for details."  # fmt: skip
             ) from ex
 
-        files.sort()
+        for child_dir in child_dirs:
+            files, weights = _load_files_and_weights(name, child_dir)
 
-    return LMSFTDataset(name, files)
+            splits[child_dir.name] = (files, weights)
+
+    if not splits:
+        files, weights = _load_files_and_weights(name, path)
+
+        splits["default"] = (files, weights)
+
+    return LMSFTDataset(name, splits)
