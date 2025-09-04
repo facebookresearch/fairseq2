@@ -19,8 +19,7 @@ from fairseq2.nn import (
     Sinusoidal3dPositionEncoder,
     SinusoidalPositionEncoder,
 )
-from fairseq2.utils.rng import temporary_manual_seed
-from tests.common import assert_close, device
+from tests.common import assert_close, device, temporary_manual_seed
 
 
 class TestSinusoidalPositionEncoder:

@@ -8,13 +8,17 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from enum import Enum
 from pathlib import Path
 from shutil import copytree, rmtree
+from tempfile import TemporaryDirectory
 from typing import BinaryIO, TextIO, cast, final
 
 from typing_extensions import override
+
+from fairseq2.typing import ContextManager
 
 
 class FileMode(Enum):
@@ -55,12 +59,15 @@ class FileSystem(ABC):
     def remove_directory(self, path: Path) -> None: ...
 
     @abstractmethod
-    def glob(self, path: Path, pattern: str) -> Iterable[Path]: ...
+    def glob(self, path: Path, pattern: str) -> Iterator[Path]: ...
 
     @abstractmethod
     def walk_directory(
         self, path: Path, *, on_error: Callable[[OSError], None] | None
-    ) -> Iterable[tuple[str, Sequence[str]]]: ...
+    ) -> Iterator[tuple[str, Sequence[str]]]: ...
+
+    @abstractmethod
+    def tmp_directory(self, base_dir: Path) -> ContextManager[Path]: ...
 
     @abstractmethod
     def resolve(self, path: Path) -> Path: ...
@@ -141,21 +148,26 @@ class LocalFileSystem(FileSystem):
         rmtree(path)
 
     @override
-    def glob(self, path: Path, pattern: str) -> Iterable[Path]:
+    def glob(self, path: Path, pattern: str) -> Iterator[Path]:
         return path.glob(pattern)
 
     @override
     def walk_directory(
         self, path: Path, *, on_error: Callable[[OSError], None] | None
-    ) -> Iterable[tuple[str, Sequence[str]]]:
+    ) -> Iterator[tuple[str, Sequence[str]]]:
         for dir_pathname, _, filenames in os.walk(path, onerror=on_error):
             yield dir_pathname, filenames
+
+    @override
+    @contextmanager
+    def tmp_directory(self, base_dir: Path) -> Iterator[Path]:
+        with TemporaryDirectory(dir=base_dir) as dirname:
+            yield Path(dirname)
 
     @override
     def resolve(self, path: Path) -> Path:
         return path.expanduser().resolve()
 
-    @final
     @property
     @override
     def is_local(self) -> bool:

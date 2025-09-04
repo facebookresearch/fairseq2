@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from itertools import chain
 from typing import Protocol, runtime_checkable
 
@@ -17,7 +17,8 @@ from torch.nn import Module, Parameter
 from torch.nn.utils import remove_weight_norm  # type: ignore[attr-defined]
 
 from fairseq2.device import CPU, Device
-from fairseq2.gang import Gang
+from fairseq2.error import StateDictError
+from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
 
 
@@ -108,12 +109,11 @@ def to_device(module: Module, device: Device) -> None:
         if m is None:
             continue
 
-        try:
-            module_device = infer_device(m, recurse=False)
-        except ValueError as ex:
+        module_device = maybe_infer_device(m, recurse=False)
+        if module_device is None:
             raise ValueError(
-                f"The device of `{name}` is not valid. See the nested exception for details."
-            ) from ex
+                f"All parameters and buffers of `{name}` must be on the same device."
+            )
 
         if module_device == device:
             continue
@@ -180,12 +180,12 @@ def share_parameters(source_module: Module, target_module: Module) -> None:
 
         if src_tensor.grad is not None:
             raise ValueError(
-                f"The parameters must not have their `grad` set, but '{src_name}' of `source_module` has it set."
+                f"Parameters of `source_module` must not have their `grad` set, but '{src_name}' has it set."
             )
 
         if tgt_tensor.grad is not None:
             raise ValueError(
-                f"The parameters must not have their `grad` set, but '{tgt_name}' of `target_module` has it set."
+                f"Parameters of `target_module` must not have their `grad` set, but '{tgt_name}' has it set."
             )
 
     tensors = []
@@ -339,7 +339,7 @@ def remove_parametrizations(module: Module, *, recurse: bool = True) -> None:
     visit_module(module, remove, recurse=recurse)
 
 
-def infer_device(module: Module, *, recurse: bool = True) -> Device:
+def maybe_infer_device(module: Module, *, recurse: bool = True) -> Device | None:
     """Infer the device on which ``module``'s parameters and buffers reside.
 
     :param module:
@@ -364,11 +364,7 @@ def infer_device(module: Module, *, recurse: bool = True) -> Device:
     if len(devices) == 1:
         return devices.pop()
 
-    s = ", ".join(sorted(f"`{d.type}`" for d in devices))
-
-    raise ValueError(
-        f"All parameters and buffers of `module` must be on the same device, but they are on {s}."
-    )
+    return None
 
 
 def broadcast_module(
@@ -420,7 +416,7 @@ def broadcast_module(
             tensors.append(param.detach())
 
             if not warned and param.grad is not None:
-                log.warning("`broadcast_module()` does not support syncing gradients, but one or more parameters of `module` have their `grads` defined.")  # fmt: skip
+                log.warning("`broadcast_module()` does not support syncing gradients, but one or more parameters of `module` have their `grads` set.")  # fmt: skip
 
                 warned = True
 
@@ -451,11 +447,14 @@ def broadcast_module(
     from torch.distributed import _broadcast_coalesced
 
     # TODO(balioglu): Call c10d in fairseq2n instead.
-    _broadcast_coalesced(pg, tensors, bucket_size, source_rank)
+    try:
+        _broadcast_coalesced(pg, tensors, bucket_size, source_rank)
+    except RuntimeError as ex:
+        raise GangError("`broadcast_coalesced()` collective operation failed.") from ex
 
 
 def load_state_dict(
-    module: Module, state_dict: Mapping[str, object], strict: bool = True
+    module: Module, state_dict: dict[str, object], strict: bool = True
 ) -> None:
     """Copy parameters and buffers from ``state_dict`` into ``module`` and its
     descendant modules.
@@ -483,9 +482,7 @@ def load_state_dict(
 
         s = ", ".join(unexpected_keys)
 
-        raise ValueError(
-            f"`state_dict` must not contain the following unexpected key(s): {s}"
-        )
+        raise StateDictError(f"`state_dict` contains unexpected key(s) {s}.")
 
 
 def _get_named_modules(
@@ -533,3 +530,7 @@ def _get_named_modules(
 
     if post_order:
         yield prefix, module
+
+
+def get_name_or_self(obj: object) -> object:
+    return getattr(obj, "__name__", obj)

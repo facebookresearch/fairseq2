@@ -18,9 +18,6 @@ from fairseq2.nn import BatchLayout, IncrementalStateBag
 class Seq2SeqModel(Module, ABC):
     """Represents a sequence-to-sequence model."""
 
-    max_source_seq_len: int
-    max_target_seq_len: int
-
     def __init__(self, max_source_seq_len: int, max_target_seq_len: int) -> None:
         super().__init__()
 

@@ -10,7 +10,7 @@ from typing import TypeVar
 import pytest
 from typing_extensions import Self
 
-from fairseq2.data import DataPipelineError, read_iterator, read_sequence
+from fairseq2.data.data_pipeline import DataPipelineError, read_iterator, read_sequence
 
 
 class DefaultIterator(Iterator[int]):

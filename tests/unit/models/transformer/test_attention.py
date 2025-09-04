@@ -94,11 +94,11 @@ class TestScaledDotProductAttention:
         bias_cache = AttentionBiasCache()
 
         return {
-            "seqs": q,
-            "seqs_layout": q_layout,
-            "keys": k,
-            "keys_layout": k_layout,
-            "values": v,
+            "q": q,
+            "q_layout": q_layout,
+            "k": k,
+            "k_layout": k_layout,
+            "v": v,
             "bias_cache": bias_cache,
         }
 

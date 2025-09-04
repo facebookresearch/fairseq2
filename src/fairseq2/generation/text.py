@@ -11,19 +11,15 @@ from typing import final
 
 from torch import Tensor
 
-from fairseq2.data.text.tokenizers import (
-    TextTokenDecoder,
-    TextTokenEncoder,
-    TextTokenizer,
-)
-from fairseq2.error import ContractError
-from fairseq2.generation import (
+from fairseq2.data.tokenizers import Tokenizer
+from fairseq2.error import InternalError
+from fairseq2.generation.generator import (
     Seq2SeqGenerator,
     SequenceGenerator,
     SequenceGeneratorOutput,
 )
 from fairseq2.nn import BatchLayout
-from fairseq2.nn.utils.module import infer_device
+from fairseq2.nn.utils.module import maybe_infer_device
 from fairseq2.nn.utils.padding import pad_seqs
 
 
@@ -31,14 +27,10 @@ from fairseq2.nn.utils.padding import pad_seqs
 class SequenceToTextConverter:
     """Converts source sequences to text."""
 
-    _generator: Seq2SeqGenerator
-    _target_prefix_seq: Tensor
-    _text_decoder: TextTokenDecoder
-
     def __init__(
         self,
         generator: Seq2SeqGenerator,
-        tokenizer: TextTokenizer,
+        tokenizer: Tokenizer,
         task: str,
         target_lang: str | None = None,
         *,
@@ -56,12 +48,11 @@ class SequenceToTextConverter:
         """
         self._generator = generator
 
-        try:
-            device = infer_device(generator.model)
-        except ValueError as ex:
+        device = maybe_infer_device(generator.model)
+        if device is None:
             raise ValueError(
-                "The device of `generator.model` is not valid. See the nested exception for details."
-            ) from ex
+                "All parameters and buffers of `generator.model` must be on the same device."
+            )
 
         target_text_encoder = tokenizer.create_encoder(
             task=task, lang=target_lang, mode="target", device=device
@@ -156,8 +147,8 @@ class SequenceToTextConverter:
 
         for idx, hypotheses in enumerate(generator_output.hypotheses):
             if len(hypotheses) == 0:
-                raise ContractError(
-                    f"The sequence generator returned no hypothesis at index {idx}."
+                raise InternalError(
+                    f"Sequence generator returned no hypothesis at index {idx}."
                 )
 
             text = self._text_decoder(hypotheses[0].seq)
@@ -171,15 +162,10 @@ class SequenceToTextConverter:
 class TextTranslator:
     """Translates text from one language to another."""
 
-    _converter: SequenceToTextConverter
-    _pad_idx: int
-    _source_text_encoder: TextTokenEncoder
-    _max_source_len: int | None
-
     def __init__(
         self,
         generator: Seq2SeqGenerator,
-        tokenizer: TextTokenizer,
+        tokenizer: Tokenizer,
         source_lang: str | None = None,
         target_lang: str | None = None,
         *,
@@ -216,12 +202,11 @@ class TextTranslator:
 
         self._pad_idx = pad_idx
 
-        try:
-            device = infer_device(generator.model)
-        except ValueError as ex:
+        device = maybe_infer_device(generator.model)
+        if device is None:
             raise ValueError(
-                "The device of `generator.model` is not valid. See the nested exception for details."
-            ) from ex
+                "All parameters and buffers of `generator.model` must be on the same device."
+            )
 
         self._source_text_encoder = tokenizer.create_encoder(
             task="translation", lang=source_lang, mode="source", device=device
@@ -282,14 +267,10 @@ class TextTranslator:
 class TextCompleter:
     """Completes text prompts."""
 
-    _generator: SequenceGenerator
-    _text_encoder: TextTokenEncoder
-    _text_decoder: TextTokenDecoder
-
     def __init__(
         self,
         generator: SequenceGenerator,
-        tokenizer: TextTokenizer,
+        tokenizer: Tokenizer,
         *,
         skip_special_tokens: bool = False,
     ) -> None:
@@ -301,12 +282,11 @@ class TextCompleter:
         """
         self._generator = generator
 
-        try:
-            device = infer_device(generator.model)
-        except ValueError as ex:
+        device = maybe_infer_device(generator.model)
+        if device is None:
             raise ValueError(
-                "The device of `generator.model` is not valid. See the nested exception for details."
-            ) from ex
+                "All parameters and buffers of `generator.model` must be on the same device."
+            )
 
         self._text_encoder = tokenizer.create_encoder(mode="prompt", device=device)
 
@@ -365,8 +345,8 @@ class TextCompleter:
 
         for idx, hypotheses in enumerate(generator_output.hypotheses):
             if len(hypotheses) == 0:
-                raise ContractError(
-                    f"The sequence generator returned no hypothesis at index {idx}."
+                raise InternalError(
+                    f"Sequence generator returned no hypothesis at index {idx}."
                 )
 
             text = self._text_decoder(hypotheses[0].seq)

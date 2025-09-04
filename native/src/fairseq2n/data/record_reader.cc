@@ -89,8 +89,11 @@ record_reader::load_next_record()
         if (next_chunk.empty()) {
             // If `next_chunk` is empty and we don't have any partial record
             // stored from a previous call, we have reached end of data.
-            if (current_chunk_.empty())
+            if (current_chunk_.empty()) {
+                chunk_offset_ = 0;
+
                 return false;
+            }
 
             throw_<record_error>(
                 "The stream ends with a partial record of {} byte(s).", fmt::group_digits(current_chunk_.size()));

@@ -9,7 +9,9 @@ from __future__ import annotations
 import torch
 from torch import Tensor
 
-from fairseq2.device import CPU
+from fairseq2.device import CPU, Device
+from fairseq2.typing import ContextManager
+from fairseq2.utils.rng import RngBag
 
 # The default device that tests should use. Note that pytest can change it based
 # on the provided command line arguments.
@@ -45,3 +47,10 @@ def has_no_inf(a: Tensor) -> bool:
 def has_no_nan(a: Tensor) -> bool:
     """Return ``True`` if ``a`` has no NaN element."""
     return not torch.any(torch.isnan(a))
+
+
+def temporary_manual_seed(seed: int, *devices: Device) -> ContextManager[None]:
+    """Temporarily changes the seed of the RNGs of ``devices``."""
+    rng_bag = RngBag.from_device_defaults(*devices)
+
+    return rng_bag.temporary_manual_seed(seed)
