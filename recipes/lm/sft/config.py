@@ -156,7 +156,7 @@ class LMSFTConfig:
         default_factory=lambda: InstructionFinetuneDatasetSection(
             family=LM_SFT_DATASET,
             config_overrides=LMSFTDatasetConfig(
-                path=Path("/checkpoint/ram/jacklanchantin/data/alpaca/")
+                path=Path("/checkpoint/ram/jacklanchantin/data/alpaca/")  # FIXME
             ),
         )
     )

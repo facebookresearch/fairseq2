@@ -18,7 +18,9 @@ from fairseq2.model import Model
 from fairseq2.recipe.base import RecipeContext, TrainRecipe
 from fairseq2.runtime.dependency import DependencyContainer
 from fairseq2.trainer import Trainer, TrainUnit
+from fairseq2.device import CPU
 
+# from fairseq2.utils.rng import manual_seed
 from .config import LMSFTConfig
 from .dataset import (
     LM_SFT_DATASET,
@@ -51,13 +53,11 @@ class LMSFTRecipe(TrainRecipe):
 
         dataset = context.dataset_as(LMSFTDataset)
 
-        # seed = config.common.seed
+        seed = config.common.seed
 
-        # manual_seed(seed, CPU, gangs.root.device)
+        # manual_seed(seed, CPU, context.gangs.root.device) # FIXME
 
-        # seed += 1
-
-        seed = 1  # FIXME
+        seed += 1
 
         if config.dataset.batch_size is not None:
             batching = StaticBatching(config.dataset.batch_size)
@@ -108,7 +108,10 @@ class LMSFTUnit(TrainUnit[SequenceBatch]):
         seqs, seqs_layout = input_batch.as_input()
 
         nll_loss = self._model.module(
-            seqs, seqs_layout, targets=target_batch.seqs, reduction="mean"
+            seqs,
+            seqs_layout,
+            targets=target_batch.seqs,
+            target_mask=target_batch.target_mask,
         )
 
         update_nll_loss(metric_bag, nll_loss)
