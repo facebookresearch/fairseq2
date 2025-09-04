@@ -11,7 +11,7 @@ from typing import final
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.datasets import Batching, LengthBatching, SequenceBatch, StaticBatching, register_dataset_family
+from fairseq2.datasets import SequenceBatch, register_dataset_family
 from fairseq2.metrics import MetricBag
 from fairseq2.metrics.common import update_nll_loss, update_seq_batch_metrics
 from fairseq2.model import Model
@@ -25,6 +25,8 @@ from .dataset import (
     LMSFTDataset,
     LMSFTDatasetConfig,
     open_sft_dataset,
+    StaticBatching,
+    LengthBatching
 )
 
 
