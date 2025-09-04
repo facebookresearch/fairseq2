@@ -11,7 +11,7 @@ from pathlib import Path
 
 import torch
 import torch.distributed
-
+from typing import Any, Final, cast, final
 from fairseq2.recipe.config import (
     ADAMW_OPTIMIZER,
     COSINE_ANNEALING_LR,
@@ -33,11 +33,13 @@ from fairseq2.recipe.config import (
 
 from .dataset import LM_SFT_DATASET, LMSFTDatasetConfig
 
+GENERIC_INSTRUCTION_DATASET_FAMILY: Final = "generic_instruction"
+
 @dataclass(kw_only=True)
 class InstructionFinetuneDatasetSection(DatasetSection):
-    name: str = "foo"  # TODO: change!
+    # name: str = "foo"  # TODO: change!
 
-    family: str = GENERIC_INSTRUCTION_DATASET_FAMILY
+    # family: str = GENERIC_INSTRUCTION_DATASET_FAMILY
 
     path: Path | None = None
 

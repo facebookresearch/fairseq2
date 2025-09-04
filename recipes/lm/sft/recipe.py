@@ -24,9 +24,10 @@ from .dataset import (
     LM_SFT_DATASET,
     LMSFTDataset,
     LMSFTDatasetConfig,
-    open_sft_dataset,
+    open_lm_sft_dataset,
     StaticBatching,
-    LengthBatching
+    LengthBatching,
+    InstructionReadOptions,
 )
 
 
@@ -39,7 +40,7 @@ class LMSFTRecipe(TrainRecipe):
             LM_SFT_DATASET,
             LMSFTDataset,
             LMSFTDatasetConfig,
-            opener=open_sft_dataset,
+            opener=open_lm_sft_dataset,
         )
 
     @override
@@ -50,7 +51,13 @@ class LMSFTRecipe(TrainRecipe):
 
         dataset = context.dataset_as(LMSFTDataset)
 
-        split = "train" # FIXME: make configurable
+        # seed = config.common.seed
+
+        # manual_seed(seed, CPU, gangs.root.device)
+
+        # seed += 1
+
+        seed = 1  # FIXME
 
         if config.dataset.batch_size is not None:
             batching = StaticBatching(config.dataset.batch_size)
@@ -68,7 +75,7 @@ class LMSFTRecipe(TrainRecipe):
             chat_mode=config.dataset.chat_mode,
             seed=seed,
             extras=config.dataset.extras,
-    )
+        )
 
         data_reader = dataset.create_reader(
             config.dataset.train_split,
@@ -76,9 +83,8 @@ class LMSFTRecipe(TrainRecipe):
             context.gangs,
             min_seq_len=config.dataset.min_seq_len,
             max_seq_len=config.dataset.max_seq_len,
-            read_options=read_options,
+            options=read_options,
         )
-
 
         return context.create_trainer(unit, data_reader)
 

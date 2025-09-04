@@ -10,7 +10,7 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Final, final
+from typing import Any, Final, final, TypeAlias
 
 from torch import Tensor
 
@@ -20,21 +20,37 @@ from fairseq2.data.data_pipeline import (
 )
 from fairseq2.data.text import read_text
 from fairseq2.data.tokenizers import Tokenizer
+
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
     DatasetOpenError,
     SequenceBatch,
     SyncMode,
+    # UnknownSplitError,
 )
-from fairseq2.gang import Gangs
+from fairseq2.data import (
+    create_bucket_sizes,
+    CollateOptionsOverride,
+    Collater,
+    SequenceData,
+)
+from fairseq2.gang import Gangs, Gang
 from fairseq2.nn import BatchLayout
+from typing_extensions import override
+from collections.abc import MutableMapping
+from fairseq2.error import NotSupportedError
+from typing import Any, Final, cast, final
+import torch
+
+# from .utils import CollateOptionsOverride, Collater, SequenceData
 
 # TODO: FIX, INFER
 npc = 10
 
 
 LM_SFT_DATASET: Final = "lm_sft"
+
 
 @dataclass
 class StaticBatching:
@@ -50,6 +66,10 @@ class LengthBatching:
 
     max_num_elements: int
     """The maximum number of elements (e.g. tokens) in each batch."""
+
+
+Batching: TypeAlias = StaticBatching | LengthBatching
+
 
 @dataclass(kw_only=True)
 class DataReadOptions:
@@ -100,7 +120,7 @@ class DataReadOptions:
     gradient accumulation during training.
     """
 
-    num_prefetch: int = 1
+    prefetch: int = 1
     """The number of batches to prefetch in background."""
 
     npc: int = 10
@@ -111,6 +131,7 @@ class DataReadOptions:
 
     extras: MutableMapping[str, object] = field(default_factory=dict)
     """The reader-specific extra options."""
+
 
 @dataclass(kw_only=True)
 class InstructionReadOptions(DataReadOptions):
@@ -128,20 +149,41 @@ class InstructionReadOptions(DataReadOptions):
 
     chat_mode: bool = False
 
+
 @final
 class LMSFTDataset:
     _name: str
-    _files: Sequence[Path]
+    _splits: dict[str, tuple[Sequence[Path], Sequence[float]]]
+    # _files: Sequence[Path]
 
-    def __init__(self, name: str, files: Sequence[Path]) -> None:
+    # def __init__(self, name: str, files: Sequence[Path]) -> None:
+    #     self._name = name
+    #     self._files = files
+
+    def __init__(
+        self, name: str, splits: dict[str, tuple[Sequence[Path], Sequence[float]]]
+    ) -> None:
+        """
+        :param files:
+            The instruction files.
+        :param weights:
+            The weight of each file in ``files``.
+        """
         self._name = name
-        self._files = files
+
+        for split, (files, weights) in splits.items():
+            if len(files) != len(weights):
+                raise ValueError(
+                    f"The lengths of the file and weight lists of the '{split}' split must match, but they are {len(files)} and {len(weights)} instead."
+                )
+
+        self._splits = splits
 
     @override
     def create_reader(
         self,
         split: str,
-        tokenizer: TextTokenizer,
+        tokenizer: Tokenizer,
         gang: Gang,
         min_seq_len: int,
         max_seq_len: int,
@@ -149,7 +191,9 @@ class LMSFTDataset:
     ) -> DataPipelineReader[SequenceBatch]:
         files_weights = self._splits.get(split)
         if files_weights is None:
-            raise UnknownSplitError(self._name, split, self._splits.keys())
+            # raise UnknownSplitError(self._name, split, self._splits.keys())
+            # raise generic error for now
+            raise ValueError(f"files_weights for split '{split}' is None")
 
         if options is None:
             options = InstructionReadOptions()
@@ -187,6 +231,8 @@ class LMSFTDataset:
         seed += gang.rank
 
         if options.chat_mode is True:
+            from fairseq2.data.text.tokenizers.hg import HuggingFaceTokenEncoder
+
             # not passing any encoding modes here, because we use apply_chat_template here
             encoder = tokenizer.create_encoder()
             if not isinstance(encoder, HuggingFaceTokenEncoder):
