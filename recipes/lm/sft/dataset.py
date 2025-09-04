@@ -45,22 +45,13 @@ import torch
 
 from fairseq2.datasets._utils import _load_files_and_weights
 
-from .utils import LengthBatching, StaticBatching, Batching
+from .utils import LengthBatching, StaticBatching, Batching, DatasetLoadError
 
 # TODO: FIX, INFER
 npc = 10
 
 
 LM_SFT_DATASET: Final = "lm_sft"
-
-
-class DatasetLoadError(Exception):
-    dataset_name: str
-
-    def __init__(self, dataset_name: str, message: str) -> None:
-        super().__init__(message)
-
-        self.dataset_name = dataset_name
 
 
 @dataclass(kw_only=True)
@@ -146,11 +137,6 @@ class InstructionReadOptions(DataReadOptions):
 class LMSFTDataset:
     _name: str
     _splits: dict[str, tuple[Sequence[Path], Sequence[float]]]
-    # _files: Sequence[Path]
-
-    # def __init__(self, name: str, files: Sequence[Path]) -> None:
-    #     self._name = name
-    #     self._files = files
 
     def __init__(
         self, name: str, splits: dict[str, tuple[Sequence[Path], Sequence[float]]]

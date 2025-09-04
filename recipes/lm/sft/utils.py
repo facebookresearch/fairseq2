@@ -3,6 +3,15 @@ from collections.abc import Set
 from typing import Any, Final, final, TypeAlias
 
 
+class DatasetLoadError(Exception):
+    dataset_name: str
+
+    def __init__(self, dataset_name: str, message: str) -> None:
+        super().__init__(message)
+
+        self.dataset_name = dataset_name
+
+
 class UnknownSplitError(ValueError):
     dataset_name: str
     split: str
