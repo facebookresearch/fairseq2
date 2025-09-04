@@ -160,32 +160,3 @@ class LMSFTConfig:
             ),
         )
     )
-
-    # dataset: LMSFTDatasetSection = field(
-    #     default_factory=lambda: LMSFTDatasetSection(
-    #         family=LM_SFT_DATASET,
-    #         config_overrides=LMSFTDatasetConfig(
-    #             path=Path(
-    #                 "/checkpoint/ram/jacklanchantin/data/alpaca/"
-    #             )
-    #         ),
-    #     )
-    # )
-
-    # dataset: InstructionFinetuneDatasetSection = field(
-    #     default_factory=lambda: InstructionFinetuneDatasetSection()
-    # )
-
-
-# @dataclass(kw_only=True)
-# class LMSFTDatasetSection(DatasetSection):
-#     max_seq_len: int = 8192
-#     """The maximum sequence length."""
-
-#     max_num_tokens: int = 8192 * 2
-#     """The maximum number of tokens per batch."""
-
-#     prefetch: int = 4
-#     """The number of batches to prefetch in background."""
-
-#     sync_ranks: bool = False

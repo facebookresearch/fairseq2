@@ -27,7 +27,6 @@ from fairseq2.datasets import (
     DatasetOpenError,
     SequenceBatch,
     SyncMode,
-    # UnknownSplitError,
 )
 from fairseq2.data import (
     create_bucket_sizes,
@@ -46,32 +45,13 @@ import torch
 
 from fairseq2.datasets._utils import _load_files_and_weights
 
-# from .utils import CollateOptionsOverride, Collater, SequenceData
+from .utils import LengthBatching, StaticBatching, Batching
 
 # TODO: FIX, INFER
 npc = 10
 
 
 LM_SFT_DATASET: Final = "lm_sft"
-
-
-@dataclass
-class StaticBatching:
-    """Specifies batching where each batch has the same number of examples."""
-
-    batch_size: int
-    """The number of examples in each batch."""
-
-
-@dataclass
-class LengthBatching:
-    """Specifies batching where each batch has a maximum number of elements."""
-
-    max_num_elements: int
-    """The maximum number of elements (e.g. tokens) in each batch."""
-
-
-Batching: TypeAlias = StaticBatching | LengthBatching
 
 
 class DatasetLoadError(Exception):
@@ -387,22 +367,6 @@ class LMSFTDatasetConfig:
 
 
 def open_lm_sft_dataset(name: str, config: LMSFTDatasetConfig) -> LMSFTDataset:
-    # path = config.path
-
-    # path = path.expanduser().resolve()
-
-    # if not path.is_dir():
-    #     files = [path]
-    # else:
-    #     try:
-    #         files = [f for f in path.glob("**/*.chunk.*.jsonl") if not f.is_dir()]
-    #     except OSError as ex:
-    #         raise DatasetOpenError(
-    #             name, f"The text files under the '{path}' directory of the '{name}' dataset cannot be retrieved. See the nested exception for details."  # fmt: skip
-    #         ) from ex
-
-    #     files.sort()
-
     path = config.path
     splits: dict[str, tuple[Sequence[Path], Sequence[float]]] = {}
 
