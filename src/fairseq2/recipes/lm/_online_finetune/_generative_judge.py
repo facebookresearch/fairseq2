@@ -213,15 +213,18 @@ from fairseq2.logging import log
 
 class JudgmentExtractorHandler(ABC):
     @abstractmethod
-    def create(self, tokenizer): ...
+    def create(self, tokenizer):
+        ...
 
     @property
     @abstractmethod
-    def name(self) -> str: ...
+    def name(self) -> str:
+        ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]: ...
+    def config_kls(self) -> type[object]:
+        ...
 
 
 """
@@ -240,10 +243,12 @@ class JudgmentExtractor(ABC):
     """
 
     @abstractmethod
-    def prompt(self) -> str: ...
+    def prompt(self) -> str:
+        ...
 
     @abstractmethod
-    def format_prompt(self, prompt_text, **kwargs: Any) -> str: ...
+    def format_prompt(self, prompt_text, **kwargs: Any) -> str:
+        ...
 
     """
     Format the prompt text and additional arguments into a string suitable for input to the reward model.
@@ -256,7 +261,8 @@ class JudgmentExtractor(ABC):
     """
 
     @abstractmethod
-    def extract(self, generation) -> float | str: ...
+    def extract(self, generation) -> float | str:
+        ...
 
     """
     Extract the final scalar reward score from the model's response.
@@ -275,7 +281,8 @@ class JudgmentExtractor(ABC):
     """
 
     @abstractmethod
-    def aggregate(self, judgments) -> float | str: ...
+    def aggregate(self, judgments) -> float | str:
+        ...
 
     """
     Aggregate multiple responses (judgments) from the reward model into a single value.

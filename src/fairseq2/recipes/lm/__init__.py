@@ -94,6 +94,9 @@ from fairseq2.recipes.lm._online_finetune._remote_model import (
     NoEnvAceMathRMPipeline as NoEnvAceMathRMPipeline,
 )
 from fairseq2.recipes.lm._online_finetune._remote_model import (
+    NoEnvSkyworkRMPipeline as NoEnvSkyworkRMPipeline,
+)
+from fairseq2.recipes.lm._online_finetune._remote_model import (
     RemoteModelHandler as RemoteModelHandler,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (

@@ -4,9 +4,9 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from fairseq2.logging import log
 
 
-class AceMathRMPipeline:
+class SkyworkRMPipeline:
     def __init__(self, *args, **kwargs):
-        model_path = "/datasets/pretrained-llms/AceMath-7B-RM"
+        model_path = "/datasets/pretrained-llms/Skywork-Reward-V2-Llama-3.1-8B"
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_path, trust_remote_code=True
         )
@@ -25,9 +25,6 @@ class AceMathRMPipeline:
         ).to(self.model.device)
 
         outputs = self.model(**inputs)[0]
-        log.info(f"outputs = {outputs}")
         rewards = [output[0] for output in outputs]
-
-        log.info(f"Length of rewards = {len(rewards)}")
 
         return rewards

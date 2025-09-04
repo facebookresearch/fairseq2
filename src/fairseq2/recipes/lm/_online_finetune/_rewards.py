@@ -57,23 +57,28 @@ class VLLMOutputRewardHandler(ABC):
     @abstractmethod
     def create(
         self, reward_model: Any, gangs: Gangs, reward_config: object
-    ) -> VLLMOutputReward: ...
+    ) -> VLLMOutputReward:
+        ...
 
     @property
     @abstractmethod
-    def name(self) -> str: ...
+    def name(self) -> str:
+        ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]: ...
+    def config_kls(self) -> type[object]:
+        ...
 
 
 class VLLMOutputReward(ABC):
     @abstractmethod
-    def process_rollouts(self, vllm_outputs: list[RequestOutput]): ...
+    def process_rollouts(self, vllm_outputs: list[RequestOutput]):
+        ...
 
     @abstractmethod
-    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts): ...
+    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts):
+        ...
 
 
 class GSM8kVerifierHandler(VLLMOutputRewardHandler):
@@ -461,7 +466,8 @@ class SkyworkVerifier(VLLMOutputReward):
         )
 
         return batch, is_bad_batch, reward_output
-    
+
+
 class AceMathVerifierHandler(VLLMOutputRewardHandler):
     def __init__(self):
         pass
@@ -492,7 +498,8 @@ class AceMathVerifierHandler(VLLMOutputRewardHandler):
     @override
     def config_kls(self):
         return None
-    
+
+
 class AceMathVerifier(VLLMOutputReward):
     def __init__(
         self,
@@ -514,11 +521,16 @@ class AceMathVerifier(VLLMOutputReward):
 
     def wrap_text(self, prompt_text, rollout_text):
         wrapped_text = [
-            {"role": "system", "content": "Please reason step by step, and check your final answer within \\boxed{}."},
+            {
+                "role": "system",
+                "content": "Please reason step by step, and check your final answer within \\boxed{}.",
+            },
             {"role": "user", "content": prompt_text},
-            {"role": "assistant", "content": rollout_text}
+            {"role": "assistant", "content": rollout_text},
         ]
-        chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False, add_generation_prompt=False)
+        chat_str = self.tokenizer.apply_chat_template(
+            wrapped_text, tokenize=False, add_generation_prompt=False
+        )
         if self.tokenizer.bos_token is not None and chat_str.startswith(
             self.tokenizer.bos_token
         ):
@@ -557,7 +569,7 @@ class AceMathVerifier(VLLMOutputReward):
         batch_rewards = generate_rewards(
             vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.reward_model
         )
-        
+
         log.info(f"Batch rewards = {batch_rewards}")
 
         # reshape batch_rewards to [Batch, Rollouts]
