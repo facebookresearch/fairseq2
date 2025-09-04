@@ -10,7 +10,6 @@ from collections.abc import Iterable, Sequence
 from typing import Final, final
 
 import torch
-from sacrebleu import corpus_bleu
 from sacrebleu.metrics.bleu import BLEU, MAX_NGRAM_ORDER
 from torch import Tensor
 from torcheval.metrics import Metric
@@ -37,7 +36,7 @@ class BleuMetric(Metric[Tensor]):
                 f"`tokenizer` must be a supported tokenizer available in the sacrebleu package, but is {tokenizer} instead."
             )
 
-        self.tokenizer = tokenizer
+        self._bleu = BLEU(tokenize=tokenizer)
 
         dtype = torch.int64
 
@@ -66,7 +65,7 @@ class BleuMetric(Metric[Tensor]):
         :param refs: The references.
         :param hyps: The hypotheses.
         """
-        bleu = corpus_bleu(hyps, [refs], tokenize=self.tokenizer)
+        bleu = self._bleu.corpus_score(hyps, [refs])
 
         self.sys_len += bleu.sys_len
         self.ref_len += bleu.ref_len
