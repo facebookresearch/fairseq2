@@ -31,11 +31,61 @@ from fairseq2.recipe.config import (
     TrainerSection,
 )
 
-from .dataset import LM_TRAIN_DATASET, LMTrainDatasetConfig
-
+from .dataset import LM_SFT_DATASET, LMSFTDatasetConfig
 
 @dataclass(kw_only=True)
-class LMTrainConfig:
+class InstructionFinetuneDatasetSection(DatasetSection):
+    name: str = "foo"  # TODO: change!
+
+    family: str = GENERIC_INSTRUCTION_DATASET_FAMILY
+
+    path: Path | None = None
+
+    train_split: str = "train"  # DEFAULT
+
+    valid_split: str | None = None
+
+    source_encode_mode: str = "prompt"
+    """The encode mode for the prompt, determines what special tokens to add."""
+
+    target_encode_mode: str = "prompt_response"
+    """The encode mode for the target, determines what special tokens to add."""
+
+    chat_mode: bool = False
+    """If True, dataset jsonl must have 'chat' field with openai-like messages List[Dict] entries"""
+
+    min_seq_len: int = 1
+    """The minimum sequence length."""
+
+    max_seq_len: int = 8192
+    """The maximum sequence length."""
+
+    max_num_tokens: int = 8192 * 2
+    """The maximum number of tokens per batch."""
+
+    batch_size: int | None = None
+    """
+    If not ``None``, ignores ``max_num_tokens`` and each batch will have
+    ``batch_size`` examples.
+    """
+
+    max_num_valid_tokens: int | None = None
+    """The maximum number of tokens per validation batch."""
+
+    example_shuffle_window: int = 10_000
+    """The size of the sliding window for shuffling examples."""
+
+    batch_shuffle_window: int = 1000
+    """The size of the sliding window for shuffling batches."""
+
+    prefetch: int = 4
+    """The number of batches to prefetch in background."""
+
+    extras: dict[str, object] = field(default_factory=dict)
+    """The dataset-specific extra options."""
+
+@dataclass(kw_only=True)
+class LMSFTConfig:
     model: ModelSection = field(
         default_factory=lambda: ModelSection(
             family="llama",
@@ -45,16 +95,6 @@ class LMTrainConfig:
         )
     )
 
-    dataset: LMTrainDatasetSection = field(
-        default_factory=lambda: LMTrainDatasetSection(
-            family=LM_TRAIN_DATASET,
-            config_overrides=LMTrainDatasetConfig(
-                path=Path(
-                    "/checkpoint/seamless_fs2/shared/datasets/shuffled/dclm_baseline_1.0"
-                )
-            ),
-        )
-    )
 
     tokenizer: TokenizerSection = field(
         default_factory=lambda: TokenizerSection(name="llama3_2_1b")
@@ -109,16 +149,42 @@ class LMTrainConfig:
         )
     )
 
+    dataset: InstructionFinetuneDatasetSection = field(
+        default_factory=lambda: InstructionFinetuneDatasetSection(
+            family=LM_SFT_DATASET,
+            config_overrides=LMSFTDatasetConfig(
+                path=Path(
+                    "/checkpoint/ram/jacklanchantin/data/alpaca/"
+                )
+            ),
+        )
+    )
 
-@dataclass(kw_only=True)
-class LMTrainDatasetSection(DatasetSection):
-    max_seq_len: int = 8192
-    """The maximum sequence length."""
+    # dataset: LMSFTDatasetSection = field(
+    #     default_factory=lambda: LMSFTDatasetSection(
+    #         family=LM_SFT_DATASET,
+    #         config_overrides=LMSFTDatasetConfig(
+    #             path=Path(
+    #                 "/checkpoint/ram/jacklanchantin/data/alpaca/"
+    #             )
+    #         ),
+    #     )
+    # )
 
-    max_num_tokens: int = 8192 * 2
-    """The maximum number of tokens per batch."""
+    # dataset: InstructionFinetuneDatasetSection = field(
+    #     default_factory=lambda: InstructionFinetuneDatasetSection()
+    # )
 
-    prefetch: int = 4
-    """The number of batches to prefetch in background."""
 
-    sync_ranks: bool = False
+# @dataclass(kw_only=True)
+# class LMSFTDatasetSection(DatasetSection):
+#     max_seq_len: int = 8192
+#     """The maximum sequence length."""
+
+#     max_num_tokens: int = 8192 * 2
+#     """The maximum number of tokens per batch."""
+
+#     prefetch: int = 4
+#     """The number of batches to prefetch in background."""
+
+#     sync_ranks: bool = False

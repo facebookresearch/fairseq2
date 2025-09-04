@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from fairseq2.recipe.cli import train_main
 
-from .recipe import LMTrainRecipe
+from .recipe import LMSFTRecipe
 
-recipe = LMTrainRecipe()
+recipe = LMSFTRecipe()
 
 train_main(recipe)

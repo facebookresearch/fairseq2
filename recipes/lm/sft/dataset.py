@@ -34,11 +34,26 @@ from fairseq2.nn import BatchLayout
 npc = 10
 
 
-LM_TRAIN_DATASET: Final = "lm_train"
+LM_SFT_DATASET: Final = "lm_sft"
 
+@dataclass(kw_only=True)
+class InstructionReadOptions(DataReadOptions):
+    sample: bool = False
+    """
+    If ``True``, instruction sources (e.g. JSONL files) will be sampled in
+    proportion to their weights.
+    """
+
+    source_encode_mode: str = "prompt"
+    """The tokenizer mode to encode the source text."""
+
+    target_encode_mode: str = "prompt_response"
+    """The tokenizer mode to encode the target text."""
+
+    chat_mode: bool = False
 
 @final
-class LMTrainDataset:
+class LMSFTDataset:
     _name: str
     _files: Sequence[Path]
 
@@ -46,77 +61,181 @@ class LMTrainDataset:
         self._name = name
         self._files = files
 
+    @override
     def create_reader(
         self,
-        tokenizer: Tokenizer,
-        gangs: Gangs,
-        *,
+        split: str,
+        tokenizer: TextTokenizer,
+        gang: Gang,
+        min_seq_len: int,
         max_seq_len: int,
-        max_num_tokens: int,
-        num_accumulate: int = 1,
-        prefetch: int = 1,
-        sync_ranks: bool = True,
-    ) -> DataReader[SequenceBatch]:
-        file_rank = gangs.dp.rank
+        options: InstructionReadOptions | None = None,
+    ) -> DataPipelineReader[SequenceBatch]:
+        files_weights = self._splits.get(split)
+        if files_weights is None:
+            raise UnknownSplitError(self._name, split, self._splits.keys())
 
-        file_world_size = gangs.dp.size
+        if options is None:
+            options = InstructionReadOptions()
 
-        if len(self._files) < file_world_size:
-            raise ValueError(
-                "The number of dataset files must be greater than or equal to the number of world size."
+        seed = options.seed
+
+        files, weights = files_weights
+
+        if len(files) == 1:
+            builder = self._read_jsonl(files[0], tokenizer)
+        else:
+            pipelines = []
+
+            for file in files:
+                pipeline = self._read_jsonl(file, tokenizer).and_return()
+
+                pipelines.append(pipeline)
+
+            if options.sample:
+                builder = DataPipeline.sample(pipelines, weights=weights, seed=seed)
+
+                seed += 1
+            else:
+                builder = DataPipeline.concat(pipelines)
+
+        # Shuffle files. Must be consistent across all processes.
+        if options.example_shuffle_window != 1:
+            builder.shuffle(options.example_shuffle_window, seed=seed)
+
+        seed += 1
+
+        # Shard.
+        builder.shard(gang.rank, gang.size, allow_uneven=True)
+
+        seed += gang.rank
+
+        if options.chat_mode is True:
+            # not passing any encoding modes here, because we use apply_chat_template here
+            encoder = tokenizer.create_encoder()
+            if not isinstance(encoder, HuggingFaceTokenEncoder):
+                raise RuntimeError(
+                    "Huggingface tokenizer must be used when chat_mode is True"
+                )
+            else:
+
+                def encoding_chat(example: dict[str, Any]) -> dict[str, Any]:
+                    id_ = example.get("id")
+                    chat = example.get("chat")
+
+                    encoded_output = encoder.apply_chat_template(
+                        chat,
+                        return_dict=True,
+                        return_assistant_tokens_mask=True,
+                        return_tensors="pt",
+                    )
+
+                    indices = encoded_output["input_ids"][0]
+                    target_mask = encoded_output["assistant_masks"][0].bool()
+
+                    return {"id": id_, "indices": indices, "target_mask": target_mask}
+
+                builder.map(encoding_chat)
+
+        else:
+
+            # Encode source and target texts.
+            source_encoder = tokenizer.create_encoder(mode=options.source_encode_mode)
+            target_encoder = tokenizer.create_encoder(mode=options.target_encode_mode)
+
+            builder.map(source_encoder, selector="src")
+            builder.map(target_encoder, selector="tgt")
+
+            def cat_source_and_target(example: dict[str, Any]) -> dict[str, Any]:
+                id_ = example.get("id")
+
+                source_indices = example["src"]
+                target_indices = example["tgt"]
+
+                indices = torch.cat([source_indices, target_indices])
+
+                target_mask = torch.arange(len(indices)) >= len(source_indices)
+
+                return {"id": id_, "indices": indices, "target_mask": target_mask}
+
+            builder.map(cat_source_and_target)
+
+        batching = options.batching
+
+        if isinstance(batching, LengthBatching):
+            bucket_sizes = create_bucket_sizes(
+                min_seq_len=min_seq_len,
+                max_seq_len=max_seq_len,
+                max_num_elements=batching.max_num_elements,
             )
 
-        builder = read_sequence(self._files)
+            # Bucket by the sequence length.
+            builder.bucket_by_length(
+                bucket_sizes,
+                selector="indices",
+                min_data_len=min_seq_len,
+                skip_above_max_examples=True,
+                drop_remainder=options.drop_remainder,
+            )
+        elif isinstance(batching, StaticBatching):
+            # Filter out long examples.
+            def skip(example: dict[str, Any]) -> bool:
+                seq_len = len(example["indices"])
 
-        if file_world_size > 1:
-            builder.shard(file_rank, file_world_size, allow_uneven=True)
+                return seq_len >= min_seq_len and seq_len <= max_seq_len
 
-        def read_file(file: Path) -> DataPipeline:
-            return read_text(file).map(json.loads, num_parallel_calls=1).and_return()
+            builder.filter(skip)
 
-        builder.yield_from(read_file)
+            # Bucket `batch_size` examples.
+            builder.bucket(batching.batch_size, drop_remainder=options.drop_remainder)
+        else:
+            raise NotSupportedError(f"`{batching}` is not supported.")
 
-        text_encoder = tokenizer.create_encoder(mode="default")
+        # Shuffle buckets.
+        if options.batch_shuffle_window != 1:
+            builder.shuffle(options.batch_shuffle_window, seed=seed)
 
-        # Tokenize.
-        def encode(example: dict[str, Any]) -> Tensor:
-            return text_encoder(example["text"])
+        seed += 1
 
-        builder.map(encode, num_parallel_calls=1)
+        # Collate bucketed examples into a batch.
+        target_mask_collate_opts = CollateOptionsOverride(
+            "target_mask", pad_value=False
+        )
 
-        # Pack
-        builder.pack(max_num_tokens + 1, max_seq_len, truncate=True, pinned_memory=True)
+        collater = Collater(
+            pad_value=tokenizer.vocab_info.pad_idx, overrides=[target_mask_collate_opts]
+        )
 
-        BatchLayout.compiled_max_seq_len = max_seq_len
+        builder.map(collater, num_parallel_calls=options.npc)
 
-        # Prefetch batches in background.
-        builder.prefetch(prefetch)
+        # Return only the first `max_num_batches`.
+        if options.max_num_batches is not None:
+            builder.take(options.max_num_batches)
 
-        # Convert to `SequenceBatch`.
+        # Prefetch `prefetch` batches in background.
+        builder.prefetch(options.prefetch)
+
+        # Wrap examples with `SequenceBatch`.
         def to_batch(example: dict[str, Any]) -> SequenceBatch:
-            seqs, seq_lens = example["seqs"], example["seq_lens"]
+            indices = cast(SequenceData, example["indices"])
 
-            return SequenceBatch(seqs, seq_lens, packed=True)
+            seqs, seq_lens = indices["seqs"], indices["seq_lens"]
+
+            return SequenceBatch(seqs, seq_lens, example=example)
 
         pipeline = builder.map(to_batch).and_return()
 
         return DataPipelineReader[SequenceBatch](
-            self._name,
-            "default",
-            pipeline,
-            gangs,
-            num_accumulate=num_accumulate,
-            sync=sync_ranks,
-            sync_mode=SyncMode.UNTIL_FIRST,
+            self._name, split, pipeline, gang, options
         )
 
 
 @dataclass
-class LMTrainDatasetConfig:
+class LMSFTDatasetConfig:
     path: Path = field(default_factory=Path)
 
 
-def open_lm_train_dataset(name: str, config: LMTrainDatasetConfig) -> LMTrainDataset:
+def open_lm_sft_dataset(name: str, config: LMSFTDatasetConfig) -> LMSFTDataset:
     path = config.path
 
     path = path.expanduser().resolve()
@@ -133,4 +252,4 @@ def open_lm_train_dataset(name: str, config: LMTrainDatasetConfig) -> LMTrainDat
 
         files.sort()
 
-    return LMTrainDataset(name, files)
+    return LMSFTDataset(name, files)
