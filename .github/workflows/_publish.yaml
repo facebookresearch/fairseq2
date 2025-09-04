@@ -106,7 +106,7 @@ jobs:
       matrix:
         torch: ['2.8.0']
         py: ['3.10', '3.11', '3.12']
-        variant: ['cu126', 'cu128']
+        variant: ['cu128']
       max-parallel: 1
     with:
       os: 'linux'
