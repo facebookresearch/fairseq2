@@ -86,7 +86,7 @@ def compute_row_mask(
         # We only mask rows that are longer than the mask span length.
         if span_len >= max_row_len:
             raise ValueError(
-                f"The size of the second dimension of `shape` must be greater than `span_len` ({span_len}), but is {max_row_len} instead."
+                f"Size of the second dimension of `shape` must be greater than `span_len` ({span_len}), but is {max_row_len} instead."
             )
 
         # (N)

@@ -20,11 +20,6 @@ from fairseq2.error import InvalidOperationError
 class Stopwatch:
     """Measures elapsed execution time."""
 
-    _is_running: bool
-    _accumulated_duration: float
-    _start_time: float
-    _device: Device
-
     def __init__(self, *, device: Device | None = None) -> None:
         """
         :param device: If not ``None``, waits for all operations on ``device``
@@ -41,14 +36,14 @@ class Stopwatch:
         if device is not None:
             if device.type != "cpu" and device.type != "cuda":
                 raise ValueError(
-                    f"The type of `device` must be `cpu` or `cuda`, but is `{device.type}` instead."
+                    f"Type of `device` must be `cpu` or `cuda`, but is `{device.type}` instead."
                 )
 
         self._device = device or CPU
 
     def start(self) -> None:
         if self._is_running:
-            raise InvalidOperationError("The stopwatch is already running.")
+            raise InvalidOperationError("Stopwatch is already running.")
 
         self._start_time = perf_counter()
 

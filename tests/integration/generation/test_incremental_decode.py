@@ -8,8 +8,7 @@ from typing import Final
 
 import torch
 
-from fairseq2.data.text.tokenizers import get_text_tokenizer_hub
-from fairseq2.models.transformer import get_transformer_model_hub
+from fairseq2.models.nllb import get_nllb_model_hub, get_nllb_tokenizer_hub
 from fairseq2.nn import BatchLayout, IncrementalStateBag
 from fairseq2.nn.utils.padding import pad_seqs
 from tests.common import assert_close, device
@@ -23,15 +22,13 @@ EN_SENTENCE: Final = "Lion prides act much like packs of wolves or dogs, animals
 def test_incremental_decoding_works() -> None:
     model_name = "nllb-200_dense_distill_600m"
 
-    model_hub = get_transformer_model_hub()
-
-    model = model_hub.load(model_name, device=device, dtype=torch.float32)
+    model = get_nllb_model_hub().load_model(
+        model_name, device=device, dtype=torch.float32
+    )
 
     model.eval()
 
-    tokenizer_hub = get_text_tokenizer_hub()
-
-    tokenizer = tokenizer_hub.load(model_name)
+    tokenizer = get_nllb_tokenizer_hub().load_tokenizer(model_name)
 
     # Set up encoder and decoder inputs.
     source_token_encoder = tokenizer.create_encoder(
