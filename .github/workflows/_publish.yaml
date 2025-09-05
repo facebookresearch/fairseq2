@@ -106,6 +106,9 @@ jobs:
       matrix:
         torch: ['2.8.0']
         py: ['3.10', '3.11', '3.12']
+        # Only the variant that corresponds to the PyPI PyTorch package must be
+        # included here. NEVER specify more than one variant as that will cause
+        # a broken release that can't be rolled back.
         variant: ['cu128']
       max-parallel: 1
     with:
