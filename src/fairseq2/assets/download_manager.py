@@ -632,12 +632,21 @@ class _AssetDownloadOp:
 
             fp.close()
 
-            try:
-                filename = Path(urlparse(response.geturl()).path).name
+            filename = None
 
-                filename = unquote(filename)
-            except ValueError:
-                filename = "asset"
+            content_disposition = response.headers.get("Content-Disposition")
+            if content_disposition is not None:
+                match = re.search(r"filename=\"?([^\"\n]+)\"?", content_disposition)
+                if match:
+                    filename = match.group(1)
+
+            if filename is None:
+                try:
+                    filename = Path(urlparse(response.geturl()).path).name
+
+                    filename = unquote(filename)
+                except ValueError:
+                    filename = "asset"
 
             asset_file = tmp_dir.joinpath(filename)
 
