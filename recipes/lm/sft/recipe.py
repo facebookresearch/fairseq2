@@ -24,7 +24,7 @@ from fairseq2.recipe.base import RecipeContext, TrainRecipe
 from fairseq2.runtime.dependency import DependencyContainer
 from fairseq2.recipe.trainer import Trainer, TrainUnit
 
-from .config import LMSFTConfig
+from .default_config import LMSFTConfig
 from .dataset import (
     LM_SFT_DATASET,
     LMSFTDataset,
