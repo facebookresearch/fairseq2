@@ -62,6 +62,7 @@ setup(
         "ruamel.yaml~=0.18",
         "rich~=13.7",
         "sacrebleu~=2.4",
+        "safetensors~=0.6",
         "tiktoken~=0.7",
         "torcheval~=0.0.6",
         "tqdm~=4.62",
