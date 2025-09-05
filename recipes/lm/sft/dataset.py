@@ -337,16 +337,6 @@ class LMSFTDataset:
 
         pipeline = builder.map(to_batch).and_return()
 
-        # return DataPipelineReader[SequenceBatch](
-        #     self._name,
-        #     split,
-        #     pipeline,
-        #     gangs,
-        #     num_accumulate=options.num_accumulate,
-        #     drop_remainder=options.drop_remainder,
-        #     sync=options.sync_batches,
-        #     sync_mode=options.sync_mode,
-        # )
         return DataPipelineReader[SequenceBatch](
             pipeline,
             gangs,
