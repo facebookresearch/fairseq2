@@ -12,3 +12,38 @@ other content generation tasks.
 .. note::
 
     Our documentation is being updated and will be online soon.
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Latest News
+
+   whats_new_v0_5
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Basics
+
+   basics/design_philosophy
+   basics/building_recipes
+
+.. toctree::
+   :maxdepth: 1
+   :caption: FAQ
+
+   faq/contributing
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Reference
+
+   reference/api/index
+   reference/bibliography
+
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
