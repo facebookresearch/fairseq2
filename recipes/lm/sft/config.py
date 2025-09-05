@@ -17,20 +17,19 @@ from fairseq2.recipe.config import (
     COSINE_ANNEALING_LR,
     AdamWConfig,
     CommonSection,
-    CompileOptionsSection,
+    CompileOptions,
     CosineAnnealingLRConfig,
     DatasetSection,
-    FSDPSection,
     GangSection,
     LRSchedulerSection,
     ModelSection,
     OptimizerSection,
     RegimeSection,
     TokenizerSection,
-    TorchSection,
+    TorchConfig,
     TrainerSection,
 )
-
+from fairseq2.models.llama.tokenizer import LLaMATokenizerConfig as LLaMATokenizerConfig
 from .dataset import LM_SFT_DATASET, LMSFTDatasetConfig
 
 GENERIC_INSTRUCTION_DATASET_FAMILY: Final = "generic_instruction"
@@ -94,24 +93,25 @@ class LMSFTConfig:
         default_factory=lambda: ModelSection(
             family="llama",
             arch="llama3_2_1b",
+            path="/datasets/pretrained-llms/Llama-3.2-1B/",
             compile=False,
-            compile_options=CompileOptionsSection(fullgraph=True, dynamic=False),
+            compile_options=CompileOptions(fullgraph=True, dynamic=False),
         )
     )
 
     tokenizer: TokenizerSection = field(
-        default_factory=lambda: TokenizerSection(name="llama3_2_1b")
+        default_factory=lambda: TokenizerSection(
+            family="llama",
+            path="/datasets/pretrained-llms/Llama-3.2-1B/original/tokenizer.model",
+            config_overrides=LLaMATokenizerConfig(impl="tiktoken"),
+        )
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
 
     trainer: TrainerSection = field(
         default_factory=lambda: TrainerSection(
-            dtype=torch.bfloat16,
-            data_parallelism="fsdp",
-            fsdp=FSDPSection(version="v2", fp32_reduce=True),
-            max_grad_norm=1.0,
-            gc_every_n_steps=1000,
+            data_parallelism="fsdp", max_grad_norm=1.0
         )
     )
 
@@ -146,7 +146,7 @@ class LMSFTConfig:
 
     common: CommonSection = field(
         default_factory=lambda: CommonSection(
-            torch=TorchSection(
+            torch=TorchConfig(
                 default_sdpa="torch", compiled_region_activation_memory_budget=0.9
             )
         )

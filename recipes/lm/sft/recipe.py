@@ -10,14 +10,19 @@ from typing import final
 
 from torch import Tensor
 from typing_extensions import override
-
-from fairseq2.datasets import SequenceBatch, register_dataset_family
+from fairseq2.composition import register_dataset_family
+from fairseq2.datasets import SequenceBatch
 from fairseq2.metrics import MetricBag
-from fairseq2.metrics.common import update_nll_loss, update_seq_batch_metrics
-from fairseq2.model import Model
+from fairseq2.metrics.common import (
+    add_nll_loss_metric,
+    add_seq_batch_metrics,
+    update_nll_loss_metric,
+    update_seq_batch_metrics,
+)
+from fairseq2.recipe.model import RecipeModel
 from fairseq2.recipe.base import RecipeContext, TrainRecipe
 from fairseq2.runtime.dependency import DependencyContainer
-from fairseq2.trainer import Trainer, TrainUnit
+from fairseq2.recipe.trainer import Trainer, TrainUnit
 
 from .config import LMSFTConfig
 from .dataset import (
@@ -45,11 +50,11 @@ class LMSFTRecipe(TrainRecipe):
 
     @override
     def create_trainer(self, context: RecipeContext) -> Trainer:
-        config = context.config_as(LMSFTConfig)
+        config = context.config.as_(LMSFTConfig)
 
         unit = LMSFTUnit(context.model)
 
-        dataset = context.dataset_as(LMSFTDataset)
+        dataset = context.default_dataset.as_(LMSFTDataset)
 
         # seed = config.common.seed
 
@@ -79,7 +84,7 @@ class LMSFTRecipe(TrainRecipe):
 
         data_reader = dataset.create_reader(
             config.dataset.train_split,
-            context.tokenizer,
+            context.default_tokenizer,
             context.gangs,
             min_seq_len=config.dataset.min_seq_len,
             max_seq_len=config.dataset.max_seq_len,
@@ -96,11 +101,16 @@ class LMSFTRecipe(TrainRecipe):
 
 @final
 class LMSFTUnit(TrainUnit[SequenceBatch]):
-    def __init__(self, model: Model) -> None:
+    def __init__(self, model: RecipeModel) -> None:
         self._model = model
 
     @override
-    def __call__(
+    def prepare_metric_bag(self, metric_bag: MetricBag) -> None:
+        add_nll_loss_metric(metric_bag)
+        add_seq_batch_metrics(metric_bag)
+
+    @override
+    def process_batch(
         self, batch: SequenceBatch, metric_bag: MetricBag
     ) -> tuple[Tensor, None]:
         input_batch, target_batch = batch.as_auto_regressive()
@@ -111,7 +121,7 @@ class LMSFTUnit(TrainUnit[SequenceBatch]):
             seqs, seqs_layout, targets=target_batch.seqs, reduction="mean"
         )
 
-        update_nll_loss(metric_bag, nll_loss)
+        update_nll_loss_metric(metric_bag, nll_loss)
 
         update_seq_batch_metrics(metric_bag, batch)
 
@@ -119,5 +129,5 @@ class LMSFTUnit(TrainUnit[SequenceBatch]):
 
     @property
     @override
-    def model(self) -> Model:
+    def model(self) -> RecipeModel:
         return self._model

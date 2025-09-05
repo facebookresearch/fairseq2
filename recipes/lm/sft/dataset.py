@@ -23,8 +23,6 @@ from fairseq2.data.tokenizers import Tokenizer
 
 from fairseq2.datasets import (
     DataPipelineReader,
-    DataReader,
-    DatasetOpenError,
     SequenceBatch,
     SyncMode,
 )
@@ -43,9 +41,13 @@ from fairseq2.error import NotSupportedError
 from typing import Any, Final, cast, final
 import torch
 
-from fairseq2.datasets._utils import _load_files_and_weights
-
-from .utils import LengthBatching, StaticBatching, Batching, DatasetLoadError
+from .utils import (
+    LengthBatching,
+    StaticBatching,
+    Batching,
+    DatasetLoadError,
+    load_files_and_weights,
+)
 
 # TODO: FIX, INFER
 npc = 10
@@ -335,9 +337,17 @@ class LMSFTDataset:
 
         pipeline = builder.map(to_batch).and_return()
 
+        # return DataPipelineReader[SequenceBatch](
+        #     self._name,
+        #     split,
+        #     pipeline,
+        #     gangs,
+        #     num_accumulate=options.num_accumulate,
+        #     drop_remainder=options.drop_remainder,
+        #     sync=options.sync_batches,
+        #     sync_mode=options.sync_mode,
+        # )
         return DataPipelineReader[SequenceBatch](
-            self._name,
-            split,
             pipeline,
             gangs,
             num_accumulate=options.num_accumulate,
@@ -352,8 +362,9 @@ class LMSFTDatasetConfig:
     path: Path = field(default_factory=Path)
 
 
-def open_lm_sft_dataset(name: str, config: LMSFTDatasetConfig) -> LMSFTDataset:
+def open_lm_sft_dataset(config: LMSFTDatasetConfig) -> LMSFTDataset:
     path = config.path
+    name = "default"  # FIXME
     splits: dict[str, tuple[Sequence[Path], Sequence[float]]] = {}
 
     if path.is_dir():
@@ -365,12 +376,12 @@ def open_lm_sft_dataset(name: str, config: LMSFTDatasetConfig) -> LMSFTDataset:
             ) from ex
 
         for child_dir in child_dirs:
-            files, weights = _load_files_and_weights(name, child_dir)
+            files, weights = load_files_and_weights(name, child_dir)
 
             splits[child_dir.name] = (files, weights)
 
     if not splits:
-        files, weights = _load_files_and_weights(name, path)
+        files, weights = load_files_and_weights(name, path)
 
         splits["default"] = (files, weights)
 
