@@ -13,20 +13,13 @@ from pathlib import Path
 from pickle import PickleError
 from typing import TypeAlias, final
 
+import safetensors
+import safetensors.torch
 import torch
 from torch import Tensor
 from typing_extensions import override
 
-try:
-    import safetensors  # type: ignore[import-not-found]
-    import safetensors.torch  # type: ignore[import-not-found]
-except ImportError:
-    _has_safetensors = False
-else:
-    _has_safetensors = True
-
 from fairseq2.device import CPU, Device
-from fairseq2.error import OperationalError
 from fairseq2.file_system import FileMode, FileSystem
 
 MapLocation: TypeAlias = (
@@ -142,11 +135,6 @@ class HuggingFaceSafetensorsLoader(SafetensorsLoader):
     def load(
         self, file: Path, *, device: Device | None = None, mmap: bool = False
     ) -> dict[str, object]:
-        if not _has_safetensors:
-            raise OperationalError(
-                "Safetensors is not found. Use `pip install safetensors`."
-            )
-
         if device is None:
             device = CPU
 
