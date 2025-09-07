@@ -36,6 +36,7 @@ from vllm import CompletionOutput, LLM, RequestOutput, SamplingParams
 
 # log._logger.setLevel(logging.DEBUG)
 
+
 @dataclass(kw_only=True)
 class RewardModelConfig:
     answer_key: str = "answer"
@@ -1021,22 +1022,87 @@ class PplDerivedVerifier(VLLMOutputReward):
     def aggregate(self, rewards):
         if self.apply_ppl_diff_reward:
             if self.reward_formula == "diff":
-                return (
+                return [
                     reward - rewards[0] for reward in rewards[1:]
-                )  # NOTE: order is without reasoning augmentation, with reasoning augmentation -ppl
+                ]  # NOTE: order is without reasoning augmentation, with reasoning augmentation -ppl
             elif self.reward_formula == "diff_percent":
-                return (
+                return [
                     (reward - rewards[0]) / (-rewards[0]) * 100
                     for reward in rewards[1:]
-                )
+                ]
             else:
                 raise NotImplementedError
         else:
             return rewards  # reason augmented case: -ppl as reward
-        
+
+    def _log_human_friendly(
+        self,
+        B,
+        tokenizer,
+        rm_vllm_inputs,  # flatten
+        all_input_tok_lens,  # flatten
+        rewards,  # flatten
+        rm_rollouts,  # flatten
+    ):
+        assert (
+            len(rm_vllm_inputs) == len(all_input_tok_lens)
+            and len(all_input_tok_lens) == len(rewards)
+            and len(rewards) == len(rm_rollouts)
+        )
+        N = len(rm_vllm_inputs)
+        ex_n = N // B
+        # group into a 2d list with the first dim equals B
+        rm_vllm_inputs_batch = [
+            rm_vllm_inputs[i * ex_n : (i + 1) * ex_n] for i in range(B)
+        ]
+        input_tok_lens_batch = [
+            all_input_tok_lens[i * ex_n : (i + 1) * ex_n] for i in range(B)
+        ]
+        rewards_batch = [rewards[i * ex_n : (i + 1) * ex_n] for i in range(B)]
+        rm_rollouts_batch = [rm_rollouts[i * ex_n : (i + 1) * ex_n] for i in range(B)]
+
+        for example_i, (
+            ex_rm_vllm_inputs,
+            ex_input_tok_lens,
+            ex_rewards,
+            ex_rm_rollouts,
+        ) in enumerate(
+            zip(
+                rm_vllm_inputs_batch,
+                input_tok_lens_batch,
+                rewards_batch,
+                rm_rollouts_batch,
+            )
+        ):
+            log.info("=" * 6 + f"example {example_i} summary" + "=" * 6)
+            for i, (tokens, prefix_len, rm_rollout, reward) in enumerate(
+                zip(ex_rm_vllm_inputs, ex_input_tok_lens, ex_rm_rollouts, ex_rewards)
+            ):  # individual rollouts
+                log.info("-" * 6 + f"prefix {i}" + "-" * 6)
+                log.info(
+                    tokenizer.decode(tokens[:prefix_len], skip_special_tokens=True)
+                )
+                log.info("-" * 6 + f"completion window {i}" + "-" * 6)
+                log.info(
+                    tokenizer.decode(tokens[prefix_len:], skip_special_tokens=True)
+                )
+                completion_logprobs = rm_rollout.prompt_logprobs[prefix_len:]
+                completion_logprobs_vals: List[float] = [
+                    list(d.values())[0].logprob for d in completion_logprobs
+                ]
+                log.info("-" * 6 + f"completion logprobs {i}" + "-" * 6)
+                log.info(str(completion_logprobs_vals))
+                log.info("-" * 6 + f"reward {i}" + "-" * 6)
+                log.info(reward)
+            log.info("-" * 6 + "all rewards in example" + "-" * 6)
+            log.info(ex_rewards)
+
     @override
     def process_rollouts(
-        self, vllm_outputs: list[RequestOutput], prompt_batch: PromptBatch
+        self,
+        vllm_outputs: list[RequestOutput],
+        prompt_batch: PromptBatch,
+        enable_human_friendly_log: bool = False,
     ):
         all_input_tok_lens = []
         vllm_inputs = []
@@ -1065,7 +1131,7 @@ class PplDerivedVerifier(VLLMOutputReward):
                     completion,
                     n_completion_truncate=self.completion_window,
                 )
-                log.debug(f"{text_tokens=}, {n_input_tokens=}")
+                # log.debug(f"{text_tokens=}, {n_input_tokens=}")
                 all_input_tok_lens.append(n_input_tokens)
                 vllm_inputs.append(text_tokens)
 
@@ -1076,7 +1142,7 @@ class PplDerivedVerifier(VLLMOutputReward):
                     completion,
                     n_completion_truncate=self.completion_window,
                 )
-                log.debug(f"{text_tokens=}, {n_input_tokens=}")
+                # log.debug(f"{text_tokens=}, {n_input_tokens=}")
                 all_input_tok_lens.append(n_input_tokens)
                 vllm_inputs.append(text_tokens)
                 rollouts_text.append(rollout_output.text)
@@ -1100,7 +1166,6 @@ class PplDerivedVerifier(VLLMOutputReward):
             sampling_params=SamplingParams(**rm_sampling_params),
             string_input=False,
         )
-        batch_rewards = []
 
         curr_rewards = [
             self.extract_reward(rollout.prompt_logprobs, prompt_len=input_len)
@@ -1108,12 +1173,21 @@ class PplDerivedVerifier(VLLMOutputReward):
         ]
         log.info(f"{curr_rewards=}")
 
-        batch_rewards.extend(self.aggregate(curr_rewards))
+        batch_rewards = self.aggregate(curr_rewards)
         log.info(f"{batch_rewards=}")
 
         # reshape batch_rewards to [Batch, Rollouts]
         B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
         batch_rewards = [batch_rewards[i * R : (i + 1) * R] for i in range(B)]
+        if enable_human_friendly_log:
+            self._log_human_friendly(
+                B,
+                self.tokenizer,
+                vllm_inputs,
+                all_input_tok_lens,
+                curr_rewards,
+                rollouts,
+            )
 
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
