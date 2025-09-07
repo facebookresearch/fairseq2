@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Callable, Mapping, Set
+from collections.abc import Callable
 from concurrent.futures import Future
 from dataclasses import dataclass
 from os import scandir
@@ -18,6 +18,7 @@ import torch
 from torch import Tensor
 from typing_extensions import override
 
+from fairseq2.data._memory import MemoryBlock
 from fairseq2.device import CPU
 from fairseq2.error import (
     InternalError,
@@ -419,27 +420,33 @@ class StandardCheckpointManager(CheckpointManager):
                 raise OperationalError("A thread pool queue operation failed.") from ex
 
     def _check_safe_state_dict(self, kind: str, state_dict: dict[str, object]) -> None:
+        if kind == "model":
+            for k, v in state_dict.items():
+                if not isinstance(v, Tensor):
+                    raise ValueError(
+                        f"`model` must contain only tensors, but the value of the {k} key is of type `{type(v)}`."
+                    )
+
+            return
+
         def check_item(item: object) -> None:
             if item is None:
                 return
 
-            if isinstance(item, Tensor):
+            if isinstance(item, (bool, int, float, str, Tensor, Path, MemoryBlock)):
                 return
 
-            if isinstance(item, (bool, int, float, str, Path)):
-                return
+            if isinstance(item, (list, tuple, set)):
+                for e in item:
+                    check_item(e)
 
-            if isinstance(item, Mapping):
+            if isinstance(item, dict):
                 for k, v in item.items():
                     check_item(k)
                     check_item(v)
 
-            if isinstance(item, (list, tuple, Set)):
-                for e in item:
-                    check_item(e)
-
             raise ValueError(
-                f"`{kind}` must contain objects of safe types only, but it contains an object of type `{type(item)}`."
+                f"`{kind}` must contain objects of safe types only, but it contains an object of type `{type(item)}`. Safe types are `bool`, `int`, `float`, `Tensor`, `str`, `list`, `dict`, `tuple`, `set`, `Path`, `MemoryBlock`, and `None`."
             )
 
         check_item(state_dict)
@@ -449,7 +456,7 @@ class StandardCheckpointManager(CheckpointManager):
     ) -> dict[str, object]:
         has_cuda_tensor = False
 
-        def copy_tensor_to_host(tensor: Tensor) -> Tensor:
+        def copy_tensor_to_host(tensor: Tensor) -> object:
             nonlocal has_cuda_tensor
 
             cpu_tensor = memo.get(tensor)
@@ -474,11 +481,8 @@ class StandardCheckpointManager(CheckpointManager):
             if isinstance(item, Tensor):
                 return copy_tensor_to_host(item)
 
-            if isinstance(item, (bool, int, float, str, Path)):
+            if isinstance(item, (bool, int, float, str, Path, MemoryBlock)):
                 return item
-
-            if isinstance(item, Mapping):
-                return {copy_to_host(k): copy_to_host(v) for k, v in item.items()}
 
             if isinstance(item, list):
                 return [copy_to_host(e) for e in item]
@@ -486,19 +490,33 @@ class StandardCheckpointManager(CheckpointManager):
             if isinstance(item, tuple):
                 return tuple(copy_to_host(e) for e in item)
 
-            if isinstance(item, Set):
+            if isinstance(item, set):
                 return {copy_to_host(e) for e in item}
 
+            if isinstance(item, dict):
+                return {copy_to_host(k): copy_to_host(v) for k, v in item.items()}
+
             raise ValueError(
-                f"`{kind}` must contain objects of safe types only, but it contains an object of type `{type(item)}`."
+                f"`{kind}` must contain objects of safe types only, but it contains an object of type `{type(item)}`. Safe types are `bool`, `int`, `float`, `Tensor`, `str`, `list`, `dict`, `tuple`, `set`, `Path`, `MemoryBlock`, and `None`."
             )
 
-        host_state_dict = copy_to_host(state_dict)
+        if kind == "model":
+            host_state_dict = {}
+
+            for k, v in state_dict.items():
+                if not isinstance(v, Tensor):
+                    raise ValueError(
+                        f"`model` must contain only tensors, but the value of the {k} key is of type `{type(v)}`."
+                    )
+
+                host_state_dict[k] = copy_tensor_to_host(v)
+        else:
+            host_state_dict = cast(dict[str, object], copy_to_host(state_dict))
 
         if has_cuda_tensor:
             torch.cuda.synchronize()
 
-        return cast(dict[str, object], host_state_dict)
+        return host_state_dict
 
     def _save_state_files(self, step_nr: int, records: list[_CheckpointRecord]) -> None:
         for record in records:
@@ -678,7 +696,7 @@ class StandardCheckpointManager(CheckpointManager):
         with load_with_sdp_gang(gangs):  # Required for `ShardedTensor`.
             file = self._checkpoint_dir.joinpath(f"step_{step_nr}/{pathname}")
 
-            restrict = kind != "data_reader"
+            restrict = kind == "model"
 
             try:
                 return self._tensor_loader.load(
