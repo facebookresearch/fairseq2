@@ -973,11 +973,9 @@ class PplDerivedVerifier(VLLMOutputReward):
         # no reasoning augmented.
         if reason is None:
             prefix_tokens = self.tokenizer.encode(
-                self.tokenizer.decode(
-                    prefix_tokens, add_special_token=False
-                ).removesuffix(
-                    " <think>"
-                ),  # TODO
+                self.tokenizer.decode(prefix_tokens, add_special_token=False)
+                .removesuffix(" <think>")
+                .removesuffix("<think>"),  # TODO
                 add_special_tokens=False,
             )
         n_prefix_tokens = len(prefix_tokens)
