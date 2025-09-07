@@ -594,7 +594,7 @@ def _handle_dataset_family_not_known_error(ex: DatasetFamilyNotKnownError) -> in
 
 
 def _handle_dataset_not_known_error(ex: DatasetNotKnownError) -> int:
-    log.error("{} is not a known dataset.", ex.name)
+    log.error("{} is not a known dataset. To see the list of available datasets run: `python -m fairseq2.assets list --kind dataset`.", ex.name)
 
     return 2
 
@@ -725,7 +725,7 @@ def _handle_model_family_not_known_error(ex: ModelFamilyNotKnownError) -> int:
 
 
 def _handle_model_not_known_error(ex: ModelNotKnownError) -> int:
-    log.error("{} is not a known model.", ex.name)
+    log.error("{} is not a known model. To see the list of available models run: `python -m fairseq2.assets list --kind model`.", ex.name)
 
     return 2
 
@@ -808,7 +808,7 @@ def _handle_tokenizer_model_not_found_error(ex: TokenizerModelNotFoundError) -> 
 
 
 def _handle_tokenizer_not_known_error(ex: TokenizerNotKnownError) -> int:
-    log.error("{} is not a known tokenizer.", ex.name)
+    log.error("{} is not a known tokenizer. To see the list of available tokenizers run: `python -m fairseq2.assets list --kind tokenizer`.", ex.name)
 
     return 2
 
