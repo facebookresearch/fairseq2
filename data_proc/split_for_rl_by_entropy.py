@@ -16,12 +16,13 @@ from tqdm import tqdm
 from transformers import AutoTokenizer
 
 ENTROPY_THRESHOLD: float = (
-    1.5  # TODO(lidli): consider upsampling hard tokens rather than doing a filtering.
+    2  # TODO(lidli): consider upsampling hard tokens rather than doing a filtering.
 )
 INPUT_DIR = "/fsx-ram/lidli/datasets/natural_reasoning_data_extracted_w_token_entropy"
 INPUT_FILE_REGEX = r"data.chunk.\d+.jsonl"
 OUPUT_DIR = f"/fsx-ram/lidli/datasets/natural_reasoning_data_extracted_perplexity_scores_1B_split_for_rl_entropy_{str(ENTROPY_THRESHOLD).replace('.','_')}"
-
+MIN_PREFIX_TOKENS: int = 30  # TODO(lidli): can do some analysis.
+MIN_COMPLETION_TOKENS: int = 20
 
 # constants
 COMPLETION_FIELD: str = "completion"
@@ -110,6 +111,9 @@ for in_file in tqdm(in_files, desc="files"):
             i
             for i, entropy in enumerate(prompt_entropies)
             if entropy >= ENTROPY_THRESHOLD
+            and i + 1 >= MIN_PREFIX_TOKENS
+            and len(prompt_token_ids) - i - 1
+            >= MIN_COMPLETION_TOKENS  # entropy_i + 1 corresponds to token_i
         ]
         curr_eligible_split_ratio = len(entropy_i_list) / len(prompt_token_ids)
         eligible_split_ratios.append(curr_eligible_split_ratio)
