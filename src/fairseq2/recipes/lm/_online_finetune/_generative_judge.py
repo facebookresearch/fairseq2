@@ -195,6 +195,50 @@ Below are the user's question, two responses and the parsed versions of the resp
 {reference_answer}
 """
 
+KWISE_WITH_SCORES_J1_PROMPT = """
+You are given a user question and {k} responses from {k} AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
+
+Think carefully about how to assess the quality of the responses and finally, assign each response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision, with a higher score indicating a higher-quality response that better satisfies the criteria. Enclose the scores within the tags <score_assistant_1> </score_assistant_1>, <score_assistant_2> </score_assistant_2> and so on.
+
+Format your output like this:
+<think> your_thinking_process </think>
+<score_assistant_1> your_score_1 </score_assistant_1> 
+<score_assistant_2> your_score_2 </score_assistant_2>
+<score_assistant_3> your_score_3 </score_assistant_3>
+...
+
+Below are the user's question and the responses:
+
+[User Question]
+{instruction}
+
+{responses}
+"""
+
+KWISE_WITH_SCORES_J1_PROMPT_WITH_REF_ANSWER = """
+You are given a user question and {k} responses from {k} AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
+
+Think carefully about how to assess the quality of the responses and finally, utilize the reference answer for your judgement.
+Finally, assign each response a score 1 if the response is correct, and 0 if not. Enclose the scores within the tags <score_assistant_1> </score_assistant_1>, <score_assistant_2> </score_assistant_2> and so on.
+
+Format your output like this:
+<think> your_thinking_process </think>
+<score_assistant_1> 0 or 1 </score_assistant_1> 
+<score_assistant_2> 0 or 1 </score_assistant_2>
+<score_assistant_3> 0 or 1 </score_assistant_3>
+...
+
+Below are the user's question, the reference answer, and the responses:
+
+[User Question]
+{instruction}
+
+[Reference Answer]
+{reference_answer}
+
+{responses}
+"""
+
 import re
 from abc import ABC, abstractmethod
 from typing import Any
