@@ -50,7 +50,9 @@ class TensorDumper(ABC):
     """Dumps tensors to PyTorch binary files."""
 
     @abstractmethod
-    def dump(self, data: Mapping[str, object], file: Path) -> None:
+    def dump(
+        self, data: Mapping[str, object], file: Path, *, pickle_protocol: int = 2
+    ) -> None:
         """
         :param data: The dictionary containing tensors and other auxiliary data.
         :param file: The path to the file.
@@ -101,7 +103,9 @@ class TorchTensorDumper(TensorDumper):
         self._file_system = file_system
 
     @override
-    def dump(self, data: Mapping[str, object], file: Path) -> None:
+    def dump(
+        self, data: Mapping[str, object], file: Path, *, pickle_protocol: int = 2
+    ) -> None:
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 action="ignore", message=r".*Please use DTensor instead.*"
@@ -110,7 +114,7 @@ class TorchTensorDumper(TensorDumper):
             fp = self._file_system.open(file, mode=FileMode.WRITE)
 
             try:
-                torch.save(data, fp, pickle_protocol=5)
+                torch.save(data, fp, pickle_protocol=pickle_protocol)
             except (RuntimeError, PickleError) as ex:
                 raise ValueError("`data` is not a picklable object.") from ex
             finally:

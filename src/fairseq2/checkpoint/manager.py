@@ -12,7 +12,7 @@ from concurrent.futures import Future
 from dataclasses import dataclass
 from os import scandir
 from pathlib import Path
-from typing import Protocol, cast, final
+from typing import NoReturn, Protocol, cast, final
 
 import torch
 from torch import Tensor
@@ -433,7 +433,7 @@ class StandardCheckpointManager(CheckpointManager):
             if item is None:
                 return
 
-            if isinstance(item, (bool, int, float, str, Tensor, Path, MemoryBlock)):
+            if isinstance(item, (bool, int, float, str, Tensor)):
                 return
 
             if isinstance(item, (list, tuple, set)):
@@ -449,9 +449,11 @@ class StandardCheckpointManager(CheckpointManager):
 
                 return
 
-            raise ValueError(
-                f"`{kind}` must contain objects of safe types only, but it contains an object of type `{type(item)}`. Safe types are `bool`, `int`, `float`, `Tensor`, `str`, `list`, `dict`, `tuple`, `set`, `Path`, `MemoryBlock`, and `None`."
-            )
+            if kind == "data_reader":
+                if isinstance(item, (Path, MemoryBlock)):
+                    return
+
+            self._raise_type_error(kind, item)
 
         check_item(state_dict)
 
@@ -485,7 +487,7 @@ class StandardCheckpointManager(CheckpointManager):
             if isinstance(item, Tensor):
                 return copy_tensor_to_host(item)
 
-            if isinstance(item, (bool, int, float, str, Path, MemoryBlock)):
+            if isinstance(item, (bool, int, float, str)):
                 return item
 
             if isinstance(item, list):
@@ -500,9 +502,11 @@ class StandardCheckpointManager(CheckpointManager):
             if isinstance(item, dict):
                 return {copy_to_host(k): copy_to_host(v) for k, v in item.items()}
 
-            raise ValueError(
-                f"`{kind}` must contain objects of safe types only, but it contains an object of type `{type(item)}`. Safe types are `bool`, `int`, `float`, `Tensor`, `str`, `list`, `dict`, `tuple`, `set`, `Path`, `MemoryBlock`, and `None`."
-            )
+            if kind == "data_reader":
+                if isinstance(item, (Path, MemoryBlock)):
+                    return item
+
+            self._raise_type_error(kind, item)
 
         if kind == "model":
             host_state_dict = {}
@@ -522,10 +526,32 @@ class StandardCheckpointManager(CheckpointManager):
 
         return host_state_dict
 
+    def _raise_type_error(self, kind: str, value: object) -> NoReturn:
+        allowed_types = [bool, int, float, Tensor, str, list, dict, tuple, set]
+
+        if kind == "data_reader":
+            allowed_types.extend([Path, MemoryBlock])
+
+        s = ", ".join(str(t) for t in allowed_types)
+
+        raise ValueError(
+            f"`{kind}` must contain objects of allowed types only, but it contains an object of type `{type(value)}`. Allowed types: {s}."
+        )
+
     def _save_state_files(self, step_nr: int, records: list[_CheckpointRecord]) -> None:
         for record in records:
+            # For data reader state, we require pickle protocol v5 since memory
+            # blocks cannot be saved otherwise. Note that we deliberately limit
+            # v5 to data reader state though since `torch.load()` has a bug and
+            # cannot unpickle objects serialized with v5 when `weights_only` is
+            # set to `True`. See:
+            #   https://github.com/pytorch/pytorch/issues/118092
+            pickle_protocol = 5 if record.kind == "data_reader" else 2
+
             try:
-                self._tensor_dumper.dump(record.state_dict, record.file)
+                self._tensor_dumper.dump(
+                    record.state_dict, record.file, pickle_protocol=pickle_protocol
+                )
             except OSError as ex:
                 raise_operational_system_error(ex)
 
@@ -700,7 +726,9 @@ class StandardCheckpointManager(CheckpointManager):
         with load_with_sdp_gang(gangs):  # Required for `ShardedTensor`.
             file = self._checkpoint_dir.joinpath(f"step_{step_nr}/{pathname}")
 
-            restrict = kind == "model"
+            # The data reader state can potentially include `MemoryBlock` and
+            # `Path` instances which are not "safe".
+            restrict = kind != "data_reader"
 
             try:
                 return self._tensor_loader.load(
