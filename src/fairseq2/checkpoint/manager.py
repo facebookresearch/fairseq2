@@ -440,10 +440,14 @@ class StandardCheckpointManager(CheckpointManager):
                 for e in item:
                     check_item(e)
 
+                return
+
             if isinstance(item, dict):
                 for k, v in item.items():
                     check_item(k)
                     check_item(v)
+
+                return
 
             raise ValueError(
                 f"`{kind}` must contain objects of safe types only, but it contains an object of type `{type(item)}`. Safe types are `bool`, `int`, `float`, `Tensor`, `str`, `list`, `dict`, `tuple`, `set`, `Path`, `MemoryBlock`, and `None`."
