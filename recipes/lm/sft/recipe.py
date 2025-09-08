@@ -63,10 +63,11 @@ class LMSFTRecipe(TrainRecipe):
         if device.type == "cuda":
             torch.cuda.set_device(device)
 
-
         rng_bag = RngBag.from_device_defaults(CPU, device)
 
         rng_bag.manual_seed(seed)
+
+        seed += 1
 
         if config.dataset.batch_size is not None:
             batching = StaticBatching(config.dataset.batch_size)
@@ -94,6 +95,47 @@ class LMSFTRecipe(TrainRecipe):
             max_seq_len=config.dataset.max_seq_len,
             options=read_options,
         )
+
+        # Initialize the validation unit.
+        # if config.dataset.valid_split is not None:
+            
+        #     valid_unit = InstructionLossEvalUnit(model, criterion)
+
+        #     max_num_tokens = (
+        #         config.dataset.max_num_valid_tokens or config.dataset.max_num_tokens
+        #     )
+
+        #     batching = LengthBatching(max_num_tokens)
+
+        #     read_options = InstructionReadOptions(
+        #         batching=batching,
+        #         sync_mode=SyncMode.UNTIL_LAST,
+        #         num_prefetch=config.dataset.num_prefetch,
+        #         source_encode_mode=config.dataset.source_encode_mode,
+        #         target_encode_mode=config.dataset.target_encode_mode,
+        #         seed=seed,
+        #         extras=config.dataset.extras,
+        #     )
+
+        #     valid_data_reader = dataset.create_reader(
+        #         config.dataset.valid_split,
+        #         tokenizer,
+        #         gangs.dp,
+        #         config.dataset.min_seq_len,
+        #         config.dataset.max_seq_len,
+        #         read_options,
+        #     )
+
+        #     valid_units = [valid_unit]
+
+        #     valid_data_readers = [valid_data_reader]
+        # else:
+        #     valid_units = []
+
+        #     valid_data_readers = []
+
+
+        seed += 1
 
         return context.create_trainer(unit, data_reader)
 
