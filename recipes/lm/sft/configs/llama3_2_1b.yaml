@@ -4,9 +4,20 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+dataset:
+  _set_:
+    batch_size: 16
 common:
   metric_recorders:
     wandb:
       enabled: True
       project: "fairseq2"
       run_name: "test_llama3_2_1b_sft"
+regime:
+  _set_:
+    num_steps: 48000
+    checkpoint_every_n_steps: 1000
+    checkpoint_every_n_data_epochs: 1000
+    keep_last_n_checkpoints: 10
+    publish_metrics_every_n_steps: 1
+    save_model_only: false

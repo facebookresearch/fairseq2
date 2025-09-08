@@ -118,14 +118,19 @@ class LMSFTUnit(TrainUnit[SequenceBatch]):
         seqs, seqs_layout = input_batch.as_input()
 
         nll_loss = self._model.module(
-            seqs, seqs_layout, targets=target_batch.seqs, reduction="mean"
+            seqs,
+            seqs_layout,
+            targets=target_batch.seqs,
+            target_mask=target_batch.target_mask,
         )
 
-        update_nll_loss_metric(metric_bag, nll_loss)
+        update_nll_loss_metric(
+            metric_bag, nll_loss, num_targets=target_batch.num_target_elements
+        )
 
         update_seq_batch_metrics(metric_bag, batch)
 
-        return nll_loss, None
+        return nll_loss, target_batch.num_target_elements
 
     @property
     @override

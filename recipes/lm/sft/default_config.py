@@ -102,7 +102,7 @@ class LMSFTConfig:
     tokenizer: TokenizerSection = field(
         default_factory=lambda: TokenizerSection(
             family="llama",
-            path="/datasets/pretrained-llms/Llama-3.2-1B/original/tokenizer.model",
+            path="/datasets/pretrained-llms/Llama-3.2-1B-Instruct/original/tokenizer.model",
             config_overrides=LLaMATokenizerConfig(impl="tiktoken"),
         )
     )
