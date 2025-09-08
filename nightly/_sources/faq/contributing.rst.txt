@@ -16,19 +16,36 @@ Setting up Development Environment
 fairseq2 consists of two packages; the user-facing fairseq2 package implemented
 in pure Python, and the fairseq2n package that contains the C++ and CUDA
 portions of the library. If pre-built fairseq2n nightly packages are available
-for your system (check [README](.#nightlies)), and if you are interested in only
+for your system (check `README <https://github.com/facebookresearch/fairseq2/tree/main?tab=readme-ov-file#nightlies>`_), and if you are interested in only
 modifying Python portions of fairseq2, you can use an editable pip installation
 as described below. Otherwise, if you are planning to work on C++ or CUDA, or if
 fairseq2n is not available as a pre-built package for your system, please follow
-the installation instructions [here](INSTALL_FROM_SOURCE.md).
+the installation instructions `here <https://github.com/facebookresearch/fairseq2/blob/main/INSTALL_FROM_SOURCE.md>`_.
 
-For an editable installation, first, install a nightly build of fairseq2n (shown
-for PyTorch ``2.4.0`` and variant ``cu121``):
+To install fairseq2, simply run `pip install fairseq2`.
+
+To install fairseq2 with a specific version *e.g.* PyTorch ``2.8.0`` and CUDA ``12.8``:
 
 .. code-block:: sh
 
-    pip install fairseq2n\
-      --pre --upgrade --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.4.0/cu121
+    pip install fairseq2\
+      --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.8.0/cu128
+
+To install fairseq2 with additional extras (*e.g.* ``arrow``) and a specific commit hash:
+
+.. code-block:: sh
+
+    pip install 'fairseq2[arrow] @ git+https://github.com/facebookresearch/fairseq2.git@<commit-hash>'\
+      --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.8.0/cu128/
+
+For an editable installation:
+
+.. code-block:: sh
+
+    git clone https://github.com/facebookresearch/fairseq2.git
+    cd fairseq2
+    pip install -e . --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.8.0/cu128
+    pip install -r requirements-devel.txt
 
 
 .. warning::
@@ -39,26 +56,6 @@ for PyTorch ``2.4.0`` and variant ``cu121``):
    you upgrade your PyTorch version, you must also upgrade your fairseq2n
    installation.
 
-Then, clone the fairseq2 repository to your machine:
-
-.. code-block:: sh
-
-    git clone https://github.com/facebookresearch/fairseq2.git
-
-    cd fairseq2
-
-And, install the fairseq2 package in editable mode:
-
-.. code-block:: sh
-
-    pip install -e .
-
-Finally, make sure to install the development tools (e.g. linters and
-formatters):
-
-.. code-block:: sh
-
-    pip install -r requirements-devel.txt
 
 .. note::
    Any time you pull the latest fairseq2 commits from GitHub, make sure to re-run

@@ -3,4 +3,6 @@
 :octicon:`book` Bibliography
 ============================
 
-.. bibliography::
+.. bibliography:: ../_static/bibliography.bib
+   :style: plain
+   :all:

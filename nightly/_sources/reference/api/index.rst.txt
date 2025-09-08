@@ -1,15 +1,60 @@
 .. _reference-api:
 
-:octicon:`file-code` API Reference
-==================================
+API Reference
+=============
+
+This section contains the complete API reference for fairseq2, organized by functional areas.
+
+Data Processing
+---------------
 
 .. toctree::
-    :maxdepth: 1
+   :maxdepth: 1
 
-    fairseq2
-    gang
-    fairseq2.data/index
-    fairseq2.datasets/index
-    fairseq2.nn/index
-    fairseq2.recipes/index
-    fairseq2.assets/index
+   data/index
+   datasets
+
+Neural Networks & Modeling
+---------------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   nn/index
+   models
+
+Assets and Checkpoints
+----------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   assets
+   checkpoint
+
+Distributed Computing
+---------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   gang
+
+Training and Optimization
+-------------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   optim
+   recipe
+
+Utilities
+---------
+
+.. toctree::
+   :maxdepth: 1
+
+   device
+   logging
+   metrics
