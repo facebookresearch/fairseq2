@@ -147,7 +147,7 @@ class LMSFTConfig:
     common: CommonSection = field(
         default_factory=lambda: CommonSection(
             torch=TorchConfig(
-                default_sdpa="torch", compiled_region_activation_memory_budget=0.9
+                default_sdpa="naive"
             )
         )
     )
