@@ -7,15 +7,21 @@ fairseq2.models
 The models module provides pre-trained models and model architectures for various
 tasks including language modeling, machine translation, and speech recognition.
 
-**Coming soon:** This documentation is being developed. The models module includes:
+The models module includes:
 
 - LLaMA models
-- Transformer models
+- Qwen models
+- Mistral models
 - Wav2Vec2 models
 - NLLB translation models
 - Model loading and configuration utilities
+- Model hub interface for advanced operations
 
-Please refer to the source code and examples in the meantime.
+.. toctree::
+   :maxdepth: 2
+
+   hub
+   qwen
 
 Quick Start
 -----------
@@ -57,21 +63,10 @@ Getting Model Information
 Supported Model Families
 -------------------------
 
-Language Models
-~~~~~~~~~~~~~~~
+Please check ``src/fairseq2/models/`` directories for supported model families.
+You can also list available models from command line:
 
-- **Qwen**: Qwen and Qwen2.5 language models
-- **LLaMA**: LLaMA and LLaMA 2 language models
-- **Mistral**: Mistral language models
+.. code-block:: bash
 
-Speech Models
-~~~~~~~~~~~~~
-
-- **Wav2Vec2**: Self-supervised speech representation models
-- **Conformer**: Speech-to-text models
-
-Translation Models
-~~~~~~~~~~~~~~~~~~
-
-- **NLLB**: No Language Left Behind translation models
-- **S2T Transformer**: Speech-to-text translation models
+    # List models from command line
+    $ python -m fairseq2.assets list --kind model

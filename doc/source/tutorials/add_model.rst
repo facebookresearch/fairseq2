@@ -45,6 +45,38 @@ Each family consists of:
 - **Model configurations** (architectures): Define structural parameters (layers, dimensions, etc.)
 - **Asset cards**: YAML files specifying download locations and metadata
 - **Model implementation**: The actual PyTorch model code and loading logic
+- **Model hub**: A unified interface providing methods to work with the family
+
+Working with Model Hubs
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Each model family provides a hub that exposes advanced functionality beyond simple model loading:
+
+.. code-block:: python
+
+    from fairseq2.models.qwen import get_qwen_model_hub
+
+    # Get the model hub for Qwen family
+    hub = get_qwen_model_hub()
+
+    # List available architectures
+    archs = hub.get_archs()
+    print(f"Available Qwen architectures: {archs}")
+
+    # Get architecture configuration
+    config = hub.get_arch_config("qwen3_0.6b")
+
+    # Create a newly initialized model (random weights)
+    new_model = hub.create_new_model(config)
+
+    # Load model from asset card
+    model = hub.load_model("qwen3_0.6b")
+
+    # Load model from custom checkpoint
+    from pathlib import Path
+    custom_model = hub.load_custom_model(Path("/path/to/checkpoint.pt"), config)
+
+For detailed information on all hub capabilities, see :doc:`/reference/api/models/hub`.
 
 Step-by-Step Guide: Adding a Model to Existing Family
 -----------------------------------------------------
@@ -195,7 +227,7 @@ Direct download links:
 Common Model Parameters
 -----------------------
 
-When creating new architecture configurations, here are the most common parameters you'll need to set:
+When creating new architecture configurations, here are the most common parameter naming conventions you'll find in fairseq2 (it may vary depending on the model architecture):
 
 Core Architecture
 ^^^^^^^^^^^^^^^^^

@@ -4,7 +4,7 @@
 =================================
 
 fairseq2 provides a flexible runtime extension system that allows you to extend its functionality without modifying the core codebase.
-It uses ``setuptools`` entry points to dynamically load and register extensions during initialization.
+You can register custom models, architectures, and assets through a simple setup function.
 
 Overview
 --------
@@ -12,96 +12,84 @@ Overview
 The extension system is built around a dependency injection container (learn more in :ref:`basics-design-philosophy`) that manages fairseq2's components.
 Through this system, you can:
 
-* Register new models and model cards
-* Add custom asset providers and validators
-* Extend the runtime context
-* And more...
+* Register new models and architectures
+* Add custom assets and asset providers
+* Extend fairseq2's capabilities
+* All without touching the fairseq2 codebase
 
 Basic Usage
 -----------
 
-Before using any fairseq2 APIs, you must initialize the framework with :meth:`fairseq2.init_fairseq2`:
+First, create a setup function that registers your custom components:
 
 .. code-block:: python
 
-    from fairseq2 import init_fairseq2
-
-    init_fairseq2()
-
-Creating Extensions
--------------------
-
-To create an extension, define a setup function:
-
-.. code-block:: python
-
+    # in my_package/__init__.py
     from fairseq2.runtime.dependency import DependencyContainer
 
-    def setup_my_extension(container: DependencyContainer) -> None:
-        # Register your custom components here using `context`.
+    def setup_my_fairseq2_extension(container: DependencyContainer) -> None:
+        # Your extension setup code here...
         pass
 
-Registering Extensions
-----------------------
 
-Extensions are registered using setuptools entry points. You can configure them in either ``setup.py`` or ``pyproject.toml``:
+Then, there are two ways to set up your extension:
 
-Using ``setup.py``:
-
-.. code-block:: python
-
-    setup(
-        name="my-fairseq2-extension",
-        entry_points={
-            "fairseq2.extension": [
-                "my_extension = my_package.module:setup_my_extension",
-            ],
-        },
-    )
-
-Using ``pyproject.toml``:
+**For Python packages** - Use setuptools entry points in ``pyproject.toml``:
 
 .. code-block:: toml
 
     [project.entry-points."fairseq2.extension"]
-    my_extension = "my_package.module:setup_my_extension"
+    my_extension = "my_package.module:setup_my_fairseq2_extension"
 
-Extension Loading Process
--------------------------
-
-When ``init_fairseq2()`` is called, the following steps occur:
-
-1. fairseq2 components are initialized
-2. All registered extensions are discovered via entry points
-3. Each extension's setup function is called
-
-Complete Example
-----------------
-
-Here's a complete example of implementing a fairseq2 extension:
+**For standalone scripts** - Use ``init_fairseq2`` with extras:
 
 .. code-block:: python
 
-    from fairseq2.assets import AssetEnvironmentResolver
-    from fairseq2.composition import register_package_assets
+    from fairseq2 import init_fairseq2
+    from my_package import setup_my_fairseq2_extension
+
+    if __name__ == "__main__":
+        init_fairseq2(extras=setup_my_fairseq2_extension)
+
+Example Extension Setup
+-----------------------
+
+Here's a complete example that shows how to register assets, models, and architectures:
+
+.. code-block:: python
+
     from fairseq2.runtime.dependency import DependencyContainer
+    from fairseq2.composition import register_package_assets, register_file_assets
+    from my_package.models.my_custom_model import MyCustomModel, MyCustomModelConfig, create_my_custom_model
 
+    def setup_my_fairseq2_extension(container: DependencyContainer) -> None:
+        # Register custom objects here...
+        container.register(...)
 
-    def setup_my_extension(container: DependencyContainer) -> None:
+        # Register assets (yaml files) from your package, which extends fairseq2
+        register_package_assets("my_package.assets")
 
-        # Register package metadata provider for cards
-        register_package_assets(container, package="my_package.cards")
+        # Or register assets from a file path, where you put your asset yaml files
+        register_file_assets("path/to/assets")
 
-        def resolve_cluster_name(resolver: DependencyResolver) -> str:
-            return "my_cluster"
-
-        # To manage assets from a custom source, you can append a function that returns the asset source name to the list of environment resolvers
-        # For example, the following code registers a function that returns "my_cluster" as the asset source name.
-        # This allows you to add assets in the asset cards with identifiers that ends with "@my_cluster".
-        container.collection.register(
-            AssetEnvironmentResolver, lambda _: resolve_cluster_name
+        # Register model families
+        register_model_family(
+            container,
+            "my_custom_model",  # model family name
+            kls=MyCustomModel,  # model class
+            config_kls=MyCustomModelConfig,  # model config class
+            factory=create_my_custom_model,  # factory function
+            # ... other parameters
         )
 
+        # Register model architectures
+        arch = ConfigRegistrar(container, MyCustomModelConfig)
+
+        @arch("my_custom_arch_variant")  # architecture name
+        def my_custom_arch_variant() -> MyCustomModelConfig:
+            config = MyCustomModelConfig()
+            # ... customize your config here...
+            return config
 
 Error Handling
 --------------
@@ -110,12 +98,11 @@ The extension system includes error handling to maintain system stability:
 
 * Failed extensions log warnings by default
 * Set ``FAIRSEQ2_EXTENSION_TRACE`` environment variable for detailed error traces
-* Invalid extension functions raise ``RuntimeError``
+* Invalid extension functions raise ``fairseq2.composition.ExtensionError``
 
 .. code-block:: bash
 
     export FAIRSEQ2_EXTENSION_TRACE=1
-
 
 See Also
 --------
