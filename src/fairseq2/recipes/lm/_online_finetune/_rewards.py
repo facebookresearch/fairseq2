@@ -926,6 +926,7 @@ class PplDerivedVerifierHandler(VLLMOutputRewardHandler):
             reward_formula=reward_config.additional_fields.get(
                 "reward_formula", "diff"
             ),
+            n_reason_mask=reward_config.additional_fields.get("n_reason_mask", 5),
         )
 
     @property
@@ -951,6 +952,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         apply_ppl_diff_reward,
         completion_window,
         reward_formula,
+        n_reason_mask,
     ):
         self.answer_key = answer_key
         self._gangs = gangs
@@ -961,6 +963,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         self.apply_ppl_diff_reward = apply_ppl_diff_reward
         self.completion_window = completion_window
         self.reward_formula = reward_formula
+        self.n_reason_mask = n_reason_mask
 
     def _preprocess_reward_input(
         self,
@@ -968,7 +971,11 @@ class PplDerivedVerifier(VLLMOutputReward):
         reason: Optional[str],
         completion: str,
         n_prefix_truncate: Optional[int] = None,
-        n_completion_truncate: int = 100,
+        completion_window: int = 100,
+        # if this is not None, we mask n_reason_mask tokens where we generate
+        # the rollouts and compute reward on future tokens after them. i.e.
+        # changing from next token reasoning -> future token reasoning
+        n_reason_mask: int = 0,
     ):
         # no reasoning augmented.
         if reason is None:
@@ -990,21 +997,22 @@ class PplDerivedVerifier(VLLMOutputReward):
         if reason is None:
             text_tokens = prefix_tokens + completion_tokens
             n_input_tokens = n_prefix_truncate
-            n_input_tokens_all = n_prefix_tokens
+            # prefix + groundtruth at masked positions -> future tokens
+            n_input_tokens_all = n_prefix_tokens + n_reason_mask
         else:
             if not reason.endswith("</think>"):
                 reason += "</think>"  # add the stop token itself. so we have the pair of <think> </think>
             reason_tokens = self.tokenizer.encode(
                 f" {reason}", add_special_tokens=False
             )
-            text_tokens = prefix_tokens + reason_tokens + completion_tokens
+            text_tokens = (
+                prefix_tokens + reason_tokens + completion_tokens[n_reason_mask:]
+            )
             n_input_tokens = n_prefix_truncate + len(reason_tokens)
             n_input_tokens_all = n_prefix_tokens + len(reason_tokens)
 
         text_tokens = text_tokens[
-            n_input_tokens_all
-            - n_input_tokens : n_input_tokens_all
-            + n_completion_truncate
+            n_input_tokens_all - n_input_tokens : n_input_tokens_all + completion_window
         ]
         return text_tokens, n_input_tokens
 
@@ -1041,6 +1049,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         all_input_tok_lens,  # flatten
         rewards,  # flatten
         rm_rollouts,  # flatten
+        n_reason_mask: int,
     ):
         assert (
             len(rm_vllm_inputs) == len(all_input_tok_lens)
@@ -1080,6 +1089,14 @@ class PplDerivedVerifier(VLLMOutputReward):
                 log.info(
                     tokenizer.decode(tokens[:prefix_len], skip_special_tokens=True)
                 )
+                if n_reason_mask > 0 and i == 0:
+                    log.info("-" * 6 + f"masked tokens groundtruth {i}" + "-" * 6)
+                    log.info(
+                        tokenizer.decode(
+                            tokens[prefix_len - n_reason_mask : prefix_len],
+                            skip_special_tokens=True,
+                        )
+                    )
                 log.info("-" * 6 + f"completion window {i}" + "-" * 6)
                 log.info(
                     tokenizer.decode(tokens[prefix_len:], skip_special_tokens=True)
@@ -1127,7 +1144,8 @@ class PplDerivedVerifier(VLLMOutputReward):
                     prefix,
                     None,
                     completion,
-                    n_completion_truncate=self.completion_window,
+                    completion_window=self.completion_window,
+                    n_reason_mask=self.n_reason_mask,
                 )
                 # log.debug(f"{text_tokens=}, {n_input_tokens=}")
                 all_input_tok_lens.append(n_input_tokens)
@@ -1138,7 +1156,8 @@ class PplDerivedVerifier(VLLMOutputReward):
                     prefix,
                     rollout_output.text,
                     completion,
-                    n_completion_truncate=self.completion_window,
+                    completion_window=self.completion_window,
+                    n_reason_mask=self.n_reason_mask,
                 )
                 # log.debug(f"{text_tokens=}, {n_input_tokens=}")
                 all_input_tok_lens.append(n_input_tokens)
@@ -1185,6 +1204,7 @@ class PplDerivedVerifier(VLLMOutputReward):
                 all_input_tok_lens,
                 curr_rewards,
                 rollouts,
+                self.n_reason_mask,
             )
 
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
