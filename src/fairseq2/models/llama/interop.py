@@ -181,7 +181,7 @@ def _convert_to_hg_config(config: LLaMAConfig) -> dict[str, object]:
 
     intermediate_size = multiple_of * ((int(multiplier * int(8 * config.model_dim / 3)) + multiple_of - 1) // multiple_of)  # fmt: skip
 
-    if config.rope_scale is not None:
+    if config.use_scaled_rope:
         rope_scale = {
             "factor": config.rope_scale.factor,
             "low_freq_factor": config.rope_scale.frequency_factors[0],
