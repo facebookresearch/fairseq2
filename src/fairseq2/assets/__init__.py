@@ -49,6 +49,9 @@ from fairseq2.assets.metadata_provider import (
     FileAssetMetadataSource as FileAssetMetadataSource,
 )
 from fairseq2.assets.metadata_provider import (
+    InMemoryAssetMetadataSource as InMemoryAssetMetadataSource,
+)
+from fairseq2.assets.metadata_provider import (
     PackageAssetMetadataLoader as PackageAssetMetadataLoader,
 )
 from fairseq2.assets.metadata_provider import (
