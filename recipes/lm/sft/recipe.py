@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from typing import final
-
+import torch
 from torch import Tensor
 from typing_extensions import override
 from fairseq2.composition import register_dataset_family
@@ -23,8 +23,9 @@ from fairseq2.recipe.model import RecipeModel
 from fairseq2.recipe.base import RecipeContext, TrainRecipe
 from fairseq2.runtime.dependency import DependencyContainer
 from fairseq2.recipe.trainer import Trainer, TrainUnit
-
+from fairseq2.utils.rng import RngBag
 from .default_config import LMSFTConfig
+from fairseq2.device import CPU, get_default_device
 from .dataset import (
     LM_SFT_DATASET,
     LMSFTDataset,
@@ -56,13 +57,16 @@ class LMSFTRecipe(TrainRecipe):
 
         dataset = context.default_dataset.as_(LMSFTDataset)
 
-        # seed = config.common.seed
+        seed = config.common.seed
+        device = get_default_device()
 
-        # manual_seed(seed, CPU, gangs.root.device)
+        if device.type == "cuda":
+            torch.cuda.set_device(device)
 
-        # seed += 1
 
-        seed = 1  # FIXME
+        rng_bag = RngBag.from_device_defaults(CPU, device)
+
+        rng_bag.manual_seed(seed)
 
         if config.dataset.batch_size is not None:
             batching = StaticBatching(config.dataset.batch_size)
