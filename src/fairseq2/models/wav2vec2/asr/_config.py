@@ -500,3 +500,15 @@ def register_wav2vec2_asr_configs(context: RuntimeContext) -> None:
             pad_idx=1,
         )
         return config
+
+    @wav2vec2_asr_arch("2b_v4_tokenizer_updated")
+    def v4_tokenizer_updated_2b() -> Wav2Vec2AsrConfig:
+        config = bib61_2b()
+        config.vocab_info = VocabularyInfo(
+            size=9812,
+            unk_idx=3,
+            bos_idx=0,
+            eos_idx=2,
+            pad_idx=1,
+        )
+        return config
