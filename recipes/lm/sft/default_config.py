@@ -37,7 +37,7 @@ GENERIC_INSTRUCTION_DATASET_FAMILY: Final = "generic_instruction"
 
 @dataclass(kw_only=True)
 class InstructionFinetuneDatasetSection(DatasetSection):
-    # name: str = "foo"  # TODO: change!
+    # name: str = "foo"  # FIXME: change!
 
     # family: str = GENERIC_INSTRUCTION_DATASET_FAMILY
 
@@ -103,7 +103,7 @@ class LMSFTConfig:
         default_factory=lambda: TokenizerSection(
             family="llama",
             path="/datasets/pretrained-llms/Llama-3.2-1B-Instruct/original/tokenizer.model",
-            config_overrides=LLaMATokenizerConfig(impl="tiktoken",use_eot=True),
+            config_overrides=LLaMATokenizerConfig(impl="tiktoken", use_eot=True),
         )
     )
 
@@ -146,9 +146,7 @@ class LMSFTConfig:
 
     common: CommonSection = field(
         default_factory=lambda: CommonSection(
-            torch=TorchConfig(
-                default_sdpa="naive"
-            )
+            torch=TorchConfig(default_sdpa="torch_math")
         )
     )
 

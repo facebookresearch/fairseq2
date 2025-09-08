@@ -6,6 +6,7 @@
 
 dataset:
   _set_:
+    valid_split: "valid"
     batch_size: 16
 common:
   metric_recorders:
@@ -16,8 +17,9 @@ common:
 regime:
   _set_:
     num_steps: 48000
-    checkpoint_every_n_steps: 1000
-    checkpoint_every_n_data_epochs: 1000
+    checkpoint_every_n_steps: 100
+    validate_every_n_steps: 100
+    checkpoint_every_n_data_epochs: 100
     keep_last_n_checkpoints: 10
     publish_metrics_every_n_steps: 1
     save_model_only: false
