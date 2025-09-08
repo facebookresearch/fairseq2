@@ -110,7 +110,7 @@ class TorchTensorDumper(TensorDumper):
             fp = self._file_system.open(file, mode=FileMode.WRITE)
 
             try:
-                torch.save(data, fp)
+                torch.save(data, fp, pickle_protocol=5)
             except (RuntimeError, PickleError) as ex:
                 raise ValueError("`data` is not a picklable object.") from ex
             finally:
