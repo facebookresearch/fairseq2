@@ -332,8 +332,8 @@ class LMSFTDataset:
             indices = cast(SequenceData, example["indices"])
 
             seqs, seq_lens = indices["seqs"], indices["seq_lens"]
-
-            return SequenceBatch(seqs, seq_lens, example=example)
+            target_mask = example["target_mask"]["seqs"]
+            return SequenceBatch(seqs, seq_lens, target_mask=target_mask, example=example)
 
         pipeline = builder.map(to_batch).and_return()
 
