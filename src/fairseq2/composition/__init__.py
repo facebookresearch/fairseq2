@@ -11,6 +11,9 @@ from fairseq2.composition.assets import (
 )
 from fairseq2.composition.assets import register_file_assets as register_file_assets
 from fairseq2.composition.assets import (
+    register_in_memory_assets as register_in_memory_assets,
+)
+from fairseq2.composition.assets import (
     register_package_assets as register_package_assets,
 )
 from fairseq2.composition.datasets import (

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Sequence
 
 from fairseq2.assets import (
     AssetDirectoryAccessor,
@@ -21,6 +21,7 @@ from fairseq2.assets import (
     FileAssetMetadataLoader,
     FileAssetMetadataSource,
     HuggingFaceHub,
+    InMemoryAssetMetadataSource,
     LocalAssetDownloadManager,
     PackageAssetMetadataLoader,
     PackageAssetMetadataSource,
@@ -56,6 +57,17 @@ def register_file_assets(
 def register_package_assets(container: DependencyContainer, package: str) -> None:
     def create_source(resolver: DependencyResolver) -> AssetMetadataSource:
         return wire_object(resolver, PackageAssetMetadataSource, package=package)
+
+    container.collection.register(AssetMetadataSource, create_source)
+
+
+def register_in_memory_assets(
+    container: DependencyContainer, source: str, entries: Sequence[dict[str, object]]
+) -> None:
+    def create_source(resolver: DependencyResolver) -> AssetMetadataSource:
+        return wire_object(
+            resolver, InMemoryAssetMetadataSource, name=source, entries=entries
+        )
 
     container.collection.register(AssetMetadataSource, create_source)
 
