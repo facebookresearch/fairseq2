@@ -163,10 +163,7 @@ To add a custom model, you need both the architecture configuration and the asse
 
 - ``name``: Unique identifier for the model
 - ``model_family``: The model family (e.g., 'llama', 'qwen', 'mistral')
-- ``model_arch``: The model architecture configuration to use
 - ``checkpoint``: Path or URI to the model checkpoint
-- ``tokenizer``: Path or URI to the tokenizer
-- ``tokenizer_family``: The tokenizer family
 
 Advanced Configuration
 ----------------------
@@ -179,7 +176,7 @@ Assets can have environment-specific configurations using the ``@environment`` s
 .. code-block:: yaml
 
     # Base configuration
-    name: my_model@
+    name: my_model
     model_family: llama
     model_arch: llama3_8b
     checkpoint: "hg://meta-llama/Llama-3-8b"
@@ -252,17 +249,17 @@ fairseq2 looks for asset cards in these locations (in order):
      - ``fairseq2/assets/cards/``
      - N/A (package resources)
    * - System
-     - ``/etc/fairseq2/assets/``
+     - ``/etc/fairseq2/assets/`` (overridden by ``FAIRSEQ2_ASSET_DIR`` if set)
      - ``FAIRSEQ2_ASSET_DIR``
    * - User
-     - ``~/.config/fairseq2/assets/``
+     - ``~/.config/fairseq2/assets/`` (overridden by ``FAIRSEQ2_USER_ASSET_DIR`` if set)
      - ``FAIRSEQ2_USER_ASSET_DIR``
    * - :ref:`basics-runtime-extension`
      - e.g. ``my_package/cards/``
      - N/A (package resources)
 
 
-If you are working with recipe, you can also specify the asset store to use with the config override ``--config common.asset.extra_paths=/path/to/asset/yaml/dir`` option.
+If you are working with recipe, you can also specify the asset store to use with the config override ``--config common.asset.extra_paths="['/path/to/assets/dir', '/path/to/yet_other_assets/dir']"`` option.
 
 **Cache Directory:**
 
@@ -279,26 +276,17 @@ You can register additional asset directories programmatically:
 .. code-block:: python
 
     from pathlib import Path
-    from fairseq2.assets import (
-        get_asset_store,
-        StandardFileAssetMetadataLoader,
-        StandardAssetStore
-    )
+    from fairseq2.composition import register_file_assets
 
-    def register_custom_assets():
-        # Get the current asset store
-        asset_store = get_asset_store()
+    def setup_my_fairseq2(container: DependencyContainer) -> None:
+      register_file_assets(container, Path("/path/to/my/assets"))
 
-        if isinstance(asset_store, StandardAssetStore):
-            # Create a loader for your custom directory
-            custom_dir = Path("/path/to/my/assets")
-            loader = StandardFileAssetMetadataLoader(custom_dir)
+    init_fairseq2(extras=setup_my_fairseq2)
 
-            # Load the metadata provider
-            provider = loader.load()
+    # or register via setuptools entry_point.
+    # or via `Recipe.register()`
 
-            # Register it with the asset store
-            asset_store._metadata_providers.append(provider)
+For more detailed information about registering via setuptools, please see the :ref:`basics-runtime-extension` documentation.
 
 **Dynamic Asset Creation:**
 

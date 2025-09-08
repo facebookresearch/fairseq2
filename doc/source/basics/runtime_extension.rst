@@ -67,10 +67,10 @@ Here's a complete example that shows how to register assets, models, and archite
         container.register(...)
 
         # Register assets (yaml files) from your package, which extends fairseq2
-        register_package_assets("my_package.assets")
+        register_package_assets(container, "my_package.assets")
 
         # Or register assets from a file path, where you put your asset yaml files
-        register_file_assets("path/to/assets")
+        register_file_assets(container, Path("path/to/assets"))
 
         # Register model families
         register_model_family(

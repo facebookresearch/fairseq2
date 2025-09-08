@@ -122,13 +122,6 @@ QwenConfig
         hub = get_qwen_model_hub()
         config = hub.get_arch_config("qwen25_7b")
 
-register_qwen_configs
-~~~~~~~~~~~~~~~~~~~~~
-
-.. autofunction:: register_qwen_configs
-
-    Registers all pre-defined Qwen architecture configurations with the dependency container.
-    This is called automatically during fairseq2 initialization.
 
 Model Factory
 -------------
