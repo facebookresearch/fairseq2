@@ -23,6 +23,7 @@ from fairseq2.recipe.model import RecipeModel
 from fairseq2.recipe.base import RecipeContext, TrainRecipe
 from fairseq2.runtime.dependency import DependencyContainer
 from fairseq2.recipe.trainer import Trainer, TrainUnit
+from fairseq2.recipe.evaluator import EvalUnit
 from fairseq2.utils.rng import RngBag
 from .default_config import LMSFTConfig
 from fairseq2.device import CPU, get_default_device
@@ -97,47 +98,49 @@ class LMSFTRecipe(TrainRecipe):
         )
 
         # Initialize the validation unit.
-        # if config.dataset.valid_split is not None:
-            
-        #     valid_unit = InstructionLossEvalUnit(model, criterion)
+        if config.dataset.valid_split is not None:
 
-        #     max_num_tokens = (
-        #         config.dataset.max_num_valid_tokens or config.dataset.max_num_tokens
-        #     )
+            valid_unit = SFTLossEvalUnit(context.model)
 
-        #     batching = LengthBatching(max_num_tokens)
+            max_num_tokens = (
+                config.dataset.max_num_valid_tokens or config.dataset.max_num_tokens
+            )
 
-        #     read_options = InstructionReadOptions(
-        #         batching=batching,
-        #         sync_mode=SyncMode.UNTIL_LAST,
-        #         num_prefetch=config.dataset.num_prefetch,
-        #         source_encode_mode=config.dataset.source_encode_mode,
-        #         target_encode_mode=config.dataset.target_encode_mode,
-        #         seed=seed,
-        #         extras=config.dataset.extras,
-        #     )
+            batching = LengthBatching(max_num_tokens)
 
-        #     valid_data_reader = dataset.create_reader(
-        #         config.dataset.valid_split,
-        #         tokenizer,
-        #         gangs.dp,
-        #         config.dataset.min_seq_len,
-        #         config.dataset.max_seq_len,
-        #         read_options,
-        #     )
+            read_options = InstructionReadOptions(
+                batching=batching,
+                prefetch=config.dataset.prefetch,
+                source_encode_mode=config.dataset.source_encode_mode,
+                target_encode_mode=config.dataset.target_encode_mode,
+                chat_mode=config.dataset.chat_mode,
+                seed=seed,
+                extras=config.dataset.extras,
+            )
 
-        #     valid_units = [valid_unit]
+            valid_data_reader = dataset.create_reader(
+                config.dataset.train_split,
+                context.default_tokenizer,
+                context.gangs,
+                min_seq_len=config.dataset.min_seq_len,
+                max_seq_len=config.dataset.max_seq_len,
+                options=read_options,
+            )
 
-        #     valid_data_readers = [valid_data_reader]
-        # else:
-        #     valid_units = []
-
-        #     valid_data_readers = []
-
+            valid_units = [valid_unit]
+            valid_data_readers = [valid_data_reader]
+        else:
+            valid_units = []
+            valid_data_readers = []
 
         seed += 1
 
-        return context.create_trainer(unit, data_reader)
+        return context.create_trainer(
+            unit=unit,
+            data_reader=data_reader,
+            valid_units=valid_units,
+            valid_data_readers=valid_data_readers,
+        )
 
     @property
     @override
@@ -163,6 +166,44 @@ class LMSFTUnit(TrainUnit[SequenceBatch]):
 
         seqs, seqs_layout = input_batch.as_input()
 
+        nll_loss = self._model.module(
+            seqs,
+            seqs_layout,
+            targets=target_batch.seqs,
+            target_mask=target_batch.target_mask,
+        )
+
+        update_nll_loss_metric(
+            metric_bag, nll_loss, num_targets=target_batch.num_target_elements
+        )
+
+        update_seq_batch_metrics(metric_bag, target_batch)
+
+        return nll_loss, target_batch.num_target_elements
+
+    @property
+    @override
+    def model(self) -> RecipeModel:
+        return self._model
+
+
+@final
+class SFTLossEvalUnit(EvalUnit[SequenceBatch]):
+    def __init__(self, model: RecipeModel) -> None:
+        self._model = model
+
+    @override
+    def prepare_metric_bag(self, metric_bag: MetricBag) -> None:
+        add_nll_loss_metric(metric_bag)
+        add_seq_batch_metrics(metric_bag)
+
+    @override
+    def process_batch(
+        self, batch: SequenceBatch, metric_bag: MetricBag
+    ) -> tuple[Tensor, None]:
+        input_batch, target_batch = batch.as_auto_regressive()
+
+        seqs, seqs_layout = input_batch.as_input()
 
         nll_loss = self._model.module(
             seqs,
