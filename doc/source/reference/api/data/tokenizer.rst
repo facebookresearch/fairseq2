@@ -55,3 +55,26 @@ handle specific tokenization methods like SentencePiece and tiktoken.
        Tokenizer <|-- RawSentencePieceTokenizer
        Tokenizer <|-- TiktokenTokenizer
        Tokenizer <|-- CharTokenizer
+
+
+
+Quick Start
+-----------
+
+Loading a Tokenizer
+~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    from fairseq2.data.tokenizers import load_tokenizer
+
+    tokenizer = load_tokenizer("qwen3_1.7b")
+
+
+Listing Available Tokenizers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+    # List tokenizers from command line
+    python -m fairseq2.assets list --kind tokenizer

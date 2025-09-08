@@ -42,6 +42,7 @@ extensions = [
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.autosummary",
     "sphinx.ext.coverage",
+    "sphinx.ext.doctest",
     "sphinx.ext.intersphinx",
     "sphinx.ext.todo",
     "sphinx.ext.viewcode",
@@ -119,3 +120,29 @@ html_title = "fairseq2 Documentation"
 favicons = [
     {"href": "img/logo.svg"},  # => use `_static/img/logo.svg`
 ]
+
+# ------------------------------------------------------------
+# Doctest Configuration
+# ------------------------------------------------------------
+
+# Configure doctest options
+doctest_default_flags = (
+    0
+    | __import__("doctest").ELLIPSIS
+    | __import__("doctest").IGNORE_EXCEPTION_DETAIL
+    | __import__("doctest").DONT_ACCEPT_TRUE_FOR_1
+)
+
+# Global setup for doctests
+doctest_global_setup = """
+# Common imports for doctests
+import sys
+import os
+
+# Mock some imports that might not be available during doc build
+try:
+    from fairseq2.assets import get_asset_store
+    from fairseq2.models import load_model
+except ImportError:
+    raise ImportError("Please install fairseq2 to run doctests.")
+"""

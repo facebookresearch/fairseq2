@@ -18,14 +18,29 @@ other content generation tasks.
    :maxdepth: 1
    :caption: Latest News
 
-   whats_new_v0_5
+   news/whats_new_v0_5
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Getting Started
+
+   getting_started/installation/index
 
 .. toctree::
    :maxdepth: 1
    :caption: Basics
 
    basics/design_philosophy
+   basics/assets
    basics/building_recipes
+   basics/runtime_extension
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Tutorials
+
+   tutorials/add_model
+   tutorials/pudb
 
 .. toctree::
    :maxdepth: 1

@@ -22,7 +22,11 @@ as described below. Otherwise, if you are planning to work on C++ or CUDA, or if
 fairseq2n is not available as a pre-built package for your system, please follow
 the installation instructions `here <https://github.com/facebookresearch/fairseq2/blob/main/INSTALL_FROM_SOURCE.md>`_.
 
-To install fairseq2, simply run `pip install fairseq2`.
+To install fairseq2, simply run:
+
+.. code-block:: sh
+
+    pip install fairseq2
 
 To install fairseq2 with a specific version *e.g.* PyTorch ``2.8.0`` and CUDA ``12.8``:
 
