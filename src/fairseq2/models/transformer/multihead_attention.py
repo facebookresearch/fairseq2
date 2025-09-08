@@ -445,10 +445,6 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         # attns:        (N, S, H, V_h)
         # attn_weights: (N, H, S, S_kv)
-        # values = v.transpose(-2, -3)
-        # print(v[6:7,22:23,3:4,30:31])
-        # breakpoint()
-
         attns, attn_weights = self.sdpa(
             q, seqs_layout, k, keys_layout, v, bias_cache, needs_weights=needs_weights
         )
