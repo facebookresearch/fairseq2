@@ -21,7 +21,7 @@ Neural Networks & Modeling
    :maxdepth: 1
 
    nn/index
-   models
+   models/index
 
 Assets and Checkpoints
 ----------------------

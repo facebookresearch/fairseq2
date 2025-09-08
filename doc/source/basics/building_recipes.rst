@@ -370,6 +370,8 @@ Once you've created these four files, running your recipe is straightforward:
         --config-file /path/to/config.yaml \
         --config model.name=llama3_2_1b_instruct regime.num_steps=20 lr_scheduler.config.num_warmup_steps=10
 
+You can also specify the asset store to use with the config override ``--config common.asset.extra_paths=/path/to/asset/yaml/dir`` option.
+For more detailed information about assets, see :doc:`/basics/assets`.
 
 See Also
 ========
@@ -377,4 +379,4 @@ See Also
 * :doc:`design_philosophy` - Core architectural principles
 * :doc:`building_recipes` - Advanced recipe patterns with chatbot example
 * :doc:`/reference/api/recipe` - Recipe system API reference
-* :doc:`/whats_new_v0_5` - Complete list of v0.5 improvements
+* :doc:`/news/whats_new_v0_5` - Complete list of v0.5 improvements
