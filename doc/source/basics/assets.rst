@@ -136,14 +136,56 @@ To add a custom dataset, create an asset card with the required fields:
     name: my_custom_dataset
     dataset_family: generic_instruction
     dataset_config:
-        data: "/path/to/my/dataset"
+      # free-form configuration for the dataset
 
 
 **Required Fields for Datasets:**
 
 - ``name``: Unique identifier for the dataset
 - ``dataset_family``: The dataset loader family to use
-- ``dataset_config.data``: Path or URI to the dataset files
+- ``dataset_config``: Free-form configuration for the dataset loader.
+
+For ``dataset_config``, you can use any configuration that the dataset loader supports.
+You can find an example of registering a custom dataset loader below.
+
+.. dropdown:: Example: Registering a custom dataset loader
+
+    .. code-block:: python
+
+      from fairseq2.composition import register_dataset_family
+      from fairseq2.recipe import TrainRecipe
+
+      @final
+      class MyDataset:
+        ...
+
+        @classmethod
+        def from_path(cls, path: Path) -> "MyDataset":
+          ...
+
+      @dataclass
+      class MyDatasetConfig:
+        """A dummy dataset config for demonstration purposes."""
+        data: Path = field(default_factory=Path)
+
+      def open_my_dataset(config: MyDatasetConfig) -> MyDataset:
+        """The mapping between the dataset asset card definition and MyDataset."""
+        return MyDataset.from_path(config.data)
+
+      @final
+      class MyRecipe(TrainRecipe):
+        """A dummy train recipe."""
+
+        @override
+        def register(self, container: DependencyContainer) -> None:
+            register_dataset_family(
+                container,
+                "my_dataset",  # dataset family name
+                MyDataset,
+                MyDatasetConfig,
+                opener=open_my_dataset,
+            )
+
 
 Adding a Custom Model
 ~~~~~~~~~~~~~~~~~~~~~
@@ -255,7 +297,7 @@ fairseq2 looks for asset cards in these locations (in order):
      - ``~/.config/fairseq2/assets/`` (overridden by ``FAIRSEQ2_USER_ASSET_DIR`` if set)
      - ``FAIRSEQ2_USER_ASSET_DIR``
    * - :ref:`basics-runtime-extension`
-     - e.g. ``my_package/cards/``
+     - e.g. ``my_package/cards/`` (if registered with ``register_package_assets(container, "my_package.cards")``)
      - N/A (package resources)
 
 
@@ -290,30 +332,20 @@ For more detailed information about registering via setuptools, please see the :
 
 **Dynamic Asset Creation:**
 
-.. code-block:: python
+.. doctest::
 
-    from fairseq2.assets import load_in_memory_asset_metadata
-
-    # Create an asset card in memory
-    card_info = {
-        "name": "dynamic_model",
-        "model_family": "llama",
-        "model_arch": "llama3_8b",
-        "checkpoint": "/tmp/model.pt",
-        "tokenizer": "hg://meta-llama/Llama-3-8b",
-        "tokenizer_family": "llama",
-    }
-
-    # Load it into the asset system
-    provider = load_in_memory_asset_metadata("dynamic_source", [card_info])
-
-    # Register with the asset store
-    asset_store = get_asset_store()
-    if isinstance(asset_store, StandardAssetStore):
-        asset_store._metadata_providers.append(provider)
-
-    # Now you can load the asset
-    card = asset_store.retrieve_card("dynamic_model")
+    >>> from fairseq2 import DependencyContainer, init_fairseq2
+    >>> from fairseq2.assets import get_asset_store
+    >>> from fairseq2.composition import register_in_memory_assets
+    >>> entries = [{"name": "foo1", "model_family": "foo"}, {"name": "foo2", "model_family": "foo"}]
+    >>> def setup_fs2_extension(container: DependencyContainer) -> None:
+    ...     register_in_memory_assets(container, source="my_in_mem_source", entries=entries)
+    ...
+    >>> _ = init_fairseq2(extras=setup_fs2_extension)
+    >>> # Now you can load the asset
+    >>> asset_store = get_asset_store()
+    >>> asset_store.retrieve_card("foo1")
+    foo1={'model_family': 'foo', '__source__': 'my_in_mem_source'}
 
 Asset Card Reference
 --------------------
@@ -352,9 +384,7 @@ Common Asset Fields
    * - ``dataset_family``
      - Dataset loader family (for datasets)
      - Datasets only
-   * - ``dataset_config.data``
-     - Dataset location (for datasets)
-     - Datasets only
+
 
 **Source URI Formats:**
 

@@ -65,6 +65,9 @@ jobs:
       - name: Install fairseq2
         run: |
           pip install --editable .
+      - name: Run doctest
+        run: |
+          python -m pytest doc/source --doctest-glob=*.rst
       - name: Generate documentation
         working-directory: doc
         run: |
