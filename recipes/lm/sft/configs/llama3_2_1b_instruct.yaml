@@ -12,12 +12,11 @@ dataset:
 model:
   _set_:
     family: "llama"
-    path: "/datasets/pretrained-llms/Llama-3.2-1B-Instruct/"
-    arch: "llama3_2_1b"
+    name: "llama3_2_1b_instruct"
 tokenizer:
   _set_:
     family: "llama"
-    path: "/datasets/pretrained-llms/Llama-3.2-1B-Instruct/"
+    name: "llama3_2_1b_instruct"
 common:
   metric_recorders:
     wandb:

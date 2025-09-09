@@ -8,15 +8,15 @@ dataset:
   _set_:
     valid_split: "valid"
     batch_size: 16
+    chat_mode: false
 model:
   _set_:
     family: "llama"
-    path: "/datasets/pretrained-llms/Llama-3.2-1B/"
-    arch: "llama3_2_1b"
+    name: "llama3_2_1b"
 tokenizer:
   _set_:
     family: "llama"
-    path: "/datasets/pretrained-llms/Llama-3.2-1B/original/tokenizer.model"
+    name: "llama3_2_1b"
 common:
   metric_recorders:
     wandb:
