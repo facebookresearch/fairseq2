@@ -34,13 +34,15 @@ def collect_logps(filepath, data_limit=None):
     return data
 
 
-def analyze(data, out_dir, file_name="logp_by_pos.png"):
-    print(f"data size {len(data)}")
-    logp_by_pos = np.mean(data, axis=0)
+def analyze(data_dict, out_dir, file_name="logp_by_pos.png"):
     plt.figure()
-    plt.plot(list(range(1, len(logp_by_pos) + 1)), logp_by_pos, marker="o")
+    for k, v in data_dict.items():
+        print(f"{k}: data size {len(v)}")
+        logp_by_pos = np.mean(v, axis=0)
+        plt.plot(list(range(1, len(logp_by_pos) + 1)), logp_by_pos, marker="o", label=k)
     plt.xlabel("position")
     plt.ylabel("mean logp")
+    plt.legend()
     plt.grid(True)
     plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))
 
@@ -55,5 +57,7 @@ input_path = "/fsx-ram/lidli/training/online_rl/diff_ppl_frozen_rm_20_window_ent
 data = collect_logps(input_path)
 talking_mode_data = data[0 : len(data) : 5]
 thinking_mode_data = [entry for i, entry in enumerate(data) if i % 5 != 0]
-analyze(talking_mode_data, "/tmp", "talking_mode_logp_by_pos.png")
-analyze(thinking_mode_data, "/tmp", "thinking_mode_logp_by_pos.png")
+analyze(
+    {"talking mode": talking_mode_data, "thinking mode": thinking_mode_data},
+    "/tmp",
+)
