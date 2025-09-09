@@ -17,13 +17,13 @@ model:
 tokenizer:
   _set_:
     family: "llama"
-    path: "/datasets/pretrained-llms/Llama-3.2-1B-Instruct/original/tokenizer.model"
+    path: "/datasets/pretrained-llms/Llama-3.2-1B-Instruct/"
 common:
   metric_recorders:
     wandb:
       enabled: True
       project: "fairseq2"
-      run_name: "test_llama3_2_1b_instruct_sft"
+      run_name: "test_llama3_8b_instruct_sft"
 regime:
   _set_:
     num_steps: 48000
