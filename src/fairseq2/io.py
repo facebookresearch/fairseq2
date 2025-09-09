@@ -46,6 +46,13 @@ class TensorLoader(ABC):
         """
 
 
+class TensorFileError(Exception):
+    def __init__(self, file: Path, message: str) -> None:
+        super().__init__(message)
+
+        self.file = file
+
+
 class TensorDumper(ABC):
     """Dumps tensors to PyTorch binary files."""
 
@@ -59,11 +66,8 @@ class TensorDumper(ABC):
         """
 
 
-class TensorFileError(Exception):
-    def __init__(self, file: Path, message: str) -> None:
-        super().__init__(message)
-
-        self.file = file
+class TensorDataNotValidError(Exception):
+    pass
 
 
 @final
@@ -116,7 +120,9 @@ class TorchTensorDumper(TensorDumper):
             try:
                 torch.save(data, fp, pickle_protocol=pickle_protocol)
             except (RuntimeError, PickleError) as ex:
-                raise ValueError("`data` is not a picklable object.") from ex
+                raise TensorDataNotValidError(
+                    "`data` is not a pickleable object."
+                ) from ex
             finally:
                 fp.close()
 

@@ -12,7 +12,7 @@ from concurrent.futures import Future
 from dataclasses import dataclass
 from os import scandir
 from pathlib import Path
-from typing import NoReturn, Protocol, cast, final
+from typing import Protocol, cast, final
 
 import torch
 from torch import Tensor
@@ -28,7 +28,12 @@ from fairseq2.error import (
 )
 from fairseq2.file_system import FileMode, FileSystem
 from fairseq2.gang import GangError, Gangs, all_sum, raise_operational_gang_error
-from fairseq2.io import TensorDumper, TensorFileError, TensorLoader
+from fairseq2.io import (
+    TensorDataNotValidError,
+    TensorDumper,
+    TensorFileError,
+    TensorLoader,
+)
 from fairseq2.nn.fsdp import load_with_sdp_gang
 from fairseq2.runtime.closable import Closable
 from fairseq2.typing import Stateful
@@ -119,6 +124,14 @@ class CheckpointReadyCallback(Protocol):
 
 class CheckpointSavedCallback(Protocol):
     def __call__(self, step_nr: int, blocking: bool) -> None: ...
+
+
+class CheckpointStateNotValidError(Exception):
+    def __init__(self, step_nr: int, kind: str, message: str) -> None:
+        super().__init__(message)
+
+        self.step_nr = step_nr
+        self.kind = kind
 
 
 class CheckpointNotFoundError(Exception):
@@ -312,6 +325,12 @@ class StandardCheckpointManager(CheckpointManager):
 
         state_dict = model.state_dict()
 
+        for k, v in state_dict.items():
+            if not isinstance(v, Tensor):
+                msg = f"`model` checkpoint of step {step_nr} must contain only objects of type `{Tensor}`, but the value of the {k} key is of type `{type(v)}`."
+
+                raise CheckpointStateNotValidError(step_nr, "model", msg)
+
         record = _CheckpointRecord("model", file, state_dict)
 
         records.append(record)
@@ -374,16 +393,11 @@ class StandardCheckpointManager(CheckpointManager):
     ) -> None:
         self._sync_nfs_cache()
 
-        if blocking:
-            for record in records:
-                self._check_safe_state_dict(record.kind, record.state_dict)
-        else:
+        if not blocking:
             memo: dict[Tensor, Tensor] = {}
 
             for record in records:
-                record.state_dict = self._copy_state_dict_to_host(
-                    record.kind, record.state_dict, memo
-                )
+                self._copy_state_dict_to_host(record, step_nr, memo)
 
             del memo
 
@@ -419,58 +433,19 @@ class StandardCheckpointManager(CheckpointManager):
 
                 raise OperationalError("A thread pool queue operation failed.") from ex
 
-    def _check_safe_state_dict(self, kind: str, state_dict: dict[str, object]) -> None:
-        if kind == "model":
-            for k, v in state_dict.items():
-                if not isinstance(v, Tensor):
-                    raise ValueError(
-                        f"`model` must contain only tensors, but the value of the {k} key is of type `{type(v)}`."
-                    )
-
-            return
-
-        def check_item(item: object) -> None:
-            if item is None:
-                return
-
-            if isinstance(item, (bool, int, float, str, Tensor)):
-                return
-
-            if isinstance(item, (list, tuple, set)):
-                for e in item:
-                    check_item(e)
-
-                return
-
-            if isinstance(item, dict):
-                for k, v in item.items():
-                    check_item(k)
-                    check_item(v)
-
-                return
-
-            if kind == "data_reader":
-                if isinstance(item, (Path, MemoryBlock)):
-                    return
-
-            self._raise_type_error(kind, item)
-
-        check_item(state_dict)
-
     def _copy_state_dict_to_host(
-        self, kind: str, state_dict: dict[str, object], memo: dict[Tensor, Tensor]
-    ) -> dict[str, object]:
-        has_cuda_tensor = False
+        self, record: _CheckpointRecord, step_nr: int, memo: dict[Tensor, Tensor]
+    ) -> None:
+        has_cuda = False
 
         def copy_tensor_to_host(tensor: Tensor) -> object:
-            nonlocal has_cuda_tensor
+            nonlocal has_cuda
 
             cpu_tensor = memo.get(tensor)
             if cpu_tensor is None:
                 is_cuda = tensor.device.type == "cuda"
-
                 if is_cuda:
-                    has_cuda_tensor = True
+                    has_cuda = True
 
                 cpu_tensor = torch.empty_like(tensor, device=CPU)
 
@@ -487,7 +462,7 @@ class StandardCheckpointManager(CheckpointManager):
             if isinstance(item, Tensor):
                 return copy_tensor_to_host(item)
 
-            if isinstance(item, (bool, int, float, str)):
+            if isinstance(item, (bool, int, float, str, Path, MemoryBlock)):
                 return item
 
             if isinstance(item, list):
@@ -502,56 +477,33 @@ class StandardCheckpointManager(CheckpointManager):
             if isinstance(item, dict):
                 return {copy_to_host(k): copy_to_host(v) for k, v in item.items()}
 
-            if kind == "data_reader":
-                if isinstance(item, (Path, MemoryBlock)):
-                    return item
+            msg = f"For device-to-host transfer `{record.kind}` checkpoint must contain objects of known types only, but it contains an object of type `{type(item)}`. Known types: `bool`, `int`, `float`, `Tensor`, `str`, `Path`, `list`, `dict`, `tuple`, `set`."
 
-            self._raise_type_error(kind, item)
+            raise CheckpointStateNotValidError(step_nr, record.kind, msg)
 
-        if kind == "model":
-            host_state_dict = {}
+        host_state_dict = copy_to_host(record.state_dict)
 
-            for k, v in state_dict.items():
-                if not isinstance(v, Tensor):
-                    raise ValueError(
-                        f"`model` must contain only tensors, but the value of the {k} key is of type `{type(v)}`."
-                    )
-
-                host_state_dict[k] = copy_tensor_to_host(v)
-        else:
-            host_state_dict = cast(dict[str, object], copy_to_host(state_dict))
-
-        if has_cuda_tensor:
+        if has_cuda:
             torch.cuda.synchronize()
 
-        return host_state_dict
-
-    def _raise_type_error(self, kind: str, value: object) -> NoReturn:
-        allowed_types = [bool, int, float, Tensor, str, list, dict, tuple, set]
-
-        if kind == "data_reader":
-            allowed_types.extend([Path, MemoryBlock])
-
-        s = ", ".join(str(t) for t in allowed_types)
-
-        raise ValueError(
-            f"`{kind}` must contain objects of allowed types only, but it contains an object of type `{type(value)}`. Allowed types: {s}."
-        )
+        record.state_dict = cast(dict[str, object], host_state_dict)
 
     def _save_state_files(self, step_nr: int, records: list[_CheckpointRecord]) -> None:
         for record in records:
-            # For data reader state, we require pickle protocol v5 since memory
-            # blocks cannot be saved otherwise. Note that we deliberately limit
-            # v5 to data reader state though since `torch.load()` has a bug and
-            # cannot unpickle objects serialized with v5 when `weights_only` is
-            # set to `True`. See:
+            # We do not use pickle protocol v5 for model state because
+            # `torch.load(..., weights_only=True)` cannot unpickle objects
+            # serialized with v5. See:
             #   https://github.com/pytorch/pytorch/issues/118092
-            pickle_protocol = 5 if record.kind == "data_reader" else 2
+            protocol = 2 if record.kind == "model" else 5
 
             try:
                 self._tensor_dumper.dump(
-                    record.state_dict, record.file, pickle_protocol=pickle_protocol
+                    record.state_dict, record.file, pickle_protocol=protocol
                 )
+            except TensorDataNotValidError as ex:
+                msg = f"`{record.kind}` checkpoint of step {step_nr} is not valid."
+
+                raise CheckpointStateNotValidError(step_nr, record.kind, msg) from ex
             except OSError as ex:
                 raise_operational_system_error(ex)
 
@@ -726,13 +678,9 @@ class StandardCheckpointManager(CheckpointManager):
         with load_with_sdp_gang(gangs):  # Required for `ShardedTensor`.
             file = self._checkpoint_dir.joinpath(f"step_{step_nr}/{pathname}")
 
-            # The data reader state can potentially include `MemoryBlock` and
-            # `Path` instances which are not "safe".
-            restrict = kind != "data_reader"
-
             try:
                 return self._tensor_loader.load(
-                    file, map_location=CPU, restrict=restrict
+                    file, map_location=CPU, restrict=kind == "model"
                 )
             except TensorFileError as ex:
                 msg = f"{file} of step {step_nr} is not a valid checkpoint file."
