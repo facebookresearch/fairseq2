@@ -233,6 +233,7 @@ class LMSFTDataset:
                     id_ = example.get("id", None)
                     chat = example.get("chat", None)
 
+                    # FIXME this only works for llama 3 style chat templates
                     if not chat:
                         chat = [
                             {"role": "user", "content": example.get("src")},

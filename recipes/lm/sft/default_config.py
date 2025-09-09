@@ -105,7 +105,7 @@ class LMSFTConfig:
 
     tokenizer: TokenizerSection = field(
         default_factory=lambda: TokenizerSection(
-            name="llama3", config_overrides=LLaMATokenizerConfig(impl="hg")
+            name="llama3", config_overrides=LLaMATokenizerConfig(impl="hg"), use_eot=True),
         )
     )
 
