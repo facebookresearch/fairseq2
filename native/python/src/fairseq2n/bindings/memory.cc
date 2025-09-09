@@ -22,7 +22,7 @@ namespace detail {
 namespace {
 
 memory_block
-deepcopy(const memory_block &self, py::dict)
+deepcopy(const memory_block &self, const py::dict &)
 {
     return copy_memory(self);
 }
