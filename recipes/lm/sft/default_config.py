@@ -43,7 +43,7 @@ class InstructionFinetuneDatasetSection(DatasetSection):
 
     path: Path | None = None
 
-    train_split: str = "train"  # DEFAULT
+    train_split: str = "train"  # FIXME (jacklanchantin)not sure what this should be
 
     valid_split: str | None = None
 
@@ -156,8 +156,6 @@ class LMSFTConfig:
     dataset: InstructionFinetuneDatasetSection = field(
         default_factory=lambda: InstructionFinetuneDatasetSection(
             family=LM_SFT_DATASET,
-            config_overrides=LMSFTDatasetConfig(
-                path=Path("/checkpoint/ram/jacklanchantin/data/alpaca/")
-            ),
+            config_overrides=LMSFTDatasetConfig(),
         )
     )
