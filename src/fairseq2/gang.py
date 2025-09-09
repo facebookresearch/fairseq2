@@ -10,7 +10,7 @@ import os
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from enum import Enum
 from typing import Any, final
@@ -633,6 +633,9 @@ class Gangs:
 
     tp: Gang
     """The tensor parallel gang."""
+    
+    ep: Gang
+    """The expert parallel gang."""
 
     def __post_init__(self) -> None:
         if self.root.rank == 0:
@@ -649,17 +652,31 @@ def fake_gangs(device: Device) -> Gangs:
     fake_gang = FakeGang(device=device)
 
     return Gangs(
-        root=fake_gang, dp=fake_gang, rdp=fake_gang, sdp=fake_gang, tp=fake_gang
+        root=fake_gang,
+        dp=fake_gang,
+        rdp=fake_gang,
+        sdp=fake_gang,
+        tp=fake_gang,
+        ep=fake_gang,
     )
 
 
 def to_gangs(gang: Gang) -> Gangs:
     fake_gang = FakeGang(device=gang.device)
 
-    return Gangs(root=gang, dp=gang, rdp=gang, sdp=fake_gang, tp=fake_gang)
+    return Gangs(
+        root=gang,
+        dp=gang,
+        rdp=gang,
+        sdp=fake_gang,
+        tp=fake_gang,
+        ep=fake_gang,
+    )
 
 
-def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
+def setup_parallel_gangs(
+    root_gang: Gang, *, tp_size: int = 1, ep_size: int = 1,
+) -> Gangs:
     """Sets up gangs to be used for data and model parallelism.
 
     For instance; if we have 8 devices denoted by g0 to g7 and 2 devices are
@@ -674,9 +691,19 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     For efficiency, the caller should make sure adjacent ranks are on the same
     host. For example, if there are two hosts with a total of 16 GPUs, ranks 0
     to 7 belong to the first host and ranks 8 to 15 belong to the second host.
+    
+    Expert parallel gangs are built as sub-gangs of data parallel gangs. This is
+    because in MoE models, a good fraction of computation is not within experts,
+    so it would be wasteful to have an entire independent mesh dimension for EP.
+    With dp_size = 4 and tp_size = 2 (like in the above example), and ep_size = 2:
+        4 expert parallel gangs:
+        [g0, g2], [g4, g6], [g1, g3], [g5, g7]
+        If the model has 16 experts, the first two gangs will house 8 experts each,
+        and this repartition will be repeated for the last two.
 
     :param root_gang: The gang whose topology will be used to make the new gangs.
     :param tp_size: The size of tensor parallel gangs.
+    :param ep_size: The size of expert parallel gangs.
     """
     if tp_size < 1:
         raise ValueError(f"`tp_size` must be greater than 0, but is {tp_size} instead.")
@@ -690,10 +717,18 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
         raise ValueError(
             f"`root_gang.size` is expected to be a multiple of `tp_size` ({tp_size}), but is {root_gang.size} instead."
         )
+    
+    if ep_size < 1:
+        raise ValueError(f"`ep_size` must be greater than 0, but is {ep_size} instead.")
+    
+    dp_size = root_gang.size // tp_size
+    
+    if dp_size % ep_size != 0:
+        raise ValueError(
+            f"`dp_size` is expected to be a multiple of `ep_size` ({ep_size}), but is {dp_size} instead."
+        )
 
     fake_gang = FakeGang(device=root_gang.device)
-
-    dp_size = root_gang.size // tp_size
 
     mesh = torch.arange(root_gang.size).view(dp_size, tp_size)
 
@@ -701,8 +736,12 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     rank_coords = [x.item() for x in torch.where(mesh == root_gang.rank)]
 
     dp_gang: Gang | None = None
+    ep_gang: Gang | None = None
 
     log.info("Initializing data parallel gang with {} process(es).", dp_size)
+    
+    if ep_size > 1:
+            log.info("Initializing expert parallel gang with {} process(es).", ep_size)
 
     # Build the gangs for data parallelism.
     match dp_size:
@@ -712,12 +751,26 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
             dp_gang = root_gang
         case _:
             for i in range(tp_size):
-                sub_gang = root_gang.create_gang(mesh[:, i].tolist())
+                ranks = mesh[:, i]
+                
+                sub_gang = root_gang.create_gang(ranks.tolist())
                 if i == rank_coords[1]:
                     dp_gang = sub_gang
+                    ep_gang = sub_gang
+                
+                if ep_size > 1 and ep_size != dp_size and sub_gang is not None:
+                        # we only create EP gangs if EP is non-trivial
+                        expert_gangs = ranks.split(ep_size)
+                        for ep_ranks in expert_gangs:
+                            sub_sub_gang = root_gang.create_gang(ep_ranks.tolist())
+
+                            if root_gang.rank in ep_ranks:
+                                ep_gang = sub_sub_gang
 
     if dp_gang is None:
         raise InternalError("`dp_gang` is `None`.")
+    if ep_gang is None:
+        raise InternalError("`ep_gang` is `None`.")
 
     tp_gang: Gang | None = None
 
@@ -738,7 +791,14 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     if tp_gang is None:
         raise InternalError("`tp_gang` is `None`.")
 
-    return Gangs(root=root_gang, dp=dp_gang, rdp=dp_gang, sdp=fake_gang, tp=tp_gang)
+    return Gangs(
+        root=root_gang, 
+        dp=dp_gang,
+        rdp=dp_gang,
+        sdp=fake_gang,
+        tp=tp_gang,
+        ep=ep_gang,
+    )
 
 
 def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
@@ -759,9 +819,7 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
     if intra_node_size is None:
         fake_gang = FakeGang(gangs.root.device)
 
-        return Gangs(
-            root=gangs.root, dp=gangs.dp, rdp=fake_gang, sdp=gangs.dp, tp=gangs.tp
-        )
+        return replace(gangs, rdp=fake_gang, sdp=gangs.dp)
 
     if intra_node_size <= 1:
         raise ValueError(
@@ -822,9 +880,7 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
     if intra_gang is None:
         raise InternalError("`intra_gang` is `None`.")
 
-    return Gangs(
-        root=gangs.root, dp=dp_gang, rdp=inter_gang, sdp=intra_gang, tp=gangs.tp
-    )
+    return replace(gangs, dp=dp_gang, rdp=inter_gang, sdp=intra_gang)
 
 
 def broadcast_flag(gang: Gang, flag: bool, source_rank: int = 0) -> bool:

@@ -68,7 +68,6 @@ class Router(nn.Module):
         num_experts: int,
         top_k: int,
         expert_act_threshold: float = 0.0,
-        is_tp_sharding_strategy: bool = True,
         device: Device | None = None,
         dtype: DataType | None = None,
     ):

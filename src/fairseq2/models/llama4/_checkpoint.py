@@ -12,6 +12,7 @@ import torch
 
 from fairseq2.models.llama4._config import LLaMA4DecoderConfig
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
+from fairseq2.gang import Gangs
 
 
 def get_indices_to_split_wqkv(
@@ -52,7 +53,7 @@ def get_indices_to_split_wqkv(
 
 
 def convert_llama4_checkpoint(
-    checkpoint: dict[str, object], config: LLaMA4DecoderConfig
+    checkpoint: dict[str, object], config: LLaMA4DecoderConfig, gangs: Gangs
 ) -> dict[str, object]:
     loaded_checkpoint = checkpoint
 

@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+import torch
+from torch import nn
+
 from fairseq2.gang import Gangs
 from fairseq2.models.llama4._config import LLaMA4DecoderConfig
 from fairseq2.models.llama4.model._frontend import LLaMA4DecoderFrontend
@@ -153,3 +156,53 @@ def shard_llama4_model(
 
     if isinstance(model.final_proj, Linear):
         model.final_proj = ColumnShardedLinear.from_linear(model.final_proj, tp_gang)
+
+
+def shard_moe_layers(model: TransformerDecoderModel, ep_gang: Gang) -> None:
+    if ep_gang.size == 1:
+        return
+
+    for m in model.modules():
+        if not isinstance(m, MoE):
+            continue
+
+        # Update sharding strategy for the router
+        # If EP is used, sharding strategy becomes "dp2ep":
+        # i.e. DP ranks are used as EP ranks and each carry
+        # num_experts // ep_gang.size experts
+        m.router.is_tp_sharding_strategy = False
+
+        # replace the token dispatcher to support EP
+        num_experts = m.experts.num_local_experts
+        m.token_dispatcher = DP2EPTokenDispatcher(num_experts, ep_gang)
+
+        if not isinstance(m.experts, GroupedExperts):
+            continue
+
+        # Update the top-layer num experts
+        m.experts.num_local_experts = num_experts // ep_gang.size
+
+        layers = [m.experts.gate_proj, m.experts.inner_proj, m.experts.output_proj]
+
+        with torch.no_grad():
+            for layer in layers:
+                w = layer.weight
+                ep_dim = 0
+                assert isinstance(w, nn.Parameter)
+
+                device = w.device
+
+                # Chunk the weight on CPU
+                original_weight = w.data
+                w_shard = original_weight.chunk(ep_gang.size, dim=ep_dim)[
+                    ep_gang.rank
+                ].to(CPU)
+
+                # Release original weight
+                w.data = torch.empty(0, device=device)
+                del original_weight
+
+                # Assign the new weight on the right device
+                w.data = w_shard.to(device)
+
+                w.grad = None

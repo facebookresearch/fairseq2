@@ -97,6 +97,8 @@ class TextTokenizerSection:
 @dataclass(kw_only=True)
 class GangSection:
     tensor_parallel_size: int = 1
+    
+    expert_parallel_size: int = 1
 
     timeout: int = 15
 
