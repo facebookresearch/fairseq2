@@ -96,9 +96,16 @@ class LMSFTConfig:
         )
     )
 
+    # tokenizer: TokenizerSection = field(
+    #     default_factory=lambda: TokenizerSection(
+    #         config_overrides=LLaMATokenizerConfig(impl="tiktoken", use_eot=True),
+    #         # config_overrides=LLaMATokenizerConfig(impl="hg")
+    #     )
+    # )
+
     tokenizer: TokenizerSection = field(
         default_factory=lambda: TokenizerSection(
-            config_overrides=LLaMATokenizerConfig(impl="hg", use_eot=True),
+            name="llama3", config_overrides=LLaMATokenizerConfig(impl="hg")
         )
     )
 

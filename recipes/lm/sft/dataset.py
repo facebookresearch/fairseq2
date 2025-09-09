@@ -230,8 +230,14 @@ class LMSFTDataset:
             else:
 
                 def encoding_chat(example: dict[str, Any]) -> dict[str, Any]:
-                    id_ = example.get("id")
-                    chat = example.get("chat")
+                    id_ = example.get("id", None)
+                    chat = example.get("chat", None)
+
+                    if not chat:
+                        chat = [
+                            {"role": "user", "content": example.get("src")},
+                            {"role": "assistant", "content": example.get("tgt")},
+                        ]
 
                     encoded_output = encoder.apply_chat_template(
                         chat,
@@ -331,6 +337,7 @@ class LMSFTDataset:
 
             seqs, seq_lens = indices["seqs"], indices["seq_lens"]
             target_mask = example["target_mask"]["seqs"]
+
             return SequenceBatch(
                 seqs, seq_lens, target_mask=target_mask, example=example
             )
