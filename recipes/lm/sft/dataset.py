@@ -40,7 +40,7 @@ from collections.abc import MutableMapping
 from fairseq2.error import NotSupportedError
 from typing import Any, Final, cast, final
 import torch
-
+from fairseq2.data.tokenizers.hg import HuggingFaceTokenEncoder
 from .utils import (
     LengthBatching,
     StaticBatching,
@@ -221,8 +221,6 @@ class LMSFTDataset:
         seed += gangs.dp.rank
 
         if options.chat_mode is True:
-            from fairseq2.data.text.tokenizers.hg import HuggingFaceTokenEncoder
-
             # not passing any encoding modes here, because we use apply_chat_template here
             encoder = tokenizer.create_encoder()
             if not isinstance(encoder, HuggingFaceTokenEncoder):
@@ -333,7 +331,9 @@ class LMSFTDataset:
 
             seqs, seq_lens = indices["seqs"], indices["seq_lens"]
             target_mask = example["target_mask"]["seqs"]
-            return SequenceBatch(seqs, seq_lens, target_mask=target_mask, example=example)
+            return SequenceBatch(
+                seqs, seq_lens, target_mask=target_mask, example=example
+            )
 
         pipeline = builder.map(to_batch).and_return()
 

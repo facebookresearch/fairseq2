@@ -91,9 +91,6 @@ class InstructionFinetuneDatasetSection(DatasetSection):
 class LMSFTConfig:
     model: ModelSection = field(
         default_factory=lambda: ModelSection(
-            family="llama",
-            arch="llama3_2_1b",
-            path="/datasets/pretrained-llms/Llama-3.2-1B/",
             compile=False,
             compile_options=CompileOptions(fullgraph=True, dynamic=False),
         )
@@ -101,8 +98,6 @@ class LMSFTConfig:
 
     tokenizer: TokenizerSection = field(
         default_factory=lambda: TokenizerSection(
-            family="llama",
-            path="/datasets/pretrained-llms/Llama-3.2-1B-Instruct/original/tokenizer.model",
             config_overrides=LLaMATokenizerConfig(impl="tiktoken", use_eot=True),
         )
     )
