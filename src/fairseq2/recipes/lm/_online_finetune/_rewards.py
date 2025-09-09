@@ -973,6 +973,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         self.reason_start_wrap_key = reason_start_wrap_key
         self.reason_end_wrap_key = reason_end_wrap_key
         self.wrap_think_tags = wrap_think_tags
+        self.enable_human_friendly_log = False
 
     def _preprocess_reward_input(
         self,
@@ -1122,6 +1123,9 @@ class PplDerivedVerifier(VLLMOutputReward):
                 ]
                 log.info("-" * 6 + f"completion logprobs {i}" + "-" * 6)
                 log.info(str(completion_logprobs_vals))
+                completion_logprobs = [list(d.values())[0] for d in completion_logprobs]
+                log.info("-" * 6 + f"completion token logprobs {i}" + "-" * 6)
+                log.info(str(completion_logprobs))
                 log.info("-" * 6 + f"reward {i}" + "-" * 6)
                 log.info(reward)
             log.info("-" * 6 + "all rewards in example" + "-" * 6)
@@ -1132,7 +1136,6 @@ class PplDerivedVerifier(VLLMOutputReward):
         self,
         vllm_outputs: list[RequestOutput],
         prompt_batch: PromptBatch,
-        enable_human_friendly_log: bool = False,
     ):
         all_input_tok_lens = []
         vllm_inputs = []
@@ -1201,7 +1204,7 @@ class PplDerivedVerifier(VLLMOutputReward):
             "n": 1,
             "max_tokens": 1,
             "prompt_logprobs": 0,
-            "detokenize": False,
+            "detokenize": self.enable_human_friendly_log,
         }
         rollouts = generate_rollouts(
             vllm_inputs,
@@ -1223,7 +1226,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         # reshape batch_rewards to [Batch, Rollouts]
         B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
         batch_rewards = [batch_rewards[i * R : (i + 1) * R] for i in range(B)]
-        if enable_human_friendly_log:
+        if self.enable_human_friendly_log:
             self._log_human_friendly(
                 B,
                 self.tokenizer,
