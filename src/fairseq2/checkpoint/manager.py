@@ -9,16 +9,18 @@ from __future__ import annotations
 from abc import abstractmethod
 from collections.abc import Callable
 from concurrent.futures import Future
+from copy import deepcopy
 from dataclasses import dataclass
 from os import scandir
 from pathlib import Path
-from typing import Protocol, cast, final
+from pickle import PickleError
+from typing import Any, Protocol, final
 
 import torch
 from torch import Tensor
+from torch.overrides import TorchFunctionMode
 from typing_extensions import override
 
-from fairseq2.data._memory import MemoryBlock
 from fairseq2.device import CPU
 from fairseq2.error import (
     InternalError,
@@ -436,57 +438,18 @@ class StandardCheckpointManager(CheckpointManager):
     def _copy_state_dict_to_host(
         self, record: _CheckpointRecord, step_nr: int, memo: dict[Tensor, Tensor]
     ) -> None:
-        has_cuda = False
+        d2h_mode = _CheckpointDeviceToHostMode(memo)
 
-        def copy_tensor_to_host(tensor: Tensor) -> object:
-            nonlocal has_cuda
+        try:
+            with d2h_mode:
+                record.state_dict = deepcopy(record.state_dict)
+        except (ValueError, RuntimeError, TypeError, PickleError) as ex:
+            msg = f"`{record.kind}` checkpoint must contain primitive and pickeable objects only."
 
-            cpu_tensor = memo.get(tensor)
-            if cpu_tensor is None:
-                is_cuda = tensor.device.type == "cuda"
-                if is_cuda:
-                    has_cuda = True
+            raise CheckpointStateNotValidError(step_nr, record.kind, msg) from ex
 
-                cpu_tensor = torch.empty_like(tensor, device=CPU)
-
-                cpu_tensor.copy_(tensor, non_blocking=is_cuda)
-
-                memo[tensor] = cpu_tensor
-
-            return cpu_tensor
-
-        def copy_to_host(item: object) -> object:
-            if item is None:
-                return None
-
-            if isinstance(item, Tensor):
-                return copy_tensor_to_host(item)
-
-            if isinstance(item, (bool, int, float, str, Path, MemoryBlock)):
-                return item
-
-            if isinstance(item, list):
-                return [copy_to_host(e) for e in item]
-
-            if isinstance(item, tuple):
-                return tuple(copy_to_host(e) for e in item)
-
-            if isinstance(item, set):
-                return {copy_to_host(e) for e in item}
-
-            if isinstance(item, dict):
-                return {copy_to_host(k): copy_to_host(v) for k, v in item.items()}
-
-            msg = f"For device-to-host transfer `{record.kind}` checkpoint must contain objects of known types only, but it contains an object of type `{type(item)}`. Known types: `bool`, `int`, `float`, `Tensor`, `str`, `Path`, `list`, `dict`, `tuple`, `set`."
-
-            raise CheckpointStateNotValidError(step_nr, record.kind, msg)
-
-        host_state_dict = copy_to_host(record.state_dict)
-
-        if has_cuda:
+        if d2h_mode.has_cuda:
             torch.cuda.synchronize()
-
-        record.state_dict = cast(dict[str, object], host_state_dict)
 
     def _save_state_files(self, step_nr: int, records: list[_CheckpointRecord]) -> None:
         for record in records:
@@ -501,7 +464,7 @@ class StandardCheckpointManager(CheckpointManager):
                     record.state_dict, record.file, pickle_protocol=protocol
                 )
             except TensorDataNotValidError as ex:
-                msg = f"`{record.kind}` checkpoint of step {step_nr} is not valid."
+                msg = f"`{record.kind}` checkpoint must contain primitive and pickeable objects only."
 
                 raise CheckpointStateNotValidError(step_nr, record.kind, msg) from ex
             except OSError as ex:
@@ -879,3 +842,32 @@ class _CheckpointRecord:
     kind: str
     file: Path
     state_dict: dict[str, object]
+
+
+class _CheckpointDeviceToHostMode(TorchFunctionMode):
+    def __init__(self, memo: dict[Tensor, Tensor]) -> None:
+        self.memo = memo
+        self.has_cuda = False
+
+    def __torch_function__(  # type: ignore[override]
+        self, func: Any, types: Any, args: Any, kwargs: Any = None
+    ) -> Any:
+        if func is Tensor.__deepcopy__:
+            source = args[0]
+
+            is_cuda = source.device.type == "cuda"
+            if is_cuda:
+                self.has_cuda = True
+
+            target = torch.empty_like(source, device=CPU)
+
+            target.copy_(source, non_blocking=is_cuda)
+
+            self.memo[source] = target
+
+            return target
+
+        if kwargs is None:
+            kwargs = {}
+
+        return func(*args, **kwargs)
