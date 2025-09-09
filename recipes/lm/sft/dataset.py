@@ -7,45 +7,43 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import MutableMapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Final, final, TypeAlias
+from typing import Any, Final, TypeAlias, cast, final
 
+import torch
 from torch import Tensor
+from typing_extensions import override
 
+from fairseq2.data import (
+    CollateOptionsOverride,
+    Collater,
+    DataPipelineBuilder,
+    SequenceData,
+    create_bucket_sizes,
+)
 from fairseq2.data.data_pipeline import (
     DataPipeline,
     read_sequence,
 )
 from fairseq2.data.text import read_text
 from fairseq2.data.tokenizers import Tokenizer
-
+from fairseq2.data.tokenizers.hg import HuggingFaceTokenEncoder
 from fairseq2.datasets import (
     DataPipelineReader,
     SequenceBatch,
     SyncMode,
 )
-from fairseq2.data import (
-    create_bucket_sizes,
-    CollateOptionsOverride,
-    Collater,
-    SequenceData,
-    DataPipelineBuilder,
-)
-from fairseq2.gang import Gangs, Gang
-from fairseq2.nn import BatchLayout
-from typing_extensions import override
-from collections.abc import MutableMapping
 from fairseq2.error import NotSupportedError
-from typing import Any, Final, cast, final
-import torch
-from fairseq2.data.tokenizers.hg import HuggingFaceTokenEncoder
+from fairseq2.gang import Gang, Gangs
+from fairseq2.nn import BatchLayout
+
 from .utils import (
-    LengthBatching,
-    StaticBatching,
     Batching,
     DatasetLoadError,
+    LengthBatching,
+    StaticBatching,
     load_files_and_weights,
 )
 

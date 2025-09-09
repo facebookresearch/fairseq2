@@ -7,11 +7,14 @@
 from __future__ import annotations
 
 from typing import final
+
 import torch
 from torch import Tensor
 from typing_extensions import override
+
 from fairseq2.composition import register_dataset_family
 from fairseq2.datasets import SequenceBatch
+from fairseq2.device import CPU, get_default_device
 from fairseq2.metrics import MetricBag
 from fairseq2.metrics.common import (
     add_nll_loss_metric,
@@ -19,23 +22,23 @@ from fairseq2.metrics.common import (
     update_nll_loss_metric,
     update_seq_batch_metrics,
 )
-from fairseq2.recipe.model import RecipeModel
 from fairseq2.recipe.base import RecipeContext, TrainRecipe
-from fairseq2.runtime.dependency import DependencyContainer
-from fairseq2.recipe.trainer import Trainer, TrainUnit
 from fairseq2.recipe.evaluator import EvalUnit
+from fairseq2.recipe.model import RecipeModel
+from fairseq2.recipe.trainer import Trainer, TrainUnit
+from fairseq2.runtime.dependency import DependencyContainer
 from fairseq2.utils.rng import RngBag
-from .default_config import LMSFTConfig
-from fairseq2.device import CPU, get_default_device
+
 from .dataset import (
     LM_SFT_DATASET,
+    InstructionReadOptions,
+    LengthBatching,
     LMSFTDataset,
     LMSFTDatasetConfig,
-    open_lm_sft_dataset,
     StaticBatching,
-    LengthBatching,
-    InstructionReadOptions,
+    open_lm_sft_dataset,
 )
+from .default_config import LMSFTConfig
 
 
 @final

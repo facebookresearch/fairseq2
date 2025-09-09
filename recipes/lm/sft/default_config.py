@@ -8,10 +8,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Final, cast, final
 
 import torch
 import torch.distributed
-from typing import Any, Final, cast, final
+
+from fairseq2.models.llama.tokenizer import LLaMATokenizerConfig as LLaMATokenizerConfig
 from fairseq2.recipe.config import (
     ADAMW_OPTIMIZER,
     COSINE_ANNEALING_LR,
@@ -29,7 +31,7 @@ from fairseq2.recipe.config import (
     TorchConfig,
     TrainerSection,
 )
-from fairseq2.models.llama.tokenizer import LLaMATokenizerConfig as LLaMATokenizerConfig
+
 from .dataset import LM_SFT_DATASET, LMSFTDatasetConfig
 
 GENERIC_INSTRUCTION_DATASET_FAMILY: Final = "generic_instruction"
