@@ -1284,3 +1284,126 @@ class PplDerivedVerifier(VLLMOutputReward):
         )
 
         return batch, is_bad_batch, reward_output
+
+
+class PrefixMatchVerifierHandler(VLLMOutputRewardHandler):
+    def __init__(self):
+        pass
+
+    @override
+    def create(
+        self,
+        reward_model: Any,
+        reward_name: str,
+        reward_config: object,
+        gangs: Gangs,
+        context,
+    ) -> VLLMOutputReward:
+        assert (
+            reward_config.tokenizer is not None
+        ), "Ppl Drived Verifier requires a tokenizer"
+
+        return PrefixMatchVerifier(
+            gangs,
+            context,
+            reward_name,
+            answer_key=reward_config.answer_key,
+            tokenizer=reward_config.tokenizer,
+        )
+
+    @property
+    @override
+    def name(self) -> str:
+        return "prefix_match_verifier"
+
+    @property
+    @override
+    def config_kls(self):
+        return None
+
+
+class PrefixMatchVerifier(VLLMOutputReward):
+    def __init__(
+        self,
+        gangs,
+        context,
+        reward_name,
+        answer_key,
+        tokenizer,
+    ):
+        self.answer_key = answer_key
+        self._gangs = gangs
+        self._context = context
+        self.reward_name = reward_name
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
+
+    def prefix_match_reward(self, predicted: str, groundtruth: str) -> float:
+        gt_tokens = self.tokenizer.encode(groundtruth, add_special_tokens=False)
+        gt_prefix = ""
+        for token in gt_tokens:
+            gt_prefix += self.tokenizer.decode(token, add_special_tokens=False)
+            if predicted == gt_prefix:
+                return 1
+            elif len(predicted) < len(gt_prefix):
+                return 0
+
+        return 0
+
+    def extract_reward(self, response: str, groundtruth: str) -> float:
+        MAX_GT_BYTES = 300
+        groundtruth = groundtruth[:MAX_GT_BYTES]
+        match = re.search(r"\\boxed\{(.*?)\}", response)
+        predicted = match.group(1) if match else None
+        log.debug(f"{groundtruth=}")
+        log.debug(f"{response=}")
+        log.debug(f"{predicted=}")
+        if predicted is None:
+            return 0
+        else:
+            return self.prefix_match_reward(predicted, groundtruth)
+
+    @override
+    def process_rollouts(
+        self,
+        vllm_outputs: list[RequestOutput],
+        prompt_batch: PromptBatch,
+    ):
+        batch_text = []
+        batch_tokens = []
+        batch_rewards = []
+
+        if vllm_outputs is None:
+            vllm_outputs = [None] * len(prompt_batch.prompts)
+
+        completion_batch = prompt_batch.meta_info.get(self.answer_key)
+
+        log.debug(f"{vllm_outputs=}")
+        log.debug(f"{completion_batch=}")
+        if log.is_enabled_for_debug():
+            prompt_text = [
+                self.tokenizer.decode(prompt, add_special_token=False)
+                for prompt in prompt_batch.prompts
+            ]
+            log.debug(f"{prompt_text=}")
+
+        for vllm_output, completion in zip(vllm_outputs, completion_batch):
+            rollouts_text = []
+            rollouts_tokens = []
+            rewards = []
+
+            for rollout_output in vllm_output.outputs:  # reasoning in rollouts
+                rewards.append(self.extract_reward(rollout_output.text, completion))
+                rollouts_text.append(rollout_output.text)
+                rollouts_tokens.append(rollout_output.token_ids)
+
+            batch_text.append(rollouts_text)
+            batch_tokens.append(rollouts_tokens)
+            batch_rewards.append(rewards)
+        log.debug(f"{batch_rewards=}")
+
+        return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
+
+    def prepare_preference_batch(
+        self, prompt_batch: PromptBatch, rollouts
+    ) -> PreferenceBatch:
+        pass

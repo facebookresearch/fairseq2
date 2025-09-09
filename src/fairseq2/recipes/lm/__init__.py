@@ -123,6 +123,12 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
     PplDerivedVerifierHandler as PplDerivedVerifierHandler,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
+    PrefixMatchVerifier as PrefixMatchVerifier,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    PrefixMatchVerifierHandler as PrefixMatchVerifierHandler,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
     VLLMOutputRewardHandler as VLLMOutputRewardHandler,
 )
 from fairseq2.recipes.lm._preference_finetune._config import (
