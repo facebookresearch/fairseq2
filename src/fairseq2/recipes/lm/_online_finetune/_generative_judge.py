@@ -216,9 +216,9 @@ Below are the user's question and the responses:
 """
 
 KWISE_WITH_SCORES_J1_PROMPT_WITH_REF_ANSWER = """
-You are given a user question and {k} responses from {k} AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
+You are given a user question, a reference answer, and {k} responses with the parsed versions from AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
 
-Think carefully about how to assess the quality of the responses and finally, utilize the reference answer for your judgement.
+Think carefully about how to assess the quality of the responses and finally, utilize the reference answer for your judgement. Note that the parsed version of the responses are automatically extracted and may contain errors, therefore you should primarily rely on the original responses for your judgement.
 Finally, assign each response a score 1 if the response is correct, and 0 if not. Enclose the scores within the tags <score_assistant_1> </score_assistant_1>, <score_assistant_2> </score_assistant_2> and so on.
 
 Format your output like this:
@@ -228,7 +228,7 @@ Format your output like this:
 <score_assistant_3> 0 or 1 </score_assistant_3>
 ...
 
-Below are the user's question, the reference answer, and the responses:
+Below are the user's question, reference answer, responses and the parsed versions of the responses:
 
 [User Question]
 {instruction}
@@ -237,6 +237,8 @@ Below are the user's question, the reference answer, and the responses:
 {reference_answer}
 
 {responses}
+
+{parsed_responses}
 """
 
 import re
@@ -629,6 +631,33 @@ class J1KwiseScoreExtractor(JudgmentExtractor):
     def __init__(self, tokenizer, k):
         self.tokenizer = tokenizer
         self.k = k
+        try:
+            from math_verify import parse
+            from math_verify.parser import (
+                ExprExtractionConfig,
+                LatexExtractionConfig,
+                NormalizationConfig,
+            )
+        except ImportError:
+            raise ImportError(
+                "install mathverify from https://github.com/huggingface/Math-Verify"
+            )
+
+        self.student_extraction_config = (
+            LatexExtractionConfig(boxed_match_priority=0),
+        )
+        self.parse = parse
+
+    def get_preferred_index(self, lst):
+        """
+        math_verify parse returns a list of parsed answers, we want want the item at idex 1, which is a string
+        """
+        if len(lst) > 1:
+            return lst[1]
+        elif len(lst) == 1:
+            return lst[0]
+        else:
+            return "None"
 
     @override
     def prompt(self, reference_answer):
@@ -649,7 +678,8 @@ class J1KwiseScoreExtractor(JudgmentExtractor):
             else prompt_template.format(
                 k=self.k,
                 instruction=prompt_text,
-                responses=rollouts,
+                responses="".join([f"[Start of Assistant {assistant_id+1}'s Answer]\n{rollout}\n[End of Assistant {assistant_id+1}'s Answer]\n\n" for assistant_id, rollout in enumerate(rollouts)]),
+                parsed_responses="".join([f"[The Parsed Version of Assistant {assistant_id+1}'s Answer]\n{self.get_preferred_index(self.parse(rollout, self.student_extraction_config))}\n\n" for assistant_id, rollout in enumerate(rollouts)]),
                 reference_answer=reference_answer,
             )
         )
