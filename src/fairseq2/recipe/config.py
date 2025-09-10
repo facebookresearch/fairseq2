@@ -583,14 +583,51 @@ WandbResumeMode: TypeAlias = Literal["allow", "never", "must", "auto"]
 
 @dataclass(kw_only=True)
 class WandbConfig:
+    """
+    Holds the configuration of the Weights & Biases metric recorder.
+
+    For more information, check out the official Weights & Biases
+    `documentation <https://docs.wandb.ai/ref/python/sdk/functions/init/>`_.
+    """
+
     enabled: bool = False
+    """If ``True``, metrics will be written to Weights & Biases."""
+
     entity: str | None = None
+    """The user or team that owns this job."""
+
     project: str | None = None
+    """The name of the project under which this job will be logged."""
+
     run_id: str | None = "persistent"
+    """
+    The unique identifier of this job in the Weights & Biases dashboard.
+
+    If set to ``persistent``, a random ID will be generated and saved in the
+    output directory. Secondary invocations of the recipe will reuse the same ID.
+
+    If ``None``, each recipe invocation will use a new random ID.
+    """
+
     run_name: str | None = None
+    """
+    The display name of this job in Weights & Biases dashboard. If ``None``, a
+    random two-word name will be generated.
+    """
+
     group: str | None = None
+    """
+    The group name to organize individiual jobs as part of a larger experiment.
+    """
+
     job_type: str | None = None
-    resume_mode: WandbResumeMode = "allow"
+    """The type of the job such as "train", "eval"."""
+
+    resume_mode: WandbResumeMode | None = None
+    """
+    The resume behavior when :attr`run_id` has already been used by another job.
+    Refer to the Weights & Biases documentation for details.
+    """
 
 
 @dataclass(kw_only=True)
