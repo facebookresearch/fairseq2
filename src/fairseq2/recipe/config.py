@@ -345,7 +345,23 @@ class RegimeSection(Validatable):
     checkpoint_every_n_data_epochs: int | None = None
     """The data epoch interval at which to checkpoint."""
 
-    save_model_only: bool = False
+    save_model_only: bool | Literal["all", "all_but_last"] = False
+    """
+    If ``False``, the full state of the training job is saved, including the
+    trainer, model, optimizer, and data reader states. This is the conventional
+    checkpointing behavior.
+
+    If ``True`` or ``all``, only the model state is saved during checkpointing.
+    This is beneficial for short-lived training jobs where the user does not
+    expect to resume the job but requires frequent snapshots of the model for
+    evaluation purposes. In this mode, checkpointing is faster and disk space is
+    saved by avoiding the storage of trainer, optimizer, and data reader states.
+
+    If ``all_but_last``, only the last checkpoint will have its full state saved,
+    while all previous checkpoints will store only the model state. This is
+    helpful to avoid unnecessary disk space use if the user does not plan to
+    branch off the training from a previous checkpoint.
+    """
 
     export_hugging_face: bool = False
 

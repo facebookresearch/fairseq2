@@ -98,7 +98,7 @@ class CheckpointManager(Closable):
     def load_scores(self) -> list[tuple[float, int]]: ...
 
     @abstractmethod
-    def delete_checkpoint(self, step_nr: int) -> None: ...
+    def delete_checkpoint(self, step_nr: int, *, keep_model: bool = False) -> None: ...
 
     @abstractmethod
     def has_checkpoint(self, *, exclude_model_only: bool = False) -> bool: ...
@@ -663,7 +663,7 @@ class StandardCheckpointManager(CheckpointManager):
         return self._do_load_scores(step_nrs)
 
     @override
-    def delete_checkpoint(self, step_nr: int) -> None:
+    def delete_checkpoint(self, step_nr: int, *, keep_model: bool = False) -> None:
         gangs = self._gangs
 
         if gangs.root.rank == 0:
@@ -687,19 +687,30 @@ class StandardCheckpointManager(CheckpointManager):
 
             if step_dir_exists:
                 try:
-                    self._file_system.remove_directory(step_dir)
+                    if keep_model:
+                        for path in self._file_system.glob(step_dir, pattern="*"):
+                            if path.name == "model" or path.name == "hg":
+                                continue
+
+                            if self._file_system.is_dir(path):
+                                self._file_system.remove_directory(path)
+                            else:
+                                self._file_system.remove(path)
+                    else:
+                        self._file_system.remove_directory(step_dir)
                 except OSError as ex:
                     raise_operational_system_error(ex)
 
-            # Delete the score file.
-            score_file = self._checkpoint_dir.joinpath(f"scores/step_{step_nr}.txt")
+            if not keep_model:
+                # Delete the score file.
+                score_file = self._checkpoint_dir.joinpath(f"scores/step_{step_nr}.txt")
 
-            try:
-                self._file_system.remove(score_file)
-            except FileNotFoundError:
-                pass
-            except OSError as ex:
-                raise_operational_system_error(ex)
+                try:
+                    self._file_system.remove(score_file)
+                except FileNotFoundError:
+                    pass
+                except OSError as ex:
+                    raise_operational_system_error(ex)
 
         try:
             gangs.root.barrier()

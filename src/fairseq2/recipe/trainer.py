@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from collections.abc import MutableMapping
 from contextlib import nullcontext
 from enum import Enum
-from typing import Any, Generic, TypeVar, final
+from typing import Any, Generic, Literal, TypeVar, final
 
 import torch
 import torch.distributed
@@ -135,7 +135,7 @@ class Trainer(Task):
         checkpoint_every_n_steps: int | None = None,
         checkpoint_after_n_data_epochs: int = 0,
         checkpoint_every_n_data_epochs: int | None = None,
-        save_model_only: bool = False,
+        save_model_only: bool | Literal["all", "all_but_last"] = False,
         keep_last_n_checkpoints: int | None = None,
         keep_best_n_checkpoints: int | None = None,
         keep_checkpoint_every_n_steps: int | None = None,
@@ -787,7 +787,12 @@ class Trainer(Task):
             else:
                 log.info("Checkpoint prepared. Saving asynchronously.")
 
-        if self._save_model_only:
+        if isinstance(self._save_model_only, bool):
+            save_model_only = self._save_model_only
+        else:
+            save_model_only = self._save_model_only == "all"
+
+        if save_model_only:
             self._checkpoint_manager.save_model_only(
                 step_nr,
                 self._unit.model,
@@ -826,6 +831,9 @@ class Trainer(Task):
             gangs.root.barrier()
 
         self._delete_stale_checkpoints()
+
+        if self._save_model_only == "all_but_last":
+            self._delete_previous_non_model_checkpoints()
 
         if hg_exporter is not NOOP_CHECKPOINT_HG_EXPORTER:
             if gangs.root.rank == 0:
@@ -1003,6 +1011,18 @@ class Trainer(Task):
         log.info("Waiting for the current checkpoint save operation to complete before continuing.")  # fmt: skip
 
         self._checkpoint_manager.maybe_complete_save_operation(blocking=True)
+
+    def _delete_previous_non_model_checkpoints(self) -> None:
+        step_nrs = self._checkpoint_manager.get_step_numbers()
+        if len(step_nrs) <= 1:
+            return
+
+        log.info("Deleting non-model state of previous checkpoints.")
+
+        for step_nr in step_nrs[:-1]:  # always keep the last checkpoint.
+            self._checkpoint_manager.delete_checkpoint(step_nr, keep_model=True)
+
+        log.info("Non-model state of previous checkpoints deleted.")
 
     def _delete_stale_checkpoints(self) -> None:
         stale_step_nrs = self._checkpoint_manager.get_stale_step_numbers(
