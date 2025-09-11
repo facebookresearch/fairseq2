@@ -173,6 +173,11 @@ class JsonlDataset(TextDataset):
         else:
             raise NotSupportedError(f"`{batching}` is not supported.")
 
+        # TODO: add shuffle at sequence level
+
+        if options.batch_shuffle_window > 1:
+            builder.shuffle(options.batch_shuffle_window, seed)
+
         # Return only the first `max_num_batches`.
         if options.max_num_batches is not None:
             builder.take(options.max_num_batches)
