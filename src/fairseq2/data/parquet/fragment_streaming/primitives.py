@@ -17,11 +17,7 @@ import pyarrow.parquet as pq
 import torch
 from pyarrow.dataset import get_partition_keys
 
-from fairseq2.data import (
-    DataPipelineBuilder,
-    read_iterator,
-    read_sequence,
-)
+from fairseq2.data import DataPipelineBuilder, read_iterator, read_sequence
 from fairseq2.data.parquet.fragment_streaming.config import ParquetDatasetLimitOptions
 from fairseq2.data.parquet.utils import (
     circular_shift_left,
@@ -154,6 +150,10 @@ def list_parquet_fragments(
         log.info(
             f"{proxy_ds_path} : reducing number of files to {len(file_ds_fragments)} because of nb_files={limit_options.nb_files}"
         )
+
+    log.info(
+        f"{proxy_ds_path} : number of files {len(file_ds_fragments)} with partition filters {parquet_ds._filter_expression}"
+    )
 
     output_fragments = []
     total_nb_rows: int = 0
@@ -303,9 +303,9 @@ class ParquetFragmentStreamer:
             )
         if nb_files is not None and nb_files < len(file_ds_fragments):
             file_ds_fragments = file_ds_fragments[:nb_files]
-            log.info(
-                f"{self.proxy_ds_path} : reducing number of files to {len(file_ds_fragments)} because of nb_files={nb_files}"
-            )
+        log.info(
+            f"{self.proxy_ds_path} : reducing number of files to {len(file_ds_fragments)} with partition filters {parquet_ds._filter_expression}"
+        )
         return file_ds_fragments
 
     def __iter__(self):

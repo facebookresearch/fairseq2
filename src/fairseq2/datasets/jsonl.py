@@ -140,8 +140,18 @@ class JsonlDataset(TextDataset):
             builder.shuffle(options.example_shuffle_window, seed)
 
         # Tokenize.
+        if hasattr(text_encoder, "unk_id") and text_encoder.unk_id is not None:
+            unk_id = text_encoder.unk_id
+        else:
+            unk_id = -1
+        log.debug(f"removing unk_id={unk_id}")
+
         def encode(example: dict[str, Any]) -> Tensor:
-            return text_encoder(example[text_column_name])
+            tokens = text_encoder(example[text_column_name])
+            # Remove all unk_id tokens
+            if unk_id >= 0:
+                tokens = tokens[tokens != unk_id]
+            return tokens
 
         builder.map(encode)
 

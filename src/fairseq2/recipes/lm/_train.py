@@ -132,6 +132,8 @@ class TextDatasetSection(DatasetSection):
 
     path: Path | None = None
 
+    example_shuffle_window: int = 100_000
+
     max_seq_len: int = 8192
     """The maximum sequence length."""
 
@@ -207,9 +209,10 @@ def load_clm_trainer(
         num_prefetch=config.dataset.num_prefetch,
         seed=seed,
         extras=config.dataset.extras,
+        example_shuffle_window=config.dataset.example_shuffle_window,
     )
 
-    text_encoder = tokenizer.create_encoder(mode="default")
+    text_encoder = tokenizer.create_encoder(mode=None)
 
     min_seq_len = 1
 
@@ -220,6 +223,7 @@ def load_clm_trainer(
         min_seq_len,
         config.dataset.max_seq_len,
         read_options,
+        split="train",
     )
 
     seed += 1

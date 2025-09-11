@@ -278,3 +278,32 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config.rope_scale.factor = 32.0
 
         return config
+
+    @arch("mms_llama3_2_1b_v4tokenizer")
+    def mms_llama3_2_1b_v4tokenizer() -> LLaMAConfig:
+        config = llama3_1_8b()
+
+        config.vocab_size = 9812
+        config.pad_idx = 1
+        # config.vocab_info = VocabularyInfo(
+        #     size=9812,
+        #     unk_idx=3,
+        #     bos_idx=0,
+        #     eos_idx=2,
+        #     pad_idx=1,
+        #     boh_idx=None,
+        #     eoh_idx=None,
+        # )
+
+        config.model_dim = 2048
+        config.tied_embeddings = True
+        config.ffn_inner_dim = 2048 * 4
+        config.ffn_inner_dim_multiplier = 1.5
+        config.ffn_inner_dim_multiple_of = 256
+        config.num_attn_heads = 32
+        config.num_key_value_heads = 8
+        config.num_layers = 16
+        config.use_scaled_rope = True
+        config.rope_scale.factor = 32.0
+
+        return config

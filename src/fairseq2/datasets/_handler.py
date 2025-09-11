@@ -12,14 +12,14 @@ from os import strerror
 from pathlib import Path
 from typing import Protocol, final
 
-from typing_extensions import override
-
 from fairseq2.assets import AssetCard, AssetCardError, AssetDownloadManager
-from fairseq2.file_system import FileSystem
 
 # isort: split
 
+from typing_extensions import override
+
 from fairseq2.datasets._error import DatasetLoadError, dataset_asset_card_error
+from fairseq2.file_system import FileSystem
 
 
 class DatasetHandler(ABC):

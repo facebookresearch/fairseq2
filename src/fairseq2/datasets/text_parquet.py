@@ -9,7 +9,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, List, Set, final
+from typing import Any, Dict, Final, List, Set, final
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -22,6 +22,9 @@ from fairseq2.data.parquet import (
     NamedColumns,
     ParquetFragmentLoader,
     ParquetFragmentStreamer,
+)
+from fairseq2.data.parquet.fragment_streaming.primitives import (
+    RejectionDistributionSmoother,
 )
 from fairseq2.data.text.tokenizers import TextTokenEncoder
 from fairseq2.datasets import DataPipelineReader, DataReader, SequenceBatch, SyncMode
@@ -66,9 +69,16 @@ class ParquetDatasetInterface:
         filesystem: Any | None = None,
     ) -> "ParquetDatasetInterface":
 
-        # from stopes.fb_config import get_filesystem_from_path
-        # if filesystem is None:
-        #     path, filesystem = get_filesystem_from_path(path)
+        from stopes.fb_config import get_filesystem_from_path
+
+        path = str(path)
+        if ":/" in path and "://" not in path:
+            assert path.count(":/") == 1
+            path = path.replace(":/", "://")
+        log.info(f"Loading parquet dataset from path: {path}")
+
+        if filesystem is None:
+            path, filesystem = get_filesystem_from_path(str(path))
         dataset = pq.ParquetDataset(path, filesystem=filesystem)  # type: ignore
 
         assert isinstance(dataset, pq.ParquetDataset)
@@ -117,8 +127,9 @@ class ParquetTextDataset(ParquetDatasetInterface, TextDataset):
         is_train_streaming = (split is not None) and (
             "train" in split and options.sync_mode == SyncMode.UNTIL_FIRST
         )  # FIXME: make it configurable
+        is_train_streaming = True
 
-        files_circular_shift = options.extras.get("files_circular_shift", False)
+        files_circular_shift = options.extras.get("files_circular_shift", True)
         assert isinstance(
             files_circular_shift, bool
         ), "files_circular_shift must be bool"
@@ -143,11 +154,30 @@ class ParquetTextDataset(ParquetDatasetInterface, TextDataset):
 
         if split is not None:
             fragment_config = fragment_config.add_partition_filter(
-                pa.compute.field("split") == split
+                [pa.compute.field("split") == split]
             )
         fragement_builder = ParquetFragmentStreamer(
             config=fragment_config
         ).build_pipeline(rank=rank, world_size=world_size)
+
+        smoother_partition_groups = options.extras.get("smoother_partition_groups", [])
+        smoother_alpha = options.extras.get("smoother_alpha", 1.0)
+        assert isinstance(smoother_partition_groups, list)
+        assert isinstance(smoother_alpha, float)
+
+        if smoother_partition_groups and smoother_alpha < 1:
+            log.info(
+                f"Partition smoothing with alpha={smoother_alpha} and partition_groups={smoother_partition_groups}"
+            )
+            partition_smoother = RejectionDistributionSmoother(
+                partition_groups=smoother_partition_groups,
+                alpha=smoother_alpha,  # Partial smoothing between original and uniform
+                min_count=100,
+                seed=42,
+            )
+            fragement_builder = fragement_builder.map(partition_smoother).filter(
+                lambda x: x is not None
+            )
 
         num_parallel_fragments = options.extras.get("num_parallel_fragments", npc)
         assert isinstance(
@@ -183,6 +213,14 @@ class ParquetTextDataset(ParquetDatasetInterface, TextDataset):
         builder = builder.yield_from(
             lambda table: read_sequence(table.to_pylist()).and_return()
         )
+
+        # Apply lowercase transformation to the text field if it exists
+        def lowercase_text(example: Dict[str, Any]) -> Dict[str, Any]:
+            example["text"] = example["text"].lower()
+            return example
+
+        builder = builder.map(lowercase_text)
+
         return builder
 
     @override

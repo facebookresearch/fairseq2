@@ -9,8 +9,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TypeVar, cast, final
 
-from typing_extensions import override
-
 from fairseq2.assets import (
     AssetCardError,
     AssetCardFieldNotFoundError,
@@ -29,12 +27,13 @@ from fairseq2.datasets import (
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.recipes import RecipeError
+from fairseq2.recipes.common._error import DatasetPathNotFoundError
 from fairseq2.recipes.config import DatasetSection
 from fairseq2.registry import Provider
 
 # isort: split
 
-from fairseq2.recipes.common._error import DatasetPathNotFoundError
+from typing_extensions import override
 
 DatasetT = TypeVar("DatasetT")
 

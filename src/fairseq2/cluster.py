@@ -111,7 +111,7 @@ class SlurmClusterHandler(ClusterHandler):
             env["MASTER_ADDR"] = self._get_master_addr()
             env["MASTER_PORT"] = self._get_master_port(job_id)
 
-            env["CUDA_VISIBLE_DEVICES"] = env["SLURM_LOCALID"]
+            env["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, range(8)))
         except KeyError as ex:
             raise ClusterError(
                 "slurm", "Slurm job environment variables are not set correctly."
