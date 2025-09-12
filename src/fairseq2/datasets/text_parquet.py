@@ -422,7 +422,9 @@ class WeightedMixtureParquetDataset(ParquetTextDataset):
                 filesystem=self._dataset.filesystem,
                 full_partition_filters=None,
             )
-            return mono_builder.and_return(), partition_group["weight"]
+            mono_pipeline = mono_builder.and_return()
+            _ = next(iter(mono_pipeline))  # warmup
+            return mono_pipeline, partition_group["weight"]
 
         pipelines: List[DataPipeline] = []
         weights: List[float] = []
