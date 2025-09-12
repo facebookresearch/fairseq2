@@ -1013,11 +1013,13 @@ class Trainer(Task):
         self._checkpoint_manager.maybe_complete_save_operation(blocking=True)
 
     def _delete_previous_non_model_checkpoints(self) -> None:
-        step_nrs = self._checkpoint_manager.get_step_numbers()
-        if len(step_nrs) <= 1:
+        step_nrs = self._checkpoint_manager.get_step_numbers(exclude_model_only=True)
+
+        num_steps = len(step_nrs)
+        if num_steps <= 1:
             return
 
-        log.info("Deleting non-model state of previous checkpoints.")
+        log.info("Deleting non-model state of previous {} checkpoint(s).", num_steps - 1)  # fmt: skip
 
         for step_nr in step_nrs[:-1]:  # always keep the last checkpoint.
             self._checkpoint_manager.delete_checkpoint(step_nr, keep_model=True)
@@ -1034,7 +1036,7 @@ class Trainer(Task):
         if not stale_step_nrs:
             return
 
-        log.info("Deleting stale checkpoints.")
+        log.info("Deleting {} stale checkpoint(s).", len(stale_step_nrs))
 
         for step_nr in stale_step_nrs:
             self._checkpoint_manager.delete_checkpoint(step_nr)
