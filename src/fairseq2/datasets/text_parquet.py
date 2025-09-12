@@ -177,7 +177,7 @@ class ParquetTextDataset(TextDataset, ParquetDatasetInterface):
         # Streaming
         is_train_streaming = True
 
-        files_circular_shift = options.extras.get("files_circular_shift", True)
+        files_circular_shift = options.extras.get("files_circular_shift", False)
         assert isinstance(
             files_circular_shift, bool
         ), "files_circular_shift must be bool"
@@ -461,6 +461,7 @@ class WeightedMixtureParquetDataset(ParquetTextDataset):
         builder = DataPipeline.sample(
             pipelines=pipelines, weights=weights, seed=options.seed + gang.rank
         )
+        builder = builder.prefetch(len(partition_groups_list) * 2)
 
         pipeline = JsonlDataset.build_pipeline_post_batch_shuffle(builder, options)
 
