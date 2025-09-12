@@ -28,7 +28,9 @@ from fairseq2.datasets.speech import GENERIC_SPEECH_DATASET_FAMILY, GenericSpeec
 from fairseq2.datasets.text import GENERIC_TEXT_DATASET_FAMILY, GenericTextDataset
 from fairseq2.datasets.text_parquet import (
     PARQUET_TEXT_DATASET_FAMILY,
+    WEIGHTED_MIXTURE_PARQUET_DATASET_FAMILY,
     ParquetTextDataset,
+    WeightedMixtureParquetDataset,
 )
 from fairseq2.registry import Registry
 
@@ -82,6 +84,12 @@ def _register_dataset_families(context: RuntimeContext) -> None:
         PARQUET_TEXT_DATASET_FAMILY,
         ParquetTextDataset,
         ParquetTextDataset.from_path,
+    )
+
+    registrar.register_family(
+        WEIGHTED_MIXTURE_PARQUET_DATASET_FAMILY,
+        WeightedMixtureParquetDataset,
+        WeightedMixtureParquetDataset.from_path,
     )
     # fmt: on
 

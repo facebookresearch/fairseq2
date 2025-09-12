@@ -13,13 +13,12 @@ from pathlib import Path
 from typing import Protocol, final
 
 from fairseq2.assets import AssetCard, AssetCardError, AssetDownloadManager
+from fairseq2.datasets._error import DatasetLoadError, dataset_asset_card_error
+from fairseq2.file_system import FileSystem
 
 # isort: split
 
 from typing_extensions import override
-
-from fairseq2.datasets._error import DatasetLoadError, dataset_asset_card_error
-from fairseq2.file_system import FileSystem
 
 
 class DatasetHandler(ABC):
@@ -84,15 +83,15 @@ class StandardDatasetHandler(DatasetHandler):
 
     @override
     def load_from_path(self, path: Path, dataset_name: str) -> object:
-        try:
-            path_exists = self._file_system.exists(path)
-        except OSError as ex:
-            raise DatasetLoadError(
-                dataset_name, f"The '{path}' path of the dataset cannot be accessed. See the nested exception for details."  # fmt: skip
-            ) from ex
+        # try:
+        #     path_exists = self._file_system.exists(path)
+        # except OSError as ex:
+        #     raise DatasetLoadError(
+        #         dataset_name, f"The '{path}' path of the dataset cannot be accessed. See the nested exception for details."  # fmt: skip
+        #     ) from ex
 
-        if not path_exists:
-            raise FileNotFoundError(ENOENT, strerror(ENOENT), path)
+        # if not path_exists:
+        #     raise FileNotFoundError(ENOENT, strerror(ENOENT), path)
 
         return self._loader(path, dataset_name)
 

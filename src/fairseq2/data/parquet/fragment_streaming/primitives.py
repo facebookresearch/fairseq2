@@ -152,7 +152,7 @@ def list_parquet_fragments(
         )
 
     log.info(
-        f"{proxy_ds_path} : number of files {len(file_ds_fragments)} with partition filters {parquet_ds._filter_expression}"
+        f"{proxy_ds_path} : resulting number of files {len(file_ds_fragments)} with partition filters {parquet_ds._filter_expression}"
     )
 
     output_fragments = []
@@ -303,8 +303,9 @@ class ParquetFragmentStreamer:
             )
         if nb_files is not None and nb_files < len(file_ds_fragments):
             file_ds_fragments = file_ds_fragments[:nb_files]
+
         log.info(
-            f"{self.proxy_ds_path} : reducing number of files to {len(file_ds_fragments)} with partition filters {parquet_ds._filter_expression}"
+            f"{self.proxy_ds_path} : resulting number of files {len(file_ds_fragments)} with partition filters {parquet_ds._filter_expression}"
         )
         return file_ds_fragments
 

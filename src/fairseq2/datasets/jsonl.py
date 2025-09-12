@@ -123,7 +123,7 @@ class JsonlDataset(TextDataset):
         )
 
     @staticmethod
-    def build_pipeline_backend(
+    def build_pipeline_pre_batch_shuffle(
         builder: DataPipelineBuilder,
         options: TextReadOptions,
         text_encoder: TextTokenEncoder,
@@ -131,7 +131,12 @@ class JsonlDataset(TextDataset):
         pad_idx: int | None,
         text_column_name: str,
         device: Device,
-    ) -> DataPipeline:
+    ) -> DataPipelineBuilder:
+        """Build pipeline up to (but not including) batch shuffle step.
+
+        Returns:
+            DataPipelineBuilder ready for batch shuffle
+        """
         if pad_idx is None:
             pad_idx = 0
 
@@ -173,10 +178,21 @@ class JsonlDataset(TextDataset):
         else:
             raise NotSupportedError(f"`{batching}` is not supported.")
 
-        # TODO: add shuffle at sequence level
+        return builder
 
+    @staticmethod
+    def build_pipeline_post_batch_shuffle(
+        builder: DataPipelineBuilder,
+        options: TextReadOptions,
+    ) -> DataPipeline:
+        """Build pipeline after batch shuffle step.
+
+        Args:
+            builder: Pipeline builder ready for batch shuffle
+            options: Text read options
+        """
         if options.batch_shuffle_window > 1:
-            builder.shuffle(options.batch_shuffle_window, seed)
+            builder.shuffle(options.batch_shuffle_window, options.seed)
 
         # Return only the first `max_num_batches`.
         if options.max_num_batches is not None:
@@ -191,3 +207,26 @@ class JsonlDataset(TextDataset):
         pipeline = builder.map(to_batch).prefetch(options.num_prefetch).and_return()
 
         return pipeline
+
+    @staticmethod
+    def build_pipeline_backend(
+        builder: DataPipelineBuilder,
+        options: TextReadOptions,
+        text_encoder: TextTokenEncoder,
+        max_seq_len: int,
+        pad_idx: int | None,
+        text_column_name: str,
+        device: Device,
+    ) -> DataPipeline:
+        """Build complete pipeline (combines pre and post batch shuffle methods)."""
+        builder = JsonlDataset.build_pipeline_pre_batch_shuffle(
+            builder,
+            options,
+            text_encoder,
+            max_seq_len,
+            pad_idx,
+            text_column_name,
+            device,
+        )
+
+        return JsonlDataset.build_pipeline_post_batch_shuffle(builder, options)

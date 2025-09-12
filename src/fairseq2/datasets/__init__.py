@@ -31,3 +31,13 @@ from fairseq2.datasets._handler import DatasetLoader as DatasetLoader
 from fairseq2.datasets._handler import StandardDatasetHandler as StandardDatasetHandler
 from fairseq2.datasets._hub import DatasetHub as DatasetHub
 from fairseq2.datasets._hub import DatasetHubAccessor as DatasetHubAccessor
+from fairseq2.datasets.text_parquet import (
+    PARQUET_TEXT_DATASET_FAMILY as PARQUET_TEXT_DATASET_FAMILY,
+)
+from fairseq2.datasets.text_parquet import (
+    WEIGHTED_MIXTURE_PARQUET_DATASET_FAMILY as WEIGHTED_MIXTURE_PARQUET_DATASET_FAMILY,
+)
+from fairseq2.datasets.text_parquet import ParquetTextDataset as ParquetTextDataset
+from fairseq2.datasets.text_parquet import (
+    WeightedMixtureParquetDataset as WeightedMixtureParquetDataset,
+)
