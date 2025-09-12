@@ -160,7 +160,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._vllm_model = vllm_model
         self._gangs = gangs
         self._reward = reward
-        self._reward_model = reward.reward_model
+        self._reward_model = getattr(reward, "reward_model", None)
         self._rollout_bag = StatefulRolloutBag(
             max_bag_steps=int(
                 config.loss_config.group_size / config.loss_config.forward_group_size
@@ -257,13 +257,14 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 self._step_nr,
                 self._config.vllm_sync.sync_ref_model_every_n_steps,
             )
-            maybe_sync_model(
-                self._gangs,
-                self._model,
-                self._reward_model,
-                self._step_nr,
-                self._config.vllm_sync.sync_reward_model_every_n_steps,
-            )
+            if self._config.vllm_sync.sync_reward_model_every_n_steps > 0:
+                maybe_sync_model(
+                    self._gangs,
+                    self._model,
+                    self._reward_model,
+                    self._step_nr,
+                    self._config.vllm_sync.sync_reward_model_every_n_steps,
+                )
 
             rollouts = generate_rollouts(
                 prompt_batch.prompts,
