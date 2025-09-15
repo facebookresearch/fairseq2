@@ -13,6 +13,9 @@ from fairseq2.model_checkpoint.common import reshard_tensor as reshard_tensor
 from fairseq2.model_checkpoint.delegating import (
     DelegatingModelCheckpointLoader as DelegatingModelCheckpointLoader,
 )
+from fairseq2.model_checkpoint.legacy import (
+    LegacyModelCheckpointLoader as LegacyModelCheckpointLoader,
+)
 from fairseq2.model_checkpoint.loader import (
     ModelCheckpointError as ModelCheckpointError,
 )

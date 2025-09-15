@@ -50,6 +50,7 @@ from fairseq2.io import (
 from fairseq2.model_checkpoint import (
     BasicModelCheckpointLoader,
     DelegatingModelCheckpointLoader,
+    LegacyModelCheckpointLoader,
     ModelCheckpointLoader,
     NativeModelCheckpointLoader,
     SafetensorsCheckpointLoader,
@@ -160,6 +161,7 @@ def _register_library(container: DependencyContainer) -> None:
 
     container.collection.register_type(ModelCheckpointLoader, BasicModelCheckpointLoader)
     container.collection.register_type(ModelCheckpointLoader, NativeModelCheckpointLoader)
+    container.collection.register_type(ModelCheckpointLoader, LegacyModelCheckpointLoader)
     container.collection.register_type(ModelCheckpointLoader, SafetensorsCheckpointLoader)
     container.collection.register_type(ModelCheckpointLoader, LLaMACheckpointLoader)
     # fmt: on

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from pathlib import Path
-from typing import final
+from typing import cast, final
 
 from torch import Tensor
 from typing_extensions import override
@@ -51,6 +51,11 @@ class BasicModelCheckpointLoader(ModelCheckpointLoader):
             msg = f"{path} is not a valid checkpoint file."
 
             raise ModelCheckpointError(path, msg) from ex
+
+        try:
+            checkpoint = cast(dict[str, object], checkpoint["model"])  # legacy
+        except KeyError:
+            pass
 
         if state_dict_converter is not None:
             checkpoint = state_dict_converter(checkpoint)
