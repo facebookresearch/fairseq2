@@ -146,8 +146,8 @@ Here's how to use it with Qwen tokenizers (you can adapt this for your own token
     decoded = decoder(encoded)
 
 
-Listing Available Tokenizers
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Listing Available Tokenizers (CLI)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
