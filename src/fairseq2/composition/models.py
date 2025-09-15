@@ -46,6 +46,14 @@ from fairseq2.models.llama import (
     get_llama_shard_specs,
     register_llama_configs,
 )
+from fairseq2.models.llama4 import (
+    LLAMA4_FAMILY,
+    Llama4Config,
+    convert_llama4_state_dict,
+    create_llama4_model,
+    get_llama4_shard_specs,
+    register_llama4_configs,
+)
 from fairseq2.models.mistral import (
     MISTRAL_FAMILY,
     MistralConfig,
@@ -244,6 +252,23 @@ def _register_model_families(container: DependencyContainer) -> None:
     )
 
     register_llama_configs(container)
+    
+    # Llama 4
+    register_model_family(
+        container,
+        LLAMA4_FAMILY,
+        kls=TransformerLM,
+        config_kls=Llama4Config,
+        factory=create_llama4_model,
+        state_dict_converter=convert_llama4_state_dict,
+        shard_specs=get_llama4_shard_specs,
+        compiler=compile_transformer_lm,
+        fsdp_applier=apply_fsdp_to_transformer_lm,
+        layerwise_ac_applier=apply_ac_to_transformer_lm,
+        hg_exporter=None, # export not yet implemented
+    )
+    
+    register_llama4_configs(container)
 
     # Mistral
     register_model_family(
