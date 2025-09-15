@@ -17,6 +17,9 @@ from typing_extensions import override
 
 from fairseq2.gang import Gangs
 from fairseq2.nn import (
+    BatchLinear,
+    BatchColumnShardedLinear,
+    BatchRowShardedLinear,
     ColumnShardedLinear,
     Linear,
     RowShardedLinear,
