@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from functools import partial
 from typing import Final
 
@@ -22,6 +23,8 @@ def format_as_int(value: object, *, postfix: str | None = None) -> str:
             i = int(value)
         except ValueError:
             return f"{value}"
+    elif isinstance(value, Sequence):
+        return ", ".join(format_as_int(e) for e in value)
     else:
         return f"{value}"
 
@@ -46,6 +49,8 @@ def format_as_float(value: object, *, postfix: str | None = None) -> str:
             f = float(value)
         except ValueError:
             return f"{value}"
+    elif isinstance(value, Sequence):
+        return ", ".join(format_as_float(e) for e in value)
     else:
         return f"{value}"
 
@@ -66,6 +71,8 @@ def format_as_percentage(value: object) -> str:
             f = float(value)
         except ValueError:
             return f"{value}"
+    elif isinstance(value, Sequence):
+        return ", ".join(format_as_percentage(e) for e in value)
     else:
         return f"{value}"
 
@@ -86,6 +93,8 @@ def format_as_byte_size(value: object) -> str:
             size = float(value)
         except ValueError:
             return f"{value}"
+    elif isinstance(value, Sequence):
+        return ", ".join(format_as_byte_size(e) for e in value)
     else:
         return f"{value}"
 
