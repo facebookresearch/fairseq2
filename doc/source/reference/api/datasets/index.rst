@@ -72,8 +72,51 @@ Here's a basic example:
                 "custom_dataset",           # family name
                 CustomDataset,              # dataset class
                 CustomDatasetConfig,        # config class
-                opener=open_custom_dataset  # optional opener function
+                opener=open_custom_dataset  # opener function
             )
+
+Advanced Dataset Opening
+------------------------
+
+While the basic ``opener`` function is sufficient for most use cases, fairseq2 also provides
+an advanced opening mechanism through ``advanced_opener`` for cases where access to fairseq2's
+dependency injection system is needed.
+
+The key differences are:
+
+* ``opener(config) -> Dataset``: Simple function that takes only the config
+* ``advanced_opener(resolver, config) -> Dataset``: Takes a :class:`DependencyResolver` as first parameter
+
+The ``DependencyResolver`` provides access to other services and objects registered in fairseq2,
+making it useful for more complex dataset implementations that need to interact with other
+parts of the system.
+
+Example usage:
+
+.. code-block:: python
+
+    from fairseq2.dependency import DependencyResolver
+    
+    def my_advanced_opener(resolver: DependencyResolver, config: MyDatasetConfig) -> MyDataset:
+        # Access other fairseq2 objects through the resolver
+        some_object = resolver.get("object_name")
+
+        # Use the object in dataset creation
+        return MyDataset(config, some_object)
+
+    # Register with advanced opener
+    register_dataset_family(
+        container,
+        "my_dataset",
+        MyDataset,
+        MyDatasetConfig,
+        advanced_opener=my_advanced_opener  # Note: don't provide both opener and advanced_opener
+    )
+
+.. note::
+    You must provide either ``opener`` or ``advanced_opener``, but not both. For simple
+    dataset implementations that don't need access to other fairseq2 objects, using
+    the basic ``opener`` is recommended.
 
 .. toctree::
     :maxdepth: 1

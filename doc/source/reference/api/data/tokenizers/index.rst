@@ -71,6 +71,21 @@ Loading a Tokenizer
     tokenizer = load_tokenizer("qwen3_0.6b")
 
 
+Listing Available Tokenizers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To list available tokenizers of a specific family (e.g., Qwen):
+
+.. code-block:: python
+
+    from fairseq2.models.qwen import get_qwen_tokenizer_hub
+
+    hub = get_qwen_tokenizer_hub()
+
+    for card in hub.iter_cards():
+        print(f"Found tokenizer: {card.name}")
+
+
 Loading a Specific Model's Tokenizer
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -79,10 +94,7 @@ Loading a Specific Model's Tokenizer
     from fairseq2.models.qwen import get_qwen_tokenizer_hub
 
     hub = get_qwen_tokenizer_hub()
-    
-    for card in hub.iter_cards():
-        print(f"Found tokenizer: {card.name}")
-    
+
     # directly load a tokenizer to ~/.cache/huggingface/models--qwen--qwen3-0.6b
     tokenizer = hub.load_tokenizer("qwen3_0.6b")
 
@@ -94,8 +106,8 @@ Using TokenizerHub
 ~~~~~~~~~~~~~~~~~~
 
 :class:`TokenizerHub` provides more advanced/customized operations for working with tokenizers.
-This is helpful if you want to create your own tokenizer, and configuration.
-Here's how to use it with Qwen tokenizers:
+This is helpful if you want to implement your own tokenizer, and configuration.
+Here's how to use it with Qwen tokenizers (you can adapt this for your own tokenizer family):
 
 .. code-block:: python
 
@@ -103,15 +115,15 @@ Here's how to use it with Qwen tokenizers:
     from fairseq2.models.qwen import QwenTokenizer, QwenTokenizerConfig
     from pathlib import Path
 
-    # this is the same as get_qwen_tokenizer_hub()
-    hub = TokenizerHubAccessor(
+    # when implementing your own tokenizer family, you can create a similar helper function
+    # to load the hub for that family.
+    # behind the scene, get_qwen_tokenizer_hub is implemented like this:
+    get_qwen_tokenizer_hub = TokenizerHubAccessor(
         "qwen",  # tokenizer family name
         QwenTokenizer,  # concrete tokenizer class
         QwenTokenizerConfig,  # concrete tokenizer config class
-    )()
-
-    for card in hub.iter_cards():
-        print(f"Found tokenizer: {card.name}")
+    )
+    hub = get_qwen_tokenizer_hub()
 
     # directly load a tokenizer to ~/.cache/huggingface/models--qwen--qwen3-0.6b
     tokenizer = hub.load_tokenizer("qwen3_0.6b")

@@ -19,8 +19,8 @@ The fairseq2 asset system consists of three main components:
 2. **Asset Stores**: Collections of asset cards from various sources:
 
    - Built-in cards: ``fairseq2/assets/cards/``
-   - System-wide cards: ``/etc/fairseq2/assets/``
-   - User-specific cards: ``~/.config/fairseq2/assets/``
+   - System-wide cards: ``/etc/fairseq2/assets/`` (overridden by ``FAIRSEQ2_ASSET_DIR`` if set)
+   - User-specific cards: ``~/.config/fairseq2/assets/`` (overridden by ``FAIRSEQ2_USER_ASSET_DIR`` if set)
    - Recipe-local cards: Specified via ``extra_paths`` in recipe config (see :ref:`api_datasets`)
 
 3. **Asset Loaders**: Code that knows how to load specific asset types

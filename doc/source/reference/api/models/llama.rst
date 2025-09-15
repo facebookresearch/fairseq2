@@ -50,7 +50,7 @@ LLaMA tokenizer in fairseq2 supports multiple implementations:
     Directory structure should contain e.g. ``config.json``, ``tokenizer.json``, ``tokenizer_config.json``, ``special_tokens_map.json``.
 
 2. **Tiktoken Implementation**:
-    Legacy implementation using Tiktoken.
+    Implementation using Tiktoken.
 
     Asset Card Example:
 
@@ -64,8 +64,8 @@ LLaMA tokenizer in fairseq2 supports multiple implementations:
         tokenizer: "/path/to/tokenizer.model"  # Tiktoken model file
 
 3. **SentencePiece Implementation**:
-    Legacy implementation using SentencePiece.
-    Not recommended for new applications.
+    Implementation using SentencePiece (only available for LLaMA-1 and LLaMA-2).
+    
     Asset Card Example:
 
     .. code-block:: yaml

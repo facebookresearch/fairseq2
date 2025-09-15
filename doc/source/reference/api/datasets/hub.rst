@@ -27,7 +27,7 @@ Datasets in fairseq2 can be registered in two ways:
             "custom_dataset",      # family name
             CustomDataset,         # dataset class
             CustomDatasetConfig,   # config class
-            opener=custom_opener   # optional opener function
+            opener=custom_opener   # opener function
         )
 
 2. **Through Asset Cards**:
@@ -101,7 +101,7 @@ DatasetHubAccessor
     :show-inheritance:
 
     Factory class for creating :class:`DatasetHub` instances for specific dataset families.
-    Used internally by model-specific hub accessors.
+    Can be used by dataset implementors to create hub accessors for their dataset families.
 
     Example implementation of a dataset hub accessor:
 
