@@ -96,8 +96,8 @@ load_tokenizer
 
 .. autofunction:: load_tokenizer
 
-    The primary function for loading tokenizers. This is a high-level function that handles
-    all the complexities of tokenizer loading internally.
+    The global, family-agnostic function for loading tokenizers.
+    This is a high-level function that handles all the complexities of tokenizer loading internally (via hub methods).
 
     Example:
 
