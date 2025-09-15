@@ -242,3 +242,5 @@ See Also
 * :doc:`/tutorials/add_model` - Tutorial on adding new models
 * :doc:`/basics/assets` - Understanding the asset system
 * :doc:`/reference/api/models/index` - Models API overview
+* :ref:`tokenizer_hub` for tokenizer hub reference documentation.
+* :ref:`dataset_hub` for dataset hub reference documentation.

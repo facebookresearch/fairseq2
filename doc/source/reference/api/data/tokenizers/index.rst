@@ -1,7 +1,7 @@
 .. _tokenizer:
 
-Tokenizers
-==========
+fairseq2.data.tokenizers
+========================
 
 .. currentmodule:: fairseq2.data.tokenizers
 
@@ -68,7 +68,70 @@ Loading a Tokenizer
 
     from fairseq2.data.tokenizers import load_tokenizer
 
-    tokenizer = load_tokenizer("qwen3_1.7b")
+    tokenizer = load_tokenizer("qwen3_0.6b")
+
+
+Loading a Specific Model's Tokenizer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    from fairseq2.models.qwen import get_qwen_tokenizer_hub
+
+    hub = get_qwen_tokenizer_hub()
+    
+    for card in hub.iter_cards():
+        print(f"Found tokenizer: {card.name}")
+    
+    # directly load a tokenizer to ~/.cache/huggingface/models--qwen--qwen3-0.6b
+    tokenizer = hub.load_tokenizer("qwen3_0.6b")
+
+
+This loads the tokenizer and its associated vocabulary for the specified model.
+
+
+Using TokenizerHub
+~~~~~~~~~~~~~~~~~~
+
+:class:`TokenizerHub` provides more advanced/customized operations for working with tokenizers.
+This is helpful if you want to create your own tokenizer, and configuration.
+Here's how to use it with Qwen tokenizers:
+
+.. code-block:: python
+
+    from fairseq2.data.tokenizers.hub import TokenizerHubAccessor
+    from fairseq2.models.qwen import QwenTokenizer, QwenTokenizerConfig
+    from pathlib import Path
+
+    # this is the same as get_qwen_tokenizer_hub()
+    hub = TokenizerHubAccessor(
+        "qwen",  # tokenizer family name
+        QwenTokenizer,  # concrete tokenizer class
+        QwenTokenizerConfig,  # concrete tokenizer config class
+    )()
+
+    for card in hub.iter_cards():
+        print(f"Found tokenizer: {card.name}")
+
+    # directly load a tokenizer to ~/.cache/huggingface/models--qwen--qwen3-0.6b
+    tokenizer = hub.load_tokenizer("qwen3_0.6b")
+
+    # load a tokenizer configuration
+    config = hub.get_tokenizer_config("qwen3_0.6b")
+    
+    # load a custom tokenizer from a path
+    # hf download Qwen/Qwen3-0.6B --local-dir /data/pretrained_llms/qwen3_0.6b
+    custom_path = Path("/data/pretrained_llms/qwen3_0.6b")
+    custom_tokenizer = hub.load_custom_tokenizer(custom_path, config)
+
+    # Generate some text
+    text = "The future of AI is"
+    encoder = custom_tokenizer.create_encoder()
+    encoded = encoder(text)
+
+    # Decode the text
+    decoder = custom_tokenizer.create_decoder()
+    decoded = decoder(encoded)
 
 
 Listing Available Tokenizers
@@ -78,3 +141,8 @@ Listing Available Tokenizers
 
     # List tokenizers from command line
     python -m fairseq2.assets list --kind tokenizer
+
+.. toctree::
+    :maxdepth: 1
+
+    hub
