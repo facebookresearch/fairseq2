@@ -229,4 +229,4 @@ See Also
 =========
 
 * :doc:`/reference/api/index` - API reference
-* :doc:`/whats_new_v0_5` - What's new in v0.5 including DI improvements
+* :doc:`/news/whats_new_v0_5` - What's new in v0.5 including DI improvements

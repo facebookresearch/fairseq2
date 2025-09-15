@@ -62,6 +62,6 @@ Structured Data
 See Also
 --------
 
-* :doc:`../nn/index` - Neural network components and BatchLayout
-* :doc:`../datasets` - High-level dataset abstractions
-* :doc:`../models` - Model implementations that consume data
+* :doc:`/reference/api/nn/index` - Neural network components and BatchLayout
+* :doc:`/reference/api/datasets` - High-level dataset abstractions
+* :doc:`/reference/api/models/index` - Model implementations that consume data
