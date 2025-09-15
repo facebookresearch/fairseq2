@@ -224,6 +224,25 @@ def register_llama_configs(context: RuntimeContext) -> None:
 
         return config
 
+    @arch("llama3_1_8b_v4_tokenizer")
+    def llama3_1_8b_v4_tokenizer() -> LLaMAConfig:
+        config = llama3_1_8b()
+        config.vocab_size = 9812
+        config.pad_idx = 1
+        config.model_dim = 2048
+        config.tie_embeddings = True  # remapped from tied_embeddings
+        config.ffn_inner_dim = 2048 * 4
+        config.ffn_inner_dim_multiplier = 1.5
+        config.ffn_inner_dim_to_multiple = (
+            256  # remapped from ffn_inner_dim_multiple_of
+        )
+        config.num_attn_heads = 32
+        config.num_key_value_heads = 8
+        config.num_layers = 16
+        config.use_scaled_rope = True
+        config.rope_scaling.factor = 32.0  # renamed from rope_scale.factor
+        return config
+
     @arch("llama3_1_70b")
     def llama3_1_70b() -> LLaMAConfig:
         config = llama3_70b()
