@@ -16,7 +16,13 @@ Understanding the Asset System
 The fairseq2 asset system consists of three main components:
 
 1. **Asset Cards**: YAML files that describe assets and their metadata
-2. **Asset Stores**: Collections of asset cards from various sources
+2. **Asset Stores**: Collections of asset cards from various sources:
+
+   - Built-in cards: ``fairseq2/assets/cards/``
+   - System-wide cards: ``/etc/fairseq2/assets/`` (overridden by ``FAIRSEQ2_ASSET_DIR`` if set)
+   - User-specific cards: ``~/.config/fairseq2/assets/`` (overridden by ``FAIRSEQ2_USER_ASSET_DIR`` if set)
+   - Recipe-local cards: Specified via ``extra_paths`` in recipe config (see :ref:`api_datasets`)
+
 3. **Asset Loaders**: Code that knows how to load specific asset types
 
 This design allows for:
@@ -25,6 +31,7 @@ This design allows for:
 - **Environment Flexibility**: Different configurations for different environments
 - **Easy Discovery**: Assets can be listed, searched, and queried
 - **Source Abstraction**: Assets can come from local files, Hugging Face Hub, or other sources
+- **Local Overrides**: Recipe-specific assets (e.g. datasets) can be defined locally
 
 CLI Usage
 ---------
@@ -498,5 +505,5 @@ See Also
 --------
 
 - :doc:`Models </reference/api/models/index>` - Model-specific asset management
-- :doc:`Datasets </reference/api/datasets>` - Dataset-specific asset management
-- :doc:`Data Tokenizers </reference/api/data/tokenizer>` - Tokenizer asset management
+- :doc:`Datasets </reference/api/datasets/index>` - Dataset-specific asset management
+- :doc:`Data Tokenizers </reference/api/data/tokenizers/index>` - Tokenizer asset management

@@ -12,7 +12,7 @@ Data Processing
    :maxdepth: 1
 
    data/index
-   datasets
+   datasets/index
 
 Neural Networks & Modeling
 ---------------------------
