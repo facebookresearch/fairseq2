@@ -16,28 +16,33 @@ from fairseq2.runtime.dependency import DependencyContainer
 LLAMA4_FAMILY: Final = "llama4"
 
 
-# Not used atm
 @dataclass(kw_only=True)
 class Llama4VisionEncoderConfig:
     """Holds the configuration of a Llama 4 Vision Encoder"""
 
-    # TODO: Add descriptions to all these
-
     image_size: int = 336
+    """The size of input images."""
 
     patch_size: int = 14
+    """The size of encoded patches."""
 
     model_dim: int = 1408
+    """The dimensionality of the image encoder."""
 
     num_layers: int = 34
+    """The number of layers of the image encoder."""
 
     num_attn_heads: int = 16
+    """The number of attention heads in the image encoder."""
 
     mlp_ratio: float = 4.0
+    """The hidden dim multiplier in the FFN of the image encoder."""
 
     output_dim: int = 4096
+    """The output dimension of the image encoder."""
 
     pixel_shuffle_ratio: float = 0.5
+    """The ratio used in pixel shuffle downsampling."""
 
 
 @dataclass(kw_only=True)
