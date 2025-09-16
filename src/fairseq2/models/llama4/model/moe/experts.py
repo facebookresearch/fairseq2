@@ -22,14 +22,6 @@ class Experts(nn.Module):
         num_local_experts (int): Number of local experts in this grouped experts layer. Default is 1.
     """
 
-    gate_proj: GroupedProjection
-    inner_proj: GroupedProjection
-    output_proj: GroupedProjection
-    activation: Module
-    model_dim: int
-    inner_dim: int
-    num_local_experts: int
-
     def __init__(
         self,
         model_dim: int,
@@ -44,6 +36,7 @@ class Experts(nn.Module):
 
         self.create_layers()
 
+        self.activation: Module
         if activation is None:
             self.activation = SiLU()
         else:
@@ -51,24 +44,24 @@ class Experts(nn.Module):
 
     def create_layers(self) -> None:
         """
-        TODO: For finetuning
+        TODO(mgleize): For finetuning
         We intentionally fold the expert weights' ``num_local_experts`` dim-0
         into dim-1 at construction time and unfold them during forward for
         improved efficiency with FSDPv2, which does dim-0 per-parameter
         sharding. Without this, we would have highly uneven sharding across DP
         since local ``num_local_experts`` is typically much smaller than DP size.
         """
-        self.gate_proj = BatchLinear(
+        self.gate_proj: GroupedProjection = BatchLinear(
             self.num_local_experts,
             self.model_dim,
             self.inner_dim,
         )
-        self.inner_proj = BatchLinear(
+        self.inner_proj: GroupedProjection = BatchLinear(
             self.num_local_experts,
             self.model_dim,
             self.inner_dim,
         )
-        self.output_proj = BatchLinear(
+        self.output_proj: GroupedProjection = BatchLinear(
             self.num_local_experts,
             self.inner_dim,
             self.model_dim,

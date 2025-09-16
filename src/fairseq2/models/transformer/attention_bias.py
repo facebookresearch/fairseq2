@@ -121,9 +121,12 @@ class ChunkedAttentionBias(AttentionBias):
     def create_bias_tensor(
         self, q_len: int, k_len: int, device: Device, dtype: DataType
     ) -> Tensor:
-        return _create_chunked_bias_tensor(
-            q_len, self.attn_chunk_size, device, dtype
-        )
+        if q_len != k_len:
+            raise ValueError(
+                f"`q_len` and `k_len` must be equal: {q_len} != {k_len}"
+            )
+        # (S, S)
+        return _create_chunked_bias_tensor(q_len, self.attn_chunk_size, device)
 
     def __repr__(self) -> str:
         return f"ChunkedAttentionBias(attn_chunk_size={self.attn_chunk_size})"
@@ -222,7 +225,6 @@ def _create_chunked_bias_tensor(
     q_len: int,
     attention_chunk_size: int,
     device: Device,
-    dtype: DataType,
 ) -> torch.Tensor:
     block_pos = torch.abs(
         (torch.arange(q_len).unsqueeze(0) // attention_chunk_size)
@@ -230,7 +232,9 @@ def _create_chunked_bias_tensor(
     )
     token_pos = torch.arange(q_len).unsqueeze(0) - torch.arange(q_len).unsqueeze(1)
     mask = (block_pos == 0) & (token_pos <= 0)
-    return mask.to(device=device, dtype=dtype)
+    
+    # (S, S)
+    return mask.to(device=device)
 
 
 def materialize_attention_bias(
@@ -381,7 +385,7 @@ def maybe_get_attention_bias_tensor(
         if full_q and full_k:
             return None
 
-    if isinstance(bias, CausalAttentionBias):
+    if isinstance(bias, CausalAttentionBias) or isinstance(bias, ChunkedAttentionBias):
         if not q_layout.packed:
             if q_layout.max_seq_len == 1:
                 return None

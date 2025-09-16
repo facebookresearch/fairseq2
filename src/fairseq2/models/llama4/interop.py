@@ -59,14 +59,14 @@ def convert_llama4_state_dict(
         state_dict = cast(dict[str, object], state_dict["model"])  # legacy
     except KeyError:
         pass
-    
+
     loaded_checkpoint = state_dict
 
     # Check if we have a reference or Hugging Face checkpoint.
     if "lm_head.weight" in loaded_checkpoint:  # HG
         raise ValueError("Llama 4 Huggingface checkpoint is not supported yet.")
     else:
-        checkpoint = {}  # type: ignore
+        checkpoint: dict[str, object] = {}  # type: ignore
 
         for k, v in loaded_checkpoint.items():
             if ".moe_w_" in k:

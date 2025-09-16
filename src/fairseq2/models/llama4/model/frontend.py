@@ -16,14 +16,13 @@ from typing_extensions import override
 from fairseq2.models.llama4.model.vision.embedding import VisionEmbeddings
 from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.nn import (
+    BatchLayout,
     Embedding,
     IncrementalStateBag,
     LayerNorm,
     PositionEncoder,
     Projection,
 )
-from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.transformer import LayerNormFactory, create_standard_layer_norm
 
 
 @dataclass
@@ -32,7 +31,7 @@ class MaskedEmbedding:
     mask: Tensor
 
 
-class LLaMA4DecoderFrontend(TransformerFrontend):
+class Llama4DecoderFrontend(TransformerFrontend):
     """Represents a Llama 4 front-end with different embeddings
     for multiple modalities."""
 
@@ -52,9 +51,7 @@ class LLaMA4DecoderFrontend(TransformerFrontend):
         pos_encoder: PositionEncoder | None,
         *,
         no_scale: bool = False,
-        layer_norm: bool = False,
         dropout_p: float = 0.0,
-        layer_norm_factory: LayerNormFactory | None = None,
     ) -> None:
         """
         :param embed:
@@ -76,12 +73,9 @@ class LLaMA4DecoderFrontend(TransformerFrontend):
         :param layer_norm_factory:
             The factory to construct the Layer Normalization module.
         """
+        super().__init__()
+
         model_dim = embed.embed_dim
-
-        super().__init__(model_dim)
-
-        if layer_norm_factory is None:
-            layer_norm_factory = create_standard_layer_norm
 
         self.embed = embed
         self.vision_embed = vision_embed
@@ -99,11 +93,6 @@ class LLaMA4DecoderFrontend(TransformerFrontend):
         else:
             self.register_module("pos_encoder", None)
 
-        if layer_norm:
-            self.layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
-        else:
-            self.register_module("layer_norm", None)
-
         if dropout_p > 0.0:
             self.dropout = Dropout(dropout_p)
         else:
@@ -113,11 +102,11 @@ class LLaMA4DecoderFrontend(TransformerFrontend):
     def forward(
         self,
         seqs: Tensor,  # [batch_size, seq_len] or [batch_size, seq_len, 3]
-        padding_mask: PaddingMask | None,
+        seqs_layout: BatchLayout,
         *,
         state_bag: IncrementalStateBag | None = None,
         image_embedding: MaskedEmbedding | None = None,
-    ) -> tuple[Tensor, PaddingMask | None]:
+    ) -> tuple[Tensor, BatchLayout]:
         embeds = self.embed(seqs)
 
         # early image fusion if relevant embeddings are passed
@@ -131,12 +120,9 @@ class LLaMA4DecoderFrontend(TransformerFrontend):
             embeds = embeds * self.scale
 
         if self.pos_encoder is not None:
-            embeds = self.pos_encoder(embeds, padding_mask, state_bag=state_bag)
-
-        if self.layer_norm is not None:
-            embeds = self.layer_norm(embeds)
+            embeds = self.pos_encoder(embeds, seqs_layout, state_bag=state_bag)
 
         if self.dropout is not None:
             embeds = self.dropout(embeds)
 
-        return embeds, padding_mask
+        return embeds, seqs_layout
