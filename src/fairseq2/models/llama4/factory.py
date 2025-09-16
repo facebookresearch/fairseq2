@@ -73,13 +73,15 @@ class Llama4Factory(LLaMAFactory):
         self, layer_idx: int, pos_encoder: PositionEncoder
     ) -> MultiheadAttention:
         """
-        Compared to Llama 1-3, Llama 4 interleaves layers with local chunked attention,
-        the only ones to actually use RoPE. Other layers use NoPE.
+        Compared to Llama 1-3, Llama 4 interleaves layers with chunked local attention,
+        with RoPE. Global attention layers use NoPE.
         """
         config = self._config
 
         is_nope_layer = self._is_nope_layer(layer_idx)
-        use_local_attn_mask = not is_nope_layer
+        # The iRoPE architecture uses global attention mask for NoPE layers or
+        # if chunked local attention is not used
+        use_local_attn_mask = not is_nope_layer and config.attention_chunk_size
 
         attn_bias: AttentionBias
         if use_local_attn_mask:
