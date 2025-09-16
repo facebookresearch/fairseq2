@@ -40,6 +40,7 @@ TokenizerHub
 
         hub = get_qwen_tokenizer_hub()
 
+        # list available tokenizers
         for card in hub.iter_cards():
             print(f"Found tokenizer: {card.name}")
 
@@ -71,7 +72,7 @@ TokenizerHubAccessor
     :show-inheritance:
 
     Factory class for creating :class:`TokenizerHub` instances for specific tokenizer families.
-    Used internally by model-specific hub accessors like :func:`fairseq2.models.qwen.get_qwen_tokenizer_hub`.
+    Can be used by tokenizer implementors to create hub accessors for their tokenizer families like :func:`fairseq2.models.qwen.get_qwen_tokenizer_hub`.
 
     Example:
 
@@ -80,12 +81,12 @@ TokenizerHubAccessor
         from fairseq2.data.tokenizers.hub import TokenizerHubAccessor
         from fairseq2.models.qwen import QwenTokenizer, QwenTokenizerConfig
 
-        # this is the same as get_qwen_tokenizer_hub()
-        hub = TokenizerHubAccessor(
+        # the implementation of get_qwen_tokenizer_hub
+        get_qwen_tokenizer_hub = TokenizerHubAccessor(
             "qwen",  # tokenizer family name
             QwenTokenizer,  # concrete tokenizer class
             QwenTokenizerConfig,  # concrete tokenizer config class
-        )()
+        )
 
 
 Functions

@@ -9,54 +9,28 @@ The tokenizer has multiple concrete implementations for different tokenization a
 The main :class:`Tokenizer` interface defines the contract for creating encoders and decoders, while concrete implementations
 handle specific tokenization methods like SentencePiece and tiktoken.
 
-.. mermaid::
+Base Classes
+------------
 
-   classDiagram
-       class Tokenizer {
-           <<abstract>>
-           +create_encoder(task, lang, mode, device)*
-           +create_raw_encoder(device)*
-           +create_decoder(skip_special_tokens)*
-           +vocab_info: VocabularyInfo*
-       }
+.. autoclass:: Tokenizer
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
-       class BasicSentencePieceTokenizer {
-           -_model: SentencePieceModel
-           -_vocab_info: VocabularyInfo
-           +create_encoder(task, lang, mode, device)
-           +create_raw_encoder(device)
-           +create_decoder(skip_special_tokens)
-       }
+.. autoclass:: TokenEncoder
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
-       class RawSentencePieceTokenizer {
-           -_model: SentencePieceModel
-           -_vocab_info: VocabularyInfo
-           +create_encoder(task, lang, mode, device)
-           +create_raw_encoder(device)
-           +create_decoder(skip_special_tokens)
-       }
+.. autoclass:: TokenDecoder
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
-       class TiktokenTokenizer {
-           -_model: TiktokenModel
-           -_vocab_info: VocabularyInfo
-           +create_encoder(task, lang, mode, device)
-           +create_raw_encoder(device)
-           +create_decoder(skip_special_tokens)
-       }
-
-       class CharTokenizer {
-           -_vocab_info: VocabularyInfo
-           +create_encoder(task, lang, mode, device)
-           +create_raw_encoder(device)
-           +create_decoder(skip_special_tokens)
-       }
-
-       Tokenizer <|-- BasicSentencePieceTokenizer
-       Tokenizer <|-- RawSentencePieceTokenizer
-       Tokenizer <|-- TiktokenTokenizer
-       Tokenizer <|-- CharTokenizer
-
-
+.. autoclass:: VocabularyInfo
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 Quick Start
 -----------
@@ -69,21 +43,6 @@ Loading a Tokenizer
     from fairseq2.data.tokenizers import load_tokenizer
 
     tokenizer = load_tokenizer("qwen3_0.6b")
-
-
-Listing Available Tokenizers
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-To list available tokenizers of a specific family (e.g., Qwen):
-
-.. code-block:: python
-
-    from fairseq2.models.qwen import get_qwen_tokenizer_hub
-
-    hub = get_qwen_tokenizer_hub()
-
-    for card in hub.iter_cards():
-        print(f"Found tokenizer: {card.name}")
 
 
 Loading a Specific Model's Tokenizer
@@ -146,13 +105,27 @@ Here's how to use it with Qwen tokenizers (you can adapt this for your own token
     decoded = decoder(encoded)
 
 
-Listing Available Tokenizers (CLI)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Listing Available Tokenizers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can list all available tokenizers using the `list` command from the command line:
 
 .. code-block:: bash
 
     # List tokenizers from command line
     python -m fairseq2.assets list --kind tokenizer
+
+Or, it can be done programmatically:
+
+.. code-block:: python
+
+    from fairseq2.models.qwen import get_qwen_tokenizer_hub
+
+    hub = get_qwen_tokenizer_hub()
+
+    for card in hub.iter_cards():
+        print(f"Found tokenizer: {card.name}")
+
 
 .. toctree::
     :maxdepth: 1

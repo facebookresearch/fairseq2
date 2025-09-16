@@ -14,26 +14,54 @@ Key Features
 
 - **Dataset Family Registration**: Datasets can be registered using ``register_dataset_family`` for seamless integration
 - **Flexible Configuration**: Dataset configurations can be defined through YAML asset cards
-- **Multiple Asset Sources**: Dataset assets can be loaded from various locations:
-  
-  - Built-in: ``fairseq2/assets/cards/``
-  - System-wide: ``/etc/fairseq2/assets/``
-  - User-specific: ``~/.config/fairseq2/assets/``
-  - Recipe-local: Specified via ``extra_paths`` in recipe config
 
-.. code-block:: yaml
+Dataset Registration and Asset Cards
+------------------------------------
 
-    # Example: Adding recipe-local asset paths in config (absolute path)
-    common:
-        assets:
-            extra_paths: ["/path/to/assets"]
-    
-    # or relative path
-    # e.g. if the common section is in /path/to/recipe/config.yaml
-    # it recursively retrieves assets from /path/to/recipe/assets
-    common:
-        assets:
-            extra_paths: ["${dir}/assets"]
+Datasets in fairseq2 can be registered as follows:
+
+1. **Register Dataset Families**:
+    Use ``register_dataset_family`` to register custom datasets:
+
+    .. code-block:: python
+
+         from fairseq2.composition import register_dataset_family
+
+        register_dataset_family(
+            container,             # DependencyContainer instance
+            "custom_dataset",      # family name
+            CustomDataset,         # dataset class
+            CustomDatasetConfig,   # config class
+            opener=custom_opener   # opener function
+        )
+
+    This function can potentially be called:
+
+    - in ``Recipe.register()`` (read more in :ref:`basics-building-recipes`), or
+    - in a fairseq2 extension function (read more in :ref:`basics-runtime-extension`).
+
+2. **More Variants w/ Asset Cards**:
+    Create YAML files describing your datasets in any of these locations:
+
+    - Built-in cards: ``fairseq2/assets/cards/``
+    - System-wide cards: ``/etc/fairseq2/assets/`` (overridden by ``FAIRSEQ2_ASSET_DIR`` if set)
+    - User-specific cards: ``~/.config/fairseq2/assets/`` (overridden by ``FAIRSEQ2_USER_ASSET_DIR`` if set)
+    - Recipe-local cards: Add to recipe config common section via ``extra_paths``:
+
+    .. code-block:: yaml
+
+        # Example: Adding recipe-local asset paths in config (absolute path)
+        common:
+            assets:
+                extra_paths: ["/path/to/assets"]
+        
+        # or relative path
+        # e.g. if the common section is in /path/to/recipe/config.yaml
+        # it recursively retrieves assets from /path/to/recipe/assets
+        common:
+            assets:
+                extra_paths: ["${dir}/assets"]
+
 
 Creating Custom Datasets
 ------------------------
@@ -60,6 +88,16 @@ Here's a basic example:
     # 2. Configuration Class
     @dataclass
     class CustomDatasetConfig:
+        """
+        This configuration matches the keys after the top-level `dataset_config:` key
+        in the YAML asset definition:
+
+        ```yaml
+        name: mydataset
+        dataset_config:
+            data: (all keys here must have a companion parameter in this config)
+        ```
+        """
         path: Path
         # Other config options
 
@@ -74,6 +112,25 @@ Here's a basic example:
                 CustomDatasetConfig,        # config class
                 opener=open_custom_dataset  # opener function
             )
+
+The corresponding dataset asset card in YAML format could be for example:
+
+.. code-block:: yaml
+
+    name: mydataset
+    dataset_family: custom_dataset
+
+    ---
+
+    name: mydataset@user
+    dataset_config:
+        data: "/path/to/local/datasets/librilight/10h"
+
+    ---
+
+    name: mydataset@mycluster
+    dataset_config:
+        data: "/path/to/cluster/datasets/librilight/10h"
 
 Advanced Dataset Opening
 ------------------------

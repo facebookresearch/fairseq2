@@ -10,48 +10,6 @@ The dataset hub provides a centralized way to manage and access datasets in fair
 It offers functionality for discovering available datasets, loading datasets, and working
 with custom dataset configurations.
 
-Dataset Registration and Asset Cards
-------------------------------------
-
-Datasets in fairseq2 can be registered in two ways:
-
-1. **Through Dataset Families**:
-    Use ``register_dataset_family`` to register custom datasets:
-
-    .. code-block:: python
-
-         from fairseq2.composition import register_dataset_family
-
-        register_dataset_family(
-            container,             # DependencyContainer instance
-            "custom_dataset",      # family name
-            CustomDataset,         # dataset class
-            CustomDatasetConfig,   # config class
-            opener=custom_opener   # opener function
-        )
-
-2. **Through Asset Cards**:
-    Create YAML files describing your datasets in any of these locations:
-
-    - Built-in: ``fairseq2/assets/cards/``
-    - System-wide: ``/etc/fairseq2/assets/``
-    - User-specific: ``~/.config/fairseq2/assets/``
-    - Recipe-local: Add to recipe config common section via ``extra_paths``:
-
-    .. code-block:: yaml
-
-        # Example: Adding recipe-local asset paths in config (absolute path)
-        common:
-            assets:
-                extra_paths: ["/path/to/assets"]
-        
-        # or relative path
-        # e.g. if the common section is in /path/to/recipe/config.yaml
-        # it recursively retrieves assets from /path/to/recipe/assets
-        common:
-            assets:
-                extra_paths: ["${dir}/assets"]
-
 Core Classes
 ------------
 

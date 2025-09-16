@@ -63,8 +63,8 @@ ModelHubAccessor
     :members:
     :show-inheritance:
 
-    Provides access to model hubs for specific families. Used internally by family-specific
-    hub accessor functions like :meth:`fairseq2.models.qwen.hub.get_qwen_model_hub`.
+    Provides access to model hubs for specific families.
+    Can be used by model implementors to create hub accessors for their model families, like :meth:`fairseq2.models.qwen.hub.get_qwen_model_hub`.
 
 Global Functions
 ----------------
