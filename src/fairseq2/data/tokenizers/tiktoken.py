@@ -110,11 +110,6 @@ class TiktokenModel:
     def vocab_info(self) -> VocabularyInfo:
         return self._vocab_info
 
-    # TODO(mgleize): do we actually need that?
-    # @property
-    # def special_tokens(self) -> dict[str, int]:
-    #     return self._encoding._special_tokens
-
 
 @final
 class TiktokenEncoder(TokenEncoder):
