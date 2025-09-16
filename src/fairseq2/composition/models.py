@@ -252,7 +252,7 @@ def _register_model_families(container: DependencyContainer) -> None:
     )
 
     register_llama_configs(container)
-    
+
     # Llama 4
     register_model_family(
         container,
@@ -265,9 +265,9 @@ def _register_model_families(container: DependencyContainer) -> None:
         compiler=compile_transformer_lm,
         fsdp_applier=apply_fsdp_to_transformer_lm,
         layerwise_ac_applier=apply_ac_to_transformer_lm,
-        hg_exporter=None, # export not yet implemented
+        hg_exporter=None,  # export not yet implemented
     )
-    
+
     register_llama4_configs(container)
 
     # Mistral

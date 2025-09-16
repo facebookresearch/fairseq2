@@ -12,6 +12,14 @@ from fairseq2.nn.embedding import ShardedEmbedding as ShardedEmbedding
 from fairseq2.nn.embedding import StandardEmbedding as StandardEmbedding
 from fairseq2.nn.embedding import VocabShardedEmbedding as VocabShardedEmbedding
 from fairseq2.nn.embedding import init_scaled_embedding as init_scaled_embedding
+from fairseq2.nn.grouped_projection import (
+    BatchColumnShardedLinear as BatchColumnShardedLinear,
+)
+from fairseq2.nn.grouped_projection import BatchLinear as BatchLinear
+from fairseq2.nn.grouped_projection import (
+    BatchRowShardedLinear as BatchRowShardedLinear,
+)
+from fairseq2.nn.grouped_projection import GroupedProjection as GroupedProjection
 from fairseq2.nn.incremental_state import IncrementalState as IncrementalState
 from fairseq2.nn.incremental_state import IncrementalStateBag as IncrementalStateBag
 from fairseq2.nn.normalization import LayerNorm as LayerNorm
@@ -47,10 +55,6 @@ from fairseq2.nn.projection import Projection as Projection
 from fairseq2.nn.projection import RowShardedLinear as RowShardedLinear
 from fairseq2.nn.projection import TiedProjection as TiedProjection
 from fairseq2.nn.projection import init_bert_projection as init_bert_projection
-from fairseq2.nn.grouped_projection import GroupedProjection as GroupedProjection
-from fairseq2.nn.grouped_projection import BatchLinear as BatchLinear
-from fairseq2.nn.grouped_projection import BatchColumnShardedLinear as BatchColumnShardedLinear
-from fairseq2.nn.grouped_projection import BatchRowShardedLinear as BatchRowShardedLinear
 from fairseq2.nn.residual import AdditiveResidualConnect as AdditiveResidualConnect
 from fairseq2.nn.residual import DropPathResidualConnect as DropPathResidualConnect
 from fairseq2.nn.residual import ResidualConnect as ResidualConnect

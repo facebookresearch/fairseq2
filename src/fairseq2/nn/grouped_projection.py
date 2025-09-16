@@ -53,11 +53,11 @@ class GroupedProjection(Module, ABC):
             the last dimension are the same shape as the input and
             :math:`H_{out}` is the output dimensionality.
         """
-    
+
     def extra_repr(self) -> str:
         """:meta private:"""
         return f"group_dim={self.group_dim}, input_dim={self.input_dim}, output_dim={self.output_dim}"
-    
+
     if TYPE_CHECKING:
         __call__ = forward
 
