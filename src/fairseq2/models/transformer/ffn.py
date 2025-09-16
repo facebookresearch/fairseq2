@@ -289,7 +289,7 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         seqs = self.forward_output(seqs)
 
         return seqs
-    
+
     def forward_gateinner(self, seqs: Tensor) -> Tensor:
         """
         First step of the forward pass.
@@ -309,7 +309,7 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
             seqs = self.inner_dropout(seqs)
 
         return seqs
-    
+
     def forward_output(self, seqs: Tensor) -> Tensor:
         """
         Second step of the forward pass.

@@ -126,7 +126,7 @@ def _register_tokenizer_families(container: DependencyContainer) -> None:
         config_kls=LLaMATokenizerConfig,
         loader=load_llama_tokenizer,
     )
-    
+
     # Llama 4
     register_tokenizer_family(
         container,
