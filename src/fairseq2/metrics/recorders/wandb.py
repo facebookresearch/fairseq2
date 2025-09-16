@@ -6,12 +6,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any, final
 
+from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.error import OperationalError
+from fairseq2.error import OperationalError, raise_operational_system_error
 from fairseq2.metrics.recorders.descriptor import MetricDescriptorRegistry
 from fairseq2.metrics.recorders.recorder import MetricRecorder
 
@@ -39,6 +40,8 @@ class WandbRecorder(MetricRecorder):
     def record_metric_values(
         self, category: str, values: Mapping[str, object], step_nr: int | None = None
     ) -> None:
+        output: dict[str, object] = {}
+
         for name, value in values.items():
             descriptor = self._metric_descriptors.maybe_get(name)
             if descriptor is None:
@@ -46,12 +49,32 @@ class WandbRecorder(MetricRecorder):
             else:
                 display_name = f"{category}/{descriptor.display_name}"
 
-            try:
-                self._run.log({display_name: value}, step=step_nr)
-            except RuntimeError as ex:
-                raise OperationalError(
-                    "Metric values cannot be saved to Weights & Biases."
-                ) from ex
+            self._add_value(display_name, value, output)
+
+        try:
+            self._run.log(output, step=step_nr)
+        except OSError as ex:
+            raise_operational_system_error(ex)
+        except RuntimeError as ex:
+            raise OperationalError(
+                "Metric values cannot be saved to Weights & Biases."
+            ) from ex
+
+    def _add_value(self, name: str, value: object, output: dict[str, object]) -> None:
+        if isinstance(value, (int, float, Tensor, str)):
+            output[name] = value
+
+            return
+
+        if isinstance(value, Sequence):
+            for idx, elem in enumerate(value):
+                self._add_value(f"{name} ({idx})", elem, output)
+
+            return
+
+        raise ValueError(
+            f"`values` must consist of objects of types `{int}`, `{float}`, `{Tensor}`, and `{str}` only."
+        )
 
     @override
     def close(self) -> None:

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Final, TextIO, final
@@ -18,7 +18,6 @@ from typing_extensions import override
 
 from fairseq2.error import raise_operational_system_error
 from fairseq2.file_system import FileMode, FileSystem
-from fairseq2.metrics import format_as_int
 from fairseq2.metrics.recorders.descriptor import (
     MetricDescriptor,
     MetricDescriptorRegistry,
@@ -42,7 +41,9 @@ class JsonlMetricRecorder(MetricRecorder):
         :param output_dir: The base directory under which to store the metric
             files.
         """
-        self._output_dir = output_dir.joinpath("metrics")
+        metrics_dir = output_dir.joinpath("metrics")
+
+        self._output_dir = metrics_dir
         self._file_system = file_system
         self._metric_descriptors = metric_descriptors
         self._streams: dict[str, TextIO] = {}
@@ -51,14 +52,6 @@ class JsonlMetricRecorder(MetricRecorder):
     def record_metric_values(
         self, category: str, values: Mapping[str, object], step_nr: int | None = None
     ) -> None:
-        category = category.strip()
-
-        for part in category.split("/"):
-            if re.match(self._CATEGORY_PART_REGEX, part) is None:
-                raise ValueError(
-                    f"`category` must contain only alphanumeric characters, dash, underscore, and forward slash, but is '{category}' instead."
-                )
-
         stream = self._get_stream(category)
 
         values_and_descriptors = []
@@ -75,23 +68,22 @@ class JsonlMetricRecorder(MetricRecorder):
         # Sort by priority and display name.
         values_and_descriptors.sort(key=lambda p: (p[1].priority, p[1].display_name))
 
-        def sanitize(value: object, descriptor: MetricDescriptor) -> object:
-            if not isinstance(value, (int, float, str, Tensor)):
-                return repr(value)
-
+        def sanitize(value: object) -> object:
             if isinstance(value, Tensor):
                 if value.numel() != 1:
                     return value.tolist()
 
                 value = value.item()
 
-            if descriptor.formatter is format_as_int:
-                try:
-                    value = int(value)
-                except ValueError:
-                    pass
+            if isinstance(value, (int, float, str)):
+                return value
 
-            return value
+            if isinstance(value, Sequence):
+                return [sanitize(e) for e in value]
+
+            raise ValueError(
+                f"`values` must consist of objects of types `{int}`, `{float}`, `{Tensor}`, and `{str}` only."
+            )
 
         output: dict[str, object] = {"Time": datetime.utcnow().isoformat()}
 
@@ -99,7 +91,7 @@ class JsonlMetricRecorder(MetricRecorder):
             output["Step"] = step_nr
 
         for value, descriptor in values_and_descriptors:
-            output[descriptor.display_name] = sanitize(value, descriptor)
+            output[descriptor.display_name] = sanitize(value)
 
         try:
             json.dump(output, stream, indent=None)
@@ -111,9 +103,17 @@ class JsonlMetricRecorder(MetricRecorder):
             raise_operational_system_error(ex)
 
     def _get_stream(self, category: str) -> TextIO:
+        category = category.strip()
+
         fp = self._streams.get(category)
         if fp is not None:
             return fp
+
+        for part in category.split("/"):
+            if re.match(self._CATEGORY_PART_REGEX, part) is None:
+                raise ValueError(
+                    f"`category` must contain only alphanumeric characters, dash, underscore, and forward slash, but is '{category}' instead."
+                )
 
         file = self._output_dir.joinpath(category).with_suffix(".jsonl")
 

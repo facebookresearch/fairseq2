@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import final
 
@@ -41,7 +41,9 @@ class TensorBoardRecorder(MetricRecorder):
                 "tensorboard is not found. Use `pip install tensorboard`."
             )
 
-        self._output_dir = output_dir.joinpath("tb")
+        tb_dir = output_dir.joinpath("tb")
+
+        self._output_dir = tb_dir
         self._metric_descriptors = metric_descriptors
         self._writers: dict[str, SummaryWriter] = {}
 
@@ -59,10 +61,7 @@ class TensorBoardRecorder(MetricRecorder):
                 else:
                     display_name = descriptor.display_name
 
-                if not isinstance(value, (int, float, str, Tensor)):
-                    value = repr(value)
-
-                writer.add_scalar(display_name, value, step_nr)
+                self._add_value(writer, step_nr, display_name, value)
 
             writer.flush()
         except OSError as ex:
@@ -71,6 +70,29 @@ class TensorBoardRecorder(MetricRecorder):
             raise OperationalError(
                 "Metric values cannot be saved to TensorBoard."
             ) from ex
+
+    def _add_value(
+        self, writer: SummaryWriter, step_nr: int | None, name: str, value: object
+    ) -> None:
+        if isinstance(value, str):
+            writer.add_text(name, value, step_nr)
+
+            return
+
+        if isinstance(value, (int, float, Tensor)):
+            writer.add_scalar(name, value, step_nr)
+
+            return
+
+        if isinstance(value, Sequence):
+            for idx, elem in enumerate(value):
+                self._add_value(writer, step_nr, f"{name} ({idx})", elem)
+
+            return
+
+        raise ValueError(
+            f"`values` must consist of objects of types `{int}`, `{float}`, `{Tensor}`, and `{str}` only."
+        )
 
     def _get_writer(self, category: str) -> SummaryWriter:
         writer = self._writers.get(category)
