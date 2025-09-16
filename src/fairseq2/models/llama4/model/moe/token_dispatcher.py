@@ -169,19 +169,11 @@ def _gather_output_splits(
         dtype=torch.int,
         device=torch.cuda.current_device(),
     )
-    if False:  # hasattr(torch.ops.fbgemm, "nccl_allgather"):
-        pass
-        # allgather(
-        #     local_output_splits.contiguous(),
-        #     output_splits,
-        #     comm_idx=CommsGroup.EXPERT_PARALLEL.value,
-        # )
-    else:
-        torch.distributed.all_gather_into_tensor(
-            output_splits,
-            local_output_splits,
-            group=ep_gang.as_process_group(),
-        )
+    torch.distributed.all_gather_into_tensor(
+        output_splits,
+        local_output_splits,
+        group=ep_gang.as_process_group(),
+    )
     return output_splits.int().view(-1).tolist()
 
 
