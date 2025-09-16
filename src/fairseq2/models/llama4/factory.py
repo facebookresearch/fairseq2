@@ -6,56 +6,41 @@
 
 from __future__ import annotations
 
-import math
 from typing_extensions import override
 
-import torch
-import torch.nn as nn
-from torch import Tensor
-
 from fairseq2.models.llama import LLaMAFactory
-from fairseq2.models.llama.factory import _init_truncated_normal
-from fairseq2.models.llama4.model.frontend import LLaMA4DecoderFrontend
-from fairseq2.models.llama4.model.moe.moe import MoE
 from fairseq2.models.llama4.config import Llama4Config
+from fairseq2.models.llama4.model.frontend import Llama4DecoderFrontend
+from fairseq2.models.llama4.model.moe.moe import MoE
 from fairseq2.models.llama4.model.vision.embedding import VisionEmbeddings
+from fairseq2.models.llama.factory import _init_truncated_normal
 from fairseq2.models.transformer import (
+    AttentionBias,
     CausalAttentionBias,
     ChunkedAttentionBias,
     FeedForwardNetwork,
-    GLUFeedForwardNetwork,
     MultiheadAttention,
     StandardMultiheadAttention,
-    TransformerEmbeddingFrontend,
     TransformerFrontend,
-    TransformerNormOrder,
     create_default_sdpa,
 )
-from fairseq2.models.transformer_lm import (
-    StandardTransformerLMDecoder,
-    StandardTransformerLMDecoderLayer,
-    TransformerLM,
-    TransformerLMDecoder,
-    TransformerLMDecoderLayer,
-)
+from fairseq2.models.transformer_lm import TransformerLM
 from fairseq2.nn import (
     Embedding,
     LayerNorm,
     Linear,
     PositionEncoder,
-    Projection,
     RMSNorm,
-    RotaryEncoder,
-    StandardEmbedding,
-    TiedProjection,
 )
 
 
 def create_llama4_model(config: Llama4Config) -> TransformerLM:
-    return LLaMA4Factory(config).create_model()
+    return Llama4Factory(config).create_model()
 
 
-class LLaMA4Factory(LLaMAFactory):
+class Llama4Factory(LLaMAFactory):
+    _config: Llama4Config
+
     def __init__(self, config: Llama4Config) -> None:
         self._config = config
 
@@ -75,7 +60,7 @@ class LLaMA4Factory(LLaMAFactory):
             vision_embed = None
             vision_proj = None
 
-        return LLaMA4DecoderFrontend(
+        return Llama4DecoderFrontend(
             embed,
             vision_embed,
             vision_proj,
@@ -83,7 +68,7 @@ class LLaMA4Factory(LLaMAFactory):
             no_scale=True,
             dropout_p=config.dropout_p,
         )
-    
+
     def create_self_attention(
         self, layer_idx: int, pos_encoder: PositionEncoder
     ) -> MultiheadAttention:
@@ -92,10 +77,11 @@ class LLaMA4Factory(LLaMAFactory):
         the only ones to actually use RoPE. Other layers use NoPE.
         """
         config = self._config
-        
+
         is_nope_layer = self._is_nope_layer(layer_idx)
         use_local_attn_mask = not is_nope_layer
-        
+
+        attn_bias: AttentionBias
         if use_local_attn_mask:
             attn_bias = ChunkedAttentionBias(
                 attn_chunk_size=config.attention_chunk_size
@@ -104,9 +90,9 @@ class LLaMA4Factory(LLaMAFactory):
             attn_bias = CausalAttentionBias()
 
         sdpa = create_default_sdpa(attn_bias)
-        
+
         pos_encoder_maybe = pos_encoder if not is_nope_layer else None
-        
+
         qk_norm = None
         if config.use_qk_norm and not is_nope_layer:
             head_dim = config.model_dim // config.num_attn_heads
@@ -135,7 +121,7 @@ class LLaMA4Factory(LLaMAFactory):
             q_norm=qk_norm,
             k_norm=qk_norm,
         )
-    
+
     def _is_nope_layer(self, layer_idx: int) -> bool:
         return (
             self._config.nope_layer_interval is not None
@@ -184,7 +170,7 @@ class LLaMA4Factory(LLaMAFactory):
         #     inner_dropout_p=config.dropout_p,
         #     proj_init_fn=init_projection,
         # )
-    
+
     def create_llama4_rms_norm(
         self,
         dim: int,
@@ -199,12 +185,12 @@ class LLaMA4Factory(LLaMAFactory):
             eps=1e-5,
         )
 
-    def create_layer_norm(self)-> LayerNorm:
+    def create_layer_norm(self) -> LayerNorm:
         return self.create_llama4_rms_norm(
             self._config.model_dim,
             elementwise_affine=True,
         )
-    
+
     def create_qk_norm(self, dim: int) -> LayerNorm:
         return self.create_llama4_rms_norm(
             dim,

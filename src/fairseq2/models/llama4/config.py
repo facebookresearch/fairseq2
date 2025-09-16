@@ -18,7 +18,7 @@ LLAMA4_FAMILY: Final = "llama4"
 
 # Not used atm
 @dataclass(kw_only=True)
-class LLaMA4VisionEncoderConfig:
+class Llama4VisionEncoderConfig:
     """Holds the configuration of a Llama 4 Vision Encoder"""
 
     # TODO: Add descriptions to all these
@@ -41,7 +41,7 @@ class LLaMA4VisionEncoderConfig:
 
 
 @dataclass(kw_only=True)
-class LLaMA4ExpertsConfig:
+class Llama4ExpertsConfig:
     """Holds the configuration of a Llama 4 Experts"""
 
     num_experts: int = 16
@@ -59,7 +59,7 @@ class LLaMA4ExpertsConfig:
     """MoE sends each token to the ``top_k`` top experts."""
 
     interleave_moe_layer_step: int = 1
-    """Llama will use a MoE layer as FFN every ``interleave_moe_layer_step``th layer.
+    """Llama will use a MoE layer as FFN every ``interleave_moe_layer_step``-th layer.
     If equal to 1, a MoE is used for every layer."""
 
     eval_with_saved_stats: bool = False
@@ -83,10 +83,10 @@ class Llama4MetapConfig:
 
 @dataclass(kw_only=True)
 class Llama4Config(LLaMAConfig):
-    experts: LLaMA4ExpertsConfig = field(default_factory=lambda: LLaMA4ExpertsConfig())
+    experts: Llama4ExpertsConfig = field(default_factory=lambda: Llama4ExpertsConfig())
     """If not ``None``, specifies the configuration of Mixture-of-Experts."""
 
-    vision_config: LLaMA4VisionEncoderConfig | None = None
+    vision_config: Llama4VisionEncoderConfig | None = None
     """If not ``None``, specifies the configuration of the vision encoder."""
 
     metap_config: Llama4MetapConfig | None = None
@@ -94,7 +94,7 @@ class Llama4Config(LLaMAConfig):
 
     attention_chunk_size: int = 8192
     """The chunk size used for chunked attention biases."""
-    
+
     use_qk_norm: bool = False
     """If ``True``, applies layer normalization to the projected query and key."""
 
@@ -109,7 +109,7 @@ def register_llama4_configs(container: DependencyContainer) -> None:
     arch = ConfigRegistrar(container, Llama4Config)
 
     @arch("llama4_scout")
-    def llama4_scout() -> Llama4Config
+    def llama4_scout() -> Llama4Config:
         config = Llama4Config()
 
         config.model_dim = 5120
@@ -126,16 +126,18 @@ def register_llama4_configs(container: DependencyContainer) -> None:
 
         config.use_qk_norm = True
 
-        config.experts = LLaMA4ExpertsConfig()
-        
+        config.experts = Llama4ExpertsConfig()
+
         # vision has not been tested yet
-        # config.vision_config = LLaMA4VisionEncoderConfig()
+        # config.vision_config = Llama4VisionEncoderConfig()
 
         config.rope_theta = 500_000.0
         config.use_scaled_rope = True
         config.nope_layer_interval = 4
         config.rope_scale.factor = 16.0
         config.rope_scale.frequency_factors = (1.0, 1.0)
+
+        config.shard_embed_dim = False
 
         return config
 

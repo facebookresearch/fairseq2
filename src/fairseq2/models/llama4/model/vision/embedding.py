@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 import torch
 import torch.nn as nn
 
-from fairseq2.models.llama4.config import LLaMA4VisionEncoderConfig
+from fairseq2.models.llama4.config import Llama4VisionEncoderConfig
 from fairseq2.models.llama4.model.vision.encoder import VisionEncoder
 from fairseq2.models.llama4.model.vision.ffn import _FeedForward
 from fairseq2.nn import Linear
@@ -88,7 +88,7 @@ class VisionEmbeddings(torch.nn.Module):
     2. An adapter, which should be always be trained.
     """
 
-    def __init__(self, config: LLaMA4VisionEncoderConfig) -> None:
+    def __init__(self, config: Llama4VisionEncoderConfig) -> None:
         super().__init__()
         self.config = config
 

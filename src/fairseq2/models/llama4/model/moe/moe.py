@@ -50,7 +50,7 @@ class MoE(FeedForwardNetwork):
         eval_with_saved_stats: bool = True,
         expert_act_threshold: float = 0.0,
     ) -> None:
-        super().__init__(model_dim)
+        super().__init__()
 
         # same scaling of inner_dim as in dense Llama
         self.inner_dim_scale = inner_dim_scale
