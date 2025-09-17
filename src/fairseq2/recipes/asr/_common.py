@@ -46,7 +46,7 @@ class AsrCriterion:
         loss, extra_metrics = output.compute_loss(
             batch.target_seqs, batch.target_padding_mask
         )
-        print(loss)
+
         metric_bag.update_ctc_loss(batch, loss)
 
         metric_bag.update_batch_metrics(batch)
@@ -116,6 +116,8 @@ class AsrScorer:
 
         refs = [self._text_decoder(s) for s in ref_seqs]
         hyps = [self._text_decoder(s) for s in hyp_seqs]
+        print("refs", refs)
+        print("hyps", hyps)
 
         metric_bag.wer.update(
             refs, ref_seqs, ref_padding_mask, hyps, hyp_seqs, hyp_padding_mask

@@ -9,14 +9,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Final, List, Set, final
+from typing import Any, Dict, Final, final, List, Set
 
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 import torch
-from numpy.typing import NDArray
-from typing_extensions import override
 
 from fairseq2.data import Collater, DataPipelineBuilder, MemoryBlock, read_sequence
 from fairseq2.data.audio import AudioDecoder, AudioDecoderOutput
@@ -36,6 +34,8 @@ from fairseq2.datasets.speech import (
 from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.models.sequence import SequenceBatch
+from numpy.typing import NDArray
+from typing_extensions import override
 
 PARQUET_SPEECH_DATASET_FAMILY: Final = "generic_parquet_speech"
 
@@ -101,7 +101,9 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
 
     @staticmethod
     def add_audio_decoding(
-        builder: DataPipelineBuilder, options: SpeechReadOptions
+        builder: DataPipelineBuilder,
+        options: SpeechReadOptions,
+        selector: str = "[*].audio",
     ) -> DataPipelineBuilder:
 
         audio_decoder = AudioDecoder(
@@ -111,7 +113,7 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
         def decoded_audio(_bytes: NDArray[np.int8]) -> Dict[str, AudioDecoderOutput]:
             return {"data": audio_decoder(MemoryBlock(_bytes.tobytes()))}
 
-        builder.map(decoded_audio, selector="[*].audio", num_parallel_calls=options.npc)
+        builder.map(decoded_audio, selector=selector, num_parallel_calls=options.npc)
 
         return builder
 

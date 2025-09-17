@@ -10,12 +10,12 @@ from typing import Any
 
 from fairseq2.context import RuntimeContext
 from fairseq2.metrics import (
-    MetricDescriptor,
     format_as_byte_size,
     format_as_float,
     format_as_int,
     format_as_percentage,
     format_as_seconds,
+    MetricDescriptor,
 )
 
 
@@ -30,8 +30,10 @@ def register_metric_descriptors(context: RuntimeContext) -> None:
     register("contrastive_loss", "Contrastive Loss",      100, format_as_float)
     register("ctc_loss",         "CTC Loss",              100, format_as_float)
     register("diversity_loss",   "Diversity Loss",        100, format_as_float)
+    register("mse_loss",         "MSE Loss",              100, format_as_float)
     register("nll_loss",         "NLL Loss",              100, format_as_float)
     register("feature_penalty",  "Feature Penalty",       110, format_as_float)
+    register("cosine_similarity","Cosine Similarity",     200, format_as_float, higher_better=True)
     register("accuracy",         "Accuracy",              200, format_as_float, higher_better=True)
     register("bleu",             "BLEU",                  200, format_as_float, higher_better=True)
     register("chrf",             "chrF++",                200, format_as_float, higher_better=True)

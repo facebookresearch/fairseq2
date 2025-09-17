@@ -135,6 +135,9 @@ class SonarSpeechEncoderModel(SonarEncoderModel):
                 seqs, padding_mask, self.masker if self.training else None
             )
         )
+        encoder_output, encoder_padding_mask = self.encoder(
+            encoder_output, encoder_padding_mask
+        )
 
         # This is the workaround for the pre-LN issue of redundant LayerNorm.
         # We call here, to avoid fiddling with wav2vec2's model and config.

@@ -14,6 +14,7 @@ import torch
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
+from fairseq2.datasets.asr import AsrDataset, GENERIC_ASR_DATASET_FAMILY
 from fairseq2.datasets.sonarspeech import (
     GENERIC_SONAR_SPEECH_DATASET_FAMILY,
     GenericSonarSpeechDataset,
@@ -92,13 +93,13 @@ class SonarSpeechTrainConfig:
     """Holds the configuration of a Sonar2 training task."""
 
     model: ModelSection = field(
-        default_factory=lambda: ModelSection(
-            family="wav2vec2_sonar_speech", arch="7b_fleurs"
-        )
+        default_factory=lambda: ModelSection(family="wav2vec2_sonar_speech", arch="7b")
     )
 
+    pretrained_encoder_is_ctc: bool = False
+
     pretrained_model: ReferenceModelSection = field(
-        default_factory=lambda: ReferenceModelSection(name="wav2vec2_base")
+        default_factory=lambda: ReferenceModelSection(name="")
     )
 
     dataset: SonarSpeechTrainDatasetSection = field(
@@ -106,7 +107,7 @@ class SonarSpeechTrainConfig:
     )
 
     tokenizer: TextTokenizerSection = field(
-        default_factory=lambda: TextTokenizerSection(name="librispeech_asr")
+        default_factory=lambda: TextTokenizerSection(name="")
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
@@ -205,41 +206,6 @@ class SonarSpeechTrainerSection(TrainerSection):
     """ """
 
 
-def register_sonar_speech_train_configs(context: RuntimeContext) -> None:
-    registry = context.get_config_registry(SonarSpeechEncoderConfig)
-
-    preset = registry.decorator
-
-    w2v2_encoder_registry = context.get_config_registry(Wav2Vec2EncoderConfig)
-
-    @preset("base_10h")
-    def base_10h() -> SonarSpeechEncoderConfig:
-
-        return SonarSpeechEncoderConfig()
-
-    @preset("7b_fleurs")
-    def fleurs_7b() -> SonarSpeechEncoderConfig:
-        config = SonarSpeechEncoderConfig()
-        config.encoder_config = w2v2_encoder_registry.get("7b")
-
-        return config
-
-    @preset("1b_fleurs")
-    def fleurs_1b() -> SonarSpeechEncoderConfig:
-        config = SonarSpeechEncoderConfig()
-        config.encoder_config = w2v2_encoder_registry.get("1b")
-
-        return config
-
-    @preset("7b_fleurs_mean")
-    def fleurs_7b() -> SonarSpeechEncoderConfig:
-        config = SonarSpeechEncoderConfig()
-        config.encoder_config = w2v2_encoder_registry.get("7b")
-        config.pooling_type = "mean"
-
-        return config
-
-
 def load_sonar_speech_trainer(
     context: RuntimeContext, config: object, output_dir: Path
 ) -> Trainer[SonarSpeechSeq2SeqBatch]:
@@ -276,8 +242,9 @@ def load_sonar_speech_trainer(
     # If we start the training with an empty ASR model, use the weights of a
     # pretrained wav2vec 2.0 model.
     if model.is_empty_initialized:
+        pt_enc = AsrModel if config.pretrained_encoder_is_ctc else Wav2Vec2Model
         pt_model = load_reference_model(
-            Wav2Vec2Model,
+            pt_enc,
             context,
             config.pretrained_model,
             gangs,
@@ -285,13 +252,13 @@ def load_sonar_speech_trainer(
             mp=config.trainer.mixed_precision != "off",
         )
 
-        pt_module = cast(Wav2Vec2Model, pt_model.module)
+        pt_module = cast(pt_enc, pt_model.module)
 
         share_parameters(pt_module.encoder_frontend, module.encoder_frontend)  # type: ignore
         share_parameters(pt_module.encoder, module.encoder)  # type: ignore
 
-        if module.masker is not None:
-            share_parameters(pt_module.masker, module.masker)  # type: ignore
+        # if module.masker is not None:
+        #     share_parameters(pt_module.masker, module.masker)  # type: ignore
 
         del pt_model
 
@@ -327,7 +294,7 @@ def load_sonar_speech_trainer(
 
     tokenizer = load_text_tokenizer(context, config.tokenizer)
 
-    dataset = load_dataset(GenericSonarSpeechDataset, context, config.dataset, gangs)
+    dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
 
     # Initialize the train unit.
     criterion = SonarSpeechCriterion(model)
@@ -374,28 +341,29 @@ def load_sonar_speech_trainer(
             batching=batching,
             dtype=config.trainer.dtype,
             normalize_audio=config.dataset.normalize_audio,
-            example_shuffle_window=1,
-            batch_shuffle_window=1,
             sync_mode=SyncMode.UNTIL_LAST,
             num_prefetch=config.dataset.num_prefetch,
             seed=seed,
             extras=config.dataset.extras,
+            bucket_size=30,
+            deterministic_context=True,
         )
 
         valid_units = []
         valid_data_readers = []
         valid_splits = [s.strip() for s in (config.dataset.valid_split).split(",")]
-        for i in range(len(valid_splits)):
-            valid_unit = SonarSpeechEvalUnit(criterion, gangs)
+        for single_vsplit in valid_splits:
+            name = single_vsplit.replace("=", "_")
+            valid_unit = SonarSpeechEvalUnit(criterion, gangs, name)
             valid_units.append(valid_unit)
 
             valid_data_reader = dataset.create_reader(
-                valid_splits[i],
+                single_vsplit,
                 tokenizer,
                 gangs.dp,
-                min_audio_len=config.dataset.min_audio_len,
-                max_audio_len=config.dataset.max_audio_len,
-                options=read_options,
+                config.dataset.min_audio_len,
+                config.dataset.max_audio_len,
+                read_options,
             )
             valid_data_readers.append(valid_data_reader)
     else:
@@ -420,6 +388,7 @@ def load_sonar_speech_trainer(
         optimizer,
         lr_scheduler,
         seed,
+        score_metric="mse_loss",
     )
 
 

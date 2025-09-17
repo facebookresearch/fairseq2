@@ -68,6 +68,32 @@ class SonarSpeechEncoderConfig:
     dropout_p: float = 0.1
     """The dropout probability in Transformer layers."""
 
+    # Mask
+    mask_codebase: str = "fairseq2"
+
+    use_masking: bool = True
+    """If ``True``, masks features as regularization."""
+
+    temporal_mask_span_len: int = 10
+    """The length of each temporal mask span that is applied over time steps."""
+
+    max_temporal_mask_prob: float = 0.5
+    """The maximum probability of masking a time step. Note that, due to mask
+    span overlap, the effective probability will be lower."""
+
+    min_num_temporal_mask_spans: int = 2
+    """The minimum number of temporal masks sampled per sequence."""
+
+    spatial_mask_span_len: int = 64
+    """The length of each spatial mask span that is applied over features."""
+
+    max_spatial_mask_prob: float = 0.2
+    """The maximum probability of masking a feature. Note that, due to mask span
+    overlap, the effective probability will be lower."""
+
+    min_num_spatial_mask_spans: int = 2
+    """The minimum number of spatial masks sampled per sequence."""
+
 
 def register_sonar_speech_encoder_configs(context: RuntimeContext) -> None:
     registry = context.get_config_registry(SonarSpeechEncoderConfig)
@@ -85,6 +111,17 @@ def register_sonar_speech_encoder_configs(context: RuntimeContext) -> None:
     def sonar_7b() -> SonarSpeechEncoderConfig:
         config = SonarSpeechEncoderConfig()
         config.encoder_config = w2v2_encoder_registry.get("7b")
+
+        config.model_dim = 2048
+        config.embedd_dim = 1024
+        config.num_decoder_layers = 3
+
+        return config
+
+    @arch("3b")
+    def sonar_3b() -> SonarSpeechEncoderConfig:
+        config = SonarSpeechEncoderConfig()
+        config.encoder_config = w2v2_encoder_registry.get("3b")
 
         config.model_dim = 2048
         config.embedd_dim = 1024
@@ -120,5 +157,31 @@ def register_sonar_speech_encoder_configs(context: RuntimeContext) -> None:
 
         config.model_dim = 1280
         config.pooling_type = "mean"
+
+        return config
+
+    @arch("7b_sa")
+    def sonar_7b_sa() -> SonarSpeechEncoderConfig:
+        config = sonar_7b()
+        config.pooling_type = "sa"
+
+        return config
+
+    @arch("1b_sa")
+    def sonar_1b_sa() -> SonarSpeechEncoderConfig:
+        config = sonar_1b()
+        config.pooling_type = "sa"
+
+        return config
+
+    @arch("7b_noaug")
+    def sonar_7b() -> SonarSpeechEncoderConfig:
+        config = SonarSpeechEncoderConfig()
+        config.encoder_config = w2v2_encoder_registry.get("7b")
+
+        config.model_dim = 2048
+        config.embedd_dim = 1024
+        config.num_decoder_layers = 3
+        config.use_masking = False
 
         return config

@@ -196,10 +196,13 @@ class SonarSpeechEvalUnit(EvalUnit[SonarSpeechSeq2SeqBatch]):
     _criterion: SonarSpeechCriterion
     _metric_bag: SonarSpeechMetricBag
 
-    def __init__(self, criterion: SonarSpeechCriterion, gangs: Gangs) -> None:
+    def __init__(
+        self, criterion: SonarSpeechCriterion, gangs: Gangs, name: None | str = None
+    ) -> None:
         self._criterion = criterion
 
         self._metric_bag = SonarSpeechMetricBag(gangs.dp, train=False)
+        self._name = name
 
     @override
     def __call__(self, batch: SonarSpeechSeq2SeqBatch) -> None:
@@ -214,3 +217,8 @@ class SonarSpeechEvalUnit(EvalUnit[SonarSpeechSeq2SeqBatch]):
     @override
     def metric_bag(self) -> SonarSpeechMetricBag:
         return self._metric_bag
+
+    @property
+    @override
+    def name(self) -> None | str:
+        return self._name

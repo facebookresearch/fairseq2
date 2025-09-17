@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from fairseq2.recipes.wav2vec2.sonar._train import (
     load_sonar_speech_trainer as load_sonar_speech_trainer,
-    register_sonar_speech_train_configs as register_sonar_speech_train_configs,
+    # register_sonar_speech_train_configs as register_sonar_speech_train_configs,
     SonarSpeechTrainConfig as SonarSpeechTrainConfig,
     SonarSpeechTrainDatasetSection as SonarSpeechTrainDatasetSection,
     SonarSpeechTrainerSection as SonarSpeechTrainerSection,

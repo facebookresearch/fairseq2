@@ -37,6 +37,7 @@ from fairseq2.models.wav2vec2.sonar._pooler import (
     AttentionEncoderOutputPooler,
     EncoderOutputPooler,
     MeanEncoderOutputPooler,
+    SelfAttentiveEncoderOutputPooler,
 )
 from fairseq2.nn import (
     Embedding,
@@ -69,17 +70,19 @@ class SonarSpeechEncoderFactory:
     def create_model(self) -> SonarSpeechEncoderModel:
         encoder_frontend, encoder = self.create_encoder()
 
+        if self.config.use_masking:
+            masker = self.create_masker()
+        else:
+            masker = None
+
         return SonarSpeechEncoderModel(
             encoder_frontend=encoder_frontend,
             encoder=encoder,
             layer_norm=self.create_w2v2_final_layer_norm(),
             final_dropout_p=self.config.final_dropout_p,
             # encoder_pooler=self.create_attention_pooler(),
-            encoder_pooler=(
-                self.create_attention_pooler()
-                if self.config.pooling_type == "attention"
-                else self.create_mean_pooler()
-            ),
+            encoder_pooler=self.create_pooler(),
+            masker=masker,
         )
 
     def create_encoder(self) -> tuple[Wav2Vec2Frontend, TransformerEncoder]:
@@ -91,6 +94,20 @@ class SonarSpeechEncoderFactory:
 
         return encoder_frontend, encoder
 
+    def create_masker(self) -> Wav2Vec2Masker:
+        config = self.config
+
+        return StandardWav2Vec2Masker(
+            config.mask_codebase,
+            config.encoder_config.model_dim,
+            config.temporal_mask_span_len,
+            config.max_temporal_mask_prob,
+            config.min_num_temporal_mask_spans,
+            config.spatial_mask_span_len,
+            config.max_spatial_mask_prob,
+            config.min_num_spatial_mask_spans,
+        )
+
     def create_attention_pooler(self) -> EncoderOutputPooler:
         return AttentionEncoderOutputPooler(
             decoder_frontend=self.create_decoder_frontend(),
@@ -101,6 +118,23 @@ class SonarSpeechEncoderFactory:
 
     def create_mean_pooler(self) -> EncoderOutputPooler:
         return MeanEncoderOutputPooler(projection_out=self.create_projection_out())
+
+    def create_sa_pooler(self) -> EncoderOutputPooler:
+        return SelfAttentiveEncoderOutputPooler(
+            h_linear=self.create_h_linear(),
+            attention=self.create_attn_weight(),
+            projection_out=self.create_projection_out(),
+        )
+
+    def create_pooler(self):
+        if self.config.pooling_type == "attention":
+            return self.create_attention_pooler()
+        elif self.config.pooling_type == "mean":
+            return self.create_mean_pooler()
+        elif self.config.pooling_type == "sa":
+            return self.create_sa_pooler()
+        else:
+            raise ValueError(f"Unknown pooling type: {self.config.pooling_type}")
 
     def create_decoder_frontend(self) -> TransformerFrontend:
         return TransformerEmbeddingFrontend(
@@ -174,6 +208,24 @@ class SonarSpeechEncoderFactory:
             output_dim=self.config.embedd_dim,
             bias=False,
         )
-        torch.nn.init.normal_(proj.weight, mean=0, std=1e-5)
+        torch.nn.init.normal_(proj.weight, mean=0, std=1e-3)
 
         return proj
+
+    def create_h_linear(self) -> Linear:
+        proj = Linear(
+            input_dim=self.config.model_dim,
+            output_dim=self.config.model_dim,
+            bias=True,
+        )
+
+        return proj
+
+    def create_attn_weight(self) -> Linear:
+        weight_mat = Linear(
+            input_dim=self.config.model_dim,
+            output_dim=1,
+            bias=False,
+        )
+
+        return weight_mat

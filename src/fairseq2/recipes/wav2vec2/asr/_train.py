@@ -167,6 +167,21 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     npc: int = 10
     """The number of parallel calls to use in the pipeline."""
 
+    always_read_tsv: bool = False
+    """If ``True``, always read the TSV manifest, regardless of whether parquet datasets exist."""
+
+    extras: dict[str, object] = field(default_factory=dict)
+    """The dataset-specific extra options."""
+
+    max_num_batches: int | None = None
+    """The maximum number of batches for the dataloader to return."""
+
+    max_batch_size: int = -1
+    """The maximum batch size (num examples). If ``-1``, no maximum is applied."""
+
+    min_samples_per_char: int = 160
+    """If a sample has more than ``sample_rate / min_samples_per_char`` chars per second, it's filtered out."""
+
     # Upsampling
     beta_corpus: float | None = None
     beta_language: float | None = None
@@ -180,14 +195,17 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     spec_aug_time_mask_param: int = 80
     """Maximum time mask length."""
 
-    always_read_tsv: bool = False
-    """If ``True``, always read the TSV manifest, regardless of whether parquet datasets exist."""
-
-    extras: dict[str, object] = field(default_factory=dict)
-    """The dataset-specific extra options."""
-
+    # Zero/Few-shot
     n_context_examples: int = 0
     """The number of context examples to use when providing context."""
+    bucket_size_train: int = 2000
+    """Minimum size of pool for choosing context examples, for training set."""
+    bucket_size_eval: int = 30
+    """Minimum size of pool for choosing context examples, for eval sets."""
+    batch_with_context_length: bool = True
+    """Use total batch of speech + context speech for length batching."""
+    context_example_column: str | None = None
+    """If not None, will be used to generate context examples instead of random sampling."""
 
 
 @dataclass(kw_only=True)
@@ -283,7 +301,7 @@ def load_wav2vec2_asr_trainer(
 
     # If we start the training with an empty ASR model, use the weights of a
     # pretrained wav2vec 2.0 model.
-    if model.is_empty_initialized:
+    if model.is_empty_initialized and not config.pretrained_model_full.name:
         tp = AsrModel if config.pretrained_encoder_is_ctc else Wav2Vec2Model
         pt_model = load_reference_model(
             tp,
@@ -425,6 +443,10 @@ def load_wav2vec2_asr_trainer(
         n_context_examples=config.dataset.n_context_examples,
         bucket_size=2000,
         deterministic_context=False,
+        max_batch_size=config.dataset.max_batch_size,
+        min_samples_per_char=config.dataset.min_samples_per_char,
+        batch_with_context_length=config.dataset.batch_with_context_length,
+        context_example_column=config.dataset.context_example_column,
     )
 
     dataset: AsrDataset | BatchMixtureDataset
@@ -471,6 +493,10 @@ def load_wav2vec2_asr_trainer(
             n_context_examples=config.dataset.n_context_examples,
             bucket_size=30,
             deterministic_context=True,
+            max_batch_size=config.dataset.max_batch_size,
+            min_samples_per_char=config.dataset.min_samples_per_char,
+            batch_with_context_length=config.dataset.batch_with_context_length,
+            context_example_column=config.dataset.context_example_column,
         )
 
         valid_units = []

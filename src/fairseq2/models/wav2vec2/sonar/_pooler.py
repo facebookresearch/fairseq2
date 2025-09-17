@@ -117,3 +117,40 @@ class MeanEncoderOutputPooler(EncoderOutputPooler):
             ) / lengths.unsqueeze(-1)
 
         return self.projection_out(pooled_encoder_output)
+
+
+class SelfAttentiveEncoderOutputPooler(EncoderOutputPooler):
+    """self-attentive pooling encoder features"""
+
+    def __init__(
+        self, h_linear: Linear, attention: Linear, projection_out: Linear
+    ) -> None:
+        super().__init__()
+        self.h_linear = h_linear
+        self.attention = attention
+        self.projection_out = projection_out
+
+    @override
+    def __call__(
+        self,
+        encoder_output: Tensor,
+        encoder_padding_mask: Optional[PaddingMask],
+    ) -> Tensor:
+        masked_encoder_output = apply_padding_mask(
+            encoder_output, encoder_padding_mask, pad_value=0
+        )
+        if encoder_padding_mask is not None:
+            lengths = encoder_padding_mask.seq_lens
+        else:
+            lengths = [masked_encoder_output.size(1)] * masked_encoder_output.size(0)
+        pooled_list = []
+        for x, x_len in zip(masked_encoder_output, lengths):
+            x = x[:x_len].unsqueeze(0)
+            h = torch.tanh(self.h_linear(x))
+            w = torch.matmul(h, self.attention.weight.transpose(0, 1)).squeeze(dim=2)
+            w = torch.nn.functional.softmax(w, dim=1).view(x.size(0), x.size(1), 1)
+            x = torch.sum(x * w, dim=1)
+            pooled_list.append(x.squeeze(0))
+        pooled_encoder_output = torch.stack(pooled_list)
+
+        return self.projection_out(pooled_encoder_output)

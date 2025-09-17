@@ -11,15 +11,15 @@ from typing import final
 
 import torch
 import torch.nn as nn
-from torch import Tensor
-from torch.nn import Module, Parameter
-from typing_extensions import override
 
 from fairseq2.error import InternalError
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.utils.fairseq1_mask import compute_mask_indices
-from fairseq2.nn.utils.mask import RowMaskFactory, compute_row_mask
+from fairseq2.nn.utils.mask import compute_row_mask, RowMaskFactory
 from fairseq2.typing import DataType, Device
+from torch import Tensor
+from torch.nn import Module, Parameter
+from typing_extensions import override
 
 
 class Wav2Vec2Masker(Module, ABC):

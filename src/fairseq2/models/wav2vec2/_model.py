@@ -10,26 +10,26 @@ from dataclasses import dataclass
 from typing import final
 
 import torch
-from torch import Tensor
-from torch.nn import Module
-from torch.nn.functional import cross_entropy
 
 from fairseq2.error import InternalError
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.transformer import TransformerEncoder
-from fairseq2.nn import Linear
-from fairseq2.nn.ops import repeat_interleave
-from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import DataType, Device
 
 # isort: split
 
 from fairseq2.models.wav2vec2._frontend import Wav2Vec2Frontend
-from fairseq2.models.wav2vec2._masker import Wav2Vec2Masker, extract_masked_elements
+from fairseq2.models.wav2vec2._masker import extract_masked_elements, Wav2Vec2Masker
 from fairseq2.models.wav2vec2._vector_quantizer import (
     VectorQuantizer,
     VectorQuantizerOutput,
 )
+from fairseq2.nn import Linear
+from fairseq2.nn.ops import repeat_interleave
+from fairseq2.nn.padding import PaddingMask
+from fairseq2.typing import DataType, Device
+from torch import Tensor
+from torch.nn import Module
+from torch.nn.functional import cross_entropy
 
 
 @final
@@ -169,10 +169,12 @@ class Wav2Vec2Model(Module):
             seqs, padding_mask, self.masker
         )
 
-        if temporal_mask is None:
-            raise InternalError("`temporal_mask` is `None`.")
-
-        targets = extract_masked_elements(targets, temporal_mask)
+        # if temporal_mask is None:
+        #     raise InternalError("`temporal_mask` is `None`.")
+        if self.masker is not None:
+            targets = extract_masked_elements(targets, temporal_mask)
+        else:
+            targets = None
 
         return Wav2Vec2Features(
             seqs, padding_mask, targets, temporal_mask, raw_features

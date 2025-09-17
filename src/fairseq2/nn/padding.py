@@ -178,7 +178,7 @@ def get_seqs_and_padding_mask(
     if not data["is_ragged"]:
         return seqs, None
 
-    seq_lens = torch.LongTensor(data["seq_lens"])
+    seq_lens = data["seq_lens"]
 
     if device is not None:
         seq_lens = torch.tensor(seq_lens)

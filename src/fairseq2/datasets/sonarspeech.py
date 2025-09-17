@@ -6,18 +6,26 @@
 
 from __future__ import annotations
 
+import io
+
 from abc import ABC, abstractmethod
 from functools import partial
 from typing import Any, cast, Dict, Final, Tuple
 
+import torch
+
+import torchaudio
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
     DataPipeline,
     DataPipelineBuilder,
+    MemoryBlock,
     read_sequence,
     SequenceData,
 )
+
+from fairseq2.data.audio import AudioDecoder, AudioDecoderOutput
 from fairseq2.data.text import read_text, StrSplitter
 from fairseq2.data.text.tokenizers import TextTokenizer
 from fairseq2.datasets import (
@@ -32,12 +40,12 @@ from fairseq2.datasets.speech import (
     ManifestDatasetInterface,
     SpeechReadOptions,
 )
+from fairseq2.datasets.speech_parquet import ParquetDatasetInterface
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch, SonarSpeechSeq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import Device
 from typing_extensions import override
-
 
 GENERIC_SONAR_SPEECH_DATASET_FAMILY: Final = "generic_sonar_speech"
 
@@ -46,6 +54,22 @@ get_asr_dataset_hub = DatasetHubAccessor(AsrDataset)
 
 class GenericSonarSpeechDataset(ManifestDatasetInterface, AsrDataset):
     """Represents a generic manifest-based ASR dataset."""
+
+    @staticmethod
+    def add_audio_decoding(
+        builder: DataPipelineBuilder, options: SpeechReadOptions
+    ) -> DataPipelineBuilder:
+
+        audio_decoder = AudioDecoder(
+            dtype=torch.float32 if options.normalize_audio else options.dtype
+        )
+
+        def decoded_audio(_bytes: NDArray[np.int8]) -> Dict[str, AudioDecoderOutput]:
+            return {"data": audio_decoder(MemoryBlock(_bytes.tobytes()))}
+
+        builder.map(decoded_audio, selector="[*].audio", num_parallel_calls=options.npc)
+
+        return builder
 
     @staticmethod
     def to_batch(

@@ -15,13 +15,10 @@ from typing import Any, Callable, Dict, Final, List
 
 import numpy as np
 import torch
-from torch import Tensor
-from torch.nn.functional import layer_norm
-from typing_extensions import override
 
-from fairseq2.data import Collater, DataPipelineBuilder, FileMapper, create_bucket_sizes
+from fairseq2.data import Collater, create_bucket_sizes, DataPipelineBuilder, FileMapper
 from fairseq2.data.audio import AudioDecoder, WaveformToFbankConverter
-from fairseq2.data.text import StrSplitter, read_text
+from fairseq2.data.text import read_text, StrSplitter
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
@@ -39,6 +36,9 @@ from fairseq2.logging import log
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import DataType, Device
+from torch import Tensor
+from torch.nn.functional import layer_norm
+from typing_extensions import override
 
 try:
     import torchaudio  # type: ignore
@@ -190,6 +190,12 @@ class SpeechReadOptions(DataReadOptions):
     Therefore, no padding will be applied to the batch.
     """
 
+    max_batch_size: int = -1
+    """The maximum batch size (num examples). If ``-1``, no maximum is applied."""
+
+    min_samples_per_char: int = 160
+    """If a sample has more than ``sample_rate / min_samples_per_char`` chars per second, it's filtered out."""
+
     npc: int = 10
     """The number of parallel calls to use in the pipeline."""
 
@@ -216,6 +222,12 @@ class SpeechReadOptions(DataReadOptions):
     deterministic_context: bool = False
     """If ``True``, the context examples will be selected deterministically from the \
     audio path. Should be True for eval sets and False for train sets."""
+
+    batch_with_context_length: bool = True
+    """Use total batch of speech + context speech for length batching."""
+
+    context_example_column: str = None
+    """If not None, will be used to generate context examples instead of random sampling."""
 
 
 class SpeechDataset(ABC):
