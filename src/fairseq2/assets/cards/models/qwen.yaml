@@ -50,6 +50,23 @@ tokenizer_family: qwen
 
 ---
 
+name: deepseek_r1_distill_qwen_14b
+model_family: qwen
+model_arch: qwen25_14b
+checkpoint: "hg://deepseek-ai/DeepSeek-R1-Distill-Qwen-14B"
+tokenizer: "hg://deepseek-ai/DeepSeek-R1-Distill-Qwen-14B"
+tokenizer_family: qwen
+
+---
+
+name: deepseek_r1_distill_qwen_7b
+model_family: qwen
+model_arch: qwen25_7b
+checkpoint: "hg://deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+tokenizer: "hg://deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+tokenizer_family: qwen
+---
+
 name: qwen25_14b_instruct
 model_family: qwen
 model_arch: qwen25_14b
