@@ -58,3 +58,4 @@ Utilities
    device
    logging
    metrics
+   fairseq2.recipe.optim

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, Literal, TypeAlias, TypeVar, final
@@ -683,7 +684,7 @@ class TorchProfilerConfig(Validatable):
 
 @dataclass(kw_only=True)
 class AssetsConfig:
-    extra_paths: list[Path] = field(default_factory=list)
+    extra_paths: Sequence[Path] = field(default_factory=list)
 
     prev_checkpoint_dir: Path | None = None
     """If not ``None``, adds the specified path to the default asset store."""
@@ -809,9 +810,13 @@ class LRSchedulerSection(SupportsStructure):
 
 @dataclass(kw_only=True)
 class CosineAnnealingLRConfig(Validatable):
+    """Represents the configuration of :class:`CosineAnnealingLR`."""
+
     cycle_len: int | None = None
-    """The number of steps within the first cycle. If ``None``, will be set to
-    ``num_steps - num_warmup_steps``."""
+    """
+    The number of steps within the first cycle. If ``None``, will be set to
+    ``num_steps - num_warmup_steps``.
+    """
 
     num_warmup_steps: int = 0
     """The number of warmup steps."""
@@ -820,22 +825,31 @@ class CosineAnnealingLRConfig(Validatable):
     """The factor to grow the length of each cycle."""
 
     lr_mul: float = 1.0
-    """The factor to scale the base and final learning rate at the end of each
-    cycle."""
-
-    start_lr: float = 0.0
-    """The initial warmup learning rate."""
-
-    final_lr: float | None = None
-    """The final learning rate. If ``None``, :attr:`final_lr_scale` will be used."""
-
-    final_lr_scale: float | None = 0.2
     """
-    The optimizer learning rate will be scaled by this value to determine the
-    final learning rate. If ``None``, :attr:`final_lr` will be used.
+    The factor to scale the base and final learning rate at the end of each cycle.
+    """
+
+    start_lr: float | Sequence[float] = 0.0
+    """
+    The initial warmup learning rate of all optimizer parameter groups or each
+    group respectively.
+    """
+
+    final_lr: float | Sequence[float] | None = None
+    """
+    The final learning rate of all optimizer parameter groups or each group
+    respectively. If ``None``, :attr:`final_lr_scale` will be used.
+    """
+
+    final_lr_scale: float | Sequence[float] | None = 0.2
+    """
+    The default learning rate of all optimizer parameter groups or each group
+    respectively will be scaled by this value to determine the final learning
+    rate. If ``None``, :attr:`final_lr` will be used.
     """
 
     def validate(self) -> ValidationResult:
+        """:meta private:"""
         result = ValidationResult()
 
         if self.num_warmup_steps < 0:
@@ -854,13 +868,19 @@ class CosineAnnealingLRConfig(Validatable):
 
 @dataclass(kw_only=True)
 class MyleLRConfig(Validatable):
+    """Represents the configuration of :class:`MyleLR`."""
+
     num_warmup_steps: int = 1
     """The number of warmup steps."""
 
-    start_lr: float = 0.0
-    """The initial warmup learning rate."""
+    start_lr: float | Sequence[float] = 0.0
+    """
+    The initial warmup learning rate of all optimizer parameter groups or each
+    group respectively.
+    """
 
     def validate(self) -> ValidationResult:
+        """:meta private:"""
         result = ValidationResult()
 
         if self.num_warmup_steps < 1:
@@ -871,10 +891,13 @@ class MyleLRConfig(Validatable):
 
 @dataclass(kw_only=True)
 class NoamLRConfig(Validatable):
+    """Represents the configuration of :class:`NoamLR`."""
+
     num_warmup_steps: int = 0
     """The number of warmup steps."""
 
     def validate(self) -> ValidationResult:
+        """:meta private:"""
         result = ValidationResult()
 
         if self.num_warmup_steps < 0:
@@ -885,19 +908,28 @@ class NoamLRConfig(Validatable):
 
 @dataclass(kw_only=True)
 class PolynomialDecayLRConfig(Validatable):
+    """Represents the configuration of :class:`PolynomialDecayLR`."""
+
     num_warmup_steps: int = 0
     """The number of warmup steps."""
 
     power: float = 1.0
     """The exponent of the polynomial used for decay."""
 
-    start_lr: float = 0.0
-    """The initial warmup learning rate."""
+    start_lr: float | Sequence[float] = 0.0
+    """
+    The initial warmup learning rate of all optimizer parameter groups or each
+    group respectively.
+    """
 
-    final_lr: float = 0.0
-    """The final learning rate."""
+    final_lr: float | Sequence[float] = 0.0
+    """
+    The final learning rate of all optimizer parameter groups or each group
+    respectively.
+    """
 
     def validate(self) -> ValidationResult:
+        """:meta private:"""
         result = ValidationResult()
 
         if self.num_warmup_steps < 0:
@@ -908,16 +940,25 @@ class PolynomialDecayLRConfig(Validatable):
 
 @dataclass(kw_only=True)
 class TriStageLRConfig(Validatable):
+    """Represents the configuration of :class:`TriStageLRConfig`."""
+
     stage_ratio: tuple[float, float, float] = (0.0, 0.0, 1.0)
-    """The ratios of warmup, hold, and decay stages. Must add up to 1."""
+    """The ratios of warmup, hold, and decay stages, must add up to 1."""
 
-    start_lr_scale: float = 0.01
-    """The scale of the initial warm-up learning rate."""
+    start_lr_scale: float | Sequence[float] = 0.01
+    """
+    The scale of the initial warm-up learning rate of all optimizer parameter
+    groups or each group respectively.
+    """
 
-    final_lr_scale: float = 0.01
-    """The scale of the final learning rate."""
+    final_lr_scale: float | Sequence[float] = 0.01
+    """
+    The scale of the final learning rate of all optimizer parameter groups or
+    each group respectively.
+    """
 
     def validate(self) -> ValidationResult:
+        """:meta private:"""
         result = ValidationResult()
 
         ratio_sum = sum(self.stage_ratio)

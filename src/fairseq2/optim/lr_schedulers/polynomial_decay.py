@@ -20,7 +20,8 @@ from fairseq2.optim.lr_schedulers.lr_scheduler import (
 
 @final
 class PolynomialDecayLR(AbstractLRScheduler):
-    """Represents the polynomial decay learning rate schedule.
+    """
+    Represents the polynomial decay learning rate schedule.
 
     **During warmup:**
 
@@ -38,6 +39,7 @@ class PolynomialDecayLR(AbstractLRScheduler):
     using a polynomial of degree :math:`p`.
 
     .. note::
+
         This scheduler is not chainable.
     """
 
@@ -53,35 +55,30 @@ class PolynomialDecayLR(AbstractLRScheduler):
         last_epoch: int = -1,
     ) -> None:
         """
-        :param optimizer:
-            The optimizer to associate.
-        :param num_steps:
-            The total number of steps, including warmup, over which to decay the
-            learning rate.
-        :param num_warmup_steps:
-            The number of warmup steps.
-        :param power:
-            The exponent of the polynomial used for decay.
-        :param start_lr:
-            The initial warmup learning rate of all parameter groups, or of each
-            parameter group respectively.
-        :param final_lr:
-            The final learning rate of all parameter groups, or of each
-            parameter group respectively.
-        :param last_epoch:
-            The index of the last epoch.
+        :param optimizer: The optimizer to associate.
+        :param num_steps: The total number of steps, including warmup, over
+            which to decay the learning rate.
+        :param num_warmup_steps: The number of warmup steps.
+        :param power: The exponent of the polynomial used for decay.
+        :param start_lr: The initial warmup learning rate of all parameter
+            groups or each group respectively.
+        :param final_lr: The final learning rate of all parameter groups or each
+            group respectively.
+        :param last_epoch: The index of the last epoch.
         """
         if num_warmup_steps >= num_steps:
             raise ValueError(
                 f"`num_warmup_steps` must be less than `num_steps` ({num_steps}), but is {num_warmup_steps} instead."
             )
 
-        self._num_steps = num_steps
-        self._num_warmup_steps = num_warmup_steps
-        self._power = power
+        start_lrs = get_per_param_group(optimizer, "start_lr", start_lr)
+        final_lrs = get_per_param_group(optimizer, "final_lr", final_lr)
 
-        self._start_lrs = get_per_param_group(optimizer, "start_lr", start_lr)
-        self._final_lrs = get_per_param_group(optimizer, "final_lr", final_lr)
+        self.num_steps = num_steps
+        self.num_warmup_steps = num_warmup_steps
+        self.power = power
+        self.start_lrs = start_lrs
+        self.final_lrs = final_lrs
 
         super().__init__(optimizer, last_epoch)
 
@@ -90,19 +87,19 @@ class PolynomialDecayLR(AbstractLRScheduler):
         base_lrs = self.base_lrs
 
         # The decay is already complete, return the final learning rate.
-        if self.last_epoch >= self._num_steps:
-            return [f for f in self._final_lrs]
+        if self.last_epoch >= self.num_steps:
+            return [f for f in self.final_lrs]
 
         # Linearly increase the learning rate to its base value during warmup.
-        if self.last_epoch < self._num_warmup_steps:
-            c = self.last_epoch / self._num_warmup_steps
+        if self.last_epoch < self.num_warmup_steps:
+            c = self.last_epoch / self.num_warmup_steps
 
-            return [s + (b - s) * c for b, s in zip(base_lrs, self._start_lrs)]
+            return [s + (b - s) * c for b, s in zip(base_lrs, self.start_lrs)]
 
         # After the warmup, decay the learning rate to its final value.
-        r = self._num_steps - self.last_epoch
-        t = self._num_steps - self._num_warmup_steps
+        r = self.num_steps - self.last_epoch
+        t = self.num_steps - self.num_warmup_steps
 
-        c = (r / t) ** self._power
+        c = (r / t) ** self.power
 
-        return [f + (b - f) * c for b, f in zip(base_lrs, self._final_lrs)]
+        return [f + (b - f) * c for b, f in zip(base_lrs, self.final_lrs)]
