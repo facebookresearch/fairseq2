@@ -1,6 +1,7 @@
 cmake~=3.31
 ninja~=1.11
 pip~=25.0
-setuptools~=75.8
+setuptools~=80.9
 tbb-devel==2021.8;platform_machine=='x86_64'
+torch>=2.6.0
 wheel~=0.45
