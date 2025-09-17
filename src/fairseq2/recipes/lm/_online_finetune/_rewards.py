@@ -927,6 +927,9 @@ class PplDerivedVerifierHandler(VLLMOutputRewardHandler):
                 "reward_formula", "diff"
             ),
             n_reason_mask=reward_config.additional_fields.get("n_reason_mask", 0),
+            wrap_think_tags=reward_config.additional_fields.get(
+                "wrap_think_tags", True
+            ),
         )
 
     @property
@@ -953,6 +956,9 @@ class PplDerivedVerifier(VLLMOutputReward):
         completion_window,
         reward_formula,
         n_reason_mask,
+        wrap_think_tags,
+        reason_start_wrap_key="reason_start_wrap",
+        reason_end_wrap_key="reason_end_wrap",
     ):
         self.answer_key = answer_key
         self._gangs = gangs
@@ -964,6 +970,9 @@ class PplDerivedVerifier(VLLMOutputReward):
         self.completion_window = completion_window
         self.reward_formula = reward_formula
         self.n_reason_mask = n_reason_mask
+        self.reason_start_wrap_key = reason_start_wrap_key
+        self.reason_end_wrap_key = reason_end_wrap_key
+        self.wrap_think_tags = wrap_think_tags
 
     def _preprocess_reward_input(
         self,
@@ -975,15 +984,20 @@ class PplDerivedVerifier(VLLMOutputReward):
         # if this is not None, we mask n_reason_mask tokens where we generate
         # the rollouts and compute reward on future tokens after them. i.e.
         # changing from next token reasoning -> future token reasoning
+        completion_fmt: str = "{completion}",
+        reason_fmt: str = "{reason}{reason_end_wrap}",
+        reason_start_wrap: Optional[str] = None,
+        reason_end_wrap: Optional[str] = None,
     ):
         # no reasoning augmented.
-        if reason is None:
-            prefix_tokens = self.tokenizer.encode(
-                self.tokenizer.decode(prefix_tokens, add_special_token=False)
-                .removesuffix(" <think>")
-                .removesuffix("<think>"),  # TODO
-                add_special_tokens=False,
+        if reason is None or not self.wrap_think_tags:
+            prefix_text = self.tokenizer.decode(prefix_tokens, add_special_token=False)
+            prefix_text = (
+                prefix_text.removesuffix(" <think>").removesuffix("<think>")
+                if reason_start_wrap is None
+                else prefix_text.removesuffix(reason_start_wrap)
             )
+            prefix_tokens = self.tokenizer.encode(prefix_text, add_special_tokens=False)
         n_prefix_tokens = len(prefix_tokens)
         n_prefix_truncate = (
             n_prefix_tokens
@@ -991,7 +1005,7 @@ class PplDerivedVerifier(VLLMOutputReward):
             else min(n_prefix_truncate, n_prefix_tokens)
         )
         completion_tokens = self.tokenizer.encode(
-            f" {completion}", add_special_tokens=False
+            completion_fmt.format(completion=completion), add_special_tokens=False
         )
         if reason is None:
             text_tokens = prefix_tokens + completion_tokens
@@ -999,10 +1013,13 @@ class PplDerivedVerifier(VLLMOutputReward):
             # prefix + groundtruth at masked positions -> future tokens
             n_input_tokens_all = n_prefix_tokens + self.n_reason_mask
         else:
-            if not reason.endswith("</think>"):
-                reason += "</think>"  # add the stop token itself. so we have the pair of <think> </think>
+            reason_end_wrap = reason_end_wrap or "</think>"
             reason_tokens = self.tokenizer.encode(
-                f" {reason}", add_special_tokens=False
+                reason_fmt.format(
+                    reason=reason,
+                    reason_end_wrap=reason_end_wrap if self.wrap_think_tags else "",
+                ),
+                add_special_tokens=False,
             )
             text_tokens = (
                 prefix_tokens + reason_tokens + completion_tokens[self.n_reason_mask :]
@@ -1126,12 +1143,22 @@ class PplDerivedVerifier(VLLMOutputReward):
             vllm_outputs = [None] * len(prompt_batch.prompts)
 
         completion_batch = prompt_batch.meta_info.get(self.answer_key)
+        reason_start_wrap_batch = prompt_batch.meta_info.get(
+            self.reason_start_wrap_key, len(prompt_batch.prompts) * [None]
+        )
+        reason_end_wrap_batch = prompt_batch.meta_info.get(
+            self.reason_end_wrap_key, len(prompt_batch.prompts) * [None]
+        )
 
         log.debug(f"{vllm_outputs=}")
         log.debug(f"{completion_batch=}")
 
-        for prefix, vllm_output, completion in zip(
-            prompt_batch.prompts, vllm_outputs, completion_batch
+        for prefix, vllm_output, completion, reason_start_wrap, reason_end_wrap in zip(
+            prompt_batch.prompts,
+            vllm_outputs,
+            completion_batch,
+            reason_start_wrap_batch,
+            reason_end_wrap_batch,
         ):
             rollouts_text = []
             rollouts_tokens = []
@@ -1143,6 +1170,8 @@ class PplDerivedVerifier(VLLMOutputReward):
                     None,
                     completion,
                     completion_window=self.completion_window,
+                    reason_start_wrap=reason_start_wrap,
+                    reason_end_wrap=reason_end_wrap,
                 )
                 # log.debug(f"{text_tokens=}, {n_input_tokens=}")
                 all_input_tok_lens.append(n_input_tokens)
@@ -1154,6 +1183,8 @@ class PplDerivedVerifier(VLLMOutputReward):
                     rollout_output.text,
                     completion,
                     completion_window=self.completion_window,
+                    reason_start_wrap=reason_start_wrap,
+                    reason_end_wrap=reason_end_wrap,
                 )
                 # log.debug(f"{text_tokens=}, {n_input_tokens=}")
                 all_input_tok_lens.append(n_input_tokens)
