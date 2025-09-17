@@ -23,18 +23,11 @@ from fairseq2.data import (
     SequenceData,
     create_bucket_sizes,
 )
-from fairseq2.data.data_pipeline import (
-    DataPipeline,
-    read_sequence,
-)
+from fairseq2.data.data_pipeline import DataPipeline, read_sequence
 from fairseq2.data.text import read_text
 from fairseq2.data.tokenizers import Tokenizer
 from fairseq2.data.tokenizers.hg import HuggingFaceTokenEncoder
-from fairseq2.datasets import (
-    DataPipelineReader,
-    SequenceBatch,
-    SyncMode,
-)
+from fairseq2.datasets import DataPipelineReader, SequenceBatch, SyncMode
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang, Gangs
 from fairseq2.nn import BatchLayout
