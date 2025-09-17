@@ -8,11 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Final, cast, final
-
-import torch
-import torch.distributed
-
+from typing import Final
 from fairseq2.models.llama.tokenizer import LLaMATokenizerConfig as LLaMATokenizerConfig
 from fairseq2.recipe.config import (
     ADAMW_OPTIMIZER,

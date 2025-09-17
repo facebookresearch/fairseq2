@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Set
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, TypeAlias, final
+from typing import TypeAlias
 
 
 class DatasetLoadError(Exception):

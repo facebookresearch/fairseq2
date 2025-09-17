@@ -10,10 +10,9 @@ import json
 from collections.abc import MutableMapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Final, TypeAlias, cast, final
+from typing import Any, Final, cast, final
 
 import torch
-from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.data import (
@@ -24,13 +23,11 @@ from fairseq2.data import (
     create_bucket_sizes,
 )
 from fairseq2.data.data_pipeline import DataPipeline, read_sequence
-from fairseq2.data.text import read_text
 from fairseq2.data.tokenizers import Tokenizer
 from fairseq2.data.tokenizers.hg import HuggingFaceTokenEncoder
 from fairseq2.datasets import DataPipelineReader, SequenceBatch, SyncMode
 from fairseq2.error import NotSupportedError
-from fairseq2.gang import Gang, Gangs
-from fairseq2.nn import BatchLayout
+from fairseq2.gang import Gangs
 
 from .utils import (
     Batching,
