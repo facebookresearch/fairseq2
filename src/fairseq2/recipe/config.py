@@ -940,7 +940,7 @@ class PolynomialDecayLRConfig(Validatable):
 
 @dataclass(kw_only=True)
 class TriStageLRConfig(Validatable):
-    """Represents the configuration of :class:`TriStageLRConfig`."""
+    """Represents the configuration of :class:`TriStageLR`."""
 
     stage_ratio: tuple[float, float, float] = (0.0, 0.0, 1.0)
     """The ratios of warmup, hold, and decay stages, must add up to 1."""

@@ -883,6 +883,8 @@ class Trainer(Task):
 
             self._unit.process_metric_values(values)
 
+            # If the optimizer has a single parameter group, report the learning
+            # rate as a scalar.
             if len(self._last_lrs) == 1:
                 values["lr"] = self._last_lrs[0]
             else:
