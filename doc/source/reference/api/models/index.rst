@@ -14,6 +14,7 @@ The models module includes:
 - Mistral models
 - Wav2Vec2 models
 - NLLB translation models
+- HuggingFace Transformers integration
 - Model loading and configuration utilities
 - Model hub interface for advanced operations
 
@@ -23,6 +24,7 @@ The models module includes:
    hub
    qwen
    llama
+   ../fairseq2.models.hg
 
 Quick Start
 -----------
