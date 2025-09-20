@@ -21,3 +21,9 @@ __pycache__/
 
 # Other
 .DS_Store
+
+# coverage
+.coverage
+
+# mypy
+.mypy_cache/

@@ -53,7 +53,7 @@ jobs:
       - name: Install fairseq2
         id: install_fairseq2
         run: |
-          pip install --editable .
+          pip install --editable ".[hg]"
       - name: Run isort
         if: success() || (failure() && steps.install_fairseq2.outcome == 'success')
         run: |

@@ -1,0 +1,59 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+
+
+name: hg_qwen25_omni_3b
+model_family: hg
+model_arch: custom
+model_config:
+  hf_name: Qwen/Qwen2.5-Omni-3B
+  use_processor: true
+  custom_model_class: Qwen2_5OmniForConditionalGeneration
+  custom_processor_class: Qwen2_5OmniProcessor
+  trust_remote_code: true
+checkpoint: hg://Qwen/Qwen2.5-Omni-3B
+tokenizer: hg://Qwen/Qwen2.5-Omni-3B
+tokenizer_family: hg
+
+---
+
+name: hg_qwen25_omni_7b
+model_family: hg
+model_arch: custom
+model_config:
+  hf_name: Qwen/Qwen2.5-Omni-7B
+  use_processor: true
+  custom_model_class: Qwen2_5OmniForConditionalGeneration
+  custom_processor_class: Qwen2_5OmniProcessor
+  trust_remote_code: true
+checkpoint: hg://Qwen/Qwen2.5-Omni-7B
+tokenizer: hg://Qwen/Qwen2.5-Omni-7B
+tokenizer_family: hg
+
+---
+
+name: hg_qwen3_0.6b
+model_family: hg
+model_arch: causal_lm
+model_config:
+  hf_name: Qwen/Qwen3-0.6B
+  trust_remote_code: true
+checkpoint: hg://Qwen/Qwen3-0.6B
+tokenizer: hg://Qwen/Qwen3-0.6B
+tokenizer_family: hg
+
+---
+
+name: hg_qwen3_1.7b
+model_family: hg
+model_arch: causal_lm
+model_config:
+  hf_name: Qwen/Qwen3-1.7B
+  trust_remote_code: true
+checkpoint: hg://Qwen/Qwen3-1.7B
+tokenizer: hg://Qwen/Qwen3-1.7B
+tokenizer_family: hg
