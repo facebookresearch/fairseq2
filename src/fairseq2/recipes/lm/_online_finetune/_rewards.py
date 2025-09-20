@@ -477,6 +477,13 @@ class AtheneVerifier(VLLMOutputReward):
             reference_score_rejected=None,
         )
 
+        prompt_lengths = [
+            l
+            for idx, l in enumerate(prompt_batch.prompt_lengths)
+            if idx not in dummy_batch_ids
+        ]
+        reward_output["prompt_lengths"] = prompt_lengths
+
         return batch, is_bad_batch, reward_output
 
 
