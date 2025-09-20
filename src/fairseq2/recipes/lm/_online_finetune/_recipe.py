@@ -252,11 +252,14 @@ def load_online_finetuner(
 
     vocab_size = tokenizer.vocab_info.size
 
-    # initialize ray and vllm actors
-    ray.init(
-        address=f"ray://{config.vllm.ray_cluster_ip_address}:10001",
-        namespace="vllm_workers",
-    )
+    if gangs.root.rank == 0:
+        # initialize ray and vllm actors
+        ray.init(
+            address=f"ray://{config.vllm.ray_cluster_ip_address}:10001",
+            namespace="vllm_workers",
+        )
+    
+    gangs.root.barrier()
 
     vllm_actors = {}
     # go over actor configs and initialize all of them
