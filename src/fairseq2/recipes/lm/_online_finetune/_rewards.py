@@ -917,14 +917,9 @@ class PplDerivedVerifierHandler(VLLMOutputRewardHandler):
             # judgment_extractor=reward_config.judgment_extractor,
             answer_key=reward_config.answer_key,
             tokenizer=reward_config.tokenizer,
-            apply_ppl_diff_reward=reward_config.additional_fields.get(
-                "apply_ppl_diff_reward", True
-            ),
+            reward_type=reward_config.additional_fields.get("reward_type"),
             completion_window=reward_config.additional_fields.get(
                 "completion_window", 100
-            ),
-            reward_formula=reward_config.additional_fields.get(
-                "reward_formula", "diff"
             ),
             n_reason_mask=reward_config.additional_fields.get("n_reason_mask", 0),
             wrap_think_tags=reward_config.additional_fields.get(
@@ -952,9 +947,8 @@ class PplDerivedVerifier(VLLMOutputReward):
         reward_name,
         answer_key,
         tokenizer,
-        apply_ppl_diff_reward,
+        reward_type,
         completion_window,
-        reward_formula,
         n_reason_mask,
         wrap_think_tags,
         reason_start_wrap_key="reason_start_wrap",
@@ -966,9 +960,9 @@ class PplDerivedVerifier(VLLMOutputReward):
         self.reward_model = reward_model
         self.reward_name = reward_name
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
-        self.apply_ppl_diff_reward = apply_ppl_diff_reward
+        self.reward_type = reward_type
+        self.apply_diff_reward = "diff" in self.reward_type
         self.completion_window = completion_window
-        self.reward_formula = reward_formula
         self.n_reason_mask = n_reason_mask
         self.reason_start_wrap_key = reason_start_wrap_key
         self.reason_end_wrap_key = reason_end_wrap_key
@@ -1039,16 +1033,20 @@ class PplDerivedVerifier(VLLMOutputReward):
             list(d.values())[0].logprob for d in completion_logprobs
         ]  # TODO: douable check we skip the first None
         mean_logp = sum(completion_logprobs_vals) / len(completion_logprobs_vals)
-        ppl = math.exp(-mean_logp)
-        return -ppl  # negative ppl as reward
+        if self.reward_type.startswith("logp"):
+            return mean_logp
+        elif self.reward_type.startswith("ppl"):
+            return -math.exp(-mean_logp)
+        else:
+            raise NotImplementedError
 
     def aggregate(self, rewards):
-        if self.apply_ppl_diff_reward:
-            if self.reward_formula == "diff":
+        if self.apply_diff_reward:
+            if self.reward_type.endswith("diff"):
                 return [
                     reward - rewards[0] for reward in rewards[1:]
                 ]  # NOTE: order is without reasoning augmentation, with reasoning augmentation -ppl
-            elif self.reward_formula == "diff_percent":
+            elif self.reward_type.endswith("diff_percent"):
                 return [
                     (reward - rewards[0]) / (-rewards[0]) * 100
                     for reward in rewards[1:]
@@ -1167,7 +1165,7 @@ class PplDerivedVerifier(VLLMOutputReward):
             rollouts_tokens = []
 
             # case where no reasoning is augmented
-            if self.apply_ppl_diff_reward:
+            if self.apply_diff_reward:
                 text_tokens, n_input_tokens = self._preprocess_reward_input(
                     prefix,
                     None,
