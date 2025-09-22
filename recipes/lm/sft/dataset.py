@@ -49,14 +49,14 @@ class DataReadOptions:
     batching: Batching = field(default_factory=lambda: StaticBatching(1))
     """The batching strategy for returned examples."""
 
-    example_shuffle_window: int = 1
+    example_shuffle_window: int = 0
     """
     The size of the sliding window for shuffling examples. If ``1``, no
     shuffling is performed; if ``0``, true shuffling is performed by loading the
     entire dataset.
     """
 
-    batch_shuffle_window: int = 1
+    batch_shuffle_window: int = 0
     """
     The size of the sliding window for shuffling batches. If ``1``, no
     shuffling is performed; if ``0``, true shuffling is performed by loading the
