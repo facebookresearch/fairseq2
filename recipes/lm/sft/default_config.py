@@ -29,7 +29,7 @@ from fairseq2.recipe.config import (
     TrainerSection,
 )
 
-from .dataset import LM_SFT_DATASET, LMSFTDatasetConfig
+from .dataset import LM_SFT_PADDED_DATASET, LMSFTDatasetConfig
 
 GENERIC_INSTRUCTION_DATASET_FAMILY: Final = "generic_instruction"
 
@@ -62,7 +62,7 @@ class InstructionFinetuneDatasetSection(DatasetSection):
     """The maximum sequence length."""
 
     max_num_tokens: int = 8192 * 2
-    """The maximum number of tokens per batch."""
+    """The maximum number of tokens per batch. NOTE: this is excluding padding tokens!"""
 
     batch_size: int | None = None
     """
@@ -147,7 +147,7 @@ class LMSFTConfig:
 
     dataset: InstructionFinetuneDatasetSection = field(
         default_factory=lambda: InstructionFinetuneDatasetSection(
-            family=LM_SFT_DATASET,
+            family=LM_SFT_PADDED_DATASET,
             config_overrides=LMSFTDatasetConfig(),
         )
     )

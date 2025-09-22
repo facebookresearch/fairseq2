@@ -30,8 +30,8 @@ from fairseq2.runtime.dependency import DependencyContainer
 from fairseq2.utils.rng import RngBag
 
 from .dataset import (
-    LM_SFT_DATASET,
-    InstructionReadOptions,
+    LM_SFT_PADDED_DATASET,
+    DataReadOptions,
     LengthBatching,
     LMSFTDataset,
     LMSFTDatasetConfig,
@@ -47,7 +47,7 @@ class LMSFTRecipe(TrainRecipe):
     def register(self, container: DependencyContainer) -> None:
         register_dataset_family(
             container,
-            LM_SFT_DATASET,
+            LM_SFT_PADDED_DATASET,
             LMSFTDataset,
             LMSFTDatasetConfig,
             opener=open_lm_sft_dataset,
@@ -78,7 +78,7 @@ class LMSFTRecipe(TrainRecipe):
         else:
             batching = LengthBatching(config.dataset.max_num_tokens)
 
-        read_options = InstructionReadOptions(
+        read_options = DataReadOptions(
             batching=batching,
             example_shuffle_window=config.dataset.example_shuffle_window,
             batch_shuffle_window=config.dataset.batch_shuffle_window,
@@ -111,7 +111,7 @@ class LMSFTRecipe(TrainRecipe):
 
             batching = LengthBatching(max_num_tokens)
 
-            read_options = InstructionReadOptions(
+            read_options = DataReadOptions(
                 batching=batching,
                 prefetch=config.dataset.prefetch,
                 source_encode_mode=config.dataset.source_encode_mode,

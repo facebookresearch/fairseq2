@@ -28,7 +28,7 @@ from fairseq2.data.tokenizers.hg import HuggingFaceTokenEncoder
 from fairseq2.datasets import DataPipelineReader, SequenceBatch, SyncMode
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gangs
-
+from fairseq2.data.text import read_text
 from .utils import (
     Batching,
     DatasetLoadError,
@@ -41,7 +41,7 @@ from .utils import (
 npc = 10
 
 
-LM_SFT_DATASET: Final = "lm_sft"
+LM_SFT_PADDED_DATASET: Final = "lm_sft_padded"
 
 
 @dataclass(kw_only=True)
@@ -105,9 +105,6 @@ class DataReadOptions:
     extras: MutableMapping[str, object] = field(default_factory=dict)
     """The reader-specific extra options."""
 
-
-@dataclass(kw_only=True)
-class InstructionReadOptions(DataReadOptions):
     sample: bool = False
     """
     If ``True``, instruction sources (e.g. JSONL files) will be sampled in
@@ -165,37 +162,37 @@ class LMSFTDataset:
         gangs: Gangs,
         min_seq_len: int,
         max_seq_len: int,
-        options: InstructionReadOptions | None = None,
+        options: DataReadOptions | None = None,
     ) -> DataPipelineReader[SequenceBatch]:
         files_weights = self._splits.get(split)
         if files_weights is None:
-            # raise UnknownSplitError(self._name, split, self._splits.keys())
-            # raise generic error for now
             raise ValueError(f"files_weights for split '{split}' is None")
+        files, weights = files_weights
 
         if options is None:
-            options = InstructionReadOptions()
+            options = DataReadOptions()
 
         seed = options.seed
 
-        files, weights = files_weights
+        builder = read_sequence(files)
 
-        if len(files) == 1:
-            builder = self._read_jsonl(files[0], tokenizer)
-        else:
-            pipelines = []
+        # file_rank = gangs.dp.rank
 
-            for file in files:
-                pipeline = self._read_jsonl(file, tokenizer).and_return()
+        # file_world_size = gangs.dp.size
 
-                pipelines.append(pipeline)
+        # if len(files) < file_world_size:
+        #     raise ValueError(
+        #         "The number of dataset files must be greater than or equal to the number of world size."
+        #     )
 
-            if options.sample:
-                builder = DataPipeline.sample(pipelines, weights=weights, seed=seed)
+        # if file_world_size > 1:
+        #     builder.shard(file_rank, file_world_size, allow_uneven=True)
 
-                seed += 1
-            else:
-                builder = DataPipeline.concat(pipelines)
+        def read_file(file: Path) -> DataPipeline:
+            return read_text(file).map(json.loads, num_parallel_calls=1).and_return()
+
+        builder.yield_from(read_file)
+
 
         # Shuffle files. Must be consistent across all processes.
         if options.example_shuffle_window != 1:

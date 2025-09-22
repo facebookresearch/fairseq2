@@ -9,7 +9,7 @@ dataset:
   batch_size: 16
   chat_mode: true
   config_overrides:
-    path: "/checkpoint/ram/jacklanchantin/data/gsm8k/"
+    path: "/checkpoint/ram/jacklanchantin/data/gsm8k_sft/"
 model:
   family: "llama"
   name: "llama3_2_1b_instruct"
