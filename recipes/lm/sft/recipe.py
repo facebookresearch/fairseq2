@@ -32,11 +32,13 @@ from fairseq2.utils.rng import RngBag
 from .dataset import (
     LM_SFT_PADDED_DATASET,
     DataReadOptions,
-    LengthBatching,
     LMSFTDataset,
     LMSFTDatasetConfig,
-    StaticBatching,
     open_lm_sft_dataset,
+)
+from .utils import (
+    LengthBatching,
+    StaticBatching,
 )
 from .default_config import LMSFTConfig
 
