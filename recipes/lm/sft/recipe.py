@@ -164,7 +164,7 @@ class LMSFTUnit(TrainUnit[SequenceBatch]):
     @override
     def process_batch(
         self, batch: SequenceBatch, metric_bag: MetricBag
-    ) -> tuple[Tensor, None]:
+    ) -> tuple[Tensor, int]:
         input_batch, target_batch = batch.as_auto_regressive()
 
         seqs, seqs_layout = input_batch.as_input()
@@ -203,7 +203,7 @@ class SFTLossEvalUnit(EvalUnit[SequenceBatch]):
     @override
     def process_batch(
         self, batch: SequenceBatch, metric_bag: MetricBag
-    ) -> tuple[Tensor, None]:
+    ) -> None:
         input_batch, target_batch = batch.as_auto_regressive()
 
         seqs, seqs_layout = input_batch.as_input()
@@ -221,7 +221,7 @@ class SFTLossEvalUnit(EvalUnit[SequenceBatch]):
 
         update_seq_batch_metrics(metric_bag, target_batch)
 
-        return nll_loss, target_batch.num_target_elements
+        return None
 
     @property
     @override
