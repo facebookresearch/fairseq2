@@ -6,4 +6,4 @@ from fairseq2.data.data_pipeline import (
     CollateOptionsOverride as CollateOptionsOverride,
 )
 
-__all__ = []
+__all__: list[str] = []
