@@ -29,7 +29,7 @@ Text Processing
 .. toctree::
    :maxdepth: 1
 
-   tokenizer
+   tokenizers/index
 
 Data Pipeline Components
 ------------------------
@@ -63,5 +63,5 @@ See Also
 --------
 
 * :doc:`/reference/api/nn/index` - Neural network components and BatchLayout
-* :doc:`/reference/api/datasets` - High-level dataset abstractions
+* :ref:`api_datasets` - High-level dataset abstractions
 * :doc:`/reference/api/models/index` - Model implementations that consume data

@@ -58,8 +58,9 @@ Here's a complete example that shows how to register assets, models, and archite
 
 .. code-block:: python
 
+    from fairseq2.runtime.config_registry import ConfigRegistrar
     from fairseq2.runtime.dependency import DependencyContainer
-    from fairseq2.composition import register_package_assets, register_file_assets
+    from fairseq2.composition import register_package_assets, register_file_assets, register_dataset_family, register_model_family
     from my_package.models.my_custom_model import MyCustomModel, MyCustomModelConfig, create_my_custom_model
 
     def setup_my_fairseq2_extension(container: DependencyContainer) -> None:
@@ -72,7 +73,7 @@ Here's a complete example that shows how to register assets, models, and archite
         # Or register assets from a file path, where you put your asset yaml files
         register_file_assets(container, Path("path/to/assets"))
 
-        # Register model families
+        # Register model families (if any)
         register_model_family(
             container,
             "my_custom_model",  # model family name
@@ -80,6 +81,24 @@ Here's a complete example that shows how to register assets, models, and archite
             config_kls=MyCustomModelConfig,  # model config class
             factory=create_my_custom_model,  # factory function
             # ... other parameters
+        )
+
+        # Register dataset families (if any)
+        register_dataset_family(
+            container,             # DependencyContainer instance
+            "custom_dataset",      # family name
+            CustomDataset,         # dataset class
+            CustomDatasetConfig,   # config class
+            opener=custom_opener   # opener function
+        )
+
+        # Register tokenizer families (if any)
+        register_tokenizer_family(
+            container,
+            "custom_tokenizer",     # tokenizer family name
+            CustomTokenizer,        # tokenizer class
+            CustomTokenizerConfig,  # tokenizer config class
+            loader=custom_loader,   # loader function
         )
 
         # Register model architectures

@@ -73,6 +73,11 @@ As a quick preview, here is the skeleton of the recipe class:
 .. code-block:: python
 
     from fairseq2.recipe.base import RecipeContext, TrainRecipe
+    from fairseq2.composition import (
+        register_dataset_family,
+        register_model_family,
+        register_tokenizer_family,
+    )
 
     @final
     class LMTrainRecipe(TrainRecipe):
@@ -80,8 +85,35 @@ As a quick preview, here is the skeleton of the recipe class:
 
         @override
         def register(self, container: DependencyContainer) -> None:
-            """Register dataset family with the dependency container."""
-            register_dataset_family(...)
+            """Register dataset/model/tokenizer family with the dependency container."""
+            # Register model families (if any)
+            register_model_family(
+                container,
+                "my_custom_model",  # model family name
+                kls=MyCustomModel,  # model class
+                config_kls=MyCustomModelConfig,  # model config class
+                factory=create_my_custom_model,  # factory function
+                # ... other parameters
+            )
+
+            # Register dataset families (if any)
+            register_dataset_family(
+                container,             # DependencyContainer instance
+                "custom_dataset",      # family name
+                CustomDataset,         # dataset class
+                CustomDatasetConfig,   # config class
+                opener=custom_opener   # opener function
+            )
+
+            # Register tokenizer families (if any)
+            register_tokenizer_family(
+                container,
+                "custom_tokenizer",     # tokenizer family name
+                CustomTokenizer,        # tokenizer class
+                CustomTokenizerConfig,  # tokenizer config class
+                loader=custom_loader,   # loader function
+            )
+
 
         @override
         def create_trainer(self, context: RecipeContext) -> Trainer:

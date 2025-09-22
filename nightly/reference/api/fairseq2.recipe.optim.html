@@ -3,10 +3,10 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" /><link rel="next" title="fairseq2.nn" href="nn/index.html" /><link rel="prev" title="Tokenizers" href="data/tokenizer.html" />
+    <link href="../../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" /><link rel="next" title="Bibliography" href="../bibliography.html" /><link rel="prev" title="fairseq2.metrics" href="metrics.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
-        <title>fairseq2.datasets - fairseq2 Documentation</title>
+        <title>fairseq2.recipe.optim - fairseq2 Documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
@@ -181,7 +181,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -236,11 +236,17 @@
 <ul class="current">
 <li class="toctree-l1 current has-children"><a class="reference internal" href="index.html">API Reference</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
 <li class="toctree-l2 has-children"><a class="reference internal" href="data/index.html">fairseq2.data</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of fairseq2.data</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l3"><a class="reference internal" href="data/tokenizer.html">Tokenizers</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="data/tokenizers/index.html">fairseq2.data.tokenizers</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><div class="visually-hidden">Toggle navigation of fairseq2.data.tokenizers</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="data/tokenizers/hub.html">fairseq2.data.tokenizers.hub</a></li>
 </ul>
 </li>
-<li class="toctree-l2 current current-page"><a class="current reference internal" href="#">fairseq2.datasets</a></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="nn/index.html">fairseq2.nn</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><div class="visually-hidden">Toggle navigation of fairseq2.nn</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="datasets/index.html">fairseq2.datasets</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of fairseq2.datasets</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="datasets/hub.html">fairseq2.datasets.hub</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="nn/index.html">fairseq2.nn</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><div class="visually-hidden">Toggle navigation of fairseq2.nn</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="nn/batch_layout.html">Batch Layout</a></li>
 <li class="toctree-l3"><a class="reference internal" href="nn/embedding.html">Embeddings</a></li>
 <li class="toctree-l3"><a class="reference internal" href="nn/position_encoder.html">Position Encoders</a></li>
@@ -251,9 +257,10 @@
 <li class="toctree-l3"><a class="reference internal" href="nn/utils.html">fairseq2.nn.utils</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="models/index.html">fairseq2.models</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of fairseq2.models</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="models/index.html">fairseq2.models</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.models</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="models/hub.html">fairseq2.models.hub</a></li>
 <li class="toctree-l3"><a class="reference internal" href="models/qwen.html">fairseq2.models.qwen</a></li>
+<li class="toctree-l3"><a class="reference internal" href="models/llama.html">fairseq2.models.llama</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="assets.html">fairseq2.assets</a></li>
@@ -264,6 +271,7 @@
 <li class="toctree-l2"><a class="reference internal" href="device.html">fairseq2.device</a></li>
 <li class="toctree-l2"><a class="reference internal" href="logging.html">fairseq2.logging</a></li>
 <li class="toctree-l2"><a class="reference internal" href="metrics.html">fairseq2.metrics</a></li>
+<li class="toctree-l2 current current-page"><a class="current reference internal" href="#">fairseq2.recipe.optim</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../bibliography.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-book" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M0 1.75A.75.75 0 01.75 1h4.253c1.227 0 2.317.59 3 1.501A3.744 3.744 0 0111.006 1h4.245a.75.75 0 01.75.75v10.5a.75.75 0 01-.75.75h-4.507a2.25 2.25 0 00-1.591.659l-.622.621a.75.75 0 01-1.06 0l-.622-.621A2.25 2.25 0 005.258 13H.75a.75.75 0 01-.75-.75V1.75zm8.755 3a2.25 2.25 0 012.25-2.25H14.5v9h-3.757c-.71 0-1.4.201-1.992.572l.004-7.322zm-1.504 7.324l.004-5.073-.002-2.253A2.25 2.25 0 005.003 2.5H1.5v9h3.757a3.75 3.75 0 011.994.574z" fill-rule="evenodd"></path></svg> Bibliography</a></li>
@@ -287,7 +295,7 @@
         </a>
         <div class="content-icon-container">
           <div class="view-this-page">
-  <a class="muted-link" href="../../_sources/reference/api/datasets.rst.txt" title="View this page">
+  <a class="muted-link" href="../../_sources/reference/api/fairseq2.recipe.optim.rst.txt" title="View this page">
     <svg><use href="#svg-eye"></use></svg>
     <span class="visually-hidden">View this page</span>
   </a>
@@ -301,23 +309,58 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="fairseq2-datasets">
-<h1>fairseq2.datasets<a class="headerlink" href="#fairseq2-datasets" title="Link to this heading">¶</a></h1>
-<p>The datasets module provides pre-built datasets and dataset utilities for common
-NLP and speech tasks.</p>
-<p><strong>Coming soon:</strong> This documentation is being developed. The datasets module includes:</p>
-<ul class="simple">
-<li><p>Common benchmark datasets</p></li>
-<li><p>Dataset loading utilities</p></li>
-<li><p>Data preprocessing pipelines</p></li>
+          <section id="module-fairseq2.recipe.optim">
+<span id="fairseq2-recipe-optim"></span><h1>fairseq2.recipe.optim<a class="headerlink" href="#module-fairseq2.recipe.optim" title="Link to this heading">¶</a></h1>
+<p>This module provides helper functions to add support for new optimizers and
+learning rate schedulers in recipes.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.recipe.optim.maybe_raise_param_group_length_error">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.recipe.optim.</span></span><span class="sig-name descname"><span class="pre">maybe_raise_param_group_length_error</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">field</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_param_groups</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2/recipe/optim.html#maybe_raise_param_group_length_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipe.optim.maybe_raise_param_group_length_error" title="Link to this definition">¶</a></dt>
+<dd><p>A helper function that raises <code class="xref py py-class docutils literal notranslate"><span class="pre">ValidationError</span></code>
+if the length of a learning rate scheduler configuration field (<code class="docutils literal notranslate"><span class="pre">len(value)</span></code>)
+does not match the number of optimizer parameter groups (<code class="docutils literal notranslate"><span class="pre">num_param_groups</span></code>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>field</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – The name of the configuration field that holds <code class="docutils literal notranslate"><span class="pre">value</span></code>.</p></li>
+<li><p><strong>value</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><em>object</em></a><em>]</em>) – The value whose length to check.</p></li>
+<li><p><strong>num_param_groups</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The number of optimizer parameter groups.</p></li>
 </ul>
-<p>Please refer to the source code and examples in the meantime.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValidationError</strong> – if <code class="docutils literal notranslate"><span class="pre">len(value)</span></code> does
+not match <code class="docutils literal notranslate"><span class="pre">num_param_groups</span></code>.</p>
+</dd>
+</dl>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">A basic use of <code class="docutils literal notranslate"><span class="pre">maybe_raise_param_group_length_error</span></code></span><a class="headerlink" href="#id1" title="Link to this code">¶</a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">torch.optim</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optimizer</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipe.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">MyleLRConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipe.optim</span><span class="w"> </span><span class="kn">import</span> <span class="n">maybe_raise_param_group_length_error</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_start_lr</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">MyleLRConfig</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">:</span> <span class="n">Optimizer</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+    <span class="n">num_param_groups</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">optimizer</span><span class="o">.</span><span class="n">param_groups</span><span class="p">)</span>
+
+    <span class="n">start_lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">start_lr</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">start_lr</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">start_lr</span><span class="p">]</span> <span class="o">*</span> <span class="n">num_param_groups</span>
+
+    <span class="n">maybe_raise_param_group_length_error</span><span class="p">(</span><span class="s2">&quot;start_lr&quot;</span><span class="p">,</span> <span class="n">start_lr</span><span class="p">,</span> <span class="n">num_param_groups</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">start_lr</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
 </section>
 
         </article>
@@ -325,23 +368,23 @@ NLP and speech tasks.</p>
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="nn/index.html">
+          <a class="next-page" href="../bibliography.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">fairseq2.nn</div>
+                <div class="title"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-book" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M0 1.75A.75.75 0 01.75 1h4.253c1.227 0 2.317.59 3 1.501A3.744 3.744 0 0111.006 1h4.245a.75.75 0 01.75.75v10.5a.75.75 0 01-.75.75h-4.507a2.25 2.25 0 00-1.591.659l-.622.621a.75.75 0 01-1.06 0l-.622-.621A2.25 2.25 0 005.258 13H.75a.75.75 0 01-.75-.75V1.75zm8.755 3a2.25 2.25 0 012.25-2.25H14.5v9h-3.757c-.71 0-1.4.201-1.992.572l.004-7.322zm-1.504 7.324l.004-5.073-.002-2.253A2.25 2.25 0 005.003 2.5H1.5v9h3.757a3.75 3.75 0 011.994.574z"></path></svg> Bibliography</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="data/tokenizer.html">
+          <a class="prev-page" href="metrics.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">Tokenizers</div>
+                <div class="title">fairseq2.metrics</div>
                 
               </div>
             </a>
@@ -367,13 +410,32 @@ NLP and speech tasks.</p>
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">fairseq2.recipe.optim</a><ul>
+<li><a class="reference internal" href="#fairseq2.recipe.optim.maybe_raise_param_group_length_error"><code class="docutils literal notranslate"><span class="pre">maybe_raise_param_group_length_error()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>
   </div>
-</div><script src="../../_static/documentation_options.js?v=3e98e53f"></script>
+</div><script src="../../_static/documentation_options.js?v=abde1a7e"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/scripts/furo.js?v=5fa4622c"></script>

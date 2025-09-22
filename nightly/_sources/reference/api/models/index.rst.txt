@@ -18,10 +18,11 @@ The models module includes:
 - Model hub interface for advanced operations
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    hub
    qwen
+   llama
 
 Quick Start
 -----------

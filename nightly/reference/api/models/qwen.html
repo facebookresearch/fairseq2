@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../../../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" /><link rel="next" title="fairseq2.assets" href="../assets.html" /><link rel="prev" title="fairseq2.models.hub" href="hub.html" />
+    <link href="../../../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" /><link rel="next" title="fairseq2.models.llama" href="llama.html" /><link rel="prev" title="fairseq2.models.hub" href="hub.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
         <title>fairseq2.models.qwen - fairseq2 Documentation</title>
@@ -236,11 +236,17 @@
 <ul class="current">
 <li class="toctree-l1 current has-children"><a class="reference internal" href="../index.html">API Reference</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
 <li class="toctree-l2 has-children"><a class="reference internal" href="../data/index.html">fairseq2.data</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of fairseq2.data</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l3"><a class="reference internal" href="../data/tokenizer.html">Tokenizers</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../data/tokenizers/index.html">fairseq2.data.tokenizers</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><div class="visually-hidden">Toggle navigation of fairseq2.data.tokenizers</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data/tokenizers/hub.html">fairseq2.data.tokenizers.hub</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../datasets.html">fairseq2.datasets</a></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../nn/index.html">fairseq2.nn</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><div class="visually-hidden">Toggle navigation of fairseq2.nn</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../datasets/index.html">fairseq2.datasets</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of fairseq2.datasets</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../datasets/hub.html">fairseq2.datasets.hub</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../nn/index.html">fairseq2.nn</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><div class="visually-hidden">Toggle navigation of fairseq2.nn</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../nn/batch_layout.html">Batch Layout</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../nn/embedding.html">Embeddings</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../nn/position_encoder.html">Position Encoders</a></li>
@@ -251,9 +257,10 @@
 <li class="toctree-l3"><a class="reference internal" href="../nn/utils.html">fairseq2.nn.utils</a></li>
 </ul>
 </li>
-<li class="toctree-l2 current has-children"><a class="reference internal" href="index.html">fairseq2.models</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of fairseq2.models</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
+<li class="toctree-l2 current has-children"><a class="reference internal" href="index.html">fairseq2.models</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.models</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="hub.html">fairseq2.models.hub</a></li>
 <li class="toctree-l3 current current-page"><a class="current reference internal" href="#">fairseq2.models.qwen</a></li>
+<li class="toctree-l3"><a class="reference internal" href="llama.html">fairseq2.models.llama</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../assets.html">fairseq2.assets</a></li>
@@ -264,6 +271,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../device.html">fairseq2.device</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../logging.html">fairseq2.logging</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../metrics.html">fairseq2.metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../fairseq2.recipe.optim.html">fairseq2.recipe.optim</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../bibliography.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-book" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M0 1.75A.75.75 0 01.75 1h4.253c1.227 0 2.317.59 3 1.501A3.744 3.744 0 0111.006 1h4.245a.75.75 0 01.75.75v10.5a.75.75 0 01-.75.75h-4.507a2.25 2.25 0 00-1.591.659l-.622.621a.75.75 0 01-1.06 0l-.622-.621A2.25 2.25 0 005.258 13H.75a.75.75 0 01-.75-.75V1.75zm8.755 3a2.25 2.25 0 012.25-2.25H14.5v9h-3.757c-.71 0-1.4.201-1.992.572l.004-7.322zm-1.504 7.324l.004-5.073-.002-2.253A2.25 2.25 0 005.003 2.5H1.5v9h3.757a3.75 3.75 0 011.994.574z" fill-rule="evenodd"></path></svg> Bibliography</a></li>
@@ -557,7 +565,7 @@ formula <code class="docutils literal notranslate"><span class="pre">model_dim</
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.models.qwen.QwenTokenizer">
 <em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.models.qwen.</span></span><span class="sig-name descname"><span class="pre">QwenTokenizer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eos_token</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/models/qwen/tokenizer.html#QwenTokenizer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.qwen.QwenTokenizer" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tokenizer</span></code></p>
+<dd><p>Bases: <a class="reference internal" href="../data/tokenizers/index.html#fairseq2.data.tokenizers.Tokenizer" title="fairseq2.data.tokenizers.tokenizer.Tokenizer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tokenizer</span></code></a></p>
 <p>Tokenizer for Qwen models. Handles text encoding and decoding using the Qwen vocabulary.</p>
 <dl class="field-list simple">
 </dl>
@@ -585,7 +593,7 @@ tasks use <code class="docutils literal notranslate"><span class="pre">mode</spa
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><em>TokenEncoder</em></p>
+<dd class="field-even"><p><a class="reference internal" href="../data/tokenizers/index.html#fairseq2.data.tokenizers.TokenEncoder" title="fairseq2.data.tokenizers.tokenizer.TokenEncoder"><em>TokenEncoder</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -602,7 +610,7 @@ tasks use <code class="docutils literal notranslate"><span class="pre">mode</spa
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><em>TokenEncoder</em></p>
+<dd class="field-even"><p><a class="reference internal" href="../data/tokenizers/index.html#fairseq2.data.tokenizers.TokenEncoder" title="fairseq2.data.tokenizers.tokenizer.TokenEncoder"><em>TokenEncoder</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -613,14 +621,14 @@ tasks use <code class="docutils literal notranslate"><span class="pre">mode</spa
 <dd><p>Constructs a token decoder.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><em>TokenDecoder</em></p>
+<dd class="field-odd"><p><a class="reference internal" href="../data/tokenizers/index.html#fairseq2.data.tokenizers.TokenDecoder" title="fairseq2.data.tokenizers.tokenizer.TokenDecoder"><em>TokenDecoder</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="fairseq2.models.qwen.QwenTokenizer.vocab_info">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">vocab_info</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">VocabularyInfo</span></em><a class="headerlink" href="#fairseq2.models.qwen.QwenTokenizer.vocab_info" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">vocab_info</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../data/tokenizers/index.html#fairseq2.data.tokenizers.VocabularyInfo" title="fairseq2.data.tokenizers.vocab_info.VocabularyInfo"><span class="pre">VocabularyInfo</span></a></em><a class="headerlink" href="#fairseq2.models.qwen.QwenTokenizer.vocab_info" title="Link to this definition">¶</a></dt>
 <dd><p>The vocabulary information associated with the tokenizer.</p>
 </dd></dl>
 
@@ -655,7 +663,7 @@ tasks use <code class="docutils literal notranslate"><span class="pre">mode</spa
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>TokenizerHub[TokenizerT, TokenizerConfigT]</p>
+<dd class="field-odd"><p><a class="reference internal" href="../data/tokenizers/hub.html#fairseq2.data.tokenizers.hub.TokenizerHub" title="fairseq2.data.tokenizers.hub.TokenizerHub">TokenizerHub</a>[TokenizerT, TokenizerConfigT]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -845,12 +853,12 @@ errors defaults to ‘strict’.</p>
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="../assets.html">
+          <a class="next-page" href="llama.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">fairseq2.assets</div>
+                <div class="title">fairseq2.models.llama</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -1008,7 +1016,7 @@ errors defaults to ‘strict’.</p>
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=3e98e53f"></script>
+</div><script src="../../../_static/documentation_options.js?v=abde1a7e"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

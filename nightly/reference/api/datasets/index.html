@@ -3,10 +3,10 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../../../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" /><link rel="next" title="fairseq2.datasets" href="../datasets.html" /><link rel="prev" title="fairseq2.data" href="index.html" />
+    <link href="../../../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" /><link rel="next" title="fairseq2.datasets.hub" href="hub.html" /><link rel="prev" title="fairseq2.data.tokenizers.hub" href="../data/tokenizers/hub.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
-        <title>Tokenizers - fairseq2 Documentation</title>
+        <title>fairseq2.datasets - fairseq2 Documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
@@ -235,12 +235,18 @@
 <p class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul class="current">
 <li class="toctree-l1 current has-children"><a class="reference internal" href="../index.html">API Reference</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
-<li class="toctree-l2 current has-children"><a class="reference internal" href="index.html">fairseq2.data</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of fairseq2.data</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
-<li class="toctree-l3 current current-page"><a class="current reference internal" href="#">Tokenizers</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../data/index.html">fairseq2.data</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of fairseq2.data</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../data/tokenizers/index.html">fairseq2.data.tokenizers</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><div class="visually-hidden">Toggle navigation of fairseq2.data.tokenizers</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data/tokenizers/hub.html">fairseq2.data.tokenizers.hub</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../datasets.html">fairseq2.datasets</a></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../nn/index.html">fairseq2.nn</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><div class="visually-hidden">Toggle navigation of fairseq2.nn</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+</ul>
+</li>
+<li class="toctree-l2 current has-children current-page"><a class="current reference internal" href="#">fairseq2.datasets</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of fairseq2.datasets</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="hub.html">fairseq2.datasets.hub</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../nn/index.html">fairseq2.nn</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><div class="visually-hidden">Toggle navigation of fairseq2.nn</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../nn/batch_layout.html">Batch Layout</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../nn/embedding.html">Embeddings</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../nn/position_encoder.html">Position Encoders</a></li>
@@ -251,9 +257,10 @@
 <li class="toctree-l3"><a class="reference internal" href="../nn/utils.html">fairseq2.nn.utils</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../models/index.html">fairseq2.models</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of fairseq2.models</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../models/index.html">fairseq2.models</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.models</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../models/hub.html">fairseq2.models.hub</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../models/qwen.html">fairseq2.models.qwen</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../models/llama.html">fairseq2.models.llama</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../assets.html">fairseq2.assets</a></li>
@@ -264,6 +271,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../device.html">fairseq2.device</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../logging.html">fairseq2.logging</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../metrics.html">fairseq2.metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../fairseq2.recipe.optim.html">fairseq2.recipe.optim</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../bibliography.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-book" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M0 1.75A.75.75 0 01.75 1h4.253c1.227 0 2.317.59 3 1.501A3.744 3.744 0 0111.006 1h4.245a.75.75 0 01.75.75v10.5a.75.75 0 01-.75.75h-4.507a2.25 2.25 0 00-1.591.659l-.622.621a.75.75 0 01-1.06 0l-.622-.621A2.25 2.25 0 005.258 13H.75a.75.75 0 01-.75-.75V1.75zm8.755 3a2.25 2.25 0 012.25-2.25H14.5v9h-3.757c-.71 0-1.4.201-1.992.572l.004-7.322zm-1.504 7.324l.004-5.073-.002-2.253A2.25 2.25 0 005.003 2.5H1.5v9h3.757a3.75 3.75 0 011.994.574z" fill-rule="evenodd"></path></svg> Bibliography</a></li>
@@ -287,7 +295,7 @@
         </a>
         <div class="content-icon-container">
           <div class="view-this-page">
-  <a class="muted-link" href="../../../_sources/reference/api/data/tokenizer.rst.txt" title="View this page">
+  <a class="muted-link" href="../../../_sources/reference/api/datasets/index.rst.txt" title="View this page">
     <svg><use href="#svg-eye"></use></svg>
     <span class="visually-hidden">View this page</span>
   </a>
@@ -307,73 +315,177 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="tokenizers">
-<span id="tokenizer"></span><h1>Tokenizers<a class="headerlink" href="#tokenizers" title="Link to this heading">¶</a></h1>
-<p>The tokenizer has multiple concrete implementations for different tokenization algorithms.
-The main <code class="xref py py-class docutils literal notranslate"><span class="pre">Tokenizer</span></code> interface defines the contract for creating encoders and decoders, while concrete implementations
-handle specific tokenization methods like SentencePiece and tiktoken.</p>
-<pre  class="mermaid">
-        classDiagram
-    class Tokenizer {
-        &lt;&lt;abstract&gt;&gt;
-        +create_encoder(task, lang, mode, device)*
-        +create_raw_encoder(device)*
-        +create_decoder(skip_special_tokens)*
-        +vocab_info: VocabularyInfo*
-    }
+          <section id="fairseq2-datasets">
+<span id="api-datasets"></span><h1>fairseq2.datasets<a class="headerlink" href="#fairseq2-datasets" title="Link to this heading">¶</a></h1>
+<p>The datasets module provides flexibility in creating and managing datasets for various tasks.
+It supports both built-in datasets and custom dataset implementations.</p>
+<section id="key-features">
+<h2>Key Features<a class="headerlink" href="#key-features" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Dataset Family Registration</strong>: Datasets can be registered using <code class="docutils literal notranslate"><span class="pre">register_dataset_family</span></code> for seamless integration</p></li>
+<li><p><strong>Flexible Configuration</strong>: Dataset configurations can be defined through YAML asset cards</p></li>
+</ul>
+</section>
+<section id="dataset-registration-and-asset-cards">
+<h2>Dataset Registration and Asset Cards<a class="headerlink" href="#dataset-registration-and-asset-cards" title="Link to this heading">¶</a></h2>
+<p>Datasets in fairseq2 can be registered as follows:</p>
+<ol class="arabic">
+<li><dl>
+<dt><strong>Register Dataset Families</strong>:</dt><dd><p>Use <code class="docutils literal notranslate"><span class="pre">register_dataset_family</span></code> to register custom datasets:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span> <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.composition</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_dataset_family</span>
 
-    class BasicSentencePieceTokenizer {
-        -_model: SentencePieceModel
-        -_vocab_info: VocabularyInfo
-        +create_encoder(task, lang, mode, device)
-        +create_raw_encoder(device)
-        +create_decoder(skip_special_tokens)
-    }
+<span class="n">register_dataset_family</span><span class="p">(</span>
+    <span class="n">container</span><span class="p">,</span>             <span class="c1"># DependencyContainer instance</span>
+    <span class="s2">&quot;custom_dataset&quot;</span><span class="p">,</span>      <span class="c1"># family name</span>
+    <span class="n">CustomDataset</span><span class="p">,</span>         <span class="c1"># dataset class</span>
+    <span class="n">CustomDatasetConfig</span><span class="p">,</span>   <span class="c1"># config class</span>
+    <span class="n">opener</span><span class="o">=</span><span class="n">custom_opener</span>   <span class="c1"># opener function</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>This function can potentially be called:</p>
+<ul class="simple">
+<li><p>in <code class="docutils literal notranslate"><span class="pre">Recipe.register()</span></code> (read more in <a class="reference internal" href="../../../basics/building_recipes.html#basics-building-recipes"><span class="std std-ref"> Building Recipes</span></a>), or</p></li>
+<li><p>in a fairseq2 extension function (read more in <a class="reference internal" href="../../../basics/runtime_extension.html#basics-runtime-extension"><span class="std std-ref"> Runtime Extension</span></a>).</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl>
+<dt><strong>More Variants w/ Asset Cards</strong>:</dt><dd><p>Create YAML files describing your datasets in any of these locations:</p>
+<ul class="simple">
+<li><p>Built-in cards: <code class="docutils literal notranslate"><span class="pre">fairseq2/assets/cards/</span></code></p></li>
+<li><p>System-wide cards: <code class="docutils literal notranslate"><span class="pre">/etc/fairseq2/assets/</span></code> (overridden by <code class="docutils literal notranslate"><span class="pre">FAIRSEQ2_ASSET_DIR</span></code> if set)</p></li>
+<li><p>User-specific cards: <code class="docutils literal notranslate"><span class="pre">~/.config/fairseq2/assets/</span></code> (overridden by <code class="docutils literal notranslate"><span class="pre">FAIRSEQ2_USER_ASSET_DIR</span></code> if set)</p></li>
+<li><p>Recipe-local cards: Add to recipe config common section via <code class="docutils literal notranslate"><span class="pre">extra_paths</span></code>:</p></li>
+</ul>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Example: Adding recipe-local asset paths in config (absolute path)</span>
+<span class="nt">common</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">assets</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">extra_paths</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;/path/to/assets&quot;</span><span class="p p-Indicator">]</span>
 
-    class RawSentencePieceTokenizer {
-        -_model: SentencePieceModel
-        -_vocab_info: VocabularyInfo
-        +create_encoder(task, lang, mode, device)
-        +create_raw_encoder(device)
-        +create_decoder(skip_special_tokens)
-    }
+<span class="c1"># or relative path</span>
+<span class="c1"># e.g. if the common section is in /path/to/recipe/config.yaml</span>
+<span class="c1"># it recursively retrieves assets from /path/to/recipe/assets</span>
+<span class="nt">common</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">assets</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">extra_paths</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;${dir}/assets&quot;</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</li>
+</ol>
+</section>
+<section id="creating-custom-datasets">
+<h2>Creating Custom Datasets<a class="headerlink" href="#creating-custom-datasets" title="Link to this heading">¶</a></h2>
+<p>Custom datasets can be created independently in recipes by:</p>
+<ol class="arabic simple">
+<li><p>Implementing a dataset class</p></li>
+<li><p>Creating a configuration class</p></li>
+<li><p>Registering the dataset family</p></li>
+<li><p>Providing asset card(s) in YAML format</p></li>
+</ol>
+<p>Here’s a basic example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.composition</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_dataset_family</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataReader</span>
 
-    class TiktokenTokenizer {
-        -_model: TiktokenModel
-        -_vocab_info: VocabularyInfo
-        +create_encoder(task, lang, mode, device)
-        +create_raw_encoder(device)
-        +create_decoder(skip_special_tokens)
-    }
+<span class="c1"># 1. Dataset Implementation</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CustomDataset</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_reader</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataReader</span><span class="p">:</span>
+        <span class="c1"># Implementation</span>
 
-    class CharTokenizer {
-        -_vocab_info: VocabularyInfo
-        +create_encoder(task, lang, mode, device)
-        +create_raw_encoder(device)
-        +create_decoder(skip_special_tokens)
-    }
+<span class="c1"># 2. Configuration Class</span>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CustomDatasetConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This configuration matches the keys after the top-level `dataset_config:` key</span>
+<span class="sd">    in the YAML asset definition:</span>
 
-    Tokenizer &lt;|-- BasicSentencePieceTokenizer
-    Tokenizer &lt;|-- RawSentencePieceTokenizer
-    Tokenizer &lt;|-- TiktokenTokenizer
-    Tokenizer &lt;|-- CharTokenizer
-    </pre><section id="quick-start">
-<h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading">¶</a></h2>
-<section id="loading-a-tokenizer">
-<h3>Loading a Tokenizer<a class="headerlink" href="#loading-a-tokenizer" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.data.tokenizers</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_tokenizer</span>
+<span class="sd">    ```yaml</span>
+<span class="sd">    name: mydataset</span>
+<span class="sd">    dataset_config:</span>
+<span class="sd">        data: (all keys here must have a companion parameter in this config)</span>
+<span class="sd">    ```</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">path</span><span class="p">:</span> <span class="n">Path</span>
+    <span class="c1"># Other config options</span>
 
-<span class="n">tokenizer</span> <span class="o">=</span> <span class="n">load_tokenizer</span><span class="p">(</span><span class="s2">&quot;qwen3_1.7b&quot;</span><span class="p">)</span>
+<span class="c1"># 3. Register in Recipe</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">YourRecipe</span><span class="p">(</span><span class="n">TrainRecipe</span><span class="p">):</span>  <span class="c1"># or EvalRecipe/GenerationRecipe</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">container</span><span class="p">:</span> <span class="n">DependencyContainer</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">register_dataset_family</span><span class="p">(</span>
+            <span class="n">container</span><span class="p">,</span>
+            <span class="s2">&quot;custom_dataset&quot;</span><span class="p">,</span>           <span class="c1"># family name</span>
+            <span class="n">CustomDataset</span><span class="p">,</span>              <span class="c1"># dataset class</span>
+            <span class="n">CustomDatasetConfig</span><span class="p">,</span>        <span class="c1"># config class</span>
+            <span class="n">opener</span><span class="o">=</span><span class="n">open_custom_dataset</span>  <span class="c1"># opener function</span>
+        <span class="p">)</span>
+</pre></div>
+</div>
+<p>The corresponding dataset asset card in YAML format could be for example:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mydataset</span>
+<span class="nt">dataset_family</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">custom_dataset</span>
+
+<span class="nn">---</span>
+
+<span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mydataset@user</span>
+<span class="nt">dataset_config</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">data</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/path/to/local/datasets/librilight/10h&quot;</span>
+
+<span class="nn">---</span>
+
+<span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mydataset@mycluster</span>
+<span class="nt">dataset_config</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">data</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/path/to/cluster/datasets/librilight/10h&quot;</span>
 </pre></div>
 </div>
 </section>
-<section id="listing-available-tokenizers">
-<h3>Listing Available Tokenizers<a class="headerlink" href="#listing-available-tokenizers" title="Link to this heading">¶</a></h3>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># List tokenizers from command line</span>
-python<span class="w"> </span>-m<span class="w"> </span>fairseq2.assets<span class="w"> </span>list<span class="w"> </span>--kind<span class="w"> </span>tokenizer
+<section id="advanced-dataset-opening">
+<h2>Advanced Dataset Opening<a class="headerlink" href="#advanced-dataset-opening" title="Link to this heading">¶</a></h2>
+<p>While the basic <code class="docutils literal notranslate"><span class="pre">opener</span></code> function is sufficient for most use cases, fairseq2 also provides
+an advanced opening mechanism through <code class="docutils literal notranslate"><span class="pre">advanced_opener</span></code> for cases where access to fairseq2’s
+dependency injection system is needed.</p>
+<p>The key differences are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">opener(config)</span> <span class="pre">-&gt;</span> <span class="pre">Dataset</span></code>: Simple function that takes only the config</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">advanced_opener(resolver,</span> <span class="pre">config)</span> <span class="pre">-&gt;</span> <span class="pre">Dataset</span></code>: Takes a <code class="xref py py-class docutils literal notranslate"><span class="pre">DependencyResolver</span></code> as first parameter</p></li>
+</ul>
+<p>The <code class="docutils literal notranslate"><span class="pre">DependencyResolver</span></code> provides access to other services and objects registered in fairseq2,
+making it useful for more complex dataset implementations that need to interact with other
+parts of the system.</p>
+<p>Example usage:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.dependency</span><span class="w"> </span><span class="kn">import</span> <span class="n">DependencyResolver</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">my_advanced_opener</span><span class="p">(</span><span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">MyDatasetConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MyDataset</span><span class="p">:</span>
+    <span class="c1"># Access other fairseq2 objects through the resolver</span>
+    <span class="n">some_object</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;object_name&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Use the object in dataset creation</span>
+    <span class="k">return</span> <span class="n">MyDataset</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">some_object</span><span class="p">)</span>
+
+<span class="c1"># Register with advanced opener</span>
+<span class="n">register_dataset_family</span><span class="p">(</span>
+    <span class="n">container</span><span class="p">,</span>
+    <span class="s2">&quot;my_dataset&quot;</span><span class="p">,</span>
+    <span class="n">MyDataset</span><span class="p">,</span>
+    <span class="n">MyDatasetConfig</span><span class="p">,</span>
+    <span class="n">advanced_opener</span><span class="o">=</span><span class="n">my_advanced_opener</span>  <span class="c1"># Note: don&#39;t provide both opener and advanced_opener</span>
+<span class="p">)</span>
 </pre></div>
 </div>
-</section>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You must provide either <code class="docutils literal notranslate"><span class="pre">opener</span></code> or <code class="docutils literal notranslate"><span class="pre">advanced_opener</span></code>, but not both. For simple
+dataset implementations that don’t need access to other fairseq2 objects, using
+the basic <code class="docutils literal notranslate"><span class="pre">opener</span></code> is recommended.</p>
+</div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="hub.html">fairseq2.datasets.hub</a></li>
+</ul>
+</div>
 </section>
 </section>
 
@@ -382,23 +494,23 @@ python<span class="w"> </span>-m<span class="w"> </span>fairseq2.assets<span cla
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="../datasets.html">
+          <a class="next-page" href="hub.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">fairseq2.datasets</div>
+                <div class="title">fairseq2.datasets.hub</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="index.html">
+          <a class="prev-page" href="../data/tokenizers/hub.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">fairseq2.data</div>
+                <div class="title">fairseq2.data.tokenizers.hub</div>
                 
               </div>
             </a>
@@ -436,12 +548,11 @@ python<span class="w"> </span>-m<span class="w"> </span>fairseq2.assets<span cla
         <div class="toc-tree-container">
           <div class="toc-tree">
             <ul>
-<li><a class="reference internal" href="#">Tokenizers</a><ul>
-<li><a class="reference internal" href="#quick-start">Quick Start</a><ul>
-<li><a class="reference internal" href="#loading-a-tokenizer">Loading a Tokenizer</a></li>
-<li><a class="reference internal" href="#listing-available-tokenizers">Listing Available Tokenizers</a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#">fairseq2.datasets</a><ul>
+<li><a class="reference internal" href="#key-features">Key Features</a></li>
+<li><a class="reference internal" href="#dataset-registration-and-asset-cards">Dataset Registration and Asset Cards</a></li>
+<li><a class="reference internal" href="#creating-custom-datasets">Creating Custom Datasets</a></li>
+<li><a class="reference internal" href="#advanced-dataset-opening">Advanced Dataset Opening</a></li>
 </ul>
 </li>
 </ul>
@@ -453,19 +564,11 @@ python<span class="w"> </span>-m<span class="w"> </span>fairseq2.assets<span cla
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=3e98e53f"></script>
+</div><script src="../../../_static/documentation_options.js?v=abde1a7e"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
     <script src="../../../_static/design-tabs.js?v=36754332"></script>
     <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
-    <script type="module" src="https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs"></script>
-    <script type="module" src="https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs"></script>
-    <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";import elkLayouts from "https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs";mermaid.registerLayoutLoaders(elkLayouts);mermaid.initialize({startOnLoad:false});</script>
-    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
-    <script type="module">
-import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";
-window.addEventListener("load", () => mermaid.run());
-</script>
     </body>
 </html>
