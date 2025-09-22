@@ -36,11 +36,8 @@ from .dataset import (
     LMSFTDatasetConfig,
     open_lm_sft_dataset,
 )
-from .utils import (
-    LengthBatching,
-    StaticBatching,
-)
 from .default_config import LMSFTConfig
+from .utils import LengthBatching, StaticBatching
 
 
 @final
