@@ -155,7 +155,6 @@ class LMSFTDataset:
 
         return read_sequence(lines).map(json.loads)
 
-    @override
     def create_reader(
         self,
         split: str,

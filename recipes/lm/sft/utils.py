@@ -53,21 +53,6 @@ class LengthBatching:
 Batching: TypeAlias = StaticBatching | LengthBatching
 
 
-def process_batching_config(batching: Batching) -> str:
-    """
-    Process a batching configuration and return a description.
-    
-    :param batching:
-        The batching configuration, either StaticBatching or LengthBatching.
-    """
-    if isinstance(batching, StaticBatching):
-        return f"Static batching with batch size: {batching.batch_size}"
-    elif isinstance(batching, LengthBatching):
-        return f"Length batching with max elements: {batching.max_num_elements}"
-    else:
-        raise ValueError(f"Unsupported batching type: {type(batching)}")
-
-
 def load_files_and_weights(
     dataset_name: str, path: Path
 ) -> tuple[list[Path], list[float]]:
