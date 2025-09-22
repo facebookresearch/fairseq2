@@ -80,5 +80,4 @@ setup(
             "xxhash~=3.5",
         ],
     },
-    entry_points={"console_scripts": ["fairseq2=fairseq2.cli:main"]},
 )
