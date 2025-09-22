@@ -37,7 +37,7 @@ from .dataset import (
     open_lm_sft_dataset,
 )
 from .default_config import LMSFTConfig
-from .utils import LengthBatching, StaticBatching
+from .utils import Batching, LengthBatching, StaticBatching
 
 
 @final
@@ -72,6 +72,7 @@ class LMSFTRecipe(TrainRecipe):
 
         seed += 1
 
+        batching: Batching
         if config.dataset.batch_size is not None:
             batching = StaticBatching(config.dataset.batch_size)
         else:
@@ -108,7 +109,7 @@ class LMSFTRecipe(TrainRecipe):
                 config.dataset.max_num_valid_tokens or config.dataset.max_num_tokens
             )
 
-            batching = LengthBatching(max_num_tokens)
+            batching: Batching = LengthBatching(max_num_tokens)
 
             read_options = DataReadOptions(
                 batching=batching,
