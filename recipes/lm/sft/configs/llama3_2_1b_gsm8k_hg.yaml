@@ -5,12 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 dataset:
-  valid_split: null
-  train_split: "sft"
+  valid_split: "valid"
   batch_size: 16
   chat_mode: false
   config_overrides:
-    path: "hg://facebook/fairseq2-lm-gsm8k"
+    path: "/checkpoint/ram/jacklanchantin/data/gsm8k_sft/"
 model:
   family: "llama"
   name: "llama3_2_1b"
