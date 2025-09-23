@@ -15,6 +15,7 @@ from typing import Any, Final, cast, final
 import torch
 from typing_extensions import override
 
+from fairseq2.assets import HuggingFaceHub
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
@@ -29,6 +30,7 @@ from fairseq2.data.tokenizers.hg import HuggingFaceTokenEncoder
 from fairseq2.datasets import DataPipelineReader, SequenceBatch, SyncMode
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gangs
+from fairseq2.utils.uri import Uri
 
 from .utils import (
     Batching,
@@ -341,13 +343,18 @@ class LMSFTDataset:
 
 @dataclass
 class LMSFTDatasetConfig:
-    path: Path = field(default_factory=Path)
+    path: str | None = None
 
 
 def open_lm_sft_dataset(config: LMSFTDatasetConfig) -> LMSFTDataset:
-    path = config.path
     name = "default"  # FIXME
     splits: dict[str, tuple[Sequence[Path], Sequence[float]]] = {}
+    
+    uri = Uri.maybe_parse(config.path)
+    if uri and uri.scheme == "hg":
+        path = HuggingFaceHub().download_dataset(uri, config.path)
+    else:
+        path = Path(config.path)
 
     if path.is_dir():
         try:
