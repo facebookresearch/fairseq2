@@ -59,3 +59,4 @@ Utilities
    logging
    metrics
    fairseq2.recipe.optim
+   fairseq2.utils.validation
