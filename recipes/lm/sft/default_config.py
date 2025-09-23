@@ -28,7 +28,6 @@ from fairseq2.recipe.config import (
     TorchConfig,
     TrainerSection,
 )
-
 from .dataset import LM_SFT_PADDED_DATASET, LMSFTDatasetConfig
 
 GENERIC_INSTRUCTION_DATASET_FAMILY: Final = "generic_instruction"
@@ -40,7 +39,7 @@ class InstructionFinetuneDatasetSection(DatasetSection):
 
     # family: str = GENERIC_INSTRUCTION_DATASET_FAMILY
 
-    path: Path | None = None
+    path: str | None = None
 
     train_split: str = "train"  # FIXME (jacklanchantin)not sure what this should be
 
