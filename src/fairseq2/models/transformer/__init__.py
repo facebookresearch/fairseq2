@@ -19,6 +19,9 @@ from fairseq2.models.transformer.attention_bias import (
 from fairseq2.models.transformer.attention_bias import (
     CausalAttentionBias as CausalAttentionBias,
 )
+from fairseq2.models.transformer.attention_bias import (
+    ChunkedAttentionBias as ChunkedAttentionBias,
+)
 from fairseq2.models.transformer.attention_bias import IdentityBias as IdentityBias
 from fairseq2.models.transformer.attention_bias import (
     materialize_attention_bias as materialize_attention_bias,
