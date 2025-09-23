@@ -5,8 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 dataset:
-  valid_split: null
-  train_split: "sft"
+  valid_split: "valid"
+  train_split: "train"
   batch_size: 16
   chat_mode: false
   config_overrides:
