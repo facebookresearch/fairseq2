@@ -201,9 +201,7 @@ class SFTLossEvalUnit(EvalUnit[SequenceBatch]):
         add_seq_batch_metrics(metric_bag)
 
     @override
-    def process_batch(
-        self, batch: SequenceBatch, metric_bag: MetricBag
-    ) -> None:
+    def process_batch(self, batch: SequenceBatch, metric_bag: MetricBag) -> None:
         input_batch, target_batch = batch.as_auto_regressive()
 
         seqs, seqs_layout = input_batch.as_input()
