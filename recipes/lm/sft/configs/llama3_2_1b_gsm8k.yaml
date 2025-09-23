@@ -10,8 +10,7 @@ dataset:
   batch_size: 16
   chat_mode: false
   config_overrides:
-    path: "hg://facebook/fairseq2-lm-gsm8k"
-model:
+    path: "/checkpoint/ram/jacklanchantin/data/gsm8k_sft/"
   family: "llama"
   name: "llama3_2_1b"
 tokenizer:
