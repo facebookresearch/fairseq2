@@ -79,5 +79,10 @@ setup(
             "polars>=1.19.0",
             "xxhash~=3.5",
         ],
+        "hg": [
+            "accelerate>=1.10.0",
+            "transformers>=4.56.1",
+            "qwen-omni-utils~=0.0.8",
+        ],
     },
 )
