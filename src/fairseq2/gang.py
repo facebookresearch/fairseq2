@@ -327,6 +327,10 @@ class ProcessGroupGang(Gang):
         pg_options = None
 
         if device.type == "cuda":
+            # Eager process group initialization requires device index to be set.
+            if device.index is None:
+                device = Device("cuda", index=0)
+
             # Forces eager NCCL initialization.
             kwargs["device_id"] = device
 
