@@ -12,7 +12,7 @@ that all options are set correctly.
 A class -*typically a configuration dataclass*- that wants to support validation
 should expose a ``validate(self) -> ValidationResult`` method. Optionally,
 the class can derive from the runtime-checkable :class:`Validatable` protocol
-to make its intend more clear.
+to make its intent more clear.
 
 A typical implementation of a ``validate()`` method looks like the following:
 
@@ -199,17 +199,13 @@ class ValidationResult:
 
     def has_error(self) -> bool:
         """
-        Returns ``True`` if the object or any of its sub-ojects have a
+        Returns ``True`` if the object or any of its sub-objects have a
         validation error.
         """
         if self._errors:
             return True
 
-        for sub_result in self._sub_results.values():
-            if sub_result.has_error():
-                return True
-
-        return False
+        return any(r.has_error() for r in self._sub_results.values())
 
     @property
     def errors(self) -> Sequence[str]:
@@ -227,31 +223,31 @@ class ValidationResult:
     def __str__(self) -> str:
         output: list[str] = []
 
-        self._create_error_string(output, path=[])
+        self._create_error_string(output, field_path=[])
 
         return " ".join(output)
 
-    def _create_error_string(self, output: list[str], path: list[str]) -> None:
+    def _create_error_string(self, output: list[str], field_path: list[str]) -> None:
         s = " ".join(self._errors)
         if s:
-            if path:
-                pathname = self._build_pathname(path)
+            if field_path:
+                pathname = self._build_pathname(field_path)
 
                 output.append(f"`{pathname}` is not valid: {s}")
             else:
                 output.append(s)
 
         for field, result in self._sub_results.items():
-            path.append(field)
+            field_path.append(field)
 
-            result._create_error_string(output, path)
+            result._create_error_string(output, field_path)
 
-            path.pop()
+            field_path.pop()
 
-    def _build_pathname(self, path: list[str]) -> str:
-        segments = [path[0]]
+    def _build_pathname(self, field_path: list[str]) -> str:
+        segments = [field_path[0]]
 
-        for p in path[1:]:
+        for p in field_path[1:]:
             if not p.startswith("[") or not p.endswith("]"):
                 segments.append(".")
 
