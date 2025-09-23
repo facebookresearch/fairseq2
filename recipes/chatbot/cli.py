@@ -11,6 +11,7 @@ from argparse import ArgumentParser, Namespace
 from datetime import timedelta
 from typing import final
 
+import clusterscope
 import torch
 from rich.console import Console
 from torch.cuda import OutOfMemoryError
@@ -21,11 +22,6 @@ from fairseq2.assets import (
     AssetMetadataError,
     AssetNotFoundError,
     get_asset_store,
-)
-from fairseq2.cluster import (
-    ClusterNotDetectedError,
-    ClusterNotKnownError,
-    set_torch_distributed_env_variables,
 )
 from fairseq2.composition import ExtensionError
 from fairseq2.data.tokenizers import load_tokenizer
@@ -68,14 +64,6 @@ def _main() -> None:
         get_console().print()
 
         raise
-    except ClusterNotDetectedError as ex:
-        log.error("{} cluster not detected.", ex.cluster)  # fmt: skip
-
-        sys.exit(2)
-    except ClusterNotKnownError as ex:
-        log.error("{} is not a known cluster.", ex.cluster)  # fmt: skip
-
-        sys.exit(2)
     except GangTopologyError as ex:
         log.error("--tensor-parallel-size must be a factor of the number of processes in the root gang ({}), but is {} instead.", ex.world_size, ex.tp_size)  # fmt: skip
 
@@ -186,7 +174,7 @@ def _parse_args() -> Namespace:
 
 
 def _run(args: Namespace) -> None:
-    set_torch_distributed_env_variables(args.cluster)
+    clusterscope.get_job().set_torch_distributed_env_from_slurm()
 
     device = get_default_device()
 
