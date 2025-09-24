@@ -13,8 +13,6 @@ from pathlib import Path
 from typing import Any, Final, cast, final
 
 import torch
-from typing_extensions import override
-
 from fairseq2.assets import HuggingFaceHub
 from fairseq2.data import (
     CollateOptionsOverride,
@@ -39,9 +37,6 @@ from .utils import (
     StaticBatching,
     load_files_and_weights,
 )
-
-# TODO: FIX, INFER
-npc = 10
 
 
 LM_SFT_PADDED_DATASET: Final = "lm_sft_padded"
@@ -178,18 +173,6 @@ class LMSFTDataset:
         seed = options.seed
 
         builder = read_sequence(files)
-
-        # file_rank = gangs.dp.rank
-
-        # file_world_size = gangs.dp.size
-
-        # if len(files) < file_world_size:
-        #     raise ValueError(
-        #         "The number of dataset files must be greater than or equal to the number of world size."
-        #     )
-
-        # if file_world_size > 1:
-        #     builder.shard(file_rank, file_world_size, allow_uneven=True)
 
         def read_file(file: Path) -> DataPipeline:
             return read_text(file).map(json.loads, num_parallel_calls=1).and_return()
@@ -350,6 +333,9 @@ class LMSFTDatasetConfig:
 def open_lm_sft_dataset(config: LMSFTDatasetConfig) -> LMSFTDataset:
     name = "default"  # FIXME
     splits: dict[str, tuple[Sequence[Path], Sequence[float]]] = {}
+    
+    if config.path is None:
+        raise ValueError("config.path cannot be None")
     
     uri = Uri.maybe_parse(config.path)
     if uri and uri.scheme == "hg":
