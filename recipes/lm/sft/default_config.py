@@ -52,7 +52,7 @@ class InstructionFinetuneDatasetSection(DatasetSection):
     """The minimum sequence length."""
 
     max_seq_len: int = 8192
-    """The maximum sequence length."""
+    """The maximum sequence length. NOTE: longer sequences are dropped from the training."""
 
     max_num_tokens: int = 8192 * 2
     """The maximum number of tokens per batch. NOTE: this is excluding padding tokens!"""
