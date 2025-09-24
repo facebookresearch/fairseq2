@@ -69,7 +69,7 @@ class InstructionFinetuneDatasetSection(DatasetSection):
     example_shuffle_window: int = 10_000
     """The size of the sliding window for shuffling examples."""
 
-    batch_shuffle_window: int = 1000
+    batch_shuffle_window: int = 0
     """The size of the sliding window for shuffling batches."""
 
     prefetch: int = 4
@@ -116,7 +116,7 @@ class LMSFTConfig:
         default_factory=lambda: LRSchedulerSection(
             name=COSINE_ANNEALING_LR,
             config=CosineAnnealingLRConfig(
-                num_warmup_steps=2000, start_lr=1e-30, final_lr_scale=0.01
+                num_warmup_steps=0, start_lr=1e-30, final_lr_scale=0.01
             ),
         ),
     )
