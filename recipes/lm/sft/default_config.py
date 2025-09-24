@@ -115,9 +115,7 @@ class LMSFTConfig:
     lr_scheduler: LRSchedulerSection | None = field(
         default_factory=lambda: LRSchedulerSection(
             name=COSINE_ANNEALING_LR,
-            config=CosineAnnealingLRConfig(
-                num_warmup_steps=0, start_lr=1e-30, final_lr_scale=0.01
-            ),
+            config=CosineAnnealingLRConfig(final_lr_scale=0.2),
         ),
     )
 
@@ -129,6 +127,7 @@ class LMSFTConfig:
             keep_last_n_checkpoints=3,
             keep_checkpoint_every_n_steps=4000,
             publish_metrics_every_n_steps=10,
+            export_hugging_face = True
         )
     )
 
