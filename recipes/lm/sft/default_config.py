@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final
 
 from fairseq2.models.llama.tokenizer import LLaMATokenizerConfig as LLaMATokenizerConfig
 from fairseq2.recipe.config import (
