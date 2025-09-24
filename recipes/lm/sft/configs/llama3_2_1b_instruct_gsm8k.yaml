@@ -5,25 +5,26 @@
 # LICENSE file in the root directory of this source tree.
 
 dataset:
-  valid_split: "valid"
+  valid_split: "sft_test"
+  train_split: "sft_train"
   batch_size: 16
   chat_mode: true
   config_overrides:
-    path: "/checkpoint/ram/jacklanchantin/data/gsm8k_sft/"
+    path: "hg://facebook/fairseq2-lm-gsm8k"
 model:
   family: "llama"
-  name: "llama3_2_1b_instruct"
+  name: "llama3_2_1b"
 tokenizer:
   family: "llama"
-  name: "llama3_2_1b_instruct"
+  name: "llama3_2_1b"
 common:
   metric_recorders:
     wandb:
       enabled: True
       project: "fairseq2"
-      run_name: "test_llama3_2_1b_instruct_sft_gsm8k"
+      run_name: "test_llama3_2_1b_sft_gsm8k"
 regime:
-  num_steps: 48000
+  num_steps: 100000
   checkpoint_every_n_steps: 100
   validate_every_n_steps: 100
   checkpoint_every_n_data_epochs: 100
