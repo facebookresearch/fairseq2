@@ -98,7 +98,7 @@ class LMTrainUnit(TrainUnit[SequenceBatch]):
         )
 
         update_nll_loss_metric(metric_bag, nll_loss)
-        update_seq_batch_metrics(metric_bag, input_batch)
+        update_seq_batch_metrics(metric_bag, batch)
 
         return nll_loss, None
 
