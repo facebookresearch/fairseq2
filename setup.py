@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from setuptools import find_namespace_packages, setup
 
-version = "0.5.1"
+version = "0.6.0.dev0"
 
 # If this is a local development install, allow nightly fairseq2n builds to
 # take precedence.
@@ -62,6 +62,7 @@ setup(
         "ruamel.yaml~=0.18",
         "rich~=13.7",
         "sacrebleu~=2.4",
+        "safetensors~=0.6",
         "tiktoken~=0.7",
         "torcheval~=0.0.6",
         "tqdm~=4.62",
@@ -79,5 +80,4 @@ setup(
             "xxhash~=3.5",
         ],
     },
-    entry_points={"console_scripts": ["fairseq2=fairseq2.cli:main"]},
 )

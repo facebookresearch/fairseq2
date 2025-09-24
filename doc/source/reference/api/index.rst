@@ -12,7 +12,7 @@ Data Processing
    :maxdepth: 1
 
    data/index
-   datasets
+   datasets/index
 
 Neural Networks & Modeling
 ---------------------------
@@ -21,7 +21,7 @@ Neural Networks & Modeling
    :maxdepth: 1
 
    nn/index
-   models
+   models/index
 
 Assets and Checkpoints
 ----------------------
@@ -58,3 +58,5 @@ Utilities
    device
    logging
    metrics
+   fairseq2.recipe.optim
+   fairseq2.utils.validation

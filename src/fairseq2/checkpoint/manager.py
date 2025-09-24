@@ -7,15 +7,18 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Callable, Mapping, Set
+from collections.abc import Callable
 from concurrent.futures import Future
+from copy import deepcopy
 from dataclasses import dataclass
 from os import scandir
 from pathlib import Path
-from typing import Protocol, cast, final
+from pickle import PickleError
+from typing import Any, Protocol, final
 
 import torch
 from torch import Tensor
+from torch.overrides import TorchFunctionMode
 from typing_extensions import override
 
 from fairseq2.device import CPU
@@ -27,7 +30,12 @@ from fairseq2.error import (
 )
 from fairseq2.file_system import FileMode, FileSystem
 from fairseq2.gang import GangError, Gangs, all_sum, raise_operational_gang_error
-from fairseq2.io import TensorDumper, TensorFileError, TensorLoader
+from fairseq2.io import (
+    TensorDataNotValidError,
+    TensorDumper,
+    TensorFileError,
+    TensorLoader,
+)
 from fairseq2.nn.fsdp import load_with_sdp_gang
 from fairseq2.runtime.closable import Closable
 from fairseq2.typing import Stateful
@@ -90,7 +98,7 @@ class CheckpointManager(Closable):
     def load_scores(self) -> list[tuple[float, int]]: ...
 
     @abstractmethod
-    def delete_checkpoint(self, step_nr: int) -> None: ...
+    def delete_checkpoint(self, step_nr: int, *, keep_model: bool = False) -> None: ...
 
     @abstractmethod
     def has_checkpoint(self, *, exclude_model_only: bool = False) -> bool: ...
@@ -118,6 +126,14 @@ class CheckpointReadyCallback(Protocol):
 
 class CheckpointSavedCallback(Protocol):
     def __call__(self, step_nr: int, blocking: bool) -> None: ...
+
+
+class CheckpointStateNotValidError(Exception):
+    def __init__(self, step_nr: int, kind: str, message: str) -> None:
+        super().__init__(message)
+
+        self.step_nr = step_nr
+        self.kind = kind
 
 
 class CheckpointNotFoundError(Exception):
@@ -311,6 +327,12 @@ class StandardCheckpointManager(CheckpointManager):
 
         state_dict = model.state_dict()
 
+        for k, v in state_dict.items():
+            if not isinstance(v, Tensor):
+                msg = f"`model` checkpoint of step {step_nr} must contain only objects of type `{Tensor}`, but the value of the {k} key is of type `{type(v)}`."
+
+                raise CheckpointStateNotValidError(step_nr, "model", msg)
+
         record = _CheckpointRecord("model", file, state_dict)
 
         records.append(record)
@@ -373,16 +395,11 @@ class StandardCheckpointManager(CheckpointManager):
     ) -> None:
         self._sync_nfs_cache()
 
-        if blocking:
-            for record in records:
-                self._check_safe_state_dict(record.kind, record.state_dict)
-        else:
+        if not blocking:
             memo: dict[Tensor, Tensor] = {}
 
             for record in records:
-                record.state_dict = self._copy_state_dict_to_host(
-                    record.kind, record.state_dict, memo
-                )
+                self._copy_state_dict_to_host(record, step_nr, memo)
 
             del memo
 
@@ -418,92 +435,38 @@ class StandardCheckpointManager(CheckpointManager):
 
                 raise OperationalError("A thread pool queue operation failed.") from ex
 
-    def _check_safe_state_dict(self, kind: str, state_dict: dict[str, object]) -> None:
-        def check_item(item: object) -> None:
-            if item is None:
-                return
-
-            if isinstance(item, Tensor):
-                return
-
-            if isinstance(item, (bool, int, float, str, Path)):
-                return
-
-            if isinstance(item, Mapping):
-                for k, v in item.items():
-                    check_item(k)
-                    check_item(v)
-
-            if isinstance(item, (list, tuple, Set)):
-                for e in item:
-                    check_item(e)
-
-            raise ValueError(
-                f"`{kind}` must contain objects of safe types only, but it contains an object of type `{type(item)}`."
-            )
-
-        check_item(state_dict)
-
     def _copy_state_dict_to_host(
-        self, kind: str, state_dict: dict[str, object], memo: dict[Tensor, Tensor]
-    ) -> dict[str, object]:
-        has_cuda_tensor = False
+        self, record: _CheckpointRecord, step_nr: int, memo: dict[Tensor, Tensor]
+    ) -> None:
+        d2h_mode = _CheckpointDeviceToHostMode(memo)
 
-        def copy_tensor_to_host(tensor: Tensor) -> Tensor:
-            nonlocal has_cuda_tensor
+        try:
+            with d2h_mode:
+                record.state_dict = deepcopy(record.state_dict)
+        except (ValueError, RuntimeError, TypeError, PickleError) as ex:
+            msg = f"`{record.kind}` checkpoint must contain primitive and pickeable objects only."
 
-            cpu_tensor = memo.get(tensor)
-            if cpu_tensor is None:
-                is_cuda = tensor.device.type == "cuda"
+            raise CheckpointStateNotValidError(step_nr, record.kind, msg) from ex
 
-                if is_cuda:
-                    has_cuda_tensor = True
-
-                cpu_tensor = torch.empty_like(tensor, device=CPU)
-
-                cpu_tensor.copy_(tensor, non_blocking=is_cuda)
-
-                memo[tensor] = cpu_tensor
-
-            return cpu_tensor
-
-        def copy_to_host(item: object) -> object:
-            if item is None:
-                return None
-
-            if isinstance(item, Tensor):
-                return copy_tensor_to_host(item)
-
-            if isinstance(item, (bool, int, float, str, Path)):
-                return item
-
-            if isinstance(item, Mapping):
-                return {copy_to_host(k): copy_to_host(v) for k, v in item.items()}
-
-            if isinstance(item, list):
-                return [copy_to_host(e) for e in item]
-
-            if isinstance(item, tuple):
-                return tuple(copy_to_host(e) for e in item)
-
-            if isinstance(item, Set):
-                return {copy_to_host(e) for e in item}
-
-            raise ValueError(
-                f"`{kind}` must contain objects of safe types only, but it contains an object of type `{type(item)}`."
-            )
-
-        host_state_dict = copy_to_host(state_dict)
-
-        if has_cuda_tensor:
+        if d2h_mode.has_cuda:
             torch.cuda.synchronize()
-
-        return cast(dict[str, object], host_state_dict)
 
     def _save_state_files(self, step_nr: int, records: list[_CheckpointRecord]) -> None:
         for record in records:
+            # We do not use pickle protocol v5 for model state because
+            # `torch.load(..., weights_only=True)` cannot unpickle objects
+            # serialized with v5. See:
+            #   https://github.com/pytorch/pytorch/issues/118092
+            protocol = 2 if record.kind == "model" else 5
+
             try:
-                self._tensor_dumper.dump(record.state_dict, record.file)
+                self._tensor_dumper.dump(
+                    record.state_dict, record.file, pickle_protocol=protocol
+                )
+            except TensorDataNotValidError as ex:
+                msg = f"`{record.kind}` checkpoint must contain primitive and pickeable objects only."
+
+                raise CheckpointStateNotValidError(step_nr, record.kind, msg) from ex
             except OSError as ex:
                 raise_operational_system_error(ex)
 
@@ -678,11 +641,9 @@ class StandardCheckpointManager(CheckpointManager):
         with load_with_sdp_gang(gangs):  # Required for `ShardedTensor`.
             file = self._checkpoint_dir.joinpath(f"step_{step_nr}/{pathname}")
 
-            restrict = kind != "data_reader"
-
             try:
                 return self._tensor_loader.load(
-                    file, map_location=CPU, restrict=restrict
+                    file, map_location=CPU, restrict=kind == "model"
                 )
             except TensorFileError as ex:
                 msg = f"{file} of step {step_nr} is not a valid checkpoint file."
@@ -702,7 +663,7 @@ class StandardCheckpointManager(CheckpointManager):
         return self._do_load_scores(step_nrs)
 
     @override
-    def delete_checkpoint(self, step_nr: int) -> None:
+    def delete_checkpoint(self, step_nr: int, *, keep_model: bool = False) -> None:
         gangs = self._gangs
 
         if gangs.root.rank == 0:
@@ -726,19 +687,30 @@ class StandardCheckpointManager(CheckpointManager):
 
             if step_dir_exists:
                 try:
-                    self._file_system.remove_directory(step_dir)
+                    if keep_model:
+                        for path in self._file_system.glob(step_dir, pattern="*"):
+                            if path.name == "model" or path.name == "hg":
+                                continue
+
+                            if self._file_system.is_dir(path):
+                                self._file_system.remove_directory(path)
+                            else:
+                                self._file_system.remove(path)
+                    else:
+                        self._file_system.remove_directory(step_dir)
                 except OSError as ex:
                     raise_operational_system_error(ex)
 
-            # Delete the score file.
-            score_file = self._checkpoint_dir.joinpath(f"scores/step_{step_nr}.txt")
+            if not keep_model:
+                # Delete the score file.
+                score_file = self._checkpoint_dir.joinpath(f"scores/step_{step_nr}.txt")
 
-            try:
-                self._file_system.remove(score_file)
-            except FileNotFoundError:
-                pass
-            except OSError as ex:
-                raise_operational_system_error(ex)
+                try:
+                    self._file_system.remove(score_file)
+                except FileNotFoundError:
+                    pass
+                except OSError as ex:
+                    raise_operational_system_error(ex)
 
         try:
             gangs.root.barrier()
@@ -881,3 +853,32 @@ class _CheckpointRecord:
     kind: str
     file: Path
     state_dict: dict[str, object]
+
+
+class _CheckpointDeviceToHostMode(TorchFunctionMode):
+    def __init__(self, memo: dict[Tensor, Tensor]) -> None:
+        self.memo = memo
+        self.has_cuda = False
+
+    def __torch_function__(  # type: ignore[override]
+        self, func: Any, types: Any, args: Any, kwargs: Any = None
+    ) -> Any:
+        if func is Tensor.__deepcopy__:
+            source = args[0]
+
+            is_cuda = source.device.type == "cuda"
+            if is_cuda:
+                self.has_cuda = True
+
+            target = torch.empty_like(source, device=CPU)
+
+            target.copy_(source, non_blocking=is_cuda)
+
+            self.memo[source] = target
+
+            return target
+
+        if kwargs is None:
+            kwargs = {}
+
+        return func(*args, **kwargs)

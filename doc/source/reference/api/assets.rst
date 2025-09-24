@@ -2,6 +2,8 @@
 fairseq2.assets
 ===============
 
+.. automodule:: fairseq2.assets
+
 .. currentmodule:: fairseq2.assets
 
 The assets module provides a model hub system for loading pre-trained models,

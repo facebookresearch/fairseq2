@@ -54,7 +54,7 @@ def get_per_param_group(
 
     if len(value) != num_param_groups:
         raise ValueError(
-            f"The length of `{name}` must be equal to the number of parameter groups ({num_param_groups}), but is {len(value)} instead."
+            f"The length of `{name}` must match the number of parameter groups ({num_param_groups}), but is {len(value)} instead."
         )
 
     return value

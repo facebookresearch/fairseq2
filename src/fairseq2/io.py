@@ -13,20 +13,13 @@ from pathlib import Path
 from pickle import PickleError
 from typing import TypeAlias, final
 
+import safetensors
+import safetensors.torch
 import torch
 from torch import Tensor
 from typing_extensions import override
 
-try:
-    import safetensors  # type: ignore[import-not-found]
-    import safetensors.torch  # type: ignore[import-not-found]
-except ImportError:
-    _has_safetensors = False
-else:
-    _has_safetensors = True
-
 from fairseq2.device import CPU, Device
-from fairseq2.error import OperationalError
 from fairseq2.file_system import FileMode, FileSystem
 
 MapLocation: TypeAlias = (
@@ -53,22 +46,28 @@ class TensorLoader(ABC):
         """
 
 
+class TensorFileError(Exception):
+    def __init__(self, file: Path, message: str) -> None:
+        super().__init__(message)
+
+        self.file = file
+
+
 class TensorDumper(ABC):
     """Dumps tensors to PyTorch binary files."""
 
     @abstractmethod
-    def dump(self, data: Mapping[str, object], file: Path) -> None:
+    def dump(
+        self, data: Mapping[str, object], file: Path, *, pickle_protocol: int = 2
+    ) -> None:
         """
         :param data: The dictionary containing tensors and other auxiliary data.
         :param file: The path to the file.
         """
 
 
-class TensorFileError(Exception):
-    def __init__(self, file: Path, message: str) -> None:
-        super().__init__(message)
-
-        self.file = file
+class TensorDataNotValidError(Exception):
+    pass
 
 
 @final
@@ -108,7 +107,9 @@ class TorchTensorDumper(TensorDumper):
         self._file_system = file_system
 
     @override
-    def dump(self, data: Mapping[str, object], file: Path) -> None:
+    def dump(
+        self, data: Mapping[str, object], file: Path, *, pickle_protocol: int = 2
+    ) -> None:
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 action="ignore", message=r".*Please use DTensor instead.*"
@@ -117,9 +118,11 @@ class TorchTensorDumper(TensorDumper):
             fp = self._file_system.open(file, mode=FileMode.WRITE)
 
             try:
-                torch.save(data, fp)
+                torch.save(data, fp, pickle_protocol=pickle_protocol)
             except (RuntimeError, PickleError) as ex:
-                raise ValueError("`data` is not a picklable object.") from ex
+                raise TensorDataNotValidError(
+                    "`data` is not a pickleable object."
+                ) from ex
             finally:
                 fp.close()
 
@@ -142,11 +145,6 @@ class HuggingFaceSafetensorsLoader(SafetensorsLoader):
     def load(
         self, file: Path, *, device: Device | None = None, mmap: bool = False
     ) -> dict[str, object]:
-        if not _has_safetensors:
-            raise OperationalError(
-                "Safetensors is not found. Use `pip install safetensors`."
-            )
-
         if device is None:
             device = CPU
 

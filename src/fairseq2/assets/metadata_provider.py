@@ -244,36 +244,38 @@ def load_in_memory_asset_metadata(
     for idx, asset_metadata in enumerate(entries):
         name = asset_metadata.pop("name", None)
         if not name:
-            raise ValueError(f"Asset at index {idx} in `metadata` must have a name.")
+            msg = f"Asset at index {idx} in `metadata` must have a name."
+
+            raise AssetMetadataError(source, msg)
 
         if not isinstance(name, str):
-            raise TypeError(
-                f"Name of the asset at index {idx} in `metadata` must be of type `{str}`, but is of type `{type(name)}` instead."
-            )
+            msg = f"Name of the asset at index {idx} in `metadata` must be of type `{str}`, but is of type `{type(name)}` instead."
+
+            raise AssetMetadataError(source, msg)
 
         name = canonicalize_asset_name(name)
         if name is None:
-            raise ValueError(
-                f"Asset at index {idx} in `metadata` must have a valid name."
-            )
+            msg = f"Asset at index {idx} in `metadata` must have a valid name."
+
+            raise AssetMetadataError(source, msg)
 
         if name in metadata:
-            raise ValueError(
-                f"Assets in `metadata` must have unique names, but two assets have the same name {name}."
-            )
+            msg = f"Assets in `metadata` must have unique names, but two assets have the same name {name}."
+
+            raise AssetMetadataError(source, msg)
 
         base_name = asset_metadata.get("base")
         if base_name is not None:
             if not isinstance(base_name, str):
-                raise TypeError(
-                    f"Base name of the asset at index {idx} in `metadata` must be of type `{str}`, but is of type `{type(base_name)}` instead."
-                )
+                msg = f"Base name of the asset at index {idx} in `metadata` must be of type `{str}`, but is of type `{type(base_name)}` instead."
+
+                raise AssetMetadataError(source, msg)
 
             base_name = sanitize_base_asset_name(base_name)
             if base_name is None:
-                raise ValueError(
-                    f"Asset at index {idx} in `metadata` must have a valid base name."
-                )
+                msg = f"Asset at index {idx} in `metadata` must have a valid base name."
+
+                raise AssetMetadataError(source, msg)
 
         metadata[name] = asset_metadata
 
@@ -439,3 +441,14 @@ class PackageAssetMetadataSource(AssetMetadataSource):
             yield self._metadata_loader.load(self._package)
         except OSError as ex:
             raise_operational_system_error(ex)
+
+
+@final
+class InMemoryAssetMetadataSource(AssetMetadataSource):
+    def __init__(self, name: str, entries: Sequence[dict[str, object]]) -> None:
+        self._name = name
+        self._entries = entries
+
+    @override
+    def load(self) -> Iterator[AssetMetadataProvider]:
+        yield load_in_memory_asset_metadata(self._name, self._entries)

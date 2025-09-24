@@ -44,7 +44,7 @@ enhancing performance, and expanding integration capabilities.
     providing seamless integration with the broader NLP ecosystem.
 
 **Asset Cards with HF Hub**
-    Asset Cards now support the "hf://" scheme to download models, tokenizers, and
+    Asset Cards now support the "hg://" scheme to download models, tokenizers, and
     datasets directly from the Hugging Face Hub, making it easier to work with
     community models and datasets.
 
@@ -146,7 +146,7 @@ When upgrading to v0.5, users should be aware of the following key changes:
 ===================
 
 For detailed information on using these new features, please refer to the
-:doc:`API Reference <reference/api/index>` and updated tutorials.
+:doc:`API Reference </reference/api/index>` and updated tutorials.
 
 **What's Next**
 ===============
