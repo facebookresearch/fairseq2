@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Final
 
 from fairseq2.models.llama.tokenizer import LLaMATokenizerConfig as LLaMATokenizerConfig
@@ -30,18 +29,13 @@ from fairseq2.recipe.config import (
 )
 from .dataset import LM_SFT_PADDED_DATASET, LMSFTDatasetConfig
 
-GENERIC_INSTRUCTION_DATASET_FAMILY: Final = "generic_instruction"
 
 
 @dataclass(kw_only=True)
 class InstructionFinetuneDatasetSection(DatasetSection):
-    # name: str = "foo"  # FIXME: change!
-
-    # family: str = GENERIC_INSTRUCTION_DATASET_FAMILY
-
     path: str | None = None
 
-    train_split: str = "train"  # FIXME (jacklanchantin)not sure what this should be
+    train_split: str = "sft_train"
 
     valid_split: str | None = None
 
