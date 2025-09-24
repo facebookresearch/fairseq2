@@ -27,8 +27,8 @@ from fairseq2.recipe.config import (
     TorchConfig,
     TrainerSection,
 )
-from .dataset import LM_SFT_PADDED_DATASET, LMSFTDatasetConfig
 
+from .dataset import LM_SFT_PADDED_DATASET, LMSFTDatasetConfig
 
 
 @dataclass(kw_only=True)
@@ -128,7 +128,7 @@ class LMSFTConfig:
             keep_checkpoint_every_n_steps=4000,
             publish_metrics_every_n_steps=10,
             export_hugging_face=True,
-            save_model_only="all_but_last"
+            save_model_only="all_but_last",
         )
     )
 

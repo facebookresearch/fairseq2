@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Final, cast, final
 
 import torch
+
 from fairseq2.assets import HuggingFaceHub
 from fairseq2.data import (
     CollateOptionsOverride,
@@ -37,7 +38,6 @@ from .utils import (
     StaticBatching,
     load_files_and_weights,
 )
-
 
 LM_SFT_PADDED_DATASET: Final = "lm_sft_padded"
 
@@ -161,7 +161,7 @@ class LMSFTDataset:
         max_seq_len: int,
         options: DataReadOptions | None = None,
     ) -> DataPipelineReader[SequenceBatch]:
-        
+
         files_weights = self._splits.get(split)
         if files_weights is None:
             raise ValueError(f"files_weights for split '{split}' is None")
@@ -333,10 +333,10 @@ class LMSFTDatasetConfig:
 def open_lm_sft_dataset(config: LMSFTDatasetConfig) -> LMSFTDataset:
     name = "default"  # FIXME
     splits: dict[str, tuple[Sequence[Path], Sequence[float]]] = {}
-    
+
     if config.path is None:
         raise ValueError("config.path cannot be None")
-    
+
     uri = Uri.maybe_parse(config.path)
     if uri and uri.scheme == "hg":
         path = HuggingFaceHub().download_dataset(uri, config.path)
