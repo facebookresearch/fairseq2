@@ -127,7 +127,8 @@ class LMSFTConfig:
             keep_last_n_checkpoints=3,
             keep_checkpoint_every_n_steps=4000,
             publish_metrics_every_n_steps=10,
-            export_hugging_face = True
+            export_hugging_face=True,
+            save_model_only="all_but_last"
         )
     )
 
