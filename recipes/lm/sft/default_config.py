@@ -31,7 +31,7 @@ from .dataset import LM_SFT_PADDED_DATASET, LMSFTDatasetConfig
 
 
 @dataclass(kw_only=True)
-class InstructionFinetuneDatasetSection(DatasetSection):
+class LMSFTDatasetSection(DatasetSection):
     path: str | None = None
 
     train_split: str = "sft_train"
@@ -137,8 +137,8 @@ class LMSFTConfig:
         )
     )
 
-    dataset: InstructionFinetuneDatasetSection = field(
-        default_factory=lambda: InstructionFinetuneDatasetSection(
+    dataset: LMSFTDatasetSection = field(
+        default_factory=lambda: LMSFTDatasetSection(
             family=LM_SFT_PADDED_DATASET,
             config_overrides=LMSFTDatasetConfig(),
         )
