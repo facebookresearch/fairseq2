@@ -76,7 +76,7 @@ Each model family provides a hub that exposes advanced functionality beyond simp
     from pathlib import Path
     custom_model = hub.load_custom_model(Path("/path/to/checkpoint.pt"), config)
 
-For detailed information on all hub capabilities, see :doc:`/reference/api/models/hub`.
+For detailed information on all hub capabilities, see :doc:`/reference/models/hub`.
 
 Step-by-Step Guide: Adding a Model to Existing Family
 -----------------------------------------------------
