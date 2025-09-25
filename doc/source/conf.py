@@ -65,9 +65,10 @@ autodoc_class_signature = "mixed"
 autodoc_default_options = {
     "members": True,
     "show-inheritance": True,
+    "undoc-members": True,
 }
 autodoc_member_order = "bysource"
-autodoc_typehints = "description"
+autodoc_typehints = "signature"
 autodoc_typehints_description_target = "documented_params"
 autodoc_typehints_format = "short"
 

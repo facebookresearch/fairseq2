@@ -22,7 +22,7 @@ Interface/Implementation Convention
 
 .. currentmodule:: fairseq2.nn
 
-The diagram below shows the :doc:`position encoder API </reference/api/nn/position_encoder>`
+The diagram below shows the :doc:`position encoder API </reference/nn/position_encoder>`
 as an example. The API is defined by the abstract :class:`PositionEncoder`
 PyTorch module. :class:`SinusoidalPositionEncoder`, :class:`LearnedPositionEncoder`,
 and :class:`RotaryEncoder` implement :class:`PositionEncoder` for their
@@ -228,5 +228,4 @@ This flow demonstrates several key concepts:
 See Also
 =========
 
-* :doc:`/reference/api/index` - API reference
 * :doc:`/news/whats_new_v0_5` - What's new in v0.5 including DI improvements

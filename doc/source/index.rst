@@ -15,45 +15,64 @@ other content generation tasks.
 
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Latest News
+    :maxdepth: 1
+    :caption: Latest News
 
-   news/whats_new_v0_5
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Getting Started
-
-   getting_started/installation/index
+    news/whats_new_v0_5
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Basics
+    :maxdepth: 1
+    :caption: Getting Started
 
-   basics/design_philosophy
-   basics/assets
-   basics/building_recipes
-   basics/runtime_extension
+    getting_started/installation/index
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Tutorials
+    :maxdepth: 1
+    :caption: Basics
 
-   tutorials/add_model
-   tutorials/pudb
-
-.. toctree::
-   :maxdepth: 1
-   :caption: FAQ
-
-   faq/contributing
+    basics/design_philosophy
+    basics/assets
+    basics/building_recipes
+    basics/runtime_extension
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Reference
+    :maxdepth: 1
+    :caption: Guides
 
-   reference/api/index
-   reference/bibliography
+    guides/add_model
+    guides/pudb
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Concepts
+
+    Gangs <concepts/gangs>
+
+.. toctree::
+    :maxdepth: 1
+    :caption: API Reference
+
+    reference/assets
+    reference/checkpoint
+    reference/data/index
+    reference/datasets/index
+    reference/device
+    reference/fairseq2.gang
+    reference/fairseq2.recipe.optim
+    reference/fairseq2.utils.validation
+    reference/logging
+    reference/metrics
+    reference/models/index
+    reference/nn/index
+    reference/optim
+    reference/recipe
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Other
+
+    other/contributing
+    other/bibliography
 
 
 Indices and tables

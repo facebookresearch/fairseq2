@@ -25,5 +25,5 @@ utilities for efficient neural network operations.
 See Also
 --------
 
-* :doc:`/reference/api/models/index` - Pre-trained model architectures
-* :doc:`/reference/api/data/index` - Data processing pipelines
+* :doc:`/reference/models/index` - Pre-trained model architectures
+* :doc:`/reference/data/index` - Data processing pipelines
