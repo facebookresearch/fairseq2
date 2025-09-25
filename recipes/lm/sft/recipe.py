@@ -61,14 +61,6 @@ class LMSFTRecipe(TrainRecipe):
         dataset = context.default_dataset.as_(LMSFTDataset)
 
         seed = config.common.seed
-        device = get_default_device()
-
-        if device.type == "cuda":
-            torch.cuda.set_device(device)
-
-        rng_bag = RngBag.from_device_defaults(CPU, device)
-
-        rng_bag.manual_seed(seed)
 
         seed += 1
 
