@@ -26,6 +26,7 @@ from fairseq2.recipe.model import RecipeModel
 from fairseq2.recipe.trainer import Trainer, TrainUnit
 from fairseq2.runtime.dependency import DependencyContainer
 
+from .config import LMSFTConfig
 from .dataset import (
     LM_SFT_PADDED_DATASET,
     DataReadOptions,
@@ -33,7 +34,6 @@ from .dataset import (
     LMSFTDatasetConfig,
     open_lm_sft_dataset,
 )
-from .config import LMSFTConfig
 from .utils import Batching, LengthBatching, StaticBatching
 
 
