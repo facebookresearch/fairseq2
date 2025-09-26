@@ -8,8 +8,8 @@ The SFT recipe is designed to finetune language models to follow instructions by
 
 ## Key Features
 
-- **Flexible Data Loading**: Support for both local files and HuggingFace Hub datasets
-- **Chat Mode**: Built-in support for chat templates (compatible with LLaMA-style chat formats)
+- **Flexible Data Loading**: Support for both local files and Hugging Face Hub datasets
+- **Chat Mode**: Built-in support for chat templates (compatible with Hugging Face chat templates)
 - **Dynamic Batching**: Static batching or length-based batching for efficient training
 - **Distributed Training**: Full support for multi-GPU and multi-node training
 
