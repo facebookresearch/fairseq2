@@ -19,38 +19,38 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Sequence
-from typing import final
+from dataclasses import dataclass, fields
 
 from torch import Tensor
 from torch.nn import Parameter
 
 from fairseq2.logging import log
+from fairseq2.recipe.config import ParameterGroupConfig, default
 from fairseq2.recipe.model import RecipeModel
 from fairseq2.utils.validation import ValidationError
 
 
 def prepare_parameter_groups(
-    model: RecipeModel, groups: Sequence[ParameterGroup]
+    model: RecipeModel, group_configs: Sequence[ParameterGroupConfig]
 ) -> Iterable[Tensor] | Iterable[dict[str, object]]:
     """
-    A helper function for recipe optimizer factories that prepares the parameter
-    groups to pass to the optimizer.
+    Prepares the parameter groups to pass to an optimizer based on the specified
+    model and group recipe configurations.
 
-    :param model: The model that will be passed to the optimizer.
-    :param groups: The list of groups from which to extract the parameters and
-        other ``kwargs`` to pass to the optimizer.
+    Returns an :class:`Iterable` that can be passed as an argument to the
+    ``params`` parameter of a PyTorch :class:`Optimizer`.
 
-    :returns: An :class:`Iterable` that can be passed as an argument to the
-        ``params`` parameter of a PyTorch :class:`Optimizer`.
+    Fields in `group_configs` whose value is set to :data:`default` will use the
+    default configuration in the corresponding top-level configuration. For
+    instance, if :attr:`AdamWGroupConfig.betas` is set to :data:`default`, the
+    optimizer will use the value of :attr:`AdamWConfig.betas`.
 
-    .. note::
+    Note that the order of groups is important when determining which parameter
+    belongs to which group. Each parameter is assigned to the first group in the
+    list that matches its name; therefore, it is essential to list the groups in
+    the correct order.
 
-        Note that the order of groups is important when determining which
-        parameter belongs to which group. Each parameter is assigned to the
-        first group in the list that matches its name; therefore, it is
-        essential to list the groups in the correct order.
-
-    .. code-block:: python
+    .. code:: python
         :caption: An example use of ``prepare_parameter_groups``
 
         from collections.abc import Sequence
@@ -60,8 +60,8 @@ def prepare_parameter_groups(
 
         from fairseq2.recipe import RecipeModel, TrainRecipe
         from fairseq2.recipe.component import register_component
-        from fairseq2.recipe.config import Default
-        from fairseq2.recipe.optim import ParameterGroup, prepare_parameter_groups
+        from fairseq2.recipe.config import Default, ParameterGroupConfig, default
+        from fairseq2.recipe.optim import prepare_parameter_groups
         from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 
         @dataclass
@@ -79,16 +79,13 @@ def prepare_parameter_groups(
 
 
         @dataclass
-        class MyOptimizerGroupConfig:
+        class MyOptimizerGroupConfig(ParameterGroupConfig):
             \"\"\"The parameter group configuration of MyOptimizer.\"\"\"
 
-            params: str | Sequence[str] = ".*"
-            \"\"\"The regular expression(s) to select the parameters belonging to this group.\"\"\"
-
-            lr: float | Default = "default"
+            lr: float | Default = default
             \"\"\"If specified, overrides the top-level value.\"\"\"
 
-            betas: tuple[float, float] | Default = "default"
+            betas: tuple[float, float] | Default = default
             \"\"\"If specified, overrides the top-level value.\"\"\"
 
 
@@ -101,13 +98,9 @@ def prepare_parameter_groups(
         ) -> MyOptimizer:
             model = resolver.resolve(RecipeModel)
 
-            # The list of configuration fields that parameter groups can override.
-            fields = ["lr", "betas"]
-
-            groups = [ParameterGroup(g.params, g, fields) for g in config.groups]
-
-            # Converts groups to a form that can be passed to the optimizer.
-            parameters = prepare_parameter_groups(model, groups)
+            # Converts group configurations to an iterable of parameter groups
+            # that can be passed to an optimizer.
+            parameters = prepare_parameter_groups(model, config.groups)
 
             # Initialize the optimizer with `parameters`.
             return MyOptimizer(parameters, config.lr, config.betas)
@@ -125,31 +118,55 @@ def prepare_parameter_groups(
 
             ...
     """
-    # If we don't have any parameter group descriptors, take the shortcut and
+    # If we don't have any parameter group configurations, take the shortcut and
     # return the entire parameter list of the model as a single group.
-    if not groups:
+    if not group_configs:
         return model.module.parameters()
 
-    groups = list(groups)
+    groups = []
 
-    # Represents the fall-back group that holds the parameters whose name do not
-    # match any pattern in `groups`.
-    group = ParameterGroup([".*"], {}, [])
+    for config in group_configs:
+        name_patterns = config.params
+        if isinstance(name_patterns, str):
+            name_patterns = [name_patterns]
+
+        kwargs: dict[str, object] = {}
+
+        for field in fields(config):
+            if field.name == "params":
+                continue
+
+            value = getattr(config, field.name)
+            if value == default:
+                continue
+
+            kwargs[field.name] = value
+
+        group = _ParameterGroup(name_patterns, kwargs, [], [])
+
+        groups.append(group)
+
+    # Represents the fall-back group that holds the parameters whose names do
+    # not match any group patterns.
+    group = _ParameterGroup([".*"], {}, [], [])
 
     groups.append(group)
 
-    for param_name, param in model.module.named_parameters():
+    for name, param in model.module.named_parameters():
         for group in groups:
-            if group.is_match(param_name):
-                group.add_parameter(param_name, param)
+            if any(name == p or re.match(p, name) for p in group.name_patterns):
+                group.params.append(param)
+
+                group.param_names.append(name)
 
                 break
 
     output: list[dict[str, object]] = []
 
     for idx, group in enumerate(groups):
-        if not group.empty:
-            if group.is_fallback:
+        if not group.params:
+            # If `True`, means fall-back group.
+            if len(group.name_patterns) == 1 and group.name_patterns[0] == ".*":
                 continue
 
             log.warning("Optimizer parameter group {} is empty.", idx)
@@ -158,105 +175,35 @@ def prepare_parameter_groups(
 
             log.info("Optimizer Parameter Group {}: {}", idx, s)
 
-        kwargs = group.get_kwargs()
-
-        output.append(kwargs)
+        output.append(group.kwargs)
 
     return output
 
 
-@final
-class ParameterGroup:
-    """
-    Represents an optimizer parameter group, used as input to the
-    :func:`prepare_parameter_groups` function.
-    """
+# Used by `prepare_parameter_groups` for internal bookkeeping.
+@dataclass
+class _ParameterGroup:
+    name_patterns: Sequence[str]
+    kwargs: dict[str, object]
+    params: list[Parameter]
+    param_names: list[str]
 
-    def __init__(
-        self, name_patterns: str | Sequence[str], config: object, fields: Sequence[str]
-    ) -> None:
-        """
-        :param name_patterns: The regular expression(s) used to select the
-            parameters that belong to this group.
-        :param config: An opaque object -*typically a dataclass*- that holds the
-            configuration of this group.
-        :param fields: The names of the configuration fields that ``config``
-            holds. Any field that has a non-default value will be passed as a
-            group ``kwarg`` to the optimizer.
-        """
-        if isinstance(name_patterns, str):
-            name_patterns = [name_patterns]
-
-        self._name_patterns = name_patterns
-        self._config = config
-        self._fields = fields
-        self._params: list[Parameter] = []
-        self._param_names: list[str] = []
-
-    def is_match(self, name: str) -> bool:
-        """
-        Returns ``True`` if ``name`` matches one of the name patterns of this
-        group.
-
-        :param name: The name to check.
-        """
-        return any(name == p or re.match(p, name) for p in self._name_patterns)
-
-    def add_parameter(self, param_name: str, param: Parameter) -> None:
-        """
-        Adds ``param`` to this group.
-
-        :param param_name: The name of the parameter, used for logging and error
-            reporting purposes.
-        :param param: The parameter tensor.
-        """
-        self._params.append(param)
-
-        self._param_names.append(param_name)
-
-    def get_kwargs(self) -> dict[str, object]:
-        """Returns the group ``kwargs`` to be passed to the optimizer."""
-        kwargs: dict[str, object] = {"params": self._params}
-
-        for field in self._fields:
-            value = getattr(self._config, field)
-            if value != "default":
-                kwargs[field] = value
-
-        return kwargs
-
-    @property
-    def param_names(self) -> Iterable[str]:
-        """Gets the names of the parameters belonging to this group."""
-        return self._param_names
-
-    @property
-    def empty(self) -> bool:
-        """Gets whether this group has no parameters."""
-        return bool(self._params)
-
-    @property
-    def is_fallback(self) -> bool:
-        """Gets whether this is a catch-all fallback group."""
-        return len(self._name_patterns) == 1 and self._name_patterns[0] == ".*"
+    def __post_init__(self) -> None:
+        self.kwargs["params"] = self.params
 
 
 def maybe_raise_param_group_length_error(
     field: str, value: Sequence[object], num_param_groups: int
 ) -> None:
     """
-    A helper function that raises :class:`~fairseq2.utils.validation.ValidationError`
-    if the length of a learning rate scheduler configuration field (``len(value)``)
-    does not match the number of optimizer parameter groups (``num_param_groups``).
+    Raises :class:`~fairseq2.utils.validation.ValidationError` if the length of
+    a learning rate scheduler configuration field (i.e. ``len(value)``) does not
+    match the number of optimizer parameter groups.
 
-    :param field: The name of the configuration field that holds ``value``.
-    :param value: The value whose length to check.
-    :param num_param_groups: The number of optimizer parameter groups.
+    :raises ~fairseq2.utils.validation.ValidationError: If ``len(value)`` does
+        not match ``num_param_groups``.
 
-    :raises ~fairseq2.utils.validation.ValidationError: ``len(value)`` does not
-        match ``num_param_groups``.
-
-    .. code-block:: python
+    .. code:: python
         :caption: A basic use of ``maybe_raise_param_group_length_error``
 
         from torch.optim import Optimizer

@@ -4,6 +4,10 @@ All notable changes to fairseq2 are documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [0.6.0] - TBD
+- The optimizer and learning rate scheduler recipe configurations now support
+  multiple parameter groups. This is in particular convenient for models that
+  require more than one learning rate to train (e.g. GAN models). Check out
+  [this PR](https://github.com/facebookresearch/fairseq2/pull/1332) for details.
 - The `regime.save_model_only` recipe option now accepts 'all' and 'all_but_last'
   as alternatives to a boolean value. Setting the option to 'all' is equivalent
   to `True` and means that only the model state is saved during checkpointing.

@@ -59,8 +59,36 @@ class SupportsStructure(ABC):
 Default: TypeAlias = Literal["default"]
 """
 Indicates that the default value of a particular configuration field, as defined
-in a higher-level configuration, should be used. See :class:`AdamWGroupConfig`
+in a higher-level configuration, can be used. See :class:`AdamWGroupConfig`
 as an example.
+"""
+
+default: Final = "default"
+"""
+The singleton sentinel value assignable to a field of type ``Default``
+indicating that the default value must be used.
+
+.. code:: python
+
+    from dataclasses import dataclass, field
+
+    from fairseq2.recipe.config import Default, default
+
+    @dataclass(kw_only=True)
+    class MyOptimizerConfig:
+        lr: float = 0.01
+        \"\"\"The top-level, default learning rate.\"\"\"
+
+        groups: list[MyOptimizerGroupConfig] = field(default_factory=list)
+        \"\"\"The parameter groups.\"\"\"
+
+    @dataclass(kw_only=True)
+    class MyOptimizerGroupConfig:
+        lr: float | Default = default
+        \"\"\"
+        The learning rate of the parameter group. If ``default``, uses 0.01 as
+        specified in ``MyOptimizerConfig``.
+        \"\"\"
 """
 
 
@@ -720,6 +748,22 @@ class OptimizerSection(SupportsStructure):
 
 
 @dataclass(kw_only=True)
+class ParameterGroupConfig:
+    """
+    Represents the configuration of an optimizer parameter group.
+
+    This configuration is meant to be subclassed and extended with additional
+    fields for a particular optimizer. For an example, see :class:`AdamWGroupConfig`.
+    """
+
+    params: str | Sequence[str] = ".*"
+    """
+    The regular expression(s) used to select the parameters that belong to this
+    group.
+    """
+
+
+@dataclass(kw_only=True)
 class AdamWConfig:
     """Represents the configuration of :class:`AdamW`."""
 
@@ -762,28 +806,22 @@ class AdamWConfig:
 
 
 @dataclass(kw_only=True)
-class AdamWGroupConfig:
+class AdamWGroupConfig(ParameterGroupConfig):
     """Represents the configuration of an :class:`AdamW` parameter group."""
 
-    params: str | Sequence[str] = ".*"
-    """
-    The regular expression(s) used to select the parameters that belong to this
-    group.
-    """
-
-    lr: float | Default = "default"
+    lr: float | Default = default
     """The learning rate."""
 
-    betas: tuple[float, float] | Default = "default"
+    betas: tuple[float, float] | Default = default
     """
     The coefficients used for computing running averages of gradient and its
     square.
     """
 
-    eps: float | Default = "default"
+    eps: float | Default = default
     """The term added to the denominator to improve numerical stability."""
 
-    weight_decay: float | Default = "default"
+    weight_decay: float | Default = default
     """The weight decay coefficient."""
 
 
@@ -834,35 +872,29 @@ class AdafactorConfig:
 
 
 @dataclass(kw_only=True)
-class AdafactorGroupConfig:
+class AdafactorGroupConfig(ParameterGroupConfig):
     """Represents the configuration of an :class:`Adafactor` parameter group."""
 
-    params: str | Sequence[str] = ".*"
-    """
-    The regular expression(s) used to select the parameters that belong to this
-    group.
-    """
-
-    lr: float | Default = "default"
+    lr: float | Default = default
     """The learning rate."""
 
-    beta2_decay: float | Default = "default"
+    beta2_decay: float | Default = default
     """
-    The decay rate of beta2. beta2 standardly refers to the coefficient used for
-    computing the running average of the gradient squared.
+    The decay rate of beta2. beta2 refers to the coefficient used for computing
+    the running average of the gradient squared.
     """
 
-    eps: tuple[float | None, float] | Default = "default"
+    eps: tuple[float | None, float] | Default = default
     """
     epsilon1 is the term added to the denominator of the update calculation to
     improve numerical stability. epsilon2 is the term used to avoid having too
     small a weight update when applying parameter scaling.
     """
 
-    d: float | Default = "default"
+    d: float | Default = default
     """The clipping threshold, used to avoid larger-than-desired updates."""
 
-    weight_decay: float | Default = "default"
+    weight_decay: float | Default = default
     """The weight decay coefficient."""
 
 

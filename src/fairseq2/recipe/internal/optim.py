@@ -15,7 +15,7 @@ from fairseq2.recipe.component import ComponentManager, ComponentNotKnownError
 from fairseq2.recipe.config import AdafactorConfig, AdamWConfig, OptimizerSection
 from fairseq2.recipe.error import OptimizerNotKnownError
 from fairseq2.recipe.model import RecipeModel
-from fairseq2.recipe.optim import ParameterGroup, prepare_parameter_groups
+from fairseq2.recipe.optim import prepare_parameter_groups
 
 
 @final
@@ -47,11 +47,7 @@ class _AdamWFactory:
         self._model = model
 
     def create(self, config: AdamWConfig) -> Optimizer:
-        fields = ["lr", "betas", "eps", "weight_decay"]
-
-        parameters = prepare_parameter_groups(
-            self._model, [ParameterGroup(c.params, c, fields) for c in config.groups]
-        )
+        parameters = prepare_parameter_groups(self._model, config.groups)
 
         kwargs = {}
 
@@ -82,11 +78,7 @@ class _AdafactorFactory:
         self._model = model
 
     def create(self, config: AdafactorConfig) -> Optimizer:
-        fields = ["lr", "beta2_decay", "eps", "d", "weight_decay"]
-
-        parameters = prepare_parameter_groups(
-            self._model, [ParameterGroup(c.params, c, fields) for c in config.groups]
-        )
+        parameters = prepare_parameter_groups(self._model, config.groups)
 
         return Adafactor(
             parameters,

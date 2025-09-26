@@ -11,16 +11,16 @@ from dataclasses import dataclass
 from itertools import chain
 from typing import Any
 
-from fairseq2.recipe.config import Default
-from fairseq2.recipe.optim import ParameterGroup, prepare_parameter_groups
+from fairseq2.recipe.config import Default, ParameterGroupConfig, default
+from fairseq2.recipe.optim import prepare_parameter_groups
 from tests.unit.recipe.helpers import create_foo_model
 
 
-@dataclass
-class FooParamGroupConfig:
-    lr: float | Default = "default"
-    betas: tuple[float, float] | Default = "default"
-    weight_decay: float | Default = "default"
+@dataclass(kw_only=True)
+class FooParamGroupConfig(ParameterGroupConfig):
+    lr: float | Default = default
+    betas: tuple[float, float] | Default = default
+    weight_decay: float | Default = default
 
 
 class TestPrepareParameterGroups:
@@ -29,17 +29,14 @@ class TestPrepareParameterGroups:
 
         model = create_foo_model()
 
-        fields = ["lr", "betas", "weight_decay"]
-
-        config1 = FooParamGroupConfig(lr=0.1)
-        config2 = FooParamGroupConfig(lr=0.2, weight_decay=0.3)
-
-        groups = [
-            ParameterGroup(r"proj1\..*", config1, fields),
-            ParameterGroup([r"proj2\.weight", r"proj2\.bias"], config2, fields),
+        configs = [
+            FooParamGroupConfig(params=r"proj1\..*", lr=0.1),
+            FooParamGroupConfig(
+                params=[r"proj2\.weight", r"proj2\.bias"], lr=0.2, weight_decay=0.3
+            ),
         ]
 
-        parameters = list(prepare_parameter_groups(model, groups))
+        parameters = list(prepare_parameter_groups(model, configs))
 
         assert len(parameters) == 3
 
@@ -80,7 +77,7 @@ class TestPrepareParameterGroups:
 
         model = create_foo_model()
 
-        parameters = prepare_parameter_groups(model, groups=[])
+        parameters = prepare_parameter_groups(model, [])
 
         assert list(parameters) == list(model.module.parameters())
 
@@ -91,17 +88,12 @@ class TestPrepareParameterGroups:
 
         model = create_foo_model()
 
-        fields = ["lr", "betas", "weight_decay"]
-
-        config1 = FooParamGroupConfig(lr=0.1)
-        config2 = FooParamGroupConfig(lr=0.2, weight_decay=0.3)
-
-        groups = [
-            ParameterGroup(r"proj1\..*", config1, fields),
-            ParameterGroup(r"proj.*", config2, fields),
+        configs = [
+            FooParamGroupConfig(params=r"proj1\..*", lr=0.1),
+            FooParamGroupConfig(params=r"proj.*", lr=0.2, weight_decay=0.3),
         ]
 
-        parameters = list(prepare_parameter_groups(model, groups))
+        parameters = list(prepare_parameter_groups(model, configs))
 
         assert len(parameters) == 2
 
@@ -139,17 +131,12 @@ class TestPrepareParameterGroups:
 
         model = create_foo_model()
 
-        fields = ["lr", "betas", "weight_decay"]
-
-        config1 = FooParamGroupConfig(lr=0.1)
-        config2 = FooParamGroupConfig(lr=0.2, weight_decay=0.3)
-
-        groups = [
-            ParameterGroup(r"proj1\..*", config1, fields),
-            ParameterGroup(r"proj4\..*", config2, fields),
+        configs = [
+            FooParamGroupConfig(params=r"proj1\..*", lr=0.1),
+            FooParamGroupConfig(params=r"proj4\..*", lr=0.2, weight_decay=0.3),
         ]
 
-        parameters = list(prepare_parameter_groups(model, groups))
+        parameters = list(prepare_parameter_groups(model, configs))
 
         assert len(parameters) == 3
 
