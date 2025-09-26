@@ -6,6 +6,8 @@ This directory contains the implementation for supervised fine-tuning of languag
 
 The SFT recipe is designed to finetune language models to follow instructions by learning from prompt-response pairs.
 
+This recipe supports both Llama and Qwen model families.
+
 ## Key Features
 
 - **Flexible Data Loading**: Support for both local files and Hugging Face Hub datasets
@@ -18,8 +20,11 @@ The SFT recipe is designed to finetune language models to follow instructions by
 ### Basic Usage
 
 ```bash
-# Run with a pre-configured setup
-python -m fairseq2.recipes.lm.sft --config-name llama3_2_1b_gsm8k
+# Run with a pre-configured Llama setup
+python -m fairseq2.recipes.lm.sft --config-name recipes/lm/sft/configs/llama3_2_1b_gsm8k.yaml
+
+# Run with a pre-configured Qwen setup
+python -m fairseq2.recipes.lm.sft --config-name recipes/lm/sft/configs/qwen3_4b_gsm8k.yaml
 
 # Run with custom config file")
 python -m fairseq2.recipes.lm.sft --config-file path/to/your/config.yaml

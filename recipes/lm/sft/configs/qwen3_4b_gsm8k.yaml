@@ -1,0 +1,35 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+dataset:
+  valid_split: "sft_test"
+  train_split: "sft_train"
+  batch_size: 16
+  chat_mode: true
+  config_overrides:
+    path: "hg://facebook/fairseq2-lm-gsm8k"
+model:
+  family: "qwen"
+  name: "qwen3_4b"
+tokenizer:
+  family: "qwen"
+  name: "qwen3_4b"
+  config_overrides:
+    use_im_end: false
+common:
+  metric_recorders:
+    wandb:
+      enabled: True
+      project: "fairseq2"
+      run_name: "test_qwen3_4b_sft_gsm8k"
+regime:
+  num_steps: 100000
+  checkpoint_every_n_steps: 100
+  validate_every_n_steps: 100
+  checkpoint_every_n_data_epochs: 100
+  keep_last_n_checkpoints: 10
+  publish_metrics_every_n_steps: 1
+  save_model_only: false
