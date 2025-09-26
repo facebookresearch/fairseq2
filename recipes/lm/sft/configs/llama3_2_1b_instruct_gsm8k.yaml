@@ -22,7 +22,7 @@ common:
     wandb:
       enabled: True
       project: "fairseq2"
-      run_name: "test_llama3_2_1b_sft_gsm8k"
+      run_name: "sft_llama3_2_1b_instruct_gsm8k"
 regime:
   num_steps: 100000
   checkpoint_every_n_steps: 100
