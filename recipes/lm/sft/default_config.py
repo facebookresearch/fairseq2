@@ -82,6 +82,8 @@ class LMSFTDatasetSection(DatasetSection):
 class LMSFTConfig:
     model: ModelSection = field(
         default_factory=lambda: ModelSection(
+            family="llama",
+            name="llama3_2_1b",
             compile=False,
             compile_options=CompileOptions(fullgraph=True, dynamic=False),
         )
@@ -89,7 +91,8 @@ class LMSFTConfig:
 
     tokenizer: TokenizerSection = field(
         default_factory=lambda: TokenizerSection(
-            name="llama3",
+            family="llama",
+            name="llama3_2_1b",
             config_overrides=LLaMATokenizerConfig(impl="hg", use_eot=True),
         )
     )
