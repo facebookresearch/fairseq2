@@ -33,7 +33,7 @@ from .dataset import (
     LMSFTDatasetConfig,
     open_lm_sft_dataset,
 )
-from .default_config import LMSFTConfig
+from .config import LMSFTConfig
 from .utils import Batching, LengthBatching, StaticBatching
 
 

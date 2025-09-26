@@ -143,6 +143,8 @@ class LMSFTConfig:
     dataset: LMSFTDatasetSection = field(
         default_factory=lambda: LMSFTDatasetSection(
             family=LM_SFT_PADDED_DATASET,
-            config_overrides=LMSFTDatasetConfig(),
+            train_split="sft_train",
+            batch_size=16,
+            config_overrides=LMSFTDatasetConfig(path="hg://facebook/fairseq2-lm-gsm8k"),
         )
     )
