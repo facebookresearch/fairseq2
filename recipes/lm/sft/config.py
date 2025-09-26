@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from fairseq2.models.llama.tokenizer import LLaMATokenizerConfig as LLaMATokenizerConfig
-from fairseq2.models.qwen.tokenizer import QwenTokenizerConfig as QwenTokenizerConfig
 from fairseq2.recipe.config import (
     ADAMW_OPTIMIZER,
     COSINE_ANNEALING_LR,
@@ -94,7 +92,6 @@ class LMSFTConfig:
         default_factory=lambda: TokenizerSection(
             family="llama",
             name="llama3_2_1b",
-            config_overrides=LLaMATokenizerConfig(impl="hg"),
         )
     )
 
