@@ -289,6 +289,9 @@ class LMSFTDataset:
             "target_mask", pad_value=False
         )
 
+        if tokenizer.vocab_info.pad_idx is None:
+            raise RuntimeError(f"LMSFTDataset requires pad token to work for batching purposes, check your tokenizer config.")
+ 
         collater = Collater(
             pad_value=tokenizer.vocab_info.pad_idx, overrides=[target_mask_collate_opts]
         )
