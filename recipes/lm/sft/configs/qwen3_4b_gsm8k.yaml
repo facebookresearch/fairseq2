@@ -15,10 +15,7 @@ model:
   family: "qwen"
   name: "qwen3_4b"
 tokenizer:
-  family: "qwen"
   name: "qwen3_4b"
-  config_overrides:
-    use_im_end: false
 common:
   metric_recorders:
     wandb:
