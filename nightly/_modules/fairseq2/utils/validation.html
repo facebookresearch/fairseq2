@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
-        <title>fairseq2.recipe.optim - fairseq2 Documentation</title>
+        <title>fairseq2.utils.validation - fairseq2 Documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
@@ -309,7 +309,7 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <h1>Source code for fairseq2.recipe.optim</h1><div class="highlight"><pre>
+          <h1>Source code for fairseq2.utils.validation</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
 <span class="c1"># All rights reserved.</span>
 <span class="c1">#</span>
@@ -317,58 +317,322 @@
 <span class="c1"># LICENSE file in the root directory of this source tree.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">This module provides helper functions to add support for new optimizers and</span>
-<span class="sd">learning rate schedulers in recipes.</span>
+<span class="sd">This module provides a set of helper types for object state validation. These</span>
+<span class="sd">types are primarly used by recipe and asset configuration dataclasses to ensure</span>
+<span class="sd">that all options are set correctly.</span>
+
+<span class="sd">A class -*typically a configuration dataclass*- that wants to support validation</span>
+<span class="sd">should expose a ``validate(self) -&gt; ValidationResult`` method. Optionally,</span>
+<span class="sd">the class can derive from the runtime-checkable :class:`Validatable` protocol</span>
+<span class="sd">to make its intent more clear.</span>
+
+<span class="sd">A typical implementation of a ``validate()`` method looks like the following:</span>
+
+<span class="sd">.. code-block:: python</span>
+
+<span class="sd">    from dataclasses import dataclass</span>
+
+<span class="sd">    from fairseq2.utils.validation import Validatable, ValidationResult</span>
+
+<span class="sd">    @dataclass</span>
+<span class="sd">    class FooConfig(Validatable):</span>
+<span class="sd">        field1: str</span>
+<span class="sd">        field2: int</span>
+
+<span class="sd">        def validate(self) -&gt; ValidationResult:</span>
+<span class="sd">            result = ValidationResult()</span>
+
+<span class="sd">            if not self.field1:</span>
+<span class="sd">                result.add_error(&quot;`field1` must be a non-empty string.&quot;)</span>
+
+<span class="sd">            if self.field2 &lt; 1:</span>
+<span class="sd">                result.add_error(&quot;`field2` must be a positive integer.&quot;)</span>
+
+<span class="sd">            return result</span>
+
+
+<span class="sd">Note that ``FooConfig`` must NOT call ``validate()`` on its sub-fields that are</span>
+<span class="sd">validatable. :class:`ObjectValidator` is responsible for traversing the object</span>
+<span class="sd">graph and call each ``validate()`` method it finds in dataclasses, as well as in</span>
+<span class="sd">composite objects of types ``list``, ``Mapping``, ``Set``, and ``tuple``.</span>
+
+<span class="sd">Whenever ``FooConfig`` is used in a recipe configuration, fairseq2 will ensure</span>
+<span class="sd">that it is validated before setting :attr:`RecipeContext.config`. To manually</span>
+<span class="sd">validate an object outside of recipes, :class:`StandardObjectValidator` can</span>
+<span class="sd">be used:</span>
+
+<span class="sd">.. code-block:: python</span>
+
+<span class="sd">    from dataclasses import dataclass</span>
+
+<span class="sd">    from fairseq2.utils.validation import (</span>
+<span class="sd">        ObjectValidator,</span>
+<span class="sd">        StandardObjectValidator,</span>
+<span class="sd">        Validatable,</span>
+<span class="sd">        ValidationError,</span>
+<span class="sd">        ValidationResult,</span>
+<span class="sd">    )</span>
+
+<span class="sd">    @dataclass</span>
+<span class="sd">    class FooConfig(Validatable):</span>
+<span class="sd">        field1: str</span>
+<span class="sd">        field2: int</span>
+
+<span class="sd">        def validate(self) -&gt; ValidationResult:</span>
+<span class="sd">            result = ValidationResult()</span>
+
+<span class="sd">            if not self.field1:</span>
+<span class="sd">                result.add_error(&quot;`field1` must be a non-empty string.&quot;)</span>
+
+<span class="sd">            if self.field2 &lt; 1:</span>
+<span class="sd">                result.add_error(&quot;`field2` must be a positive integer.&quot;)</span>
+
+<span class="sd">            return result</span>
+
+<span class="sd">    config = FooConfig(field1=&quot;foo&quot;, field2=0)</span>
+
+<span class="sd">    validator: ObjectValidator = StandardObjectValidator()</span>
+
+<span class="sd">    try:</span>
+<span class="sd">        validator.validate(config)</span>
+<span class="sd">    except ValidationError as ex:</span>
+<span class="sd">        # Prints an error message indicating that `field2` must be a</span>
+<span class="sd">        # positive integer.</span>
+<span class="sd">        print(ex.result)</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Set</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">fields</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">final</span><span class="p">,</span> <span class="n">runtime_checkable</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.validation</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidationError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_dataclass_instance</span>
 
 
-<div class="viewcode-block" id="maybe_raise_param_group_length_error">
-<a class="viewcode-back" href="../../../reference/api/fairseq2.recipe.optim.html#fairseq2.recipe.optim.maybe_raise_param_group_length_error">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">maybe_raise_param_group_length_error</span><span class="p">(</span>
-    <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">object</span><span class="p">],</span> <span class="n">num_param_groups</span><span class="p">:</span> <span class="nb">int</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="ObjectValidator">
+<a class="viewcode-back" href="../../../reference/api/fairseq2.utils.validation.html#fairseq2.utils.validation.ObjectValidator">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ObjectValidator</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    A helper function that raises :class:`~fairseq2.utils.validation.ValidationError`</span>
-<span class="sd">    if the length of a learning rate scheduler configuration field (``len(value)``)</span>
-<span class="sd">    does not match the number of optimizer parameter groups (``num_param_groups``).</span>
-
-<span class="sd">    :param field: The name of the configuration field that holds ``value``.</span>
-<span class="sd">    :param value: The value whose length to check.</span>
-<span class="sd">    :param num_param_groups: The number of optimizer parameter groups.</span>
-
-<span class="sd">    :raises ~fairseq2.utils.validation.ValidationError: if ``len(value)`` does</span>
-<span class="sd">        not match ``num_param_groups``.</span>
-
-<span class="sd">    .. code-block:: python</span>
-<span class="sd">        :caption: A basic use of ``maybe_raise_param_group_length_error``</span>
-
-<span class="sd">        from torch.optim import Optimizer</span>
-
-<span class="sd">        from fairseq2.recipe.config import MyleLRConfig</span>
-<span class="sd">        from fairseq2.recipe.optim import maybe_raise_param_group_length_error</span>
-
-<span class="sd">        def get_start_lr(config: MyleLRConfig, optimizer: Optimizer) -&gt; list[float]:</span>
-<span class="sd">            num_param_groups = len(optimizer.param_groups)</span>
-
-<span class="sd">            start_lr: float | list[float] = config.start_lr</span>
-
-<span class="sd">            if isinstance(start_lr, float):</span>
-<span class="sd">                return [start_lr] * num_param_groups</span>
-
-<span class="sd">            maybe_raise_param_group_length_error(&quot;start_lr&quot;, start_lr, num_param_groups)</span>
-
-<span class="sd">            return start_lr</span>
+<span class="sd">    Validates an object along with its sub-objects if it is a composite object</span>
+<span class="sd">    (i.e. a ``dataclass``, ``list``, ``Mapping``, ``Set``, or ``tuple``) and</span>
+<span class="sd">    raises a :class:`ValidationError` if any of them returns an error.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">!=</span> <span class="n">num_param_groups</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;The length of `</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">` must match the number of optimizer parameter groups (</span><span class="si">{</span><span class="n">num_param_groups</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2"> instead.&quot;</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="s2">&quot;lr_scheduler.config&quot;</span>  <span class="c1"># fmt: skip</span>
-        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="ObjectValidator.validate">
+<a class="viewcode-back" href="../../../reference/api/fairseq2.utils.validation.html#fairseq2.utils.validation.ObjectValidator.validate">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validates ``obj``.</span>
+
+<span class="sd">        :param obj: The object to validate.</span>
+
+<span class="sd">        :raises ValidationError: ``obj`` or one of its sub-objects has a</span>
+<span class="sd">            validation error.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="StandardObjectValidator">
+<a class="viewcode-back" href="../../../reference/api/fairseq2.utils.validation.html#fairseq2.utils.validation.StandardObjectValidator">[docs]</a>
+<span class="nd">@final</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">StandardObjectValidator</span><span class="p">(</span><span class="n">ObjectValidator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents the standard implementation of :class:`ObjectValidator`.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="StandardObjectValidator.validate">
+<a class="viewcode-back" href="../../../reference/api/fairseq2.utils.validation.html#fairseq2.utils.validation.StandardObjectValidator.validate">[docs]</a>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_validate</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">has_error</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="n">ValidationError</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_do_validate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidationResult</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Validatable</span><span class="p">):</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">validate</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">ValidationResult</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">is_dataclass_instance</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">field</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+                <span class="n">sub_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_validate</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">sub_result</span><span class="o">.</span><span class="n">has_error</span><span class="p">():</span>
+                    <span class="n">result</span><span class="o">.</span><span class="n">add_sub_result</span><span class="p">(</span><span class="n">field</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">sub_result</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">sub_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_validate</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">sub_result</span><span class="o">.</span><span class="n">has_error</span><span class="p">():</span>
+                    <span class="n">result</span><span class="o">.</span><span class="n">add_sub_result</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">k</span><span class="p">)</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">,</span> <span class="n">sub_result</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">,</span> <span class="n">Set</span><span class="p">)):</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+                <span class="n">sub_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_validate</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">sub_result</span><span class="o">.</span><span class="n">has_error</span><span class="p">():</span>
+                    <span class="n">result</span><span class="o">.</span><span class="n">add_sub_result</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">,</span> <span class="n">sub_result</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">result</span></div>
+
+
+
+<div class="viewcode-block" id="Validatable">
+<a class="viewcode-back" href="../../../reference/api/fairseq2.utils.validation.html#fairseq2.utils.validation.Validatable">[docs]</a>
+<span class="nd">@runtime_checkable</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Validatable</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents the protocol for validatable objects.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Validatable.validate">
+<a class="viewcode-back" href="../../../reference/api/fairseq2.utils.validation.html#fairseq2.utils.validation.Validatable.validate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidationResult</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validates the state of the object.</span>
+
+<span class="sd">        :returns: The result of the validation.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ValidationResult">
+<a class="viewcode-back" href="../../../reference/api/fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationResult">[docs]</a>
+<span class="nd">@final</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ValidationResult</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Holds the result of a :meth:`~Validatable.validate` call.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_errors</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sub_results</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ValidationResult</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="ValidationResult.add_error">
+<a class="viewcode-back" href="../../../reference/api/fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationResult.add_error">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Adds an error message to the result.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ValidationResult.add_sub_result">
+<a class="viewcode-back" href="../../../reference/api/fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationResult.add_sub_result">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_sub_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">ValidationResult</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Adds the validation result of a sub-object as a sub-result.</span>
+
+<span class="sd">        :param field: The name of the sub-object. For a dataclass, it is the</span>
+<span class="sd">            name of the field, for a ``Mapping`` it is the name of the key</span>
+<span class="sd">            formatted as ``f&quot;[{repr(key)}]&quot;``, for ``list``, ``Set``, and ``tuple``</span>
+<span class="sd">            it is the index of the value formatted as ``f&quot;[{index}]&quot;``.</span>
+<span class="sd">        :param result: The validation result of the sub-object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sub_results</span><span class="p">[</span><span class="n">field</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="ValidationResult.has_error">
+<a class="viewcode-back" href="../../../reference/api/fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationResult.has_error">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">has_error</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns ``True`` if the object or any of its sub-objects have a</span>
+<span class="sd">        validation error.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_errors</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">has_error</span><span class="p">()</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sub_results</span><span class="o">.</span><span class="n">values</span><span class="p">())</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">errors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the validation errors of the object, excluding errors of its</span>
+<span class="sd">        sub-objects.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_errors</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sub_results</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ValidationResult</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the validation results of the sub-objects.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sub_results</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">output</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_create_error_string</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">field_path</span><span class="o">=</span><span class="p">[])</span>
+
+        <span class="k">return</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_error_string</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">field_path</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_errors</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">s</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">field_path</span><span class="p">:</span>
+                <span class="n">pathname</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_pathname</span><span class="p">(</span><span class="n">field_path</span><span class="p">)</span>
+
+                <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">` is not valid: </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">field</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sub_results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">field_path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">field</span><span class="p">)</span>
+
+            <span class="n">result</span><span class="o">.</span><span class="n">_create_error_string</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">field_path</span><span class="p">)</span>
+
+            <span class="n">field_path</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_pathname</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field_path</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">segments</span> <span class="o">=</span> <span class="p">[</span><span class="n">field_path</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">field_path</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">p</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;[&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">p</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;]&quot;</span><span class="p">):</span>
+                <span class="n">segments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
+
+            <span class="n">segments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">segments</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="ValidationError">
+<a class="viewcode-back" href="../../../reference/api/fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ValidationError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when a validation error occurs.&quot;&quot;&quot;</span>
+
+    <span class="n">result</span><span class="p">:</span> <span class="n">ValidationResult</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The result containing validation errors.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">ValidationResult</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param result: The validation result. If ``str``, will be converted</span>
+<span class="sd">            to a result with ``ValidationResult(result)``.</span>
+<span class="sd">        :param field: If not ``None``, ``result`` will be treated as the</span>
+<span class="sd">            sub-result of ``field``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">tmp</span> <span class="o">=</span> <span class="n">ValidationResult</span><span class="p">()</span>
+
+            <span class="n">tmp</span><span class="o">.</span><span class="n">add_error</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+            <span class="n">result</span> <span class="o">=</span> <span class="n">tmp</span>
+
+        <span class="k">if</span> <span class="n">field</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tmp</span> <span class="o">=</span> <span class="n">ValidationResult</span><span class="p">()</span>
+
+            <span class="n">tmp</span><span class="o">.</span><span class="n">add_sub_result</span><span class="p">(</span><span class="n">field</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+
+            <span class="n">result</span> <span class="o">=</span> <span class="n">tmp</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">result</span> <span class="o">=</span> <span class="n">result</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="p">)</span></div>
 
 </pre></div>
         </article>

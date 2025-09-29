@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" /><link rel="next" title="Bibliography" href="../bibliography.html" /><link rel="prev" title="fairseq2.metrics" href="metrics.html" />
+    <link href="../../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" /><link rel="next" title="fairseq2.utils.validation" href="fairseq2.utils.validation.html" /><link rel="prev" title="fairseq2.metrics" href="metrics.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
         <title>fairseq2.recipe.optim - fairseq2 Documentation</title>
@@ -272,6 +272,7 @@
 <li class="toctree-l2"><a class="reference internal" href="logging.html">fairseq2.logging</a></li>
 <li class="toctree-l2"><a class="reference internal" href="metrics.html">fairseq2.metrics</a></li>
 <li class="toctree-l2 current current-page"><a class="current reference internal" href="#">fairseq2.recipe.optim</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fairseq2.utils.validation.html">fairseq2.utils.validation</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../bibliography.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-book" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M0 1.75A.75.75 0 01.75 1h4.253c1.227 0 2.317.59 3 1.501A3.744 3.744 0 0111.006 1h4.245a.75.75 0 01.75.75v10.5a.75.75 0 01-.75.75h-4.507a2.25 2.25 0 00-1.591.659l-.622.621a.75.75 0 01-1.06 0l-.622-.621A2.25 2.25 0 005.258 13H.75a.75.75 0 01-.75-.75V1.75zm8.755 3a2.25 2.25 0 012.25-2.25H14.5v9h-3.757c-.71 0-1.4.201-1.992.572l.004-7.322zm-1.504 7.324l.004-5.073-.002-2.253A2.25 2.25 0 005.003 2.5H1.5v9h3.757a3.75 3.75 0 011.994.574z" fill-rule="evenodd"></path></svg> Bibliography</a></li>
@@ -322,7 +323,7 @@ learning rate schedulers in recipes.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="fairseq2.recipe.optim.maybe_raise_param_group_length_error">
 <span class="sig-prename descclassname"><span class="pre">fairseq2.recipe.optim.</span></span><span class="sig-name descname"><span class="pre">maybe_raise_param_group_length_error</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">field</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_param_groups</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2/recipe/optim.html#maybe_raise_param_group_length_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipe.optim.maybe_raise_param_group_length_error" title="Link to this definition">¶</a></dt>
-<dd><p>A helper function that raises <code class="xref py py-class docutils literal notranslate"><span class="pre">ValidationError</span></code>
+<dd><p>A helper function that raises <a class="reference internal" href="fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationError" title="fairseq2.utils.validation.ValidationError"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValidationError</span></code></a>
 if the length of a learning rate scheduler configuration field (<code class="docutils literal notranslate"><span class="pre">len(value)</span></code>)
 does not match the number of optimizer parameter groups (<code class="docutils literal notranslate"><span class="pre">num_param_groups</span></code>).</p>
 <dl class="field-list simple">
@@ -334,7 +335,7 @@ does not match the number of optimizer parameter groups (<code class="docutils l
 </ul>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>ValidationError</strong> – if <code class="docutils literal notranslate"><span class="pre">len(value)</span></code> does
+<dd class="field-even"><p><a class="reference internal" href="fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationError" title="fairseq2.utils.validation.ValidationError"><strong>ValidationError</strong></a> – if <code class="docutils literal notranslate"><span class="pre">len(value)</span></code> does
 not match <code class="docutils literal notranslate"><span class="pre">num_param_groups</span></code>.</p>
 </dd>
 </dl>
@@ -368,12 +369,12 @@ not match <code class="docutils literal notranslate"><span class="pre">num_param
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="../bibliography.html">
+          <a class="next-page" href="fairseq2.utils.validation.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-book" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M0 1.75A.75.75 0 01.75 1h4.253c1.227 0 2.317.59 3 1.501A3.744 3.744 0 0111.006 1h4.245a.75.75 0 01.75.75v10.5a.75.75 0 01-.75.75h-4.507a2.25 2.25 0 00-1.591.659l-.622.621a.75.75 0 01-1.06 0l-.622-.621A2.25 2.25 0 005.258 13H.75a.75.75 0 01-.75-.75V1.75zm8.755 3a2.25 2.25 0 012.25-2.25H14.5v9h-3.757c-.71 0-1.4.201-1.992.572l.004-7.322zm-1.504 7.324l.004-5.073-.002-2.253A2.25 2.25 0 005.003 2.5H1.5v9h3.757a3.75 3.75 0 011.994.574z"></path></svg> Bibliography</div>
+                <div class="title">fairseq2.utils.validation</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -435,7 +436,7 @@ not match <code class="docutils literal notranslate"><span class="pre">num_param
       
     </aside>
   </div>
-</div><script src="../../_static/documentation_options.js?v=abde1a7e"></script>
+</div><script src="../../_static/documentation_options.js?v=c545626e"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/scripts/furo.js?v=5fa4622c"></script>
