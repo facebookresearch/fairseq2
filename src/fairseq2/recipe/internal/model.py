@@ -222,7 +222,7 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
         else:
             config = family.maybe_get_arch_config(arch)
             if config is None:
-                raise ModelArchitectureNotKnownError(arch) from None
+                raise ModelArchitectureNotKnownError(arch, family_name) from None
 
         if self._section.config_overrides is not None:
             config = self._asset_config_overrider.apply_overrides(
@@ -318,7 +318,7 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
         else:
             config = family.maybe_get_arch_config(arch)
             if config is None:
-                raise ModelArchitectureNotKnownError(arch) from None
+                raise ModelArchitectureNotKnownError(arch, family_name) from None
 
         if self._section.config_overrides is not None:
             config = self._asset_config_overrider.apply_overrides(

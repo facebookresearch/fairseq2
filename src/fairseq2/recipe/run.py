@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -35,6 +36,8 @@ from fairseq2.world_info import WorldInfo
 def train(recipe: TrainRecipe, config: object, output_dir: Path) -> None:
     from fairseq2.recipe.composition import _register_train_recipe
 
+    _setup_warnings()
+
     configure_rich_logging()
 
     container = DependencyContainer()
@@ -53,6 +56,8 @@ def train(recipe: TrainRecipe, config: object, output_dir: Path) -> None:
 def evaluate(recipe: EvalRecipe, config: object, output_dir: Path) -> None:
     from fairseq2.recipe.composition import _register_eval_recipe
 
+    _setup_warnings()
+
     configure_rich_logging()
 
     container = DependencyContainer()
@@ -70,6 +75,8 @@ def evaluate(recipe: EvalRecipe, config: object, output_dir: Path) -> None:
 @torch.inference_mode()
 def generate(recipe: GenerationRecipe, config: object, output_dir: Path) -> None:
     from fairseq2.recipe.composition import _register_generation_recipe
+
+    _setup_warnings()
 
     configure_rich_logging()
 
@@ -158,6 +165,10 @@ def _register_run(
         return dir_creator.create(output_dir)
 
     container.register(Path, create_output_dir)
+
+
+def _setup_warnings() -> None:
+    warnings.filterwarnings("once", category=DeprecationWarning, module="fairseq2.*")
 
 
 @final

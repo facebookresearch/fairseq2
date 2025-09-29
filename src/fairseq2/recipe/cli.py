@@ -96,7 +96,7 @@ from fairseq2.recipe.error import (
 )
 from fairseq2.recipe.internal.config_preparer import _RecipeConfigPreparer
 from fairseq2.recipe.internal.output_dir import _OutputDirectoryCreator
-from fairseq2.recipe.run import _run_recipe, _swap_default_resolver
+from fairseq2.recipe.run import _run_recipe, _setup_warnings, _swap_default_resolver
 from fairseq2.recipe.task import TaskStopException
 from fairseq2.runtime.dependency import (
     DependencyContainer,
@@ -120,6 +120,8 @@ from fairseq2.utils.yaml import YamlDumper, YamlError, YamlLoader
 def train_main(recipe: TrainRecipe) -> None:
     from fairseq2.recipe.composition import _register_train_recipe
 
+    _setup_warnings()
+
     args = _parse_args()
 
     configure_rich_logging()
@@ -141,6 +143,8 @@ def train_main(recipe: TrainRecipe) -> None:
 def eval_main(recipe: EvalRecipe) -> None:
     from fairseq2.recipe.composition import _register_eval_recipe
 
+    _setup_warnings()
+
     args = _parse_args()
 
     configure_rich_logging()
@@ -161,6 +165,8 @@ def eval_main(recipe: EvalRecipe) -> None:
 @torch.inference_mode()
 def generate_main(recipe: GenerationRecipe) -> None:
     from fairseq2.recipe.composition import _register_generation_recipe
+
+    _setup_warnings()
 
     args = _parse_args()
 
@@ -723,7 +729,10 @@ def _handle_minimim_loss_scale_reached_error(ex: MinimumLossScaleReachedError) -
 
 
 def _handle_model_arch_not_known_error(ex: ModelArchitectureNotKnownError) -> int:
-    log.error("{} is not a known model architecture.", ex.arch)
+    if ex.family is None:
+        log.error("{} is not a known model architecture.", ex.arch)
+    else:
+        log.error("{} is not a known {} model architecture.", ex.arch, ex.family)
 
     return 2
 
