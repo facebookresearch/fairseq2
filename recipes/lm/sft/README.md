@@ -19,7 +19,12 @@ This recipe supports both Llama and Qwen model families.
 
 ### Basic Usage
 
+NOTE: changing the model (e.g. larger Llama or Qwen model) requires changing the config yaml entirely.
+
 ```bash
+# Run with default Llama-3.1-1b config
+python -m recipes.lm.sft
+
 # Run with a pre-configured Llama setup
 python -m recipes.lm.sft --config-name recipes/lm/sft/configs/llama3_2_1b_gsm8k.yaml
 
