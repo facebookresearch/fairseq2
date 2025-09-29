@@ -9,16 +9,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
 from enum import Enum
-from typing import Final, Generic, Mapping, TypeVar, final
+from typing import Final, final, Generic, Mapping, TypeVar
 
 import torch
 import torch.distributed
-from rich.pretty import pretty_repr
-from torch import Tensor
-from torch.cuda import OutOfMemoryError
-from torch.optim import Optimizer
-from torch.profiler import record_function
-from typing_extensions import override
 
 from fairseq2.checkpoint import (
     CheckpointError,
@@ -30,21 +24,14 @@ from fairseq2.checkpoint import (
 from fairseq2.datasets import DataReader, DataReadError
 from fairseq2.device import SupportsDeviceTransfer
 from fairseq2.error import InternalError, InvalidOperationError
-from fairseq2.gang import GangError, Gangs, broadcast_flag
+from fairseq2.gang import broadcast_flag, GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.metrics import Mean, MetricBag, MetricBagError, MetricDescriptor
 from fairseq2.metrics.recorders import MetricRecorder, MetricRecordError
 from fairseq2.nn.utils.gradient import check_gradient_norms, normalize_gradients
 from fairseq2.optim import DynamicLossScaler
-from fairseq2.optim.lr_scheduler import LRScheduler, get_effective_lr
+from fairseq2.optim.lr_scheduler import get_effective_lr, LRScheduler
 from fairseq2.profilers import Profiler
-from fairseq2.typing import CPU, ContextManager, DataType
-from fairseq2.utils.device_stat import DeviceStatTracker
-from fairseq2.utils.gc import GarbageCollector
-from fairseq2.utils.progress import ProgressReporter, ProgressTask
-from fairseq2.utils.rng import RngBag
-from fairseq2.utils.state import Stateful
-from fairseq2.utils.stopwatch import Stopwatch
 
 # isort: split
 
@@ -59,6 +46,19 @@ from fairseq2.recipes._metrics import extend_batch_metrics
 from fairseq2.recipes._model import Model
 from fairseq2.recipes._recipe import Recipe, RecipeStopException
 from fairseq2.recipes._validator import Validator
+from fairseq2.typing import ContextManager, CPU, DataType
+from fairseq2.utils.device_stat import DeviceStatTracker
+from fairseq2.utils.gc import GarbageCollector
+from fairseq2.utils.progress import ProgressReporter, ProgressTask
+from fairseq2.utils.rng import RngBag
+from fairseq2.utils.state import Stateful
+from fairseq2.utils.stopwatch import Stopwatch
+from rich.pretty import pretty_repr
+from torch import Tensor
+from torch.cuda import OutOfMemoryError
+from torch.optim import Optimizer
+from torch.profiler import record_function
+from typing_extensions import override
 
 BatchT_contra = TypeVar(
     "BatchT_contra", bound=SupportsDeviceTransfer, contravariant=True
@@ -718,7 +718,12 @@ class Trainer(Recipe, Generic[BatchT]):
                 batch = batches.pop()
 
                 try:
-                    batch.to(gangs.root.device)
+                    try:
+                        batch.to(gangs.root.device)
+                    except Exception as e:
+                        log.info(f"{gangs.root.device=}")
+                        log.info(f"{batch=}")
+                        raise e
 
                     with self._maybe_no_sync(batch_nr, num_batches):
                         with record_function(f"step_{step_nr}_{batch_nr}_forward"):
