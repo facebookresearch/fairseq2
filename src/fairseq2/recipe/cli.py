@@ -7,12 +7,18 @@
 from __future__ import annotations
 
 import sys
-from argparse import OPTIONAL, ArgumentError, ArgumentParser, Namespace
+from argparse import (
+    OPTIONAL,
+    ArgumentError,
+    ArgumentParser,
+    BooleanOptionalAction,
+    Namespace,
+)
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
 from signal import SIG_DFL, SIGINT, raise_signal, signal
-from typing import Any, Protocol, TextIO, TypeVar, final, runtime_checkable
+from typing import Any, NoReturn, Protocol, TextIO, TypeVar, final, runtime_checkable
 
 import torch
 from torch.cuda import OutOfMemoryError
@@ -120,7 +126,7 @@ def train_main(recipe: TrainRecipe) -> None:
 
     container = DependencyContainer()
 
-    with _handle_errors(container):
+    with _handle_errors(container, args.exit_on_error):
         with _swap_default_resolver(container):
             _register_library(container)
 
@@ -141,7 +147,7 @@ def eval_main(recipe: EvalRecipe) -> None:
 
     container = DependencyContainer()
 
-    with _handle_errors(container):
+    with _handle_errors(container, args.exit_on_error):
         with _swap_default_resolver(container):
             _register_library(container)
 
@@ -162,7 +168,7 @@ def generate_main(recipe: GenerationRecipe) -> None:
 
     container = DependencyContainer()
 
-    with _handle_errors(container):
+    with _handle_errors(container, args.exit_on_error):
         with _swap_default_resolver(container):
             _register_library(container)
 
@@ -246,6 +252,13 @@ def _parse_args() -> Namespace:
         help="dump the configuration in mergeable format to standard output",
     )
 
+    parser.add_argument(
+        "--exit-on-error",
+        default=True,
+        action=BooleanOptionalAction,
+        help="whether to gracefully exit in case of an error",
+    )
+
     output_dir_action = parser.add_argument(
         "output_dir",
         type=Path,
@@ -264,7 +277,13 @@ def _parse_args() -> Namespace:
 
 
 @contextmanager
-def _handle_errors(resolver: DependencyResolver) -> Iterator[None]:
+def _handle_errors(resolver: DependencyResolver, exit_on_error: bool) -> Iterator[None]:
+    def maybe_exit(status: int) -> NoReturn:
+        if exit_on_error:
+            sys.exit(status)
+
+        raise
+
     try:
         yield
     except TaskStopException:
@@ -272,11 +291,11 @@ def _handle_errors(resolver: DependencyResolver) -> Iterator[None]:
     except RecipeConfigParseError:
         log.exception("Recipe configuration cannot be parsed. See logged stack trace for details.")  # fmt: skip
 
-        sys.exit(2)
+        maybe_exit(2)
     except ValidationError as ex:
         log.error(str(ex))
 
-        sys.exit(2)
+        maybe_exit(2)
     except RecipeError as ex:
         msg = str(ex)
 
@@ -285,25 +304,28 @@ def _handle_errors(resolver: DependencyResolver) -> Iterator[None]:
         else:
             log.exception(msg)
 
-        sys.exit(2)
+        maybe_exit(2)
     except OperationalError:
         log.exception("Recipe failed due to an operational error. See logged stack trace for details.")  # fmt: skip
 
-        sys.exit(1)
+        maybe_exit(1)
     except ExtensionError as ex:
         log.exception("{} extension failed to initialize. See logged stack trace for details.", ex.entry_point)  # fmt: skip
 
-        sys.exit(1)
+        maybe_exit(1)
     except OutOfMemoryError:
         s = torch.cuda.memory_summary()
 
         log.exception("CUDA out of memory. See logged memory stats.\n{}", s)  # fmt: skip
 
-        sys.exit(1)
+        maybe_exit(1)
     except KeyboardInterrupt:
-        signal(SIGINT, SIG_DFL)
+        if exit_on_error:
+            signal(SIGINT, SIG_DFL)
 
-        raise_signal(SIGINT)
+            raise_signal(SIGINT)
+
+        raise
     except Exception as ex:
         handler: ExceptionHandler[Any] | None
 
@@ -319,7 +341,7 @@ def _handle_errors(resolver: DependencyResolver) -> Iterator[None]:
         else:
             ret_code = handler(ex)
 
-        sys.exit(ret_code)
+        maybe_exit(ret_code)
 
 
 @final
