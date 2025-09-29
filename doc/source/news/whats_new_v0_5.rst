@@ -142,12 +142,6 @@ When upgrading to v0.5, users should be aware of the following key changes:
    checkpoints will need to be converted or retrained. The new format provides
    better performance and easier troubleshooting capabilities.
 
-**Getting Started**
-===================
-
-For detailed information on using these new features, please refer to the
-:doc:`API Reference </reference/api/index>` and updated tutorials.
-
 **What's Next**
 ===============
 

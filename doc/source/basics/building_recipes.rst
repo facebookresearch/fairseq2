@@ -410,5 +410,5 @@ See Also
 
 * :doc:`design_philosophy` - Core architectural principles
 * :doc:`building_recipes` - Advanced recipe patterns with chatbot example
-* :doc:`/reference/api/recipe` - Recipe system API reference
+* :doc:`/reference/recipe` - Recipe system API reference
 * :doc:`/news/whats_new_v0_5` - Complete list of v0.5 improvements

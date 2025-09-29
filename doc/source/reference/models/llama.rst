@@ -233,6 +233,6 @@ The HuggingFace implementation includes support for chat templates through the H
 See Also
 --------
 
-* :doc:`/reference/api/models/hub` - Model hub API reference
-* :doc:`/tutorials/add_model` - Tutorial on adding new models
+* :doc:`/reference/models/hub` - Model hub API reference
+* :doc:`/guides/add_model` - Tutorial on adding new models
 * :doc:`/basics/assets` - Understanding the asset system
