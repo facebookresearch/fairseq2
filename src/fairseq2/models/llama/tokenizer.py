@@ -191,7 +191,7 @@ class LLaMAHuggingFaceTokenizer(Tokenizer):
 
 @dataclass
 class LLaMATokenizerConfig:
-    impl: Literal["sp", "tiktoken", "hg"] = "hg"
+    impl: Literal["sp", "tiktoken", "hg"] = "sp"
     use_eot: bool = False
     split_regex: str | None = None
 
