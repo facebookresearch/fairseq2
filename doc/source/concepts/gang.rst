@@ -245,10 +245,10 @@ container for all the created parallel gangs.
     #       [d0, d2, d4, d6], [d1, d3, d5, d7]
     gangs = create_parallel_gangs(root_gang, tp_size=8)
 
-    tensor = torch.ones((8, 8), device=gang.device)
+    tensor = torch.ones((8, 8), device=device)
 
     # All reduce on tensor parallel ranks.
-    gang.tp.all_reduce(tensor, ReduceOperation.SUM)
+    gangs.tp.all_reduce(tensor, ReduceOperation.SUM)
 
 During training, a data parallel gang can further be split into replicated and
 sharded gangs to support hybrid and fully sharded data parallelism strategies.
@@ -318,4 +318,4 @@ thousands of GPUs with minimal code changes. Consequently, several major APIs
 such as :doc:`model loading </guides/add_model>`, :doc:`checkpointing </reference/checkpoint>`,
 and :doc:`dataset reading </reference/datasets/index>` natively support scaling
 and parallelism through the gang abstraction. Refer to the relevant guides to
-learn more about how gangs are utilized.
+learn more about how gangs are utilized there.

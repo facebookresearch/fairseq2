@@ -46,7 +46,7 @@ other content generation tasks.
     :maxdepth: 1
     :caption: Concepts
 
-    Gangs <concepts/gangs>
+    Gangs <concepts/gang>
 
 .. toctree::
     :maxdepth: 1
