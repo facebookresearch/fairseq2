@@ -504,6 +504,6 @@ Troubleshooting
 See Also
 --------
 
-- :doc:`Models </reference/api/models/index>` - Model-specific asset management
-- :doc:`Datasets </reference/api/datasets/index>` - Dataset-specific asset management
-- :doc:`Data Tokenizers </reference/api/data/tokenizers/index>` - Tokenizer asset management
+- :doc:`Models </reference/models/index>` - Model-specific asset management
+- :doc:`Datasets </reference/datasets/index>` - Dataset-specific asset management
+- :doc:`Data Tokenizers </reference/data/tokenizers/index>` - Tokenizer asset management
