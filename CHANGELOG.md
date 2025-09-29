@@ -4,6 +4,8 @@ All notable changes to fairseq2 are documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [0.6.0] - TBD
+- The recipe command line interface now accepts a new `--no-exit-on-error` flag
+  to allow post-mortem debugging of recipe processes. [More info](https://github.com/facebookresearch/fairseq2/pull/1337).
 - The optimizer and learning rate scheduler recipe configurations now support
   multiple parameter groups. This is in particular convenient for models that
   require more than one learning rate to train (e.g. GAN models). Check out
