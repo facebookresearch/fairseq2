@@ -195,6 +195,8 @@ class SFTLossEvalUnit(EvalUnit[SequenceBatch]):
 
         seqs, seqs_layout = input_batch.as_input()
 
+        # breakpoint()
+
         nll_loss = self._model.module(
             seqs,
             seqs_layout,

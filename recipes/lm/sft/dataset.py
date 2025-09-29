@@ -203,7 +203,6 @@ class LMSFTDataset:
                     id_ = example.get("id", None)
                     chat = example.get("chat", None)
 
-                    # FIXME this only works for llama 3 style chat templates
                     if not chat:
                         chat = [
                             {"role": "user", "content": example.get("src")},
@@ -291,7 +290,7 @@ class LMSFTDataset:
 
         if tokenizer.vocab_info.pad_idx is None:
             raise RuntimeError(
-                f"LMSFTDataset requires pad token to work for batching purposes, check your tokenizer config."
+                "LMSFTDataset requires pad token to work for batching purposes, check your tokenizer config."
             )
 
         collater = Collater(
