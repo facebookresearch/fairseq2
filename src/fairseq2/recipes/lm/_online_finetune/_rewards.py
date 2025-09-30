@@ -1558,19 +1558,14 @@ class GenerativeKwiseVerifier(VLLMOutputReward):
             for k_list in itertools.permutations(k_tuple):
                 k_list = list(k_list)
                 batch_kwise_indices.append(k_list)
-                response_string = ""
-                for assistant_id, idx in enumerate(k_list):
-                    rollout = i_batch_request_output.outputs[idx].text
-                    response_string += f"[Start of Assistant {assistant_id+1} Answer]\n{rollout}\n[End of Assistant {assistant_id+1} Answer]\n\n"
-                response_string = response_string.strip()
-
-                # response_list = [i_batch_request_output.outputs[idx].text for idx in k_list]
+                response_list = [i_batch_request_output.outputs[idx].text for idx in k_list]
 
                 vllm_input = self.judgment_extractor.format_prompt(
-                    prompt_text, response_string, reference_answer
+                    prompt_text, response_list, reference_answer
                 )
                 vllm_inputs.append(vllm_input)
         return vllm_inputs, batch_kwise_indices
+
 
     def convert_kwise_rewards_to_pointwise(
         self,
