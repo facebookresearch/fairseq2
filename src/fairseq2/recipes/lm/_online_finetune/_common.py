@@ -10,7 +10,6 @@ import contextlib
 import io
 from dataclasses import dataclass
 from typing import List, cast
-
 import ray
 import torch
 import torch.nn as nn
@@ -48,6 +47,9 @@ class VllmSyncSection:
 
     sync_ref_model_every_n_steps: int = -1
     """How often to sync the reference model with the policy. -1 disables syncing."""
+
+    sync_reward_model_every_n_steps: int = -1
+    """How often to sync the reward model with the policy. -1 disables syncing."""
 
 
 @contextlib.contextmanager
@@ -122,6 +124,7 @@ def generate_rollouts(
     dp_gang,
     vllm_model,
     sampling_params=None,
+    string_input=False,
 ):
     prompts_to_generate = [None] * dp_gang.size
     if dp_gang.rank == 0:
@@ -135,7 +138,9 @@ def generate_rollouts(
             flat_request_list.extend(rank_prompts)
 
         rollouts = vllm_model.rollout_from_model(
-            flat_request_list, sampling_params=sampling_params
+            prompt_list=flat_request_list,
+            sampling_params=sampling_params,
+            string_input=string_input,
         )
 
         rollouts_to_scatter = []

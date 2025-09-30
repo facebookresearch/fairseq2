@@ -5,17 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
-
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, List, cast, final
-
+from functools import partial
 import torch
 from typing_extensions import override
-
+import re
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
@@ -226,6 +225,32 @@ class GenericPromptDataset(PromptDataset):
         builder.shard(gang.rank, gang.size, allow_uneven=True)
 
         seed += gang.rank
+
+        def apply_prmopt_template(
+            example: dict[str, Any], prompt_template: str, remove_suffix_field: str
+        ) -> dict[str, Any]:
+            if remove_suffix_field is not None:
+                example[f"{src_key}"] = example[f"{src_key}"].removesuffix(
+                    example[remove_suffix_field]
+                )
+            if prompt_template is not None:
+                example[f"{src_key}"] = prompt_template.replace(
+                    "{prompt}", example[f"{src_key}"]
+                )
+            return example
+
+        if (
+            "prompt_template" in options.extras
+            or "remove_suffix_field" in options.extras
+        ):
+            builder.map(
+                partial(
+                    apply_prmopt_template,
+                    prompt_template=options.extras.get("prompt_template", None),
+                    remove_suffix_field=options.extras.get("remove_suffix_field", None),
+                ),
+                num_parallel_calls=npc,
+            )
 
         # copy original prompt text in the example to use it in the reward models etc.
         # user must specify f"{src_key}_text" in keep jsonl keys arg to keep pass it to batch

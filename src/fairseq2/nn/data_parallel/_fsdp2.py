@@ -195,36 +195,15 @@ def to_fsdp2(
 def fsdp2_local_state_dict(module: FSDP2) -> dict[str, object]:
     sharded_state_dict = module.state_dict()
 
-    device_mesh = None
-
-    for value in sharded_state_dict.values():
-        if isinstance(value, DTensor):
-            device_mesh = value.device_mesh
-
-            break
-
-    if device_mesh is not None:
-        try:
-            sdp_rank = device_mesh.get_local_rank(mesh_dim="intra")
-        except KeyError:
-            raise ValueError(
-                "The device mesh of `module` does not have a dimension named 'intra'."
-            ) from None
-    else:
-        sdp_rank = 0
-
     state_dict: dict[str, object] = {}
 
     for key, value in sharded_state_dict.items():
         if isinstance(value, DTensor):
-            state_dict[key] = cast(DTensor, value.detach()).to_local()
-        # Save replicated items only on the first intra-node (i.e. sharded)
-        # gang.
-        elif sdp_rank == 0:
-            if isinstance(value, Tensor):
-                value = value.detach()
+            value = cast(DTensor, value.detach()).to_local()
+        elif isinstance(value, Tensor):
+            value = value.detach()
 
-            state_dict[key] = value
+        state_dict[key] = value
 
     return state_dict
 

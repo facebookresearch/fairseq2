@@ -37,7 +37,46 @@ class TestPackOp:
         ]
 
         for _ in range(2):
-            for example, expected_example in zip(pipeline, expected_examples):
+            examples = list(pipeline)
+
+            assert len(examples) == len(expected_examples)
+
+            for example, expected_example in zip(examples, expected_examples):
+                expected_seqs, expected_seq_lens = expected_example
+
+                assert_equal(example["seqs"], expected_seqs)
+
+                assert example["seq_lens"] == expected_seq_lens
+
+            pipeline.reset()
+
+    def test_op_works_when_drop_remainder_is_true(self) -> None:
+        seqs = [
+            torch.tensor([1, 2, 3, 0]),
+            torch.tensor([5, 6, 0]),
+            torch.tensor([9, 1, 2, 3, 0]),
+            torch.tensor([], dtype=torch.int64),
+            torch.tensor([4, 0]),
+        ]
+
+        pipeline = (
+            read_sequence(seqs).pack(num_elements=3, max_seq_len=32, drop_remainder=True).and_return()  # fmt: skip
+        )
+
+        expected_examples = [
+            (torch.tensor([1, 2, 3]), [3]),
+            (torch.tensor([3, 0, 5]), [2, 1]),
+            (torch.tensor([5, 6, 0]), [3]),
+            (torch.tensor([9, 1, 2]), [3]),
+            (torch.tensor([2, 3, 0]), [3]),
+        ]
+
+        for _ in range(2):
+            examples = list(pipeline)
+
+            assert len(examples) == len(expected_examples)
+
+            for example, expected_example in zip(examples, expected_examples):
                 expected_seqs, expected_seq_lens = expected_example
 
                 assert_equal(example["seqs"], expected_seqs)
@@ -65,14 +104,16 @@ class TestPackOp:
         ]
 
         for _ in range(2):
-            for example, expected_example in zip(pipeline, expected_examples):
+            examples = list(pipeline)
+
+            assert len(examples) == len(expected_examples)
+
+            for example, expected_example in zip(examples, expected_examples):
                 expected_seqs, expected_seq_lens = expected_example
 
                 assert_equal(example["seqs"], expected_seqs)
 
                 assert example["seq_lens"] == expected_seq_lens
-                if _ == 1:
-                    break
 
             pipeline.reset()
 
@@ -85,8 +126,9 @@ class TestPackOp:
             torch.tensor([4, 1, 0]),
         ]
 
+        # `drop_remainder` should have no effect when we do not truncate.
         pipeline = (
-            read_sequence(seqs).pack(num_elements=7, max_seq_len=32, truncate=False, drop_remainder=False).and_return()  # fmt: skip
+            read_sequence(seqs).pack(num_elements=7, max_seq_len=32, truncate=False, drop_remainder=True).and_return()  # fmt: skip
         )
 
         expected_examples = [
@@ -96,7 +138,11 @@ class TestPackOp:
         ]
 
         for _ in range(2):
-            for example, expected_example in zip(pipeline, expected_examples):
+            examples = list(pipeline)
+
+            assert len(examples) == len(expected_examples)
+
+            for example, expected_example in zip(examples, expected_examples):
                 expected_seqs, expected_seq_lens = expected_example
 
                 assert_equal(example["seqs"], expected_seqs)

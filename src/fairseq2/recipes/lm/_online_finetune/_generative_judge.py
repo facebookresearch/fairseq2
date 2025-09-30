@@ -71,14 +71,62 @@ Below are the user's question and the two responses:
 [The End of Assistant B's Answer]
 """
 
+prompt_set = {
+    "self_augment_eval_prompt": """You are evaluating an AI agent designed to augment input text scraped from the web by adding missing context and reasoning processes. The agent's goal is to emulate the behavior of an intelligent learner who actively engages with a continuous stream of web text. This involves making sense of the information encountered so far and proactively predicting what might come next, rather than passively memorizing the original content.
+
+Key requirements:
+- The agent's additions should demonstrate meta-learning skills, such as proactive self-reflection and distillation of lessons.
+- The goal is to maximize both the accuracy and speed of future predictions, particularly when generalizing to new or different tasks.
+
+You will receive:
+- The agent's “thinking text,” which reflects its inner monologue leading up to the production of subsequent text.
+- The original ground truth text that follows the intial text.
+
+Your task:
+Act as an impartial judge and evaluate how effectively the agent’s response facilitates the production of subsequent text, considering a range of reasoning skills, including but not limited to:
+
+- Induction
+- Deduction
+- Abduction
+- Counterfactual reasoning
+- Logical reasoning
+- Causal reasoning
+- Probabilistic reasoning
+- Constraint satisfaction
+- Planning
+- Meta-reasoning strategies
+
+Follow this structured approach:
+1. Enclose your reasoning within `<think>` and `</think>` tags. Your reasoning should include:
+- The evaluation criteria you are using.
+- A clear description of what an ideal response would look like for this specific question.
+- A concrete example of an ideal or reference answer, if possible.
+2. Compare the assistant's response to your ideal or reference answer, explaining specifically how it aligns with or diverges from your expectations. Avoid vague or overly general judgments, and remain as objective as possible.
+3. Assign the assistant's response a score from 0 to 10, using either an integer or a decimal with up to one decimal place. A higher score should indicate a higher-quality response. Enclose the score within `<score>` and `</score>` tags.
+
+Format your output as follows: 
+<think> your_thinking_process </think>
+<score> your_score </score>
+
+The following information are provided for your evaluation:
+[input text]
+{instruction}
+
+[The start of the agent's answer]
+{response}
+[The end of the agent's answer]
+
+[The start of the completion text]
+{reference}
+[The end of the completion text]"""
+}
 
 import re
 from abc import ABC, abstractmethod
-from typing import Any
-
-from typing_extensions import override
+from typing import Any, Optional
 
 from fairseq2.logging import log
+from typing_extensions import override
 
 
 class JudgmentExtractorHandler(ABC):
@@ -217,7 +265,6 @@ class GeneralVerifierExtractor(JudgmentExtractor):
 
     @override
     def format_prompt(self, prompt_text, rollout_text, reference_answer):
-
         student_answer_list = self.parse(rollout_text, self.student_extraction_config)
         student_answer = self.get_preferred_index(student_answer_list)
 
@@ -272,12 +319,22 @@ class J1PointwiseExtractor(JudgmentExtractor):
         pass
 
     @override
-    def prompt(self):
-        return POINTWISE_J1_PROMPT
+    def prompt(self, prompt_key: Optional[str] = None) -> str:
+        return POINTWISE_J1_PROMPT if prompt_key is None else prompt_set[prompt_key]
 
     @override
-    def format_prompt(self, prompt_text, rollout_text, reference_answer):
-        content = self.prompt().format(instruction=prompt_text, response=rollout_text)
+    def format_prompt(
+        self, prompt_text, rollout_text, reference_answer: Optional[None] = None
+    ):
+        content = (
+            self.prompt().format(instruction=prompt_text, response=rollout_text)
+            if reference_answer is None
+            else self.prompt().format(
+                instruction=prompt_text,
+                response=rollout_text,
+                reference=reference_answer,
+            )
+        )
         wrapped_text = [{"role": "user", "content": content}]
         chat_str = self.tokenizer.apply_chat_template(
             wrapped_text, tokenize=False, add_generation_prompt=True
