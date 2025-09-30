@@ -225,14 +225,17 @@ def _create_chunked_bias_tensor(
     device: Device,
 ) -> torch.Tensor:
     block_pos = (
-        (torch.arange(q_len).unsqueeze(0) // attention_chunk_size)
-        - (torch.arange(q_len).unsqueeze(1) // attention_chunk_size)
+        (torch.arange(q_len, device=device).unsqueeze(0) // attention_chunk_size)
+        - (torch.arange(q_len, device=device).unsqueeze(1) // attention_chunk_size)
     )
-    token_pos = torch.arange(q_len).unsqueeze(0) - torch.arange(q_len).unsqueeze(1)
+    token_pos = (
+        torch.arange(q_len, device=device).unsqueeze(0)
+        - torch.arange(q_len, device=device).unsqueeze(1)
+    )
     mask = (block_pos == 0) & (token_pos <= 0)
 
     # (S, S)
-    return mask.to(device=device)
+    return mask
 
 
 def materialize_attention_bias(
