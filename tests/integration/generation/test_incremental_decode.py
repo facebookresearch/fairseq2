@@ -8,10 +8,9 @@ from typing import Final
 
 import torch
 
-from fairseq2.data.text.tokenizers import get_text_tokenizer_hub
-from fairseq2.models.transformer import get_transformer_model_hub
-from fairseq2.nn import IncrementalStateBag
-from fairseq2.nn.padding import pad_seqs
+from fairseq2.models.nllb import get_nllb_model_hub, get_nllb_tokenizer_hub
+from fairseq2.nn import BatchLayout, IncrementalStateBag
+from fairseq2.nn.utils.padding import pad_seqs
 from tests.common import assert_close, device
 
 # fmt: off
@@ -23,15 +22,13 @@ EN_SENTENCE: Final = "Lion prides act much like packs of wolves or dogs, animals
 def test_incremental_decoding_works() -> None:
     model_name = "nllb-200_dense_distill_600m"
 
-    model_hub = get_transformer_model_hub()
-
-    model = model_hub.load(model_name, device=device, dtype=torch.float32)
+    model = get_nllb_model_hub().load_model(
+        model_name, device=device, dtype=torch.float32
+    )
 
     model.eval()
 
-    tokenizer_hub = get_text_tokenizer_hub()
-
-    tokenizer = tokenizer_hub.load(model_name)
+    tokenizer = get_nllb_tokenizer_hub().load_tokenizer(model_name)
 
     # Set up encoder and decoder inputs.
     source_token_encoder = tokenizer.create_encoder(
@@ -55,40 +52,26 @@ def test_incremental_decoding_works() -> None:
 
     assert pad_idx is not None
 
-    source_seqs, source_padding_mask = pad_seqs(source_indices, pad_idx)
-    target_seqs, target_padding_mask = pad_seqs(target_indices, pad_idx)
+    source_seqs, source_seqs_layout = pad_seqs(source_indices, pad_value=pad_idx)
+    target_seqs, target_seqs_layout = pad_seqs(target_indices, pad_value=pad_idx)
 
-    # Generate the expected decoder output.
-    encoder_output, encoder_padding_mask = model.encode(
-        source_seqs, source_padding_mask
+    # Generate the expected logits.
+    expected_logits = model(
+        source_seqs, source_seqs_layout, target_seqs, target_seqs_layout
     )
-
-    decoder_output, decoder_padding_mask = model.decode(
-        target_seqs, target_padding_mask, encoder_output, encoder_padding_mask
-    )
-
-    assert decoder_padding_mask is None
 
     # Now try to match the decoder output with incremental decoding.
     state_bag = IncrementalStateBag(max_num_steps=256)
 
-    incremental_output = torch.empty(
-        (2, 0, model.model_dim), device=device, dtype=torch.float32
-    )
-
     for idx in range(target_seqs.size(1)):
-        pos_output, pos_padding_mask = model.decode(
-            target_seqs[:, idx : idx + 1],
-            None,
-            encoder_output,
-            encoder_padding_mask,
-            state_bag=state_bag,
-        )
+        seqs = target_seqs[:, idx : idx + 1]
 
-        assert pos_padding_mask is None
+        seqs_layout = BatchLayout.of(seqs)
+
+        step_logits = model(
+            source_seqs, source_seqs_layout, seqs, seqs_layout, state_bag=state_bag
+        )
 
         state_bag.increment_step_nr()
 
-        incremental_output = torch.cat([incremental_output, pos_output], dim=1)
-
-    assert_close(decoder_output, incremental_output)
+        assert_close(expected_logits[:, idx : idx + 1], step_logits, atol=1.06e-05)

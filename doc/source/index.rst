@@ -8,89 +8,76 @@ fairseq2 is a sequence modeling toolkit that allows researchers and developers
 to train custom models for translation, summarization, language modeling, and
 other content generation tasks.
 
-.. grid:: 3
 
-    .. grid-item-card::  Quick Start
-        :link: tutorial-end-to-end-fine-tuning
-        :link-type: ref
+.. note::
 
-        Run a quick start tutorial.
+    Our documentation is being updated and will be online soon.
 
-    .. grid-item-card::  Basics
-        :link: basics-overview
-        :link-type: ref
-
-        Get familiar with fairseq2.
-
-    .. grid-item-card::  API Reference
-        :link: reference-api
-        :link-type: ref
-
-        Jump to the code.
-
-
-Documentation
--------------
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Getting Started
+    :maxdepth: 1
+    :caption: Latest News
 
-   getting_started/installation/index
-   getting_started/quick_start
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Basics
-
-   basics/overview
-   basics/design_philosophy
-   basics/cli
-   basics/assets
-   basics/data_pipeline
-   basics/parquet_dataloader
-   basics/ckpt
-   basics/recipe
-   basics/runtime_extensions
-   basics/gang
-   basics/trainer
+    news/whats_new_v0_5
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Tutorials
+    :maxdepth: 1
+    :caption: Getting Started
 
-   tutorials/end_to_end_fine_tuning
-   tutorials/preference_optimization
-   tutorials/monitor_your_experiments
-   tutorials/presets
-   tutorials/pudb
-   tutorials/models
+    getting_started/installation/index
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Notebooks
+    :maxdepth: 1
+    :caption: Basics
 
-   notebooks/datapipeline
-   notebooks/dataset_gsm8k_sft
-   notebooks/parquet_dataloader
-   notebooks/hf_parquet_integration
-   notebooks/models/load_model
-
-.. toctree::
-   :maxdepth: 1
-   :caption: FAQ
-
-   faq/contributing
+    basics/design_philosophy
+    basics/assets
+    basics/building_recipes
+    basics/runtime_extension
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Reference
+    :maxdepth: 1
+    :caption: Guides
 
-   reference/api/index
-   reference/bibliography
+    guides/add_model
+    guides/pudb
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Concepts
+
+    Gangs <concepts/gang>
+
+.. toctree::
+    :maxdepth: 1
+    :caption: API Reference
+
+    reference/assets
+    reference/checkpoint
+    reference/data/index
+    reference/datasets/index
+    reference/device
+    reference/fairseq2.gang
+    reference/fairseq2.recipe.optim
+    reference/fairseq2.utils.validation
+    reference/logging
+    reference/metrics
+    reference/models/index
+    reference/nn/index
+    reference/optim
+    reference/recipe
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Other
+
+    other/contributing
+    other/bibliography
+
 
 Indices and tables
-------------------
+==================
 
 * :ref:`genindex`
 * :ref:`modindex`
+* :ref:`search`

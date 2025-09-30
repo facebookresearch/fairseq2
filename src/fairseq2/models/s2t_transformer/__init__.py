@@ -6,34 +6,42 @@
 
 from __future__ import annotations
 
-from fairseq2.models.s2t_transformer._checkpoint import (
-    convert_s2t_transformer_checkpoint as convert_s2t_transformer_checkpoint,
+from fairseq2.models.s2t_transformer.config import (
+    S2T_TRANSFORMER_FAMILY as S2T_TRANSFORMER_FAMILY,
 )
-from fairseq2.models.s2t_transformer._config import (
-    S2T_TRANSFORMER_MODEL_FAMILY as S2T_TRANSFORMER_MODEL_FAMILY,
-)
-from fairseq2.models.s2t_transformer._config import (
+from fairseq2.models.s2t_transformer.config import (
     S2TTransformerConfig as S2TTransformerConfig,
 )
-from fairseq2.models.s2t_transformer._config import (
+from fairseq2.models.s2t_transformer.config import (
     register_s2t_transformer_configs as register_s2t_transformer_configs,
 )
-from fairseq2.models.s2t_transformer._factory import (
+from fairseq2.models.s2t_transformer.factory import (
     S2TTransformerFactory as S2TTransformerFactory,
 )
-from fairseq2.models.s2t_transformer._factory import (
+from fairseq2.models.s2t_transformer.factory import (
     create_s2t_transformer_model as create_s2t_transformer_model,
 )
-from fairseq2.models.s2t_transformer._feature_extractor import (
+from fairseq2.models.s2t_transformer.feature_extractor import (
     Conv1dFbankSubsampler as Conv1dFbankSubsampler,
 )
-from fairseq2.models.s2t_transformer._frontend import (
+from fairseq2.models.s2t_transformer.frontend import (
     S2TTransformerFrontend as S2TTransformerFrontend,
 )
-
-# isort: split
-
-from fairseq2.models import ModelHubAccessor
-from fairseq2.models.transformer import TransformerModel
-
-get_s2t_transformer_model_hub = ModelHubAccessor(TransformerModel, S2TTransformerConfig)
+from fairseq2.models.s2t_transformer.hub import (
+    get_s2t_transformer_model_hub as get_s2t_transformer_model_hub,
+)
+from fairseq2.models.s2t_transformer.hub import (
+    get_s2t_transformer_tokenizer_hub as get_s2t_transformer_tokenizer_hub,
+)
+from fairseq2.models.s2t_transformer.interop import (
+    convert_s2t_transformer_state_dict as convert_s2t_transformer_state_dict,
+)
+from fairseq2.models.s2t_transformer.tokenizer import (
+    S2TTransformerTokenizer as S2TTransformerTokenizer,
+)
+from fairseq2.models.s2t_transformer.tokenizer import (
+    S2TTransformerTokenizerConfig as S2TTransformerTokenizerConfig,
+)
+from fairseq2.models.s2t_transformer.tokenizer import (
+    load_s2t_transformer_tokenizer as load_s2t_transformer_tokenizer,
+)

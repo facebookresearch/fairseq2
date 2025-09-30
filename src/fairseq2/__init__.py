@@ -6,10 +6,45 @@
 
 from __future__ import annotations
 
-__version__ = "0.5.0.dev0"
+from collections.abc import Callable
 
 import fairseq2n  # Report any fairseq2n initialization error eagerly.
 
-# isort: split
+import fairseq2.runtime.dependency
+from fairseq2.error import InvalidOperationError
+from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 
-from fairseq2.setup import setup_fairseq2 as setup_fairseq2
+__version__ = "0.6.0.dev0"
+
+
+_in_call: bool = False
+
+
+def init_fairseq2(
+    *, extras: Callable[[DependencyContainer], None] | None = None
+) -> DependencyResolver:
+    from fairseq2.composition import _register_library
+
+    global _in_call
+
+    if fairseq2.runtime.dependency._resolver is not None:
+        raise InvalidOperationError("`init_fairseq2()` is already called.")
+
+    if _in_call:
+        raise InvalidOperationError("`init_fairseq2()` cannot be called recursively.")
+
+    _in_call = True
+
+    container = DependencyContainer()
+
+    try:
+        _register_library(container)
+
+        if extras is not None:
+            extras(container)
+    finally:
+        _in_call = False
+
+    fairseq2.runtime.dependency._resolver = container
+
+    return container

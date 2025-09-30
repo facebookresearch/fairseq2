@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
+from fairseq2.data.data_pipeline import DataPipeline, DataPipelineError, read_sequence
 from fairseq2.data.text import read_text
 
 

@@ -22,9 +22,14 @@ using PoolArgType = std::size_t;
 
 namespace fairseq2n::detail {
 
-map_data_source::map_data_source(std::unique_ptr<data_source> &&inner, std::vector<map_fn> &&fns,
-                                 std::size_t num_parallel_calls, bool deterministic)
-    : inner_{std::move(inner)}, map_fns_{std::move(fns)}, num_parallel_calls_{num_parallel_calls},
+map_data_source::map_data_source(
+    std::unique_ptr<data_source> &&inner,
+    std::vector<map_fn> &&fns,
+    std::size_t num_parallel_calls,
+    bool deterministic)
+    : inner_{std::move(inner)},
+      map_fns_{std::move(fns)},
+      num_parallel_calls_{num_parallel_calls},
       deterministic_{deterministic || num_parallel_calls == 1},
       pool_{conditional_cast<PoolArgType>(deterministic ? 0U : num_parallel_calls)}
 {
@@ -50,8 +55,13 @@ map_data_source::next()
         do {
             // Yield a buffered example.
             for (; buffer_pos_ < buffer_.end(); ++buffer_pos_) {
-                if (*buffer_pos_)
-                    return std::move(*buffer_pos_++);
+                if (buffer_pos_->has_value()) {
+                    std::optional<data> output = std::exchange(*buffer_pos_, std::nullopt);
+
+                    ++buffer_pos_;
+
+                    return output;
+                }
             }
             // If we have exhausted all buffered examples, try to refill the buffer.
         } while (fill_buffer());
@@ -168,6 +178,8 @@ map_data_source::fill_buffer()
         buffer_.push_back(std::move(maybe_example));
     }
 
+    buffer_pos_ = buffer_.begin();
+
     if (buffer_.empty())
         return false;
 
@@ -182,8 +194,6 @@ map_data_source::fill_buffer()
         apply_function(0, buffer_.size());
     else
         parallel_for<std::size_t>(apply_function, buffer_.size());
-
-    buffer_pos_ = buffer_.begin();
 
     return true;
 }

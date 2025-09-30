@@ -83,9 +83,10 @@ open_file(const std::filesystem::path &path, const file_options &opts)
     } else
         stream = std::make_unique<file_stream>(std::move(fd), path, chunk_size);
 
-    if (opts.mode() == file_mode::text)
-        stream = std::make_unique<utf8_stream>(
-            std::move(stream), opts.maybe_text_encoding(), chunk_size);
+// TODO: fix!
+//    if (opts.mode() == file_mode::text)
+//        stream = std::make_unique<utf8_stream>(
+//            std::move(stream), opts.maybe_text_encoding(), chunk_size);
 
     return stream;
 }

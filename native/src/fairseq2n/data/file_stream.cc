@@ -62,20 +62,45 @@ file_stream::read_chunk()
 }
 
 void
+file_stream::seek(std::size_t offset)
+{
+    seek(offset, /*from_current=*/false);
+}
+
+std::size_t
+file_stream::position() const
+{
+    return seek(0, /*from_current=*/true);
+}
+
+void
 file_stream::reset()
 {
-    ::off_t offset = ::lseek(fd_.get(), 0, SEEK_SET);
-    if (offset == -1) {
-        std::error_code err = last_error();
-
-        if (err == std::errc::invalid_seek)
-            throw_<byte_stream_error>("'{}' is not seekable and cannot be reset.", path_.string());
-
-        throw_system_error(err,
-            "'{}' cannot be reset", path_.string());
-    }
+    seek(0);
 
     is_eod_ = false;
+}
+
+void
+file_stream::record_position(tape &t) const
+{
+    std::size_t offset = position();
+
+    t.record(offset);
+}
+
+void
+file_stream::reload_position(tape &t)
+{
+    seek(t.read<std::size_t>());
+
+    is_eod_ = false;
+}
+
+bool
+file_stream::supports_seek() const noexcept
+{
+    return true;
 }
 
 std::size_t
@@ -87,6 +112,24 @@ file_stream::fill_chunk(writable_memory_span chunk)
             "'{}' cannot be read", path_.string());
 
     return static_cast<std::size_t>(num_bytes_read);
+}
+
+std::size_t
+file_stream::seek(std::size_t offset, bool from_current) const
+{
+    ::off_t off = ::lseek(
+        fd_.get(), static_cast<::off_t>(offset), from_current ? SEEK_CUR : SEEK_SET);
+
+    if (off != -1)
+        return static_cast<std::size_t>(off);
+
+    std::error_code err = last_error();
+
+    if (err == std::errc::invalid_seek)
+        throw_<byte_stream_error>("'{}' is not seekable.", path_.string());
+
+    throw_system_error(err,
+        "'{}' cannot be read", path_.string());
 }
 
 }  // namespace fairseq2n::detail

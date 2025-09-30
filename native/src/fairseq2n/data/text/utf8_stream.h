@@ -40,7 +40,22 @@ public:
     read_chunk() override;
 
     void
+    seek(std::size_t offset) override;
+
+    std::size_t
+    position() const override;
+
+    void
     reset() override;
+
+    void
+    record_position(tape &t) const override;
+
+    void
+    reload_position(tape &t) override;
+
+    bool
+    supports_seek() const noexcept override;
 
 private:
     bool
@@ -62,7 +77,7 @@ private:
     decode_encoded_chunk(writable_memory_span &output);
 
     void
-    ensure_iconv_initialized();
+    initialize_iconv();
 
     void
     reset_iconv() noexcept;
@@ -75,6 +90,7 @@ private:
     bool is_utf8_;
     std::size_t chunk_size_;
     ::iconv_t iconv_ = invalid_iconv_;
+    std::size_t bytes_read_ = 0;
     memory_block encoded_chunk_{};
     memory_block leftover_bits_{};
     bool is_eod_ = false;

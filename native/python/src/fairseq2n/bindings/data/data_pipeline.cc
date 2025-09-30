@@ -549,6 +549,28 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("num_parallel_calls") = 1,
             py::arg("deterministic") = true)
         .def(
+            "pack",
+            [](
+                data_pipeline_builder &self,
+                std::int64_t num_elements,
+                std::int64_t max_seq_len,
+                std::int64_t pad_value,
+                bool truncate,
+                bool drop_remainder,
+                bool pinned_memory) -> data_pipeline_builder &
+            {
+                self = std::move(self).pack(
+                    num_elements, max_seq_len, pad_value, truncate, drop_remainder, pinned_memory);
+
+                return self;
+            },
+            py::arg("num_elements"),
+            py::arg("max_seq_len"),
+            py::arg("pad_value") = 0,
+            py::arg("truncate") = true,
+            py::arg("drop_remainder") = true,
+            py::arg("pinned_memory") = false)
+        .def(
             "prefetch",
             [](data_pipeline_builder &self, std::size_t num_examples) -> data_pipeline_builder &
             {

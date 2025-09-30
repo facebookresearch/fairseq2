@@ -242,3 +242,66 @@ By default, the tests will be run on CPU; pass the ``--device`` (short form
 .. code-block:: sh
 
     pytest --device cuda:0
+
+7. Example End-to-End Build Script
+
+.. code-block:: sh
+
+    python_version=3.10.14
+    torch_version=2.7.1
+    cuda_version=12.8
+    variant=cu128
+    arch=linux-x86_64
+
+    conda create --name fs2_build_wheel python=$python_version
+    conda activate fs2_build_wheel
+    conda install -c conda-forge libsndfile compilers=1.2.0
+
+    pip install --extra-index-url https://download.pytorch.org/whl/$variant\
+                torch==$torch_version
+
+    git clone --recurse-submodules git@github.com:facebookresearch/fairseq2.git
+    cd fairseq2
+    pip install --requirement native/python/requirements-build.txt
+
+    version=0.5.1
+    tools/set-project-version.sh --native-only $version+$variant
+
+    cuda_archs="70-real;80-real;80-virtual"
+    cuda=ON
+    build_type=Release
+    lto=ON
+    SANITIZERS=nosan
+
+    # fairseq2/native
+    cd native
+    cmake\
+    -GNinja\
+    -DCMAKE_BUILD_TYPE=$build_type\
+    -DCMAKE_CUDA_ARCHITECTURES="$cuda_archs"\
+    -DFAIRSEQ2N_PERFORM_LTO=$lto\
+    -DFAIRSEQ2N_SANITIZERS="${SANITIZERS/_/;}"\
+    -DFAIRSEQ2N_TREAT_WARNINGS_AS_ERRORS=ON\
+    -DFAIRSEQ2N_USE_CUDA=$cuda\
+    -DFAIRSEQ2N_PYTHON_DEVEL=OFF\
+    -B build
+
+    cmake --build build
+
+    # fairseq2/native/python
+    cd python
+    pip wheel\
+    --use-pep517\
+    --no-build-isolation\
+    --no-deps\
+    --config-settings "--build-option=--plat-name"\
+    --config-settings "--build-option=manylinux_2_28_$arch"\
+    --wheel-dir build/wheelhouse\
+    .
+
+    ls build/wheelhouse/
+
+    # fairseq2/
+    cd ../../
+    pip wheel --no-deps --wheel-dir build/wheelhouse .
+    ls build/wheelhouse/

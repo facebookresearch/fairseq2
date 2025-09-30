@@ -10,6 +10,7 @@
 
 #include "fairseq2n/api.h"
 #include "fairseq2n/memory.h"
+#include "fairseq2n/data/tape.h"
 
 namespace fairseq2n {
 
@@ -30,7 +31,22 @@ public:
     read_chunk() = 0;
 
     virtual void
+    seek(std::size_t offset) = 0;
+
+    virtual std::size_t
+    position() const = 0;
+
+    virtual void
     reset() = 0;
+
+    virtual void
+    record_position(tape &t) const = 0;
+
+    virtual void
+    reload_position(tape &t) = 0;
+
+    virtual bool
+    supports_seek() const noexcept = 0;
 };
 
 class FAIRSEQ2_API byte_stream_error : public std::runtime_error {

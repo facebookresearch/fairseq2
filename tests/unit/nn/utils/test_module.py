@@ -8,23 +8,16 @@ from __future__ import annotations
 
 from torch.nn import Parameter
 
-from fairseq2.context import get_runtime_context
-from fairseq2.models.transformer import TransformerConfig, TransformerFactory
+from fairseq2.models.nllb import get_nllb_model_hub
 from fairseq2.nn.utils.module import select_parameters
-from fairseq2.typing import META
 
 
 def test_select_parameters() -> None:
-    context = get_runtime_context()
+    model_hub = get_nllb_model_hub()
 
-    model_config_registry = context.get_config_registry(TransformerConfig)
+    model_config = model_hub.get_arch_config("dense_1b")
 
-    model_config = model_config_registry.get("nllb_dense_1b")
-
-    model_factory = TransformerFactory(model_config)
-
-    with META:
-        model = model_factory.create_model()
+    model = model_hub.create_new_model(model_config, meta=True)
 
     output = select_parameters(model, [r".*\.encoder_decoder_attn_layer_norm\.bias$"])
 
@@ -37,16 +30,11 @@ def test_select_parameters() -> None:
 
 
 def test_select_parameters_when_exclude_is_true() -> None:
-    context = get_runtime_context()
+    model_hub = get_nllb_model_hub()
 
-    model_config_registry = context.get_config_registry(TransformerConfig)
+    model_config = model_hub.get_arch_config("dense_1b")
 
-    model_config = model_config_registry.get("nllb_dense_1b")
-
-    model_factory = TransformerFactory(model_config)
-
-    with META:
-        model = model_factory.create_model()
+    model = model_hub.create_new_model(model_config, meta=True)
 
     names = [r".*\.encoder_decoder_attn_layer_norm\.bias$", "decoder.layer_norm.weight"]
 

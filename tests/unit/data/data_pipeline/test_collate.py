@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 import torch
 
-from fairseq2.data import Collater, read_sequence
+from fairseq2.data.data_pipeline import Collater, read_sequence
 from tests.common import assert_equal, device
 
 
@@ -42,7 +42,8 @@ class TestCollateOp:
         expected_output2 = collater(bucket2)
 
         assert_equal(output1["seqs"], expected_output1["seqs"])
-        assert_equal(output1["seq_lens"], expected_output1["seq_lens"])
+
+        assert output1["seq_lens"] == expected_output1["seq_lens"]
 
         assert output1["is_ragged"] == expected_output1["is_ragged"]
 

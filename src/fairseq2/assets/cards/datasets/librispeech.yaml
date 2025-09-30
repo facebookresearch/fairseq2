@@ -12,9 +12,9 @@ tokenizer_family: char_tokenizer
 ---
 
 name: librispeech_asr_100h
-base: librispeech_asr
+base: wav2vec2_asr
 
 ---
 
 name: librispeech_960h
-dataset_family: generic_speech
+dataset_family: wav2vec2_ssl

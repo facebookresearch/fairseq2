@@ -13,8 +13,9 @@ from typing import cast
 from pytest import Config, Parser, Session
 
 import tests.common
-from fairseq2 import setup_fairseq2
-from fairseq2.typing import Device
+from fairseq2 import init_fairseq2
+from fairseq2.device import Device
+from fairseq2.utils.warn import enable_deprecation_warnings
 
 
 def pytest_addoption(parser: Parser) -> None:
@@ -33,7 +34,9 @@ def pytest_addoption(parser: Parser) -> None:
 
 
 def pytest_sessionstart(session: Session) -> None:
-    setup_fairseq2()
+    init_fairseq2()
+
+    enable_deprecation_warnings()
 
     tests.common.device = cast(Device, session.config.getoption("device"))
 

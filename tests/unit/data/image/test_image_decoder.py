@@ -13,7 +13,7 @@ import pytest
 import torch
 from fairseq2n import supports_image
 
-from fairseq2.data import MemoryBlock
+from fairseq2.data._memory import MemoryBlock
 from fairseq2.data.image import ImageDecoder
 from tests.common import assert_close, device
 

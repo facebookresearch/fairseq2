@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from fairseq2.data import read_sequence
+from fairseq2.data.data_pipeline import read_sequence
 from fairseq2.data.text import StrToIntConverter
 
 

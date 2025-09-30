@@ -13,7 +13,7 @@ import pytest
 import torch
 
 from fairseq2.data.text import StrToTensorConverter
-from fairseq2.typing import DataType
+from fairseq2.data_type import DataType
 from tests.common import assert_equal
 
 

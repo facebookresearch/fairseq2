@@ -1,0 +1,177 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: qwen25_7b
+model_family: qwen
+model_arch: qwen25_7b
+checkpoint: "hg://qwen/qwen2.5-7b"
+tokenizer: "hg://qwen/qwen2.5-7b"
+tokenizer_family: qwen
+
+---
+
+name: qwen25_7b_instruct
+model_family: qwen
+model_arch: qwen25_7b
+model_config:
+  max_seq_len: 32768
+checkpoint: "hg://qwen/qwen2.5-7b-instruct"
+tokenizer: "hg://qwen/qwen2.5-7b-instruct"
+tokenizer_family: qwen
+tokenizer_config:
+  use_im_end: true
+
+---
+
+name: qwen25_14b
+model_family: qwen
+model_arch: qwen25_14b
+checkpoint: "hg://qwen/qwen2.5-14b"
+tokenizer: "hg://qwen/qwen2.5-14b"
+tokenizer_family: qwen
+
+---
+
+name: qwen25_14b_instruct
+model_family: qwen
+model_arch: qwen25_14b
+checkpoint: "hg://qwen/qwen2.5-14b-instruct"
+tokenizer: "hg://qwen/qwen2.5-14b-instruct"
+tokenizer_family: qwen
+tokenizer_config:
+  use_im_end: true
+
+---
+
+name: qwen25_32b
+model_family: qwen
+model_arch: qwen25_32b
+checkpoint: "hg://qwen/qwen2.5-32b"
+tokenizer: "hg://qwen/qwen2.5-32b"
+tokenizer_family: qwen
+
+---
+
+name: qwen25_32b_instruct
+model_family: qwen
+model_arch: qwen25_32b
+checkpoint: "hg://qwen/qwen2.5-32b-instruct"
+tokenizer: "hg://qwen/qwen2.5-32b-instruct"
+tokenizer_family: qwen
+tokenizer_config:
+  _set_:
+    use_im_end: true
+
+---
+
+name: qwen3_0.6b_base
+model_family: qwen
+model_arch: qwen3_0.6b
+checkpoint: "hg://qwen/qwen3-0.6b-base"
+tokenizer: "hg://qwen/qwen3-0.6b-base"
+tokenizer_family: qwen
+
+---
+
+name: qwen3_0.6b
+model_family: qwen
+model_arch: qwen3_0.6b
+checkpoint: "hg://qwen/qwen3-0.6b"
+tokenizer: "hg://qwen/qwen3-0.6b"
+tokenizer_family: qwen
+tokenizer_config:
+  use_im_end: true
+
+---
+
+name: qwen3_1.7b_base
+model_family: qwen
+model_arch: qwen3_1.7b
+checkpoint: "hg://qwen/qwen3-1.7b-base"
+tokenizer: "hg://qwen/qwen3-1.7b-base"
+tokenizer_family: qwen
+
+---
+
+name: qwen3_1.7b
+model_family: qwen
+model_arch: qwen3_1.7b
+checkpoint: "hg://qwen/qwen3-1.7b"
+tokenizer: "hg://qwen/qwen3-1.7b"
+tokenizer_family: qwen
+tokenizer_config:
+  use_im_end: true
+
+---
+
+name: qwen3_4b_base
+model_family: qwen
+model_arch: qwen3_4b
+checkpoint: "hg://qwen/qwen3-4b-base"
+tokenizer: "hg://qwen/qwen3-4b-base"
+tokenizer_family: qwen
+
+---
+
+name: qwen3_4b
+model_family: qwen
+model_arch: qwen3_4b
+checkpoint: "hg://qwen/qwen3-4b"
+tokenizer: "hg://qwen/qwen3-4b"
+tokenizer_family: qwen
+tokenizer_config:
+  use_im_end: true
+
+---
+
+name: qwen3_8b_base
+model_family: qwen
+model_arch: qwen3_8b
+checkpoint: "hg://qwen/qwen3-8b-base"
+tokenizer: "hg://qwen/qwen3-8b-base"
+tokenizer_family: qwen
+
+---
+
+name: qwen3_8b
+model_family: qwen
+model_arch: qwen3_8b
+checkpoint: "hg://qwen/qwen3-8b"
+tokenizer: "hg://qwen/qwen3-8b"
+tokenizer_family: qwen
+tokenizer_config:
+  use_im_end: true
+
+---
+
+name: qwen3_14b_base
+model_family: qwen
+model_arch: qwen3_14b
+checkpoint: "hg://qwen/qwen3-14b-base"
+tokenizer: "hg://qwen/qwen3-14b-base"
+tokenizer_family: qwen
+
+---
+
+name: qwen3_14b
+model_family: qwen
+model_arch: qwen3_14b
+checkpoint: "hg://qwen/qwen3-14b"
+tokenizer: "hg://qwen/qwen3-14b"
+tokenizer_family: qwen
+tokenizer_config:
+  use_im_end: true
+
+---
+
+name: qwen3_32b
+model_family: qwen
+model_arch: qwen3_32b
+checkpoint: "hg://qwen/qwen3-32b"
+tokenizer: "hg://qwen/qwen3-32b"
+tokenizer_family: qwen
+tokenizer_config:
+  use_im_end: true

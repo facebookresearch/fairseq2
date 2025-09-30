@@ -7,8 +7,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Iterator, Sequence
 from itertools import chain
 from typing import Protocol, runtime_checkable
 
@@ -17,9 +16,10 @@ from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.nn.utils import remove_weight_norm  # type: ignore[attr-defined]
 
-from fairseq2.gang import Gang
+from fairseq2.device import CPU, Device
+from fairseq2.error import StateDictError
+from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
-from fairseq2.typing import CPU, Device
 
 
 @runtime_checkable
@@ -109,12 +109,11 @@ def to_device(module: Module, device: Device) -> None:
         if m is None:
             continue
 
-        try:
-            module_device = infer_device(m, recurse=False)
-        except ValueError as ex:
+        module_device = maybe_infer_device(m, recurse=False)
+        if module_device is None:
             raise ValueError(
-                f"The device of `{name}` is not valid. See the nested exception for details."
-            ) from ex
+                f"All parameters and buffers of `{name}` must be on the same device."
+            )
 
         if module_device == device:
             continue
@@ -181,12 +180,12 @@ def share_parameters(source_module: Module, target_module: Module) -> None:
 
         if src_tensor.grad is not None:
             raise ValueError(
-                f"The parameters must not have their `grad` set, but '{src_name}' of `source_module` has it set."
+                f"Parameters of `source_module` must not have their `grad` set, but '{src_name}' has it set."
             )
 
         if tgt_tensor.grad is not None:
             raise ValueError(
-                f"The parameters must not have their `grad` set, but '{tgt_name}' of `target_module` has it set."
+                f"Parameters of `target_module` must not have their `grad` set, but '{tgt_name}' has it set."
             )
 
     tensors = []
@@ -238,7 +237,7 @@ def apply_to_parameters(
     """
     if no_memo:
         memo = None
-    elif memo is None and recurse:
+    elif memo is None:
         memo = {}
 
     if recurse:
@@ -275,7 +274,8 @@ def apply_to_parameters(
 
         setattr(module, param_name, new_param)
 
-        if (grad := param.grad) is not None:
+        grad = param.grad
+        if grad is not None:
             with torch.no_grad():
                 new_grad = call_fn(grad, requires_grad=grad.requires_grad)
 
@@ -298,7 +298,7 @@ def freeze_parameters(module: Module | None, value: bool = True) -> None:
 
 def select_parameters(
     module: Module, names: Sequence[str], *, exclude: bool = False
-) -> Iterable[tuple[str, Parameter]]:
+) -> Iterator[tuple[str, Parameter]]:
     """Select the parameters of ``module`` and its descendant modules whose
     names match ``names``.
 
@@ -310,7 +310,7 @@ def select_parameters(
         If ``True``, return the parameters that do not match ``names``.
 
     :returns:
-        An iterable of name-parameter tuples.
+        An iterator of name-parameter tuples.
     """
     for name, param in module.named_parameters():
         matched = any(name == pattern or re.match(pattern, name) for pattern in names)
@@ -339,7 +339,7 @@ def remove_parametrizations(module: Module, *, recurse: bool = True) -> None:
     visit_module(module, remove, recurse=recurse)
 
 
-def infer_device(module: Module, *, recurse: bool = True) -> Device:
+def maybe_infer_device(module: Module, *, recurse: bool = True) -> Device | None:
     """Infer the device on which ``module``'s parameters and buffers reside.
 
     :param module:
@@ -364,11 +364,7 @@ def infer_device(module: Module, *, recurse: bool = True) -> Device:
     if len(devices) == 1:
         return devices.pop()
 
-    s = ", ".join(sorted(f"`{d.type}`" for d in devices))
-
-    raise ValueError(
-        f"All parameters and buffers of `module` must be on the same device, but they are on {s}."
-    )
+    return None
 
 
 def broadcast_module(
@@ -420,7 +416,7 @@ def broadcast_module(
             tensors.append(param.detach())
 
             if not warned and param.grad is not None:
-                log.warning("`broadcast_module()` does not support syncing gradients, but one or more parameters of `module` have their `grads` defined.")  # fmt: skip
+                log.warning("`broadcast_module()` does not support syncing gradients, but one or more parameters of `module` have their `grads` set.")  # fmt: skip
 
                 warned = True
 
@@ -451,18 +447,21 @@ def broadcast_module(
     from torch.distributed import _broadcast_coalesced
 
     # TODO(balioglu): Call c10d in fairseq2n instead.
-    _broadcast_coalesced(pg, tensors, bucket_size, source_rank)
+    try:
+        _broadcast_coalesced(pg, tensors, bucket_size, source_rank)
+    except RuntimeError as ex:
+        raise GangError("`broadcast_coalesced()` collective operation failed.") from ex
 
 
 def load_state_dict(
-    module: Module, state_dict: Mapping[str, object], strict: bool = True
+    module: Module, state_dict: dict[str, object], strict: bool = True
 ) -> None:
     """Copy parameters and buffers from ``state_dict`` into ``module`` and its
     descendant modules.
 
-    This implementation internally calls :meth:`Module.load_state_dict()`, and also enforces that
-    ``state_dict`` does not contain any keys corresponding to descendants that are set to ``None``
-    via :meth:`Module.register_module()`.
+    This implementation internally calls :meth:`Module.load_state_dict()`, and
+    also enforces that ``state_dict`` does not contain any keys corresponding to
+    descendants that are set to ``None`` via :meth:`Module.register_module()`.
     """
     module.load_state_dict(state_dict, strict=strict)
 
@@ -483,9 +482,7 @@ def load_state_dict(
 
         s = ", ".join(unexpected_keys)
 
-        raise ValueError(
-            f"`state_dict` must not contain the following unexpected key(s): {s}"
-        )
+        raise StateDictError(f"`state_dict` contains unexpected key(s) {s}.")
 
 
 def _get_named_modules(
@@ -535,67 +532,5 @@ def _get_named_modules(
         yield prefix, module
 
 
-@dataclass(kw_only=True)
-class ModuleSizeInfo:
-    """Holds the size information of a module."""
-
-    param_size: int = 0
-    """The total size of all parameters."""
-
-    param_size_bytes: int = 0
-    """The total size of all parameters, in bytes."""
-
-    trainable_param_size: int = 0
-    """The total size of all trainable parameters."""
-
-    trainable_param_size_bytes: int = 0
-    """The total size of all trainable parameters, in bytes."""
-
-    buffer_size: int = 0
-    """The total size of all buffers."""
-
-    buffer_size_bytes: int = 0
-    """The total size of all buffers, in bytes."""
-
-    total_size: int = 0
-    """The total size of the module."""
-
-    total_size_bytes: int = 0
-    """The total size of the module, in bytes."""
-
-
-def get_module_size(module: Module) -> ModuleSizeInfo:
-    """Return the size information of ``module`` and its descendant modules."""
-    info = ModuleSizeInfo()
-
-    for param in module.parameters():
-        if param is None:
-            continue
-
-        size = param.numel()
-        size_bytes = size * param.element_size()
-
-        info.param_size += size
-        info.param_size_bytes += size_bytes
-
-        if param.requires_grad:
-            info.trainable_param_size += size
-            info.trainable_param_size_bytes += size_bytes
-
-        info.total_size += size
-        info.total_size_bytes += size_bytes
-
-    for buffer in module.buffers():
-        if buffer is None:
-            continue
-
-        size = buffer.numel()
-        size_bytes = size * buffer.element_size()
-
-        info.buffer_size += size
-        info.buffer_size_bytes += size_bytes
-
-        info.total_size += size
-        info.total_size_bytes += size_bytes
-
-    return info
+def get_name_or_self(obj: object) -> object:
+    return getattr(obj, "__name__", obj)

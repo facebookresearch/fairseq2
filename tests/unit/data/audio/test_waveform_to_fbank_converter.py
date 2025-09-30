@@ -13,7 +13,7 @@ from typing import Final
 import pytest
 import torch
 
-from fairseq2.data import MemoryBlock
+from fairseq2.data._memory import MemoryBlock
 from fairseq2.data.audio import (
     AudioDecoder,
     AudioDecoderOutput,

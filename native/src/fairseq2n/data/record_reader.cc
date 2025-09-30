@@ -7,6 +7,7 @@
 #include "fairseq2n/data/record_reader.h"
 
 #include <algorithm>
+#include <stdexcept>
 
 #include <fmt/format.h>
 
@@ -34,11 +35,41 @@ record_reader::next()
 void
 record_reader::reset()
 {
+    stream_->reset();
+
     current_chunk_ = {};
 
-    previous_chunks_.clear();
+    stream_offset_ = 0;
 
-    stream_->reset();
+    chunk_offset_ = 0;
+}
+
+void
+record_reader::record_position(tape &t) const
+{
+    t.record(stream_offset_);
+
+    t.record(chunk_offset_);
+}
+
+void
+record_reader::reload_position(tape &t)
+{
+    stream_offset_ = t.read<std::size_t>();
+
+    stream_->seek(stream_offset_);
+
+    chunk_offset_ = t.read<std::size_t>();
+    if (chunk_offset_ > 0) {
+        current_chunk_ = stream_->read_chunk();
+
+        if (chunk_offset_ >= current_chunk_.size())
+            throw_<std::invalid_argument>(
+                "The tape is corrupt. The state of the record reader cannot be restored.");
+
+        current_chunk_ = current_chunk_.share_slice(chunk_offset_);
+    } else
+        current_chunk_ = {};
 }
 
 bool
@@ -52,12 +83,17 @@ record_reader::load_next_record()
 
     // Load and store memory chunks until we find the end of the next record.
     while (!(maybe_record_end_offset = maybe_find_record_end(current_chunk_, first_chunk))) {
+        stream_offset_ = stream_->position();
+
         memory_block next_chunk = stream_->read_chunk();
         if (next_chunk.empty()) {
             // If `next_chunk` is empty and we don't have any partial record
             // stored from a previous call, we have reached end of data.
-            if (current_chunk_.empty())
+            if (current_chunk_.empty()) {
+                chunk_offset_ = 0;
+
                 return false;
+            }
 
             throw_<record_error>(
                 "The stream ends with a partial record of {} byte(s).", fmt::group_digits(current_chunk_.size()));
@@ -70,6 +106,8 @@ record_reader::load_next_record()
         previous_chunks_.push_back(std::move(current_chunk_));
 
         current_chunk_ = std::move(next_chunk);
+
+        chunk_offset_ = 0;
 
         first_chunk = false;
     }
@@ -116,6 +154,8 @@ void
 record_reader::move_to_next_record()
 {
     current_chunk_ = current_chunk_.share_slice(record_end_offset_);
+
+    chunk_offset_ += record_end_offset_;
 
     previous_chunks_.clear();
 }

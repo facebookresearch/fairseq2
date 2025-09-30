@@ -6,28 +6,33 @@
 
 from __future__ import annotations
 
-from fairseq2.models.llama._checkpoint import (
-    convert_llama_checkpoint as convert_llama_checkpoint,
+from fairseq2.models.llama.checkpoint import (
+    LLaMACheckpointLoader as LLaMACheckpointLoader,
 )
-from fairseq2.models.llama._compile import compile_llama_model as compile_llama_model
-from fairseq2.models.llama._config import LLAMA_MODEL_FAMILY as LLAMA_MODEL_FAMILY
-from fairseq2.models.llama._config import LLaMAConfig as LLaMAConfig
-from fairseq2.models.llama._config import (
-    LLaMARopeScalingConfig as LLaMARopeScalingConfig,
-)
-from fairseq2.models.llama._config import (
+from fairseq2.models.llama.config import LLAMA_FAMILY as LLAMA_FAMILY
+from fairseq2.models.llama.config import LLaMAConfig as LLaMAConfig
+from fairseq2.models.llama.config import LLaMARoPEScaleConfig as LLaMARoPEScaleConfig
+from fairseq2.models.llama.config import (
     register_llama_configs as register_llama_configs,
 )
-from fairseq2.models.llama._factory import LLaMAFactory as LLaMAFactory
-from fairseq2.models.llama._factory import create_llama_model as create_llama_model
-from fairseq2.models.llama._factory import (
-    init_llama_rope_freqs as init_llama_rope_freqs,
+from fairseq2.models.llama.factory import LLaMAFactory as LLaMAFactory
+from fairseq2.models.llama.factory import create_llama_model as create_llama_model
+from fairseq2.models.llama.factory import init_llama_rope_freqs as init_llama_rope_freqs
+from fairseq2.models.llama.hub import get_llama_model_hub as get_llama_model_hub
+from fairseq2.models.llama.hub import get_llama_tokenizer_hub as get_llama_tokenizer_hub
+from fairseq2.models.llama.interop import (
+    convert_llama_state_dict as convert_llama_state_dict,
 )
-from fairseq2.models.llama._shard import shard_llama_model as shard_llama_model
-
-# isort: split
-
-from fairseq2.models import ModelHubAccessor
-from fairseq2.models.transformer_decoder import TransformerDecoderModel
-
-get_llama_model_hub = ModelHubAccessor(TransformerDecoderModel, LLaMAConfig)
+from fairseq2.models.llama.interop import (
+    convert_to_ref_llama_state_dict as convert_to_ref_llama_state_dict,
+)
+from fairseq2.models.llama.interop import export_llama as export_llama
+from fairseq2.models.llama.sharder import get_llama_shard_specs as get_llama_shard_specs
+from fairseq2.models.llama.tokenizer import (
+    LLaMAHuggingFaceTokenizer as LLaMAHuggingFaceTokenizer,
+)
+from fairseq2.models.llama.tokenizer import (
+    LLaMATiktokenTokenizer as LLaMATiktokenTokenizer,
+)
+from fairseq2.models.llama.tokenizer import LLaMATokenizerConfig as LLaMATokenizerConfig
+from fairseq2.models.llama.tokenizer import load_llama_tokenizer as load_llama_tokenizer

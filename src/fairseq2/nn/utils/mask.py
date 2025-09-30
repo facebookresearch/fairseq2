@@ -11,23 +11,26 @@ from typing import Protocol
 import torch
 from torch import Tensor
 
-from fairseq2.nn.ops import repeat_interleave
-from fairseq2.typing import DataType, Device
+from fairseq2.device import Device
+from fairseq2.ops import repeat_interleave, unsqueeze
 
 
-def to_float_mask(mask: Tensor, dtype: DataType | None = None) -> Tensor:
-    """Convert a boolean mask to a float mask.
-
-    :param mask:
-        The boolean mask. *Shape:* Any.
-    :param dtype:
-        The data type of the float mask. If ``None``, the default floating-point
-        type will be used.
+def apply_mask(
+    seqs: Tensor, mask: Tensor, *, fill_value: int | float | Tensor = 0
+) -> Tensor:
     """
-    if dtype is None:
-        dtype = torch.get_default_dtype()
+    Applies the specified boolean mask to ``seqs``.
 
-    return torch.zeros_like(mask, dtype=dtype).masked_fill_(mask, -torch.inf)
+    :param seqs: The sequences to mask. *Shape:* :math:`(N,S,*)`, where :math:`N`
+        is the batch size, :math:`S` is the sequence length, and :math:`*` is
+        any number of sequence-specific dimensions including none.
+    :param mask: The boolean mask.
+
+    :returns: The input sequences with mask applied. *Shape:* Same as ``seqs``.
+    """
+    mask = unsqueeze(mask, dim=-1, count=seqs.ndim - mask.ndim)
+
+    return seqs.where(mask, fill_value)
 
 
 class RowMaskFactory(Protocol):
@@ -40,7 +43,8 @@ class RowMaskFactory(Protocol):
         min_num_spans: int = 0,
         device: Device | None = None,
     ) -> Tensor | None:
-        """Compute a random row mask of the specified shape.
+        """
+        Computes a random row mask of the specified shape.
 
         :param shape:
             The shape of the mask.
@@ -69,7 +73,8 @@ def compute_row_mask(
     min_num_spans: int = 0,
     device: Device | None = None,
 ) -> Tensor | None:
-    """Implements the :class:`RowMaskFactory` protocol.
+    """
+    Implements the :class:`RowMaskFactory` protocol.
 
     Note that, due to mask span overlap, the effective mask probability will be
     lower than ``max_mask_prob``. The implementation also guarantees that there
@@ -81,7 +86,7 @@ def compute_row_mask(
         # We only mask rows that are longer than the mask span length.
         if span_len >= max_row_len:
             raise ValueError(
-                f"The size of the second dimension of `shape` must be greater than `span_len` ({span_len}), but is {max_row_len} instead."
+                f"Size of the second dimension of `shape` must be greater than `span_len` ({span_len}), but is {max_row_len} instead."
             )
 
         # (N)
@@ -90,7 +95,7 @@ def compute_row_mask(
         )
     else:
         # (N)
-        row_lens = row_lens.view(num_rows)
+        row_lens = row_lens.to(torch.int64).view(num_rows)
 
         # We only mask rows that are longer than the mask span length.
         if (span_len >= row_lens).any():

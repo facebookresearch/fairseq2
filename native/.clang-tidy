@@ -38,6 +38,7 @@ Checks: >
     -readability-named-parameter,
     -readability-qualified-auto,
     -readability-redundant-access-specifiers,
+    -readability-redundant-member-init,
     -readability-suspicious-call-argument,
     -zircon-*
 CheckOptions:

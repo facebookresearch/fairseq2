@@ -11,7 +11,7 @@ from typing import Any, Final
 
 import pytest
 
-from fairseq2.data import FileMapper, FileMapperOutput
+from fairseq2.data.data_pipeline import FileMapper, FileMapperOutput
 
 TEST_BIN_PATH: Final = Path(__file__).parent.joinpath("text", "test.spm")
 

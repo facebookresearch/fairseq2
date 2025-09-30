@@ -7,15 +7,17 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, final
+from typing import Any, Final, final
 
 from typing_extensions import Self, override
+
+from fairseq2.runtime.closable import Closable
 
 
 class ProgressReporter(ABC):
     @abstractmethod
     def create_task(
-        self, name: str, total: int | None, completed: int = 0
+        self, name: str, total: int | None, completed: int = 0, *, start: bool = True
     ) -> ProgressTask: ...
 
     @abstractmethod
@@ -25,12 +27,12 @@ class ProgressReporter(ABC):
     def __exit__(self, *ex: Any) -> None: ...
 
 
-class ProgressTask(ABC):
+class ProgressTask(Closable):
     @abstractmethod
-    def step(self, value: int) -> None: ...
+    def start(self) -> None: ...
 
     @abstractmethod
-    def close(self) -> None: ...
+    def step(self, value: int = 1) -> None: ...
 
     def __enter__(self) -> Self:
         return self
@@ -40,12 +42,12 @@ class ProgressTask(ABC):
 
 
 @final
-class NoopProgressReporter(ProgressReporter):
+class _NoopProgressReporter(ProgressReporter):
     @override
     def create_task(
-        self, name: str, total: int | None, completed: int = 0
+        self, name: str, total: int | None, completed: int = 0, *, start: bool = True
     ) -> ProgressTask:
-        return NoopProgressTask()
+        return _NoopProgressTask()
 
     @override
     def __enter__(self) -> Self:
@@ -56,10 +58,17 @@ class NoopProgressReporter(ProgressReporter):
         pass
 
 
+NOOP_PROGRESS_REPORTER: Final = _NoopProgressReporter()
+
+
 @final
-class NoopProgressTask(ProgressTask):
+class _NoopProgressTask(ProgressTask):
     @override
-    def step(self, value: int) -> None:
+    def start(self) -> None:
+        pass
+
+    @override
+    def step(self, value: int = 1) -> None:
         pass
 
     @override
