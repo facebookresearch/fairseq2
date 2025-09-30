@@ -6,14 +6,18 @@
 
 from __future__ import annotations
 
-from collections.abc import MutableMapping
 from contextlib import AbstractContextManager
 from dataclasses import Field, is_dataclass
-from typing import Any, ClassVar, Final, Protocol, TypeAlias, TypeGuard
+from typing import Any, ClassVar, Protocol, TypeAlias, TypeGuard, runtime_checkable
 
-from torch import device, dtype
-from typing_extensions import Self
-from typing_extensions import override as override  # noqa: F401
+ContextManager: TypeAlias = AbstractContextManager
+
+
+@runtime_checkable
+class Stateful(Protocol):
+    def state_dict(self) -> dict[str, object]: ...
+
+    def load_state_dict(self, state_dict: dict[str, object]) -> None: ...
 
 
 class DataClass(Protocol):
@@ -22,36 +26,6 @@ class DataClass(Protocol):
     __dataclass_fields__: ClassVar[dict[str, Field[Any]]]
 
 
-class _EmptyType:
-    def __reduce__(self) -> str:
-        return "EMPTY"
-
-    def __copy__(self) -> Self:
-        return self
-
-    def __deepcopy__(self, memo: MutableMapping[Any, Any]) -> Self:
-        return self
-
-    def __repr__(self) -> str:
-        return "<empty>"
-
-
-EMPTY = _EmptyType()
-"""A sentinel signifying no value for a dataclass field."""
-
-
 def is_dataclass_instance(obj: object) -> TypeGuard[DataClass]:
     """Return ``True`` if ``obj`` is of type :class:`DataClass`."""
     return is_dataclass(obj) and not isinstance(obj, type)
-
-
-ContextManager: TypeAlias = AbstractContextManager[None]
-
-
-Device: TypeAlias = device
-
-DataType: TypeAlias = dtype
-
-CPU: Final = Device("cpu")
-
-META: Final = Device("meta")

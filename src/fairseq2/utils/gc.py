@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import gc
 from abc import ABC, abstractmethod
-from typing import Any, final
+from typing import Any, Final, final
 
 from typing_extensions import Self, override
 
@@ -32,7 +32,7 @@ class GarbageCollector(ABC):
 
 
 @final
-class NoopGarbageCollector(GarbageCollector):
+class _NoopGarbageCollector(GarbageCollector):
     @override
     def enable(self, value: bool = True) -> None:
         pass
@@ -42,11 +42,11 @@ class NoopGarbageCollector(GarbageCollector):
         pass
 
 
-@final
-class CPythonGarbageCollector(GarbageCollector):
-    _step: int
-    _collect_every_n_step: int
+NOOP_GARBAGE_COLLECTOR: Final = _NoopGarbageCollector()
 
+
+@final
+class StandardGarbageCollector(GarbageCollector):
     def __init__(self, collect_every_n_step: int) -> None:
         if collect_every_n_step < 1:
             raise ValueError(
@@ -70,7 +70,7 @@ class CPythonGarbageCollector(GarbageCollector):
         self._step += 1
 
         if self._step == self._collect_every_n_step:
-            log.info("Running garbage collection for the oldest two generations.")  # fmt: skip
+            log.info("Running garbage collection.")
 
             gc.collect(generation=1)
 

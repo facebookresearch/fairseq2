@@ -10,11 +10,12 @@ from typing import ClassVar, Final
 import pytest
 import torch
 
-from fairseq2.data.text.tokenizers import TextTokenizer, get_text_tokenizer_hub
-from fairseq2.generation import BannedSequenceProcessor, BeamSearchSeq2SeqGenerator
+from fairseq2.data.tokenizers import Tokenizer
+from fairseq2.generation.beam_search import BeamSearchSeq2SeqGenerator
+from fairseq2.generation.step_processor import BannedSequenceProcessor
 from fairseq2.generation.text import TextTranslator
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.models.transformer import get_transformer_model_hub
+from fairseq2.models.nllb import get_nllb_model_hub, get_nllb_tokenizer_hub
+from fairseq2.models.seq2seq import Seq2SeqModel
 from tests.common import device
 
 BANNED_ENG_SENTENCES: Final = [
@@ -55,20 +56,18 @@ BANNED_TEST_INPUTS: Final = [
 
 
 class TestBannedSequenceProcessor:
-    model: ClassVar[EncoderDecoderModel]
-    tokenizer: ClassVar[TextTokenizer]
+    model: ClassVar[Seq2SeqModel]
+    tokenizer: ClassVar[Tokenizer]
 
     @classmethod
     def setup_class(cls) -> None:
         model_name = "nllb-200_dense_distill_600m"
 
-        model_hub = get_transformer_model_hub()
+        cls.model = get_nllb_model_hub().load_model(
+            model_name, device=device, dtype=torch.float32
+        )
 
-        cls.model = model_hub.load(model_name, device=device, dtype=torch.float32)
-
-        tokenizer_hub = get_text_tokenizer_hub()
-
-        cls.tokenizer = tokenizer_hub.load(model_name)
+        cls.tokenizer = get_nllb_tokenizer_hub().load_tokenizer(model_name)
 
     @classmethod
     def teardown_class(cls) -> None:

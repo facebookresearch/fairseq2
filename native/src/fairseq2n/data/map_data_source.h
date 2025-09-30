@@ -24,8 +24,11 @@ namespace fairseq2n::detail {
 
 class map_data_source final : public data_source {
 public:
-    explicit map_data_source(std::unique_ptr<data_source> &&inner, std::vector<map_fn> &&fns,
-                             std::size_t num_parallel_calls, bool deterministic_);
+    explicit map_data_source(
+        std::unique_ptr<data_source> &&inner,
+        std::vector<map_fn> &&fns,
+        std::size_t num_parallel_calls,
+        bool deterministic_);
 
     std::optional<data>
     next() override;

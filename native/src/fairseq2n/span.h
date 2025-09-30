@@ -179,7 +179,7 @@ template <typename Container>
 span(Container &) -> span<detail::element_type_t<Container>>;
 
 template <typename T>
-inline constexpr span<const std::byte>
+constexpr span<const std::byte>
 as_bytes(span<T> s) noexcept
 {
     return {reinterpret_cast<const std::byte *>(s.data()), s.size_bytes()};
@@ -187,14 +187,14 @@ as_bytes(span<T> s) noexcept
 
 // The element type of `s` must be non-const.
 template <typename T, typename = std::enable_if_t<!std::is_const_v<T>>>
-inline constexpr span<std::byte>
+constexpr span<std::byte>
 as_writable_bytes(span<T> s) noexcept
 {
     return {reinterpret_cast<std::byte *>(s.data()), s.size_bytes()};
 }
 
 template <typename T>
-inline constexpr span<T>
+constexpr span<T>
 as_singleton_span(T &v) noexcept
 {
     return {std::addressof(v), 1};

@@ -6,13 +6,13 @@
 
 from __future__ import annotations
 
-from fairseq2.models.vit._feature_extractor import (
+from fairseq2.models.vit.feature_extractor import (
     Conv2dPatchFeatureExtractor as Conv2dPatchFeatureExtractor,
 )
-from fairseq2.models.vit._feature_extractor import (
+from fairseq2.models.vit.feature_extractor import (
     Conv3dPatchFeatureExtractor as Conv3dPatchFeatureExtractor,
 )
-from fairseq2.models.vit._feature_extractor import (
+from fairseq2.models.vit.feature_extractor import (
     PatchFeatureExtractor as PatchFeatureExtractor,
 )
-from fairseq2.models.vit._frontend import StandardViTFrontend as StandardViTFrontend
+from fairseq2.models.vit.frontend import StandardViTFrontend as StandardViTFrontend

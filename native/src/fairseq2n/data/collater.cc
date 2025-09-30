@@ -316,19 +316,17 @@ collate_op::pad_tensors(span<at::Tensor> tensors, std::int64_t pad_value, const 
         seqs = tmp;
 
     // Construct sequence length tensor.
-    at::Tensor seq_lens = at::empty({shape[0]}, at::dtype(at::kLong));
+    std::vector<data> seq_lens{};
 
     bool is_ragged = false;
 
-    auto seq_lens_data = seq_lens.accessor<std::int64_t, 1>();
-
-    std::int64_t i = 0;
+    std::size_t i = 0;
     for (const at::Tensor &t : tensors) {
         std::int64_t seq_len = t.size(0);
 
-        seq_lens_data[i] = seq_len;
+        seq_lens.emplace_back(seq_len);
 
-        if (i > 0 && seq_lens_data[i - 1] != seq_len)
+        if (i > 0 && seq_lens[i - 1].as_int() != seq_len)
             is_ragged = true;
 
         ++i;
@@ -336,10 +334,8 @@ collate_op::pad_tensors(span<at::Tensor> tensors, std::int64_t pad_value, const 
 
     // We might still need to return as ragged even if all sequences have the
     // same length if `seqs` has extra padding due to `pad_to_multiple`.
-    if (!is_ragged && !tensors.empty() && seq_lens_data[0] != seqs.size(1))
+    if (!is_ragged && !tensors.empty() && seq_lens[0].as_int() != seqs.size(1))
         is_ragged = true;
-
-    seq_lens = seq_lens.to(seqs.device());
 
     // Pack the sequences and their lengths into a dict.
     data_dict output{{"is_ragged", is_ragged}};

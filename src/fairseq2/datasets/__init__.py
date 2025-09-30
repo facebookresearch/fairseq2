@@ -6,26 +6,20 @@
 
 from __future__ import annotations
 
-from fairseq2.datasets._config import Batching as Batching
-from fairseq2.datasets._config import DataReadOptions as DataReadOptions
-from fairseq2.datasets._config import LengthBatching as LengthBatching
-from fairseq2.datasets._config import StaticBatching as StaticBatching
-from fairseq2.datasets._config import SyncMode as SyncMode
-from fairseq2.datasets._data_reader import DataPipelineReader as DataPipelineReader
-from fairseq2.datasets._data_reader import DataReader as DataReader
-from fairseq2.datasets._data_reader import DataReadError as DataReadError
-from fairseq2.datasets._error import DatasetLoadError as DatasetLoadError
-from fairseq2.datasets._error import InvalidDatasetTypeError as InvalidDatasetTypeError
-from fairseq2.datasets._error import UnknownDatasetError as UnknownDatasetError
-from fairseq2.datasets._error import (
-    UnknownDatasetFamilyError as UnknownDatasetFamilyError,
+from fairseq2.datasets.batch import Seq2SeqBatch as Seq2SeqBatch
+from fairseq2.datasets.batch import SequenceBatch as SequenceBatch
+from fairseq2.datasets.data_reader import DataPipelineReader as DataPipelineReader
+from fairseq2.datasets.data_reader import DataReader as DataReader
+from fairseq2.datasets.data_reader import DataReadError as DataReadError
+from fairseq2.datasets.data_reader import SyncMode as SyncMode
+from fairseq2.datasets.family import DatasetError as DatasetError
+from fairseq2.datasets.family import DatasetFamily as DatasetFamily
+from fairseq2.datasets.family import DatasetOpener as DatasetOpener
+from fairseq2.datasets.family import StandardDatasetFamily as StandardDatasetFamily
+from fairseq2.datasets.family import get_dataset_family as get_dataset_family
+from fairseq2.datasets.hub import (
+    DatasetFamilyNotKnownError as DatasetFamilyNotKnownError,
 )
-from fairseq2.datasets._error import UnknownSplitError as UnknownSplitError
-from fairseq2.datasets._error import (
-    dataset_asset_card_error as dataset_asset_card_error,
-)
-from fairseq2.datasets._handler import DatasetHandler as DatasetHandler
-from fairseq2.datasets._handler import DatasetLoader as DatasetLoader
-from fairseq2.datasets._handler import StandardDatasetHandler as StandardDatasetHandler
-from fairseq2.datasets._hub import DatasetHub as DatasetHub
-from fairseq2.datasets._hub import DatasetHubAccessor as DatasetHubAccessor
+from fairseq2.datasets.hub import DatasetHub as DatasetHub
+from fairseq2.datasets.hub import DatasetHubAccessor as DatasetHubAccessor
+from fairseq2.datasets.hub import DatasetNotKnownError as DatasetNotKnownError
