@@ -224,7 +224,7 @@ def _create_chunked_bias_tensor(
     attention_chunk_size: int,
     device: Device,
 ) -> torch.Tensor:
-    block_pos = torch.abs(
+    block_pos = (
         (torch.arange(q_len).unsqueeze(0) // attention_chunk_size)
         - (torch.arange(q_len).unsqueeze(1) // attention_chunk_size)
     )
