@@ -254,6 +254,7 @@ class MathVerifyVerifier(VLLMOutputReward):
         batch_text = []
         batch_tokens = []
         batch_rewards = []
+        batch_answers = []
 
         reference_answers = prompt_batch.meta_info.get(self.answer_key)
 
@@ -262,6 +263,7 @@ class MathVerifyVerifier(VLLMOutputReward):
             rollouts_tokens = []
             i_reference_answer = reference_answers[i]
             rollouts_rewards = []
+            rollouts_answers = []
             for rollout_output in i_batch_request_output.outputs:
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)
@@ -269,11 +271,13 @@ class MathVerifyVerifier(VLLMOutputReward):
                     rollout_output.text, i_reference_answer
                 )
                 rollouts_rewards.append(predicted_reward)
+                rollouts_answers.append(predicted_answer)
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
             batch_rewards.append(rollouts_rewards)
+            batch_answers.append(rollouts_answers)
 
-        return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
+        return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards, "answers": batch_answers}
 
     def prepare_preference_batch(
         self, prompt_batch: PromptBatch, rollouts
@@ -1511,6 +1515,34 @@ class GenerativeKwiseVerifier(VLLMOutputReward):
             self.tokenizer, self.k
         )
 
+    # def construct_all_k_tuples(
+    #     self,
+    #     prompt_text,
+    #     i_batch_request_output,
+    #     vllm_inputs,
+    #     batch_kwise_indices,
+    #     reference_answer,
+    #     R,
+    #     k,
+    # ):
+    #     all_k_tuples = list(itertools.combinations(list(range(R)), k))
+    #     for k_tuple in all_k_tuples:
+    #         k_list = list(k_tuple)
+    #         random.shuffle(k_list)
+    #         batch_kwise_indices.append(k_list)
+    #         response_string = ""
+    #         for assistant_id, idx in enumerate(k_list):
+    #             rollout = i_batch_request_output.outputs[idx].text
+    #             response_string += f"[Start of Assistant {assistant_id+1} Answer]\n{rollout}\n[End of Assistant {assistant_id+1} Answer]\n\n"
+    #         response_string = response_string.strip()
+
+    #         vllm_input = self.judgment_extractor.format_prompt(
+    #             prompt_text, response_string, reference_answer
+    #         )
+    #         vllm_inputs.append(vllm_input)
+
+    #     return vllm_inputs, batch_kwise_indices
+    
     def construct_all_k_tuples(
         self,
         prompt_text,
@@ -1523,20 +1555,21 @@ class GenerativeKwiseVerifier(VLLMOutputReward):
     ):
         all_k_tuples = list(itertools.combinations(list(range(R)), k))
         for k_tuple in all_k_tuples:
-            k_list = list(k_tuple)
-            random.shuffle(k_list)
-            batch_kwise_indices.append(k_list)
-            response_string = ""
-            for assistant_id, idx in enumerate(k_list):
-                rollout = i_batch_request_output.outputs[idx].text
-                response_string += f"[Start of Assistant {assistant_id+1} Answer]\n{rollout}\n[End of Assistant {assistant_id+1} Answer]\n\n"
-            response_string = response_string.strip()
+            for k_list in itertools.permutations(k_tuple):
+                k_list = list(k_list)
+                batch_kwise_indices.append(k_list)
+                response_string = ""
+                for assistant_id, idx in enumerate(k_list):
+                    rollout = i_batch_request_output.outputs[idx].text
+                    response_string += f"[Start of Assistant {assistant_id+1} Answer]\n{rollout}\n[End of Assistant {assistant_id+1} Answer]\n\n"
+                response_string = response_string.strip()
 
-            vllm_input = self.judgment_extractor.format_prompt(
-                prompt_text, response_string, reference_answer
-            )
-            vllm_inputs.append(vllm_input)
+                # response_list = [i_batch_request_output.outputs[idx].text for idx in k_list]
 
+                vllm_input = self.judgment_extractor.format_prompt(
+                    prompt_text, response_string, reference_answer
+                )
+                vllm_inputs.append(vllm_input)
         return vllm_inputs, batch_kwise_indices
 
     def convert_kwise_rewards_to_pointwise(
@@ -1552,7 +1585,8 @@ class GenerativeKwiseVerifier(VLLMOutputReward):
 
         for prompt_idx in range(B):
             # Extract the kwise rewards for each input
-            num = math.comb(R, k)
+            # num = math.comb(R, k)
+            num = math.perm(R, k)
             idx_start, idx_end = (
                 prompt_idx * num,
                 (prompt_idx + 1) * num,

@@ -38,6 +38,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     generate_rollouts,
     get_rollout_lengths,
     log_rollouts,
+    get_failed_to_parse_answers,
     strip_think_tokens,
     update_avg_reward,
     update_avg_reward_len_norm,
@@ -47,6 +48,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     update_grpo_loss,
     update_logit_entropy,
     update_std_reward,
+    update_failed_to_parse_answers
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_model import (
@@ -224,6 +226,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         log.info(f"Rewards: {reward_output['rewards']}")
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         std_reward = torch.tensor(reward_output["rewards"]).float().std()
+        failed_to_parse_answers = get_failed_to_parse_answers(prompt_batch)
 
         rollout_lengths = get_rollout_lengths(rollouts)
         avg_rollout_length = torch.tensor(rollout_lengths).float().mean()
@@ -235,6 +238,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         update_avg_reward(metric_bag, avg_reward)
         update_batch_metrics(metric_bag, prompt_batch, train=False)
         update_std_reward(metric_bag, std_reward)
+        update_failed_to_parse_answers(metric_bag, failed_to_parse_answers)
         # returning dummy loss since trainer expects it
         return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
 
@@ -367,6 +371,9 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         update_std_reward(metric_bag, std_reward)
         update_avg_reward(metric_bag, avg_reward)
+        
+        failed_to_parse_answers = get_failed_to_parse_answers(prompt_batch)
+        update_failed_to_parse_answers(metric_bag, failed_to_parse_answers)
 
         loss = grpo_loss
 

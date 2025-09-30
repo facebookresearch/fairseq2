@@ -177,21 +177,19 @@ Below are the user's question and the two responses:
 # """
 
 PAIRWISE_WITH_SCORES_J1_PROMPT_WITH_REF_ANSWER = """
-You are given a user question and two responses from two AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
+You are given a user question, two responses from two AI assistants and the parsed version of the responses, and a reference answer. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
 
-Think carefully about how to assess the quality of the responses and finally, assign each response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision, with a higher score indicating a higher-quality response that better satisfies the criteria. Enclose the scores within the tags <score_A> </score_A>, and <score_B> </score_B>.
+Think carefully about how to assess the quality of the responses and finally, utilize the reference answer for your judgement. Note that the parsed version of the responses are automatically extracted and may contain errors, therefore you should primarily rely on the original responses for your judgement.
+Finally, assign each response a score 1 if the response is correct, and 0 if not. Enclose the scores within the tags <score_A> </score_A>, and <score_B> </score_B>.
 
 Format your output like this:
 <think> your_thinking_process </think>
-<score_A> your_score_a </score_A> <score_B> your_score_b </score_B>
+<score_A> 0 or 1 </score_A> <score_B> 0 or 1 </score_B>
 
-Below are the user's question, reference answer and the two responses:
+Below are the user's question, two responses and the parsed versions of the responses, and the reference answer:
 
 [User Question]
 {instruction}
-
-[Reference Answer]
-{reference_answer}
 
 [The Start of Assistant A's Answer]
 {response_A}
@@ -200,6 +198,15 @@ Below are the user's question, reference answer and the two responses:
 [The Start of Assistant B's Answer]
 {response_B}
 [The End of Assistant B's Answer]
+
+[The Parsed Version of Assistant A's Answer]
+{parsed_response_A}
+
+[The Parsed Version of Assistant B's Answer]
+{parsed_response_B}
+
+[Reference Answer]
+{reference_answer}
 """
 
 import re
@@ -475,6 +482,22 @@ class J1PairwiseScoreExtractorHandler(JudgmentExtractorHandler):
 class J1PairwiseScoreExtractor(JudgmentExtractor):
     def __init__(self, tokenizer):
         self.tokenizer = tokenizer
+        try:
+            from math_verify import parse
+            from math_verify.parser import (
+                ExprExtractionConfig,
+                LatexExtractionConfig,
+                NormalizationConfig,
+            )
+        except ImportError:
+            raise ImportError(
+                "install mathverify from https://github.com/huggingface/Math-Verify"
+            )
+
+        self.student_extraction_config = (
+            LatexExtractionConfig(boxed_match_priority=0),
+        )
+        self.parse = parse
 
     @override
     def prompt(self, reference_answer):
@@ -483,6 +506,17 @@ class J1PairwiseScoreExtractor(JudgmentExtractor):
             if reference_answer is None
             else PAIRWISE_WITH_SCORES_J1_PROMPT_WITH_REF_ANSWER
         )
+        
+    def get_preferred_index(self, lst):
+        """
+        math_verify parse returns a list of parsed answers, we want want the item at idex 1, which is a string
+        """
+        if len(lst) > 1:
+            return lst[1]
+        elif len(lst) == 1:
+            return lst[0]
+        else:
+            return "None"
 
     @override
     def format_prompt(
@@ -498,9 +532,11 @@ class J1PairwiseScoreExtractor(JudgmentExtractor):
             if reference_answer is None
             else prompt_template.format(
                 instruction=prompt_text,
-                reference_answer=reference_answer,
                 response_A=rollout_A_text,
                 response_B=rollout_B_text,
+                parsed_response_A=self.get_preferred_index(self.parse(rollout_A_text, self.student_extraction_config)),
+                parsed_response_B=self.get_preferred_index(self.parse(rollout_B_text, self.student_extraction_config)),
+                reference_answer=reference_answer,
             )
         )
 

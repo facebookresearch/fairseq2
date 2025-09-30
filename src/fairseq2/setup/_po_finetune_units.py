@@ -29,6 +29,7 @@ from fairseq2.recipes.lm import (  # GroupDpoFinetuneUnitHandler,
     NoEnvAtheneRewardPipeline,
     NoEnvGeneralVerifierPipeline,
     NoEnvAceMathRMPipeline,
+    NoEnvSkyworkRMPipeline,
     OnlineDpoFinetuneUnitHandler,
     OnlineFinetuneUnitHandler,
     OrpoFinetuneUnitHandler,
@@ -132,6 +133,10 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
     
     # NoEnvAceMathRMPipeline
     handler = NoEnvAceMathRMPipeline
+    registry.register(handler.name, handler)
+    
+    # NoEnvAceMathRMPipeline
+    handler = NoEnvSkyworkRMPipeline
     registry.register(handler.name, handler)
 
     # Generative judgment extractors

@@ -425,9 +425,9 @@ def strip_think_tokens(rollouts: List[SequenceData]):
             if "<think>" in rollout_text:
                 think_present += 1
             if rollout.finish_reason == "length":
-                count_stripped += 1
-            if rollout.finish_reason == "stop":
                 count_not_stripped += 1
+            if rollout.finish_reason == "stop":
+                count_stripped += 1
             total_count += 1
             rollout.text = re.sub(
                 r"<think>.*?</think>", "", rollout_text, flags=re.DOTALL
@@ -440,6 +440,12 @@ def strip_think_tokens(rollouts: List[SequenceData]):
 
     return rollouts
 
+def get_failed_to_parse_answers(prompt_batch: PromptBatch):
+    if "answers" in prompt_batch:        
+        failed_to_parse = sum(answer is None for rollouts in prompt_batch for answer in rollouts)
+        return failed_to_parse/prompt_batch.batch_size
+    else:
+        return 0.0
 
 def format_think_tags(rollouts: List[SequenceData]):
     for sample in rollouts:
@@ -545,6 +551,10 @@ def update_avg_reward(metric_bag: MetricBag, avg_reward):
 @torch.inference_mode()
 def update_std_reward(metric_bag: MetricBag, std_reward):
     metric_bag.get(Mean, "std_reward").update(std_reward, weight=1)
+    
+@torch.inference_mode()
+def update_failed_to_parse_answers(metric_bag: MetricBag, failed_to_parse_answers):
+    metric_bag.get(Mean, "failed_to_parse_answers").update(failed_to_parse_answers, weight=1)
 
 
 @torch.inference_mode()

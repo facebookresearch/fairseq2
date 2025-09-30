@@ -585,7 +585,7 @@ class RemoteHFModel:
             "RemoteHFModel.rollout_from_model is not implemented. "
         )
 
-    def reward_from_model(self, prompt_list, batch_size=4):
+    def reward_from_model(self, prompt_list, batch_size=2):
         # NOTE: need to batch inputs to hf.encode model for current models that aren't supported by hf
         rewards = []
         outputs = []
