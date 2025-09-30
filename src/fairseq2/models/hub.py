@@ -22,6 +22,7 @@ from fairseq2.gang import Gangs, create_fake_gangs
 from fairseq2.models.family import ModelFamily
 from fairseq2.runtime.dependency import get_dependency_resolver
 from fairseq2.runtime.lookup import Lookup
+from fairseq2.utils.warn import _warn_deprecated
 
 ModelT = TypeVar("ModelT", bound=Module)
 
@@ -43,7 +44,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
     def get_arch_config(self, arch: str) -> ModelConfigT:
         config = self.maybe_get_arch_config(arch)
         if config is None:
-            raise ModelArchitectureNotKnownError(arch)
+            raise ModelArchitectureNotKnownError(arch, self._family.name)
 
         return config
 
@@ -214,10 +215,22 @@ class ModelFamilyNotKnownError(Exception):
 
 
 class ModelArchitectureNotKnownError(Exception):
-    def __init__(self, arch: str) -> None:
-        super().__init__(f"{arch} is not a known model architecture.")
+    def __init__(self, arch: str, family: str | None = None) -> None:
+        """
+        ``family`` defaults to ``None`` due to backwards-compatibility. New code
+        must specify a model family when raising this error.
+        """
+        if family is None:
+            _warn_deprecated(
+                "`ModelArchitectureNotKnownError` will require a `family` argument starting fairseq2 v0.12."
+            )
+
+            super().__init__(f"{arch} is not a known model architecture.")
+        else:
+            super().__init__(f"{arch} is not a known {family} model architecture.")
 
         self.arch = arch
+        self.family = family
 
 
 def load_model(

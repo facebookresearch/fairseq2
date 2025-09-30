@@ -114,11 +114,14 @@ from fairseq2.utils.env import EnvironmentVariableError
 from fairseq2.utils.rich import configure_rich_logging
 from fairseq2.utils.structured import StructureError, ValueConverter
 from fairseq2.utils.validation import ValidationError
+from fairseq2.utils.warn import enable_deprecation_warnings
 from fairseq2.utils.yaml import YamlDumper, YamlError, YamlLoader
 
 
 def train_main(recipe: TrainRecipe) -> None:
     from fairseq2.recipe.composition import _register_train_recipe
+
+    enable_deprecation_warnings()
 
     args = _parse_args()
 
@@ -141,6 +144,8 @@ def train_main(recipe: TrainRecipe) -> None:
 def eval_main(recipe: EvalRecipe) -> None:
     from fairseq2.recipe.composition import _register_eval_recipe
 
+    enable_deprecation_warnings()
+
     args = _parse_args()
 
     configure_rich_logging()
@@ -161,6 +166,8 @@ def eval_main(recipe: EvalRecipe) -> None:
 @torch.inference_mode()
 def generate_main(recipe: GenerationRecipe) -> None:
     from fairseq2.recipe.composition import _register_generation_recipe
+
+    enable_deprecation_warnings()
 
     args = _parse_args()
 
@@ -723,7 +730,10 @@ def _handle_minimim_loss_scale_reached_error(ex: MinimumLossScaleReachedError) -
 
 
 def _handle_model_arch_not_known_error(ex: ModelArchitectureNotKnownError) -> int:
-    log.error("{} is not a known model architecture.", ex.arch)
+    if ex.family is None:
+        log.error("{} is not a known model architecture.", ex.arch)
+    else:
+        log.error("{} is not a known {} model architecture.", ex.arch, ex.family)
 
     return 2
 
