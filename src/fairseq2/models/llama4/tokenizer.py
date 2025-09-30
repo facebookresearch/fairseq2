@@ -94,22 +94,11 @@ BASIC_SPECIAL_TOKENS = [
 
 @dataclass
 class Llama4TokenizerConfig:
-    impl: Literal["sp", "tiktoken", "hg"] = "tiktoken"
     use_eot: bool = True
     split_regex: str | None = None
 
 
-def load_llama4_tokenizer(path: Path, config: Llama4TokenizerConfig) -> Tokenizer:
-    match config.impl:
-        case "tiktoken":
-            return _load_llama4_tt_tokenizer(path, config)
-        case _:
-            raise ValueError(
-                f"`config.impl` must be 'tiktoken', but is '{config.impl}' instead."
-            )
-
-
-def _load_llama4_tt_tokenizer(path: Path, config: Llama4TokenizerConfig) -> Tokenizer:
+def load_llama4_tt_tokenizer(path: Path, config: Llama4TokenizerConfig) -> Tokenizer:
     if config.split_regex is None:
         O200K_PATTERN = r"""[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?|[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n/]*|\s*[\r\n]+|\s+(?!\S)|\s+"""  # fmt: skip
         split_regex = O200K_PATTERN
