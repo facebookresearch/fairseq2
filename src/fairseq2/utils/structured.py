@@ -131,7 +131,7 @@ class StandardValueConverter(ValueConverter):
             return structurer(origin_type, type_args, obj)
         except StructureError as ex:
             raise StructureError(
-                f"`obj` cannot be structured to `{target_type}`."
+                f"`obj` {obj} cannot be structured to `{target_type}`."
             ) from ex
 
     def _structure_primitive(
@@ -337,7 +337,7 @@ class StandardValueConverter(ValueConverter):
                     elem = self.structure(elem, type_args[0])
                 except StructureError as ex:
                     raise StructureError(
-                        f"Element at index {idx} cannot be structured."
+                        f"Element {elem} at index {idx} cannot be structured as {type_args[0]}."
                     ) from ex
 
                 output.append(elem)
@@ -483,7 +483,9 @@ class StandardValueConverter(ValueConverter):
 
         s = ", ".join(str(t) for t in type_args)
 
-        raise StructureError(f"`obj` must be parseable as one of union elements {s}.")
+        raise StructureError(
+            f"`obj` {obj} must be parseable as one of union elements {s}."
+        )
 
     @override
     def unstructure(self, obj: object) -> object:
