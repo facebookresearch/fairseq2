@@ -6,31 +6,19 @@
 
 from __future__ import annotations
 
-from enum import Enum
 from time import perf_counter
 from typing import Any, final
 
 import torch
 from typing_extensions import Self
 
+from fairseq2.device import CPU, Device
 from fairseq2.error import InvalidOperationError
-from fairseq2.typing import CPU, Device
-
-
-class _StopwatchState(Enum):
-    NOT_STARTED = 0
-    RUNNING = 1
-    PAUSED = 1
 
 
 @final
 class Stopwatch:
     """Measures elapsed execution time."""
-
-    _is_running: bool
-    _accumulated_duration: float
-    _start_time: float
-    _device: Device
 
     def __init__(self, *, device: Device | None = None) -> None:
         """
@@ -48,14 +36,14 @@ class Stopwatch:
         if device is not None:
             if device.type != "cpu" and device.type != "cuda":
                 raise ValueError(
-                    f"The type of `device` must be `cpu` or `cuda`, but is `{device.type}` instead."
+                    f"Type of `device` must be `cpu` or `cuda`, but is `{device.type}` instead."
                 )
 
         self._device = device or CPU
 
     def start(self) -> None:
         if self._is_running:
-            raise InvalidOperationError("The stopwatch is already running.")
+            raise InvalidOperationError("Stopwatch is already running.")
 
         self._start_time = perf_counter()
 

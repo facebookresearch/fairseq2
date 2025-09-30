@@ -7,51 +7,70 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
-from typing import final
+from typing import Any, Final, TypeAlias, final
 
 import torch
 from typing_extensions import override
 
-from fairseq2.context import RuntimeContext
 from fairseq2.error import InternalError
-from fairseq2.typing import CPU, Device
-from fairseq2.utils.env import (
-    InvalidEnvironmentVariableError,
-    get_device_from_env,
-    get_int_from_env,
-)
+from fairseq2.runtime.dependency import get_dependency_resolver
+from fairseq2.utils.env import Environment, EnvironmentVariableError
+from fairseq2.world_info import WorldInfo
+
+Device: TypeAlias = torch.device
+
+
+CPU: Final = Device("cpu")
+
+META_DEVICE: Final = Device("meta")
+
+
+class SupportsDeviceTransfer(ABC):
+    @abstractmethod
+    def to(self, device: Device, *, non_blocking: bool = False) -> None: ...
+
+
+def get_default_device() -> Device:
+    resolver = get_dependency_resolver()
+
+    return resolver.resolve(Device)
 
 
 @final
-class DefaultDeviceAccessor:
-    _env: Mapping[str, str]
-    _cuda_context: CudaContext
-
-    def __init__(self, env: Mapping[str, str], cuda_context: CudaContext) -> None:
+class DefaultDeviceDetector:
+    def __init__(
+        self, env: Environment, world_info: WorldInfo, cuda_context: CudaContext
+    ) -> None:
         self._env = env
+        self._world_info = world_info
         self._cuda_context = cuda_context
 
-    def get(self) -> Device:
-        try:
-            device = get_device_from_env(self._env, "FAIRSEQ2_DEVICE")
-        except InvalidEnvironmentVariableError as ex:
-            raise DeviceDetectionError(
-                "The default device cannot be set using the `FAIRSEQ2_DEVICE` environment variable. See the nested exception for details."
-            ) from ex
+    def detect(self) -> Device:
+        device = self._maybe_get_device_from_env("FAIRSEQ2_DEVICE")
 
         if device is None:
-            device = self._determine_default_cuda_device()
+            device = self._get_default_cuda_device()
 
         if device is None:
             device = CPU
 
-        if device.type == "cuda":
-            self._cuda_context.set_default_device(device)
-
         return device
 
-    def _determine_default_cuda_device(self) -> Device | None:
+    def _maybe_get_device_from_env(self, var_name: str) -> Device | None:
+        s = self._env.maybe_get(var_name)
+        if s is None:
+            return None
+
+        try:
+            return Device(s)
+        except (RuntimeError, ValueError) as ex:
+            msg = (
+                f"{var_name} environment variable cannot be parsed as a PyTorch device."
+            )
+
+            raise EnvironmentVariableError(var_name, msg) from ex
+
+    def _get_default_cuda_device(self) -> Device | None:
         if not self._cuda_context.is_available():
             return None
 
@@ -59,12 +78,12 @@ class DefaultDeviceAccessor:
         if num_devices == 0:
             return None
 
-        visible_devices = self._env.get("CUDA_VISIBLE_DEVICES")
+        visible_devices = self._env.maybe_get("CUDA_VISIBLE_DEVICES")
         if visible_devices is not None:
             try:
                 int(visible_devices)
             except ValueError:
-                # If we are here, it means CUDA_VISIBLE_DEVICES is a list instead of
+                # If here, this means CUDA_VISIBLE_DEVICES is a list instead of
                 # a single device index.
                 device = None
             else:
@@ -73,12 +92,7 @@ class DefaultDeviceAccessor:
             device = None
 
         if device is None:
-            try:
-                idx = self._get_device_index(num_devices, device_type="cuda")
-            except InvalidEnvironmentVariableError as ex:
-                raise DeviceDetectionError(
-                    "The default `cuda` device index cannot be inferred from the environment. See the nested exception for details."
-                ) from ex
+            idx = self._get_device_index(num_devices, device_type="cuda")
 
             device = Device("cuda", index=idx)
 
@@ -88,41 +102,23 @@ class DefaultDeviceAccessor:
         if num_devices <= 0:
             raise InternalError(f"`num_devices` is {num_devices}.")
 
-        # We use the `LOCAL_RANK` environment variable to determine which device to
-        # pick in case the process has more than one available.
-        device_idx = get_int_from_env(self._env, "LOCAL_RANK", allow_zero=True)
-        if device_idx is None:
-            num_procs = get_int_from_env(self._env, "LOCAL_WORLD_SIZE")
-            if num_procs is not None and num_procs > 1 and num_devices > 1:
-                raise InvalidEnvironmentVariableError(
-                    "LOCAL_RANK", f"The default `{device_type}` device cannot be determined. There are {num_devices} devices available, but the `LOCAL_RANK` environment variable is not set."  # fmt: skip
-                )
+        local_rank = self._world_info.local_rank
 
-            return 0
+        if local_rank >= num_devices:
+            raise LocalRankOutOfRangeError(local_rank, num_devices, device_type)
 
-        if device_idx < 0:
-            raise InvalidEnvironmentVariableError(
-                "LOCAL_RANK", f"The value of the `LOCAL_RANK` environment variable is expected to be greater than or equal to 0, but is {device_idx} instead."  # fmt: skip
-            )
-
-        if device_idx >= num_devices:
-            raise InvalidEnvironmentVariableError(
-                "LOCAL_RANK", f"The value of the `LOCAL_RANK` environment variable is expected to be less than the number of available `{device_type}` devices ({num_devices}), but is {device_idx} instead."  # fmt: skip
-            )
-
-        return device_idx
+        return local_rank
 
 
-class DeviceDetectionError(Exception):
-    pass
+class LocalRankOutOfRangeError(Exception):
+    def __init__(self, local_rank: int, num_devices: int, device_type: str) -> None:
+        super().__init__(
+            f"Host has {num_devices} {device_type} device(s), but the local rank of the process is {local_rank}."
+        )
 
-
-def determine_default_device(context: RuntimeContext) -> Device:
-    cuda_context = TorchCudaContext()
-
-    device_accessor = DefaultDeviceAccessor(context.env, cuda_context)
-
-    return device_accessor.get()
+        self.local_rank = local_rank
+        self.num_devices = num_devices
+        self.device_type = device_type
 
 
 class CudaContext(ABC):
@@ -133,11 +129,17 @@ class CudaContext(ABC):
     def device_count(self) -> int: ...
 
     @abstractmethod
-    def set_default_device(self, device: Device) -> None: ...
+    def get_device_properties(self, device: Device) -> Any: ...
+
+    @abstractmethod
+    def memory_stats(self, device: Device) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def reset_peak_memory_stats(self) -> None: ...
 
 
 @final
-class TorchCudaContext(CudaContext):
+class StandardCudaContext(CudaContext):
     @override
     def is_available(self) -> bool:
         return torch.cuda.is_available()
@@ -147,63 +149,13 @@ class TorchCudaContext(CudaContext):
         return torch.cuda.device_count()
 
     @override
-    def set_default_device(self, device: Device) -> None:
-        torch.cuda.set_device(device)
-
-
-class DeviceStatTracker(ABC):
-    @abstractmethod
-    def get_stats(self) -> dict[str, object]: ...
-
-    @abstractmethod
-    def reset(self) -> None: ...
-
-
-@final
-class NoopDeviceStatTracker(DeviceStatTracker):
-    @override
-    def get_stats(self) -> dict[str, object]:
-        return {}
+    def get_device_properties(self, device: Device) -> Any:
+        return torch.cuda.get_device_properties(device)
 
     @override
-    def reset(self) -> None:
-        pass
-
-
-@final
-class CudaDeviceStatTracker(DeviceStatTracker):
-    _device: Device
-    _total_memory: int
-
-    def __init__(self, device: Device) -> None:
-        self._device = device
-
-        props = torch.cuda.get_device_properties(device)
-
-        self._total_memory = props.total_memory
+    def memory_stats(self, device: Device) -> dict[str, Any]:
+        return torch.cuda.memory_stats(device)
 
     @override
-    def get_stats(self) -> dict[str, object]:
-        stats = torch.cuda.memory_stats(self._device)
-
-        peak_active_mem = stats["active_bytes.all.peak"]
-        peak_active_mem_ratio = peak_active_mem / self._total_memory
-
-        peak_reserved_mem = stats["reserved_bytes.all.peak"]
-        peak_reserved_mem_ratio = peak_reserved_mem / self._total_memory
-
-        return {
-            "peak_active_mem": peak_active_mem,
-            "peak_active_mem_ratio": peak_active_mem_ratio,
-            "peak_reserved_mem": peak_reserved_mem,
-            "peak_reserved_mem_ratio": peak_reserved_mem_ratio,
-        }
-
-    @override
-    def reset(self) -> None:
+    def reset_peak_memory_stats(self) -> None:
         torch.cuda.reset_peak_memory_stats()
-
-
-class SupportsDeviceTransfer(ABC):
-    @abstractmethod
-    def to(self, device: Device) -> None: ...

@@ -8,7 +8,7 @@ from typing import Iterator
 
 import pytest
 
-from fairseq2.data import read_iterator
+from fairseq2.data.data_pipeline import read_iterator
 from fairseq2.data.utils import read_pickle_wrapped_iterator
 
 

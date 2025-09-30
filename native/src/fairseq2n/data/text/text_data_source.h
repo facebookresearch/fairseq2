@@ -63,7 +63,6 @@ private:
     std::optional<std::string> maybe_key_;
     text_options opts_;
     std::unique_ptr<text_line_reader> line_reader_;
-    std::size_t num_lines_read_ = 0;
 };
 
 }  // namespace fairseq2n::detail

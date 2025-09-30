@@ -10,8 +10,8 @@ import pytest
 import torch
 from torch.nn.functional import pad
 
-from fairseq2.data import CollateOptionsOverride, Collater
-from tests.common import assert_close, assert_equal, device
+from fairseq2.data.data_pipeline import CollateOptionsOverride, Collater
+from tests.common import assert_close, device
 
 
 class TestCollater:
@@ -104,10 +104,11 @@ class TestCollater:
 
         expected_seqs = pad(expected_seqs, (0, 0, 0, pad_size), value=3)
 
-        expected_seq_lens = torch.tensor([4, 4, 4], device=device, dtype=torch.int64)
+        expected_seq_lens = [4, 4, 4]
 
         assert_close(output["seqs"], expected_seqs)
-        assert_equal(output["seq_lens"], expected_seq_lens)
+
+        assert output["seq_lens"] == expected_seq_lens
 
         assert output["is_ragged"] == (pad_to_multiple > 2)
 
@@ -132,10 +133,11 @@ class TestCollater:
             dtype=torch.int64,
         )
 
-        expected_seq_lens = torch.tensor([4, 2, 3], device=device, dtype=torch.int64)
+        expected_seq_lens = [4, 2, 3]
 
         assert_close(output["foo1"]["seqs"], expected_seqs)
-        assert_equal(output["foo1"]["seq_lens"], expected_seq_lens)
+
+        assert output["foo1"]["seq_lens"] == expected_seq_lens
 
         assert output["foo1"]["is_ragged"] == True
 
@@ -186,13 +188,13 @@ class TestCollater:
             dtype=torch.int64,
         )
 
-        expected_seq_lens = torch.tensor([4, 2, 3], device=device, dtype=torch.int64)
+        expected_seq_lens = [4, 2, 3]
 
         assert_close(output["foo1"][0]["seqs"], expected_seqs1)
         assert_close(output["foo2"][0]["seqs"], expected_seqs2)
 
-        assert_equal(output["foo1"][0]["seq_lens"], expected_seq_lens)
-        assert_equal(output["foo2"][0]["seq_lens"], expected_seq_lens)
+        assert output["foo1"][0]["seq_lens"] == expected_seq_lens
+        assert output["foo2"][0]["seq_lens"] == expected_seq_lens
 
         assert output["foo1"][0]["is_ragged"] == True
         assert output["foo2"][0]["is_ragged"] == True

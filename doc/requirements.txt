@@ -7,3 +7,4 @@ sphinxcontrib-mermaid~=1.0.0
 furo==2024.8.6
 nbsphinx~=0.9.6
 ipython~=8.31.0
+pytest-sphinx~=0.6.3

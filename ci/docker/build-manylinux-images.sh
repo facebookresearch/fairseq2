@@ -14,7 +14,7 @@ arch=x86_64
 
 version=3
 
-declare -a variants=(cpu cu118 cu121 cu124)
+declare -a variants=(cpu cu124 cu126 cu128)
 
 for variant in "${variants[@]}"; do
     docker build\

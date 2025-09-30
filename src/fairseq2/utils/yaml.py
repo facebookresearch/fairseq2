@@ -14,7 +14,7 @@ from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
 from typing_extensions import override
 
-from fairseq2.utils.file import FileMode, FileSystem
+from fairseq2.file_system import FileMode, FileSystem
 
 
 class YamlLoader(ABC):
@@ -31,10 +31,7 @@ YamlError: TypeAlias = YAMLError
 
 
 @final
-class StandardYamlLoader(YamlLoader):
-    _yaml: YAML
-    _file_system: FileSystem
-
+class RuamelYamlLoader(YamlLoader):
     def __init__(self, file_system: FileSystem) -> None:
         self._yaml = YAML(typ="safe", pure=True)
 
@@ -56,10 +53,7 @@ class StandardYamlLoader(YamlLoader):
 
 
 @final
-class StandardYamlDumper(YamlDumper):
-    _yaml: YAML
-    _file_system: FileSystem
-
+class RuamelYamlDumper(YamlDumper):
     def __init__(self, file_system: FileSystem) -> None:
         self._yaml = YAML(typ="safe", pure=True)
 
@@ -79,9 +73,3 @@ class StandardYamlDumper(YamlDumper):
                 fp.close()
         else:
             self._yaml.dump(obj, output)
-
-
-def read_yaml(s: str) -> object:
-    yaml = YAML(typ="safe", pure=True)
-
-    return yaml.load(s)

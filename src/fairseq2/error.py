@@ -6,12 +6,10 @@
 
 from __future__ import annotations
 
+from typing import NoReturn
+
 
 class InternalError(Exception):
-    pass
-
-
-class ContractError(Exception):
     pass
 
 
@@ -19,9 +17,24 @@ class InvalidOperationError(Exception):
     pass
 
 
-class AlreadyExistsError(Exception):
-    pass
-
-
 class NotSupportedError(Exception):
     pass
+
+
+class StateDictError(Exception):
+    @staticmethod
+    def raise_if_not_empty(state_dict: dict[str, object]) -> None:
+        if not state_dict:
+            return
+
+        s = ", ".join(sorted(state_dict.keys()))
+
+        raise StateDictError(f"`state_dict` contains unexpected key(s) {s}.")
+
+
+class OperationalError(Exception):
+    pass
+
+
+def raise_operational_system_error(cause: OSError) -> NoReturn:
+    raise OperationalError("A system error occurred.") from cause

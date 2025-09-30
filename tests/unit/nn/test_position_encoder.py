@@ -11,6 +11,7 @@ import torch
 from torch import Tensor
 
 from fairseq2.nn import (
+    BatchLayout,
     IncrementalStateBag,
     LearnedPositionEncoder,
     RotaryEncoder,
@@ -18,8 +19,7 @@ from fairseq2.nn import (
     Sinusoidal3dPositionEncoder,
     SinusoidalPositionEncoder,
 )
-from fairseq2.utils.rng import temporary_manual_seed
-from tests.common import assert_close, device
+from tests.common import assert_close, device, temporary_manual_seed
 
 
 class TestSinusoidalPositionEncoder:
@@ -27,6 +27,13 @@ class TestSinusoidalPositionEncoder:
     def expected_freqs() -> Tensor:
         # fmt: off
         return torch.tensor([
+            [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,
+              0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,
+              0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,
+              0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,
+              0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,
+              0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,
+              0.0000e+00,  0.0000e+00],
             [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,
               0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,
               0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,
@@ -115,20 +122,66 @@ class TestSinusoidalPositionEncoder:
 
         x = torch.randn((3, 9, 4), device=device)
 
-        y = m(x, padding_mask=None)
+        x_layout = BatchLayout.of(x)
+
+        y = m(x, x_layout)
 
         assert y.shape == (3, 9, 4)
 
-        assert_close(y - x, m.freqs[:9].expand_as(y))
+        assert_close(y - x, m.freqs[1:10].expand_as(y))
 
-        # Test with multiple batch dimensions.
+        # Test with multiple dimensions.
         x = torch.randn((4, 3, 9, 4), device=device)
 
-        y = m(x, padding_mask=None)
+        x_layout = BatchLayout.of(x)
+
+        y = m(x, x_layout)
 
         assert y.shape == (4, 3, 9, 4)
 
-        assert_close(y - x, m.freqs[:9].expand_as(y))
+        freqs = m.freqs[1:4].unsqueeze(1).expand_as(y)
+
+        assert_close(y - x, freqs)
+
+    def test_forward_works_with_padding(self) -> None:
+        m = SinusoidalPositionEncoder(encoding_dim=4, max_seq_len=10, device=device)
+
+        x = torch.randn((4, 9, 3, 4), device=device)
+
+        x[0, 7:] = 0.0
+        x[2, 5:] = 0.0
+
+        x_layout = BatchLayout.of(x, seq_lens=[7, 9, 5, 9])
+
+        y = m(x, x_layout)
+
+        assert y.shape == (4, 9, 3, 4)
+
+        freqs = m.freqs[1:10].unsqueeze(1).expand_as(y).clone()
+
+        freqs[0, 7:] = 0.0
+        freqs[2, 5:] = 0.0
+
+        assert_close(y - x, freqs)
+
+    def test_forward_works_with_packing(self) -> None:
+        m = SinusoidalPositionEncoder(encoding_dim=4, max_seq_len=10, device=device)
+
+        x = torch.randn((20, 4), device=device)
+
+        x[18:] = 0.0
+
+        x_layout = BatchLayout.of(x, seq_lens=[5, 10, 3], packed=True)
+
+        y = m(x, x_layout)
+
+        assert y.shape == (20, 4)
+
+        freqs = torch.cat((m.freqs[1:6], m.freqs[1:11], m.freqs[1:4]))
+
+        assert_close(y[:18] - x[:18], freqs[:18])
+
+        assert_close(torch.sum(y[18:]), 0.0)
 
     @pytest.mark.parametrize("step_nr", [0, 1, 2])
     def test_forward_works_in_incremental_decode(self, step_nr: int) -> None:
@@ -144,64 +197,40 @@ class TestSinusoidalPositionEncoder:
 
         x = torch.randn((5, seq_len, 32), device=device)
 
-        y = m(x, padding_mask=None, state_bag=state_bag)
+        x_layout = BatchLayout.of(x)
+
+        y = m(x, x_layout, state_bag=state_bag)
 
         assert y.shape == (5, seq_len, 32)
 
-        assert_close(y - x, m.freqs[step_nr : step_nr + seq_len].expand_as(y))
+        assert_close(y - x, m.freqs[step_nr + 1 : step_nr + 1 + seq_len].expand_as(y))
 
     def test_forward_raises_error_when_seq_len_is_out_of_range(self) -> None:
         m = SinusoidalPositionEncoder(encoding_dim=32, max_seq_len=3, device=device)
 
         x = torch.randn((1, 5, 32), device=device)
 
+        x_layout = BatchLayout.of(x)
+
         with pytest.raises(
-            ValueError,
-            match=r"^The input sequence length must be less than or equal to the maximum sequence length \(3\), but is 5 instead\.$",
+            ValueError, match=r"^The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length \(3\), but at least one sequence is of length 5 instead\.$"  # fmt: skip
         ):
-            m(x, padding_mask=None)
+            m(x, x_layout)
 
     def test_forward_works_when_state_bag_is_not_none_in_training(self) -> None:
         m = SinusoidalPositionEncoder(encoding_dim=32, max_seq_len=3, device=device)
 
         x = torch.randn((5, 2, 32), device=device)
 
+        x_layout = BatchLayout.of(x)
+
         state_bag = IncrementalStateBag(max_num_steps=30)
 
         state_bag.increment_step_nr(20)  # out of range
 
-        y = m(x, padding_mask=None, state_bag=state_bag)
+        y = m(x, x_layout, state_bag=state_bag)
 
         assert y.shape == (5, 2, 32)
-
-    def test_forward_works_with_padding_mask(self) -> None:
-        m = SinusoidalPositionEncoder(
-            encoding_dim=4, max_seq_len=10, _legacy_pad_idx=-1, device=device
-        )
-
-        x = torch.randn((3, 9, 4), device=device)
-        padding_mask = torch.zeros((3, 9), dtype=torch.bool, device=device)
-        padding_mask[:, 5:] = True
-
-        y = m(x, padding_mask=padding_mask)
-
-        assert y.shape == (3, 9, 4)
-
-    def test_forward_works_with_multiple_batch_dims_and_padding(self) -> None:
-        m = SinusoidalPositionEncoder(encoding_dim=4, max_seq_len=10, device=device)
-
-        x = torch.randn((4, 3, 9, 4), device=device)
-        padding_mask = torch.zeros((4, 3, 9), dtype=torch.bool, device=device)
-        padding_mask[..., 5:] = True
-
-        y = m(x, padding_mask=padding_mask)
-
-        assert y.shape == (4, 3, 9, 4)
-
-    def test_extra_repr_works(self) -> None:
-        m = SinusoidalPositionEncoder(encoding_dim=4, max_seq_len=10, device=device)
-
-        assert m.extra_repr() == "encoding_dim=4, max_seq_len=10"
 
 
 class TestLearnedPositionEncoder:
@@ -212,7 +241,9 @@ class TestLearnedPositionEncoder:
         assert m.weight.dtype == torch.float32
 
         with temporary_manual_seed(2, device):
-            expected_weight = torch.randn(10, 32, device=device)
+            expected_weight = torch.randn(11, 32, device=device)
+
+            expected_weight[0] = 0.0
 
         assert_close(m.weight, expected_weight)
 
@@ -221,20 +252,66 @@ class TestLearnedPositionEncoder:
 
         x = torch.randn((3, 9, 4), device=device)
 
-        y = m(x, padding_mask=None)
+        x_layout = BatchLayout.of(x)
+
+        y = m(x, x_layout)
 
         assert y.shape == (3, 9, 4)
 
-        assert_close(y - x, m.weight[:9].expand_as(y))
+        assert_close(y - x, m.weight[1:10].expand_as(y))
 
-        # Test with multiple batch dimensions.
+        # Test with multiple dimensions.
         x = torch.randn((4, 3, 9, 4), device=device)
 
-        y = m(x, padding_mask=None)
+        x_layout = BatchLayout.of(x)
+
+        y = m(x, x_layout)
 
         assert y.shape == (4, 3, 9, 4)
 
-        assert_close(y - x, m.weight[:9].expand_as(y))
+        weight = m.weight[1:4].unsqueeze(1).expand_as(y)
+
+        assert_close(y - x, weight)
+
+    def test_forward_works_with_padding(self) -> None:
+        m = LearnedPositionEncoder(encoding_dim=4, max_seq_len=10, device=device)
+
+        x = torch.randn((4, 9, 3, 4), device=device)
+
+        x[0, 7:] = 0.0
+        x[2, 5:] = 0.0
+
+        x_layout = BatchLayout.of(x, seq_lens=[7, 9, 5, 9])
+
+        y = m(x, x_layout)
+
+        assert y.shape == (4, 9, 3, 4)
+
+        freqs = m.weight[1:10].unsqueeze(1).expand_as(y).clone()
+
+        freqs[0, 7:] = 0.0
+        freqs[2, 5:] = 0.0
+
+        assert_close(y - x, freqs)
+
+    def test_forward_works_with_packing(self) -> None:
+        m = LearnedPositionEncoder(encoding_dim=4, max_seq_len=10, device=device)
+
+        x = torch.randn((20, 4), device=device)
+
+        x[18:] = 0.0
+
+        x_layout = BatchLayout.of(x, seq_lens=[5, 10, 3], packed=True)
+
+        y = m(x, x_layout)
+
+        assert y.shape == (20, 4)
+
+        weight = torch.cat((m.weight[1:6], m.weight[1:11], m.weight[1:4]))
+
+        assert_close(y[:18] - x[:18], weight[:18])
+
+        assert_close(torch.sum(y[18:]), 0.0)
 
     @pytest.mark.parametrize("step_nr", [0, 1, 2])
     def test_forward_works_in_incremental_decode(self, step_nr: int) -> None:
@@ -250,57 +327,40 @@ class TestLearnedPositionEncoder:
 
         x = torch.randn((5, seq_len, 32), device=device)
 
-        y = m(x, padding_mask=None, state_bag=state_bag)
+        x_layout = BatchLayout.of(x)
+
+        y = m(x, x_layout, state_bag=state_bag)
 
         assert y.shape == (5, seq_len, 32)
 
-        assert_close(y - x, m.weight[step_nr : step_nr + seq_len].expand_as(y))
+        assert_close(y - x, m.weight[step_nr + 1 : step_nr + 1 + seq_len].expand_as(y))
 
     def test_forward_raises_error_when_seq_len_is_out_of_range(self) -> None:
         m = LearnedPositionEncoder(encoding_dim=32, max_seq_len=3, device=device)
 
         x = torch.randn((1, 5, 32), device=device)
 
+        x_layout = BatchLayout.of(x)
+
         with pytest.raises(
-            ValueError,
-            match=r"^The input sequence length must be less than or equal to the maximum sequence length \(3\), but is 5 instead\.$",
+            ValueError, match=r"^The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length \(3\), but at least one sequence is of length 5 instead\.$"  # fmt: skip
         ):
-            m(x, padding_mask=None)
+            m(x, x_layout)
 
     def test_forward_works_when_state_bag_is_not_none_in_training(self) -> None:
         m = LearnedPositionEncoder(encoding_dim=32, max_seq_len=3, device=device)
 
         x = torch.randn((5, 2, 32), device=device)
 
+        x_layout = BatchLayout.of(x)
+
         state_bag = IncrementalStateBag(max_num_steps=30)
 
         state_bag.increment_step_nr(value=20)  # out of range
 
-        y = m(x, padding_mask=None, state_bag=state_bag)
+        y = m(x, x_layout, state_bag=state_bag)
 
         assert y.shape == (5, 2, 32)
-
-    def test_forward_works_with_padding_mask(self) -> None:
-        m = LearnedPositionEncoder(encoding_dim=4, max_seq_len=10, device=device)
-
-        x = torch.randn((3, 9, 4), device=device)
-        padding_mask = torch.zeros((3, 9), dtype=torch.bool, device=device)
-        padding_mask[:, 5:] = True
-
-        y = m(x, padding_mask=padding_mask)
-
-        assert y.shape == (3, 9, 4)
-
-    def test_forward_works_with_multiple_batch_dims_and_padding(self) -> None:
-        m = LearnedPositionEncoder(encoding_dim=4, max_seq_len=10, device=device)
-
-        x = torch.randn((4, 3, 9, 4), device=device)
-        padding_mask = torch.zeros((4, 3, 9), dtype=torch.bool, device=device)
-        padding_mask[..., 5:] = True
-
-        y = m(x, padding_mask=padding_mask)
-
-        assert y.shape == (4, 3, 9, 4)
 
 
 class TestRotaryEncoder:
@@ -315,33 +375,66 @@ class TestRotaryEncoder:
 
         x = torch.randn((4, 3, 9, 4), device=device)
 
-        y = m(x, padding_mask=None)
+        x_layout = BatchLayout.of(x, seq_lens=[3, 1, 3, 2])
+
+        y = m(x, x_layout)
 
         # We apply a rotation, the magnitudes should stay the same.
-        assert_close(torch.norm(x), torch.norm(y))
+        assert_close(torch.norm(x[0]), torch.norm(y[0]))
+        assert_close(torch.norm(x[2]), torch.norm(y[2]))
+
+        assert_close(torch.norm(x[1, :1]), torch.norm(y[1, :1]))
+        assert_close(torch.norm(x[3, :2]), torch.norm(y[3, :2]))
+
+        assert_close(torch.sum(y[1, 1:]), 0.0)
+        assert_close(torch.sum(y[3, 2:]), 0.0)
 
         x1 = torch.randn((4), device=device)
         x2 = torch.randn((4), device=device)
 
         seq1 = torch.zeros((1, 6, 4), device=device)
 
+        seq1_layout = BatchLayout.of(seq1)
+
         seq1[0, 1] = x1
         seq1[0, 4] = x2
 
-        y1 = m(seq1, padding_mask=None)
+        y1 = m(seq1, seq1_layout)
 
         seq2 = torch.zeros((1, 6, 4), device=device)
+
+        seq2_layout = BatchLayout.of(seq2)
 
         seq2[0, 2] = x1
         seq2[0, 5] = x2
 
-        y2 = m(seq2, padding_mask=None)
+        y2 = m(seq2, seq2_layout)
 
         # If the angles are same, the dot-product must be same as well.
         dot1 = torch.dot(y1[0, 1], y1[0, 4])
         dot2 = torch.dot(y2[0, 2], y2[0, 5])
 
         assert_close(dot1, dot2)
+
+    def test_forward_works_with_packing(self) -> None:
+        m = RotaryEncoder(encoding_dim=4, max_seq_len=10, device=device)
+
+        x = torch.ones((12, 4), device=device)
+
+        x[10:] = 0.0
+
+        x_layout = BatchLayout.of(x, seq_lens=[4, 4, 2], packed=True)
+
+        y = m(x, x_layout)
+
+        assert y.shape == (12, 4)
+
+        assert_close(torch.norm(x[:10]), torch.norm(y[:10]))
+
+        assert_close(x[:4], x[4:8])
+        assert_close(x[:2], x[8:10])
+
+        assert_close(torch.sum(y[10:]), 0.0)
 
     @pytest.mark.parametrize("step_nr", [0, 1, 2])
     def test_forward_works_in_incremental_decode(self, step_nr: int) -> None:
@@ -357,13 +450,17 @@ class TestRotaryEncoder:
 
         x1 = torch.ones((5, seq_len, 32), device=device)
 
-        y1 = m(x1, padding_mask=None, state_bag=state_bag)
+        x1_layout = BatchLayout.of(x1)
+
+        y1 = m(x1, x1_layout, state_bag=state_bag)
 
         assert y1.shape == (5, seq_len, 32)
 
         x2 = torch.ones((5, seq_len + step_nr, 32), device=device)
 
-        y2 = m(x2, padding_mask=None)
+        x2_layout = BatchLayout.of(x2)
+
+        y2 = m(x2, x2_layout)
 
         assert_close(y1, y2[:, step_nr:])
 
@@ -372,35 +469,27 @@ class TestRotaryEncoder:
 
         x = torch.randn((1, 5, 32), device=device)
 
+        x_layout = BatchLayout.of(x)
+
         with pytest.raises(
-            ValueError,
-            match=r"^The input sequence length must be less than or equal to the maximum sequence length \(3\), but is 5 instead\.$",
+            ValueError, match=r"^The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length \(3\), but at least one sequence is of length 5 instead\.$"  # fmt: skip
         ):
-            m(x, padding_mask=None)
+            m(x, x_layout)
 
     def test_forward_works_when_state_bag_is_not_none_in_training(self) -> None:
         m = RotaryEncoder(encoding_dim=32, max_seq_len=3, device=device)
 
         x = torch.randn((5, 2, 32), device=device)
 
+        x_layout = BatchLayout.of(x)
+
         state_bag = IncrementalStateBag(max_num_steps=30)
 
         state_bag.increment_step_nr(20)  # out of range
 
-        y = m(x, padding_mask=None, state_bag=state_bag)
+        y = m(x, x_layout, state_bag=state_bag)
 
         assert y.shape == (5, 2, 32)
-
-    def test_forward_works_with_padding_mask(self) -> None:
-        m = RotaryEncoder(encoding_dim=4, max_seq_len=10, device=device)
-
-        x = torch.randn((3, 9, 4), device=device)
-        padding_mask = torch.zeros((3, 9), dtype=torch.bool, device=device)
-        padding_mask[:, 5:] = True
-
-        y = m(x, padding_mask=padding_mask)
-
-        assert y.shape == (3, 9, 4)
 
     def test_forward_works_with_custom_freqs_init(self) -> None:
         def custom_freqs_init(encoder: RotaryEncoder) -> torch.Tensor:
@@ -414,7 +503,10 @@ class TestRotaryEncoder:
         )
 
         x = torch.randn((3, 9, 4), device=device)
-        y = m(x, padding_mask=None)
+
+        x_layout = BatchLayout.of(x)
+
+        y = m(x, x_layout)
 
         assert y.shape == (3, 9, 4)
 

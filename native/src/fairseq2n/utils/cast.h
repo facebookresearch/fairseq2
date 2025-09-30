@@ -15,14 +15,14 @@
 namespace fairseq2n::detail {
 
 template <typename Container>
-inline constexpr auto
+constexpr auto
 ssize(const Container &container) noexcept
 {
     return static_cast<typename Container::difference_type>(container.size());
 }
 
 template <typename T, typename U>
-inline constexpr T
+constexpr T
 conditional_cast(U value) noexcept
 {
     if constexpr (std::is_same_v<T, U>)
@@ -32,7 +32,7 @@ conditional_cast(U value) noexcept
 }
 
 template <typename T>
-inline constexpr bool
+constexpr bool
 are_equal(const T &lhs, const T &rhs) noexcept
 {
     if constexpr (std::is_floating_point_v<T>)
@@ -42,7 +42,7 @@ are_equal(const T &lhs, const T &rhs) noexcept
 }
 
 template <typename T, typename U>
-inline constexpr bool
+constexpr bool
 maybe_narrow(U u, T &t) noexcept
 {
     if constexpr (std::is_same_v<T, U>) {

@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from fairseq2.data import create_bucket_sizes
+from fairseq2.data.data_pipeline import create_bucket_sizes
 
 
 def test_create_bucket_sizes() -> None:

@@ -15,40 +15,6 @@ on:
         required: true
 
 jobs:
-  build_pt24_wheel-linux:
-    name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
-    uses: ./.github/workflows/_build_wheel-linux.yaml
-    strategy:
-      fail-fast: false
-      matrix:
-        torch: ['2.4.0', '2.4.1']
-        py: ['3.10', '3.11', '3.12']
-        variant: ['cpu', 'cu118', 'cu121', 'cu124']
-        sanitizers: ['nosan']
-    with:
-      torch: ${{ matrix.torch }}
-      py: ${{ matrix.py }}
-      variant: ${{ matrix.variant }}
-      sanitizers: ${{ matrix.sanitizers }}
-      version_override: ${{ inputs.version_override }}
-
-  build_pt25_wheel-linux:
-    name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
-    uses: ./.github/workflows/_build_wheel-linux.yaml
-    strategy:
-      fail-fast: false
-      matrix:
-        torch: ['2.5.0', '2.5.1']
-        py: ['3.10', '3.11', '3.12']
-        variant: ['cpu', 'cu118', 'cu121', 'cu124']
-        sanitizers: ['nosan']
-    with:
-      torch: ${{ matrix.torch }}
-      py: ${{ matrix.py }}
-      variant: ${{ matrix.variant }}
-      sanitizers: ${{ matrix.sanitizers }}
-      version_override: ${{ inputs.version_override }}
-
   build_pt26_wheel-linux:
     name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
     uses: ./.github/workflows/_build_wheel-linux.yaml
@@ -57,13 +23,30 @@ jobs:
       matrix:
         torch: ['2.6.0']
         py: ['3.10', '3.11', '3.12']
-        variant: ['cpu', 'cu118', 'cu124']
+        variant: ['cpu', 'cu124']
+        sanitizers: ['nosan']
+    with:
+      torch: ${{ matrix.torch }}
+      py: ${{ matrix.py }}
+      variant: ${{ matrix.variant }}
+      sanitizers: ${{ matrix.sanitizers }}
+      version_override: ${{ inputs.version_override }}
+
+  build_pt27_wheel-linux:
+    name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
+    uses: ./.github/workflows/_build_wheel-linux.yaml
+    strategy:
+      fail-fast: false
+      matrix:
+        torch: ['2.7.1']
+        py: ['3.10', '3.11', '3.12']
+        variant: ['cpu', 'cu126', 'cu128']
         sanitizers: ['nosan']
         include:
           - run_integration_tests: false
 
           # Integration Tests
-          - torch: '2.6.0'
+          - torch: '2.7.1'
             py: '3.12'
             variant: 'cpu'
             sanitizers: 'nosan'
@@ -71,7 +54,7 @@ jobs:
 
           # TODO: fix lsan.out file!
           # ASAN/UBSAN
-          # - torch: '2.6.0'
+          # - torch: '2.7.1'
           #   py: '3.12'
           #   variant: 'cpu'
           #   sanitizers: 'asan_ubsan'
@@ -84,13 +67,54 @@ jobs:
       version_override: ${{ inputs.version_override }}
       run_integration_tests: ${{ matrix.run_integration_tests }}
 
-  build_pt26_wheel-macos:
+  build_pt28_wheel-linux:
+    name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
+    uses: ./.github/workflows/_build_wheel-linux.yaml
+    strategy:
+      fail-fast: false
+      matrix:
+        torch: ['2.8.0']
+        py: ['3.10', '3.11', '3.12']
+        variant: ['cpu', 'cu126', 'cu128']
+        sanitizers: ['nosan']
+        include:
+          - run_integration_tests: false
+
+          # Integration Tests
+          - torch: '2.8.0'
+            py: '3.12'
+            variant: 'cpu'
+            sanitizers: 'nosan'
+            run_integration_tests: true
+
+    with:
+      torch: ${{ matrix.torch }}
+      py: ${{ matrix.py }}
+      variant: ${{ matrix.variant }}
+      sanitizers: ${{ matrix.sanitizers }}
+      version_override: ${{ inputs.version_override }}
+      run_integration_tests: ${{ matrix.run_integration_tests }}
+
+  build_pt27_wheel-macos:
     name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, macos-arm64)
     uses: ./.github/workflows/_build_wheel-macos.yaml
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.6.0']
+        torch: ['2.7.1']
+        py: ['3.10', '3.11', '3.12']
+    with:
+      torch: ${{ matrix.torch }}
+      py: ${{ matrix.py }}
+      version_override: ${{ inputs.version_override }}
+
+  build_pt28_wheel-macos:
+    name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, macos-arm64)
+    uses: ./.github/workflows/_build_wheel-macos.yaml
+    strategy:
+      fail-fast: false
+      matrix:
+        torch: ['2.8.0']
         py: ['3.10', '3.11', '3.12']
     with:
       torch: ${{ matrix.torch }}
@@ -104,9 +128,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.6.0']
+        torch: ['2.8.0']
         py: ['3.10', '3.11', '3.12']
-        variant: ['cu124']
+        variant: ['cu126', 'cu128']
     with:
       torch: ${{ matrix.torch }}
       py: ${{ matrix.py }}
@@ -122,7 +146,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.6.0']
+        torch: ['2.8.0']
         py: ['3.10', '3.11', '3.12']
     with:
       torch: ${{ matrix.torch }}

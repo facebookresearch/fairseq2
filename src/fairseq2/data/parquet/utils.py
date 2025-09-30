@@ -237,7 +237,7 @@ def read_mmap_table_with_finalizer(file_name):
     with pa.memory_map(file_name, "rb") as source:
         table = pa.ipc.open_stream(source).read_all()
     weakref.finalize(table, remove_file, file_name)
-    # XXX: this reference capture will not work properly in multiprocessing context
+    # XXX: this reference capture will not work properly in multiprocessing resolver
     return table
 
 
