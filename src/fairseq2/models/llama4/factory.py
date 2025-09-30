@@ -48,10 +48,10 @@ class Llama4Factory(LLaMAFactory):
     def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
         config = self._config
 
-        if config.vision_config:
-            vision_embed = VisionEmbeddings(config.vision_config)
+        if config.use_vision:
+            vision_embed = VisionEmbeddings(config.vision)
             vision_proj = Linear(
-                config.vision_config.output_dim,
+                config.vision.output_dim,
                 config.model_dim,
                 bias=False,
                 init_fn=lambda x: None,
@@ -64,8 +64,6 @@ class Llama4Factory(LLaMAFactory):
             embed,
             vision_embed,
             vision_proj,
-            pos_encoder=None,
-            no_scale=True,
             dropout_p=config.dropout_p,
         )
 
@@ -173,28 +171,16 @@ class Llama4Factory(LLaMAFactory):
         #     proj_init_fn=init_projection,
         # )
 
-    def create_llama4_rms_norm(
-        self,
-        dim: int,
-        *,
-        elementwise_affine: bool = True,
-    ) -> LayerNorm:
-        # This is llama-stack version, we can try switching
-        return RMSNorm(
-            dim,
-            bias=False,
-            elementwise_affine=elementwise_affine,
-            eps=1e-5,
-        )
-
     def create_layer_norm(self) -> LayerNorm:
-        return self.create_llama4_rms_norm(
+        return RMSNorm(
             self._config.model_dim,
+            bias=False,
             elementwise_affine=True,
         )
 
     def create_qk_norm(self, dim: int) -> LayerNorm:
-        return self.create_llama4_rms_norm(
+        return RMSNorm(
             dim,
+            bias=False,
             elementwise_affine=False,
         )

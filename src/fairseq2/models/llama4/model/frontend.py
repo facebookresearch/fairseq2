@@ -19,8 +19,6 @@ from fairseq2.nn import (
     BatchLayout,
     Embedding,
     IncrementalStateBag,
-    LayerNorm,
-    PositionEncoder,
     Projection,
 )
 
@@ -38,9 +36,6 @@ class Llama4DecoderFrontend(TransformerFrontend):
     embed: Embedding
     vision_embed: VisionEmbeddings | None
     vision_proj: Projection | None
-    scale: float
-    pos_encoder: PositionEncoder | None
-    layer_norm: LayerNorm | None
     dropout: Dropout | None
 
     def __init__(
@@ -48,23 +43,16 @@ class Llama4DecoderFrontend(TransformerFrontend):
         embed: Embedding,
         vision_embed: VisionEmbeddings | None,
         vision_proj: Projection | None,
-        pos_encoder: PositionEncoder | None,
         *,
-        no_scale: bool = False,
         dropout_p: float = 0.0,
     ) -> None:
         """
         :param embed:
             The token embedding table.
-        :param vision_encoder:
+        :param vision_embed:
             The vision embedder.
         :param vision_proj:
             The vision projection.
-        :param pos_encoder:
-            The position encoder.
-        :param no_scale:
-            If ``True``, does not scale embeddings by the square root of the
-            embedding size.
         :param layer_norm:
             If ``True``, applies Layer Normalization to embeddings before
             dropout.
@@ -75,23 +63,9 @@ class Llama4DecoderFrontend(TransformerFrontend):
         """
         super().__init__()
 
-        model_dim = embed.embed_dim
-
         self.embed = embed
         self.vision_embed = vision_embed
         self.vision_proj = vision_proj
-
-        self.scale = 1.0 if no_scale else math.sqrt(model_dim)
-
-        if pos_encoder is not None:
-            if pos_encoder.encoding_dim != model_dim:
-                raise ValueError(
-                    f"`encoding_dim` of `pos_encoder` and `embedding_dim` of `embed` must be equal, but are {pos_encoder.encoding_dim} and {model_dim} instead."
-                )
-
-            self.pos_encoder = pos_encoder
-        else:
-            self.register_module("pos_encoder", None)
 
         if dropout_p > 0.0:
             self.dropout = Dropout(dropout_p)
@@ -101,7 +75,7 @@ class Llama4DecoderFrontend(TransformerFrontend):
     @override
     def forward(
         self,
-        seqs: Tensor,  # [batch_size, seq_len] or [batch_size, seq_len, 3]
+        seqs: Tensor,
         seqs_layout: BatchLayout,
         *,
         state_bag: IncrementalStateBag | None = None,
@@ -115,12 +89,6 @@ class Llama4DecoderFrontend(TransformerFrontend):
             embeds = (
                 embeds * ~image_embedding.mask + embeds_image * image_embedding.mask
             )
-
-        if self.scale != 1.0:
-            embeds = embeds * self.scale
-
-        if self.pos_encoder is not None:
-            embeds = self.pos_encoder(embeds, seqs_layout, state_bag=state_bag)
 
         if self.dropout is not None:
             embeds = self.dropout(embeds)

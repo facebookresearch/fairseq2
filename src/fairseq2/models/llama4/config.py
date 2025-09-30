@@ -73,29 +73,17 @@ class Llama4ExpertsConfig:
 
 
 @dataclass(kw_only=True)
-class Llama4MetapConfig:
-    """Llama 4 optional meta parameters"""
-
-    base_width: float = 1024.0
-    """The base width used in the output multiplier computation."""
-
-    embedding_multiplier: float = 1.0
-    """
-    The embedding multiplier. Not implemented currently,
-    since the multiplier is 1.0 in all available checkpoints.
-    """
-
-
-@dataclass(kw_only=True)
 class Llama4Config(LLaMAConfig):
     experts: Llama4ExpertsConfig = field(default_factory=lambda: Llama4ExpertsConfig())
     """If not ``None``, specifies the configuration of Mixture-of-Experts."""
+    
+    use_vision: bool = False
+    """If ``True``, enables the vision encoder."""
 
-    vision_config: Llama4VisionEncoderConfig | None = None
-    """If not ``None``, specifies the configuration of the vision encoder."""
-
-    metap_config: Llama4MetapConfig | None = None
-    """If not ``None``, specifies the configuration of the metaparameters."""
+    vision: Llama4VisionEncoderConfig = field(
+        default_factory=lambda: Llama4VisionEncoderConfig()
+    )
+    """Specifies the configuration of the vision encoder."""
 
     attention_chunk_size: int = 8192
     """The chunk size used for chunked attention biases."""
@@ -134,7 +122,7 @@ def register_llama4_configs(container: DependencyContainer) -> None:
         config.experts = Llama4ExpertsConfig()
 
         # vision has not been tested yet
-        # config.vision_config = Llama4VisionEncoderConfig()
+        config.use_vision = False
 
         config.rope_theta = 500_000.0
         config.use_scaled_rope = True
