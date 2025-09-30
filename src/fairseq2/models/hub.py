@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Generic, TypeVar, cast, final
@@ -23,6 +22,7 @@ from fairseq2.gang import Gangs, create_fake_gangs
 from fairseq2.models.family import ModelFamily
 from fairseq2.runtime.dependency import get_dependency_resolver
 from fairseq2.runtime.lookup import Lookup
+from fairseq2.utils.warn import _warn_deprecated
 
 ModelT = TypeVar("ModelT", bound=Module)
 
@@ -221,8 +221,8 @@ class ModelArchitectureNotKnownError(Exception):
         must specify a model family when raising this error.
         """
         if family is None:
-            warnings.warn(
-                "`ModelArchitectureNotKnownError` will require a `family` argument starting fairseq2 v0.12.", DeprecationWarning  # fmt: skip
+            _warn_deprecated(
+                "`ModelArchitectureNotKnownError` will require a `family` argument starting fairseq2 v0.12."
             )
 
             super().__init__(f"{arch} is not a known model architecture.")

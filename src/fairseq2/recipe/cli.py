@@ -96,7 +96,7 @@ from fairseq2.recipe.error import (
 )
 from fairseq2.recipe.internal.config_preparer import _RecipeConfigPreparer
 from fairseq2.recipe.internal.output_dir import _OutputDirectoryCreator
-from fairseq2.recipe.run import _run_recipe, _setup_warnings, _swap_default_resolver
+from fairseq2.recipe.run import _run_recipe, _swap_default_resolver
 from fairseq2.recipe.task import TaskStopException
 from fairseq2.runtime.dependency import (
     DependencyContainer,
@@ -114,13 +114,14 @@ from fairseq2.utils.env import EnvironmentVariableError
 from fairseq2.utils.rich import configure_rich_logging
 from fairseq2.utils.structured import StructureError, ValueConverter
 from fairseq2.utils.validation import ValidationError
+from fairseq2.utils.warn import enable_deprecation_warnings
 from fairseq2.utils.yaml import YamlDumper, YamlError, YamlLoader
 
 
 def train_main(recipe: TrainRecipe) -> None:
     from fairseq2.recipe.composition import _register_train_recipe
 
-    _setup_warnings()
+    enable_deprecation_warnings()
 
     args = _parse_args()
 
@@ -143,7 +144,7 @@ def train_main(recipe: TrainRecipe) -> None:
 def eval_main(recipe: EvalRecipe) -> None:
     from fairseq2.recipe.composition import _register_eval_recipe
 
-    _setup_warnings()
+    enable_deprecation_warnings()
 
     args = _parse_args()
 
@@ -166,7 +167,7 @@ def eval_main(recipe: EvalRecipe) -> None:
 def generate_main(recipe: GenerationRecipe) -> None:
     from fairseq2.recipe.composition import _register_generation_recipe
 
-    _setup_warnings()
+    enable_deprecation_warnings()
 
     args = _parse_args()
 
