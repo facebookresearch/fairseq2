@@ -10,8 +10,8 @@ import socket
 import subprocess
 import time
 from abc import ABC, abstractmethod
-from contextlib import closing
 from collections.abc import Collection, Iterable
+from contextlib import closing
 from random import Random
 from typing import Any, Dict, final
 
