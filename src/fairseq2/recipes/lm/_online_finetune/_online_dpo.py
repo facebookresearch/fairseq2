@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from copy import copy
 from dataclasses import dataclass, field
-from typing import Dict, Final, List, cast, final, Any, Union
+from typing import Any, Dict, Final, List, Union, cast, final
 
 import ray
 import torch
@@ -23,52 +23,48 @@ from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
 
 from fairseq2.context import RuntimeContext
 from fairseq2.data import CollateOptionsOverride, Collater, SequenceData
+from fairseq2.datasets import LengthBatching, SequenceBatch, StaticBatching, SyncMode
 from fairseq2.datasets.preference import PreferenceBatch
-from fairseq2.datasets import (
-    LengthBatching,
-    SequenceBatch,
-    StaticBatching,
-    SyncMode,
-)
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gang, Gangs
 from fairseq2.logging import log
+from fairseq2.metrics import Mean, MetricBag
 from fairseq2.models.clm import CausalLM
-
 from fairseq2.nn.data_parallel._fsdp import (
     fsdp_summon_full_parameters as fsdp_summon_full_parameters,
 )
 from fairseq2.nn.utils.module import freeze_parameters
+
+# from fairseq2.recipes.model import Model
+from fairseq2.recipes import Model, TrainUnit
 from fairseq2.recipes.common import setup_reference_model
 from fairseq2.recipes.common._distributed import broadcast_model
-from fairseq2.recipes.config import (
-    ReferenceModelSection,
-    TrainerSection,
-)
+from fairseq2.recipes.config import ReferenceModelSection, TrainerSection
+from fairseq2.recipes.lm._instruction_finetune import update_nll_loss
 from fairseq2.recipes.lm._online_finetune._common import (
     VllmSyncSection,
+    compute_reference_logps,
     compute_token_level_entropy,
-    log_rollouts,
-    get_rollout_lengths,
     generate_rollouts,
-    StatefulRolloutBag,
+    get_rollout_lengths,
+    log_rollouts,
+    update_avg_loss_zeroer,
     update_avg_reward,
     update_avg_reward_len_norm,
     update_avg_rollout_length,
     update_batch_metrics,
-    update_logit_entropy,
-    update_grpo_loss,
     update_dpo_loss,
     update_grpo_batch_metrics,
     compute_reference_logps,
     collate_with_target_mask,
     update_avg_loss_zeroer,
     strip_think_tokens,
+    update_logit_entropy,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_model import (
-    RemoteVllmModel,
     RemoteHFModel,
+    RemoteVllmModel,
     maybe_sync_model,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
@@ -76,17 +72,11 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
     VLLMOutputReward,
     VLLMOutputRewardHandler,
 )
-from fairseq2.recipes.lm._instruction_finetune import update_nll_loss
-from fairseq2.metrics import Mean, MetricBag
 from fairseq2.recipes.lm._preference_finetune._common import (
     _gather_lprobs_avg,
     update_logps_metrics,
     update_sequence_length_metrics,
 )
-from fairseq2.recipes.lm._online_finetune._common import compute_token_level_entropy
-
-# from fairseq2.recipes.model import Model
-from fairseq2.recipes import Model, TrainUnit
 
 # from fairseq2.typing import DataType
 from fairseq2.utils.structured import structure
@@ -149,12 +139,16 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     ) -> tuple[Tensor, int]:
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
-            policy_sampling_params.n = 1
             for (
                 k,
                 v,
             ) in self._config.loss_config.validation_vllm_sampling_params.items():
                 policy_sampling_params.__setattr__(k, v)
+
+            # For a pairwise RM, need to sample at least two rollouts
+            policy_sampling_params.n = (
+                2 if self._reward.reward_name == "generative_pairwise_verifier" else 1
+            )
         else:
             policy_sampling_params = None
         rollouts = generate_rollouts(
@@ -470,6 +464,7 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             context=self._context,
         )
 
+
         # TODO: decide converter as part of the model handler
         if "llama" in model.name:
             from fairseq2.models.llama._hg import _convert_parameter
@@ -485,6 +480,7 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             maybe_sync_model(gangs, model, vllm_model, -1, -1, force_sync=True)
         if config.vllm_sync.sync_ref_model_every_n_steps > 0:
             maybe_sync_model(gangs, model, reference_model, -1, -1, force_sync=True)
+
 
         return OnlineDpoFinetuneUnit(
             model, reference_model, vllm_model, vllm_actors, reward, gangs, config

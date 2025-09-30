@@ -1,13 +1,11 @@
 POINTWISE_J1_PROMPT = """
 You are given a user question and a response from an AI assistant. Your task is to act as an impartial judge and evaluate how well the response fulfills the user's instructions. You will be shown multiple responses to the same prompt, but only one at a time. Evaluate each response independently. 
 
-Think carefully about how to assess the quality of the response, and enclose your reasoning within <think> and </think> tags. Your reasoning should include your evaluation criteria, a clear understanding of what an ideal response would look like for this particular question, and a concrete example of such an ideal or reference answer if possible. Then compare the assistant's response to your ideal or reference answer, explaining how it aligns with or deviates from your expectations. Be specific and avoid vague or overly general judgments. Remain as objective as possible. 
-
-Finally, assign the assistant's response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision. A higher score should indicate a higher-quality response. Enclose the score within <score> and </score> tags.
+Think carefully about how to assess the quality of the response and assign the assistant's response a score 1 if the response is correct, and 0 if not. Enclose the score within <score> and </score> tags.
 
 Format your output like this: 
 <think> your_thinking_process </think> 
-<score> your_score </score>
+<score> 0 or 1 </score>
 
 Below are the user's question and the assistant's response:
 
@@ -19,43 +17,82 @@ Below are the user's question and the assistant's response:
 [The End of the Assistant's Answer]
 """
 
-PAIRWISE_J1_PROMPT = """
-You are given a user question and two responses from two AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer.
 
-First, provide your reasoning within <think> and </think> tags. This should include your evaluation criteria for a high-quality response, a detailed comparison of the two responses, and when helpful, a reference answer as part of your evaluation. Be explicit in your thought process, referencing your criteria and explaining how each response aligns with or deviates from them.
+# POINTWISE_J1_PROMPT = """
+# You are given a user question and a response from an AI assistant. Your task is to act as an impartial judge and evaluate how well the response fulfills the user's instructions. You will be shown multiple responses to the same prompt, but only one at a time. Evaluate each response independently. 
 
-Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
+# Think carefully about how to assess the quality of the response and assign the assistant's response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision. A higher score should indicate a higher-quality response. Enclose the score within <score> and </score> tags.
 
-Finally, provide your verdict within <answer> and </answer> tags, strictly following this format:
-- <answer> [[A]] </answer> if Assistant A is better
-- <answer> [[B]] </answer> if Assistant B is better
+# Format your output like this: 
+# <think> your_thinking_process </think> 
+# <score> your_score </score>
 
-Below are the user's question and the two responses:
+# Below are the user's question and the assistant's response:
+
+# [User Question]
+# {instruction}
+
+# [The Start of the Assistant's Answer]
+# {response}
+# [The End of the Assistant's Answer]
+# """
+
+
+POINTWISE_J1_PROMPT_WITH_REF_ANSWER = """
+You are given a user question, a reference answer and a response from an AI assistant. Your task is to act as an impartial judge and evaluate how well the response fulfills the user's instructions. You will be shown multiple responses to the same prompt, but only one at a time. Evaluate each response independently. 
+
+Think carefully about how to assess the quality of the response and assign the assistant's response a score 1 if the response is correct, and 0 if not. Enclose the score within <score> and </score> tags.
+
+Format your output like this: 
+<think> your_thinking_process </think> 
+<score> 0 or 1 </score>
+
+Below are the user's question, reference answer and the assistant's response:
 
 [User Question]
 {instruction}
 
-[The Start of Assistant A's Answer]
-{response_A}
-[The End of Assistant A's Answer]
+[Reference Answer]
+{reference_answer}
 
-[The Start of Assistant B's Answer]
-{response_B}
-[The End of Assistant B's Answer]
+[The Start of the Assistant's Answer]
+{response}
+[The End of the Assistant's Answer]
 """
 
+
+# PAIRWISE_WITH_SCORES_J1_PROMPT = """
+# You are given a user question and two responses from two AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
+
+# Think carefully about how to assess the quality of the responses and assign each response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision, with a higher score indicating a higher-quality response that better satisfies the criteria. Enclose the scores within the tags <score_A> </score_A>, and <score_B> </score_B>.
+
+# Format your output like this:
+# <think> your_thinking_process </think>
+# <score_A> your_score_a </score_A> <score_B> your_score_b </score_B>
+
+# Below are the user's question and the two responses:
+
+# [User Question]
+# {instruction}
+
+# [The Start of Assistant A's Answer]
+# {response_A}
+# [The End of Assistant A's Answer]
+
+# [The Start of Assistant B's Answer]
+# {response_B}
+# [The End of Assistant B's Answer]
+# """
+
+
 PAIRWISE_WITH_SCORES_J1_PROMPT = """
-You are given a user question and two responses from two AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer.
+You are given a user question and two responses from two AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
 
-First, provide your reasoning within <think> and </think> tags. This should include your evaluation criteria for a high-quality response, a detailed comparison of the two responses, and when helpful, a reference answer as part of your evaluation. Be explicit in your thought process, referencing your criteria and explaining how each response aligns with or deviates from them.
-
-Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
-
-Finally, assign the assistant's response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision, with a higher score indicating a higher-quality response that better satisfies the criteria. Enclose the scores within the tags <score_A> </score_A>, and <score_B> </score_B>.
+Think carefully about how to assess the quality of the responses and assign each response a score 1 if the response is correct, and 0 if not. Enclose the scores within the tags <score_A> </score_A>, and <score_B> </score_B>.
 
 Format your output like this:
 <think> your_thinking_process </think>
-<score_A> your_score_a </score_A> <score_B> your_score_b </score_B>
+<score_A> 0 or 1 </score_A> <score_B> 0 or 1 </score_B>
 
 Below are the user's question and the two responses:
 
@@ -71,12 +108,146 @@ Below are the user's question and the two responses:
 [The End of Assistant B's Answer]
 """
 
+# PAIRWISE_WITH_SCORES_J1_PROMPT_WITH_REF_ANSWER = """
+# You are given a user question, two responses from two AI assistants, and a reference answer. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
 
-from abc import ABC, abstractmethod
-from typing_extensions import override
-from fairseq2.logging import log
-from typing import Any
+# Think carefully about how to assess the quality of the responses and utilize the reference answer for your judgement. Finally, assign each response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision, with a higher score indicating a higher-quality response that better satisfies the criteria. Enclose the scores within the tags <score_A> </score_A>, and <score_B> </score_B>.
+
+# Format your output like this:
+# <think> your_thinking_process </think>
+# <score_A> your_score_a </score_A> <score_B> your_score_b </score_B>
+
+# Below are the user's question, reference answer and the two responses:
+
+# [User Question]
+# {instruction}
+
+# [Reference Answer]
+# {reference_answer}
+
+# [The Start of Assistant A's Answer]
+# {response_A}
+# [The End of Assistant A's Answer]
+
+# [The Start of Assistant B's Answer]
+# {response_B}
+# [The End of Assistant B's Answer]
+# """
+
+# PAIRWISE_WITH_SCORES_J1_PROMPT_WITH_REF_ANSWER = """
+# You are given a user question, two responses from two AI assistants, and a reference answer. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
+
+# Think carefully about how to assess the quality of the responses and utilize the reference answer for your judgement. Finally, assign each response a score 1 if the response is correct, and 0 if not. Enclose the scores within the tags <score_A> </score_A>, and <score_B> </score_B>.
+
+# Format your output like this:
+# <think> your_thinking_process </think>
+# <score_A> 0 or 1 </score_A> <score_B> 0 or 1 </score_B>
+
+
+# Below are the user's question, reference answer and the two responses:
+
+# [User Question]
+# {instruction}
+
+# [Reference Answer]
+# {reference_answer}
+
+# [The Start of Assistant A's Answer]
+# {response_A}
+# [The End of Assistant A's Answer]
+
+# [The Start of Assistant B's Answer]
+# {response_B}
+# [The End of Assistant B's Answer]
+# """
+
+
+PAIRWISE_WITH_SCORES_J1_PROMPT_WITH_REF_ANSWER = """
+You are given a user question, two responses from two AI assistants and the parsed version of the responses, and a reference answer. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
+
+Think carefully about how to assess the quality of the responses and finally, utilize the reference answer for your judgement. Note that the parsed version of the responses are automatically extracted and may contain errors, therefore you should primarily rely on the original responses for your judgement.
+Finally, assign each response a score 1 if the response is correct, and 0 if not. Enclose the scores within the tags <score_A> </score_A>, and <score_B> </score_B>.
+
+Format your output like this:
+<think> your_thinking_process </think>
+<score_A> 0 or 1 </score_A> <score_B> 0 or 1 </score_B>
+
+Below are the user's question, two responses and the parsed versions of the responses, and the reference answer:
+
+[User Question]
+{instruction}
+
+[The Start of Assistant A's Answer]
+{response_A}
+[The End of Assistant A's Answer]
+
+[The Start of Assistant B's Answer]
+{response_B}
+[The End of Assistant B's Answer]
+
+[The Parsed Version of Assistant A's Answer]
+{parsed_response_A}
+
+[The Parsed Version of Assistant B's Answer]
+{parsed_response_B}
+
+[Reference Answer]
+{reference_answer}
+"""
+
+KWISE_WITH_SCORES_J1_PROMPT = """
+You are given a user question and {k} responses from {k} AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
+
+Think carefully about how to assess the quality of the responses and finally, assign each response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision, with a higher score indicating a higher-quality response that better satisfies the criteria. Enclose the scores within the tags <score_assistant_1> </score_assistant_1>, <score_assistant_2> </score_assistant_2> and so on.
+
+Format your output like this:
+<think> your_thinking_process </think>
+<score_assistant_1> your_score_1 </score_assistant_1> 
+<score_assistant_2> your_score_2 </score_assistant_2>
+<score_assistant_3> your_score_3 </score_assistant_3>
+...
+
+Below are the user's question and the responses:
+
+[User Question]
+{instruction}
+
+{responses}
+"""
+
+KWISE_WITH_SCORES_J1_PROMPT_WITH_REF_ANSWER = """
+You are given a user question, a reference answer, and {k} responses with the parsed versions from AI assistants. Your task is to act as an impartial judge and evaluate which response better follows the user's instructions and provides a higher-quality answer. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible.
+
+Think carefully about how to assess the quality of the responses and finally, utilize the reference answer for your judgement. Note that the parsed version of the responses are automatically extracted and may contain errors, therefore you should primarily rely on the original responses for your judgement.
+Finally, assign each response a score 1 if the response is correct, and 0 if not. Enclose the scores within the tags <score_assistant_1> </score_assistant_1>, <score_assistant_2> </score_assistant_2> and so on.
+
+Format your output like this:
+<think> your_thinking_process </think>
+<score_assistant_1> 0 or 1 </score_assistant_1> 
+<score_assistant_2> 0 or 1 </score_assistant_2>
+<score_assistant_3> 0 or 1 </score_assistant_3>
+...
+
+Below are the user's question, reference answer, responses and the parsed versions of the responses:
+
+[User Question]
+{instruction}
+
+[Reference Answer]
+{reference_answer}
+
+{responses}
+
+{parsed_responses}
+"""
+
 import re
+from abc import ABC, abstractmethod
+from typing import Any
+
+from typing_extensions import override
+
+from fairseq2.logging import log
 
 
 class JudgmentExtractorHandler(ABC):
@@ -189,8 +360,8 @@ class GeneralVerifierExtractor(JudgmentExtractor):
         try:
             from math_verify import parse
             from math_verify.parser import (
-                LatexExtractionConfig,
                 ExprExtractionConfig,
+                LatexExtractionConfig,
                 NormalizationConfig,
             )
         except ImportError:
@@ -277,12 +448,26 @@ class J1PointwiseExtractor(JudgmentExtractor):
         self.tokenizer = tokenizer
 
     @override
-    def prompt(self):
-        return POINTWISE_J1_PROMPT
+    def prompt(self, reference_answer):
+        return (
+            POINTWISE_J1_PROMPT
+            if reference_answer is None
+            else POINTWISE_J1_PROMPT_WITH_REF_ANSWER
+        )
 
     @override
-    def format_prompt(self, prompt_text, rollout_text):
-        content = self.prompt().format(instruction=prompt_text, response=rollout_text)
+    def format_prompt(self, prompt_text, rollout_text, reference_answer):
+        prompt_template = self.prompt(reference_answer)
+        content = (
+            prompt_template.format(instruction=prompt_text, response=rollout_text)
+            if reference_answer is None
+            else prompt_template.format(
+                instruction=prompt_text,
+                reference_answer=reference_answer,
+                response=rollout_text,
+            )
+        )
+
         wrapped_text = [{"role": "user", "content": content}]
         chat_str = self.tokenizer.apply_chat_template(
             wrapped_text, tokenize=False, add_generation_prompt=True
@@ -329,18 +514,64 @@ class J1PairwiseScoreExtractorHandler(JudgmentExtractorHandler):
 class J1PairwiseScoreExtractor(JudgmentExtractor):
     def __init__(self, tokenizer):
         self.tokenizer = tokenizer
+        try:
+            from math_verify import parse
+            from math_verify.parser import (
+                ExprExtractionConfig,
+                LatexExtractionConfig,
+                NormalizationConfig,
+            )
+        except ImportError:
+            raise ImportError(
+                "install mathverify from https://github.com/huggingface/Math-Verify"
+            )
 
-    @override
-    def prompt(self):
-        return PAIRWISE_WITH_SCORES_J1_PROMPT
-
-    @override
-    def format_prompt(self, prompt_text, rollout_A_text, rollout_B_text):
-        content = self.prompt().format(
-            instruction=prompt_text,
-            response_A=rollout_A_text,
-            response_B=rollout_B_text,
+        self.student_extraction_config = (
+            LatexExtractionConfig(boxed_match_priority=0),
         )
+        self.parse = parse
+
+    @override
+    def prompt(self, reference_answer):
+        return (
+            PAIRWISE_WITH_SCORES_J1_PROMPT
+            if reference_answer is None
+            else PAIRWISE_WITH_SCORES_J1_PROMPT_WITH_REF_ANSWER
+        )
+        
+    def get_preferred_index(self, lst):
+        """
+        math_verify parse returns a list of parsed answers, we want want the item at idex 1, which is a string
+        """
+        if len(lst) > 1:
+            return lst[1]
+        elif len(lst) == 1:
+            return lst[0]
+        else:
+            return "None"
+
+    @override
+    def format_prompt(
+        self, prompt_text, rollout_A_text, rollout_B_text, reference_answer
+    ):
+        prompt_template = self.prompt(reference_answer)
+        content = (
+            prompt_template.format(
+                instruction=prompt_text,
+                response_A=rollout_A_text,
+                response_B=rollout_B_text,
+            )
+            if reference_answer is None
+            else prompt_template.format(
+                instruction=prompt_text,
+                response_A=rollout_A_text,
+                response_B=rollout_B_text,
+                parsed_response_A=self.get_preferred_index(self.parse(rollout_A_text, self.student_extraction_config)),
+                parsed_response_B=self.get_preferred_index(self.parse(rollout_B_text, self.student_extraction_config)),
+                reference_answer=reference_answer,
+            )
+        )
+
         wrapped_text = [{"role": "user", "content": content}]
         chat_str = self.tokenizer.apply_chat_template(
             wrapped_text, tokenize=False, add_generation_prompt=True
@@ -377,18 +608,18 @@ class J1PairwiseScoreExtractor(JudgmentExtractor):
         )
 
 
-class J1PairwisePreferenceExtractorHandler(JudgmentExtractorHandler):
+class J1KwiseScoreExtractorHandler(JudgmentExtractorHandler):
     def __init__(self):
         pass
 
     @override
-    def create(self, tokenizer):
-        return J1PairwisePreferenceExtractor(tokenizer)
+    def create(self, tokenizer, k):
+        return J1KwiseScoreExtractor(tokenizer, k)
 
     @property
     @override
     def name(self):
-        return "j1_pairwise_preference_extractor"
+        return "j1_kwise_score_extractor"
 
     @property
     @override
@@ -396,22 +627,90 @@ class J1PairwisePreferenceExtractorHandler(JudgmentExtractorHandler):
         return None
 
 
-class J1PairwisePreferenceExtractor(JudgmentExtractor):
-    def __init__(self, tokenizer):
+class J1KwiseScoreExtractor(JudgmentExtractor):
+    def __init__(self, tokenizer, k):
         self.tokenizer = tokenizer
+        self.k = k
+        try:
+            from math_verify import parse
+            from math_verify.parser import (
+                ExprExtractionConfig,
+                LatexExtractionConfig,
+                NormalizationConfig,
+            )
+        except ImportError:
+            raise ImportError(
+                "install mathverify from https://github.com/huggingface/Math-Verify"
+            )
+
+        self.student_extraction_config = (
+            LatexExtractionConfig(boxed_match_priority=0),
+        )
+        self.parse = parse
+
+    def get_preferred_index(self, lst):
+        """
+        math_verify parse returns a list of parsed answers, we want want the item at idex 1, which is a string
+        """
+        if len(lst) > 1:
+            return lst[1]
+        elif len(lst) == 1:
+            return lst[0]
+        else:
+            return "None"
 
     @override
-    def prompt(self):
-        return PAIRWISE_J1_PROMPT
+    def prompt(self, reference_answer):
+        return (
+            KWISE_WITH_SCORES_J1_PROMPT
+            if reference_answer is None
+            else KWISE_WITH_SCORES_J1_PROMPT_WITH_REF_ANSWER
+        )
+
+    @override
+    def format_prompt(self, prompt_text, rollouts, reference_answer):
+        prompt_template = self.prompt(reference_answer)
+        content = (
+            prompt_template.format(
+                k=self.k, instruction=prompt_text, responses=rollouts
+            )
+            if reference_answer is None
+            else prompt_template.format(
+                k=self.k,
+                instruction=prompt_text,
+                responses="".join([f"[Start of Assistant {assistant_id+1}'s Answer]\n{rollout}\n[End of Assistant {assistant_id+1}'s Answer]\n\n" for assistant_id, rollout in enumerate(rollouts)]),
+                parsed_responses="".join([f"[The Parsed Version of Assistant {assistant_id+1}'s Answer]\n{self.get_preferred_index(self.parse(rollout, self.student_extraction_config))}\n\n" for assistant_id, rollout in enumerate(rollouts)]),
+                reference_answer=reference_answer,
+            )
+        )
+
+        wrapped_text = [{"role": "user", "content": content}]
+        chat_str = self.tokenizer.apply_chat_template(
+            wrapped_text, tokenize=False, add_generation_prompt=True
+        )
+        return chat_str
 
     @override
     def extract(self, generation):
-        matches = list(
-            re.findall(r"<answer>\s*\[\[(A|B)\]\]\s*</answer>", generation.strip())
-        )
+        scores = []
+        for i in range(self.k):
+            score_matches = re.findall(
+                rf"<score_assistant_{i+1}>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score_assistant_{i+1}>",
+                generation,
+            )
+            if score_matches:
+                scores.append(float(score_matches[-1].strip()))
+            else:
+                scores.append(0.0)
 
-        return matches[-1].strip() if matches else None
+        return scores
 
     @override
     def aggregate(self, judgments):
-        pass
+        avg_score = [0.0] * self.k
+        for scores in judgments:
+            for i, score in enumerate(scores):
+                avg_score[i] += score
+
+        avg_score = [round(avg_score[i] / len(judgments), 4) for i in range(self.k)]
+        return avg_score

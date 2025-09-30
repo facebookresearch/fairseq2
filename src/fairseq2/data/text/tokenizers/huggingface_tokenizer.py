@@ -12,6 +12,7 @@ from typing import final
 
 import torch
 from torch import Tensor
+from transformers import AutoTokenizer
 from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
@@ -20,7 +21,6 @@ from fairseq2.data.text.tokenizers import (
     TextTokenEncoder,
 )
 from fairseq2.typing import Device
-from transformers import AutoTokenizer
 
 
 @final

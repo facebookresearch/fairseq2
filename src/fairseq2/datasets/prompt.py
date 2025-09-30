@@ -30,9 +30,9 @@ from fairseq2.datasets import (
     DataPipelineReader,
     DataReadOptions,
     DatasetHubAccessor,
+    DatasetLoadError,
     LengthBatching,
     StaticBatching,
-    DatasetLoadError,
     UnknownSplitError,
 )
 from fairseq2.datasets.utils._manifest import _load_files_and_weights
@@ -74,11 +74,11 @@ class PromptBatch:
     def batch_size(self) -> int:
         """The size of the batch dimension."""
         return len(self.prompts)
-    
+
     @property
     def prompt_lengths(self) -> list[int]:
         return [len(p) for p in self.prompts]
-    
+
     @override
     def to(self, device: Device, *, non_blocking: bool = False) -> None:
         # no device moving since we only carry tokens prompts here

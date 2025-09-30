@@ -171,9 +171,7 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
                 / chosen_target_batch.num_target_elements()
             )
         loss = (
-            dpo_loss
-            + self._nll_scale
-            * nll_loss
+            dpo_loss + self._nll_scale * nll_loss
         )  # normalization applied locally per-rank
 
         return loss, chosen_target_batch.batch_size

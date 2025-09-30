@@ -12,8 +12,8 @@ from fairseq2.recipes.lm import (
     register_clm_loss_eval_configs,
     register_clm_train_configs,
     register_instruction_finetune_configs,
-    register_po_finetune_configs,
     register_online_finetune_configs,
+    register_po_finetune_configs,
     register_text_generate_configs,
 )
 from fairseq2.recipes.mt import (

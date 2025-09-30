@@ -8,34 +8,26 @@ from __future__ import annotations
 
 import contextlib
 import io
+import re
 from dataclasses import dataclass
 from typing import List, cast
 
 import ray
-import re
 import torch
 import torch.nn as nn
 from torch import Tensor
 from vllm import RequestOutput
 
-
-from fairseq2.data import (
-    CollateOptionsOverride,
-    Collater,
-    SequenceData,
-)
+from fairseq2.data import CollateOptionsOverride, Collater, SequenceData
+from fairseq2.datasets import SequenceBatch
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gang, Gangs
-from fairseq2.datasets import (
-    SequenceBatch,
-)
+from fairseq2.logging import log
+from fairseq2.metrics import Mean, MetricBag, Sum
 from fairseq2.nn._batch_layout import BatchLayout
 from fairseq2.nn.utils.padding import pad_seqs
-
-from fairseq2.logging import log
 from fairseq2.recipes.lm._online_finetune._remote_model import RemoteVllmModel
-from fairseq2.metrics import Mean, Sum, MetricBag
 
 
 @dataclass(kw_only=True)
@@ -96,9 +88,13 @@ def collate_with_target_mask(
 
     seq_data = cast(SequenceData, collater(to_collate))
 
+    seq_lens = seq_data["seqs"]["seq_lens"]
+    assert isinstance(seq_lens, Tensor) or isinstance(seq_lens, list)
+    if isinstance(seq_lens, Tensor):
+        seq_lens = seq_lens.tolist()
     batch = SequenceBatch(
         seq_data["seqs"]["seqs"],
-        seq_data["seqs"]["seq_lens"],
+        seq_lens,
         target_mask=seq_data["target_loss_mask"]["seqs"],
     )
     batch.to(device)
@@ -398,6 +394,8 @@ def log_rollouts(prompt_batch: PromptBatch, rollouts, split_name, num_rollouts=1
         prompt = prompt_batch.meta_info.get("prompt_raw")[0]
     elif "raw_prompt" in prompt_batch.meta_info:
         prompt = prompt_batch.meta_info.get("raw_prompt")[0]
+    elif "problem" in prompt_batch.meta_info:
+        prompt = prompt_batch.meta_info.get("problem")[0]
     else:
         # raw text prompt doesn't exist for this dataset
         prompt = "DUMMY PROMPT"
@@ -420,12 +418,36 @@ def get_rollout_lengths(rollouts: List[SequenceData]):
 
 
 def strip_think_tokens(rollouts: List[SequenceData]):
+    count_stripped, count_not_stripped, total_count, think_present = 0, 0, 0, 0
     for sample in rollouts:
         for rollout in sample.outputs:
             rollout_text = rollout.text
+            if "<think>" in rollout_text:
+                think_present += 1
+            if rollout.finish_reason == "length":
+                count_stripped += 1
+            if rollout.finish_reason == "stop":
+                count_not_stripped += 1
+            total_count += 1
             rollout.text = re.sub(
                 r"<think>.*?</think>", "", rollout_text, flags=re.DOTALL
             ).strip()
+
+    log.info(f"Total count: {total_count}")
+    log.info(f"Think present: {think_present}")
+    log.info(f"Count stripped: {count_stripped/total_count}")
+    log.info(f"Count not stripped: {count_not_stripped/total_count}")
+
+    return rollouts
+
+
+def format_think_tags(rollouts: List[SequenceData]):
+    for sample in rollouts:
+        for rollout in sample.outputs:
+            rollout_text = rollout.text
+            rollout.text = rollout_text.replace(
+                "<think>", "[Start of Assistant Thinking]"
+            ).replace("</think>", "[End of Assistant Thinking]")
 
     return rollouts
 
@@ -607,3 +629,18 @@ def compute_reference_logps(
     ).seqs
 
     return ref_logps
+
+
+def get_parameter_converter(model_config):
+
+    from fairseq2.models.llama import LLaMAConfig
+    from fairseq2.models.qwen import QwenConfig
+
+    if isinstance(model_config, QwenConfig):
+        from fairseq2.models.qwen._hg import _convert_parameter
+    elif isinstance(model_config, LLaMAConfig):
+        from fairseq2.models.llama._hg import _convert_parameter
+    else:
+        raise RuntimeError(f"{model_config} not supported in online recipe")
+
+    return _convert_parameter

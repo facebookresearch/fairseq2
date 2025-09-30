@@ -7,31 +7,35 @@
 from __future__ import annotations
 
 import ray
+
 from fairseq2.context import RuntimeContext
-from fairseq2.recipes.lm import (
+from fairseq2.recipes.lm import (  # GroupDpoFinetuneUnitHandler,
+    AtheneVerifierHandler,
+    SkyworkVerifierHandler,
+    AceMathVerifierHandler,
     CpoFinetuneUnitHandler,
     DpoFinetuneUnitHandler,
-    OrpoFinetuneUnitHandler,
-    POFinetuneUnitHandler,
-    SimPOFinetuneUnitHandler,
-    OnlineDpoFinetuneUnitHandler,
-    # GroupDpoFinetuneUnitHandler,
-    GrpoFinetuneUnitHandler,
-    OnlineFinetuneUnitHandler,
-    GSM8kVerifierHandler,
-    MathVerifyHandler,
-    SkyworkVerifierHandler,
-    AtheneVerifierHandler,
-    GenerativePointwiseVerifierHandler,
+    GeneralVerifierExtractorHandler,
     GenerativePairwiseVerifierHandler,
-    VLLMOutputRewardHandler,
-    RemoteModelHandler,
+    GenerativeKwiseVerifierHandler,
+    GenerativePointwiseVerifierHandler,
+    GrpoFinetuneUnitHandler,
+    GSM8kVerifierHandler,
+    J1PairwiseScoreExtractorHandler,
+    J1KwiseScoreExtractorHandler,
+    J1PointwiseExtractorHandler,
+    JudgmentExtractorHandler,
+    MathVerifyHandler,
     NoEnvAtheneRewardPipeline,
     NoEnvGeneralVerifierPipeline,
-    JudgmentExtractorHandler,
-    GeneralVerifierExtractorHandler,
-    J1PointwiseExtractorHandler,
-    J1PairwiseScoreExtractorHandler,
+    NoEnvAceMathRMPipeline,
+    OnlineDpoFinetuneUnitHandler,
+    OnlineFinetuneUnitHandler,
+    OrpoFinetuneUnitHandler,
+    POFinetuneUnitHandler,
+    RemoteModelHandler,
+    SimPOFinetuneUnitHandler,
+    VLLMOutputRewardHandler,
 )
 
 
@@ -91,6 +95,10 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
     # SkyworkVerifier
     handler = SkyworkVerifierHandler()
     registry.register(handler.name, handler)
+    
+    # AceMath RM
+    handler = AceMathVerifierHandler()
+    registry.register(handler.name, handler)
 
     # AtheneVerifier
     handler = AtheneVerifierHandler()
@@ -107,6 +115,10 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
     # GenerativePairwiseVerifier
     handler = GenerativePairwiseVerifierHandler()
     registry.register(handler.name, handler)
+    
+    # GenerativeKwiseVerifier
+    handler = GenerativeKwiseVerifierHandler()
+    registry.register(handler.name, handler)
 
     registry = context.get_registry(RemoteModelHandler)
 
@@ -117,6 +129,10 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
     # NoEnvGeneralVerifierPipeline
     handler = NoEnvGeneralVerifierPipeline
     registry.register(handler.name, handler)
+    
+    # NoEnvAceMathRMPipeline
+    handler = NoEnvAceMathRMPipeline
+    registry.register(handler.name, handler)
 
     # Generative judgment extractors
     registry = context.get_registry(JudgmentExtractorHandler)
@@ -125,6 +141,9 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
     registry.register(handler.name, handler)
 
     handler = J1PairwiseScoreExtractorHandler()
+    registry.register(handler.name, handler)
+    
+    handler = J1KwiseScoreExtractorHandler()
     registry.register(handler.name, handler)
 
     handler = GeneralVerifierExtractorHandler()

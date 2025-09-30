@@ -31,11 +31,13 @@ from fairseq2.datasets.prompt import (
     PromptDataset,
     PromptReadOptions,
 )
+from fairseq2.device import CPU
 from fairseq2.logging import log
 from fairseq2.models.clm import CausalLM
 from fairseq2.models.qwen import QwenConfig
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import COSINE_ANNEALING_LR, CosineAnnealingLRConfig
+from fairseq2.recipes import Trainer
 from fairseq2.recipes.common import (
     create_checkpoint_manager,
     create_lr_scheduler,
@@ -44,11 +46,12 @@ from fairseq2.recipes.common import (
     load_dataset,
     load_text_tokenizer,
     register_extra_asset_paths,
-    setup_training_gangs,
-    setup_torch,
     setup_model,
+    setup_torch,
+    setup_training_gangs,
 )
 from fairseq2.recipes.config import (
+    ActivationCheckpointingSection,
     CommonSection,
     DatasetSection,
     FSDPSection,
@@ -59,11 +62,10 @@ from fairseq2.recipes.config import (
     RegimeSection,
     TextTokenizerSection,
     TrainerSection,
-    ActivationCheckpointingSection,
 )
 from fairseq2.recipes.lm._online_finetune._common import (
     OnlineCriterionSection,
-    get_ray_actor,
+    get_parameter_converter,
 )
 from fairseq2.recipes.lm._online_finetune._grpo import GrpoFinetuneConfig
 from fairseq2.recipes.lm._online_finetune._handler import (
@@ -73,17 +75,11 @@ from fairseq2.recipes.lm._online_finetune._handler import (
 from fairseq2.recipes.lm._online_finetune._online_dpo import (  # ONLINE_DPO_FINETUNE_UNIT,
     OnlineDpoFinetuneConfig,
 )
-from fairseq2.recipes.lm._online_finetune._grpo import (
-    GrpoFinetuneConfig,
-)
-
 from fairseq2.recipes.lm._online_finetune._remote_model import (
+    HFRayActorConfig,
     RemoteRayModelHandler,
     VllmRayActorConfig,
-    HFRayActorConfig,
 )
-from fairseq2.recipes import Trainer
-from fairseq2.device import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
@@ -273,6 +269,9 @@ def load_online_finetuner(
         gangs,
         checkpoint_manager,
     )
+
+    # set parameter converter to sync with vllm
+    model._convert_parameter = get_parameter_converter(model.config)
 
     optimizer = create_optimizer(context, config.optimizer, model)
 

@@ -10,8 +10,8 @@ from abc import ABC, abstractmethod
 
 from torch.nn import Module
 
-from fairseq2.gang import Gangs
 from fairseq2.datasets import SequenceBatch
+from fairseq2.gang import Gangs
 from fairseq2.recipes import Model, TrainUnit
 
 

@@ -94,12 +94,14 @@ def load_checkpoint(
     if errors:
         raise ValueError(" ".join(errors))
 
+
 def get_converted_key(key: str, key_map: Mapping[str, str]) -> str:
     for pattern, replacement in key_map.items():
         if (converted_key := re.sub(pattern, replacement, key)) != key:
             return converted_key
 
     return key
+
 
 def convert_checkpoint(
     checkpoint: dict[str, object], key_map: Mapping[str, str]

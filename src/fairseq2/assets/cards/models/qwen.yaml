@@ -4,6 +4,21 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+---
+
+name: qwen25_3b_instruct
+model_family: qwen
+model_arch: qwen25_3b
+model_config:
+  _set_:
+    max_seq_len: 32768
+checkpoint: "hg://qwen/qwen2.5-3b-instruct"
+tokenizer: "hg://qwen/qwen2.5-3b-instruct"
+tokenizer_family: qwen
+use_im_end: true
+
+---
+
 name: qwen25_7b
 model_family: qwen
 model_arch: qwen25_7b
