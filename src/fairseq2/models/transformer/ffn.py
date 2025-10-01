@@ -284,17 +284,6 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
 
     @override
     def forward(self, seqs: Tensor) -> Tensor:
-        seqs = self.forward_gateinner(seqs)
-
-        seqs = self.forward_output(seqs)
-
-        return seqs
-
-    def forward_gateinner(self, seqs: Tensor) -> Tensor:
-        """
-        First step of the forward pass.
-        Useful when interleaving computation and communication in EP/TP.
-        """
         gate = self.gate_proj(seqs)
 
         gate = self.gate_activation(gate)
@@ -308,13 +297,6 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         if self.inner_dropout is not None:
             seqs = self.inner_dropout(seqs)
 
-        return seqs
-
-    def forward_output(self, seqs: Tensor) -> Tensor:
-        """
-        Second step of the forward pass.
-        Useful when interleaving computation and communication in EP/TP.
-        """
         seqs = self.output_proj(seqs)
 
         return seqs

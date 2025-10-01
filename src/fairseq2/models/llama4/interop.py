@@ -98,12 +98,16 @@ def convert_llama4_state_dict(
             # This might contain FP8 quantization info
             pass
 
-        elif k.startswith("vision_") and not config.use_vision:
-            # Skip vision layers if disabled in config
+        elif k.startswith("vision_"):
+            # Disable vision encoder in this version
             pass
 
         elif k.endswith(".expert_activation_DE"):
             # This doesn't seem to be used in Scout or Maverick
+            pass
+        
+        elif k.endswith("_stats_3E"):
+            # Skip MoE running stat buffers
             pass
 
         else:
@@ -121,11 +125,9 @@ def convert_llama4_state_dict(
         r"^layers\.([0-9]+)\.feed_forward\.w3\.": r"decoder.layers.\1.ffn.inner_proj.",
         r"^layers\.([0-9]+)\.feed_forward\.mlp\.layer_norm_weight$": r"decoder.layers.\1.ffn_layer_norm.weight",
         # MoE: router
-        r"^layers\.([0-9]+)\.feed_forward\.router_DE$": r"decoder.layers.\1.ffn.router.gate",
+        r"^layers\.([0-9]+)\.feed_forward\.router_DE$": r"decoder.layers.\1.ffn.router",
         r"^layers\.([0-9]+)\.feed_forward\.expert_activation_DE$": r"decoder.layers.\1.ffn.router.expert_activation",
         r"^layers\.([0-9]+)\.feed_forward\.norm\.": r"decoder.layers.\1.ffn_layer_norm.",
-        r"^layers\.([0-9]+)\.feed_forward\.running_gate_stats_3E$": r"decoder.layers.\1.ffn.running_gate_stats",
-        r"^layers\.([0-9]+)\.feed_forward\.global_gate_stats_3E$": r"decoder.layers.\1.ffn.global_gate_stats",
         # MoE: shared expert
         r"^layers\.([0-9]+)\.feed_forward\.w_in_shared_FD\.": r"decoder.layers.\1.ffn.shared_expert.gate_proj.",
         r"^layers\.([0-9]+)\.feed_forward\.w_swiglu_FD\.": r"decoder.layers.\1.ffn.shared_expert.inner_proj.",

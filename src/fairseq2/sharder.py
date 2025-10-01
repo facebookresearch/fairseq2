@@ -17,8 +17,8 @@ from typing_extensions import override
 
 from fairseq2.gang import Gangs
 from fairseq2.nn import (
-    BatchColumnShardedLinear,
-    BatchLinear,
+    GroupedColumnShardedLinear,
+    GroupedLinear,
     BatchRowShardedLinear,
     ColumnShardedLinear,
     Linear,
@@ -95,13 +95,13 @@ class LinearSharder(ModuleSharder):
 class BatchLinearSharder(ModuleSharder):
     @override
     def shard(self, module: Module, gangs: Gangs, spec: ShardSpec) -> Module:
-        if not isinstance(module, BatchLinear):
+        if not isinstance(module, GroupedLinear):
             raise TypeError(
                 f"`module` must be of type `{BatchLinearSharder}`, but is of type `{type(module)}` instead."
             )
 
         if spec.dim == 0:
-            return BatchColumnShardedLinear.from_batch_linear(
+            return GroupedColumnShardedLinear.from_batch_linear(
                 module, gangs.tp, gather_output=not spec.region_boundary
             )
 
@@ -118,7 +118,7 @@ class BatchLinearSharder(ModuleSharder):
     @property
     @override
     def supported_module_kls(self) -> type[Module]:
-        return BatchLinear
+        return GroupedLinear
 
 
 @final

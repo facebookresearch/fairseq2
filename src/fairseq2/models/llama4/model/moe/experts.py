@@ -9,7 +9,7 @@ from __future__ import annotations
 from torch import Tensor, nn
 from torch.nn import Module, SiLU
 
-from fairseq2.nn.grouped_projection import BatchLinear, GroupedProjection
+from fairseq2.nn.grouped_projection import GroupedLinear, GroupedProjection
 
 
 class Experts(nn.Module):
@@ -51,36 +51,35 @@ class Experts(nn.Module):
         sharding. Without this, we would have highly uneven sharding across DP
         since local ``num_local_experts`` is typically much smaller than DP size.
         """
-        self.gate_proj: GroupedProjection = BatchLinear(
+        self.gate_proj: GroupedProjection = GroupedLinear(
             self.num_local_experts,
             self.model_dim,
             self.inner_dim,
         )
-        self.inner_proj: GroupedProjection = BatchLinear(
+        self.inner_proj: GroupedProjection = GroupedLinear(
             self.num_local_experts,
             self.model_dim,
             self.inner_dim,
         )
-        self.output_proj: GroupedProjection = BatchLinear(
+        self.output_proj: GroupedProjection = GroupedLinear(
             self.num_local_experts,
             self.inner_dim,
             self.model_dim,
         )
 
-    def forward(self, x: Tensor, *, num_tokens_per_expert: Tensor | None) -> Tensor:
+    def forward(self, x: Tensor) -> Tensor:
         """
         Args:
             x (Tensor): tensor with shape ``(num_local_experts, tokens_per_expert, dim)``.
-            num_tokens_per_expert (Optional[Tensor]): tensor with shape ``(num_local_experts,)``.
         Returns:
-            torch.Tensor: Tensor with shape (num_local_experts, tokens_per_expert, dim)
+            torch.Tensor: Tensor with shape ``(num_local_experts, tokens_per_expert, dim)``.
         """
-        # x shape (num_local_experts, tokens_per_expert, dim)
-        h: Tensor = self.activation(self.gate_proj(x, num_tokens_per_expert))
+        # (num_local_experts, tokens_per_expert, dim)
+        h: Tensor = self.activation(self.gate_proj(x))
 
-        if self.inner_proj is not None:
-            h = h * self.inner_proj(x, num_tokens_per_expert)
-        # out shape (num_local_experts, tokens_per_expert, hidden_dim)
-        out: Tensor = self.output_proj(h, num_tokens_per_expert)
+        h = h * self.inner_proj(x)
+        
+        # (num_local_experts, tokens_per_expert, dim)
+        out: Tensor = self.output_proj(h)
 
         return out

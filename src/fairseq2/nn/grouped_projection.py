@@ -23,10 +23,7 @@ from fairseq2.ops.tensor_parallel import gather, reduce, reduce_on_backward, sca
 
 
 class GroupedProjection(Module, ABC):
-    """
-    Applies a grouped linear transformation to incoming data.
-    Alsp known as grouped GEMMs or batch matrix-matrix product (BMM).
-    """
+    """Applies a grouped linear transformation to incoming data (grouped GEMM)."""
 
     def __init__(self, group_dim: int, input_dim: int, output_dim: int) -> None:
         super().__init__()
@@ -36,17 +33,12 @@ class GroupedProjection(Module, ABC):
         self.output_dim = output_dim
 
     @abstractmethod
-    def forward(self, x: Tensor, num_inputs_per_group: Tensor | None) -> Tensor:
+    def forward(self, x: Tensor) -> Tensor:
         """
         :param x:
             The input to project. *Shape:* :math:`(G,*,H_{inp})`, where
             :math:`G` is the number of groups, and
             :math:`H_{inp}` is the input dimensionality.
-        :param num_inputs_per_group:
-            The number of inputs per group. *Shape:* :math:`(G)`, where
-            :math:`G` is the number of groups.
-            If not ``None``, a looped implementation is used instead of BMM,
-            using the provided respected number of inputs for each group.
 
         :returns:
             The projected output. *Shape:* :math:`(*,H_{out})`, where all but
@@ -62,42 +54,11 @@ class GroupedProjection(Module, ABC):
         __call__ = forward
 
 
-def _maybe_bmm(
-    x: Tensor,
-    weight: Tensor,
-    num_inputs_per_group: Tensor | None,
-) -> Tensor:
-    # Batch GEMM
-    if num_inputs_per_group is None:
-        return torch.bmm(x, weight)
-
-    # Loop-based GEMM
-    cum_size = num_inputs_per_group.cumsum(0, dtype=torch.long)
-
-    buffer = torch.empty(
-        int(cum_size[-1].item()),
-        weight.shape[-1],
-        dtype=x.dtype,
-        device=x.device,
-    )
-
-    start = 0
-    for expert_index, end in enumerate(cum_size):
-        torch.matmul(
-            x[start:end],
-            weight[expert_index],
-            out=buffer[start:end],
-        )
-        start = end
-
-    return buffer
-
-
 @final
-class BatchLinear(GroupedProjection):
+class GroupedLinear(GroupedProjection):
     def __init__(
         self,
-        extra_first_dim: int,
+        group_dim: int,
         input_dim: int,
         output_dim: int,
         *,
@@ -105,19 +66,19 @@ class BatchLinear(GroupedProjection):
         dtype: DataType | None = None,
     ) -> None:
         """
-        :param extra_first_dim:
-            The size of the extra first dimension (for example: num_experts).
+        :param group_dim:
+            The group dimension.
         :param input_dim:
             The dimensionality of inputs.
         :param output_dim:
             The dimensionality of projected outputs.
         """
-        super().__init__(extra_first_dim, input_dim, output_dim)
+        super().__init__(group_dim, input_dim, output_dim)
 
         self.weight = Parameter(
             torch.empty(
                 (
-                    extra_first_dim,
+                    group_dim,
                     input_dim,
                     output_dim,
                 ),
@@ -127,18 +88,18 @@ class BatchLinear(GroupedProjection):
         )
 
     @override
-    def forward(self, x: Tensor, num_inputs_per_group: Tensor | None) -> Tensor:
-        return _maybe_bmm(x, self.weight, num_inputs_per_group)
+    def forward(self, x: Tensor) -> Tensor:
+        return torch.bmm(x, self.weight)
 
 
 @final
-class BatchColumnShardedLinear(GroupedProjection):
+class GroupedColumnShardedLinear(GroupedProjection):
     """Represents a batched 3D tensor multiplication that is sharded across its output dimension."""
 
     @staticmethod
     def from_batch_linear(
-        linear: BatchLinear, gang: Gang, *, gather_output: bool = True
-    ) -> "BatchColumnShardedLinear":
+        linear: GroupedLinear, gang: Gang, *, gather_output: bool = True
+    ) -> "GroupedColumnShardedLinear":
         """Construct a :class:`BatchedColumnShardedLinear` by sharding a BatchedLinear.
 
         :param linear:
@@ -157,7 +118,7 @@ class BatchColumnShardedLinear(GroupedProjection):
 
         extra_first_dim, input_dim, output_dim = linear.weight.shape
 
-        sharded = BatchColumnShardedLinear(
+        sharded = GroupedColumnShardedLinear(
             gang,
             extra_first_dim,
             input_dim,
@@ -229,12 +190,12 @@ class BatchColumnShardedLinear(GroupedProjection):
             self.weight.copy_(weight_shards[self.gang.rank])
 
     @override
-    def forward(self, x: Tensor, num_inputs_per_group: Tensor | None) -> Tensor:
+    def forward(self, x: Tensor) -> Tensor:
         """Expected shape for x: (group_dim, N, input_dim)"""
         x = reduce_on_backward(x, self.gang)
 
         # Use torch.bmm for batched matrix multiplication
-        x = _maybe_bmm(x, self.weight, num_inputs_per_group)
+        x = torch.bmm(x, self.weight)
 
         if self.gather_output:
             x = gather(x, self.gang, dim=-1)
@@ -266,7 +227,7 @@ class BatchRowShardedLinear(GroupedProjection):
 
     @staticmethod
     def from_batch_linear(
-        linear: BatchLinear,
+        linear: GroupedLinear,
         gang: Gang,
         scatter_input: bool = False,
         reduce_output: bool = True,
@@ -370,12 +331,12 @@ class BatchRowShardedLinear(GroupedProjection):
             self.weight.copy_(weight_shards[self.gang.rank])
 
     @override
-    def forward(self, x: Tensor, num_inputs_per_group: Tensor | None) -> Tensor:
+    def forward(self, x: Tensor) -> Tensor:
         """Expected shape for x: (extra_first_dim, N, input_dim)"""
         if self.scatter_input:
             x = scatter(x, self.gang, dim=-1)
 
-        x = _maybe_bmm(x, self.weight, num_inputs_per_group)
+        x = torch.bmm(x, self.weight)
 
         if self.reduce_output:
             x = reduce(x, self.gang)

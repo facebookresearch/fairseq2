@@ -21,12 +21,10 @@ from fairseq2.models.transformer import (
     FeedForwardNetwork,
     MultiheadAttention,
     StandardMultiheadAttention,
-    TransformerFrontend,
     create_default_sdpa,
 )
 from fairseq2.models.transformer_lm import TransformerLM
 from fairseq2.nn import (
-    Embedding,
     LayerNorm,
     Linear,
     PositionEncoder,
@@ -43,29 +41,6 @@ class Llama4Factory(LLaMAFactory):
 
     def __init__(self, config: Llama4Config) -> None:
         self._config = config
-
-    @override
-    def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
-        config = self._config
-
-        if config.use_vision:
-            vision_embed = VisionEmbeddings(config.vision)
-            vision_proj = Linear(
-                config.vision.output_dim,
-                config.model_dim,
-                bias=False,
-                init_fn=lambda x: None,
-            )
-        else:
-            vision_embed = None
-            vision_proj = None
-
-        return Llama4DecoderFrontend(
-            embed,
-            vision_embed,
-            vision_proj,
-            dropout_p=config.dropout_p,
-        )
 
     def create_self_attention(
         self, layer_idx: int, pos_encoder: PositionEncoder

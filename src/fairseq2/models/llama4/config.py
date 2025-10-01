@@ -17,35 +17,6 @@ LLAMA4_FAMILY: Final = "llama4"
 
 
 @dataclass(kw_only=True)
-class Llama4VisionEncoderConfig:
-    """Holds the configuration of a Llama 4 Vision Encoder"""
-
-    image_size: int = 336
-    """The size of input images."""
-
-    patch_size: int = 14
-    """The size of encoded patches."""
-
-    model_dim: int = 1408
-    """The dimensionality of the image encoder."""
-
-    num_layers: int = 34
-    """The number of layers of the image encoder."""
-
-    num_attn_heads: int = 16
-    """The number of attention heads in the image encoder."""
-
-    mlp_ratio: float = 4.0
-    """The hidden dim multiplier in the FFN of the image encoder."""
-
-    output_dim: int = 4096
-    """The output dimension of the image encoder."""
-
-    pixel_shuffle_ratio: float = 0.5
-    """The ratio used in pixel shuffle downsampling."""
-
-
-@dataclass(kw_only=True)
 class Llama4ExpertsConfig:
     """Holds the configuration of a Llama 4 Experts"""
 
@@ -67,23 +38,11 @@ class Llama4ExpertsConfig:
     """Llama will use a MoE layer as FFN every ``interleave_moe_layer_step``-th layer.
     If equal to 1, a MoE is used for every layer."""
 
-    eval_with_saved_stats: bool = False
-
-    expert_act_threshold: float = 0.0
-
 
 @dataclass(kw_only=True)
 class Llama4Config(LLaMAConfig):
     experts: Llama4ExpertsConfig = field(default_factory=lambda: Llama4ExpertsConfig())
     """If not ``None``, specifies the configuration of Mixture-of-Experts."""
-    
-    use_vision: bool = False
-    """If ``True``, enables the vision encoder."""
-
-    vision: Llama4VisionEncoderConfig = field(
-        default_factory=lambda: Llama4VisionEncoderConfig()
-    )
-    """Specifies the configuration of the vision encoder."""
 
     attention_chunk_size: int = 8192
     """The chunk size used for chunked attention biases."""
@@ -120,9 +79,6 @@ def register_llama4_configs(container: DependencyContainer) -> None:
         config.use_qk_norm = True
 
         config.experts = Llama4ExpertsConfig()
-
-        # vision has not been tested yet
-        config.use_vision = False
 
         config.rope_theta = 500_000.0
         config.use_scaled_rope = True
