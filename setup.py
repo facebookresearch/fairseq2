@@ -50,7 +50,7 @@ setup(
     zip_safe=False,
     python_requires=">=3.10",
     install_requires=[
-        "clusterscope~=0.0.13",
+        "clusterscope~=0.0.18",
         "editdistance~=0.8",
         "fairseq2n" + fairseq2n_version_spec,
         "huggingface_hub~=0.32",
