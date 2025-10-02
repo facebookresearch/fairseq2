@@ -33,6 +33,39 @@ class ExpertNetwork(Module, ABC):
         self.model_dim = model_dim
         self.inner_dim = inner_dim
     
+    @abstractmethod
+    def forward(self, x: Tensor) -> Tensor:
+        """
+        :param x: Input tensor of shape (num_local_experts, tokens_per_expert, dim).
+        :returns: Output tensor of shape (num_local_experts, tokens_per_expert, dim).
+        """
+    
+    @property
+    def num_local_experts(self) -> int:
+        """
+        The number of experts local to the current process. 
+        Can be overriden in expert-parallel implementations.
+        """
+        return self.num_experts
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        local_s = (
+            f"num_local_experts={self.num_local_experts}, "
+            if self.num_local_experts != self.num_experts
+            else ""
+        )
+        return f"num_experts={self.num_experts}, {local_s}model_dim={self.model_dim}, inner_dim={self.inner_dim}"
+
+    if TYPE_CHECKING:
+        __call__ = forward
+
+
+class _GLUExperts:
+    """A mixin for GLU-based experts.
+    Their layers are implemented as 3-D tensors used in BMM.
+    """
+    
     def _create_layers(
         self,
         num_local_experts: int,
@@ -93,37 +126,10 @@ class ExpertNetwork(Module, ABC):
             self.activation = SiLU()
         else:
             self.activation = activation
-    
-    @abstractmethod
-    def forward(self, x: Tensor) -> Tensor:
-        """
-        :param x: Input tensor of shape (num_local_experts, tokens_per_expert, dim).
-        :returns: Output tensor of shape (num_local_experts, tokens_per_expert, dim).
-        """
-    
-    @property
-    def num_local_experts(self) -> int:
-        """
-        The number of experts local to the current process. 
-        Can be overriden in expert-parallel implementations.
-        """
-        return self.num_experts
-
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        local_s = (
-            f"num_local_experts={self.num_local_experts}, "
-            if self.num_local_experts != self.num_experts
-            else ""
-        )
-        return f"num_experts={self.num_experts}, {local_s}model_dim={self.model_dim}, inner_dim={self.inner_dim}"
-
-    if TYPE_CHECKING:
-        __call__ = forward
 
 
 @final
-class GroupedExpertNetwork(ExpertNetwork):
+class GroupedExpertNetwork(ExpertNetwork, _GLUExperts):
     """This class implements a grouped experts layer as used in Mixture of Experts.
     Each expert is a variant of the Gated Linear Units network.
     See more details in https://arxiv.org/pdf/2002.05202.
@@ -177,7 +183,7 @@ class GroupedExpertNetwork(ExpertNetwork):
 
 
 @final
-class TPShardedExpertNetwork(ExpertNetwork):
+class TPShardedExpertNetwork(ExpertNetwork, _GLUExperts):
     """
     This class implements grouped experts sharded in one tensor-parallel dimension only.
     """
