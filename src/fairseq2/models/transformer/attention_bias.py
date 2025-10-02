@@ -123,16 +123,18 @@ class ChunkedAttentionBias(AttentionBias):
     ) -> Tensor:
         if q_len != k_len:
             raise ValueError(f"`q_len` and `k_len` must be equal: {q_len} != {k_len}")
+
         # (S, S)
         block_pos = (
-            (torch.arange(q_len, device=device).unsqueeze(0) // self.attn_chunk_size)
-            - (torch.arange(q_len, device=device).unsqueeze(1) // self.attn_chunk_size)
-        )
-        token_pos = (
-            torch.arange(q_len, device=device).unsqueeze(0)
-            - torch.arange(q_len, device=device).unsqueeze(1)
-        )
+            torch.arange(q_len, device=device).unsqueeze(0) // self.attn_chunk_size
+        ) - (torch.arange(q_len, device=device).unsqueeze(1) // self.attn_chunk_size)
+        token_pos = torch.arange(q_len, device=device).unsqueeze(0) - torch.arange(
+            q_len, device=device
+        ).unsqueeze(1)
+
         mask = (block_pos == 0) & (token_pos <= 0)
+
+        mask = mask.to(dtype)
 
         # (S, S)
         return mask
