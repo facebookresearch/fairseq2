@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
 
 from fairseq2.data.tokenizers import Tokenizer
 from fairseq2.data.tokenizers.tiktoken import load_tiktoken_model
@@ -98,7 +97,7 @@ class Llama4TokenizerConfig:
     split_regex: str | None = None
 
 
-def load_llama4_tt_tokenizer(path: Path, config: Llama4TokenizerConfig) -> Tokenizer:
+def load_llama4_tokenizer(path: Path, config: Llama4TokenizerConfig) -> Tokenizer:
     if config.split_regex is None:
         O200K_PATTERN = r"""[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?|[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n/]*|\s*[\r\n]+|\s+(?!\S)|\s+"""  # fmt: skip
         split_regex = O200K_PATTERN
