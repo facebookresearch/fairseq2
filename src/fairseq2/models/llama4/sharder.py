@@ -16,8 +16,7 @@ from fairseq2.models.transformer.experts import (
     GroupedExpertNetwork,
     TPShardedExpertNetwork,
 )
-from fairseq2.models.transformer.ffn import GLUFeedForwardNetwork
-from fairseq2.nn import ColumnShardedLinear, Linear, RowShardedLinear
+from fairseq2.nn import ColumnShardedLinear, RowShardedLinear
 from fairseq2.sharder import ModuleSharder, ShardSpec
 
 
@@ -57,23 +56,6 @@ class MoESharder(ModuleSharder):
 
         # shard the shared expert
         if module.shared_expert is not None:
-            if not isinstance(module.shared_expert, GLUFeedForwardNetwork):
-                raise TypeError(
-                    f"Expected `module.shared_expert` to be of type `GLUFeedForwardNetwork`, got {type(module.shared_expert)}."
-                )
-
-            if any(
-                not isinstance(proj, Linear)
-                for proj in [
-                    module.shared_expert.gate_proj,
-                    module.shared_expert.inner_proj,
-                    module.shared_expert.output_proj,
-                ]
-            ):
-                raise TypeError(
-                    "All projections of `module.shared_expert` must be of type `torch.nn.Linear`."
-                )
-
             module.shared_expert.gate_proj = ColumnShardedLinear.from_linear(  # type: ignore[assignment]
                 module.shared_expert.gate_proj,
                 gangs.tp,
