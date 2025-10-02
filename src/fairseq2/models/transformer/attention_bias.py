@@ -132,7 +132,7 @@ class ChunkedAttentionBias(AttentionBias):
             q_len, device=device
         ).unsqueeze(1)
 
-        mask = (block_pos == 0) & (token_pos <= 0)
+        mask: Tensor = (block_pos == 0) & (token_pos <= 0)
 
         mask = mask.to(dtype)
 
