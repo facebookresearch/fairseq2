@@ -109,8 +109,16 @@ def load_llama4_tokenizer(path: Path, config: Llama4TokenizerConfig) -> Tokenize
     num_reserved_special_tokens = 2048
 
     special_tokens = BASIC_SPECIAL_TOKENS + LLAMA4_SPECIAL_TOKENS
-    assert len(set(special_tokens)) == len(special_tokens)
-    assert len(special_tokens) <= num_reserved_special_tokens
+
+    if len(set(special_tokens)) != len(special_tokens):
+        raise ValueError(
+            "There are unexpected duplicates in the tokenizer's special tokens."
+        )
+
+    if len(special_tokens) > num_reserved_special_tokens:
+        raise ValueError(
+            f"The number of special tokens ({len(special_tokens)}) exceeds the number of reserved special tokens ({num_reserved_special_tokens})."
+        )
 
     reserved_tokens = [
         f"<|reserved_special_token_{i}|>"
