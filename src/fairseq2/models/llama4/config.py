@@ -30,6 +30,8 @@ class Llama4ExpertsConfig:
     """The capacity factor of experts."""
 
     auto_scale: float = True
+    """If ``True``, the inner dimension of experts is rescaled such that
+    the number of activated params is the same as an equivalent dense layer."""
 
     top_k: int = 1
     """MoE sends each token to the ``top_k`` top experts."""

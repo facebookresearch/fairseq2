@@ -17,6 +17,7 @@ from fairseq2.models.transformer import (
     CausalAttentionBias,
     ChunkedAttentionBias,
     FeedForwardNetwork,
+    GLUFeedForwardNetwork,
     MultiheadAttention,
     StandardMultiheadAttention,
     create_default_sdpa,
@@ -117,30 +118,28 @@ class Llama4Factory(LLaMAFactory):
             _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
 
         ffn_inner_dim = int(config.ffn_inner_dim * config.ffn_inner_dim_multiplier)
-
-        # TODO: implement interleave_moe_layer_step for Llama 4 Maverick
-
-        return MoE(
-            config.model_dim,
-            ffn_inner_dim,
-            config.experts.use_shared_expert,
-            config.experts.num_experts,
-            config.experts.capacity_factor,
-            config.experts.top_k,
-            inner_dim_scale=config.ffn_inner_dim_scale,
-            inner_dim_to_multiple=config.ffn_inner_dim_multiple_of,
-        )
-
-        # TODO: re-introduce for Maverick
-        # return GLUFeedForwardNetwork(
-        #     config.model_dim,
-        #     ffn_inner_dim,
-        #     bias=False,
-        #     inner_dim_scale=config.ffn_inner_dim_scale,
-        #     inner_dim_to_multiple=config.ffn_inner_dim_to_multiple,
-        #     inner_dropout_p=config.dropout_p,
-        #     proj_init_fn=init_projection,
-        # )
+        
+        if (layer_idx + 1) % config.experts.interleave_moe_layer_step == 0:
+            return MoE(
+                config.model_dim,
+                ffn_inner_dim,
+                config.experts.use_shared_expert,
+                config.experts.num_experts,
+                config.experts.capacity_factor,
+                config.experts.top_k,
+                inner_dim_scale=config.ffn_inner_dim_scale,
+                inner_dim_to_multiple=config.ffn_inner_dim_multiple_of,
+            )
+        else:
+            return GLUFeedForwardNetwork(
+                config.model_dim,
+                ffn_inner_dim,
+                bias=False,
+                inner_dim_scale=config.ffn_inner_dim_scale,
+                inner_dim_to_multiple=config.ffn_inner_dim_multiple_of,
+                inner_dropout_p=config.dropout_p,
+                proj_init_fn=init_projection,
+            )
 
     def create_layer_norm(self) -> LayerNorm:
         return RMSNorm(
