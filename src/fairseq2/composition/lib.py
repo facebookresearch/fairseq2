@@ -60,7 +60,6 @@ from fairseq2.models.llama4.sharder import MoESharder
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 from fairseq2.sharder import (
     EmbeddingSharder,
-    ExpertNetworkSharder,
     LinearSharder,
     ModelSharder,
     ModuleSharder,
@@ -159,7 +158,6 @@ def _register_library(container: DependencyContainer) -> None:
 
     container.collection.register_type(ModuleSharder, EmbeddingSharder)
     container.collection.register_type(ModuleSharder, LinearSharder)
-    container.collection.register_type(ModuleSharder, ExpertNetworkSharder)
     container.collection.register_type(ModuleSharder, MoESharder)
 
     container.collection.register_type(ModelCheckpointLoader, BasicModelCheckpointLoader)

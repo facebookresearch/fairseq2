@@ -16,7 +16,6 @@ from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.gang import Gangs
-from fairseq2.models.transformer import GroupedExpertNetwork, TPShardedExpertNetwork
 from fairseq2.nn import (
     ColumnShardedLinear,
     Linear,
@@ -66,9 +65,7 @@ class LinearSharder(ModuleSharder):
 
         if spec.dim == 1:
             return RowShardedLinear.from_linear(
-                module,
-                gangs.tp,
-                scatter_input=not spec.region_boundary,
+                module, gangs.tp, scatter_input=not spec.region_boundary
             )
 
         raise ShardSpecError(f"`spec.dim` must be 0 or 1, but is {spec.dim} instead.")
@@ -77,28 +74,6 @@ class LinearSharder(ModuleSharder):
     @override
     def supported_module_kls(self) -> type[Module]:
         return Linear
-
-
-@final
-class ExpertNetworkSharder(ModuleSharder):
-    @override
-    def shard(self, module: Module, gangs: Gangs, spec: ShardSpec) -> Module:
-        if not isinstance(module, GroupedExpertNetwork):
-            raise TypeError(
-                f"`module` must be of type `{GroupedExpertNetwork}`, but is of type `{type(module)}` instead."
-            )
-
-        # TODO: re-design `spec` to support multiple expert sharding setups in the future
-
-        return TPShardedExpertNetwork.from_grouped_expert_network(
-            module,
-            gangs.tp,
-        )
-
-    @property
-    @override
-    def supported_module_kls(self) -> type[Module]:
-        return GroupedExpertNetwork
 
 
 @final
