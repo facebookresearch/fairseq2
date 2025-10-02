@@ -59,8 +59,8 @@ from fairseq2.models.llama import LLaMACheckpointLoader
 from fairseq2.models.llama4.sharder import MoESharder
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 from fairseq2.sharder import (
-    ExpertNetworkSharder,
     EmbeddingSharder,
+    ExpertNetworkSharder,
     LinearSharder,
     ModelSharder,
     ModuleSharder,

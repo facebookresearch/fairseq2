@@ -32,18 +32,18 @@ class ExpertNetwork(Module, ABC):
         self.num_experts = num_experts
         self.model_dim = model_dim
         self.inner_dim = inner_dim
-    
+
     @abstractmethod
     def forward(self, x: Tensor) -> Tensor:
         """
         :param x: Input tensor of shape (num_local_experts, tokens_per_expert, dim).
         :returns: Output tensor of shape (num_local_experts, tokens_per_expert, dim).
         """
-    
+
     @property
     def num_local_experts(self) -> int:
         """
-        The number of experts local to the current process. 
+        The number of experts local to the current process.
         Can be overriden in expert-parallel implementations.
         """
         return self.num_experts
@@ -65,7 +65,7 @@ class _GLUExperts:
     """A mixin for GLU-based experts.
     Their layers are implemented as 3-D tensors used in BMM.
     """
-    
+
     def _create_layers(
         self,
         num_local_experts: int,
@@ -79,7 +79,7 @@ class _GLUExperts:
         """
         TODO(mgleize): For finetuning, implement a version of this
         where expert dim and dim 1 are folded (should be transparent for the caller).
-        
+
         Cf:
         We intentionally fold the expert weights' ``num_local_experts`` dim-0
         into dim-1 at construction time and unfold them during forward for
@@ -120,7 +120,7 @@ class _GLUExperts:
                 dtype=dtype,
             )
         )
-        
+
         self.activation: Module
         if activation is None:
             self.activation = SiLU()
@@ -175,7 +175,7 @@ class GroupedExpertNetwork(ExpertNetwork, _GLUExperts):
         h: Tensor = self.activation(torch.bmm(x, self.gate_proj))
 
         h = h * torch.bmm(x, self.inner_proj)
-        
+
         # (num_local_experts, tokens_per_expert, dim)
         out = torch.bmm(h, self.output_proj)
 
@@ -187,7 +187,7 @@ class TPShardedExpertNetwork(ExpertNetwork, _GLUExperts):
     """
     This class implements grouped experts sharded in one tensor-parallel dimension only.
     """
-    
+
     @staticmethod
     def from_grouped_expert_network(
         experts: GroupedExpertNetwork,
@@ -205,12 +205,12 @@ class TPShardedExpertNetwork(ExpertNetwork, _GLUExperts):
             The sharded expert network.
         """
         device = experts.gate_proj.device
-        
+
         if device != gang.device and device.type != "meta":
             raise ValueError(
                 "The device of `experts` must either match `gang.device` or must be of type `meta`."
             )
-        
+
         sharded = TPShardedExpertNetwork(
             gang,
             experts.num_experts,
@@ -221,14 +221,14 @@ class TPShardedExpertNetwork(ExpertNetwork, _GLUExperts):
             device=META_DEVICE,
             dtype=experts.gate_proj.dtype,
         )
-        
+
         if device.type != "meta":
             to_empty(sharded, device)
-        
+
         sharded._copy_weight(experts.gate_proj, sharded.gate_proj, dim=2)
         sharded._copy_weight(experts.inner_proj, sharded.inner_proj, dim=2)
         sharded._copy_weight(experts.output_proj, sharded.output_proj, dim=1)
-        
+
         return sharded
 
     def __init__(
@@ -263,17 +263,17 @@ class TPShardedExpertNetwork(ExpertNetwork, _GLUExperts):
             raise ValueError(
                 f"`inner_dim` must be divisible by `gang.size` ({gang.size}), but is {inner_dim} instead."
             )
-        
+
         self.gang = gang
         self.sharded_inner_dim = inner_dim // gang.size
-        
+
         if device is None:
             device = gang.device
         elif device != gang.device and device.type != "meta":
             raise ValueError(
                 "`device` must either match `gang.device` or must be of type `meta`."
             )
-        
+
         self._create_layers(
             num_experts,
             model_dim,
@@ -282,7 +282,7 @@ class TPShardedExpertNetwork(ExpertNetwork, _GLUExperts):
             device=device,
             dtype=dtype,
         )
-        
+
         self.reduce_output = reduce_output
 
     def _copy_weight(
@@ -291,33 +291,33 @@ class TPShardedExpertNetwork(ExpertNetwork, _GLUExperts):
         with torch.no_grad():
             weight_shards = source_param.split(self.sharded_inner_dim, dim=dim)
             target_param.copy_(weight_shards[self.gang.rank])
-    
+
     def forward(self, x: Tensor) -> Tensor:
         """
         :param x: Input tensor of shape (num_local_experts, tokens_per_expert, dim).
         :returns: Output tensor of shape (num_local_experts, tokens_per_expert, dim).
         """
         x = reduce_on_backward(x, self.gang)
-        
+
         # (num_local_experts, tokens_per_expert, dim)
         h: Tensor = self.activation(torch.bmm(x, self.gate_proj))
 
         h = h * torch.bmm(x, self.inner_proj)
-        
+
         # (num_local_experts, tokens_per_expert, dim)
         out = torch.bmm(h, self.output_proj)
-        
+
         if self.reduce_output:
             out = reduce(out, self.gang)
 
         return out
-    
+
     def extra_repr(self) -> str:
         """:meta private:"""
         s = f"inner_dim={self.sharded_inner_dim}"
-        
+
         s = f"num_experts={self.num_experts}, model_dim={self.model_dim}, {s}"
-        
+
         s = (
             f"{s}, "
             f"reduce_output={self.reduce_output}, "

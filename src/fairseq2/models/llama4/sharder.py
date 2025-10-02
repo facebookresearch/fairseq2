@@ -12,10 +12,13 @@ from typing_extensions import override
 from fairseq2.gang import Gangs
 from fairseq2.models.llama4.config import Llama4Config
 from fairseq2.models.llama4.moe import MoE
-from fairseq2.sharder import ModuleSharder, ShardSpec
+from fairseq2.models.transformer.experts import (
+    GroupedExpertNetwork,
+    TPShardedExpertNetwork,
+)
 from fairseq2.models.transformer.ffn import GLUFeedForwardNetwork
-from fairseq2.models.transformer.experts import GroupedExpertNetwork, TPShardedExpertNetwork
-from fairseq2.nn.projection import ColumnShardedLinear, RowShardedLinear
+from fairseq2.nn import ColumnShardedLinear, Linear, RowShardedLinear
+from fairseq2.sharder import ModuleSharder, ShardSpec
 
 
 def get_llama4_shard_specs(config: Llama4Config) -> dict[str, ShardSpec]:
@@ -51,24 +54,37 @@ class MoESharder(ModuleSharder):
 
         # make the MoE layer aware of the TP gang, for the reduce of the output
         module.tp_gang = gangs.tp
-        
+
         # shard the shared expert
         if module.shared_expert is not None:
             if not isinstance(module.shared_expert, GLUFeedForwardNetwork):
                 raise TypeError(
                     f"Expected `module.shared_expert` to be of type `GLUFeedForwardNetwork`, got {type(module.shared_expert)}."
                 )
-            module.shared_expert.gate_proj = ColumnShardedLinear.from_linear(
+
+            if any(
+                not isinstance(proj, Linear)
+                for proj in [
+                    module.shared_expert.gate_proj,
+                    module.shared_expert.inner_proj,
+                    module.shared_expert.output_proj,
+                ]
+            ):
+                raise TypeError(
+                    "All projections of `module.shared_expert` must be of type `torch.nn.Linear`."
+                )
+
+            module.shared_expert.gate_proj = ColumnShardedLinear.from_linear(  # type: ignore[assignment]
                 module.shared_expert.gate_proj,
                 gangs.tp,
                 gather_output=False,
             )
-            module.shared_expert.inner_proj = ColumnShardedLinear.from_linear(
+            module.shared_expert.inner_proj = ColumnShardedLinear.from_linear(  # type: ignore[assignment]
                 module.shared_expert.inner_proj,
                 gangs.tp,
                 gather_output=False,
             )
-            module.shared_expert.output_proj = RowShardedLinear.from_linear(
+            module.shared_expert.output_proj = RowShardedLinear.from_linear(  # type: ignore[assignment]
                 module.shared_expert.output_proj,
                 gangs.tp,
                 reduce_output=False,
@@ -79,7 +95,7 @@ class MoESharder(ModuleSharder):
             raise TypeError(
                 f"Expected `module.experts` to be of type `GroupedExpertNetwork`, got {type(module.experts)}."
             )
-        
+
         module.experts = TPShardedExpertNetwork.from_grouped_expert_network(
             module.experts,
             gangs.tp,

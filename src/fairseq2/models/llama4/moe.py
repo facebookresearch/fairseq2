@@ -9,7 +9,12 @@ import torch.nn as nn
 from typing_extensions import override
 
 from fairseq2.gang import Gang
-from fairseq2.models.transformer import FeedForwardNetwork, GLUFeedForwardNetwork, ExpertNetwork, GroupedExpertNetwork
+from fairseq2.models.transformer import (
+    ExpertNetwork,
+    FeedForwardNetwork,
+    GLUFeedForwardNetwork,
+    GroupedExpertNetwork,
+)
 from fairseq2.ops.tensor_parallel import reduce
 
 
@@ -97,12 +102,12 @@ class MoE(FeedForwardNetwork):
         x = seqs
 
         dim = x.shape[-1]
-        
-        # Apply token-choice routing
+
+        # Apply token-choice routing
 
         # (num_tokens, num_experts)
         logits = x.reshape(-1, dim) @ self.router
-        
+
         num_tokens = logits.shape[0]
 
         scores, token_indices = torch.topk(logits, self.top_k, dim=1)
@@ -120,16 +125,16 @@ class MoE(FeedForwardNetwork):
         )
 
         top_scores = torch.sigmoid(scores)
-        
+
         token_indices = token_indices.reshape(-1, 1).expand(-1, dim)
-        
+
         # (num_experts * tokens_per_expert, dim)
         routed_input = torch.gather(x.view(-1, dim), dim=0, index=token_indices)
         routed_input = routed_input * top_scores.reshape(-1, 1)
         routed_input = routed_input.reshape(self.experts.num_local_experts, -1, dim)
-        
-        # Compute experts output
-        
+
+        # Compute experts output
+
         # (num_local_experts, tokens_per_expert * ep, dim)
         routed_output = self.experts(routed_input)
         # (num_experts * tokens_per_expert, dim)
@@ -147,6 +152,6 @@ class MoE(FeedForwardNetwork):
         # Possibly reduce
         if self.tp_gang:
             out = reduce(out, self.tp_gang)
-        
+
         out = out.reshape(seqs.shape)
         return out

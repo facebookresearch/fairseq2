@@ -118,7 +118,7 @@ class Llama4Factory(LLaMAFactory):
             _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
 
         ffn_inner_dim = int(config.ffn_inner_dim * config.ffn_inner_dim_multiplier)
-        
+
         if (layer_idx + 1) % config.experts.interleave_moe_layer_step == 0:
             return MoE(
                 config.model_dim,

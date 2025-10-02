@@ -56,13 +56,13 @@ def convert_llama4_state_dict(
     # Check if we have a reference or Hugging Face checkpoint.
     if "lm_head.weight" in state_dict:  # HG
         raise ValueError("Llama 4 Huggingface checkpoint is not supported yet.")
-    
+
     checkpoint: dict[str, object] = {}
 
     for k, v in state_dict.items():
         if ".moe_w_" in k:
             expert_proj = cast(torch.Tensor, v)
-            
+
             if config.experts is None:
                 raise ValueError(
                     f"State dict contains MoE weights ({k}) but the Llama 4 config had a `experts` attribute set to `None`."
@@ -106,7 +106,7 @@ def convert_llama4_state_dict(
         elif k.endswith(".expert_activation_DE"):
             # This doesn't seem to be used in Scout or Maverick
             pass
-        
+
         elif k.endswith("_stats_3E"):
             # Skip MoE running stat buffers
             pass
