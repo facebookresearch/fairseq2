@@ -61,7 +61,7 @@ class ExpertNetwork(Module, ABC):
         __call__ = forward
 
 
-class _GLUExperts:
+class _GLUExpertNetwork:
     """A mixin for GLU-based experts.
     Their layers are implemented as 3-D tensors used in BMM.
     """
@@ -129,7 +129,7 @@ class _GLUExperts:
 
 
 @final
-class GroupedExpertNetwork(ExpertNetwork, _GLUExperts):
+class GroupedExpertNetwork(ExpertNetwork, _GLUExpertNetwork):
     """This class implements a grouped experts layer as used in Mixture of Experts.
     Each expert is a variant of the Gated Linear Units network.
     See more details in https://arxiv.org/pdf/2002.05202.
@@ -183,7 +183,7 @@ class GroupedExpertNetwork(ExpertNetwork, _GLUExperts):
 
 
 @final
-class TPShardedExpertNetwork(ExpertNetwork, _GLUExperts):
+class TPShardedExpertNetwork(ExpertNetwork, _GLUExpertNetwork):
     """
     This class implements grouped experts sharded in one tensor-parallel dimension only.
     """
