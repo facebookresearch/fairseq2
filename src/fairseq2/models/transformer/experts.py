@@ -45,7 +45,7 @@ class ExpertNetwork(Module, ABC):
     ) -> None:
         """
         TODO(mgleize): For finetuning, implement a version of this
-        where the expert dim is folded (should be transparent for the caller).
+        where expert dim and dim 1 are folded (should be transparent for the caller).
         
         Cf:
         We intentionally fold the expert weights' ``num_local_experts`` dim-0
