@@ -55,6 +55,11 @@ from fairseq2.models.transformer.encoder_layer import (
 from fairseq2.models.transformer.encoder_layer import (
     TransformerEncoderLayer as TransformerEncoderLayer,
 )
+from fairseq2.models.transformer.experts import (
+    ExpertNetwork as ExpertNetwork,
+    GroupedExpertNetwork as GroupedExpertNetwork,
+    TPShardedExpertNetwork as TPShardedExpertNetwork,
+)
 from fairseq2.models.transformer.ffn import (
     DauphinFeedForwardNetwork as DauphinFeedForwardNetwork,
 )

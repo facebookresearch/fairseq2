@@ -9,20 +9,21 @@ import torch.nn as nn
 from typing_extensions import override
 
 from fairseq2.gang import Gang
-from fairseq2.models.llama4.model.moe.experts import Experts
-from fairseq2.models.transformer import FeedForwardNetwork, GLUFeedForwardNetwork
+from fairseq2.models.transformer import FeedForwardNetwork, GLUFeedForwardNetwork, ExpertNetwork, GroupedExpertNetwork
 from fairseq2.ops.tensor_parallel import reduce
 
 
 class MoE(FeedForwardNetwork):
-    """This class implements the MoE layer (Mixture of Experts). Mixture of Experts
-    typically consists of a set of expert networks, alongside with a router, which directs input tokens
-    to the appropriate experts. See more details in https://arxiv.org/pdf/2407.06204.
+    """This class implements a MoE layer (Mixture of Experts).
+    Mixture of Experts typically consists of a set of expert networks,
+    alongside with a router, which directs input tokens
+    to the appropriate experts.
+    See more details in https://arxiv.org/pdf/2407.06204.
     """
 
     router: nn.Parameter
     top_k: int
-    experts: Experts
+    experts: ExpertNetwork
     shared_expert: GLUFeedForwardNetwork | None
     tp_gang: Gang | None
 
@@ -74,10 +75,10 @@ class MoE(FeedForwardNetwork):
         self.router = nn.Parameter(torch.empty(model_dim, num_experts))
         self.top_k = top_k
 
-        self.experts = Experts(
-            model_dim=model_dim,
-            inner_dim=inner_dim,
-            num_local_experts=num_experts,
+        self.experts = GroupedExpertNetwork(
+            num_experts,
+            model_dim,
+            inner_dim,
             activation=moe_activation,
         )
 
@@ -88,17 +89,19 @@ class MoE(FeedForwardNetwork):
     def forward(self, seqs: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            seqs (torch.Tensor): Input tensor with shape ``(bs, slen, dim)``.
+            seqs (torch.Tensor): Input tensor with shape ``(*, dim)``.
 
         Returns:
-            out (torch.Tensor): Output tensor with shape ``(bs, slen, dim)``.
+            out (torch.Tensor): Output tensor with shape ``(*, dim)``.
         """
         x = seqs
 
-        bs, slen, dim = x.shape
+        dim = x.shape[-1]
+
+        # (num_tokens, num_experts)
+        logits = x.reshape(-1, dim) @ self.router
         
-        # (bs * slen, num_experts)
-        logits = x.reshape(bs * slen, dim) @ self.router
+        num_tokens = logits.shape[0]
 
         scores, token_indices = torch.topk(logits, self.top_k, dim=1)
 
@@ -109,7 +112,7 @@ class MoE(FeedForwardNetwork):
         )
 
         token_indices = (
-            torch.arange(bs * slen, device=x.device)
+            torch.arange(num_tokens, device=x.device)
             .view(1, -1)
             .expand(scores.size(0), -1)
         )
@@ -139,7 +142,6 @@ class MoE(FeedForwardNetwork):
         # possibly reduce
         if self.tp_gang:
             out = reduce(out, self.tp_gang)
-
-        # shape (bs, slen, dim)
-        out = out.reshape(bs, slen, dim)
+        
+        out = out.reshape(seqs.shape)
         return out

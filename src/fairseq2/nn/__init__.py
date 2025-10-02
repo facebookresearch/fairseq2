@@ -12,14 +12,6 @@ from fairseq2.nn.embedding import ShardedEmbedding as ShardedEmbedding
 from fairseq2.nn.embedding import StandardEmbedding as StandardEmbedding
 from fairseq2.nn.embedding import VocabShardedEmbedding as VocabShardedEmbedding
 from fairseq2.nn.embedding import init_scaled_embedding as init_scaled_embedding
-from fairseq2.nn.grouped_projection import (
-    GroupedColumnShardedLinear as GroupedColumnShardedLinear,
-)
-from fairseq2.nn.grouped_projection import GroupedLinear as GroupedLinear
-from fairseq2.nn.grouped_projection import (
-    BatchRowShardedLinear as BatchRowShardedLinear,
-)
-from fairseq2.nn.grouped_projection import GroupedProjection as GroupedProjection
 from fairseq2.nn.incremental_state import IncrementalState as IncrementalState
 from fairseq2.nn.incremental_state import IncrementalStateBag as IncrementalStateBag
 from fairseq2.nn.normalization import LayerNorm as LayerNorm

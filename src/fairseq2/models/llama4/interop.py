@@ -34,6 +34,7 @@ def _get_indices_to_split_wqkv(
     # deduce the tensor-parallelism size
     tp_size = expected_wqkv_dim_0 // actual_wqkv_dim_0
     # recompute local kv head count
+    n_local_heads = config.num_attn_heads // tp_size
     n_local_kv_heads = max(1, n_kv_heads // tp_size)
     # return sharded ranges
     return (
@@ -133,9 +134,9 @@ def convert_llama4_state_dict(
         r"^layers\.([0-9]+)\.feed_forward\.w_swiglu_FD\.": r"decoder.layers.\1.ffn.shared_expert.inner_proj.",
         r"^layers\.([0-9]+)\.feed_forward\.w_out_shared_DF\.": r"decoder.layers.\1.ffn.shared_expert.output_proj.",
         # MoE: grouped experts
-        r"^layers\.([0-9]+)\.feed_forward\.experts\.moe_w_in_eD_F$": r"decoder.layers.\1.ffn.experts.gate_proj.weight",
-        r"^layers\.([0-9]+)\.feed_forward\.experts\.moe_w_swiglu_eD_F$": r"decoder.layers.\1.ffn.experts.inner_proj.weight",
-        r"^layers\.([0-9]+)\.feed_forward\.experts\.moe_w_out_eF_D$": r"decoder.layers.\1.ffn.experts.output_proj.weight",
+        r"^layers\.([0-9]+)\.feed_forward\.experts\.moe_w_in_eD_F$": r"decoder.layers.\1.ffn.experts.gate_proj",
+        r"^layers\.([0-9]+)\.feed_forward\.experts\.moe_w_swiglu_eD_F$": r"decoder.layers.\1.ffn.experts.inner_proj",
+        r"^layers\.([0-9]+)\.feed_forward\.experts\.moe_w_out_eF_D$": r"decoder.layers.\1.ffn.experts.output_proj",
         # Initial layer norm
         r"^norm\.": r"decoder.layer_norm.",
         # Embeddings and input projections
@@ -148,6 +149,4 @@ def convert_llama4_state_dict(
         # fmt: on
     }
 
-    state_dict = convert_state_dict(checkpoint, key_map)
-
-    return state_dict
+    return convert_state_dict(checkpoint, key_map)

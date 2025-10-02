@@ -10,9 +10,7 @@ from typing_extensions import override
 
 from fairseq2.models.llama import LLaMAFactory
 from fairseq2.models.llama4.config import Llama4Config
-from fairseq2.models.llama4.model.frontend import Llama4DecoderFrontend
-from fairseq2.models.llama4.model.moe.moe import MoE
-from fairseq2.models.llama4.model.vision.embedding import VisionEmbeddings
+from fairseq2.models.llama4.moe import MoE
 from fairseq2.models.llama.factory import _init_truncated_normal
 from fairseq2.models.transformer import (
     AttentionBias,
@@ -131,8 +129,6 @@ class Llama4Factory(LLaMAFactory):
             config.experts.top_k,
             inner_dim_scale=config.ffn_inner_dim_scale,
             inner_dim_to_multiple=config.ffn_inner_dim_multiple_of,
-            eval_with_saved_stats=config.experts.eval_with_saved_stats,
-            expert_act_threshold=config.experts.expert_act_threshold,
         )
 
         # TODO: re-introduce for Maverick

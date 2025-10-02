@@ -16,10 +16,8 @@ from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.gang import Gangs
+from fairseq2.models.transformer import GroupedExpertNetwork, TPShardedExpertNetwork
 from fairseq2.nn import (
-    GroupedColumnShardedLinear,
-    GroupedLinear,
-    BatchRowShardedLinear,
     ColumnShardedLinear,
     Linear,
     RowShardedLinear,
@@ -37,15 +35,6 @@ class ShardSpec:
     region_boundary: bool = False
     """Whether the sharded dimension is at the boundary between
     two model parallel regions. Allows to avoid unnecessary communication."""
-
-    disable_end_reduce: bool = False
-    """Whether to disable a reduce planned at the end
-    of the forward of a sharded layer.
-    If ``True``, it is the responsibility of the layer's user to perform the reduce."""
-
-    shard_children: bool = False
-    """If set to ``True``, the sharder will recurse
-    into the children of the sharded module."""
 
 
 class ModuleSharder(ABC):
@@ -80,7 +69,6 @@ class LinearSharder(ModuleSharder):
                 module,
                 gangs.tp,
                 scatter_input=not spec.region_boundary,
-                reduce_output=not spec.disable_end_reduce,
             )
 
         raise ShardSpecError(f"`spec.dim` must be 0 or 1, but is {spec.dim} instead.")
@@ -92,33 +80,25 @@ class LinearSharder(ModuleSharder):
 
 
 @final
-class BatchLinearSharder(ModuleSharder):
+class ExpertNetworkSharder(ModuleSharder):
     @override
     def shard(self, module: Module, gangs: Gangs, spec: ShardSpec) -> Module:
-        if not isinstance(module, GroupedLinear):
+        if not isinstance(module, GroupedExpertNetwork):
             raise TypeError(
-                f"`module` must be of type `{BatchLinearSharder}`, but is of type `{type(module)}` instead."
+                f"`module` must be of type `{GroupedExpertNetwork}`, but is of type `{type(module)}` instead."
             )
 
-        if spec.dim == 0:
-            return GroupedColumnShardedLinear.from_batch_linear(
-                module, gangs.tp, gather_output=not spec.region_boundary
-            )
+        # TODO: re-design `spec` to support multiple expert sharding setups in the future
 
-        if spec.dim == 1:
-            return BatchRowShardedLinear.from_batch_linear(
-                module,
-                gangs.tp,
-                scatter_input=not spec.region_boundary,
-                reduce_output=not spec.disable_end_reduce,
-            )
-
-        raise ShardSpecError(f"`spec.dim` must be 0 or 1, but is {spec.dim} instead.")
+        return TPShardedExpertNetwork.from_grouped_expert_network(
+            module,
+            gangs.tp,
+        )
 
     @property
     @override
     def supported_module_kls(self) -> type[Module]:
-        return GroupedLinear
+        return GroupedExpertNetwork
 
 
 @final
@@ -181,7 +161,6 @@ class StandardModelSharder(ModelSharder):
             pathname = ".".join(path)
 
             sharded_child = None
-            should_recurse = True
 
             for pattern, spec in specs.items():
                 if re.match(pattern, pathname):
@@ -200,14 +179,11 @@ class StandardModelSharder(ModelSharder):
                             f"Shard specification of {pathname} matched by `specs['{pattern}']` is not valid. {str(ex)}"
                         ) from None
 
-                    should_recurse = spec.shard_children
-
                     break
 
             if sharded_child is not None:
                 module.register_module(name, sharded_child)
-
-            if should_recurse:
+            else:
                 self._do_shard(child, gangs, specs, path)
 
             path.pop()
