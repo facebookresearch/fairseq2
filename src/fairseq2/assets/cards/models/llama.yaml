@@ -187,3 +187,24 @@ model_arch: llama3_1_8b
 checkpoint: "hg://deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
 tokenizer: "hg://deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
 tokenizer_family: llama
+
+---
+
+name: llama4
+model_family: llama4
+checkpoint: "https://ai.meta.com/llama/;gated=true"
+tokenizer: "https://ai.meta.com/llama/;gated=true"
+tokenizer_family: llama4
+
+---
+
+name: llama4_scout_17b_16e
+base: llama4
+model_arch: llama4_scout_17b_16e
+
+---
+
+name: llama4_scout_17b_16e_instruct
+base: llama4_scout_17b_16e
+tokenizer_config_override:
+  use_eot: true  # instruct tokenizer to use EOT instead of EOS
