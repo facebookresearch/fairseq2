@@ -13,14 +13,14 @@ from typing import TYPE_CHECKING, final
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torch.nn import Module
+from torch.nn import Module, Parameter
 from torch.nn.functional import embedding
-from torch.nn.parameter import Parameter
 from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import META_DEVICE, Device
 from fairseq2.gang import Gang
+from fairseq2.nn.sharded import Sharded
 from fairseq2.nn.utils.module import get_name_or_self, to_empty
 from fairseq2.ops.tensor_parallel import gather, reduce, reduce_on_backward
 
@@ -31,6 +31,11 @@ class Embedding(Module, ABC):
     def __init__(
         self, num_embeddings: int, embed_dim: int, pad_idx: int | None
     ) -> None:
+        """
+        If not ``None``, entries at ``pad_idx`` do not contribute to the
+        gradient; therefore, the embedding at ``pad_idx`` is not updated
+        during training.
+        """
         super().__init__()
 
         self.num_embeddings = num_embeddings
@@ -40,11 +45,11 @@ class Embedding(Module, ABC):
     @abstractmethod
     def forward(self, x: Tensor) -> Tensor:
         """
-        :param x: The embedding indices. *Shape:* Any.
+        Returns the embeddings corresponding to the specified indices. ``x`` can
+        have any shape.
 
-        :returns: The embeddings corresponding to the specified indices. *Shape:*
-            :math:`(*,E)`, where :math:`*` is the input shape and :math:`E` is
-            the dimensionality of the embeddings.
+        The return value will a shape of :math:`(*,E)`, where :math:`*` is the
+        input shape and :math:`E` is the dimensionality of the embeddings.
         """
 
     if TYPE_CHECKING:
@@ -53,7 +58,7 @@ class Embedding(Module, ABC):
 
 @final
 class StandardEmbedding(Embedding):
-    """Stores embeddings of a fixed dictionary and size in an in-memory table."""
+    """Represents the standard implementation of :class:`Embedding`."""
 
     def __init__(
         self,
@@ -66,12 +71,8 @@ class StandardEmbedding(Embedding):
         dtype: DataType | None = None,
     ) -> None:
         """
-        :param num_embeddings: The size of the embedding table.
-        :param embed_dim: The dimensionality of returned embeddings.
-        :param pad_idx: If not ``None``, entries at ``pad_idx`` do not
-            contribute to the gradient; therefore, the embedding at ``pad_idx``
-            is not updated during training.
-        :param init_fn: The callable to initialize the embedding table.
+        If ``init_fn`` is specified, it will be called to initialize the
+        embedding table in :meth:`reset_parameters`.
         """
         super().__init__(num_embeddings, embed_dim, pad_idx)
 
@@ -86,10 +87,8 @@ class StandardEmbedding(Embedding):
     def reset_parameters(self) -> None:
         if self.init_fn is not None:
             self.init_fn(self)
-
-            return
-
-        nn.init.normal_(self.weight)
+        else:
+            nn.init.normal_(self.weight)
 
         if self.pad_idx is not None:
             with torch.no_grad():
@@ -116,25 +115,22 @@ class StandardEmbedding(Embedding):
 
 
 @final
-class VocabShardedEmbedding(Embedding):
+class VocabShardedEmbedding(Embedding, Sharded):
     """
-    Represents a :class:`StandardEmbedding` that is sharded across its
-    vocabulary dimension.
+    Represents an :class:`Embedding` sharded across its vocabulary dimension.
     """
 
     @staticmethod
     def from_embedding(embed: StandardEmbedding, gang: Gang) -> VocabShardedEmbedding:
         """
-        Constructs a :class:`VocabShardedEmbedding` by sharding ``embed``.
-
-        :param embed: The embedding to shard.
-        :param gang: The gang over which to shard ``embed``.
+        Creates a :class:`VocabShardedEmbedding` by sharding ``embed`` over its
+        vocabulary dimension using the specified gang.
         """
         device = embed.weight.device
 
         if device != gang.device and device.type != "meta":
             raise ValueError(
-                "The device of `embed` must be same as `gang.device` or must be of type `meta`."
+                f"Device of `embed` must match `gang.device` or must be of type `meta`, but is `{device}` instead."
             )
 
         sharded_embed = VocabShardedEmbedding(
@@ -165,15 +161,6 @@ class VocabShardedEmbedding(Embedding):
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
-        """
-        :param gang: The gang over which to shard the embedding table.
-        :param num_embeddings: The size of the embedding table.
-        :param embed_dim: The dimensionality of returned embeddings.
-        :param pad_idx: If not ``None``, entries at ``pad_idx`` do not
-            contribute to the gradient; therefore, the embedding at ``pad_idx``
-            is not updated during training.
-        :param init_fn: The callable to initialize the embedding table.
-        """
         super().__init__(num_embeddings, embed_dim, pad_idx)
 
         if num_embeddings % gang.size != 0:
@@ -189,7 +176,7 @@ class VocabShardedEmbedding(Embedding):
             device = gang.device
         elif device != gang.device and device.type != "meta":
             raise ValueError(
-                "`device` must be same as `gang.device` or must be of type `meta`."
+                f"`device` must match `gang.device` or must be of type `meta`, but is `{device}` instead."
             )
 
         weight = torch.empty(
@@ -251,7 +238,7 @@ class VocabShardedEmbedding(Embedding):
         return x
 
     def to_embedding(self, device: Device | None = None) -> StandardEmbedding:
-        """Converts this instance to a :class:`StandardEmbedding`."""
+        """Unshards this instance to a :class:`StandardEmbedding`."""
         embed = self._embedding_like(device=META_DEVICE)
 
         to_empty(embed, device or self.gang.device)
@@ -274,11 +261,15 @@ class VocabShardedEmbedding(Embedding):
         )
 
     @override
+    def get_shard_dims(self) -> list[tuple[Parameter, int]]:
+        return [(self.weight, 0)]
+
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
         s = (
-            f"rank={self.gang.rank}, "
-            f"world_size={self.gang.size}, "
+            f"tp_rank={self.gang.rank}, "
+            f"tp_size={self.gang.size}, "
             f"num_embeddings={self.num_embeddings}, "
             f"sharded_num_embeddings={self.sharded_num_embeddings}, "
             f"embed_dim={self.embed_dim}"
@@ -296,25 +287,22 @@ class VocabShardedEmbedding(Embedding):
 
 
 @final
-class ShardedEmbedding(Embedding):
+class ShardedEmbedding(Embedding, Sharded):
     """
-    Represents a :class:`StandardEmbedding` that is sharded across its embedding
-    dimension.
+    Represents an :class:`Embedding` sharded across its embedding dimension.
     """
 
     @staticmethod
     def from_embedding(embed: StandardEmbedding, gang: Gang) -> ShardedEmbedding:
         """
-        Constructs a :class:`ShardedEmbedding` by sharding ``embed``.
-
-        :param embed: The embedding to shard.
-        :param gang: The gang over which to shard ``embed``.
+        Creates a :class:`ShardedEmbedding` by sharding ``embed`` over its
+        embedding dimension using the specified gang.
         """
         device = embed.weight.device
 
         if device != gang.device and device.type != "meta":
             raise ValueError(
-                "The device of `embed` must be same as `gang.device` or must be of type `meta`."
+                f"Device of `embed` must match `gang.device` or must be of type `meta`, but is `{device}` instead."
             )
 
         sharded_embed = ShardedEmbedding(
@@ -345,15 +333,6 @@ class ShardedEmbedding(Embedding):
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
-        """
-        :param gang: The gang over which to shard the embedding table.
-        :param num_embeddings: The size of the embedding table.
-        :param embed_dim: The dimensionality of returned embeddings.
-        :param pad_idx: If not ``None``, entries at ``pad_idx`` do not
-            contribute to the gradient; therefore, the embedding at ``pad_idx``
-            is not updated during training.
-        :param init_fn: The callable to initialize the embedding table.
-        """
         super().__init__(num_embeddings, embed_dim, pad_idx)
 
         if embed_dim % gang.size != 0:
@@ -369,7 +348,7 @@ class ShardedEmbedding(Embedding):
             device = gang.device
         elif device != gang.device and device.type != "meta":
             raise ValueError(
-                "`device` must be same as `gang.device` or must be of type `meta`."
+                f"`device` must match `gang.device` or must be of type `meta`, but is `{device}` instead."
             )
 
         weight = torch.empty(
@@ -406,7 +385,7 @@ class ShardedEmbedding(Embedding):
         return x
 
     def to_embedding(self, device: Device | None = None) -> StandardEmbedding:
-        """Converts this instance to a :class:`StandardEmbedding`."""
+        """Unshards this instance to a :class:`StandardEmbedding`."""
         embed = self._embedding_like(device=META_DEVICE)
 
         to_empty(embed, device or self.gang.device)
@@ -429,11 +408,15 @@ class ShardedEmbedding(Embedding):
         )
 
     @override
+    def get_shard_dims(self) -> list[tuple[Parameter, int]]:
+        return [(self.weight, 1)]
+
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
         s = (
-            f"rank={self.gang.rank}, "
-            f"world_size={self.gang.size}, "
+            f"tp_rank={self.gang.rank}, "
+            f"tp_size={self.gang.size}, "
             f"num_embeddings={self.num_embeddings}, "
             f"embed_dim={self.embed_dim}, "
             f"sharded_embed_dim={self.sharded_embed_dim}"

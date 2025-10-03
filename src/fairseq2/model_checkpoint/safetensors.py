@@ -29,6 +29,13 @@ from fairseq2.sharder import ShardSpec
 
 @final
 class SafetensorsCheckpointLoader(ModelCheckpointLoader):
+    """
+    Loads checkpoints saved in Safetensors format.
+
+    This loader supports both single-file and directory-based Safetensors
+    checkpoints.
+    """
+
     def __init__(
         self, file_system: FileSystem, safetensors_loader: SafetensorsLoader
     ) -> None:
@@ -45,6 +52,7 @@ class SafetensorsCheckpointLoader(ModelCheckpointLoader):
         restrict: bool = True,
         state_dict_converter: StateDictConverter | None = None,
         shard_specs: Mapping[str, ShardSpec] | None = None,
+        shard_dims: Mapping[str, int] | None = None,
     ) -> Iterator[tuple[str, Tensor]]:
         is_dir = self._file_system.is_dir(path)
         if is_dir:
@@ -102,6 +110,7 @@ class SafetensorsCheckpointLoader(ModelCheckpointLoader):
                 target_shard_sizes,
                 target_shard_ranks,
                 shard_specs,
+                shard_dims,
             )
 
             yield key, tensor

@@ -7,9 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
-from errno import ENOENT
 from itertools import count
-from os import strerror
 from pathlib import Path
 from typing import final
 
@@ -17,7 +15,7 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.device import CPU
-from fairseq2.file_system import FileSystem
+from fairseq2.file_system import FileSystem, raise_if_not_exists
 from fairseq2.gang import Gangs
 from fairseq2.io import TensorFileError, TensorLoader
 from fairseq2.model_checkpoint.common import reshard_tensor
@@ -31,6 +29,13 @@ from fairseq2.sharder import ShardSpec
 
 @final
 class NativeModelCheckpointLoader(ModelCheckpointLoader):
+    """
+    Loads native fairseq2 checkpoints.
+
+    The native fairseq2 format is optimized for efficient storage and loading of
+    model checkpoints with built-in support for distributed metadata.
+    """
+
     def __init__(self, file_system: FileSystem, tensor_loader: TensorLoader) -> None:
         self._file_system = file_system
         self._tensor_loader = tensor_loader
@@ -45,10 +50,9 @@ class NativeModelCheckpointLoader(ModelCheckpointLoader):
         restrict: bool = True,
         state_dict_converter: StateDictConverter | None = None,
         shard_specs: Mapping[str, ShardSpec] | None = None,
+        shard_dims: Mapping[str, int] | None = None,
     ) -> Iterator[tuple[str, Tensor]]:
-        path_exists = self._file_system.exists(path)
-        if not path_exists:
-            raise FileNotFoundError(ENOENT, strerror(ENOENT), path)
+        raise_if_not_exists(self._file_system, path)
 
         is_dir = self._file_system.is_dir(path)
         if not is_dir:
@@ -149,6 +153,7 @@ class NativeModelCheckpointLoader(ModelCheckpointLoader):
                     target_shard_sizes,
                     target_shard_ranks,
                     shard_specs,
+                    shard_dims,
                 )
 
                 yield key, tensor
