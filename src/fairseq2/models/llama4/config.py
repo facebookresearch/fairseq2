@@ -62,8 +62,8 @@ class Llama4Config(LLaMAConfig):
 def register_llama4_configs(container: DependencyContainer) -> None:
     arch = ConfigRegistrar(container, Llama4Config)
 
-    @arch("llama4_scout")
-    def llama4_scout() -> Llama4Config:
+    @arch("llama4_scout_17b_16e")
+    def llama4_scout_17b_16e() -> Llama4Config:
         config = Llama4Config()
 
         config.model_dim = 5120
@@ -92,9 +92,9 @@ def register_llama4_configs(container: DependencyContainer) -> None:
 
         return config
 
-    @arch("llama4_maverick")
-    def llama4_maverick() -> Llama4Config:
-        config = llama4_scout()
+    @arch("llama4_maverick_17b_128e")
+    def llama4_maverick_17b_128e() -> Llama4Config:
+        config = llama4_scout_17b_16e()
 
         config.experts.num_experts = 128
         config.experts.interleave_moe_layer_step = 2
