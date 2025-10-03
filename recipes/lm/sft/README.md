@@ -26,10 +26,10 @@ NOTE: changing the model (e.g. larger Llama or Qwen model) requires changing the
 python -m recipes.lm.sft
 
 # Run with a pre-configured Llama setup
-python -m recipes.lm.sft --config-name recipes/lm/sft/configs/llama3_2_1b_gsm8k.yaml
+python -m recipes.lm.sft --config-file recipes/lm/sft/configs/llama3_2_1b_gsm8k.yaml
 
 # Run with a pre-configured Qwen setup
-python -m recipes.lm.sft --config-name recipes/lm/sft/configs/qwen3_4b_gsm8k.yaml
+python -m recipes.lm.sft --config-file recipes/lm/sft/configs/qwen3_4b_gsm8k.yaml
 
 # Run with custom config file")
 python -m recipes.lm.sft --config-file path/to/your/config.yaml
