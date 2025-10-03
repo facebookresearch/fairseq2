@@ -509,6 +509,7 @@ class RowShardedLinear(Projection):
             f"world_size={self.gang.size}, "
             f"{s}, "
             f"scatter_input={self.scatter_input}, "
+            f"reduce_output={self.reduce_output}, "
             f"output_dim={self.output_dim}, "
             f"bias={bias}"
         )
