@@ -25,7 +25,7 @@ from fairseq2.assets import (
     AssetDownloadManager,
 )
 from fairseq2.data_type import DataType, default_dtype
-from fairseq2.device import CPU, META_DEVICE
+from fairseq2.device import META_DEVICE
 from fairseq2.error import (
     InternalError,
     NotSupportedError,
@@ -40,7 +40,7 @@ from fairseq2.models.utils.checkpoint import (
 )
 from fairseq2.nn import get_shard_dims
 from fairseq2.nn.fsdp import FSDPWrapper, load_with_sdp_gang
-from fairseq2.nn.utils.module import reset_non_persistent_buffers, to_device, to_empty
+from fairseq2.nn.utils.module import reset_non_persistent_buffers, to_empty
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.sharder import ModelSharder, ShardSpec, ShardSpecError
 from fairseq2.utils.progress import NOOP_PROGRESS_REPORTER, ProgressReporter
@@ -238,6 +238,11 @@ class StandardModelFamily(ModelFamily):
         hg_exporter: HuggingFaceExporter[ModelConfigT] | None,
         progress_reporter: ProgressReporter,
     ) -> None:
+        if shard_specs is not None:
+            _warn_deprecated(
+                "`shard_specs` and `sharder` parameters of `StandardModelFamily` are deprecated and will be removed in fairseq2 v0.12."
+            )
+
         self._name = name
         self._kls: type[Module] = kls
         self._configs: Lookup[object] = configs
@@ -527,14 +532,13 @@ class StandardModelFamily(ModelFamily):
                 )
 
             device = META_DEVICE
-        elif gangs.root.size != gangs.dp.size:
-            device = CPU  # Avoid OOM for sharded models.
         else:
             device = gangs.root.device
 
         try:
-            with device, default_dtype(dtype):
-                model = self._factory(config)
+            with device, gangs:
+                with default_dtype(dtype):
+                    model = self._factory(config)
         except NotImplementedError as ex:
             if "'Meta' backend" not in str(ex):
                 raise
@@ -544,22 +548,15 @@ class StandardModelFamily(ModelFamily):
             ) from ex
 
         if gangs.root.size != gangs.dp.size:
-            if self._shard_specs is None:
-                raise NotSupportedError(
-                    f"{self._name} model family does not support model parallelism."
-                )
+            if self._shard_specs is not None:
+                shard_specs = self._shard_specs(config)
 
-            shard_specs = self._shard_specs(config)
-
-            try:
-                self._sharder.shard(model, gangs, shard_specs)
-            except ShardSpecError as ex:
-                raise InternalError(
-                    f"Shard specification of the {self._name} model family is not valid."
-                ) from ex
-
-            if not meta and device != gangs.root.device:
-                to_device(model, gangs.root.device)
+                try:
+                    self._sharder.shard(model, gangs, shard_specs)
+                except ShardSpecError as ex:
+                    raise InternalError(
+                        f"Shard specification of the {self._name} model family is not valid."
+                    ) from ex
 
         return model
 
@@ -644,6 +641,10 @@ class StandardModelFamily(ModelFamily):
     @property
     @override
     def supports_model_parallelism(self) -> bool:
+        _warn_deprecated(
+            "`ModelFamily.supports_model_parallelism` is deprecated and will be removed in fairseq2 v0.12."
+        )
+
         return self._shard_specs is not None
 
     @property

@@ -57,17 +57,17 @@ class MoESharder(ModuleSharder):
         # shard the shared expert
         if module.shared_expert is not None:
             module.shared_expert.gate_proj = ColumnShardedLinear.from_linear(  # type: ignore[assignment]
-                module.shared_expert.gate_proj,
+                module.shared_expert.gate_proj,  # type: ignore[arg-type]
                 gangs.tp,
                 gather_output=False,
             )
             module.shared_expert.inner_proj = ColumnShardedLinear.from_linear(  # type: ignore[assignment]
-                module.shared_expert.inner_proj,
+                module.shared_expert.inner_proj,  # type: ignore[arg-type]
                 gangs.tp,
                 gather_output=False,
             )
             module.shared_expert.output_proj = RowShardedLinear.from_linear(  # type: ignore[assignment]
-                module.shared_expert.output_proj,
+                module.shared_expert.output_proj,  # type: ignore[arg-type]
                 gangs.tp,
                 reduce_output=False,
             )

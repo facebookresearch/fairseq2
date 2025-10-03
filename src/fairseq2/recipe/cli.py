@@ -81,7 +81,6 @@ from fairseq2.recipe.error import (
     MetricNotKnownError,
     MinimumLossScaleReachedError,
     ModelCheckpointNotFoundError,
-    ModelParallelismNotSupportedError,
     ModelTypeNotValidError,
     OptimizerNotKnownError,
     RecipeConfigParseError,
@@ -529,7 +528,6 @@ def _register_cli_errors(container: DependencyContainer) -> None:
     register(ModelCheckpointNotFoundError, _handle_model_checkpoint_not_found_error)
     register(ModelFamilyNotKnownError, _handle_model_family_not_known_error)
     register(ModelNotKnownError, _handle_model_not_known_error)
-    register(ModelParallelismNotSupportedError, _handle_mp_not_supported_error)
     register(ModelTypeNotValidError, _handle_model_type_not_valid_error)
     register(OptimizerNotKnownError, _handle_optimizer_not_known_error)
     register(SamplerNotKnownError, _handle_sampler_not_known_error)
@@ -758,17 +756,6 @@ def _handle_model_family_not_known_error(ex: ModelFamilyNotKnownError) -> int:
 
 def _handle_model_not_known_error(ex: ModelNotKnownError) -> int:
     log.error("{} is not a known model. To see the list of available models run: `python -m fairseq2.assets list --kind model`.", ex.name)
-
-    return 2
-
-
-def _handle_mp_not_supported_error(ex: ModelParallelismNotSupportedError) -> int:
-    section_name = ErrorContext.maybe_get_config_section_name(ex)
-
-    if section_name is None:
-        log.error("Model does not support model parallelism.")
-    else:
-        log.error("Model specified in `{}` section does not support model parallelism.", section_name)
 
     return 2
 

@@ -24,6 +24,7 @@ from fairseq2.nn import (
     StandardEmbedding,
     VocabShardedEmbedding,
 )
+from fairseq2.utils.warn import _warn_deprecated
 
 
 @dataclass
@@ -118,6 +119,10 @@ class StandardModelSharder(ModelSharder):
     def shard(
         self, model: Module, gangs: Gangs, specs: Mapping[str, ShardSpec]
     ) -> None:
+        _warn_deprecated(
+            "`fairseq2.sharder` module is deprecated and will be removed in fairseq2 0.12."
+        )
+
         if gangs.tp.size == 1:
             return
 

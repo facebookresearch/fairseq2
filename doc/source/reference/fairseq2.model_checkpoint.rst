@@ -5,20 +5,23 @@ fairseq2.model_checkpoint
 .. automodule:: fairseq2.model_checkpoint
     :no-members:
 
+Interfaces
+==========
+
+.. autoclass:: ModelCheckpointLoader
+
 Classes
 =======
 
-.. autoclass:: ModelCheckpointLoader
 .. autoclass:: NativeModelCheckpointLoader
 .. autoclass:: BasicModelCheckpointLoader
 .. autoclass:: SafetensorsCheckpointLoader
 .. autoclass:: DelegatingModelCheckpointLoader
 
-Utilities
+Functions
 =========
 
 .. autofunction:: reshard_tensor
-
 
 Exceptions
 ==========
