@@ -26,7 +26,7 @@ from fairseq2.sharder import ShardSpec
 @final
 class DelegatingModelCheckpointLoader(ModelCheckpointLoader):
     """
-    Composite loader that delegates to format-specific checkpoint loaders.
+    Delegates loading to format-specific checkpoint loaders.
 
     This loader maintains a collection of specialized loaders and automatically
     selects the appropriate one based on the checkpoint file format. It provides

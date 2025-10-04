@@ -53,7 +53,7 @@ def reshard_tensor(
 
     ``source_shard_sizes`` specifies the distributed source configuration in the
     form of ``(tp_size, dp_size)``. Similarly, ``target_shard_sizes`` specifies
-    the target configuration as ``(tp_size, dp_size)``.
+    the target configuration.
 
     ``target_shard_ranks`` specifies the ranks of the current process in the
     target configuration in the form of ``(tp_rank, dp_rank)``.
@@ -141,23 +141,31 @@ def reshard_tensor(
         tp_splits.append(tp_split)
 
     # Reshard the tensor over the target parallel dimension.
+
+    # Source shard dimensions
     source_tp_dim_size = tp_splits[0].size(tp_dim)
 
+    # Total unsharded dimension size
     tp_dim_size = source_tp_dim_size * source_tp_size
 
+    # Target shard dimension
     target_tp_dim_size = tp_dim_size // target_tp_size
 
-    f_target_idx = target_tp_rank * target_tp_dim_size
-    l_target_idx = target_tp_rank * target_tp_dim_size + target_tp_dim_size - 1
+    # Slice boundaries for this target rank.
+    first_target_idx = target_tp_rank * target_tp_dim_size
+    last_target_idx = target_tp_rank * target_tp_dim_size + target_tp_dim_size - 1
 
-    f_source_tp_shard_idx = f_target_idx // source_tp_dim_size
-    l_source_tp_shard_idx = l_target_idx // source_tp_dim_size
+    # Determine which source ranks contain the target slice.
+    first_source_tp_shard_idx = first_target_idx // source_tp_dim_size
+    last_source_tp_shard_idx = last_target_idx // source_tp_dim_size
 
-    f_source_idx = f_source_tp_shard_idx * source_tp_dim_size
+    # Starting index of the first relevant source shard
+    first_source_idx = first_source_tp_shard_idx * source_tp_dim_size
 
+    # Collect sub-slices from relevant source shards.
     tp_sub_splits = []
 
-    for idx in range(f_source_tp_shard_idx, l_source_tp_shard_idx + 1):
+    for idx in range(first_source_tp_shard_idx, last_source_tp_shard_idx + 1):
         tp_sub_splits.append(tp_splits[idx])
 
     del tp_splits
@@ -166,8 +174,9 @@ def reshard_tensor(
 
     del tp_sub_splits
 
+    # Extract exact slice needed for this target rank.
     return tensor.narrow(
-        dim=tp_dim, start=f_target_idx - f_source_idx, length=target_tp_dim_size
+        dim=tp_dim, start=first_target_idx - first_source_idx, length=target_tp_dim_size
     )
 
 

@@ -23,7 +23,7 @@ class StateDictConverter(Protocol):
 
 class ModelCheckpointLoader(ABC):
     """
-    Abstract base class for model checkpoint loaders.
+    Represents the abstract base class for model checkpoint loaders.
 
     This class defines the interface for checkpoint loaders that can efficiently
     load model state by yielding parameters lazily rather than loading
@@ -54,9 +54,9 @@ class ModelCheckpointLoader(ABC):
         If ``restrict`` is ``True``, restricts pickle (if used) to load only
         tensors and other types that can be safely serialized and deserialized.
 
-        ``state_dict_converter`` can be used to transform a state dictionary.
-        This is typically used to convert from one format such as Hugging Face's
-        transformers library to fairseq2.
+        If ``state_dict_converter`` is specified, it will be used to transform
+        the state dictionaries in the checkpoint. Typically used to convert from
+        one format such as Hugging Face Transformers to fairseq2.
 
         ``shard_dims`` specifies the sharding dimension for each parameter as
         returned by :func:`~fairseq2.nn.get_sharding_dims`. Along with ``gangs``,

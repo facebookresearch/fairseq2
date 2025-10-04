@@ -32,9 +32,8 @@ class Embedding(Module, ABC):
         self, num_embeddings: int, embed_dim: int, pad_idx: int | None
     ) -> None:
         """
-        If not ``None``, entries at ``pad_idx`` do not contribute to the
-        gradient; therefore, the embedding at ``pad_idx`` is not updated
-        during training.
+        If ``pad_idx`` is specified, the entry at that index won't contribute to
+        the gradient and therefore won't be updated during training.
         """
         super().__init__()
 
@@ -48,8 +47,8 @@ class Embedding(Module, ABC):
         Returns the embeddings corresponding to the specified indices. ``x`` can
         have any shape.
 
-        The return value will a shape of :math:`(*,E)`, where :math:`*` is the
-        input shape and :math:`E` is the dimensionality of the embeddings.
+        The return value will have a shape of :math:`(*,E)`, where :math:`*` is
+        the input shape and :math:`E` is the dimensionality of the embeddings.
         """
 
     if TYPE_CHECKING:
@@ -71,8 +70,8 @@ class StandardEmbedding(Embedding):
         dtype: DataType | None = None,
     ) -> None:
         """
-        If ``init_fn`` is specified, it will be called to initialize the
-        embedding table in :meth:`reset_parameters`.
+        If ``init_fn`` is specified, it will be used to initialize the embedding
+        table in :meth:`reset_parameters`.
         """
         super().__init__(num_embeddings, embed_dim, pad_idx)
 
