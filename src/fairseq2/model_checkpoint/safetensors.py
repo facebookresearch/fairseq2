@@ -30,10 +30,11 @@ from fairseq2.sharder import ShardSpec
 @final
 class SafetensorsCheckpointLoader(ModelCheckpointLoader):
     """
-    Loads checkpoints saved in Safetensors format.
+    Loads Safetensors checkpoints.
 
-    This loader supports both single-file and directory-based Safetensors
-    checkpoints.
+    This loader supports both single-file and multi-file Safetensors checkpoints
+    where multi-file checkpoints typically follow the "model-x-of-N.safetensors"
+    naming pattern as in Hugging Face Hub.
     """
 
     def __init__(
