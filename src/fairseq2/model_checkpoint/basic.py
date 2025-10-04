@@ -28,6 +28,8 @@ from fairseq2.sharder import ShardSpec
 
 @final
 class BasicModelCheckpointLoader(ModelCheckpointLoader):
+    """Loads single-file PyTorch checkpoints (.pt, .pth, .bin)."""
+
     def __init__(self, file_system: FileSystem, tensor_loader: TensorLoader) -> None:
         self._file_system = file_system
         self._tensor_loader = tensor_loader
@@ -42,6 +44,7 @@ class BasicModelCheckpointLoader(ModelCheckpointLoader):
         restrict: bool = True,
         state_dict_converter: StateDictConverter | None = None,
         shard_specs: Mapping[str, ShardSpec] | None = None,
+        shard_dims: Mapping[str, int] | None = None,
     ) -> Iterator[tuple[str, Tensor]]:
         try:
             checkpoint = self._tensor_loader.load(
@@ -82,6 +85,7 @@ class BasicModelCheckpointLoader(ModelCheckpointLoader):
                 target_shard_sizes,
                 target_shard_ranks,
                 shard_specs,
+                shard_dims,
             )
 
             yield key, tensor
