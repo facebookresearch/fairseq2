@@ -472,6 +472,8 @@ class StandardModelFamily(ModelFamily):
             )
 
             shard_dims = get_shard_dims(model)
+
+            del model
         else:
             shard_dims = None
 
