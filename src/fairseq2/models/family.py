@@ -464,6 +464,9 @@ class StandardModelFamily(ModelFamily):
             )
 
         if self._shard_specs is None:
+            # Initialize a dummy model solely for the purpose of extracting its
+            # parameter sharding information. In the future, require this to be
+            # a meta-initialization to avoid the cost of a full initialization.
             model = self._do_create_model(
                 config, gangs, torch.float16, self._supports_meta
             )
