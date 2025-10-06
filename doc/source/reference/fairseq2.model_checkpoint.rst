@@ -14,7 +14,7 @@ Classes
 .. autoclass:: SafetensorsCheckpointLoader
 .. autoclass:: DelegatingModelCheckpointLoader
 
-Utitilies
+Utilities
 =========
 
 .. autofunction:: reshard_tensor

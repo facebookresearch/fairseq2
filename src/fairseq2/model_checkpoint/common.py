@@ -29,11 +29,14 @@ def reshard_tensor(
     Reshards a parameter tensor from a distributed source configuration to a
     target configuration.
 
-    This function handles the complex task of resharding tensors when loading
-    checkpoints from one distributed configuration (e.g., 4-way tensor parallelism)
-    to a different target configuration (e.g., 8-way tensor parallelism). It
-    efficiently concatenates and slices tensors to produce the correct shards
-    for the target rank.
+    This function is meant for authors of new :class:`ModelCheckpointLoader`
+    implementations. It handles the complex task of resharding tensors when
+    loading checkpoints from one distributed configuration (e.g. 4-way tensor
+    parallelism) to a different target configuration (e.g. 8-way tensor
+    parallelism). It efficiently concatenates and slices tensors to produce the
+    correct shards for the target rank. The existing implementations such as
+    :class:`NativeModelCheckpointLoader` may be inspected to see how ``reshard_tensor``
+    is used in practice.
 
     The resharding process involves:
 

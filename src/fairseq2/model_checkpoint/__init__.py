@@ -12,7 +12,7 @@ distributed configurations with tensor resharding capability.
 The loaders support:
 
 - Memory-efficient lazy loading to avoid loading entire checkpoints into
-  memory at once (if the underlying format allows). In particular relevant for
+  memory at once if the underlying format allows it. In particular relevant for
   large checkpoints that may not fit entirely in memory.
 - On-the-fly tensor resharding across different distributed configurations.
 - Optional memory mapping for reduced memory footprint.

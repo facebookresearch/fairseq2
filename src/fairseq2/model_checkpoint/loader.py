@@ -46,11 +46,15 @@ class ModelCheckpointLoader(ABC):
         Lazily loads parameters from the specified checkpoint path.
 
         Yields tensors one at a time to minimize memory usage if the underlying
-        format allows. Supports tensor resharding and optional state dictionary
+        format allows it. Supports tensor resharding and optional state dictionary
         conversion.
 
-        If ``mmap`` is ``True``, the checkpoint will be memory-mapped when
-        possible to reduce memory footprint.
+        ``gangs`` is used to determine the distributed target configuration and
+        shard yielded parameters accordingly. If ``None``, no sharding will be
+        performed and full parameters will be yielded.
+
+        If ``mmap`` is ``True``, the checkpoint will be memory-mapped. This can
+        reduce memory usage but may cause slower load times on some systems.
 
         If ``restrict`` is ``True``, pickle (if used) will be restricted to load
         only tensors and types that can be safely serialized and deserialized.
