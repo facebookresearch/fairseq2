@@ -29,7 +29,11 @@ from fairseq2.nn import (
 @dataclass
 class ShardSpec:
     dim: int
+    """The sharded dimension."""
+
     region_boundary: bool = False
+    """Whether the sharded dimension is at the boundary between
+    two model parallel regions. Allows to avoid unnecessary communication."""
 
 
 class ModuleSharder(ABC):

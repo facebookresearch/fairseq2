@@ -23,6 +23,11 @@ from fairseq2.models.llama import (
     LLaMATokenizerConfig,
     load_llama_tokenizer,
 )
+from fairseq2.models.llama4 import (
+    LLAMA4_FAMILY,
+    Llama4TokenizerConfig,
+    load_llama4_tokenizer,
+)
 from fairseq2.models.mistral import MISTRAL_FAMILY, load_mistral_tokenizer
 from fairseq2.models.nllb import (
     NLLB_FAMILY,
@@ -120,6 +125,15 @@ def _register_tokenizer_families(container: DependencyContainer) -> None:
         kls=Tokenizer,
         config_kls=LLaMATokenizerConfig,
         loader=load_llama_tokenizer,
+    )
+
+    # Llama 4
+    register_tokenizer_family(
+        container,
+        LLAMA4_FAMILY,
+        kls=Tokenizer,
+        config_kls=Llama4TokenizerConfig,
+        loader=load_llama4_tokenizer,
     )
 
     # Mistral

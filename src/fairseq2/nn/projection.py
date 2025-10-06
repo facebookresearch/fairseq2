@@ -327,7 +327,11 @@ class RowShardedLinear(Projection):
 
     @staticmethod
     def from_linear(
-        linear: Linear, gang: Gang, *, scatter_input: bool = False
+        linear: Linear,
+        gang: Gang,
+        *,
+        scatter_input: bool = False,
+        reduce_output: bool = True,
     ) -> RowShardedLinear:
         """
         Constructs a :class:`RowShardedLinear` by sharding ``linear``.
@@ -350,6 +354,7 @@ class RowShardedLinear(Projection):
             linear.output_dim,
             bias=linear.bias is not None,
             scatter_input=scatter_input,
+            reduce_output=reduce_output,
             init_fn=linear.init_fn,
             device=META_DEVICE,
             dtype=linear.weight.dtype,
@@ -370,6 +375,7 @@ class RowShardedLinear(Projection):
         bias: bool,
         *,
         scatter_input: bool = True,
+        reduce_output: bool = True,
         init_fn: Callable[[Linear], None] | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
@@ -395,6 +401,7 @@ class RowShardedLinear(Projection):
         self.sharded_input_dim = input_dim // gang.size
 
         self.scatter_input = scatter_input
+        self.reduce_output = reduce_output
 
         if device is None:
             device = gang.device
@@ -449,7 +456,8 @@ class RowShardedLinear(Projection):
 
         x = linear(x, self.weight)
 
-        x = reduce(x, self.gang)
+        if self.reduce_output:
+            x = reduce(x, self.gang)
 
         if self.bias is not None:
             x = x + self.bias
@@ -501,6 +509,7 @@ class RowShardedLinear(Projection):
             f"world_size={self.gang.size}, "
             f"{s}, "
             f"scatter_input={self.scatter_input}, "
+            f"reduce_output={self.reduce_output}, "
             f"output_dim={self.output_dim}, "
             f"bias={bias}"
         )
