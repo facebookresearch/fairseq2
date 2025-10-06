@@ -9,24 +9,28 @@ from __future__ import annotations
 from collections.abc import MutableMapping
 from typing import cast, final
 
-import torch
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.datasets import Seq2SeqBatch, SyncMode, register_dataset_family
-from fairseq2.error import OperationalError
-from fairseq2.evaluator import EvalUnit
-from fairseq2.gang import GangError
+from fairseq2.composition import register_dataset_family
+from fairseq2.datasets import Seq2SeqBatch, SyncMode
+from fairseq2.gang import GangError, raise_operational_gang_error
 from fairseq2.logging import log
 from fairseq2.metrics import MetricBag
-from fairseq2.model import Model
+from fairseq2.metrics.text import WerMetric
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
 from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
-from fairseq2.recipe.base import RecipeContext, TrainRecipe
-from fairseq2.recipe.eval_model import load_reference_model
+from fairseq2.recipe import (
+    EvalUnit,
+    RecipeContext,
+    RecipeModel,
+    Trainer,
+    TrainRecipe,
+    TrainUnit,
+)
+from fairseq2.recipe.error import RecipeError
 from fairseq2.runtime.dependency import DependencyContainer
-from fairseq2.trainer import Trainer, TrainUnit
 
 from .criterion import Wav2Vec2AsrCriterion
 from .data import (
@@ -53,84 +57,31 @@ class Wav2Vec2AsrRecipe(TrainRecipe):
             opener=open_wav2vec2_asr_dataset,
         )
 
-    @staticmethod
-    def fix_wav2vec2_position_encoder_weights(
-        module: Wav2Vec2AsrModel,
-    ) -> Wav2Vec2AsrModel:
-        """Fix legacy checkpoints: convert deprecated weight_norm (g/v) to single weight.
-        Required for compatibility when loading old wav2vec2 checkpoints into ASR model.
-
-        Ref: https://docs.pytorch.org/docs/stable/generated/torch.nn.utils.parametrizations.weight_norm.html
-        """
-        conv = module.encoder_frontend.pos_encoder.conv  # type: ignore
-        module.encoder_frontend.pos_encoder.conv = torch.nn.utils.remove_weight_norm(  # type: ignore
-            conv  # type: ignore
-        )
-        return module
-
     def prepare_ctc_training_from_encoder(
         self, context: RecipeContext, asr_module: Wav2Vec2AsrModel
-    ):
+    ) -> None:
         log.info("Initializing the asr model with pretrained ssl model (encoder only).")
-        w2v2_model = load_reference_model(
-            context.resolver, "pretrained_model"
-        )  # TODO: refactor after rebase onto v0.5.0a2
+        w2v2_model = context.bootstrap_model("pretrained_model")
         w2v2_module = cast(Wav2Vec2Model, w2v2_model.module)
 
-        share_parameters(w2v2_module.encoder_frontend, asr_module.encoder_frontend)  # type: ignore
-        share_parameters(w2v2_module.encoder, asr_module.encoder)  # type: ignore
+        share_parameters(w2v2_module.encoder_frontend, asr_module.encoder_frontend)
+        share_parameters(w2v2_module.encoder, asr_module.encoder)
         if asr_module.masker is not None:
-            share_parameters(w2v2_module.masker, asr_module.masker)  # type: ignore
+            share_parameters(w2v2_module.masker, asr_module.masker)
 
         del w2v2_model
 
     @override
-    def prepare_model(self, context: RecipeContext, model: Model) -> Model:
-        """Initialize ASR model depending on the configuration.
-        Configuration allows to either omit the model names or set them to an empty string.
-        (1) Finetuning: model.name defined and pretrained.model undefined
-        (2) ASR training from pretrained_model: model.name undefined and pretrained_model.name defined -> training CTC with shared encoder_frontend, encoder, optional masker and an additional final projection
+    def prepare_model(self, context: RecipeContext, model: RecipeModel) -> RecipeModel:
+        """Initialize ASR model based on configuration:
+        - model.name defined: Load pretrained model for finetuning
+        - model.arch + pretrained_model.name defined: Train CTC from pretrained encoder
         """
-        config = context.config_as(Wav2Vec2AsrRecipeConfig)
         asr_module: Wav2Vec2AsrModel = cast(Wav2Vec2AsrModel, model.module)
-        asr_module = Wav2Vec2AsrRecipe.fix_wav2vec2_position_encoder_weights(asr_module)
 
-        # Considering None or empty strings to be undefined
-        model_checkpoint_defined = not (
-            config.model.name == "" or config.model.name is None
-        )
-        pretrained_model_checkpoint_defined = not (
-            config.pretrained_model.name == "" or config.pretrained_model.name is None
-        )
-
-        # partially redundant checks for predictable branching
-        training_from_pretrained_model = (
-            model.newly_initialized
-            and not model_checkpoint_defined
-            and pretrained_model_checkpoint_defined
-        )
-
-        training_from_checkpoint = (
-            not model.newly_initialized
-            and model_checkpoint_defined
-            and not pretrained_model_checkpoint_defined
-        )
-
-        if training_from_pretrained_model:
+        if model.newly_initialized:
             self.prepare_ctc_training_from_encoder(
                 context=context, asr_module=asr_module
-            )
-        elif training_from_checkpoint:
-            log.info("Found asr checkpoint, starting training.")
-        else:
-            raise ValueError(
-                "Recipe configuration is invalid:\n"
-                + f"- {config.model.name=}\n"
-                + f"- {config.pretrained_model.name=}\n"
-                + f"- {model.newly_initialized=}\n"
-                + "Supported configurations: \n"
-                + "- From checkpoint (model.name defined + pretrained_model.name undefined)\n"
-                + "- From pretrained_model (model.name undefined + model.arch and pretrained_model.name defined)"
             )
 
         # Make sure that the final projection layer is instantiated along with
@@ -141,37 +92,37 @@ class Wav2Vec2AsrRecipe(TrainRecipe):
         try:
             context.gangs.root.barrier()
         except GangError as ex:
-            raise OperationalError(
-                "The collective barrier after the pretrained model load operation has failed. See the nested exception for details."
-            ) from ex
+            raise_operational_gang_error(ex)
 
-        # Always freeze feature extractor
-        freeze_parameters(asr_module.encoder_frontend.feature_extractor)  # type: ignore
+        # Always freeze feature extractor.
+        freeze_parameters(asr_module.encoder_frontend.feature_extractor)
 
         return model
 
     @override
     def create_trainer(self, context: RecipeContext) -> Trainer:
         """
-        The pretrained model loading happens in `self.prepare_model`.
+        When starting training from a pretrained model, the scaffolding happens in `self.prepare_model`.
         """
-        config = context.config_as(Wav2Vec2AsrRecipeConfig)
+        config = context.config.as_(Wav2Vec2AsrRecipeConfig)
 
         criterion = Wav2Vec2AsrCriterion(context.model)
 
         unit = Wav2Vec2AsrTrainUnit(
             criterion, config.trainer.freeze_encoder_for_n_steps
         )
-        dataset = context.dataset_as(Wav2Vec2AsrDataset)
+        dataset = context.default_dataset.as_(Wav2Vec2AsrDataset)
 
         if config.dataset.train_split is None:
-            raise ValueError(
-                "Wav2Vec2AsrDatasetConfig.train_split must be defined for training but is `None`."
+            raise RecipeError(
+                "`dataset.train_split` must be defined for training but is `None`."
             )
+
+        seed = config.common.seed
 
         data_reader = dataset.create_reader(
             config.dataset.train_split,
-            context.tokenizer,
+            context.default_tokenizer,
             context.gangs,
             min_audio_len=config.dataset.min_audio_len,
             max_audio_len=config.dataset.max_audio_len,
@@ -181,19 +132,19 @@ class Wav2Vec2AsrRecipe(TrainRecipe):
             max_num_elements=config.dataset.max_num_elements,
             num_seqs_multiple_of=config.dataset.num_seqs_multiple_of,
             # Audio processing parameters
-            dtype=config.trainer.dtype,
+            dtype=config.dataset.dtype,
             normalize_audio=config.dataset.normalize_audio,
             no_padding=config.dataset.no_padding,
             npc=config.dataset.npc,
             # Shuffling and performance parameters
             example_shuffle_window=config.dataset.example_shuffle_window,
             batch_shuffle_window=config.dataset.batch_shuffle_window,
-            num_accumulate=config.dataset.num_accumulate,
+            num_accumulate=config.trainer.grad_accumulation.num_batches,
             num_prefetch=config.dataset.num_prefetch,
             drop_remainder=config.dataset.drop_remainder,
             sync_batches=config.dataset.sync_batches,
             sync_mode=config.dataset.sync_mode,
-            seed=context.next_seed(),
+            seed=seed,
             max_num_batches=config.dataset.max_num_batches,
             cached_fd_count=config.dataset.cached_fd_count,
         )
@@ -208,13 +159,15 @@ class Wav2Vec2AsrRecipe(TrainRecipe):
                 model=context.model, wer_calculator=WerCalculator.from_context(context)
             )
             for split in valid_splits:
+                seed += 1
+
                 valid_unit = Wav2Vec2AsrEvalUnit(valid_criterion)
                 valid_units.append(valid_unit)
 
                 # Same parameters as training but with validation-specific settings
                 valid_data_reader = dataset.create_reader(
                     split,
-                    context.tokenizer,
+                    context.default_tokenizer,
                     context.gangs,
                     min_audio_len=config.dataset.min_audio_len,
                     max_audio_len=config.dataset.max_audio_len,
@@ -224,7 +177,7 @@ class Wav2Vec2AsrRecipe(TrainRecipe):
                     max_num_elements=config.dataset.max_num_elements,
                     num_seqs_multiple_of=config.dataset.num_seqs_multiple_of,
                     # Audio processing parameters
-                    dtype=config.trainer.dtype,
+                    dtype=config.dataset.dtype,
                     normalize_audio=config.dataset.normalize_audio,
                     no_padding=config.dataset.no_padding,
                     npc=config.dataset.npc,
@@ -236,7 +189,7 @@ class Wav2Vec2AsrRecipe(TrainRecipe):
                     drop_remainder=config.dataset.drop_remainder,
                     sync_batches=config.dataset.sync_batches,
                     sync_mode=SyncMode.UNTIL_LAST,  # Wait for all processes
-                    seed=context.next_seed(),
+                    seed=seed,
                     max_num_batches=config.dataset.max_num_batches,
                     cached_fd_count=config.dataset.cached_fd_count,
                 )
@@ -272,6 +225,10 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
         self._frozen = False
 
     @override
+    def prepare_metric_bag(self, metric_bag: MetricBag) -> None:
+        self._criterion.prepare_metric_bag(metric_bag)
+
+    @override
     def set_step_nr(self, step_nr: int) -> None:
         """Gradually unfreeze encoder during training for stability.
         Freezes encoder/masker for first N steps, then unfreezes while keeping feature extractor frozen.
@@ -283,9 +240,7 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
                 return
 
             if step_nr == 1:
-                log.info(
-                    f"Freezing the encoder for the first {self._freeze_encoder_for_n_steps} steps."
-                )
+                log.info(f"Freezing the encoder for the first {self._freeze_encoder_for_n_steps} steps.")  # fmt: skip
 
             # Freeze encoder components
             freeze_parameters(base_module.encoder_frontend)
@@ -311,14 +266,14 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
             self._frozen = False
 
     @override
-    def __call__(
+    def process_batch(
         self, batch: Seq2SeqBatch, metric_bag: MetricBag
     ) -> tuple[Tensor, int]:
         return self._criterion(batch, metric_bag)
 
     @property
     @override
-    def model(self) -> Model:
+    def model(self) -> RecipeModel:
         return self._criterion.model
 
 
@@ -332,7 +287,13 @@ class Wav2Vec2AsrEvalUnit(EvalUnit[Seq2SeqBatch]):
         self._criterion = criterion
 
     @override
-    def __call__(self, batch: Seq2SeqBatch, metric_bag: MetricBag) -> None:
+    def prepare_metric_bag(self, metric_bag: MetricBag) -> None:
+        self._criterion.prepare_metric_bag(metric_bag)
+
+        metric_bag.add("wer", WerMetric())
+
+    @override
+    def process_batch(self, batch: Seq2SeqBatch, metric_bag: MetricBag) -> None:
         self._criterion(batch, metric_bag)
 
     def process_metric_values(self, values: MutableMapping[str, object]) -> None:
@@ -340,5 +301,5 @@ class Wav2Vec2AsrEvalUnit(EvalUnit[Seq2SeqBatch]):
 
     @property
     @override
-    def model(self) -> Model:
+    def model(self) -> RecipeModel:
         return self._criterion.model

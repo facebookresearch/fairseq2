@@ -7,18 +7,18 @@
 from __future__ import annotations
 
 from collections.abc import MutableMapping
-from typing import Tuple, final
+from typing import final
 
 from torch import Tensor
 
 from fairseq2.datasets import Seq2SeqBatch
 from fairseq2.metrics import MetricBag
-from fairseq2.model import Model
+from fairseq2.recipe import RecipeModel
 from fairseq2.nn import BatchLayout
 
 # isort: split
 
-from .metrics import update_asr_batch_metrics, update_ctc_loss
+from .metrics import add_asr_metrics, update_asr_batch_metrics, update_ctc_loss
 from .wer_calculator import WerCalculator
 
 
@@ -30,18 +30,21 @@ class Wav2Vec2AsrCriterion:
     also computes WER metrics by decoding model outputs.
     """
 
-    _model: Model
+    _model: RecipeModel
     _wer_calculator: WerCalculator | None
 
     def __init__(
-        self, model: Model, wer_calculator: WerCalculator | None = None
+        self, model: RecipeModel, wer_calculator: WerCalculator | None = None
     ) -> None:
         self._model = model
         self._wer_calculator = wer_calculator
 
+    def prepare_metric_bag(self, metric_bag: MetricBag) -> None:
+        add_asr_metrics(metric_bag)
+
     def __call__(
         self, batch: Seq2SeqBatch, metric_bag: MetricBag
-    ) -> Tuple[Tensor, int]:
+    ) -> tuple[Tensor, int]:
         """
         Compute CTC loss and optionally WER for validation/evaluation.
 
@@ -65,7 +68,7 @@ class Wav2Vec2AsrCriterion:
 
     def _forward_with_logits(
         self, batch: Seq2SeqBatch
-    ) -> Tuple[Tensor, Tensor, BatchLayout]:
+    ) -> tuple[Tensor, Tensor, BatchLayout]:
         """
         :return: tuple[Tensor, Tensor, BatchLayout] - loss, logits, layout
         """
@@ -80,7 +83,7 @@ class Wav2Vec2AsrCriterion:
             return_logits=True,
         )
 
-    def _forward(self, batch: Seq2SeqBatch) -> Tensor | Tuple[Tensor, BatchLayout]:
+    def _forward(self, batch: Seq2SeqBatch) -> Tensor | tuple[Tensor, BatchLayout]:
         """
         :return: Tensor (default) - CTC Loss
         :return: tuple[Tensor, BatchLayout] (if target_seqs == None) - logits, layout
@@ -100,5 +103,5 @@ class Wav2Vec2AsrCriterion:
             self._wer_calculator.process_metric_values(values)
 
     @property
-    def model(self) -> Model:
+    def model(self) -> RecipeModel:
         return self._model

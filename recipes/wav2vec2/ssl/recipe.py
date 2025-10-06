@@ -14,7 +14,7 @@ from typing_extensions import override
 from fairseq2.datasets import SequenceBatch, SyncMode, register_dataset_family
 from fairseq2.evaluator import EvalUnit
 from fairseq2.metrics import MetricBag
-from fairseq2.model import Model
+from fairseq2.recipe import RecipeModel
 from fairseq2.recipe.base import RecipeContext, TrainRecipe
 from fairseq2.runtime.dependency import DependencyContainer
 from fairseq2.trainer import Trainer, TrainUnit
@@ -43,7 +43,7 @@ class Wav2Vec2SslRecipe(TrainRecipe):
 
     @override
     def create_trainer(self, context: RecipeContext) -> Trainer:
-        config = context.config_as(Wav2Vec2SslRecipeConfig)
+        config = context.config.as_(Wav2Vec2SslRecipeConfig)
 
         criterion = Wav2Vec2SslCriterion(
             context.model,
@@ -52,12 +52,14 @@ class Wav2Vec2SslRecipe(TrainRecipe):
         )
 
         unit = Wav2Vec2SslTrainUnit(criterion)
-        dataset = context.dataset_as(Wav2Vec2SslDataset)
+        dataset = context.default_dataset.as_(Wav2Vec2SslDataset)
 
         if config.dataset.train_split is None:
             raise ValueError(
                 "Wav2Vec2SslDatasetConfig.train_split must be defined for training but is `None`."
             )
+
+        seed = config.common.seed
 
         data_reader = dataset.create_reader(
             config.dataset.train_split,  # type: ignore
@@ -87,7 +89,7 @@ class Wav2Vec2SslRecipe(TrainRecipe):
             drop_remainder=config.dataset.drop_remainder,
             sync_batches=config.dataset.sync_batches,
             sync_mode=config.dataset.sync_mode,
-            seed=context.next_seed(),
+            seed=seed,
             max_num_batches=config.dataset.max_num_batches,
             cached_fd_count=config.dataset.cached_fd_count,
         )
@@ -100,9 +102,12 @@ class Wav2Vec2SslRecipe(TrainRecipe):
             valid_splits = config.dataset.valid_split.split(",")
 
             for split in valid_splits:
+                seed += 1
+
                 valid_unit = Wav2Vec2SslEvalUnit(criterion)
                 valid_units.append(valid_unit)
 
+                # Same parameters as training but with validation-specific settings
                 valid_data_reader = dataset.create_reader(
                     split,
                     context.gangs,
@@ -114,7 +119,7 @@ class Wav2Vec2SslRecipe(TrainRecipe):
                     num_seqs_multiple_of=config.dataset.num_seqs_multiple_of,
                     max_num_elements=config.dataset.max_num_elements,
                     # Audio processing parameters
-                    dtype=config.trainer.dtype,
+                    dtype=config.dataset.dtype,
                     normalize_audio=config.dataset.normalize_audio,
                     use_fbank=config.dataset.use_fbank,
                     no_padding=config.dataset.no_padding,
@@ -131,7 +136,7 @@ class Wav2Vec2SslRecipe(TrainRecipe):
                     drop_remainder=config.dataset.drop_remainder,
                     sync_batches=config.dataset.sync_batches,
                     sync_mode=SyncMode.UNTIL_LAST,  # Wait for all processes
-                    seed=context.next_seed(),
+                    seed=seed,
                     max_num_batches=config.dataset.max_num_batches,
                     cached_fd_count=config.dataset.cached_fd_count,
                 )
@@ -157,14 +162,18 @@ class Wav2Vec2SslTrainUnit(TrainUnit[SequenceBatch]):
         self._criterion = criterion
 
     @override
-    def __call__(
+    def prepare_metric_bag(self, metric_bag: MetricBag) -> None:
+        self._criterion.prepare_metric_bag(metric_bag)
+
+    @override
+    def process_batch(
         self, batch: SequenceBatch, metric_bag: MetricBag
     ) -> tuple[Tensor, int]:
         return self._criterion(batch, metric_bag)
 
     @property
     @override
-    def model(self) -> Model:
+    def model(self) -> RecipeModel:
         return self._criterion.model
 
 
@@ -178,10 +187,14 @@ class Wav2Vec2SslEvalUnit(EvalUnit[SequenceBatch]):
         self._criterion = criterion
 
     @override
-    def __call__(self, batch: SequenceBatch, metric_bag: MetricBag) -> None:
+    def prepare_metric_bag(self, metric_bag: MetricBag) -> None:
+        self._criterion.prepare_metric_bag(metric_bag)
+
+    @override
+    def process_batch(self, batch: SequenceBatch, metric_bag: MetricBag) -> None:
         self._criterion(batch, metric_bag)
 
     @property
     @override
-    def model(self) -> Model:
+    def model(self) -> RecipeModel:
         return self._criterion.model

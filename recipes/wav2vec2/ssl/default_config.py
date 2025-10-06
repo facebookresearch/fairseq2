@@ -16,6 +16,7 @@ from fairseq2.recipe.config import (
     CompileOptionsSection,
     GangSection,
     LRSchedulerSection,
+    MixedPrecisionConfig,
     ModelSection,
     OptimizerSection,
     PolynomialDecayLRConfig,
@@ -50,7 +51,9 @@ class Wav2Vec2SslRecipeConfig:
     gang: GangSection = field(default_factory=lambda: GangSection())
 
     trainer: TrainerSection = field(
-        default_factory=lambda: TrainerSection(dtype=torch.float16)
+        default_factory=lambda: TrainerSection(
+            mixed_precision=MixedPrecisionConfig(dtype=torch.float16),
+        )
     )
 
     loss: Wav2Vec2SslLossSection = field(
