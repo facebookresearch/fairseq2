@@ -11,6 +11,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from enum import Enum
+from errno import ENOENT
+from os import strerror
 from pathlib import Path
 from shutil import copytree, rmtree
 from tempfile import TemporaryDirectory
@@ -172,3 +174,9 @@ class LocalFileSystem(FileSystem):
     @override
     def is_local(self) -> bool:
         return True
+
+
+def raise_if_not_exists(file_system: FileSystem, path: Path) -> None:
+    """Raises a :class:`FileNotFoundError` if ``path`` does not exist."""
+    if not file_system.exists(path):
+        raise FileNotFoundError(ENOENT, strerror(ENOENT), path)

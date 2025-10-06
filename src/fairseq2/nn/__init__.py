@@ -51,3 +51,5 @@ from fairseq2.nn.residual import AdditiveResidualConnect as AdditiveResidualConn
 from fairseq2.nn.residual import DropPathResidualConnect as DropPathResidualConnect
 from fairseq2.nn.residual import ResidualConnect as ResidualConnect
 from fairseq2.nn.residual import ScaledResidualConnect as ScaledResidualConnect
+from fairseq2.nn.sharded import Sharded as Sharded
+from fairseq2.nn.sharded import get_shard_dims as get_shard_dims

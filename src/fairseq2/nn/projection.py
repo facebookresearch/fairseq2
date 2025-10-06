@@ -14,23 +14,24 @@ from typing import TYPE_CHECKING, final
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torch.nn import Module
+from torch.nn import Module, Parameter
 from torch.nn.functional import linear
-from torch.nn.parameter import Parameter
 from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import META_DEVICE, Device
 from fairseq2.error import InternalError
 from fairseq2.gang import Gang
+from fairseq2.nn.sharded import Sharded
 from fairseq2.nn.utils.module import get_name_or_self, to_empty
 from fairseq2.ops.tensor_parallel import gather, reduce, reduce_on_backward, scatter
 
 
 class Projection(Module, ABC):
-    """Applies a linear transformation to incoming data."""
+    """Applies a linear transformation to input data."""
 
     def __init__(self, input_dim: int, output_dim: int) -> None:
+        """:meta private:"""
         super().__init__()
 
         self.input_dim = input_dim
@@ -39,12 +40,14 @@ class Projection(Module, ABC):
     @abstractmethod
     def forward(self, x: Tensor) -> Tensor:
         """
-        :param x: The input to project. *Shape:* :math:`(*,H_{inp})`, where
-            :math:`H_{inp}` is the input dimensionality.
+        Projects the input data.
 
-        :returns: The projected output. *Shape:* :math:`(*,H_{out})`, where all
-            but the last dimension are the same shape as the input and
-            :math:`H_{out}` is the output dimensionality.
+        ``x`` must be of shape :math:`(*,H_{inp})`, where :math:`H_{inp}` is the
+        input dimensionality of this module.
+
+        The projected output will be of shape :math:`(*,H_{out})`, where all but
+        the last dimension are the same shape as ``x`` and :math:`H_{out}` is
+        the output dimensionality of this module.
         """
 
     if TYPE_CHECKING:
@@ -54,13 +57,10 @@ class Projection(Module, ABC):
 @final
 class Linear(Projection):
     """
-    Applies a linear transformation to incoming data using weights and bias.
-
-    Unless overridden by a subclass, the weights and bias are initialized from
-    :math:`\\mathcal{U}(-\\sqrt{k}, \\sqrt{k})`, where
-    :math:`k = \\frac{1}{\\text{input_dim}}`.
+    Represents the standard implementation of :class:`Projection`.
 
     .. note::
+
         This class is identical to :class:`torch.nn.Linear`.
     """
 
@@ -75,10 +75,12 @@ class Linear(Projection):
         dtype: DataType | None = None,
     ) -> None:
         """
-        :param input_dim: The dimensionality of inputs.
-        :param output_dim: The dimensionality of projected outputs.
-        :param bias: If ``True``, learns an additive bias.
-        :param init_fn: The callable to initialize the weight and bias.
+        Unless overridden by ``init_fn``, the weight and bias of this module are
+        initialized from :math:`\\mathcal{U}(-\\sqrt{k}, \\sqrt{k})`, where
+        :math:`k = \\frac{1}{\\text{input_dim}}`.
+
+        If ``init_fn`` is provided, it will be used to initialize the weight and
+        bias in :meth:`reset_parameters`.
         """
         super().__init__(input_dim, output_dim)
 
@@ -125,26 +127,25 @@ class Linear(Projection):
 
 
 @final
-class ColumnShardedLinear(Projection):
-    """Represents a :class:`Linear` that is sharded across its output dimension."""
+class ColumnShardedLinear(Projection, Sharded):
+    """Represents a :class:`Projection` sharded across its output dimension."""
 
     @staticmethod
     def from_linear(
         linear: Linear, gang: Gang, *, gather_output: bool = True
     ) -> ColumnShardedLinear:
         """
-        Constructs a :class:`ColumnShardedLinear` by sharding ``linear``.
+        Creates a :class:`ColumnShardedLinear` by sharding ``linear`` over its
+        output dimension using ``gang``.
 
-        :param linear: The projection to shard.
-        :param gang: The gang over which to shard ``linear``.
-        :param gather_output: If ``True``, gather the sharded output into a
-            single tensor.
+        If ``gather_output`` is ``True``, the sharded outputs of all ranks will
+        be gathered into a single tensor.
         """
         device = linear.weight.device
 
         if device != gang.device and device.type != "meta":
             raise ValueError(
-                "The device of `linear` must be same as `gang.device` or must be of type `meta`."
+                f"Device of `linear` must match `gang.device` or must be of type `meta`, but is `{device}` instead."
             )
 
         sharded_linear = ColumnShardedLinear(
@@ -177,15 +178,6 @@ class ColumnShardedLinear(Projection):
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
-        """
-        :param gang: The gang over which to shard the weight tensor.
-        :param input_dim: The dimensionality of inputs.
-        :param output_dim: The dimensionality of projected outputs.
-        :param bias: If ``True``, learns an additive bias.
-        :param gather_output: If ``True``, gather the sharded output into a
-            single tensor.
-        :param init_fn: The callable to initialize the weight and bias.
-        """
         super().__init__(input_dim, output_dim)
 
         if output_dim % gang.size != 0:
@@ -203,7 +195,7 @@ class ColumnShardedLinear(Projection):
             device = gang.device
         elif device != gang.device and device.type != "meta":
             raise ValueError(
-                "`device` must be same as `gang.device` or must be of type `meta`."
+                "`device` must match `gang.device` or must be of type `meta`."
             )
 
         weight = torch.empty(
@@ -234,7 +226,7 @@ class ColumnShardedLinear(Projection):
 
     def _copy_weight(self, linear: Linear) -> None:
         with torch.no_grad():
-            weight_shards = linear.weight.split(self.sharded_output_dim)
+            weight_shards = linear.weight.split(self.sharded_output_dim, dim=0)
 
             weight = weight_shards[self.gang.rank]
 
@@ -245,7 +237,7 @@ class ColumnShardedLinear(Projection):
                 raise InternalError("`linear.bias` is `None`.")
 
             with torch.no_grad():
-                bias_shards = linear.bias.split(self.sharded_output_dim)
+                bias_shards = linear.bias.split(self.sharded_output_dim, dim=0)
 
                 bias = bias_shards[self.gang.rank]
 
@@ -263,7 +255,7 @@ class ColumnShardedLinear(Projection):
         return x
 
     def to_linear(self, device: Device | None = None) -> Linear:
-        """Converts this instance to a :class:`Linear`."""
+        """Unshards this instance to a :class:`Linear`."""
         linear = self._linear_like(device=META_DEVICE)
 
         to_empty(linear, device or self.gang.device)
@@ -295,6 +287,13 @@ class ColumnShardedLinear(Projection):
         )
 
     @override
+    def get_shard_dims(self) -> list[tuple[Parameter, int]]:
+        if self.bias is None:
+            return [(self.weight, 0)]
+        else:
+            return [(self.weight, 0), (self.bias, 0)]
+
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
         bias = self.bias is not None
@@ -305,8 +304,8 @@ class ColumnShardedLinear(Projection):
             s = f"output_dim={self.sharded_output_dim}"
 
         s = (
-            f"rank={self.gang.rank}, "
-            f"world_size={self.gang.size}, "
+            f"tp_rank={self.gang.rank}, "
+            f"tp_size={self.gang.size}, "
             f"input_dim={self.input_dim}, "
             f"{s}, "
             f"gather_output={self.gather_output}, "
@@ -322,8 +321,8 @@ class ColumnShardedLinear(Projection):
 
 
 @final
-class RowShardedLinear(Projection):
-    """Represents a :class:`Linear` that is sharded across its input dimension."""
+class RowShardedLinear(Projection, Sharded):
+    """Represents a :class:`Projection` sharded across its input dimension."""
 
     @staticmethod
     def from_linear(
@@ -334,18 +333,20 @@ class RowShardedLinear(Projection):
         reduce_output: bool = True,
     ) -> RowShardedLinear:
         """
-        Constructs a :class:`RowShardedLinear` by sharding ``linear``.
+        Creates a :class:`RowShardedLinear` by sharding ``linear`` over its
+        input dimension using ``gang``.
 
-        :param linear: The projection to shard.
-        :param gang: The gang over which to shard ``linear``.
-        :param scatter_input: If ``True``, inputs are considered already sharded
-            and won't be scattered.
+        If ``scatter_input`` is ``True``, the inputs on all ranks are considered
+        already sharded and won't be scattered.
+
+        If ``reduce_output`` is ``True``, the outputs of all ranks will be
+        all-reduced into a single tensor.
         """
         device = linear.weight.device
 
         if device != gang.device and device.type != "meta":
             raise ValueError(
-                "The device of `linear` must be same as `gang.device` or must be of type `meta`."
+                f"Device of `linear` must match `gang.device` or must be of type `meta`, but is `{device}` instead."
             )
 
         sharded_linear = RowShardedLinear(
@@ -380,15 +381,6 @@ class RowShardedLinear(Projection):
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
-        """
-        :param gang: The gang over which to shard the weight tensor.
-        :param input_dim: The dimensionality of inputs.
-        :param output_dim: The dimensionality of projected outputs.
-        :param bias: If ``True``, learns an additive bias.
-        :param scatter_input: If ``True``, scatters the input tensor; otherwise,
-            considers it already sharded.
-        :param init_fn: The callable to initialize the weight and bias.
-        """
         super().__init__(input_dim, output_dim)
 
         if input_dim % gang.size != 0:
@@ -407,7 +399,7 @@ class RowShardedLinear(Projection):
             device = gang.device
         elif device != gang.device and device.type != "meta":
             raise ValueError(
-                "`device` must be same as `gang.device` or must be of type `meta`."
+                "`device` must match `gang.device` or must be of type `meta`."
             )
 
         weight = torch.empty(
@@ -465,7 +457,7 @@ class RowShardedLinear(Projection):
         return x
 
     def to_linear(self, device: Device | None = None) -> Linear:
-        """Converts this instance to a :class:`Linear`."""
+        """Unshards this instance to a :class:`Linear`."""
         linear = self._linear_like(device=META_DEVICE)
 
         to_empty(linear, device or self.gang.device)
@@ -495,6 +487,10 @@ class RowShardedLinear(Projection):
         )
 
     @override
+    def get_shard_dims(self) -> list[tuple[Parameter, int]]:
+        return [(self.weight, 1)]
+
+    @override
     def extra_repr(self) -> str:
         """:meta private:"""
         bias = self.bias is not None
@@ -505,8 +501,8 @@ class RowShardedLinear(Projection):
             s = f"input_dim={self.sharded_input_dim}"
 
         s = (
-            f"rank={self.gang.rank}, "
-            f"world_size={self.gang.size}, "
+            f"tp_rank={self.gang.rank}, "
+            f"tp_size={self.gang.size}, "
             f"{s}, "
             f"scatter_input={self.scatter_input}, "
             f"reduce_output={self.reduce_output}, "
@@ -525,15 +521,11 @@ class RowShardedLinear(Projection):
 @final
 class TiedProjection(Projection):
     """
-    Applies a linear transformation to incoming data using the weights and bias
+    Applies a linear transformation to input data using the weight and bias
     of another :class:`~torch.nn.Module` instance.
     """
 
     def __init__(self, weight: Parameter, bias: Parameter | None) -> None:
-        """
-        :param weight: The shared weights.
-        :param bias: The shared bias.
-        """
         super().__init__(input_dim=weight.size(1), output_dim=weight.size(0))
 
         self.weight = weight
@@ -546,9 +538,7 @@ class TiedProjection(Projection):
 
 @final
 class IdentityProjection(Projection):
-    """
-    Used to disable a projection layer without changing the module architecture.
-    """
+    """Disables a projection without changing architecture."""
 
     def __init__(self, dim: int) -> None:
         super().__init__(input_dim=dim, output_dim=dim)
