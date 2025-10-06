@@ -17,7 +17,6 @@ dataset:
   valid_split: "dev_other"
   max_audio_len: 800_000
   max_num_elements: 3_200_000
-  num_accumulate: 4 # needs to be in sync with grad_accumulation.num_batches
 
 tokenizer:
   name: "librispeech_asr"

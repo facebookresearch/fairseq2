@@ -13,7 +13,7 @@ from typing_extensions import override
 from fairseq2.datasets import SequenceBatch, register_dataset_family
 from fairseq2.evaluator import Evaluator, EvalUnit
 from fairseq2.metrics import MetricBag
-from fairseq2.model import Model
+from fairseq2.recipe import RecipeModel
 from fairseq2.recipe.base import EvalRecipe, RecipeContext
 from fairseq2.runtime.dependency import DependencyContainer
 
@@ -41,7 +41,7 @@ class Wav2Vec2SslEvalRecipe(EvalRecipe):
 
     @override
     def create_evaluator(self, context: RecipeContext) -> Evaluator:
-        config = context.config_as(Wav2Vec2SslEvalRecipeConfig)
+        config = context.config.as_(Wav2Vec2SslEvalRecipeConfig)
 
         criterion = Wav2Vec2SslCriterion(
             context.model,
@@ -49,12 +49,14 @@ class Wav2Vec2SslEvalRecipe(EvalRecipe):
             config.loss.feature_penalty_weight,
         )
 
-        dataset = context.dataset_as(Wav2Vec2SslDataset)
+        dataset = context.default_dataset.as_(Wav2Vec2SslDataset)
 
         if config.dataset.valid_split is None:
             raise ValueError(
                 "Wav2Vec2SslDatasetConfig.valid_split must be defined for evaluation but is `None`."
             )
+
+        seed = config.common.seed
 
         # Initialize validation units
         eval_units = []
@@ -62,6 +64,8 @@ class Wav2Vec2SslEvalRecipe(EvalRecipe):
         eval_splits = config.dataset.valid_split.split(",")
 
         for split in eval_splits:
+            seed += 1
+
             eval_unit = Wav2Vec2SslEvalUnit(criterion)
             eval_units.append(eval_unit)
 
@@ -88,7 +92,7 @@ class Wav2Vec2SslEvalRecipe(EvalRecipe):
                 # Shuffling and performance parameters
                 example_shuffle_window=config.dataset.example_shuffle_window,
                 batch_shuffle_window=config.dataset.batch_shuffle_window,
-                num_accumulate=config.dataset.num_accumulate,
+                num_accumulate=config.trainer.grad_accumulation.num_batches,
                 num_prefetch=config.dataset.num_prefetch,
                 drop_remainder=config.dataset.drop_remainder,
                 sync_batches=config.dataset.sync_batches,
@@ -120,10 +124,14 @@ class Wav2Vec2SslEvalUnit(EvalUnit[SequenceBatch]):
         self._criterion = criterion
 
     @override
-    def __call__(self, batch: SequenceBatch, metric_bag: MetricBag) -> None:
+    def prepare_metric_bag(self, metric_bag: MetricBag) -> None:
+        self._criterion.prepare_metric_bag(metric_bag)
+
+    @override
+    def process_batch(self, batch: SequenceBatch, metric_bag: MetricBag) -> None:
         self._criterion(batch, metric_bag)
 
     @property
     @override
-    def model(self) -> Model:
+    def model(self) -> RecipeModel:
         return self._criterion.model

@@ -13,13 +13,13 @@ from torch import Tensor
 
 from fairseq2.data.tokenizers import TokenDecoder, Tokenizer
 from fairseq2.datasets import Seq2SeqBatch
-from fairseq2.error import InternalError, raise_operational_system_error
+from fairseq2.error import raise_operational_system_error
 from fairseq2.file_system import FileMode
 from fairseq2.metrics import MetricBag
 from fairseq2.metrics.text import WerMetric
 from fairseq2.nn import BatchLayout
 from fairseq2.nn.utils.padding import pad_seqs
-from fairseq2.recipe.base import RecipeContext
+from fairseq2.recipe import RecipeContext
 
 
 @final
@@ -95,7 +95,7 @@ class WerCalculator:
             hyp_fp = None
 
         return cls(
-            tokenizer=context.tokenizer,
+            tokenizer=context.default_tokenizer,
             ref_output_stream=ref_fp,
             hyp_output_stream=hyp_fp,
         )
@@ -136,9 +136,7 @@ class WerCalculator:
                     self._hyp_output_stream.write(hyp + "\n")
                 self._hyp_output_stream.flush()
         except OSError as ex:
-            raise InternalError(
-                "The generator output cannot be written. See the nested exception for details."
-            ) from ex
+            raise_operational_system_error(ex)
 
     def _generate_hypotheses(
         self, logits: Tensor, logits_layout: BatchLayout
@@ -159,7 +157,7 @@ class WerCalculator:
         return pad_seqs(hyp_seqs, pad_value=self._pad_idx)
 
     def process_metric_values(self, values: MutableMapping[str, object]) -> None:
-        """TODO"""
+        """Optional update of wer/uer metric values if they are already populated"""
         value = values.pop(self._wer_key, None)
         if value is not None:
             uer, wer = cast(tuple[Tensor, Tensor], value)

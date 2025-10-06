@@ -22,7 +22,7 @@ from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
     DataReadError,
-    DatasetOpenError,
+    DatasetError,
     Seq2SeqBatch,
     SyncMode,
 )
@@ -47,9 +47,6 @@ class Wav2Vec2AsrDatasetSection(DatasetSection):
     """The name, path or path to the asset card of the speech dataset."""
 
     family: str = WAV2VEC2_ASR_DATASET  # type: ignore
-
-    path: Path | None = None
-    """The path of the directory with a `.tsv` manifest and `.wrd` text transcriptions. Populated through the asset system via `open_wav2vec2_asr_dataset`."""
 
     train_split: str | None = "train"
     """The name of the training data split. Expecting a {train_split}.tsvfile in the dataset directory. Only `None` during evaluation.
@@ -121,10 +118,6 @@ class Wav2Vec2AsrDatasetSection(DatasetSection):
     max_num_batches: int | None = None
     """The maximum number of batches to return."""
 
-    num_accumulate: int = 4
-    """The number of batches to accumulate in each iteration. This option needs to be
-    synchronized with trainer.grad_accumulation.num_batches (default=1) to work."""
-
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
@@ -142,38 +135,32 @@ class Wav2Vec2AsrDatasetSection(DatasetSection):
 class Wav2Vec2AsrDataset:
     """wav2vec2 ASR dataset with audio decoding and text tokenization support."""
 
-    _name: str
     _manifest_dir: Path
     _splits: set[str]
 
-    def __init__(self, name: str, manifest_dir: Path, splits: set[str]) -> None:
-        self._name = name
+    def __init__(self, manifest_dir: Path, splits: set[str]) -> None:
         self._manifest_dir = manifest_dir
         self._splits = splits
 
     @classmethod
-    def from_path(cls, path: Path, name: str) -> "Wav2Vec2AsrDataset":
+    def from_path(cls, path: Path) -> "Wav2Vec2AsrDataset":
         """Create dataset from path (file or directory)."""
         path = path.expanduser().resolve()
 
         if not path.is_dir():
-            return cls(name, manifest_dir=path.parent, splits={path.stem})
+            return cls(manifest_dir=path.parent, splits={path.stem})
 
         try:
             splits = {f.stem for f in path.glob("*.tsv")}
         except OSError as ex:
-            raise DatasetOpenError(
-                name,
-                f"The splits under the '{path}' directory of the '{name}' dataset cannot be determined. See the nested exception for details.",
+            raise DatasetError(
+                f"The splits under the '{path}' directory cannot be determined. See the nested exception for details."
             ) from ex
 
         if not splits:
-            raise DatasetOpenError(
-                name,
-                f"The '{path}' directory of the '{name}' dataset does not contain any splits.",
-            )
+            raise DatasetError(f"The '{path}' directory does not contain any splits.")
 
-        return cls(name, manifest_dir=path, splits=splits)
+        return cls(manifest_dir=path, splits=splits)
 
     def _retrieve_audio_directory(self, split: str) -> Path | None:
         """
@@ -194,8 +181,6 @@ class Wav2Vec2AsrDataset:
                 header = fp.readline().rstrip()
         except OSError as ex:
             raise DataReadError(
-                self._name,
-                split,
                 f"The {manifest_file} manifest file cannot be read. See the nested exception for details.",
             ) from ex
 
@@ -207,8 +192,6 @@ class Wav2Vec2AsrDataset:
                 raise ValueError
         except ValueError:
             raise DataReadError(
-                self._name,
-                split,
                 f"The first line of the '{manifest_file}' manifest file must point to a data directory.",
             ) from None
 
@@ -297,7 +280,6 @@ class Wav2Vec2AsrDataset:
         example_shuffle_window: int,
         batch_shuffle_window: int,
         # Misc
-        num_accumulate: int,
         num_prefetch: int,
         drop_remainder: bool,
         sync_batches: bool,
@@ -305,12 +287,12 @@ class Wav2Vec2AsrDataset:
         seed: int,
         max_num_batches: int | None,
         cached_fd_count: int,
+        # Provided by TrainerSection
+        num_accumulate: int,
     ) -> DataReader[Seq2SeqBatch]:
         """Create data reader with complete audio+text processing pipeline."""
         if split not in self._splits:
             raise DataReadError(
-                self._name,
-                split,
                 f"Unknown split: {split}. Available splits: {self._splits}",
             )
 
@@ -420,8 +402,6 @@ class Wav2Vec2AsrDataset:
         pipeline = builder.and_return()
 
         return DataPipelineReader[Seq2SeqBatch](
-            self._name,
-            split,
             pipeline,
             gangs,
             num_accumulate=num_accumulate,
@@ -446,8 +426,6 @@ class Wav2Vec2AsrDatasetConfig:
     data: Path = field(default_factory=Path)
 
 
-def open_wav2vec2_asr_dataset(
-    name: str, config: Wav2Vec2AsrDatasetConfig
-) -> Wav2Vec2AsrDataset:
+def open_wav2vec2_asr_dataset(config: Wav2Vec2AsrDatasetConfig) -> Wav2Vec2AsrDataset:
     """The mapping between the dataset asset card definition and the Wav2Vec2AsrDataset."""
-    return Wav2Vec2AsrDataset.from_path(config.data, name)
+    return Wav2Vec2AsrDataset.from_path(config.data)

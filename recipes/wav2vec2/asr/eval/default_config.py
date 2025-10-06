@@ -50,7 +50,7 @@ class Wav2Vec2AsrEvalRecipeConfig:
     gang: GangSection = field(default_factory=lambda: GangSection())
 
     evaluator: EvaluatorSection = field(
-        default_factory=lambda: EvaluatorSection(dtype=torch.float16)
+        default_factory=lambda: EvaluatorSection(amp=True, amp_dtype=torch.float16)
     )
 
     common: CommonSection = field(default_factory=lambda: CommonSection())

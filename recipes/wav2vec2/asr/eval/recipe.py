@@ -11,11 +11,12 @@ from typing import final
 
 from typing_extensions import override
 
-from fairseq2.datasets import Seq2SeqBatch, register_dataset_family
-from fairseq2.evaluator import Evaluator, EvalUnit
+from fairseq2.composition import register_dataset_family
+from fairseq2.datasets import Seq2SeqBatch
 from fairseq2.metrics import MetricBag
-from fairseq2.model import Model
-from fairseq2.recipe.base import EvalRecipe, RecipeContext
+from fairseq2.metrics.text import WerMetric
+from fairseq2.recipe import EvalRecipe, Evaluator, EvalUnit, RecipeContext, RecipeModel
+from fairseq2.recipe.error import RecipeError
 from fairseq2.runtime.dependency import DependencyContainer
 
 from ..criterion import Wav2Vec2AsrCriterion
@@ -25,6 +26,7 @@ from ..data import (
     Wav2Vec2AsrDatasetConfig,
     open_wav2vec2_asr_dataset,
 )
+from ..metrics import add_asr_metrics
 from ..wer_calculator import WerCalculator
 from .default_config import Wav2Vec2AsrEvalRecipeConfig
 
@@ -43,19 +45,21 @@ class Wav2Vec2AsrEvalRecipe(EvalRecipe):
 
     @override
     def create_evaluator(self, context: RecipeContext) -> Evaluator:
-        config = context.config_as(Wav2Vec2AsrEvalRecipeConfig)
+        config = context.config.as_(Wav2Vec2AsrEvalRecipeConfig)
 
         # Evaluation equivalent of the training criterion
         valid_criterion = Wav2Vec2AsrCriterion(
             model=context.model, wer_calculator=WerCalculator.from_context(context)
         )
 
-        dataset = context.dataset_as(Wav2Vec2AsrDataset)
+        dataset = context.default_dataset.as_(Wav2Vec2AsrDataset)
 
         if config.dataset.valid_split is None:
-            raise ValueError(
-                "Wav2Vec2AsrDatasetConfig.valid_split must be defined for evaluation but is `None`."
+            raise RecipeError(
+                "`dataset.valid_split` must be defined for evaluation but is `None`."
             )
+
+        seed = config.common.seed
 
         # Initialize validation units
         eval_units = []
@@ -63,12 +67,14 @@ class Wav2Vec2AsrEvalRecipe(EvalRecipe):
         eval_splits = config.dataset.valid_split.split(",")
 
         for split in eval_splits:
+            seed += 1
+
             eval_unit = Wav2Vec2AsrEvalUnit(valid_criterion)
             eval_units.append(eval_unit)
 
             eval_data_reader = dataset.create_reader(
                 split,
-                context.tokenizer,
+                context.default_tokenizer,
                 context.gangs,
                 min_audio_len=config.dataset.min_audio_len,
                 max_audio_len=config.dataset.max_audio_len,
@@ -78,23 +84,24 @@ class Wav2Vec2AsrEvalRecipe(EvalRecipe):
                 num_seqs_multiple_of=config.dataset.num_seqs_multiple_of,
                 max_num_elements=config.dataset.max_num_elements,
                 # Audio processing parameters
-                dtype=config.evaluator.dtype,
+                dtype=config.dataset.dtype,
                 normalize_audio=config.dataset.normalize_audio,
                 no_padding=config.dataset.no_padding,
                 npc=config.dataset.npc,
                 # Shuffling and performance parameters
                 example_shuffle_window=config.dataset.example_shuffle_window,
                 batch_shuffle_window=config.dataset.batch_shuffle_window,
-                num_accumulate=config.dataset.num_accumulate,
+                num_accumulate=1,
                 num_prefetch=config.dataset.num_prefetch,
                 drop_remainder=config.dataset.drop_remainder,
                 sync_batches=config.dataset.sync_batches,
                 sync_mode=config.dataset.sync_mode,
-                seed=context.next_seed(),
+                seed=seed,
                 max_num_batches=config.dataset.max_num_batches,
                 cached_fd_count=config.dataset.cached_fd_count,
             )
             eval_data_readers.append(eval_data_reader)
+
 
         return context.create_evaluator(eval_units, eval_data_readers)
 
@@ -116,7 +123,13 @@ class Wav2Vec2AsrEvalUnit(EvalUnit[Seq2SeqBatch]):
         self._criterion = scorer
 
     @override
-    def __call__(self, batch: Seq2SeqBatch, metric_bag: MetricBag) -> None:
+    def prepare_metric_bag(self, metric_bag: MetricBag) -> None:
+        add_asr_metrics(metric_bag)
+
+        metric_bag.add("wer", WerMetric())
+
+    @override
+    def process_batch(self, batch: Seq2SeqBatch, metric_bag: MetricBag) -> None:
         self._criterion(batch, metric_bag)
 
     @override
@@ -126,5 +139,5 @@ class Wav2Vec2AsrEvalUnit(EvalUnit[Seq2SeqBatch]):
 
     @property
     @override
-    def model(self) -> Model:
+    def model(self) -> RecipeModel:
         return self._criterion.model

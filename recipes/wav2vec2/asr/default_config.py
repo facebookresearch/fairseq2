@@ -17,6 +17,7 @@ from fairseq2.recipe.config import (
     GangSection,
     GradAccumulationSection,
     LRSchedulerSection,
+    MixedPrecisionConfig,
     ModelSection,
     OptimizerSection,
     ReferenceModelSection,
@@ -69,7 +70,7 @@ class Wav2Vec2AsrRecipeConfig:
     dataset: Wav2Vec2AsrDatasetSection = field(
         default_factory=lambda: Wav2Vec2AsrDatasetSection(
             batch_shuffle_window=1,
-            example_shuffle_window=1,  # TODO: set deterministically for debugging
+            example_shuffle_window=1,
         )
     )
 
@@ -81,7 +82,7 @@ class Wav2Vec2AsrRecipeConfig:
 
     trainer: Wav2Vec2AsrTrainerSection = field(
         default_factory=lambda: Wav2Vec2AsrTrainerSection(
-            dtype=torch.float16,
+            mixed_precision=MixedPrecisionConfig(dtype=torch.float16),
             grad_accumulation=GradAccumulationSection(num_batches=4),
         )
     )
@@ -113,10 +114,10 @@ class Wav2Vec2AsrRecipeConfig:
         default_factory=lambda: RegimeSection(
             num_steps=20_000,
             score_metric="wer",  # defined in wer_calculator.py::WerCalculator::_wer_key
-            validate_after_n_steps=10_000,
+            validate_after_n_steps=9999,
             validate_every_n_steps=1_000,
             publish_metrics_every_n_steps=200,
-            checkpoint_every_n_steps=200_000,  # default 5_000, but checkpointing is stil broken TODO: cirquit
+            checkpoint_every_n_steps=5_000,
         )
     )
 

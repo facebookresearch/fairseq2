@@ -20,6 +20,21 @@ from fairseq2.models.wav2vec2 import (
     Wav2Vec2VectorQuantizerOutput,
 )
 
+@torch.inference_mode()
+def add_ssl_metrics(metric_bag: MetricBag) -> None:
+    metric_bag.add("loss", Mean())
+    metric_bag.add("accuracy", MulticlassAccuracy())
+    metric_bag.add("contrastive_loss", Mean())
+    metric_bag.add("diversity_loss", Mean())
+    metric_bag.add("feature_penalty", Mean())
+    metric_bag.add("code_perplexity", Mean())
+    metric_bag.add("prob_perplexity", Mean())
+    metric_bag.add("temperature", Mean())
+    metric_bag.add("num_examples", Sum())
+    metric_bag.add("num_elements", Sum())
+    metric_bag.add("total_num_examples", Sum())
+    metric_bag.add("total_num_elements", Sum())
+
 
 @torch.inference_mode()
 def update_wav2vec2_loss(
@@ -59,9 +74,9 @@ def update_wav2vec2_quantizer_metrics(
     if not isinstance(output, GumbelWav2Vec2VectorQuantizer):
         return
 
-    metric_bag.get(Mean, "code_perplexity").update(output.code_perplexity)
-    metric_bag.get(Mean, "prob_perplexity").update(output.prob_perplexity)
-    metric_bag.get(Mean, "temperature").update(output.temperature)
+    metric_bag.get("code_perplexity", Mean).update(output.code_perplexity)
+    metric_bag.get("prob_perplexity", Mean).update(output.prob_perplexity)
+    metric_bag.get("temperature", Mean).update(output.temperature)
 
 
 @torch.inference_mode()
@@ -70,5 +85,5 @@ def update_wav2vec2_batch_metrics(metric_bag: MetricBag, batch: SequenceBatch) -
     num_examples = batch.batch_size
     num_elements = batch.num_elements
 
-    metric_bag.get(Sum, "total_num_examples").update(num_examples)
-    metric_bag.get(Sum, "total_num_elements").update(num_elements)
+    metric_bag.get("total_num_examples", Sum).update(num_examples)
+    metric_bag.get("total_num_elements", Sum).update(num_elements)

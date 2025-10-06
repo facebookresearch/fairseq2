@@ -137,10 +137,6 @@ class Wav2Vec2SslDatasetSection(DatasetSection):
     max_num_batches: int | None = None
     """The maximum number of batches to return."""
 
-    num_accumulate: int = 1
-    """The number of batches to accumulate in each iteration. This option needs to be
-    synchronized with trainer.grad_accumulation.num_batches (default=1) to work."""
-
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
@@ -291,7 +287,6 @@ class Wav2Vec2SslDataset:
         example_shuffle_window: int,
         batch_shuffle_window: int,
         # Misc
-        num_accumulate: int,
         num_prefetch: int,
         drop_remainder: bool,
         sync_batches: bool,
@@ -299,6 +294,8 @@ class Wav2Vec2SslDataset:
         seed: int,
         max_num_batches: int | None,
         cached_fd_count: int,
+        # Provided by TrainerSection
+        num_accumulate: int,
     ) -> DataReader[SequenceBatch]:
         """Create data reader with complete audio processing pipeline."""
 
