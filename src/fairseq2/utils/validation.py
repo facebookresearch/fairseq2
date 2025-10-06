@@ -16,7 +16,7 @@ to make its intent more clear.
 
 A typical implementation of a ``validate()`` method looks like the following:
 
-.. code:: python
+.. code-block:: python
 
     from dataclasses import dataclass
 
@@ -49,7 +49,7 @@ that it is validated before setting :attr:`RecipeContext.config`. To manually
 validate an object outside of recipes, :class:`StandardObjectValidator` can
 be used:
 
-.. code:: python
+.. code-block:: python
 
     from dataclasses import dataclass
 

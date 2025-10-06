@@ -26,8 +26,8 @@ def reshard_tensor(
     shard_dims: Mapping[str, int] | None = None,
 ) -> Tensor:
     """
-    Reshards a parameter from a distributed source configuration to a target
-    configuration.
+    Reshards a parameter tensor from a distributed source configuration to a
+    target configuration.
 
     This function handles the complex task of resharding tensors when loading
     checkpoints from one distributed configuration (e.g., 4-way tensor parallelism)
@@ -47,20 +47,20 @@ def reshard_tensor(
     information from ``shard_dims``. See :func:`~fairseq2.nn.get_sharding_dims`
     for more information.
 
-    ``source_splits`` is a 2D list structure ``[tp_idx][dp_idx]`` containing
-    tensor shards from the source checkpoint. The outer list represents tensor
-    parallel shards, inner lists represent data parallel shards.
+    ``source_splits`` is a 2D list structure ``[tp_idx][dp_idx]`` containing the
+    source tensor shards. The outer list specifies tensor parallel shards and
+    inner lists specify data parallel shards.
 
-    ``source_shard_sizes`` specifies the distributed source configuration in the
-    form of ``(tp_size, dp_size)``. Similarly, ``target_shard_sizes`` specifies
-    the target configuration.
+    ``source_shard_sizes`` and ``target_shard_sizes`` specify the distributed
+    source and target configurations respectively in the form of ``(tp_size, dp_size)``.
 
     ``target_shard_ranks`` specifies the ranks of the current process in the
     target configuration in the form of ``(tp_rank, dp_rank)``.
 
-    ``shard_dims`` is the mapping from parameter names to dimensions along which
-    parameters should be sharded for tensor parallelism. Omitted for replicated
-    tensors. See :func:`~fairseq2.nn.get_sharding_dims` for more information.
+    If ``shard_dims`` is provided, it specifies the mapping from parameter names
+    to dimensions along which parameters should be sharded for tensor parallelism.
+    Omitted for replicated tensors. See :func:`~fairseq2.nn.get_sharding_dims`
+    for more information.
 
     ``shard_specs`` is deprecated and will be removed in a future release;
     please use ``shard_dims`` instead.

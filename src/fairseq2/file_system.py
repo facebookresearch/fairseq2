@@ -177,6 +177,6 @@ class LocalFileSystem(FileSystem):
 
 
 def raise_if_not_exists(file_system: FileSystem, path: Path) -> None:
-    """Raises a :class:`FileNotFoundError` if the specified path does not exist."""
+    """Raises a :class:`FileNotFoundError` if ``path`` does not exist."""
     if not file_system.exists(path):
         raise FileNotFoundError(ENOENT, strerror(ENOENT), path)

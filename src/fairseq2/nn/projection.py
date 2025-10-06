@@ -40,12 +40,14 @@ class Projection(Module, ABC):
     @abstractmethod
     def forward(self, x: Tensor) -> Tensor:
         """
-        Projects the input data. ``x`` is expected to be of shape :math:`(*,H_{inp})`,
-        where :math:`H_{inp}` is the input dimensionality of this module.
+        Projects the input data.
 
-        The projected output will have a shape of :math:`(*,H_{out})`, where all
-        but the last dimension are the same shape as the input and :math:`H_{out}`
-        is the output dimensionality of this module.
+        ``x`` must be of shape :math:`(*,H_{inp})`, where :math:`H_{inp}` is the
+        input dimensionality of this module.
+
+        The projected output will be of shape :math:`(*,H_{out})`, where all but
+        the last dimension are the same shape as ``x`` and :math:`H_{out}` is
+        the output dimensionality of this module.
         """
 
     if TYPE_CHECKING:
@@ -77,8 +79,8 @@ class Linear(Projection):
         initialized from :math:`\\mathcal{U}(-\\sqrt{k}, \\sqrt{k})`, where
         :math:`k = \\frac{1}{\\text{input_dim}}`.
 
-        If ``init_fn`` is specified, it will be used to initialize the weight
-        and bias in :meth:`reset_parameters`.
+        If ``init_fn`` is provided, it will be used to initialize the weight and
+        bias in :meth:`reset_parameters`.
         """
         super().__init__(input_dim, output_dim)
 
@@ -134,7 +136,7 @@ class ColumnShardedLinear(Projection, Sharded):
     ) -> ColumnShardedLinear:
         """
         Creates a :class:`ColumnShardedLinear` by sharding ``linear`` over its
-        output dimension using the specified gang.
+        output dimension using ``gang``.
 
         If ``gather_output`` is ``True``, the sharded outputs of all ranks will
         be gathered into a single tensor.
@@ -332,12 +334,12 @@ class RowShardedLinear(Projection, Sharded):
     ) -> RowShardedLinear:
         """
         Creates a :class:`RowShardedLinear` by sharding ``linear`` over its
-        input dimension using the specified gang.
+        input dimension using ``gang``.
 
-        If ``scatter_input`` is ``True``, inputs on all ranks are considered
+        If ``scatter_input`` is ``True``, the inputs on all ranks are considered
         already sharded and won't be scattered.
 
-        If ``reduce_output`` is ``True``, outputs of all ranks will be
+        If ``reduce_output`` is ``True``, the outputs of all ranks will be
         all-reduced into a single tensor.
         """
         device = linear.weight.device
@@ -535,7 +537,7 @@ class TiedProjection(Projection):
 
 @final
 class IdentityProjection(Projection):
-    """Disables a projection layer without changing the architecture."""
+    """Disables a projection without changing architecture."""
 
     def __init__(self, dim: int) -> None:
         super().__init__(input_dim=dim, output_dim=dim)

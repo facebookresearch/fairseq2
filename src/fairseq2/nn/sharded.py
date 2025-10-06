@@ -15,7 +15,7 @@ class Sharded(ABC):
     """
     Indicates that a PyTorch module has tensor-sharded parameters.
 
-    Modules implementing this interface can specify which of their parameters
+    Modules implementing this interface must specify which of their parameters
     are sharded and along which dimensions the sharding occurs.
 
     See :class:`fairseq2.nn.ColumnShardedLinear` for an example.
@@ -34,8 +34,8 @@ class Sharded(ABC):
 
 def get_shard_dims(module: Module) -> dict[str, int]:
     """
-    Recursively traverses the specified module and collects sharding information
-    from all :class:`Sharded` modules.
+    Recursively traverses ``module`` and collects sharding information from all
+    :class:`Sharded` modules.
 
     Returns a dictionary mapping fully qualified parameter names to their
     sharded dimensions.

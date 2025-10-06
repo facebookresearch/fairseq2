@@ -26,8 +26,8 @@ class ModelCheckpointLoader(ABC):
     Represents the abstract base class for model checkpoint loaders.
 
     This class defines the interface for checkpoint loaders that can efficiently
-    load model state by yielding parameters lazily rather than loading
-    everything into memory at once.
+    load model state by yielding parameters lazily rather than loading everything
+    into memory at once.
     """
 
     @abstractmethod
@@ -45,24 +45,25 @@ class ModelCheckpointLoader(ABC):
         """
         Lazily loads parameters from the specified checkpoint path.
 
-        Yields tensors one at a time to minimize memory usage. Supports tensor
-        resharding and optional state dictionary conversion.
+        Yields tensors one at a time to minimize memory usage if the underlying
+        format allows. Supports tensor resharding and optional state dictionary
+        conversion.
 
-        If ``mmap`` is ``True``, uses memory mapping when possible to reduce
-        memory footprint.
+        If ``mmap`` is ``True``, the checkpoint will be memory-mapped when
+        possible to reduce memory footprint.
 
-        If ``restrict`` is ``True``, restricts pickle (if used) to load only
-        tensors and other types that can be safely serialized and deserialized.
+        If ``restrict`` is ``True``, pickle (if used) will be restricted to load
+        only tensors and types that can be safely serialized and deserialized.
 
-        If ``state_dict_converter`` is specified, it will be used to transform
-        the state dictionaries in the checkpoint. Typically used to convert from
-        one format such as Hugging Face Transformers to fairseq2.
+        If ``state_dict_converter`` is provided, it will be used to transform
+        the (sharded) state dictionaries in the checkpoint. Typically used to
+        convert from one format such as Hugging Face Transformers to fairseq2.
 
-        ``shard_dims`` specifies the sharding dimension for each parameter as
-        returned by :func:`~fairseq2.nn.get_sharding_dims`. Along with ``gangs``,
-        this enables on-the-fly parameter sharding/resharding during checkpoint
-        loading. If ``None``, no sharding/resharding will be performed and the
-        full tensor will be loaded.
+        If ``shard_dims`` is provided, it specifies the sharding dimension of
+        each parameter as returned by :func:`~fairseq2.nn.get_sharding_dims`.
+        Along with ``gangs``, they enable on-the-fly parameter resharding during
+        checkpoint loading. If ``None``, no resharding will be performed and
+        full parameters will be loaded.
 
         ``shard_specs`` is deprecated and will be removed in a future release;
         please use ``shard_dims`` instead.
@@ -79,6 +80,8 @@ class ModelCheckpointLoader(ABC):
 
 
 class ModelCheckpointError(Exception):
+    """Raised when a model checkpoint is not valid."""
+
     def __init__(self, path: Path, message: str) -> None:
         super().__init__(message)
 

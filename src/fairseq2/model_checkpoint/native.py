@@ -33,7 +33,7 @@ class NativeModelCheckpointLoader(ModelCheckpointLoader):
     Loads native fairseq2 checkpoints.
 
     The native fairseq2 format is optimized for efficient storage and loading of
-    model checkpoints with built-in support for distributed metadata.
+    model checkpoints in distributed configurations.
     """
 
     def __init__(self, file_system: FileSystem, tensor_loader: TensorLoader) -> None:

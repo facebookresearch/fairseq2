@@ -32,8 +32,8 @@ class Embedding(Module, ABC):
         self, num_embeddings: int, embed_dim: int, pad_idx: int | None
     ) -> None:
         """
-        If ``pad_idx`` is specified, the entry at that index won't contribute to
-        the gradient and therefore won't be updated during training.
+        If ``pad_idx`` is provided, the embedding at the specified index won't
+        contribute to the gradient and therefore won't be updated during training.
         """
         super().__init__()
 
@@ -44,11 +44,12 @@ class Embedding(Module, ABC):
     @abstractmethod
     def forward(self, x: Tensor) -> Tensor:
         """
-        Returns the embeddings corresponding to the specified indices. ``x`` can
-        have any shape.
+        Returns the embeddings corresponding to the specified indices.
 
-        The return value will have a shape of :math:`(*,E)`, where :math:`*` is
-        the input shape and :math:`E` is the dimensionality of the embeddings.
+        ``x`` can have any shape.
+
+        The return value will be of shape :math:`(*,E)`, where :math:`*` is the
+        input shape and :math:`E` is the dimensionality of the embeddings.
         """
 
     if TYPE_CHECKING:
@@ -70,7 +71,7 @@ class StandardEmbedding(Embedding):
         dtype: DataType | None = None,
     ) -> None:
         """
-        If ``init_fn`` is specified, it will be used to initialize the embedding
+        If ``init_fn`` is provided, it will be used to initialize the embedding
         table in :meth:`reset_parameters`.
         """
         super().__init__(num_embeddings, embed_dim, pad_idx)
@@ -123,7 +124,7 @@ class VocabShardedEmbedding(Embedding, Sharded):
     def from_embedding(embed: StandardEmbedding, gang: Gang) -> VocabShardedEmbedding:
         """
         Creates a :class:`VocabShardedEmbedding` by sharding ``embed`` over its
-        vocabulary dimension using the specified gang.
+        vocabulary dimension using ``gang``.
         """
         device = embed.weight.device
 
@@ -295,7 +296,7 @@ class ShardedEmbedding(Embedding, Sharded):
     def from_embedding(embed: StandardEmbedding, gang: Gang) -> ShardedEmbedding:
         """
         Creates a :class:`ShardedEmbedding` by sharding ``embed`` over its
-        embedding dimension using the specified gang.
+        embedding dimension using ``gang``.
         """
         device = embed.weight.device
 

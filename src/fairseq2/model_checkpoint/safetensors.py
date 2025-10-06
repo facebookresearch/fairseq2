@@ -34,7 +34,7 @@ class SafetensorsCheckpointLoader(ModelCheckpointLoader):
 
     This loader supports both single-file and multi-file Safetensors checkpoints
     where multi-file checkpoints typically follow the "model-x-of-N.safetensors"
-    naming pattern as in Hugging Face Hub.
+    pattern as in Hugging Face Hub.
     """
 
     def __init__(

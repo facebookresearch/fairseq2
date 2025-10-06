@@ -7,14 +7,14 @@
 """
 This module provides a memory-efficient model checkpoint loading API that
 supports lazy loading of various checkpoint formats while also supporting
-distributed scenarios with tensor sharding and resharding capabilities.
+distributed configurations with tensor resharding capability.
 
 The loaders support:
 
 - Memory-efficient lazy loading to avoid loading entire checkpoints into
-  memory at once. In particular relevant for large checkpoints that may not
-  fit entirely in memory.
-- On-the-fly tensor resharding across different gang configurations.
+  memory at once (if the underlying format allows). In particular relevant for
+  large checkpoints that may not fit entirely in memory.
+- On-the-fly tensor resharding across different distributed configurations.
 - Optional memory mapping for reduced memory footprint.
 - State dict conversion for format compatibility.
 - Automatic format detection.
