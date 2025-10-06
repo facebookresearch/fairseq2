@@ -18,6 +18,7 @@ from fairseq2.data.data_pipeline import (
 )
 from fairseq2.data.text import StrSplitter, read_text
 from fairseq2.data.tokenizers import Tokenizer
+from fairseq2.data_type import DataType
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
@@ -62,6 +63,9 @@ class Wav2Vec2AsrDatasetSection(DatasetSection):
     max_audio_len: int = 800_000
     """The maximum audio sequence length."""
 
+    dtype: DataType = torch.float16
+    """Numerical precision for audio decoding. Overridden to `torch.float32` when ``config.normalize_audio = True``."""
+
     # Batching parameters
     batching_strategy: BatchingStrategy = BatchingStrategy.LENGTH
     """Batching strategy is defined through an enum:
@@ -87,7 +91,7 @@ class Wav2Vec2AsrDatasetSection(DatasetSection):
 
     # Audio processing
     normalize_audio: bool = False
-    """If ``True``, normalizes audio to have zero mean and unit variance."""
+    """If ``True``, normalizes audio to have zero mean and unit variance and uses torch.float32 during audio decoding (overriding ``config.dtype``)."""
 
     no_padding: bool = True
     """If ``True``, all elements in the batch will be truncated to by batch minimal length.

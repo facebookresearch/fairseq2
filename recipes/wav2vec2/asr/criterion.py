@@ -13,8 +13,8 @@ from torch import Tensor
 
 from fairseq2.datasets import Seq2SeqBatch
 from fairseq2.metrics import MetricBag
-from fairseq2.recipe import RecipeModel
 from fairseq2.nn import BatchLayout
+from fairseq2.recipe import RecipeModel
 
 # isort: split
 

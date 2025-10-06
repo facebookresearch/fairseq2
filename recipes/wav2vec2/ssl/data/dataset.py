@@ -18,11 +18,12 @@ from fairseq2.data.data_pipeline import (
     DataPipelineBuilder,
 )
 from fairseq2.data.text import StrSplitter, read_text
+from fairseq2.data_type import DataType
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
     DataReadError,
-    DatasetOpenError,
+    DatasetError,
     SequenceBatch,
     SyncMode,
 )
@@ -45,9 +46,6 @@ class Wav2Vec2SslDatasetSection(DatasetSection):
 
     family: str = WAV2VEC2_SSL_DATASET  # type: ignore
 
-    path: Path | None = None
-    """The path of the directory with a `.tsv` manifest for every split. Populated through the asset system via `open_wav2vec2_ssl_dataset`."""
-
     train_split: str | None = "train"
     """The name of the training data split. Expecting a {train_split}.tsvfile in the dataset directory. Only `None` during evaluation.
     """
@@ -61,6 +59,9 @@ class Wav2Vec2SslDatasetSection(DatasetSection):
 
     max_audio_len: int = 250_000
     """The maximum audio sequence length."""
+
+    dtype: DataType = torch.float16
+    """Numerical precision for audio decoding. Overridden to `torch.float32` when ``config.normalize_audio = True``."""
 
     # Batching configuration
     batching_strategy: BatchingStrategy = BatchingStrategy.LENGTH
@@ -86,7 +87,7 @@ class Wav2Vec2SslDatasetSection(DatasetSection):
     """
 
     normalize_audio: bool = False
-    """If ``True``, normalizes audio to have zero mean and unit variance."""
+    """If ``True``, normalizes audio to have zero mean and unit variance and uses torch.float32 during audio decoding (overriding ``config.dtype``)."""
 
     use_fbank: bool = False
     """If ``True``, use fbank features instead of waveform."""
@@ -154,35 +155,32 @@ class Wav2Vec2SslDatasetSection(DatasetSection):
 class Wav2Vec2SslDataset:
     """wav2vec2 training dataset with audio decoding support."""
 
-    _name: str
     _manifest_dir: Path
     _splits: set[str]
 
-    def __init__(self, name: str, manifest_dir: Path, splits: set[str]) -> None:
-        self._name = name
+    def __init__(self, manifest_dir: Path, splits: set[str]) -> None:
         self._manifest_dir = manifest_dir
         self._splits = splits
 
     @classmethod
-    def from_path(cls, path: Path, name: str) -> "Wav2Vec2SslDataset":
+    def from_path(cls, path: Path) -> "Wav2Vec2SslDataset":
         """Create dataset from path (file or directory)."""
         path = path.expanduser().resolve()
 
         if not path.is_dir():
-            return cls(name, manifest_dir=path.parent, splits={path.stem})
+            return cls(manifest_dir=path.parent, splits={path.stem})
 
         try:
             splits = {f.stem for f in path.glob("*.tsv")}
         except OSError as ex:
-            raise DatasetOpenError(
-                name,
-                f"The splits under the '{path}' directory of the '{name}' dataset cannot be determined. See the nested exception for details.",
+            raise DatasetError(
+                f"The splits under the '{path}' directory of the dataset cannot be determined. See the nested exception for details.",
             ) from ex
 
         if not splits:
-            raise DatasetOpenError(name, f"No .tsv files found in {path}")
+            raise DatasetError(f"No .tsv files found in {path}")
 
-        return cls(name, manifest_dir=path, splits=splits)
+        return cls(manifest_dir=path, splits=splits)
 
     def _retrieve_audio_directory(self, split: str) -> Path | None:
         """
@@ -203,8 +201,6 @@ class Wav2Vec2SslDataset:
                 header = fp.readline().rstrip()
         except OSError as ex:
             raise DataReadError(
-                self._name,
-                split,
                 f"The {manifest_file} manifest file cannot be read. See the nested exception for details.",
             ) from ex
 
@@ -216,8 +212,6 @@ class Wav2Vec2SslDataset:
                 raise ValueError
         except ValueError:
             raise DataReadError(
-                self._name,
-                split,
                 f"The first line of {manifest_file} must point to a data directory.",
             ) from None
 
@@ -302,9 +296,7 @@ class Wav2Vec2SslDataset:
         if split not in self._splits:
             raise ValueError(f"Unknown split '{split}'. Available: {self._splits}")
 
-        log.info(
-            f"Creating a reader for the <{split}> split of the <{self._name}> dataset."
-        )
+        log.info(f"Creating a reader for the <{split}> split of the dataset.")
 
         # Read audio directory path from the first line of the manifest
         audio_dir = self._retrieve_audio_directory(split)
@@ -390,8 +382,6 @@ class Wav2Vec2SslDataset:
         pipeline = builder.and_return()
 
         return DataPipelineReader[SequenceBatch](
-            self._name,
-            split,
             pipeline,
             gangs,
             num_accumulate=num_accumulate,
@@ -416,8 +406,6 @@ class Wav2Vec2SslDatasetConfig:
     data: Path = field(default_factory=Path)
 
 
-def open_wav2vec2_ssl_dataset(
-    name: str, config: Wav2Vec2SslDatasetConfig
-) -> Wav2Vec2SslDataset:
+def open_wav2vec2_ssl_dataset(config: Wav2Vec2SslDatasetConfig) -> Wav2Vec2SslDataset:
     """The mapping between the dataset asset card definition and the Wav2Vec2SslDataset."""
-    return Wav2Vec2SslDataset.from_path(config.data, name)
+    return Wav2Vec2SslDataset.from_path(config.data)

@@ -38,7 +38,6 @@ class Wav2Vec2AsrEvalRecipeConfig:
             train_split=None,
             valid_split="test_clean",
             batch_shuffle_window=1,
-            num_accumulate=1,
             sync_mode=SyncMode.UNTIL_LAST,
         )
     )

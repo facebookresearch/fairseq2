@@ -12,4 +12,4 @@ model:
 dataset:
   name: "librispeech_960h"
   train_split: "train"
-  valid_split: "valid" # multiple splits supported ("valid,test-clean")
+  valid_split: "valid"

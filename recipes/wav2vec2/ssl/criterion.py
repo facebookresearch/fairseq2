@@ -13,8 +13,8 @@ from torch import Tensor
 
 from fairseq2.datasets import SequenceBatch
 from fairseq2.metrics import MetricBag
-from fairseq2.recipe import RecipeModel
 from fairseq2.models.wav2vec2 import Wav2Vec2Loss, Wav2Vec2Model, Wav2Vec2Output
+from fairseq2.recipe import RecipeModel
 
 from .metrics import (
     add_ssl_metrics,
@@ -45,7 +45,10 @@ class Wav2Vec2SslCriterion:
     _features_penalty_weight: float
 
     def __init__(
-        self, model: RecipeModel, diversity_weight: float, features_penalty_weight: float
+        self,
+        model: RecipeModel,
+        diversity_weight: float,
+        features_penalty_weight: float,
     ) -> None:
         if not isinstance(model.base_module, Wav2Vec2Model):
             raise TypeError(

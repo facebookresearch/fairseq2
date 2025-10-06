@@ -10,10 +10,10 @@ from typing import final
 
 from typing_extensions import override
 
-from fairseq2.datasets import SequenceBatch, register_dataset_family
-from fairseq2.evaluator import Evaluator, EvalUnit
+from fairseq2.composition import register_dataset_family
+from fairseq2.datasets import SequenceBatch
 from fairseq2.metrics import MetricBag
-from fairseq2.recipe import RecipeModel
+from fairseq2.recipe import Evaluator, EvalUnit, RecipeModel
 from fairseq2.recipe.base import EvalRecipe, RecipeContext
 from fairseq2.runtime.dependency import DependencyContainer
 
@@ -80,7 +80,7 @@ class Wav2Vec2SslEvalRecipe(EvalRecipe):
                 num_seqs_multiple_of=config.dataset.num_seqs_multiple_of,
                 max_num_elements=config.dataset.max_num_elements,
                 # Audio processing parameters
-                dtype=config.evaluator.dtype,
+                dtype=config.dataset.dtype,
                 normalize_audio=config.dataset.normalize_audio,
                 use_fbank=config.dataset.use_fbank,
                 no_padding=config.dataset.no_padding,
@@ -92,12 +92,12 @@ class Wav2Vec2SslEvalRecipe(EvalRecipe):
                 # Shuffling and performance parameters
                 example_shuffle_window=config.dataset.example_shuffle_window,
                 batch_shuffle_window=config.dataset.batch_shuffle_window,
-                num_accumulate=config.trainer.grad_accumulation.num_batches,
+                num_accumulate=1,
                 num_prefetch=config.dataset.num_prefetch,
                 drop_remainder=config.dataset.drop_remainder,
                 sync_batches=config.dataset.sync_batches,
                 sync_mode=config.dataset.sync_mode,
-                seed=context.next_seed(),
+                seed=seed,
                 max_num_batches=config.dataset.max_num_batches,
                 cached_fd_count=config.dataset.cached_fd_count,
             )

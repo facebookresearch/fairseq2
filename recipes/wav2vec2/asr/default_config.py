@@ -13,9 +13,8 @@ from fairseq2.recipe.config import (
     TRI_STAGE_LR,
     AdamWConfig,
     CommonSection,
-    CompileOptionsSection,
     GangSection,
-    GradAccumulationSection,
+    GradAccumulationConfig,
     LRSchedulerSection,
     MixedPrecisionConfig,
     ModelSection,
@@ -53,8 +52,6 @@ class Wav2Vec2AsrRecipeConfig:
         default_factory=lambda: ModelSection(
             family="wav2vec2_asr",
             arch="base_10h",
-            compile=False,
-            compile_options=CompileOptionsSection(fullgraph=False, dynamic=False),
         )
     )
 
@@ -62,8 +59,6 @@ class Wav2Vec2AsrRecipeConfig:
     pretrained_model: ReferenceModelSection = field(
         default_factory=lambda: ReferenceModelSection(
             name="wav2vec2_base",
-            compile=False,
-            compile_options=CompileOptionsSection(fullgraph=False, dynamic=False),
         )
     )
 
@@ -83,7 +78,7 @@ class Wav2Vec2AsrRecipeConfig:
     trainer: Wav2Vec2AsrTrainerSection = field(
         default_factory=lambda: Wav2Vec2AsrTrainerSection(
             mixed_precision=MixedPrecisionConfig(dtype=torch.float16),
-            grad_accumulation=GradAccumulationSection(num_batches=4),
+            grad_accumulation=GradAccumulationConfig(num_batches=4),
         )
     )
 

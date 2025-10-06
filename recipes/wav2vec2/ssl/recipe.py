@@ -11,13 +11,12 @@ from typing import final
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.datasets import SequenceBatch, SyncMode, register_dataset_family
-from fairseq2.evaluator import EvalUnit
+from fairseq2.composition import register_dataset_family
+from fairseq2.datasets import SequenceBatch, SyncMode
 from fairseq2.metrics import MetricBag
-from fairseq2.recipe import RecipeModel
+from fairseq2.recipe import EvalUnit, RecipeModel, Trainer, TrainUnit
 from fairseq2.recipe.base import RecipeContext, TrainRecipe
 from fairseq2.runtime.dependency import DependencyContainer
-from fairseq2.trainer import Trainer, TrainUnit
 
 from .criterion import Wav2Vec2SslCriterion
 from .data import (
@@ -72,7 +71,7 @@ class Wav2Vec2SslRecipe(TrainRecipe):
             num_seqs_multiple_of=config.dataset.num_seqs_multiple_of,
             max_num_elements=config.dataset.max_num_elements,
             # Audio processing parameters
-            dtype=config.trainer.dtype,
+            dtype=config.dataset.dtype,
             normalize_audio=config.dataset.normalize_audio,
             use_fbank=config.dataset.use_fbank,
             no_padding=config.dataset.no_padding,

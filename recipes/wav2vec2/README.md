@@ -25,14 +25,16 @@ Both recipes use a manifest-based dataset reader which expects to find a `{split
 
 Check the dataset implementation for more details.
 
-For minimal reproduction, add a path in the librilight.yaml and librispeech.yaml asset cards that point to their manifests, e.g.:
+For minimal reproduction, add a path in the librilight.yaml and librispeech.yaml asset cards that point to the directory of their manifests, e.g.:
 
 ```yaml
 name: librilight_asr_10h
 dataset_family: wav2vec2_asr
 dataset_config:
-  data: "/my/path/to/my/librilight/manifest/train.tsv"
+  data: "/my/path/to/my/librilight/manifest/"
 ```
+
+For example, the `train` split will be expected to exist at `/my/path/to/my/librilight/manifest/{train}.tsv`.
 
 **Code Organization & How To Run**
 

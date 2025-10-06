@@ -40,7 +40,6 @@ class Wav2Vec2SslEvalRecipeConfig:
             train_split=None,
             valid_split="valid",
             batch_shuffle_window=1,
-            num_accumulate=1,
             sync_mode=SyncMode.UNTIL_LAST,
         )
     )

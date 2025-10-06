@@ -102,7 +102,6 @@ class Wav2Vec2AsrEvalRecipe(EvalRecipe):
             )
             eval_data_readers.append(eval_data_reader)
 
-
         return context.create_evaluator(eval_units, eval_data_readers)
 
     @property

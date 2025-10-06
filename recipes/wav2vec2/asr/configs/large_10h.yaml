@@ -25,13 +25,14 @@ optimizer:
     lr: 1e-04
 
 trainer:
-  dtype: "torch.float16"
+  mixed_precision:
+    dtype: "torch.float16"
   freeze_encoder_for_n_steps: 10_000
   grad_accumulation:
-    num_batches: 5 # needs to be in sync with dataset.num_accumulate
+    num_batches: 5
 
 regime:
   num_steps: 20_000
-  validate_after_n_steps: 9999
+  validate_after_n_steps: 10_000
   validate_every_n_steps: 1_000
   publish_metrics_every_n_steps: 200

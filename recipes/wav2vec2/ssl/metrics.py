@@ -14,11 +14,11 @@ from torcheval.metrics import MulticlassAccuracy
 from fairseq2.datasets import SequenceBatch
 from fairseq2.metrics import Mean, MetricBag, Sum
 from fairseq2.models.wav2vec2 import (
-    GumbelWav2Vec2VectorQuantizer,
     Wav2Vec2Loss,
     Wav2Vec2Output,
     Wav2Vec2VectorQuantizerOutput,
 )
+
 
 @torch.inference_mode()
 def add_ssl_metrics(metric_bag: MetricBag) -> None:
@@ -30,8 +30,6 @@ def add_ssl_metrics(metric_bag: MetricBag) -> None:
     metric_bag.add("code_perplexity", Mean())
     metric_bag.add("prob_perplexity", Mean())
     metric_bag.add("temperature", Mean())
-    metric_bag.add("num_examples", Sum())
-    metric_bag.add("num_elements", Sum())
     metric_bag.add("total_num_examples", Sum())
     metric_bag.add("total_num_elements", Sum())
 
@@ -44,12 +42,12 @@ def update_wav2vec2_loss(
     n = num_targets
     d = num_targets * math.log(2)
 
-    metric_bag.get(Mean, "loss").update(loss.aggregate.detach() / d, weight=n)
-    metric_bag.get(Mean, "contrastive_loss").update(
+    metric_bag.get("loss", Mean).update(loss.aggregate.detach() / d, weight=n)
+    metric_bag.get("contrastive_loss", Mean).update(
         loss.contrastive.detach() / d, weight=n
     )
-    metric_bag.get(Mean, "diversity_loss").update(loss.diversity.detach() / d, weight=n)
-    metric_bag.get(Mean, "feature_penalty").update(
+    metric_bag.get("diversity_loss", Mean).update(loss.diversity.detach() / d, weight=n)
+    metric_bag.get("feature_penalty", Mean).update(
         loss.features_penalty.detach() / d, weight=n
     )
 
@@ -63,7 +61,7 @@ def update_wav2vec2_accuracy(metric_bag: MetricBag, output: Wav2Vec2Output) -> N
     # wav2vec2 treats logit at index 0 as the target.
     targets = torch.zeros_like(predictions)
 
-    metric_bag.get(MulticlassAccuracy, "accuracy").update(predictions, targets)
+    metric_bag.get("accuracy", MulticlassAccuracy).update(predictions, targets)
 
 
 @torch.inference_mode()
@@ -71,9 +69,6 @@ def update_wav2vec2_quantizer_metrics(
     metric_bag: MetricBag, output: Wav2Vec2VectorQuantizerOutput
 ) -> None:
     """Update wav2vec2 quantizer metrics."""
-    if not isinstance(output, GumbelWav2Vec2VectorQuantizer):
-        return
-
     metric_bag.get("code_perplexity", Mean).update(output.code_perplexity)
     metric_bag.get("prob_perplexity", Mean).update(output.prob_perplexity)
     metric_bag.get("temperature", Mean).update(output.temperature)

@@ -120,7 +120,7 @@ class WerCalculator:
         refs = [self._text_decoder(s) for s in ref_seqs]
         hyps = [self._text_decoder(s) for s in hyp_seqs]
 
-        metric_bag.get(WerMetric, self._wer_key).update(
+        metric_bag.get(self._wer_key, WerMetric).update(
             refs, ref_seqs, ref_seqs_layout, hyps, hyp_seqs, hyp_seqs_layout
         )
 

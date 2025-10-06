@@ -14,10 +14,11 @@ model:
 
 dataset:
   name: "librispeech_960h"
-  valid_split: "valid" # multiple splits supported ("valid,test-clean")
+  valid_split: "valid"
 
 evaluator:
-  dtype: "torch.float16"
+  amp: True
+  amp_dtype: "torch.float16"
 
 loss:
   diversity_loss_weight: 0.1

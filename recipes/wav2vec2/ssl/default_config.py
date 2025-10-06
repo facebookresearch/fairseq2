@@ -13,7 +13,6 @@ from fairseq2.recipe.config import (
     POLYNOMIAL_DECAY_LR,
     AdamWConfig,
     CommonSection,
-    CompileOptionsSection,
     GangSection,
     LRSchedulerSection,
     MixedPrecisionConfig,
@@ -39,8 +38,6 @@ class Wav2Vec2SslRecipeConfig:
         default_factory=lambda: ModelSection(
             family="wav2vec2",
             arch="base",
-            compile=False,
-            compile_options=CompileOptionsSection(fullgraph=False, dynamic=False),
         )
     )
 
