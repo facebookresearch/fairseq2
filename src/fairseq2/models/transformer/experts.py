@@ -21,6 +21,85 @@ from fairseq2.nn.utils.module import to_empty
 from fairseq2.ops.tensor_parallel import reduce, reduce_on_backward
 
 
+def create_expert_glu_layers(
+    module: Module,
+    num_local_experts: int,
+    model_dim: int,
+    inner_dim: int,
+    activation: Module | None = None,
+    *,
+    device: Device | None = None,
+    dtype: DataType | None = None,
+) -> None:
+    """Create GLU-based expert layers as attributes on the given module.
+
+    The layers are implemented as 3-D tensors used in BMM.
+
+    TODO(mgleize): For finetuning, implement a version of this
+    where expert dim and dim 1 are folded (should be transparent for the caller).
+
+    Cf:
+    We intentionally fold the expert weights' ``num_local_experts`` dim-0
+    into dim-1 at construction time and unfold them during forward for
+    improved efficiency with FSDPv2, which does dim-0 per-parameter
+    sharding. Without this, we would have highly uneven sharding across DP
+    since local ``num_local_experts`` is typically much smaller than DP size.
+
+    :param module:
+        The module to add the layers to.
+    :param num_local_experts:
+        The number of local experts.
+    :param model_dim:
+        The input and output dimension.
+    :param inner_dim:
+        The inner dimension.
+    :param activation:
+        The activation to apply after the gate projection.
+    :param device:
+        The device on which to initialize the layers.
+    :param dtype:
+        The data type of the layers.
+    """
+    module.gate_proj = Parameter(
+        torch.empty(
+            (
+                num_local_experts,
+                model_dim,
+                inner_dim,
+            ),
+            device=device,
+            dtype=dtype,
+        )
+    )
+    module.inner_proj = Parameter(
+        torch.empty(
+            (
+                num_local_experts,
+                model_dim,
+                inner_dim,
+            ),
+            device=device,
+            dtype=dtype,
+        )
+    )
+    module.output_proj = Parameter(
+        torch.empty(
+            (
+                num_local_experts,
+                inner_dim,
+                model_dim,
+            ),
+            device=device,
+            dtype=dtype,
+        )
+    )
+
+    if activation is None:
+        module.activation = SiLU()
+    else:
+        module.activation = activation
+
+
 class ExpertNetwork(Module, ABC):
     def __init__(
         self,
@@ -61,79 +140,17 @@ class ExpertNetwork(Module, ABC):
         __call__ = forward
 
 
-class _GLUExpertNetwork:
-    """A mixin for GLU-based experts.
-    Their layers are implemented as 3-D tensors used in BMM.
-    """
-
-    def _create_layers(
-        self,
-        num_local_experts: int,
-        model_dim: int,
-        inner_dim: int,
-        activation: Module | None = None,
-        *,
-        device: Device | None = None,
-        dtype: DataType | None = None,
-    ) -> None:
-        """
-        TODO(mgleize): For finetuning, implement a version of this
-        where expert dim and dim 1 are folded (should be transparent for the caller).
-
-        Cf:
-        We intentionally fold the expert weights' ``num_local_experts`` dim-0
-        into dim-1 at construction time and unfold them during forward for
-        improved efficiency with FSDPv2, which does dim-0 per-parameter
-        sharding. Without this, we would have highly uneven sharding across DP
-        since local ``num_local_experts`` is typically much smaller than DP size.
-        """
-        self.gate_proj: Parameter = Parameter(
-            torch.empty(
-                (
-                    num_local_experts,
-                    model_dim,
-                    inner_dim,
-                ),
-                device=device,
-                dtype=dtype,
-            )
-        )
-        self.inner_proj: Parameter = Parameter(
-            torch.empty(
-                (
-                    num_local_experts,
-                    model_dim,
-                    inner_dim,
-                ),
-                device=device,
-                dtype=dtype,
-            )
-        )
-        self.output_proj: Parameter = Parameter(
-            torch.empty(
-                (
-                    num_local_experts,
-                    inner_dim,
-                    model_dim,
-                ),
-                device=device,
-                dtype=dtype,
-            )
-        )
-
-        self.activation: Module
-        if activation is None:
-            self.activation = SiLU()
-        else:
-            self.activation = activation
-
-
 @final
-class GroupedExpertNetwork(ExpertNetwork, _GLUExpertNetwork):
+class GroupedExpertNetwork(ExpertNetwork):
     """This class implements a grouped experts layer as used in Mixture of Experts.
     Each expert is a variant of the Gated Linear Units network.
     See more details in https://arxiv.org/pdf/2002.05202.
     """
+
+    gate_proj: Parameter
+    inner_proj: Parameter
+    output_proj: Parameter
+    activation: Module
 
     def __init__(
         self,
@@ -157,7 +174,8 @@ class GroupedExpertNetwork(ExpertNetwork, _GLUExpertNetwork):
         """
         super().__init__(num_experts, model_dim, inner_dim)
 
-        self._create_layers(
+        create_expert_glu_layers(
+            self,
             num_experts,
             model_dim,
             inner_dim,
@@ -183,10 +201,15 @@ class GroupedExpertNetwork(ExpertNetwork, _GLUExpertNetwork):
 
 
 @final
-class TPShardedExpertNetwork(ExpertNetwork, _GLUExpertNetwork):
+class TPShardedExpertNetwork(ExpertNetwork):
     """
     This class implements grouped experts sharded in one tensor-parallel dimension only.
     """
+
+    gate_proj: Parameter
+    inner_proj: Parameter
+    output_proj: Parameter
+    activation: Module
 
     @staticmethod
     def from_grouped_expert_network(
@@ -274,7 +297,8 @@ class TPShardedExpertNetwork(ExpertNetwork, _GLUExpertNetwork):
                 "`device` must either match `gang.device` or must be of type `meta`."
             )
 
-        self._create_layers(
+        create_expert_glu_layers(
+            self,
             num_experts,
             model_dim,
             self.sharded_inner_dim,
