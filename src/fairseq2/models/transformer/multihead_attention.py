@@ -21,19 +21,23 @@ from typing_extensions import override
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.error import NotSupportedError
+from fairseq2.gang import Gangs
 from fairseq2.models.transformer.attention_bias import AttentionBiasCache
 from fairseq2.models.transformer.sdpa.base import SDPA
 from fairseq2.nn import (
     BatchLayout,
+    ColumnShardedLinear,
     IncrementalState,
     IncrementalStateBag,
     LayerNorm,
     Linear,
     PositionEncoder,
     Projection,
+    RowShardedLinear,
 )
 from fairseq2.nn.utils.module import get_name_or_self
 from fairseq2.ops import repeat_interleave
+from fairseq2.utils.warn import _warn_deprecated
 
 
 class MultiheadAttention(Module, ABC):
@@ -168,6 +172,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         bias: bool = True,
         output_proj_bias: bool | None = None,
         state_factory: AttentionStateFactory | None = None,
+        gangs: Gangs | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -281,6 +286,10 @@ class StandardMultiheadAttention(MultiheadAttention):
             if q_proj is None or k_proj is None or v_proj is None:
                 raise ValueError("`q_proj`, `k_proj`, `v_proj` must be all specified.")
 
+            _warn_deprecated(
+                "`q_proj`, `k_proj`, and `v_proj` parameters of `StandardMultiheadAttention` are deprecated and will be removed in fairseq2 v0.12."
+            )
+
             if qkv_proj_init_fn is not None:
                 raise ValueError(
                     "`qkv_proj_init_fn` must not be specified when `q_proj`, `k_proj`, `v_proj` are specified."
@@ -307,9 +316,41 @@ class StandardMultiheadAttention(MultiheadAttention):
                     f"`v_proj.output_dim` must be a multiple of `num_key_value_heads` ({num_key_value_heads}), but is {v_proj.output_dim} instead."
                 )
 
-        self.q_proj = q_proj
-        self.k_proj = k_proj
-        self.v_proj = v_proj
+        self.q_proj: Projection
+        self.k_proj: Projection
+        self.v_proj: Projection
+
+        if gangs is None or gangs.tp.size == 1:
+            self.q_proj = q_proj
+            self.k_proj = k_proj
+            self.v_proj = v_proj
+        else:
+            if isinstance(q_proj, Linear):
+                self.q_proj = ColumnShardedLinear.from_linear(
+                    q_proj, gangs.tp, gather_output=False
+                )
+            else:
+                self.q_proj = q_proj
+
+            del q_proj
+
+            if isinstance(k_proj, Linear):
+                self.k_proj = ColumnShardedLinear.from_linear(
+                    k_proj, gangs.tp, gather_output=False
+                )
+            else:
+                self.k_proj = k_proj
+
+            del k_proj
+
+            if isinstance(v_proj, Linear):
+                self.v_proj = ColumnShardedLinear.from_linear(
+                    v_proj, gangs.tp, gather_output=False
+                )
+            else:
+                self.v_proj = v_proj
+
+            del v_proj
 
         self.q_norm: LayerNorm | None
         self.k_norm: LayerNorm | None
@@ -333,7 +374,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         self.sdpa = sdpa
 
-        v_dim = v_proj.output_dim * self.num_query_groups
+        v_dim = self.v_proj.output_dim * self.num_query_groups
 
         if output_proj is None:
             if output_proj_bias is None:
@@ -348,6 +389,10 @@ class StandardMultiheadAttention(MultiheadAttention):
                 dtype=dtype,
             )
         else:
+            _warn_deprecated(
+                "`output_proj` parameter of `StandardMultiheadAttention` is deprecated and will be removed in fairseq2 v0.12."
+            )
+
             if output_proj_init_fn is not None:
                 raise ValueError(
                     "`output_proj_init_fn` must not be specified when `output_proj` is specified."
@@ -363,7 +408,19 @@ class StandardMultiheadAttention(MultiheadAttention):
                     f"`output_proj.output_dim` must be equal to `model_dim` ({model_dim}), but is {output_proj.output_dim} instead."
                 )
 
-        self.output_proj = output_proj
+        self.output_proj: Projection
+
+        if gangs is None or gangs.tp.size == 1:
+            self.output_proj = output_proj
+        else:
+            if isinstance(output_proj, Linear):
+                self.output_proj = RowShardedLinear.from_linear(
+                    output_proj, gangs.tp, scatter_input=False
+                )
+            else:
+                self.ouput_proj = output_proj
+
+            del output_proj
 
         self.state_factory = state_factory
 

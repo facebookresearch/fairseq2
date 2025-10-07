@@ -8,9 +8,14 @@ from __future__ import annotations
 
 from fairseq2.models.qwen.config import QwenConfig
 from fairseq2.sharder import ShardSpec
+from fairseq2.utils.warn import _warn_deprecated
 
 
 def get_qwen_shard_specs(config: QwenConfig) -> dict[str, ShardSpec]:
+    _warn_deprecated(
+        "`get_qwen_shard_specs` is deprecated and will be removed in fairseq2 v0.12."
+    )
+
     return {
         # fmt: off
         r".*\.embed$":                 ShardSpec(dim=0),

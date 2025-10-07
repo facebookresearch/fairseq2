@@ -35,7 +35,6 @@ from fairseq2.recipe.error import (
     ErrorContext,
     LayerwiseACNotSupportedError,
     ModelCheckpointNotFoundError,
-    ModelParallelismNotSupportedError,
 )
 from fairseq2.recipe.internal.asset_config import _AssetConfigOverrider
 from fairseq2.recipe.internal.compile import _compile_model
@@ -142,10 +141,6 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
 
         gangs = self._gangs
 
-        if gangs.root.size != gangs.dp.size:
-            if not family.supports_model_parallelism:
-                raise ModelParallelismNotSupportedError()
-
         # Load the model.
         dtype = self._section.dtype
 
@@ -230,10 +225,6 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
             )
 
         gangs = self._gangs
-
-        if gangs.root.size != gangs.dp.size:
-            if not family.supports_model_parallelism:
-                raise ModelParallelismNotSupportedError()
 
         # Load the model.
         dtype = self._section.dtype
@@ -326,10 +317,6 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
             )
 
         gangs = self._gangs
-
-        if gangs.root.size != gangs.dp.size:
-            if not family.supports_model_parallelism:
-                raise ModelParallelismNotSupportedError()
 
         # Create the model.
         dtype = self._section.dtype

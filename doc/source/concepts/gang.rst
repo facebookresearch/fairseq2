@@ -165,7 +165,7 @@ not require any implementation changes.
         # Infer the world size from the `WORLD_SIZE` environment variable.
         world_size = get_world_size()
 
-        # If we have only a single rank, create a fake gang.
+        # If only a single rank, create a fake gang.
         if world_size == 1:
             gang = FakeGang(device)
         else:
@@ -235,9 +235,9 @@ container for all the created parallel gangs.
     # Depending on the device creates a ProcessGroup with NCCL or Gloo backend.
     root_gang = ProcessGroupGang.create_default_process_group(device)
 
-    # If we have 8 devices denoted by d0 to d7 and 2 devices are used for tensor
-    # parallelism (i.e. ``tp_size`` is 2), this function will create 4 tensor
-    # parallel gangs and 2 data parallel gangs by splitting ``root_gang``
+    # If there are 8 devices denoted by d0 to d7 and 2 devices are used for
+    # tensor parallelism (i.e. `tp_size` is 2), this function will create 4
+    # tensor parallel gangs and 2 data parallel gangs by splitting `root_gang`
     # as:
     #   4 tensor parallel gangs:
     #       [d0, d1], [d2, d3], [d4, d5], [d6, d7]
@@ -268,7 +268,7 @@ sharded gangs to support hybrid and fully sharded data parallelism strategies.
     root_gang = ProcessGroupGang.create_default_process_group(device)
 
     # All size parameters (e.g. `tp_size`) for model parallelism strategies
-    # default to 1. If we have 8 devices, this call will only instantiate a
+    # default to 1. If there are 8 devices, this call will only instantiate a
     # new data parallel gang.
     gangs = create_parallel_gangs(root_gang)
 
@@ -293,7 +293,7 @@ sharded gangs to support hybrid and fully sharded data parallelism strategies.
     root_gang = ProcessGroupGang.create_default_process_group(device)
 
     # All size parameters (e.g. `tp_size`) for model parallelism strategies
-    # default to 1. If we have 8 devices, this call will only instantiate a
+    # default to 1. If there are 8 devices, this call will only instantiate a
     # new data parallel gang.
     gangs = create_parallel_gangs(root_gang)
 
@@ -315,7 +315,36 @@ How is Gang used in fairseq2?
 fairseq2 is designed to allow researchers to begin their work on a single device
 with simple experimentation code, which can later be gradually scaled up to
 thousands of GPUs with minimal code changes. Consequently, several major APIs
-such as :doc:`model loading </guides/add_model>`, :doc:`checkpointing </reference/checkpoint>`,
+such as :doc:`model loading </guides/add_model>`, :doc:`checkpointing </reference/fairseq2.model_checkpoint>`,
 and :doc:`dataset reading </reference/datasets/index>` natively support scaling
 and parallelism through the gang abstraction. Refer to the relevant guides to
 learn more about how gangs are utilized there.
+
+How to use Gangs in deeply nested functions?
+============================================
+
+fairseq2 provides a basic API for setting a :class:`Gangs` instance as the
+"current" gangs for the calling thread. This feature is particularly useful in
+procedural programming, as it eliminates the need to pass a :class:`Gangs`
+instance through every function call.
+
+When a :class:`Gangs` instance is used as a context manager, it is set as the
+current gangs. You can nest ``with gangs`` statements to override the current
+gangs as needed. The current gangs instance can be retrieved by calling the
+:func:`maybe_get_current_gangs` function.
+
+.. code:: python
+    :caption: Set and retrieve current thread-local gangs
+
+    from fairseq2.gang import Gangs, maybe_get_current_gangs
+
+    gangs = Gangs(...)
+
+    with gangs:
+        current_gangs = maybe_get_current_gangs()
+
+        assert current_gangs is gangs
+
+    current_gangs = maybe_get_current_gangs()
+
+    assert current_gangs is None

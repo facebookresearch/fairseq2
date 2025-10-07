@@ -18,13 +18,14 @@ See :doc:`/concepts/gang` for more information.
 from __future__ import annotations
 
 import os
+import threading
 import warnings
 from abc import abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import Enum
-from typing import Any, NoReturn, final
+from typing import Any, NoReturn, cast, final
 
 import torch
 import torch.distributed as dist
@@ -59,8 +60,8 @@ class Gang(Closable):
         :raises ValueError: If ``ranks`` contains duplicates, or has one or more
             out of range values.
 
-        :raises GangError: If the collective operation fails for an unexpected
-            reason such as a network communication failure.
+        :raises GangError: If the collective operation fails due to an unexpected
+            error such as a network communication failure.
 
         .. code:: python
             :caption: Creating a sub-gang with specific processes
@@ -91,8 +92,8 @@ class Gang(Closable):
         gang reach this synchronization point. Used for ensuring a consistent
         state across all processes before proceeding.
 
-        :raises GangError: If the collective operation fails for an unexpected
-            reason such as a network communication failure.
+        :raises GangError: If the collective operation fails due to an unexpected
+            error such as a network communication failure.
         """
 
     @abstractmethod
@@ -104,8 +105,8 @@ class Gang(Closable):
         operation and distributes the result to all processes. The input tensor
         is modified in-place to contain the reduction result.
 
-        :raises GangError: If the collective operation fails for an unexpected
-            reason such as a network communication failure.
+        :raises GangError: If the collective operation fails due to an unexpected
+            error such as a network communication failure.
 
         .. code:: python
             :caption: Computing sum across all processes
@@ -133,8 +134,8 @@ class Gang(Closable):
         tensor. The output tensor must have shape ``[gang.size, *input_tensor.shape]``
         and be contiguous in memory.
 
-        :raises GangError: If the collective operation fails for an unexpected
-            reason such as a network communication failure.
+        :raises GangError: If the collective operation fails due to an unexpected
+            error such as a network communication failure.
 
         .. code:: python
             :caption: Gathering tensors from all processes
@@ -164,8 +165,8 @@ class Gang(Closable):
         instead of concatenating them into a single tensor. ``output_tensors``
         must be a pre-allocated list with length equal to ``gang.size``.
 
-        :raises GangError: If the collective operation fails for an unexpected
-            reason such as a network communication failure.
+        :raises GangError: If the collective operation fails due to an unexpected
+            error such as a network communication failure.
         """
 
     @abstractmethod
@@ -181,8 +182,8 @@ class Gang(Closable):
 
         :raises ValueError: If ``source_rank`` is out of valid range.
 
-        :raises GangError: If the collective operation fails for an unexpected
-            reason such as a network communication failure.
+        :raises GangError: If the collective operation fails due to an unexpected
+            error such as a network communication failure.
         """
 
     @abstractmethod
@@ -198,8 +199,8 @@ class Gang(Closable):
 
         :raises ValueError: If ``source_rank`` is out of valid range.
 
-        :raises GangError: If the collective operation fails for an unexpected
-            reason such as a network communication failure.
+        :raises GangError: If the collective operation fails due to an unexpected
+            error such as a network communication failure.
         """
 
     @property
@@ -414,12 +415,14 @@ class ProcessGroupGang(Gang):
 
         For CUDA devices, NCCL; for CPU devices, Gloo backend will be used.
 
-        ``timeout`` represents the timeout for collective operations. If ``None``,
+        ``timeout`` specifies the timeout for collective operations. If ``None``,
         the default timeout (15 minutes) will be used.
 
         If ``high_priority`` is ``True``, the underlying collective operations
         will be performed on high-priority channels (e.g. CUDA streams) if
         supported by the underlying backend.
+
+        :raises ValueError: If ``device`` is not of type ``cpu`` or ``cuda``.
 
         :raises NotSupportedError: If ``torch.distributed`` is not available.
 
@@ -427,7 +430,7 @@ class ProcessGroupGang(Gang):
             initialized.
 
         :raises GangError: If the underlying process group fails to initialize
-            due to an unexpected reason such as a network communication failure.
+            due to an unexpected error such as a network communication failure.
         """
         if log.is_enabled_for_debug():
             os.environ["TORCH_DISTRIBUTED_DEBUG"] = "INFO"
@@ -643,7 +646,7 @@ def _check_ranks(ranks: Sequence[int], gang_size: int) -> None:
 @dataclass(kw_only=True, frozen=True)
 class Gangs(Closable):
     """
-    Holds parallel gangs used in distributed training.
+    Holds parallel gangs used in distributed configurations.
 
     Each gang is used for a different parallelism strategy such as data, tensor,
     or pipeline parallelism.
@@ -663,7 +666,7 @@ class Gangs(Closable):
     The replicated data parallel gang (i.e. inter-node for HSDP).
 
     This is a sub-gang of :attr:`dp` used for replicated data parallelism. In
-    PyTorch this gang is used by DDP as well as by FSDP for inter-node
+    PyTorch, this gang is used by DDP as well as by FSDP for inter-node
     communication when hybrid sharding is enabled.
     """
 
@@ -672,9 +675,9 @@ class Gangs(Closable):
     The sharded data parallel gang (i.e. intra-node for HSDP).
 
     This is a sub-gang of :attr:`dp` used for sharded data parallelism. In
-    PyTorch this gang is used by FSDP. If hybrid sharding is enabled, it will
+    PyTorch, this gang is used by FSDP. If hybrid sharding is enabled, it will
     be used only for intra-node communication, while inter-node communication
-    of FSDP will be handled by :attr:`rdp`.
+    will be handled by :attr:`rdp`.
     """
 
     tp: Gang
@@ -690,15 +693,63 @@ class Gangs(Closable):
                     "Coordinator process of the root gang (i.e. `root.rank == 0`) must be rank 0 in all parallel gangs."
                 )
 
+    def __enter__(self) -> None:
+        _thread_local.current_gangs.append(self)
+
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+        _thread_local.current_gangs.pop()
+
     def close(self) -> None:
+        """Destroys all gangs."""
         self.root.close()
+
+
+_thread_local = threading.local()
+
+# Holds the stack of current thread-local gangs.
+_thread_local.current_gangs = []
+
+
+def maybe_get_current_gangs() -> Gangs | None:
+    """
+    Returns the current gangs to use for collective operations.
+
+    By default, this function returns ``None``. The current gangs of the calling
+    thread can be set by using :class:`Gangs` as a context manager:
+
+    .. code::
+
+        from fairseq2.gang import Gangs
+
+        gangs = Gangs(...)
+
+        with gangs:
+            current_gangs = maybe_get_current_gangs()
+
+            assert current_gangs is gangs
+
+        current_gangs = maybe_get_current_gangs()
+
+        assert current_gangs is None
+
+    Within fairseq2, this function is used by model factories to retrieve the
+    current gangs and shard the constructed models accordingly. The current gangs
+    are set internally by fairseq2 before calling the factories.
+
+    Note that the return value of this function is thread specific. Individual
+    threads may have their own set of current gangs.
+    """
+    if _thread_local.current_gangs:
+        return cast(Gangs, _thread_local.current_gangs[-1])
+
+    return None
 
 
 def create_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     """
     Creates gangs to be used for data and model parallelism.
 
-    For instance, if we have 8 devices denoted by d0 to d7 and 2 devices are
+    For instance, if there are 8 devices denoted by d0 to d7 and 2 devices are
     used for tensor parallelism (i.e. ``tp_size`` is 2), this function will
     create 4 tensor parallel gangs and 2 data parallel gangs by splitting
     ``root_gang`` as:
@@ -831,7 +882,7 @@ def create_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs
     represents a fully sharded data parallel strategy.
 
     An integer ``intra_node_size`` indicates hybrid sharded data parallelism.
-    For instance, if we have 8 devices denoted by d0 to d7 and 4 devices are
+    For instance, if there are 8 devices denoted by d0 to d7 and 4 devices are
     used for intra-node parallelism (i.e. ``intra_node_size`` is 4), this
     function will create 2 intra-node gangs and 4 inter-node gangs by splitting
     ``gangs.dp`` as:
