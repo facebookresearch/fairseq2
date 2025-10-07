@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 ## [0.6.0] - Oct 7th, 2025
 - `fairseq2.sharder` is deprecated. fairseq2 now expects parallelism strategies
   to be applied within model factories. This gives model authors full control
-  over how parallelism is applied to their models. [More info]()
+  over how parallelism is applied to their models. [More info](https://github.com/facebookresearch/fairseq2/pull/1349) 
 - `Gangs` can now be used as a context manager, along with a new `maybe_get_current_gangs()`
   helper function. This feature is particularly useful in procedural programming,
   as it eliminates the need to pass a `Gangs` instance through every function call.
