@@ -7,7 +7,7 @@
 """
 This module provides a set of helper types for object state validation. These
 types are primarly used by recipe and asset configuration dataclasses to ensure
-that all options are set correctly.
+that all fields are set correctly.
 
 A class -*typically a configuration dataclass*- that wants to support validation
 should expose a ``validate(self) -> ValidationResult`` method. Optionally,
@@ -16,7 +16,7 @@ to make its intent more clear.
 
 A typical implementation of a ``validate()`` method looks like the following:
 
-.. code-block:: python
+.. code:: python
 
     from dataclasses import dataclass
 
@@ -40,16 +40,16 @@ A typical implementation of a ``validate()`` method looks like the following:
 
 
 Note that ``FooConfig`` must NOT call ``validate()`` on its sub-fields that are
-validatable. :class:`ObjectValidator` is responsible for traversing the object
-graph and call each ``validate()`` method it finds in dataclasses, as well as in
-composite objects of types ``list``, ``Mapping``, ``Set``, and ``tuple``.
+validatable. :class:`ObjectValidator` will traverse the object graph and call
+each ``validate()`` method it finds in dataclasses as well as in composite
+objects of types ``list``, ``Mapping``, ``Set``, and ``tuple``.
 
 Whenever ``FooConfig`` is used in a recipe configuration, fairseq2 will ensure
 that it is validated before setting :attr:`RecipeContext.config`. To manually
 validate an object outside of recipes, :class:`StandardObjectValidator` can
 be used:
 
-.. code-block:: python
+.. code:: python
 
     from dataclasses import dataclass
 
@@ -113,9 +113,7 @@ class ObjectValidator(ABC):
         """
         Validates ``obj``.
 
-        :param obj: The object to validate.
-
-        :raises ValidationError: ``obj`` or one of its sub-objects has a
+        :raises ValidationError: If ``obj`` or one of its sub-objects has a
             validation error.
         """
 
@@ -166,11 +164,7 @@ class Validatable(Protocol):
     """Represents the protocol for validatable objects."""
 
     def validate(self) -> ValidationResult:
-        """
-        Validates the state of the object.
-
-        :returns: The result of the validation.
-        """
+        """Validates the state of the object."""
 
 
 @final
@@ -189,11 +183,10 @@ class ValidationResult:
         """
         Adds the validation result of a sub-object as a sub-result.
 
-        :param field: The name of the sub-object. For a dataclass, it is the
-            name of the field, for a ``Mapping`` it is the name of the key
-            formatted as ``f"[{repr(key)}]"``, for ``list``, ``Set``, and ``tuple``
-            it is the index of the value formatted as ``f"[{index}]"``.
-        :param result: The validation result of the sub-object.
+        ``field`` specifies the name of the sub-object. For a dataclass, it is
+        the name of the field, for a ``Mapping``, it is the name of the key
+        formatted as ``f"[{repr(key)}]"``, for a ``list``, ``Set``, or ``tuple``,
+        it is the index of the value formatted as ``f"[{index}]"``.
         """
         self._sub_results[field] = result
 
@@ -260,16 +253,13 @@ class ValidationError(Exception):
     """Raised when a validation error occurs."""
 
     result: ValidationResult
-    """The result containing validation errors."""
 
     def __init__(
         self, result: ValidationResult | str, *, field: str | None = None
     ) -> None:
         """
-        :param result: The validation result. If ``str``, will be converted
-            to a result with ``ValidationResult(result)``.
-        :param field: If not ``None``, ``result`` will be treated as the
-            sub-result of ``field``.
+        If ``field`` is provided, ``result`` will be treated as the sub-result
+        of the specified field.
         """
         if isinstance(result, str):
             tmp = ValidationResult()
