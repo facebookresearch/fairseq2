@@ -240,7 +240,7 @@ class StandardModelFamily(ModelFamily):
     ) -> None:
         if shard_specs is not None:
             _warn_deprecated(
-                "`shard_specs` and `sharder` parameters of `StandardModelFamily` are deprecated and will be removed in fairseq2 v0.12."
+                "`shard_specs` and `sharder` parameters of `StandardModelFamily` are deprecated and will be removed in fairseq2 v0.12. See src/fairseq2/sharder.py for details."
             )
 
         self._name = name

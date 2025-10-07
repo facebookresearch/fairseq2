@@ -103,7 +103,7 @@ def reshard_tensor(
             )
 
         _warn_deprecated(
-            "`shard_specs` parameter of `ModelCheckpointLoader` is deprecated and will be removed in fairseq2 v0.12."
+            "`shard_specs` parameter of `ModelCheckpointLoader` is deprecated and will be removed in fairseq2 v0.12. See src/fairseq2/sharder.py for details."
         )
 
     source_tp_size, source_dp_size = source_shard_sizes

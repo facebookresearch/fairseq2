@@ -12,16 +12,18 @@
 
 fairseq2 is a sequence modeling toolkit that allows researchers to train custom models for content generation tasks.
 
-### Who uses it?
-Many FAIR teams utilize fairseq2 for a diverse set of projects, ranging from language model preference optimization to pretraining video diffusion models.
+### Some of the Recent FAIR Research Based on fairseq2
+* [Bridging Offline and Online Reinforcement Learning for LLMs](https://arxiv.org/pdf/2506.21495)
+* [R.I.P.: Better Models by Survival of the Fittest Prompts](https://arxiv.org/abs/2501.18578)
+* [Learning to reason for factuality](https://arxiv.org/abs/2508.05618)
+* [Diverse Preference Optimization](https://arxiv.org/abs/2501.18101)
+* [Large Concept Models: Language Modeling in a Sentence Representation Space](https://arxiv.org/abs/2412.08821)
+* [Seamless: Multilingual Expressive and Streaming Speech Translation](https://arxiv.org/abs/2312.05187)
 
 ### How is fairseq2 different from the original fairseq?
 fairseq2 is a start-from-scratch project that can be considered a reboot of the original [fairseq](https://github.com/facebookresearch/fairseq) to provide a clean, modular API. Notably, it differs from its predecessor in its design philosophy, moving from a monolithic framework to an extensible, much less intrusive architecture allowing researchers to independently own their project code base.
 
 > As fairseq2 is a complete new project rather than an incremental update to the original fairseq, we intentionally avoided labeling it as fairseq version 2, reflecting its distinct and separate identity.
-
-## What's New?
-* February 2025: [Instruction finetuning](https://facebookresearch.github.io/fairseq2/stable/tutorials/end_to_end_fine_tuning.html) and [preference optimization](https://facebookresearch.github.io/fairseq2/stable/tutorials/preference_optimization.html) recipes with support for DPO, CPO, SimPO, and ORPO. Supports tensor parallelism and 70B+ scales.
 
 ## Features
 * First-party recipes for language model [instruction finetuning](https://facebookresearch.github.io/fairseq2/stable/tutorials/end_to_end_fine_tuning.html) and [preference optimization](https://facebookresearch.github.io/fairseq2/stable/tutorials/preference_optimization.html)
@@ -35,25 +37,6 @@ fairseq2 is a start-from-scratch project that can be considered a reboot of the 
 
 ## Getting Started
 Visit our [documentation website](https://facebookresearch.github.io/fairseq2/stable/) to learn more about fairseq2.
-
-## Models
-As of today, the following models are available in fairseq2 for use in training and evaluation recipes:
-
- * [LLaMA 1 to 3.3](src/fairseq2/models/llama)
- * [Mistral 7B](src/fairseq2/mistral)
- * [NLLB-200](src/fairseq2/models/nllb)
- * [S2T Transformer + Conformer](src/fairseq2/models/s2t_transformer)
- * [V-JEPA](src/fairseq2/models/jepa)
- * [w2v-BERT](src/fairseq2/models/w2vbert)
- * [wav2vec 2.0](src/fairseq2/models/wav2vec2)
- * [wav2vec 2.0 ASR](src/fairseq2/models/wav2vec2/asr)
-
-fairseq2 is also used by various external projects such as:
-
- * [Seamless Communication](https://github.com/facebookresearch/seamless_communication)
- * [Large Concept Model](https://github.com/facebookresearch/large_concept_model)
- * [SONAR](https://github.com/facebookresearch/SONAR)
-
 
 ## Installing on Linux
 
@@ -124,7 +107,7 @@ matrix shows the supported combinations.
       <td><code>x86_64</code></td>
     </tr>
     <tr>
-      <td rowspan=3><code>0.5</code></td>
+      <td rowspan=3><code>0.6</code></td>
       <td><code>2.8.0</code></td>
       <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>cpu</code>, <code>cu126</code>, <code>cu128</code></td>
@@ -140,25 +123,6 @@ matrix shows the supported combinations.
       <td><code>2.6.0</code></td>
       <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>cpu</code>, <code>cu124</code></td>
-      <td><code>x86_64</code></td>
-    </tr>
-    <tr>
-      <td rowspan=3><code>0.4</code></td>
-      <td><code>2.6.0</code></td>
-      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
-      <td><code>cpu</code>, <code>cu118</code>, <code>cu124</code></td>
-      <td><code>x86_64</code></td>
-    </tr>
-    <tr>
-      <td><code>2.5.0</code>, <code>2.5.1</code></td>
-      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
-      <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code>, <code>cu124</code></td>
-      <td><code>x86_64</code></td>
-    </tr>
-    <tr>
-      <td><code>2.4.0</code>, <code>2.4.1</code></td>
-      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
-      <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code>, <code>cu124</code></td>
       <td><code>x86_64</code></td>
     </tr>
   </tbody>
@@ -246,19 +210,13 @@ the supported combinations.
       <td><code>arm64</code></td>
     </tr>
     <tr>
-      <td rowspan=2><code>0.5</code></td>
+      <td rowspan=2><code>0.6</code></td>
       <td><code>2.8.0</code></td>
       <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>arm64</code></td>
     </tr>
     <tr>
       <td><code>2.7.1</code></td>
-      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
-      <td><code>arm64</code></td>
-    </tr>
-    <tr>
-      <td><code>0.4</code></td>
-      <td><code>2.6.0</code></td>
       <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>arm64</code></td>
     </tr>
@@ -319,7 +277,7 @@ following BibTeX entry.
 
 ```
 @software{balioglu2023fairseq2,
-  author = {Can Balioglu and Martin Gleize and Artyom Kozhevnikov and Ilia Kulikov and Tuan Tran and Julien Yao},
+  author = {Can Balioglu and Alexander Erben and Martin Gleize and Artyom Kozhevnikov and Ilia Kulikov and Julien Yao},
   title = {fairseq2},
   url = {http://github.com/facebookresearch/fairseq2},
   year = {2023},

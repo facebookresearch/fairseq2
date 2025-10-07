@@ -13,7 +13,7 @@ from fairseq2.utils.warn import _warn_deprecated
 
 def get_qwen_shard_specs(config: QwenConfig) -> dict[str, ShardSpec]:
     _warn_deprecated(
-        "`get_qwen_shard_specs` is deprecated and will be removed in fairseq2 v0.12."
+        "`get_qwen_shard_specs` is deprecated and will be removed in fairseq2 v0.12. See src/fairseq2/sharder.py for details."
     )
 
     return {
