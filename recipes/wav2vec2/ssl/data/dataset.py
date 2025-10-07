@@ -334,19 +334,23 @@ class Wav2Vec2SslDataset:
         )
         seed += 1
 
-        pipeline = AudioProcessingPipeline()
+        audio_pipeline = AudioProcessingPipeline()
         # Path resolution -> list( { audio.path: str, audio_size: int } )
-        builder = pipeline.add_path_resolution(builder, audio_dir, cached_fd_count)
+        builder = audio_pipeline.add_path_resolution(
+            builder, audio_dir, cached_fd_count
+        )
 
         # Audio decoding -> list ( { audio.path: str, audio.data.sample_rate: int, audio.data.format: int
         #                            audio.data.waveform: tensor, audio.audio_size: int } )
-        builder = pipeline.add_audio_decoding(builder, dtype, normalize_audio, npc)
+        builder = audio_pipeline.add_audio_decoding(
+            builder, dtype, normalize_audio, npc
+        )
 
         # Audio post-processing
         if use_fbank:
-            builder = pipeline.add_fbank_processing(builder, dtype, npc)
+            builder = audio_pipeline.add_fbank_processing(builder, dtype, npc)
         else:
-            builder = pipeline.add_waveform_processing(
+            builder = audio_pipeline.add_waveform_processing(
                 builder,
                 normalize_audio,
                 dtype,
@@ -357,10 +361,10 @@ class Wav2Vec2SslDataset:
 
         # Feature renaming -> list ( { audio.path: str, audio.data.sample_rate: int, audio.data.format: int
         #                              audio.feature: tensor, audio_size: int } )
-        builder = pipeline.add_feature_renaming(builder, use_fbank)
+        builder = audio_pipeline.add_feature_renaming(builder, use_fbank)
 
         # Audio cropping
-        builder = pipeline.add_audio_cropping(
+        builder = audio_pipeline.add_audio_cropping(
             builder, seed, max_audio_len, crop_to_batch_minimal_size=no_padding
         )
 

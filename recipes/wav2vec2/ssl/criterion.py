@@ -81,7 +81,7 @@ class Wav2Vec2SslCriterion:
         """Forward pass through the model."""
         seqs, seqs_layout = batch.as_input()
 
-        return self._model.module(
+        return self._model.module(  # type: ignore[no-any-return]
             seqs,
             seqs_layout,
             diversity_weight=self._diversity_weight,

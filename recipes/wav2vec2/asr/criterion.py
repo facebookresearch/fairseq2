@@ -59,7 +59,7 @@ class Wav2Vec2AsrCriterion:
             self._wer_calculator.compute_wer(batch, logits, logits_layout, metric_bag)
         else:
             # Training path - only compute loss
-            ctc_loss = self._forward(batch)
+            ctc_loss = self._forward(batch)  # type: ignore[assignment]
 
         update_ctc_loss(metric_bag, ctc_loss, batch.batch_size)  # type: ignore
         update_asr_batch_metrics(metric_bag, batch)
@@ -75,7 +75,7 @@ class Wav2Vec2AsrCriterion:
         source_seqs, source_seqs_layout = batch.as_source_input()  # Audio
         target_seqs, target_seqs_layout = batch.as_target_input()  # Text tokens
 
-        return self._model.module(
+        return self._model.module(  # type: ignore
             source_seqs,
             source_seqs_layout,
             target_seqs,
@@ -91,7 +91,7 @@ class Wav2Vec2AsrCriterion:
         source_seqs, source_seqs_layout = batch.as_source_input()  # Audio
         target_seqs, target_seqs_layout = batch.as_target_input()  # Text tokens
 
-        return self._model.module(
+        return self._model.module(  # type: ignore
             source_seqs,
             source_seqs_layout,
             target_seqs,
