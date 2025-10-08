@@ -10,7 +10,8 @@ from typing import Final
 
 from fairseq2.models.family import HuggingFaceExport
 from fairseq2.models.qwen.config import QwenConfig
-from fairseq2.models.utils.checkpoint import convert_state_dict, create_reverse_key_map
+from fairseq2.models.utils.checkpoint import convert_state_dict, create_reverse_key_map, get_converted_key
+import torch
 
 _HG_KEY_MAP: Final = {
     # fmt: off
@@ -78,3 +79,9 @@ def export_qwen(state_dict: dict[str, object], config: QwenConfig) -> HuggingFac
             config_kls_name="Qwen3Config",
             arch="Qwen3ForCausalLM",
         )
+
+_HG_KEY_MAP_REVERSED = create_reverse_key_map(_HG_KEY_MAP)
+
+def convert_parameter(name: str, parameter: torch.nn.Parameter, **kwargs):
+    converted_name = get_converted_key(name, _HG_KEY_MAP_REVERSED)
+    return converted_name, parameter

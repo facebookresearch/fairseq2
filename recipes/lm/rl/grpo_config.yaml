@@ -1,0 +1,221 @@
+model:
+  name: llama3_1_8b_instruct
+  path: null
+  family: null
+  arch: null
+  config_overrides: null
+  dtype: float32
+  mmap: false
+  compile: false
+  compile_options:
+    fullgraph: false
+    dynamic: null
+    mode: default
+    backend: inductor
+    backend_options: null
+dataset:
+  name: null
+  family: lm_rl
+  config_overrides:
+    path: hg://agentica-org/DeepScaleR-Preview-Dataset
+  train_split: default
+  valid_split: null
+  read_options:
+    batching:
+      batch_size: 1
+    example_shuffle_window: 0
+    batch_shuffle_window: 0
+    drop_remainder: false
+    sync_batches: true
+    sync_mode: UNTIL_FIRST
+    max_num_batches: null
+    num_accumulate: 1
+    prefetch: 1
+    npc: 10
+    seed: 2
+    extras:
+      keep_jsonl_keys:
+        - problem
+        - answer
+    source_encode_mode: prompt
+    chat_mode: true
+    src_key: problem
+    repeat_batch_n_times: 1
+    apply_chat_template_args:
+      add_generation_prompt: true
+tokenizer:
+  name: llama3_instruct
+  path: null
+  family: null
+  config_overrides: null
+gang:
+  tensor_parallel_size: 1
+  timeout: 15
+  high_priority: true
+trainer:
+  data_parallelism: fsdp
+  fsdp:
+    version: v2
+    granularity: layer
+    hybrid: false
+    reshard_after_forward: true
+    fp32_reduce: true
+  mixed_precision:
+    mode: static
+    dtype: bfloat16
+  grad_accumulation:
+    num_batches: 1
+    no_sync: false
+  activation_checkpointing:
+    mode: off
+    every_nth_layer: 1
+  max_grad_norm: null
+  fp16_loss_scale:
+  - 128.0
+  - 0.0001
+  gc_every_n_steps: 1000
+  grad_check: false
+  anomaly_detection: false
+train_unit:
+  name: grpo
+  loss_config:
+    group_size: 4
+    forward_group_size: 4
+    beta: 0.001
+    entropy_regularizer_scale: 0.0
+    length_normalization: true
+    log_rollouts: false
+    validation_vllm_sampling_params: {}
+  remote_policy_model_name: vllm_policy
+  remote_reference_model_name: vllm_reference
+  reward:
+    name: dummy
+    config:
+      answer_key: answer
+      prompt_key: prompt
+      tokenizer: null
+      judgment_extractor: null
+    vllm_reward_model_actor_name: null
+optimizer:
+  name: adamw
+  config:
+    lr: 5.5e-06
+    betas:
+    - 0.9
+    - 0.95
+    eps: 1e-08
+    weight_decay: 0.1
+    amsgrad: false
+    maximize: false
+    capturable: false
+    differentiable: false
+    impl: auto
+lr_scheduler:
+  name: cosine_annealing
+  config:
+    cycle_len: null
+    num_warmup_steps: 0
+    cycle_mul: 1.0
+    lr_mul: 1.0
+    start_lr: 0.0
+    final_lr: null
+    final_lr_scale: 1.0
+regime:
+  num_steps: 5000
+  num_data_epochs: null
+  validate_at_start: false
+  validate_after_n_steps: 0
+  validate_every_n_steps: null
+  validate_after_n_data_epochs: 0
+  validate_every_n_data_epochs: null
+  score_metric: null
+  checkpoint_after_n_steps: 0
+  checkpoint_every_n_steps: 50
+  checkpoint_after_n_data_epochs: 0
+  checkpoint_every_n_data_epochs: null
+  save_model_only: false
+  export_hugging_face: false
+  keep_last_n_checkpoints: 1
+  keep_best_n_checkpoints: null
+  keep_checkpoint_every_n_steps: null
+  publish_metrics_after_n_steps: 0
+  publish_metrics_every_n_steps: 1
+  publish_metrics_after_n_data_epochs: 0
+  publish_metrics_every_n_data_epochs: null
+vllm:
+  ray_cluster_ip_address: null
+  ray_actors:
+    - ray_actor_name: vllm_policy
+      backend: vllm
+      num_replicas: 1
+      vllm_engine_args:
+        model: /datasets/pretrained-llms/Qwen3-4B-Base/
+        tokenizer: /datasets/pretrained-llms/Qwen3-4B-Base/
+        tensor_parallel_size: 2
+        enforce_eager: false
+        gpu_memory_utilization: 0.7
+      vllm_sampling_params:
+        n: 8
+        temperature: 1.0
+        max_tokens: 2048
+        logprobs: 1
+      init_update_process_group: false
+      sync_every_n_steps: 1
+    - ray_actor_name: hf_reward
+      num_replicas: 2
+      backend: hf
+      pipeline_name: "athene_reward_pipeline"
+      tensor_parallel_size: 1
+      init_update_process_group: false
+    - ray_actor_name: vllm_reference
+      num_replicas: 2
+      vllm_engine_args:
+        model: /datasets/pretrained-llms/Qwen3-4B-Base/
+        tokenizer: /datasets/pretrained-llms/Qwen3-4B-Base/
+        tensor_parallel_size: 2
+        enforce_eager: false
+        gpu_memory_utilization: 0.7
+      vllm_sampling_params:
+        n: 1
+        temperature: 1.0
+        max_tokens: 1
+        prompt_logprobs: 0
+        detokenize: false
+      init_update_process_group: true
+      sync_every_n_steps: 0
+common:
+  torch:
+    num_threads: null
+    allow_tf32: true
+    fp16_reduced_precision: true
+    bf16_reduced_precision: true
+    default_sdpa: torch
+    compiled_region_activation_memory_budget: 1.0
+  metric_recorders:
+    tensorboard:
+      enabled: true
+    wandb:
+      enabled: false
+      entity: null
+      project: null
+      run_id: persistent
+      run_name: null
+      group: null
+      job_type: null
+      resume_mode: null
+  profilers:
+    torch:
+      enabled: false
+      skip_n_steps: 4
+      wait_n_steps: 0
+      num_warmup_steps: 1
+      num_active_steps: 4
+      repeat: 1
+  assets:
+    extra_paths: []
+    prev_checkpoint_dir: null
+  seed: 2
+  debug: false
+  cluster: auto
+  no_sweep_dir: false
+  sweep_format: ws_{world_size}.{hash}

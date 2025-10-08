@@ -12,7 +12,7 @@ from torch import Tensor
 
 from fairseq2.models.family import HuggingFaceExport
 from fairseq2.models.llama.config import LLaMAConfig
-from fairseq2.models.utils.checkpoint import convert_state_dict, create_reverse_key_map
+from fairseq2.models.utils.checkpoint import convert_state_dict, create_reverse_key_map, get_converted_key
 
 
 def convert_to_ref_llama_state_dict(
@@ -216,3 +216,30 @@ def _convert_to_hg_config(config: LLaMAConfig) -> dict[str, object]:
         "vocab_size": config.vocab_size,
         "head_dim": config.model_dim // config.num_attn_heads,
     }
+
+_HG_KEY_MAP_REVERSED = create_reverse_key_map(_HG_KEY_MAP)
+
+def convert_parameter(
+    name: str, parameter: torch.nn.Parameter, config: LLaMAConfig
+) -> dict[str, object]:
+    head_dim = config.model_dim // config.num_attn_heads
+
+    def permute_rotary(w: Tensor, num_heads: int) -> Tensor:
+        # (H, M) -> (H_d, D / 2, 2, M)
+        w = w.view(num_heads, head_dim // 2, 2, config.model_dim)
+
+        # (H_d, D / 2, 2, M) -> (H_d, 2, D / 2, m)
+        w = w.transpose(1, 2)
+
+        # (H_d, 2, D / 2, M) -> (H, M)
+        return w.reshape(-1, config.model_dim)
+
+    if "q_proj" in name:
+        parameter = permute_rotary(parameter, config.num_attn_heads)
+
+    if "k_proj" in name:
+        parameter = permute_rotary(parameter, config.num_key_value_heads)
+
+    converted_name = get_converted_key(name, _HG_KEY_MAP_REVERSED)
+
+    return converted_name, parameter

@@ -97,6 +97,13 @@ def set_model_state(
 class ModelCheckpointMismatchError(Exception):
     pass
 
+def get_converted_key(key: str, key_map: Mapping[str, str]) -> str:
+    for pattern, replacement in key_map.items():
+        converted_key = re.sub(pattern, replacement, key)
+        if converted_key != key:
+            return converted_key
+
+    return key
 
 def convert_state_dict(
     state_dict: dict[str, object], key_map: Mapping[str, str]
@@ -108,16 +115,8 @@ def convert_state_dict(
     """
     converted_state_dict = {}
 
-    def get_converted_key(key: str) -> str:
-        for pattern, replacement in key_map.items():
-            converted_key = re.sub(pattern, replacement, key)
-            if converted_key != key:
-                return converted_key
-
-        return key
-
     for key in state_dict.keys():
-        converted_key = get_converted_key(key)
+        converted_key = get_converted_key(key, key_map)
 
         converted_state_dict[converted_key] = state_dict[key]
 
