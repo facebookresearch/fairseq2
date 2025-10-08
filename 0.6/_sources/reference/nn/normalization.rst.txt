@@ -1,0 +1,21 @@
+.. _norm:
+
+Normalization Layers
+====================
+
+.. currentmodule:: fairseq2.nn
+
+.. autoclass:: LayerNorm
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. autoclass:: StandardLayerNorm
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. autoclass:: RMSNorm
+   :members:
+   :undoc-members:
+   :show-inheritance:
