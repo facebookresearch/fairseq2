@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, TextIO, final
+from typing import Any, Dict, TextIO, Tuple, final
 
 import editdistance
 import torch
@@ -71,7 +71,7 @@ class AsrCriterion:
 def compute_asr_metrics(
     hypothesis: str,
     reference: str,
-):
+) -> Tuple[float, float]:
     ref_words = reference.split()
     hyp_words = hypothesis.split()
     ref_chars = list(reference)
