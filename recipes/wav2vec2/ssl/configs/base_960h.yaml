@@ -1,0 +1,15 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+model:
+  config_overrides:
+    encoder_config:
+      first_pass_dropout_p: 0.1
+
+dataset:
+  name: "librispeech_960h"
+  train_split: "train"
+  valid_split: "valid"

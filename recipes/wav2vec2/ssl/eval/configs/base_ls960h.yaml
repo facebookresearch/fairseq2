@@ -1,0 +1,25 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+# matching configuration to base_960h.yaml
+
+model:
+  name: "wav2vec2_base"
+  config_overrides:
+    encoder_config:
+      first_pass_dropout_p: 0.1
+
+dataset:
+  name: "librispeech_960h"
+  valid_split: "valid"
+
+evaluator:
+  amp: True
+  amp_dtype: "torch.float16"
+
+loss:
+  diversity_loss_weight: 0.1
+  feature_penalty_weight: 10.0
