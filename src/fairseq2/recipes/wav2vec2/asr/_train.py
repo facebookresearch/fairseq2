@@ -193,6 +193,9 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     min_samples_per_char: int = 160
     """If a sample has more than ``sample_rate / min_samples_per_char`` chars per second, it's filtered out."""
 
+    wer_logging: bool = False
+    """If ``True``, log WER scores when validating."""
+
     # Upsampling
     beta_corpus: float | None = None
     beta_language: float | None = None
@@ -488,7 +491,7 @@ def load_wav2vec2_asr_trainer(
     # Initialize the validation unit.
     if config.dataset.valid_split is not None:
         eval_read_options = deepcopy(read_options)
-        valid_scorer = AsrScorer(tokenizer)
+        valid_scorer = AsrScorer(tokenizer, verbose=config.dataset.wer_logging)
 
         valid_criterion = AsrCriterion(model, valid_scorer)
 
