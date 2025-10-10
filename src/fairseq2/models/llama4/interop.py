@@ -61,16 +61,13 @@ def convert_llama4_state_dict(
 
     for k, v in state_dict.items():
         if ".moe_w_" in k:
-            expert_proj = cast(torch.Tensor, v)
-
             if config.experts is None:
                 raise ValueError(
                     f"State dict contains MoE weights ({k}) but the Llama 4 config had a `experts` attribute set to `None`."
                 )
-
-            num_experts = config.experts.num_experts
-
-            checkpoint[k] = expert_proj.unflatten(0, (num_experts, -1))
+            # Shard weights appropriately here depending on EP strategy.
+            # The current strategies don't shard weights across their expert dimension.
+            checkpoint[k] = v
 
         elif re.match(r"layers\.([0-9]+)\.attention\.wqkv\.weight", k):
             wqkv = cast(torch.Tensor, v)

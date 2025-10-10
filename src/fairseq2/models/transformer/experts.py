@@ -33,18 +33,6 @@ def create_expert_glu_layers(
 ) -> None:
     """Create GLU-based expert layers as attributes on the given module.
 
-    The layers are implemented as 3-D tensors used in BMM.
-
-    TODO(mgleize): For finetuning, implement a version of this
-    where expert dim and dim 1 are folded (should be transparent for the caller).
-
-    Cf:
-    We intentionally fold the expert weights' ``num_local_experts`` dim-0
-    into dim-1 at construction time and unfold them during forward for
-    improved efficiency with FSDPv2, which does dim-0 per-parameter
-    sharding. Without this, we would have highly uneven sharding across DP
-    since local ``num_local_experts`` is typically much smaller than DP size.
-
     :param module:
         The module to add the layers to.
     :param num_local_experts:
@@ -60,11 +48,12 @@ def create_expert_glu_layers(
     :param dtype:
         The data type of the layers.
     """
+    # The expert dimension is folded with the first of model/inner dim
+    # to optimize for FSDPv2 (which shards params on dim 0).
     module.gate_proj = Parameter(
         torch.empty(
             (
-                num_local_experts,
-                model_dim,
+                num_local_experts * model_dim,
                 inner_dim,
             ),
             device=device,
@@ -74,8 +63,7 @@ def create_expert_glu_layers(
     module.inner_proj = Parameter(
         torch.empty(
             (
-                num_local_experts,
-                model_dim,
+                num_local_experts * model_dim,
                 inner_dim,
             ),
             device=device,
@@ -85,8 +73,7 @@ def create_expert_glu_layers(
     module.output_proj = Parameter(
         torch.empty(
             (
-                num_local_experts,
-                inner_dim,
+                num_local_experts * inner_dim,
                 model_dim,
             ),
             device=device,
@@ -98,6 +85,33 @@ def create_expert_glu_layers(
         module.activation = SiLU()
     else:
         module.activation = activation
+
+
+def forward_glu_bmm_with_folded_experts(
+    x: Tensor,
+    gate_proj: Tensor,
+    inner_proj: Tensor,
+    output_proj: Tensor,
+    num_local_experts: int,
+    activation: Module,
+) -> Tensor:
+    """
+    Forward pass for GLU-based experts with expert dimension
+    folded into dim 0 in the weight tensors."""
+    # unfold dim 0 on weights
+    gate_proj = gate_proj.view(num_local_experts, -1, gate_proj.shape[-1])
+    inner_proj = inner_proj.view(num_local_experts, -1, inner_proj.shape[-1])
+    output_proj = output_proj.view(num_local_experts, -1, output_proj.shape[-1])
+
+    # (num_local_experts, tokens_per_expert, dim)
+    h: Tensor = activation(torch.bmm(x, gate_proj))
+
+    h = h * torch.bmm(x, inner_proj)
+
+    # (num_local_experts, tokens_per_expert, dim)
+    out = torch.bmm(h, output_proj)
+
+    return out
 
 
 class ExpertNetwork(Module, ABC):
@@ -189,15 +203,14 @@ class GroupedExpertNetwork(ExpertNetwork):
         :param x: Input tensor of shape (num_local_experts, tokens_per_expert, dim).
         :returns: Output tensor of shape (num_local_experts, tokens_per_expert, dim).
         """
-        # (num_local_experts, tokens_per_expert, dim)
-        h: Tensor = self.activation(torch.bmm(x, self.gate_proj))
-
-        h = h * torch.bmm(x, self.inner_proj)
-
-        # (num_local_experts, tokens_per_expert, dim)
-        out = torch.bmm(h, self.output_proj)
-
-        return out
+        return forward_glu_bmm_with_folded_experts(
+            x,
+            self.gate_proj,
+            self.inner_proj,
+            self.output_proj,
+            self.num_local_experts,
+            self.activation,
+        )
 
 
 @final
@@ -313,8 +326,11 @@ class TPShardedExpertNetwork(ExpertNetwork):
         self, source_param: Parameter, target_param: Parameter, dim: int
     ) -> None:
         with torch.no_grad():
-            weight_shards = source_param.split(self.sharded_inner_dim, dim=dim)
-            target_param.copy_(weight_shards[self.gang.rank])
+            w = source_param.view(self.num_experts, -1, source_param.shape[-1])
+            weight_shards = w.split(self.sharded_inner_dim, dim=dim)
+            target_param.copy_(
+                weight_shards[self.gang.rank].reshape(-1, target_param.shape[-1])
+            )
 
     def forward(self, x: Tensor) -> Tensor:
         """
@@ -323,13 +339,14 @@ class TPShardedExpertNetwork(ExpertNetwork):
         """
         x = reduce_on_backward(x, self.gang)
 
-        # (num_local_experts, tokens_per_expert, dim)
-        h: Tensor = self.activation(torch.bmm(x, self.gate_proj))
-
-        h = h * torch.bmm(x, self.inner_proj)
-
-        # (num_local_experts, tokens_per_expert, dim)
-        out = torch.bmm(h, self.output_proj)
+        out = forward_glu_bmm_with_folded_experts(
+            x,
+            self.gate_proj,
+            self.inner_proj,
+            self.output_proj,
+            self.num_local_experts,
+            self.activation,
+        )
 
         if self.reduce_output:
             out = reduce(out, self.gang)
