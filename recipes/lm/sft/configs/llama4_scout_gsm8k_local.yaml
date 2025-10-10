@@ -1,0 +1,38 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+dataset:
+  valid_split: "sft_test"
+  train_split: "sft_train"
+  #max_seq_len: 1024
+  #max_num_tokens: 1024
+  batch_size: 8
+  chat_mode: false
+  config_overrides:
+    path: "hg://facebook/fairseq2-lm-gsm8k"
+model:
+  family: "llama4"
+  name: "llama4_scout_17b_16e_instruct"
+  dtype: bfloat16
+tokenizer:
+  name: "llama4"
+gang:
+  tensor_parallel_size: 8
+common:
+  metric_recorders:
+    wandb:
+      enabled: true
+      project: llama4_sft_tests
+      run_name: null
+regime:
+  num_steps: 1000
+  checkpoint_every_n_steps: 100
+  validate_every_n_steps: 100
+  checkpoint_every_n_data_epochs: 100
+  keep_last_n_checkpoints: 10
+  publish_metrics_every_n_steps: 5
+  save_model_only: false
+  export_hugging_face: false

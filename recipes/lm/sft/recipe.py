@@ -98,7 +98,7 @@ class LMSFTRecipe(TrainRecipe):
                 config.dataset.max_num_valid_tokens or config.dataset.max_num_tokens
             )
 
-            valid_batching: Batching = LengthBatching(max_num_tokens)
+            valid_batching: Batching = batching  # LengthBatching(max_num_tokens)
 
             read_options = DataReadOptions(
                 batching=valid_batching,
