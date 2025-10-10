@@ -87,7 +87,7 @@ def create_expert_glu_layers(
         module.activation = activation
 
 
-def forward_glu_bmm_with_folded_experts(
+def _forward_glu_bmm_with_folded_experts(
     x: Tensor,
     gate_proj: Tensor,
     inner_proj: Tensor,
@@ -203,7 +203,7 @@ class GroupedExpertNetwork(ExpertNetwork):
         :param x: Input tensor of shape (num_local_experts, tokens_per_expert, dim).
         :returns: Output tensor of shape (num_local_experts, tokens_per_expert, dim).
         """
-        return forward_glu_bmm_with_folded_experts(
+        return _forward_glu_bmm_with_folded_experts(
             x,
             self.gate_proj,
             self.inner_proj,
@@ -339,7 +339,7 @@ class TPShardedExpertNetwork(ExpertNetwork):
         """
         x = reduce_on_backward(x, self.gang)
 
-        out = forward_glu_bmm_with_folded_experts(
+        out = _forward_glu_bmm_with_folded_experts(
             x,
             self.gate_proj,
             self.inner_proj,
