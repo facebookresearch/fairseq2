@@ -135,7 +135,7 @@ management.
     tensor_dp: torch.Tensor = torch.randn(4, 4, device='cuda')
 
     # AllReduce - no semantic indication of parallelism strategy
-    dist.all_reduce(tensor_tp, group=tp_mesh.get_group())  # TP? DP? Can't tell from types
+    dist.all_reduce(tensor_tp, group=tp_mesh.get_group())
     dist.all_reduce(tensor_dp, group=dp_mesh.get_group())
 
     dist.destroy_process_group()
