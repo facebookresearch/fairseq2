@@ -246,8 +246,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../../reference/datasets/hub.html">fairseq2.datasets.hub</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../../reference/device.html">fairseq2.device</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/fairseq2.device.html">fairseq2.device</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../reference/fairseq2.gang.html">fairseq2.gang</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/fairseq2.models.html">fairseq2.models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../reference/fairseq2.recipe.optim.html">fairseq2.recipe.optim</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../reference/fairseq2.utils.validation.html">fairseq2.utils.validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../reference/logging.html">fairseq2.logging</a></li>
@@ -331,13 +333,14 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">abstractmethod</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">timedelta</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">NoReturn</span><span class="p">,</span> <span class="n">final</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">NoReturn</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">final</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch.distributed</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dist</span>
@@ -376,8 +379,8 @@
 <span class="sd">        :raises ValueError: If ``ranks`` contains duplicates, or has one or more</span>
 <span class="sd">            out of range values.</span>
 
-<span class="sd">        :raises GangError: If the collective operation fails for an unexpected</span>
-<span class="sd">            reason such as a network communication failure.</span>
+<span class="sd">        :raises GangError: If the collective operation fails due to an unexpected</span>
+<span class="sd">            error such as a network communication failure.</span>
 
 <span class="sd">        .. code:: python</span>
 <span class="sd">            :caption: Creating a sub-gang with specific processes</span>
@@ -414,8 +417,8 @@
 <span class="sd">        gang reach this synchronization point. Used for ensuring a consistent</span>
 <span class="sd">        state across all processes before proceeding.</span>
 
-<span class="sd">        :raises GangError: If the collective operation fails for an unexpected</span>
-<span class="sd">            reason such as a network communication failure.</span>
+<span class="sd">        :raises GangError: If the collective operation fails due to an unexpected</span>
+<span class="sd">            error such as a network communication failure.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
 
@@ -430,8 +433,8 @@
 <span class="sd">        operation and distributes the result to all processes. The input tensor</span>
 <span class="sd">        is modified in-place to contain the reduction result.</span>
 
-<span class="sd">        :raises GangError: If the collective operation fails for an unexpected</span>
-<span class="sd">            reason such as a network communication failure.</span>
+<span class="sd">        :raises GangError: If the collective operation fails due to an unexpected</span>
+<span class="sd">            error such as a network communication failure.</span>
 
 <span class="sd">        .. code:: python</span>
 <span class="sd">            :caption: Computing sum across all processes</span>
@@ -462,8 +465,8 @@
 <span class="sd">        tensor. The output tensor must have shape ``[gang.size, *input_tensor.shape]``</span>
 <span class="sd">        and be contiguous in memory.</span>
 
-<span class="sd">        :raises GangError: If the collective operation fails for an unexpected</span>
-<span class="sd">            reason such as a network communication failure.</span>
+<span class="sd">        :raises GangError: If the collective operation fails due to an unexpected</span>
+<span class="sd">            error such as a network communication failure.</span>
 
 <span class="sd">        .. code:: python</span>
 <span class="sd">            :caption: Gathering tensors from all processes</span>
@@ -496,8 +499,8 @@
 <span class="sd">        instead of concatenating them into a single tensor. ``output_tensors``</span>
 <span class="sd">        must be a pre-allocated list with length equal to ``gang.size``.</span>
 
-<span class="sd">        :raises GangError: If the collective operation fails for an unexpected</span>
-<span class="sd">            reason such as a network communication failure.</span>
+<span class="sd">        :raises GangError: If the collective operation fails due to an unexpected</span>
+<span class="sd">            error such as a network communication failure.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
 
@@ -516,8 +519,8 @@
 
 <span class="sd">        :raises ValueError: If ``source_rank`` is out of valid range.</span>
 
-<span class="sd">        :raises GangError: If the collective operation fails for an unexpected</span>
-<span class="sd">            reason such as a network communication failure.</span>
+<span class="sd">        :raises GangError: If the collective operation fails due to an unexpected</span>
+<span class="sd">            error such as a network communication failure.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
 
@@ -536,8 +539,8 @@
 
 <span class="sd">        :raises ValueError: If ``source_rank`` is out of valid range.</span>
 
-<span class="sd">        :raises GangError: If the collective operation fails for an unexpected</span>
-<span class="sd">            reason such as a network communication failure.</span>
+<span class="sd">        :raises GangError: If the collective operation fails due to an unexpected</span>
+<span class="sd">            error such as a network communication failure.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
 
@@ -797,12 +800,14 @@
 
 <span class="sd">        For CUDA devices, NCCL; for CPU devices, Gloo backend will be used.</span>
 
-<span class="sd">        ``timeout`` represents the timeout for collective operations. If ``None``,</span>
+<span class="sd">        ``timeout`` specifies the timeout for collective operations. If ``None``,</span>
 <span class="sd">        the default timeout (15 minutes) will be used.</span>
 
 <span class="sd">        If ``high_priority`` is ``True``, the underlying collective operations</span>
 <span class="sd">        will be performed on high-priority channels (e.g. CUDA streams) if</span>
 <span class="sd">        supported by the underlying backend.</span>
+
+<span class="sd">        :raises ValueError: If ``device`` is not of type ``cpu`` or ``cuda``.</span>
 
 <span class="sd">        :raises NotSupportedError: If ``torch.distributed`` is not available.</span>
 
@@ -810,7 +815,7 @@
 <span class="sd">            initialized.</span>
 
 <span class="sd">        :raises GangError: If the underlying process group fails to initialize</span>
-<span class="sd">            due to an unexpected reason such as a network communication failure.</span>
+<span class="sd">            due to an unexpected error such as a network communication failure.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">log</span><span class="o">.</span><span class="n">is_enabled_for_debug</span><span class="p">():</span>
             <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;TORCH_DISTRIBUTED_DEBUG&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;INFO&quot;</span>
@@ -1057,7 +1062,7 @@
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Gangs</span><span class="p">(</span><span class="n">Closable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Holds parallel gangs used in distributed training.</span>
+<span class="sd">    Holds parallel gangs used in distributed configurations.</span>
 
 <span class="sd">    Each gang is used for a different parallelism strategy such as data, tensor,</span>
 <span class="sd">    or pipeline parallelism.</span>
@@ -1077,7 +1082,7 @@
 <span class="sd">    The replicated data parallel gang (i.e. inter-node for HSDP).</span>
 
 <span class="sd">    This is a sub-gang of :attr:`dp` used for replicated data parallelism. In</span>
-<span class="sd">    PyTorch this gang is used by DDP as well as by FSDP for inter-node</span>
+<span class="sd">    PyTorch, this gang is used by DDP as well as by FSDP for inter-node</span>
 <span class="sd">    communication when hybrid sharding is enabled.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -1086,9 +1091,9 @@
 <span class="sd">    The sharded data parallel gang (i.e. intra-node for HSDP).</span>
 
 <span class="sd">    This is a sub-gang of :attr:`dp` used for sharded data parallelism. In</span>
-<span class="sd">    PyTorch this gang is used by FSDP. If hybrid sharding is enabled, it will</span>
+<span class="sd">    PyTorch, this gang is used by FSDP. If hybrid sharding is enabled, it will</span>
 <span class="sd">    be used only for intra-node communication, while inter-node communication</span>
-<span class="sd">    of FSDP will be handled by :attr:`rdp`.</span>
+<span class="sd">    will be handled by :attr:`rdp`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">tp</span><span class="p">:</span> <span class="n">Gang</span>
@@ -1104,11 +1109,62 @@
                     <span class="s2">&quot;Coordinator process of the root gang (i.e. `root.rank == 0`) must be rank 0 in all parallel gangs.&quot;</span>
                 <span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_thread_local</span><span class="o">.</span><span class="n">current_gangs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">exc_value</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">traceback</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_thread_local</span><span class="o">.</span><span class="n">current_gangs</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+
 <div class="viewcode-block" id="Gangs.close">
 <a class="viewcode-back" href="../../reference/fairseq2.gang.html#fairseq2.gang.Gangs.close">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Destroys all gangs.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 </div>
+
+
+
+<span class="n">_thread_local</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">local</span><span class="p">()</span>
+
+<span class="c1"># Holds the stack of current thread-local gangs.</span>
+<span class="n">_thread_local</span><span class="o">.</span><span class="n">current_gangs</span> <span class="o">=</span> <span class="p">[]</span>
+
+
+<div class="viewcode-block" id="maybe_get_current_gangs">
+<a class="viewcode-back" href="../../reference/fairseq2.gang.html#fairseq2.gang.maybe_get_current_gangs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">maybe_get_current_gangs</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Gangs</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the current gangs to use for collective operations.</span>
+
+<span class="sd">    By default, this function returns ``None``. The current gangs of the calling</span>
+<span class="sd">    thread can be set by using :class:`Gangs` as a context manager:</span>
+
+<span class="sd">    .. code::</span>
+
+<span class="sd">        from fairseq2.gang import Gangs</span>
+
+<span class="sd">        gangs = Gangs(...)</span>
+
+<span class="sd">        with gangs:</span>
+<span class="sd">            current_gangs = maybe_get_current_gangs()</span>
+
+<span class="sd">            assert current_gangs is gangs</span>
+
+<span class="sd">        current_gangs = maybe_get_current_gangs()</span>
+
+<span class="sd">        assert current_gangs is None</span>
+
+<span class="sd">    Within fairseq2, this function is used by model factories to retrieve the</span>
+<span class="sd">    current gangs and shard the constructed models accordingly. The current gangs</span>
+<span class="sd">    are set internally by fairseq2 before calling the factories.</span>
+
+<span class="sd">    Note that the return value of this function is thread specific. Individual</span>
+<span class="sd">    threads may have their own set of current gangs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">_thread_local</span><span class="o">.</span><span class="n">current_gangs</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Gangs</span><span class="p">,</span> <span class="n">_thread_local</span><span class="o">.</span><span class="n">current_gangs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="kc">None</span></div>
 
 
 
@@ -1118,7 +1174,7 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Creates gangs to be used for data and model parallelism.</span>
 
-<span class="sd">    For instance, if we have 8 devices denoted by d0 to d7 and 2 devices are</span>
+<span class="sd">    For instance, if there are 8 devices denoted by d0 to d7 and 2 devices are</span>
 <span class="sd">    used for tensor parallelism (i.e. ``tp_size`` is 2), this function will</span>
 <span class="sd">    create 4 tensor parallel gangs and 2 data parallel gangs by splitting</span>
 <span class="sd">    ``root_gang`` as:</span>
@@ -1254,7 +1310,7 @@
 <span class="sd">    represents a fully sharded data parallel strategy.</span>
 
 <span class="sd">    An integer ``intra_node_size`` indicates hybrid sharded data parallelism.</span>
-<span class="sd">    For instance, if we have 8 devices denoted by d0 to d7 and 4 devices are</span>
+<span class="sd">    For instance, if there are 8 devices denoted by d0 to d7 and 4 devices are</span>
 <span class="sd">    used for intra-node parallelism (i.e. ``intra_node_size`` is 4), this</span>
 <span class="sd">    function will create 2 intra-node gangs and 4 inter-node gangs by splitting</span>
 <span class="sd">    ``gangs.dp`` as:</span>
@@ -1520,7 +1576,7 @@
       
     </aside>
   </div>
-</div><script src="../../_static/documentation_options.js?v=7d5035a8"></script>
+</div><script src="../../_static/documentation_options.js?v=480d58a0"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/scripts/furo.js?v=5fa4622c"></script>

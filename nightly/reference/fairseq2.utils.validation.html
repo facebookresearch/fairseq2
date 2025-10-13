@@ -247,8 +247,10 @@
 <li class="toctree-l2"><a class="reference internal" href="datasets/hub.html">fairseq2.datasets.hub</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="device.html">fairseq2.device</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.device.html">fairseq2.device</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.gang.html">fairseq2.gang</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.models.html">fairseq2.models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.recipe.optim.html">fairseq2.recipe.optim</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">fairseq2.utils.validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="logging.html">fairseq2.logging</a></li>
@@ -321,7 +323,7 @@
 <span id="fairseq2-utils-validation"></span><h1>fairseq2.utils.validation<a class="headerlink" href="#module-fairseq2.utils.validation" title="Link to this heading">¶</a></h1>
 <p>This module provides a set of helper types for object state validation. These
 types are primarly used by recipe and asset configuration dataclasses to ensure
-that all options are set correctly.</p>
+that all fields are set correctly.</p>
 <p>A class -<em>typically a configuration dataclass</em>- that wants to support validation
 should expose a <code class="docutils literal notranslate"><span class="pre">validate(self)</span> <span class="pre">-&gt;</span> <span class="pre">ValidationResult</span></code> method. Optionally,
 the class can derive from the runtime-checkable <a class="reference internal" href="#fairseq2.utils.validation.Validatable" title="fairseq2.utils.validation.Validatable"><code class="xref py py-class docutils literal notranslate"><span class="pre">Validatable</span></code></a> protocol
@@ -349,9 +351,9 @@ to make its intent more clear.</p>
 </pre></div>
 </div>
 <p>Note that <code class="docutils literal notranslate"><span class="pre">FooConfig</span></code> must NOT call <code class="docutils literal notranslate"><span class="pre">validate()</span></code> on its sub-fields that are
-validatable. <a class="reference internal" href="#fairseq2.utils.validation.ObjectValidator" title="fairseq2.utils.validation.ObjectValidator"><code class="xref py py-class docutils literal notranslate"><span class="pre">ObjectValidator</span></code></a> is responsible for traversing the object
-graph and call each <code class="docutils literal notranslate"><span class="pre">validate()</span></code> method it finds in dataclasses, as well as in
-composite objects of types <code class="docutils literal notranslate"><span class="pre">list</span></code>, <code class="docutils literal notranslate"><span class="pre">Mapping</span></code>, <code class="docutils literal notranslate"><span class="pre">Set</span></code>, and <code class="docutils literal notranslate"><span class="pre">tuple</span></code>.</p>
+validatable. <a class="reference internal" href="#fairseq2.utils.validation.ObjectValidator" title="fairseq2.utils.validation.ObjectValidator"><code class="xref py py-class docutils literal notranslate"><span class="pre">ObjectValidator</span></code></a> will traverse the object graph and call
+each <code class="docutils literal notranslate"><span class="pre">validate()</span></code> method it finds in dataclasses as well as in composite
+objects of types <code class="docutils literal notranslate"><span class="pre">list</span></code>, <code class="docutils literal notranslate"><span class="pre">Mapping</span></code>, <code class="docutils literal notranslate"><span class="pre">Set</span></code>, and <code class="docutils literal notranslate"><span class="pre">tuple</span></code>.</p>
 <p>Whenever <code class="docutils literal notranslate"><span class="pre">FooConfig</span></code> is used in a recipe configuration, fairseq2 will ensure
 that it is validated before setting <code class="xref py py-attr docutils literal notranslate"><span class="pre">RecipeContext.config</span></code>. To manually
 validate an object outside of recipes, <a class="reference internal" href="#fairseq2.utils.validation.StandardObjectValidator" title="fairseq2.utils.validation.StandardObjectValidator"><code class="xref py py-class docutils literal notranslate"><span class="pre">StandardObjectValidator</span></code></a> can
@@ -397,20 +399,17 @@ be used:</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.utils.validation.ObjectValidator">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.utils.validation.</span></span><span class="sig-name descname"><span class="pre">ObjectValidator</span></span><a class="reference internal" href="../_modules/fairseq2/utils/validation.html#ObjectValidator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.utils.validation.ObjectValidator" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
 <p>Validates an object along with its sub-objects if it is a composite object
 (i.e. a <code class="docutils literal notranslate"><span class="pre">dataclass</span></code>, <code class="docutils literal notranslate"><span class="pre">list</span></code>, <code class="docutils literal notranslate"><span class="pre">Mapping</span></code>, <code class="docutils literal notranslate"><span class="pre">Set</span></code>, or <code class="docutils literal notranslate"><span class="pre">tuple</span></code>) and
 raises a <a class="reference internal" href="#fairseq2.utils.validation.ValidationError" title="fairseq2.utils.validation.ValidationError"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValidationError</span></code></a> if any of them returns an error.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.utils.validation.ObjectValidator.validate">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">validate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><span class="pre">object</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/utils/validation.html#ObjectValidator.validate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.utils.validation.ObjectValidator.validate" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">validate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><span class="pre">object</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/utils/validation.html#ObjectValidator.validate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.utils.validation.ObjectValidator.validate" title="Link to this definition">¶</a></dt>
 <dd><p>Validates <code class="docutils literal notranslate"><span class="pre">obj</span></code>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>obj</strong> – The object to validate.</p>
-</dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="#fairseq2.utils.validation.ValidationError" title="fairseq2.utils.validation.ValidationError"><strong>ValidationError</strong></a> – <code class="docutils literal notranslate"><span class="pre">obj</span></code> or one of its sub-objects has a
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.utils.validation.ValidationError" title="fairseq2.utils.validation.ValidationError"><strong>ValidationError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">obj</span></code> or one of its sub-objects has a
 validation error.</p>
 </dd>
 </dl>
@@ -425,14 +424,11 @@ validation error.</p>
 <p>Represents the standard implementation of <a class="reference internal" href="#fairseq2.utils.validation.ObjectValidator" title="fairseq2.utils.validation.ObjectValidator"><code class="xref py py-class docutils literal notranslate"><span class="pre">ObjectValidator</span></code></a>.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.utils.validation.StandardObjectValidator.validate">
-<span class="sig-name descname"><span class="pre">validate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><span class="pre">object</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/utils/validation.html#StandardObjectValidator.validate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.utils.validation.StandardObjectValidator.validate" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">validate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><span class="pre">object</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/utils/validation.html#StandardObjectValidator.validate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.utils.validation.StandardObjectValidator.validate" title="Link to this definition">¶</a></dt>
 <dd><p>Validates <code class="docutils literal notranslate"><span class="pre">obj</span></code>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>obj</strong> – The object to validate.</p>
-</dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="#fairseq2.utils.validation.ValidationError" title="fairseq2.utils.validation.ValidationError"><strong>ValidationError</strong></a> – <code class="docutils literal notranslate"><span class="pre">obj</span></code> or one of its sub-objects has a
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.utils.validation.ValidationError" title="fairseq2.utils.validation.ValidationError"><strong>ValidationError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">obj</span></code> or one of its sub-objects has a
 validation error.</p>
 </dd>
 </dl>
@@ -443,17 +439,12 @@ validation error.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.utils.validation.Validatable">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.utils.validation.</span></span><span class="sig-name descname"><span class="pre">Validatable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/utils/validation.html#Validatable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.utils.validation.Validatable" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Protocol" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Protocol</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Protocol" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Protocol</span></code></a></p>
 <p>Represents the protocol for validatable objects.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.utils.validation.Validatable.validate">
 <span class="sig-name descname"><span class="pre">validate</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#fairseq2.utils.validation.ValidationResult" title="fairseq2.utils.validation.ValidationResult"><span class="pre">ValidationResult</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/utils/validation.html#Validatable.validate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.utils.validation.Validatable.validate" title="Link to this definition">¶</a></dt>
 <dd><p>Validates the state of the object.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>The result of the validation.</p>
-</dd>
-</dl>
 </dd></dl>
 
 </dd></dl>
@@ -461,48 +452,41 @@ validation error.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.utils.validation.ValidationResult">
 <em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.utils.validation.</span></span><span class="sig-name descname"><span class="pre">ValidationResult</span></span><a class="reference internal" href="../_modules/fairseq2/utils/validation.html#ValidationResult"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.utils.validation.ValidationResult" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Holds the result of a <a class="reference internal" href="#fairseq2.utils.validation.Validatable.validate" title="fairseq2.utils.validation.Validatable.validate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">validate()</span></code></a> call.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.utils.validation.ValidationResult.add_error">
-<span class="sig-name descname"><span class="pre">add_error</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/utils/validation.html#ValidationResult.add_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.utils.validation.ValidationResult.add_error" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">add_error</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/utils/validation.html#ValidationResult.add_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.utils.validation.ValidationResult.add_error" title="Link to this definition">¶</a></dt>
 <dd><p>Adds an error message to the result.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.utils.validation.ValidationResult.add_sub_result">
-<span class="sig-name descname"><span class="pre">add_sub_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">field</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fairseq2.utils.validation.ValidationResult" title="fairseq2.utils.validation.ValidationResult"><span class="pre">ValidationResult</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/utils/validation.html#ValidationResult.add_sub_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.utils.validation.ValidationResult.add_sub_result" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">add_sub_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">field</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fairseq2.utils.validation.ValidationResult" title="fairseq2.utils.validation.ValidationResult"><span class="pre">ValidationResult</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/utils/validation.html#ValidationResult.add_sub_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.utils.validation.ValidationResult.add_sub_result" title="Link to this definition">¶</a></dt>
 <dd><p>Adds the validation result of a sub-object as a sub-result.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>field</strong> – The name of the sub-object. For a dataclass, it is the
-name of the field, for a <code class="docutils literal notranslate"><span class="pre">Mapping</span></code> it is the name of the key
-formatted as <code class="docutils literal notranslate"><span class="pre">f&quot;[{repr(key)}]&quot;</span></code>, for <code class="docutils literal notranslate"><span class="pre">list</span></code>, <code class="docutils literal notranslate"><span class="pre">Set</span></code>, and <code class="docutils literal notranslate"><span class="pre">tuple</span></code>
-it is the index of the value formatted as <code class="docutils literal notranslate"><span class="pre">f&quot;[{index}]&quot;</span></code>.</p></li>
-<li><p><strong>result</strong> – The validation result of the sub-object.</p></li>
-</ul>
-</dd>
-</dl>
+<p><code class="docutils literal notranslate"><span class="pre">field</span></code> specifies the name of the sub-object. For a dataclass, it is
+the name of the field, for a <code class="docutils literal notranslate"><span class="pre">Mapping</span></code>, it is the name of the key
+formatted as <code class="docutils literal notranslate"><span class="pre">f&quot;[{repr(key)}]&quot;</span></code>, for a <code class="docutils literal notranslate"><span class="pre">list</span></code>, <code class="docutils literal notranslate"><span class="pre">Set</span></code>, or <code class="docutils literal notranslate"><span class="pre">tuple</span></code>,
+it is the index of the value formatted as <code class="docutils literal notranslate"><span class="pre">f&quot;[{index}]&quot;</span></code>.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.utils.validation.ValidationResult.has_error">
-<span class="sig-name descname"><span class="pre">has_error</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/utils/validation.html#ValidationResult.has_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.utils.validation.ValidationResult.has_error" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">has_error</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/utils/validation.html#ValidationResult.has_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.utils.validation.ValidationResult.has_error" title="Link to this definition">¶</a></dt>
 <dd><p>Returns <code class="docutils literal notranslate"><span class="pre">True</span></code> if the object or any of its sub-objects have a
 validation error.</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="fairseq2.utils.validation.ValidationResult.errors">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">errors</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fairseq2.utils.validation.ValidationResult.errors" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">errors</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.14)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fairseq2.utils.validation.ValidationResult.errors" title="Link to this definition">¶</a></dt>
 <dd><p>Returns the validation errors of the object, excluding errors of its
 sub-objects.</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="fairseq2.utils.validation.ValidationResult.sub_results">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sub_results</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping" title="(in Python v3.13)"><span class="pre">Mapping</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#fairseq2.utils.validation.ValidationResult" title="fairseq2.utils.validation.ValidationResult"><span class="pre">ValidationResult</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fairseq2.utils.validation.ValidationResult.sub_results" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sub_results</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping" title="(in Python v3.14)"><span class="pre">Mapping</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#fairseq2.utils.validation.ValidationResult" title="fairseq2.utils.validation.ValidationResult"><span class="pre">ValidationResult</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fairseq2.utils.validation.ValidationResult.sub_results" title="Link to this definition">¶</a></dt>
 <dd><p>Returns the validation results of the sub-objects.</p>
 </dd></dl>
 
@@ -510,24 +494,15 @@ sub-objects.</p>
 
 <dl class="py exception">
 <dt class="sig sig-object py" id="fairseq2.utils.validation.ValidationError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.utils.validation.</span></span><span class="sig-name descname"><span class="pre">ValidationError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fairseq2.utils.validation.ValidationResult" title="fairseq2.utils.validation.ValidationResult"><span class="pre">ValidationResult</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">field</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/utils/validation.html#ValidationError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.utils.validation.ValidationError" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.utils.validation.</span></span><span class="sig-name descname"><span class="pre">ValidationError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fairseq2.utils.validation.ValidationResult" title="fairseq2.utils.validation.ValidationResult"><span class="pre">ValidationResult</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">field</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/utils/validation.html#ValidationError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.utils.validation.ValidationError" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
 <p>Raised when a validation error occurs.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>result</strong> – The validation result. If <code class="docutils literal notranslate"><span class="pre">str</span></code>, will be converted
-to a result with <code class="docutils literal notranslate"><span class="pre">ValidationResult(result)</span></code>.</p></li>
-<li><p><strong>field</strong> – If not <code class="docutils literal notranslate"><span class="pre">None</span></code>, <code class="docutils literal notranslate"><span class="pre">result</span></code> will be treated as the
-sub-result of <code class="docutils literal notranslate"><span class="pre">field</span></code>.</p></li>
-</ul>
-</dd>
-</dl>
+<p>If <code class="docutils literal notranslate"><span class="pre">field</span></code> is provided, <code class="docutils literal notranslate"><span class="pre">result</span></code> will be treated as the sub-result
+of the specified field.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.utils.validation.ValidationError.result">
 <span class="sig-name descname"><span class="pre">result</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fairseq2.utils.validation.ValidationResult" title="fairseq2.utils.validation.ValidationResult"><span class="pre">ValidationResult</span></a></em><a class="headerlink" href="#fairseq2.utils.validation.ValidationError.result" title="Link to this definition">¶</a></dt>
-<dd><p>The result containing validation errors.</p>
-</dd></dl>
+<dd></dd></dl>
 
 </dd></dl>
 
@@ -628,7 +603,7 @@ sub-result of <code class="docutils literal notranslate"><span class="pre">field
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=7d5035a8"></script>
+</div><script src="../_static/documentation_options.js?v=480d58a0"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>

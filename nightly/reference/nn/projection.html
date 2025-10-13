@@ -247,8 +247,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../datasets/hub.html">fairseq2.datasets.hub</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../device.html">fairseq2.device</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fairseq2.device.html">fairseq2.device</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fairseq2.gang.html">fairseq2.gang</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fairseq2.models.html">fairseq2.models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fairseq2.recipe.optim.html">fairseq2.recipe.optim</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fairseq2.utils.validation.html">fairseq2.utils.validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../logging.html">fairseq2.logging</a></li>
@@ -321,101 +323,73 @@
 <span id="proj"></span><h1>Projection Layers<a class="headerlink" href="#projection-layers" title="Link to this heading">¶</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.nn.Projection">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.</span></span><span class="sig-name descname"><span class="pre">Projection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2/nn/projection.html#Projection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.Projection" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
-<p>Applies a linear transformation to incoming data.</p>
-<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.</span></span><span class="sig-name descname"><span class="pre">Projection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2/nn/projection.html#Projection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.Projection" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<p>Applies a linear transformation to input data.</p>
+<dl class="field-list simple">
+</dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.nn.Projection.forward">
 <em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.8)"><span class="pre">Tensor</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.8)"><span class="pre">Tensor</span></a></span></span><a class="reference internal" href="../../_modules/fairseq2/nn/projection.html#Projection.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.Projection.forward" title="Link to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>x</strong> – The input to project. <em>Shape:</em> <span class="math notranslate nohighlight">\((*,H_{inp})\)</span>, where
-<span class="math notranslate nohighlight">\(H_{inp}\)</span> is the input dimensionality.</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>The projected output. <em>Shape:</em> <span class="math notranslate nohighlight">\((*,H_{out})\)</span>, where all
-but the last dimension are the same shape as the input and
-<span class="math notranslate nohighlight">\(H_{out}\)</span> is the output dimensionality.</p>
-</dd>
-</dl>
+<dd><p>Projects the input data.</p>
+<p><code class="docutils literal notranslate"><span class="pre">x</span></code> must be of shape <span class="math notranslate nohighlight">\((*,H_{inp})\)</span>, where <span class="math notranslate nohighlight">\(H_{inp}\)</span> is the
+input dimensionality of this module.</p>
+<p>The projected output will be of shape <span class="math notranslate nohighlight">\((*,H_{out})\)</span>, where all but
+the last dimension are the same shape as <code class="docutils literal notranslate"><span class="pre">x</span></code> and <span class="math notranslate nohighlight">\(H_{out}\)</span> is
+the output dimensionality of this module.</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.nn.Linear">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.</span></span><span class="sig-name descname"><span class="pre">Linear</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">init_fn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.13)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#fairseq2.nn.Linear" title="fairseq2.nn.projection.Linear"><span class="pre">Linear</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.8)"><span class="pre">device</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.dtype" title="(in PyTorch v2.8)"><span class="pre">dtype</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2/nn/projection.html#Linear"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.Linear" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.</span></span><span class="sig-name descname"><span class="pre">Linear</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">init_fn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.14)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#fairseq2.nn.Linear" title="fairseq2.nn.projection.Linear"><span class="pre">Linear</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.8)"><span class="pre">device</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.dtype" title="(in PyTorch v2.8)"><span class="pre">dtype</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2/nn/projection.html#Linear"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.Linear" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#fairseq2.nn.Projection" title="fairseq2.nn.projection.Projection"><code class="xref py py-class docutils literal notranslate"><span class="pre">Projection</span></code></a></p>
-<p>Applies a linear transformation to incoming data using weights and bias.</p>
-<p>Unless overridden by a subclass, the weights and bias are initialized from
-<span class="math notranslate nohighlight">\(\mathcal{U}(-\sqrt{k}, \sqrt{k})\)</span>, where
-<span class="math notranslate nohighlight">\(k = \frac{1}{\text{input_dim}}\)</span>.</p>
+<p>Represents the standard implementation of <a class="reference internal" href="#fairseq2.nn.Projection" title="fairseq2.nn.Projection"><code class="xref py py-class docutils literal notranslate"><span class="pre">Projection</span></code></a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>This class is identical to <a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.Linear.html#torch.nn.Linear" title="(in PyTorch v2.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.Linear</span></code></a>.</p>
 </div>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>input_dim</strong> – The dimensionality of inputs.</p></li>
-<li><p><strong>output_dim</strong> – The dimensionality of projected outputs.</p></li>
-<li><p><strong>bias</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, learns an additive bias.</p></li>
-<li><p><strong>init_fn</strong> – The callable to initialize the weight and bias.</p></li>
-</ul>
-</dd>
-</dl>
+<p>Unless overridden by <code class="docutils literal notranslate"><span class="pre">init_fn</span></code>, the weight and bias of this module are
+initialized from <span class="math notranslate nohighlight">\(\mathcal{U}(-\sqrt{k}, \sqrt{k})\)</span>, where
+<span class="math notranslate nohighlight">\(k = \frac{1}{\text{input_dim}}\)</span>.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">init_fn</span></code> is provided, it will be used to initialize the weight and
+bias in <a class="reference internal" href="#fairseq2.nn.Linear.reset_parameters" title="fairseq2.nn.Linear.reset_parameters"><code class="xref py py-meth docutils literal notranslate"><span class="pre">reset_parameters()</span></code></a>.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.nn.Linear.reset_parameters">
-<span class="sig-name descname"><span class="pre">reset_parameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/fairseq2/nn/projection.html#Linear.reset_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.Linear.reset_parameters" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">reset_parameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/fairseq2/nn/projection.html#Linear.reset_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.Linear.reset_parameters" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.nn.Linear.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.8)"><span class="pre">Tensor</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.8)"><span class="pre">Tensor</span></a></span></span><a class="reference internal" href="../../_modules/fairseq2/nn/projection.html#Linear.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.Linear.forward" title="Link to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>x</strong> – The input to project. <em>Shape:</em> <span class="math notranslate nohighlight">\((*,H_{inp})\)</span>, where
-<span class="math notranslate nohighlight">\(H_{inp}\)</span> is the input dimensionality.</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>The projected output. <em>Shape:</em> <span class="math notranslate nohighlight">\((*,H_{out})\)</span>, where all
-but the last dimension are the same shape as the input and
-<span class="math notranslate nohighlight">\(H_{out}\)</span> is the output dimensionality.</p>
-</dd>
-</dl>
+<dd><p>Projects the input data.</p>
+<p><code class="docutils literal notranslate"><span class="pre">x</span></code> must be of shape <span class="math notranslate nohighlight">\((*,H_{inp})\)</span>, where <span class="math notranslate nohighlight">\(H_{inp}\)</span> is the
+input dimensionality of this module.</p>
+<p>The projected output will be of shape <span class="math notranslate nohighlight">\((*,H_{out})\)</span>, where all but
+the last dimension are the same shape as <code class="docutils literal notranslate"><span class="pre">x</span></code> and <span class="math notranslate nohighlight">\(H_{out}\)</span> is
+the output dimensionality of this module.</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.nn.TiedProjection">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.</span></span><span class="sig-name descname"><span class="pre">TiedProjection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">weight</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.parameter.Parameter.html#torch.nn.parameter.Parameter" title="(in PyTorch v2.8)"><span class="pre">Parameter</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.parameter.Parameter.html#torch.nn.parameter.Parameter" title="(in PyTorch v2.8)"><span class="pre">Parameter</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2/nn/projection.html#TiedProjection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.TiedProjection" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.</span></span><span class="sig-name descname"><span class="pre">TiedProjection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">weight</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.parameter.Parameter.html#torch.nn.parameter.Parameter" title="(in PyTorch v2.8)"><span class="pre">Parameter</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.parameter.Parameter.html#torch.nn.parameter.Parameter" title="(in PyTorch v2.8)"><span class="pre">Parameter</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2/nn/projection.html#TiedProjection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.TiedProjection" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#fairseq2.nn.Projection" title="fairseq2.nn.projection.Projection"><code class="xref py py-class docutils literal notranslate"><span class="pre">Projection</span></code></a></p>
-<p>Applies a linear transformation to incoming data using the weights and bias
+<p>Applies a linear transformation to input data using the weight and bias
 of another <a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> instance.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>weight</strong> – The shared weights.</p></li>
-<li><p><strong>bias</strong> – The shared bias.</p></li>
-</ul>
-</dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.nn.TiedProjection.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.8)"><span class="pre">Tensor</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.8)"><span class="pre">Tensor</span></a></span></span><a class="reference internal" href="../../_modules/fairseq2/nn/projection.html#TiedProjection.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.TiedProjection.forward" title="Link to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>x</strong> – The input to project. <em>Shape:</em> <span class="math notranslate nohighlight">\((*,H_{inp})\)</span>, where
-<span class="math notranslate nohighlight">\(H_{inp}\)</span> is the input dimensionality.</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>The projected output. <em>Shape:</em> <span class="math notranslate nohighlight">\((*,H_{out})\)</span>, where all
-but the last dimension are the same shape as the input and
-<span class="math notranslate nohighlight">\(H_{out}\)</span> is the output dimensionality.</p>
-</dd>
-</dl>
+<dd><p>Projects the input data.</p>
+<p><code class="docutils literal notranslate"><span class="pre">x</span></code> must be of shape <span class="math notranslate nohighlight">\((*,H_{inp})\)</span>, where <span class="math notranslate nohighlight">\(H_{inp}\)</span> is the
+input dimensionality of this module.</p>
+<p>The projected output will be of shape <span class="math notranslate nohighlight">\((*,H_{out})\)</span>, where all but
+the last dimension are the same shape as <code class="docutils literal notranslate"><span class="pre">x</span></code> and <span class="math notranslate nohighlight">\(H_{out}\)</span> is
+the output dimensionality of this module.</p>
 </dd></dl>
 
 </dd></dl>
@@ -506,7 +480,7 @@ but the last dimension are the same shape as the input and
       
     </aside>
   </div>
-</div><script src="../../_static/documentation_options.js?v=7d5035a8"></script>
+</div><script src="../../_static/documentation_options.js?v=480d58a0"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/scripts/furo.js?v=5fa4622c"></script>

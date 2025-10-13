@@ -117,23 +117,6 @@ The tokenizer supports different modes via ``create_encoder(mode=...)``:
     encoder = tokenizer.create_encoder(mode="prompt_response")
     # Only adds <|eot_id|> or <|end_of_text|>
 
-Model Hub
----------
-
-get_llama_model_hub
-~~~~~~~~~~~~~~~~~~~
-
-.. autofunction:: get_llama_model_hub
-
-    Returns the model hub for LLaMA models.
-
-get_llama_tokenizer_hub
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autofunction:: get_llama_tokenizer_hub
-
-    Returns the tokenizer hub for LLaMA tokenizers.
-
 Model Configuration
 -------------------
 

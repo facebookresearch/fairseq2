@@ -247,8 +247,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../reference/datasets/hub.html">fairseq2.datasets.hub</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../reference/device.html">fairseq2.device</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.device.html">fairseq2.device</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.gang.html">fairseq2.gang</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.models.html">fairseq2.models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.recipe.optim.html">fairseq2.recipe.optim</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.utils.validation.html">fairseq2.utils.validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/logging.html">fairseq2.logging</a></li>
@@ -478,7 +480,7 @@ not require any implementation changes.</p>
     <span class="c1"># Infer the world size from the `WORLD_SIZE` environment variable.</span>
     <span class="n">world_size</span> <span class="o">=</span> <span class="n">get_world_size</span><span class="p">()</span>
 
-    <span class="c1"># If we have only a single rank, create a fake gang.</span>
+    <span class="c1"># If only a single rank, create a fake gang.</span>
     <span class="k">if</span> <span class="n">world_size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
@@ -546,9 +548,9 @@ container for all the created parallel gangs.</p>
 <span class="c1"># Depending on the device creates a ProcessGroup with NCCL or Gloo backend.</span>
 <span class="n">root_gang</span> <span class="o">=</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">create_default_process_group</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
-<span class="c1"># If we have 8 devices denoted by d0 to d7 and 2 devices are used for tensor</span>
-<span class="c1"># parallelism (i.e. ``tp_size`` is 2), this function will create 4 tensor</span>
-<span class="c1"># parallel gangs and 2 data parallel gangs by splitting ``root_gang``</span>
+<span class="c1"># If there are 8 devices denoted by d0 to d7 and 2 devices are used for</span>
+<span class="c1"># tensor parallelism (i.e. `tp_size` is 2), this function will create 4</span>
+<span class="c1"># tensor parallel gangs and 2 data parallel gangs by splitting `root_gang`</span>
 <span class="c1"># as:</span>
 <span class="c1">#   4 tensor parallel gangs:</span>
 <span class="c1">#       [d0, d1], [d2, d3], [d4, d5], [d6, d7]</span>
@@ -579,7 +581,7 @@ sharded gangs to support hybrid and fully sharded data parallelism strategies.</
 <span class="n">root_gang</span> <span class="o">=</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">create_default_process_group</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
 <span class="c1"># All size parameters (e.g. `tp_size`) for model parallelism strategies</span>
-<span class="c1"># default to 1. If we have 8 devices, this call will only instantiate a</span>
+<span class="c1"># default to 1. If there are 8 devices, this call will only instantiate a</span>
 <span class="c1"># new data parallel gang.</span>
 <span class="n">gangs</span> <span class="o">=</span> <span class="n">create_parallel_gangs</span><span class="p">(</span><span class="n">root_gang</span><span class="p">)</span>
 
@@ -604,7 +606,7 @@ sharded gangs to support hybrid and fully sharded data parallelism strategies.</
 <span class="n">root_gang</span> <span class="o">=</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">create_default_process_group</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
 <span class="c1"># All size parameters (e.g. `tp_size`) for model parallelism strategies</span>
-<span class="c1"># default to 1. If we have 8 devices, this call will only instantiate a</span>
+<span class="c1"># default to 1. If there are 8 devices, this call will only instantiate a</span>
 <span class="c1"># new data parallel gang.</span>
 <span class="n">gangs</span> <span class="o">=</span> <span class="n">create_parallel_gangs</span><span class="p">(</span><span class="n">root_gang</span><span class="p">)</span>
 
@@ -628,10 +630,38 @@ sharded gangs to support hybrid and fully sharded data parallelism strategies.</
 <p>fairseq2 is designed to allow researchers to begin their work on a single device
 with simple experimentation code, which can later be gradually scaled up to
 thousands of GPUs with minimal code changes. Consequently, several major APIs
-such as <a class="reference internal" href="../guides/add_model.html"><span class="doc">model loading</span></a>, <a class="reference internal" href="../reference/checkpoint.html"><span class="doc">checkpointing</span></a>,
+such as <a class="reference internal" href="../guides/add_model.html"><span class="doc">model loading</span></a>, <a class="reference internal" href="../reference/fairseq2.model_checkpoint.html"><span class="doc">checkpointing</span></a>,
 and <a class="reference internal" href="../reference/datasets/index.html"><span class="doc">dataset reading</span></a> natively support scaling
 and parallelism through the gang abstraction. Refer to the relevant guides to
 learn more about how gangs are utilized there.</p>
+</section>
+<section id="how-to-use-gangs-in-deeply-nested-functions">
+<h2>How to use Gangs in deeply nested functions?<a class="headerlink" href="#how-to-use-gangs-in-deeply-nested-functions" title="Link to this heading">¶</a></h2>
+<p>fairseq2 provides a basic API for setting a <a class="reference internal" href="../reference/fairseq2.gang.html#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><code class="xref py py-class docutils literal notranslate"><span class="pre">Gangs</span></code></a> instance as the
+“current” gangs for the calling thread. This feature is particularly useful in
+procedural programming, as it eliminates the need to pass a <a class="reference internal" href="../reference/fairseq2.gang.html#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><code class="xref py py-class docutils literal notranslate"><span class="pre">Gangs</span></code></a>
+instance through every function call.</p>
+<p>When a <a class="reference internal" href="../reference/fairseq2.gang.html#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><code class="xref py py-class docutils literal notranslate"><span class="pre">Gangs</span></code></a> instance is used as a context manager, it is set as the
+current gangs. You can nest <code class="docutils literal notranslate"><span class="pre">with</span> <span class="pre">gangs</span></code> statements to override the current
+gangs as needed. The current gangs instance can be retrieved by calling the
+<a class="reference internal" href="../reference/fairseq2.gang.html#fairseq2.gang.maybe_get_current_gangs" title="fairseq2.gang.maybe_get_current_gangs"><code class="xref py py-func docutils literal notranslate"><span class="pre">maybe_get_current_gangs()</span></code></a> function.</p>
+<div class="literal-block-wrapper docutils container" id="id9">
+<div class="code-block-caption"><span class="caption-text">Set and retrieve current thread-local gangs</span><a class="headerlink" href="#id9" title="Link to this code">¶</a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gangs</span><span class="p">,</span> <span class="n">maybe_get_current_gangs</span>
+
+<span class="n">gangs</span> <span class="o">=</span> <span class="n">Gangs</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+
+<span class="k">with</span> <span class="n">gangs</span><span class="p">:</span>
+    <span class="n">current_gangs</span> <span class="o">=</span> <span class="n">maybe_get_current_gangs</span><span class="p">()</span>
+
+    <span class="k">assert</span> <span class="n">current_gangs</span> <span class="ow">is</span> <span class="n">gangs</span>
+
+<span class="n">current_gangs</span> <span class="o">=</span> <span class="n">maybe_get_current_gangs</span><span class="p">()</span>
+
+<span class="k">assert</span> <span class="n">current_gangs</span> <span class="ow">is</span> <span class="kc">None</span>
+</pre></div>
+</div>
+</div>
 </section>
 </section>
 
@@ -700,6 +730,7 @@ learn more about how gangs are utilized there.</p>
 <li><a class="reference internal" href="#how-to-create-a-gang">How to create a Gang?</a></li>
 <li><a class="reference internal" href="#how-to-create-gangs-for-data-and-model-parallelism">How to create Gangs for data and model parallelism?</a></li>
 <li><a class="reference internal" href="#how-is-gang-used-in-fairseq2">How is Gang used in fairseq2?</a></li>
+<li><a class="reference internal" href="#how-to-use-gangs-in-deeply-nested-functions">How to use Gangs in deeply nested functions?</a></li>
 </ul>
 </li>
 </ul>
@@ -711,7 +742,7 @@ learn more about how gangs are utilized there.</p>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=7d5035a8"></script>
+</div><script src="../_static/documentation_options.js?v=480d58a0"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>

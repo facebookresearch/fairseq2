@@ -246,8 +246,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/datasets/hub.html">fairseq2.datasets.hub</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../../../reference/device.html">fairseq2.device</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.device.html">fairseq2.device</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.gang.html">fairseq2.gang</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.models.html">fairseq2.models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.recipe.optim.html">fairseq2.recipe.optim</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.utils.validation.html">fairseq2.utils.validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/logging.html">fairseq2.logging</a></li>
@@ -327,15 +329,15 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span><span class="p">,</span> <span class="n">Parameter</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn.functional</span><span class="w"> </span><span class="kn">import</span> <span class="n">linear</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn.parameter</span><span class="w"> </span><span class="kn">import</span> <span class="n">Parameter</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.data_type</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataType</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">META_DEVICE</span><span class="p">,</span> <span class="n">Device</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InternalError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gang</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.nn.sharded</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sharded</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.nn.utils.module</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_name_or_self</span><span class="p">,</span> <span class="n">to_empty</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.ops.tensor_parallel</span><span class="w"> </span><span class="kn">import</span> <span class="n">gather</span><span class="p">,</span> <span class="n">reduce</span><span class="p">,</span> <span class="n">reduce_on_backward</span><span class="p">,</span> <span class="n">scatter</span>
 
@@ -343,9 +345,10 @@
 <div class="viewcode-block" id="Projection">
 <a class="viewcode-back" href="../../../reference/nn/projection.html#fairseq2.nn.Projection">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">Projection</span><span class="p">(</span><span class="n">Module</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Applies a linear transformation to incoming data.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Applies a linear transformation to input data.&quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">output_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;:meta private:&quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">input_dim</span> <span class="o">=</span> <span class="n">input_dim</span>
@@ -356,12 +359,14 @@
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param x: The input to project. *Shape:* :math:`(*,H_{inp})`, where</span>
-<span class="sd">            :math:`H_{inp}` is the input dimensionality.</span>
+<span class="sd">        Projects the input data.</span>
 
-<span class="sd">        :returns: The projected output. *Shape:* :math:`(*,H_{out})`, where all</span>
-<span class="sd">            but the last dimension are the same shape as the input and</span>
-<span class="sd">            :math:`H_{out}` is the output dimensionality.</span>
+<span class="sd">        ``x`` must be of shape :math:`(*,H_{inp})`, where :math:`H_{inp}` is the</span>
+<span class="sd">        input dimensionality of this module.</span>
+
+<span class="sd">        The projected output will be of shape :math:`(*,H_{out})`, where all but</span>
+<span class="sd">        the last dimension are the same shape as ``x`` and :math:`H_{out}` is</span>
+<span class="sd">        the output dimensionality of this module.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
 
@@ -375,13 +380,10 @@
 <span class="nd">@final</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Linear</span><span class="p">(</span><span class="n">Projection</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Applies a linear transformation to incoming data using weights and bias.</span>
-
-<span class="sd">    Unless overridden by a subclass, the weights and bias are initialized from</span>
-<span class="sd">    :math:`\\mathcal{U}(-\\sqrt{k}, \\sqrt{k})`, where</span>
-<span class="sd">    :math:`k = \\frac{1}{\\text{input_dim}}`.</span>
+<span class="sd">    Represents the standard implementation of :class:`Projection`.</span>
 
 <span class="sd">    .. note::</span>
+
 <span class="sd">        This class is identical to :class:`torch.nn.Linear`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -396,10 +398,12 @@
         <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param input_dim: The dimensionality of inputs.</span>
-<span class="sd">        :param output_dim: The dimensionality of projected outputs.</span>
-<span class="sd">        :param bias: If ``True``, learns an additive bias.</span>
-<span class="sd">        :param init_fn: The callable to initialize the weight and bias.</span>
+<span class="sd">        Unless overridden by ``init_fn``, the weight and bias of this module are</span>
+<span class="sd">        initialized from :math:`\\mathcal{U}(-\\sqrt{k}, \\sqrt{k})`, where</span>
+<span class="sd">        :math:`k = \\frac{1}{\\text{input_dim}}`.</span>
+
+<span class="sd">        If ``init_fn`` is provided, it will be used to initialize the weight and</span>
+<span class="sd">        bias in :meth:`reset_parameters`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">input_dim</span><span class="p">,</span> <span class="n">output_dim</span><span class="p">)</span>
 
@@ -453,26 +457,25 @@
 
 
 <span class="nd">@final</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">ColumnShardedLinear</span><span class="p">(</span><span class="n">Projection</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a :class:`Linear` that is sharded across its output dimension.&quot;&quot;&quot;</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ColumnShardedLinear</span><span class="p">(</span><span class="n">Projection</span><span class="p">,</span> <span class="n">Sharded</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a :class:`Projection` sharded across its output dimension.&quot;&quot;&quot;</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">from_linear</span><span class="p">(</span>
         <span class="n">linear</span><span class="p">:</span> <span class="n">Linear</span><span class="p">,</span> <span class="n">gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">gather_output</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ColumnShardedLinear</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Constructs a :class:`ColumnShardedLinear` by sharding ``linear``.</span>
+<span class="sd">        Creates a :class:`ColumnShardedLinear` by sharding ``linear`` over its</span>
+<span class="sd">        output dimension using ``gang``.</span>
 
-<span class="sd">        :param linear: The projection to shard.</span>
-<span class="sd">        :param gang: The gang over which to shard ``linear``.</span>
-<span class="sd">        :param gather_output: If ``True``, gather the sharded output into a</span>
-<span class="sd">            single tensor.</span>
+<span class="sd">        If ``gather_output`` is ``True``, the sharded outputs of all ranks will</span>
+<span class="sd">        be gathered into a single tensor.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">device</span> <span class="o">=</span> <span class="n">linear</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">device</span>
 
         <span class="k">if</span> <span class="n">device</span> <span class="o">!=</span> <span class="n">gang</span><span class="o">.</span><span class="n">device</span> <span class="ow">and</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">&quot;meta&quot;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;The device of `linear` must be same as `gang.device` or must be of type `meta`.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Device of `linear` must match `gang.device` or must be of type `meta`, but is `</span><span class="si">{</span><span class="n">device</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
             <span class="p">)</span>
 
         <span class="n">sharded_linear</span> <span class="o">=</span> <span class="n">ColumnShardedLinear</span><span class="p">(</span>
@@ -505,15 +508,6 @@
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param gang: The gang over which to shard the weight tensor.</span>
-<span class="sd">        :param input_dim: The dimensionality of inputs.</span>
-<span class="sd">        :param output_dim: The dimensionality of projected outputs.</span>
-<span class="sd">        :param bias: If ``True``, learns an additive bias.</span>
-<span class="sd">        :param gather_output: If ``True``, gather the sharded output into a</span>
-<span class="sd">            single tensor.</span>
-<span class="sd">        :param init_fn: The callable to initialize the weight and bias.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">input_dim</span><span class="p">,</span> <span class="n">output_dim</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">output_dim</span> <span class="o">%</span> <span class="n">gang</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
@@ -531,7 +525,7 @@
             <span class="n">device</span> <span class="o">=</span> <span class="n">gang</span><span class="o">.</span><span class="n">device</span>
         <span class="k">elif</span> <span class="n">device</span> <span class="o">!=</span> <span class="n">gang</span><span class="o">.</span><span class="n">device</span> <span class="ow">and</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">&quot;meta&quot;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;`device` must be same as `gang.device` or must be of type `meta`.&quot;</span>
+                <span class="s2">&quot;`device` must match `gang.device` or must be of type `meta`.&quot;</span>
             <span class="p">)</span>
 
         <span class="n">weight</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
@@ -562,7 +556,7 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_copy_weight</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">linear</span><span class="p">:</span> <span class="n">Linear</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-            <span class="n">weight_shards</span> <span class="o">=</span> <span class="n">linear</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sharded_output_dim</span><span class="p">)</span>
+            <span class="n">weight_shards</span> <span class="o">=</span> <span class="n">linear</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sharded_output_dim</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
             <span class="n">weight</span> <span class="o">=</span> <span class="n">weight_shards</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">rank</span><span class="p">]</span>
 
@@ -573,7 +567,7 @@
                 <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`linear.bias` is `None`.&quot;</span><span class="p">)</span>
 
             <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-                <span class="n">bias_shards</span> <span class="o">=</span> <span class="n">linear</span><span class="o">.</span><span class="n">bias</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sharded_output_dim</span><span class="p">)</span>
+                <span class="n">bias_shards</span> <span class="o">=</span> <span class="n">linear</span><span class="o">.</span><span class="n">bias</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sharded_output_dim</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
                 <span class="n">bias</span> <span class="o">=</span> <span class="n">bias_shards</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">rank</span><span class="p">]</span>
 
@@ -591,7 +585,7 @@
         <span class="k">return</span> <span class="n">x</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">to_linear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Linear</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Converts this instance to a :class:`Linear`.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unshards this instance to a :class:`Linear`.&quot;&quot;&quot;</span>
         <span class="n">linear</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_linear_like</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">META_DEVICE</span><span class="p">)</span>
 
         <span class="n">to_empty</span><span class="p">(</span><span class="n">linear</span><span class="p">,</span> <span class="n">device</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
@@ -623,6 +617,13 @@
         <span class="p">)</span>
 
     <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_shard_dims</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Parameter</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bias</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bias</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span>
+
+    <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;:meta private:&quot;&quot;&quot;</span>
         <span class="n">bias</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bias</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
@@ -633,8 +634,8 @@
             <span class="n">s</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;output_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">sharded_output_dim</span><span class="si">}</span><span class="s2">&quot;</span>
 
         <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;rank=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">rank</span><span class="si">}</span><span class="s2">, &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;world_size=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;tp_rank=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">rank</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;tp_size=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">, &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;input_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">input_dim</span><span class="si">}</span><span class="s2">, &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">, &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;gather_output=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gather_output</span><span class="si">}</span><span class="s2">, &quot;</span>
@@ -650,26 +651,32 @@
 
 
 <span class="nd">@final</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">RowShardedLinear</span><span class="p">(</span><span class="n">Projection</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a :class:`Linear` that is sharded across its input dimension.&quot;&quot;&quot;</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">RowShardedLinear</span><span class="p">(</span><span class="n">Projection</span><span class="p">,</span> <span class="n">Sharded</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a :class:`Projection` sharded across its input dimension.&quot;&quot;&quot;</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">from_linear</span><span class="p">(</span>
-        <span class="n">linear</span><span class="p">:</span> <span class="n">Linear</span><span class="p">,</span> <span class="n">gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">scatter_input</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">linear</span><span class="p">:</span> <span class="n">Linear</span><span class="p">,</span>
+        <span class="n">gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">scatter_input</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">reduce_output</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RowShardedLinear</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Constructs a :class:`RowShardedLinear` by sharding ``linear``.</span>
+<span class="sd">        Creates a :class:`RowShardedLinear` by sharding ``linear`` over its</span>
+<span class="sd">        input dimension using ``gang``.</span>
 
-<span class="sd">        :param linear: The projection to shard.</span>
-<span class="sd">        :param gang: The gang over which to shard ``linear``.</span>
-<span class="sd">        :param scatter_input: If ``True``, inputs are considered already sharded</span>
-<span class="sd">            and won&#39;t be scattered.</span>
+<span class="sd">        If ``scatter_input`` is ``True``, the inputs on all ranks are considered</span>
+<span class="sd">        already sharded and won&#39;t be scattered.</span>
+
+<span class="sd">        If ``reduce_output`` is ``True``, the outputs of all ranks will be</span>
+<span class="sd">        all-reduced into a single tensor.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">device</span> <span class="o">=</span> <span class="n">linear</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">device</span>
 
         <span class="k">if</span> <span class="n">device</span> <span class="o">!=</span> <span class="n">gang</span><span class="o">.</span><span class="n">device</span> <span class="ow">and</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">&quot;meta&quot;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;The device of `linear` must be same as `gang.device` or must be of type `meta`.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Device of `linear` must match `gang.device` or must be of type `meta`, but is `</span><span class="si">{</span><span class="n">device</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
             <span class="p">)</span>
 
         <span class="n">sharded_linear</span> <span class="o">=</span> <span class="n">RowShardedLinear</span><span class="p">(</span>
@@ -678,6 +685,7 @@
             <span class="n">linear</span><span class="o">.</span><span class="n">output_dim</span><span class="p">,</span>
             <span class="n">bias</span><span class="o">=</span><span class="n">linear</span><span class="o">.</span><span class="n">bias</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">scatter_input</span><span class="o">=</span><span class="n">scatter_input</span><span class="p">,</span>
+            <span class="n">reduce_output</span><span class="o">=</span><span class="n">reduce_output</span><span class="p">,</span>
             <span class="n">init_fn</span><span class="o">=</span><span class="n">linear</span><span class="o">.</span><span class="n">init_fn</span><span class="p">,</span>
             <span class="n">device</span><span class="o">=</span><span class="n">META_DEVICE</span><span class="p">,</span>
             <span class="n">dtype</span><span class="o">=</span><span class="n">linear</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
@@ -698,19 +706,11 @@
         <span class="n">bias</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">scatter_input</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">reduce_output</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">init_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Linear</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param gang: The gang over which to shard the weight tensor.</span>
-<span class="sd">        :param input_dim: The dimensionality of inputs.</span>
-<span class="sd">        :param output_dim: The dimensionality of projected outputs.</span>
-<span class="sd">        :param bias: If ``True``, learns an additive bias.</span>
-<span class="sd">        :param scatter_input: If ``True``, scatters the input tensor; otherwise,</span>
-<span class="sd">            considers it already sharded.</span>
-<span class="sd">        :param init_fn: The callable to initialize the weight and bias.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">input_dim</span><span class="p">,</span> <span class="n">output_dim</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">input_dim</span> <span class="o">%</span> <span class="n">gang</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
@@ -723,12 +723,13 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">sharded_input_dim</span> <span class="o">=</span> <span class="n">input_dim</span> <span class="o">//</span> <span class="n">gang</span><span class="o">.</span><span class="n">size</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">scatter_input</span> <span class="o">=</span> <span class="n">scatter_input</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reduce_output</span> <span class="o">=</span> <span class="n">reduce_output</span>
 
         <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">device</span> <span class="o">=</span> <span class="n">gang</span><span class="o">.</span><span class="n">device</span>
         <span class="k">elif</span> <span class="n">device</span> <span class="o">!=</span> <span class="n">gang</span><span class="o">.</span><span class="n">device</span> <span class="ow">and</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">&quot;meta&quot;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;`device` must be same as `gang.device` or must be of type `meta`.&quot;</span>
+                <span class="s2">&quot;`device` must match `gang.device` or must be of type `meta`.&quot;</span>
             <span class="p">)</span>
 
         <span class="n">weight</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
@@ -777,7 +778,8 @@
 
         <span class="n">x</span> <span class="o">=</span> <span class="n">linear</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
 
-        <span class="n">x</span> <span class="o">=</span> <span class="n">reduce</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduce_output</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">reduce</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bias</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">bias</span>
@@ -785,7 +787,7 @@
         <span class="k">return</span> <span class="n">x</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">to_linear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Linear</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Converts this instance to a :class:`Linear`.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unshards this instance to a :class:`Linear`.&quot;&quot;&quot;</span>
         <span class="n">linear</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_linear_like</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">META_DEVICE</span><span class="p">)</span>
 
         <span class="n">to_empty</span><span class="p">(</span><span class="n">linear</span><span class="p">,</span> <span class="n">device</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
@@ -815,6 +817,10 @@
         <span class="p">)</span>
 
     <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_shard_dims</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Parameter</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+        <span class="k">return</span> <span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span>
+
+    <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;:meta private:&quot;&quot;&quot;</span>
         <span class="n">bias</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bias</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
@@ -825,10 +831,11 @@
             <span class="n">s</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;input_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">sharded_input_dim</span><span class="si">}</span><span class="s2">&quot;</span>
 
         <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;rank=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">rank</span><span class="si">}</span><span class="s2">, &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;world_size=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;tp_rank=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">rank</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;tp_size=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">, &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">, &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;scatter_input=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scatter_input</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;reduce_output=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">reduce_output</span><span class="si">}</span><span class="s2">, &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;output_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dim</span><span class="si">}</span><span class="s2">, &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;bias=</span><span class="si">{</span><span class="n">bias</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
@@ -846,15 +853,11 @@
 <span class="nd">@final</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">TiedProjection</span><span class="p">(</span><span class="n">Projection</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Applies a linear transformation to incoming data using the weights and bias</span>
+<span class="sd">    Applies a linear transformation to input data using the weight and bias</span>
 <span class="sd">    of another :class:`~torch.nn.Module` instance.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weight</span><span class="p">:</span> <span class="n">Parameter</span><span class="p">,</span> <span class="n">bias</span><span class="p">:</span> <span class="n">Parameter</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param weight: The shared weights.</span>
-<span class="sd">        :param bias: The shared bias.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">input_dim</span><span class="o">=</span><span class="n">weight</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">output_dim</span><span class="o">=</span><span class="n">weight</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">weight</span> <span class="o">=</span> <span class="n">weight</span>
@@ -871,9 +874,7 @@
 
 <span class="nd">@final</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">IdentityProjection</span><span class="p">(</span><span class="n">Projection</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Used to disable a projection layer without changing the module architecture.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Disables a projection without changing architecture.&quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">input_dim</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">output_dim</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
@@ -946,7 +947,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=7d5035a8"></script>
+</div><script src="../../../_static/documentation_options.js?v=480d58a0"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

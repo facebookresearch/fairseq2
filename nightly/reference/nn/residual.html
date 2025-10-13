@@ -247,8 +247,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../datasets/hub.html">fairseq2.datasets.hub</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../device.html">fairseq2.device</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fairseq2.device.html">fairseq2.device</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fairseq2.gang.html">fairseq2.gang</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fairseq2.models.html">fairseq2.models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fairseq2.recipe.optim.html">fairseq2.recipe.optim</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fairseq2.utils.validation.html">fairseq2.utils.validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../logging.html">fairseq2.logging</a></li>
@@ -322,7 +324,7 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.nn.ResidualConnect">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.</span></span><span class="sig-name descname"><span class="pre">ResidualConnect</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2/nn/residual.html#ResidualConnect"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.ResidualConnect" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
 <p>Represents a residual connection.</p>
 <p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p>
 <dl class="py method">
@@ -377,7 +379,7 @@ and <span class="math notranslate nohighlight">\(M\)</span> is the dimensionalit
 
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.nn.ScaledResidualConnect">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.</span></span><span class="sig-name descname"><span class="pre">ScaledResidualConnect</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2/nn/residual.html#ScaledResidualConnect"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.ScaledResidualConnect" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.</span></span><span class="sig-name descname"><span class="pre">ScaledResidualConnect</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2/nn/residual.html#ScaledResidualConnect"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.ScaledResidualConnect" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#fairseq2.nn.ResidualConnect" title="fairseq2.nn.residual.ResidualConnect"><code class="xref py py-class docutils literal notranslate"><span class="pre">ResidualConnect</span></code></a></p>
 <p>Scales residuals by a constant factor before adding them to the output of a
 Transformer module.</p>
@@ -493,7 +495,7 @@ and <span class="math notranslate nohighlight">\(M\)</span> is the dimensionalit
       
     </aside>
   </div>
-</div><script src="../../_static/documentation_options.js?v=7d5035a8"></script>
+</div><script src="../../_static/documentation_options.js?v=480d58a0"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/scripts/furo.js?v=5fa4622c"></script>

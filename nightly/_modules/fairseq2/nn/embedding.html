@@ -246,8 +246,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/datasets/hub.html">fairseq2.datasets.hub</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../../../reference/device.html">fairseq2.device</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.device.html">fairseq2.device</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.gang.html">fairseq2.gang</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.models.html">fairseq2.models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.recipe.optim.html">fairseq2.recipe.optim</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.utils.validation.html">fairseq2.utils.validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/logging.html">fairseq2.logging</a></li>
@@ -326,14 +328,14 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span><span class="p">,</span> <span class="n">Parameter</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn.functional</span><span class="w"> </span><span class="kn">import</span> <span class="n">embedding</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn.parameter</span><span class="w"> </span><span class="kn">import</span> <span class="n">Parameter</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.data_type</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataType</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">META_DEVICE</span><span class="p">,</span> <span class="n">Device</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gang</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.nn.sharded</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sharded</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.nn.utils.module</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_name_or_self</span><span class="p">,</span> <span class="n">to_empty</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.ops.tensor_parallel</span><span class="w"> </span><span class="kn">import</span> <span class="n">gather</span><span class="p">,</span> <span class="n">reduce</span><span class="p">,</span> <span class="n">reduce_on_backward</span>
 
@@ -346,6 +348,10 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">num_embeddings</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">pad_idx</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        If ``pad_idx`` is provided, the embedding at the specified index won&#39;t</span>
+<span class="sd">        contribute to the gradient and therefore won&#39;t be updated during training.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">num_embeddings</span> <span class="o">=</span> <span class="n">num_embeddings</span>
@@ -357,11 +363,12 @@
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param x: The embedding indices. *Shape:* Any.</span>
+<span class="sd">        Returns the embeddings corresponding to the specified indices.</span>
 
-<span class="sd">        :returns: The embeddings corresponding to the specified indices. *Shape:*</span>
-<span class="sd">            :math:`(*,E)`, where :math:`*` is the input shape and :math:`E` is</span>
-<span class="sd">            the dimensionality of the embeddings.</span>
+<span class="sd">        ``x`` can have any shape.</span>
+
+<span class="sd">        The return value will be of shape :math:`(*,E)`, where :math:`*` is the</span>
+<span class="sd">        input shape and :math:`E` is the dimensionality of the embeddings.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
 
@@ -374,7 +381,7 @@
 <a class="viewcode-back" href="../../../reference/nn/embedding.html#fairseq2.nn.StandardEmbedding">[docs]</a>
 <span class="nd">@final</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">StandardEmbedding</span><span class="p">(</span><span class="n">Embedding</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Stores embeddings of a fixed dictionary and size in an in-memory table.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents the standard implementation of :class:`Embedding`.&quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -387,12 +394,8 @@
         <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param num_embeddings: The size of the embedding table.</span>
-<span class="sd">        :param embed_dim: The dimensionality of returned embeddings.</span>
-<span class="sd">        :param pad_idx: If not ``None``, entries at ``pad_idx`` do not</span>
-<span class="sd">            contribute to the gradient; therefore, the embedding at ``pad_idx``</span>
-<span class="sd">            is not updated during training.</span>
-<span class="sd">        :param init_fn: The callable to initialize the embedding table.</span>
+<span class="sd">        If ``init_fn`` is provided, it will be used to initialize the embedding</span>
+<span class="sd">        table in :meth:`reset_parameters`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">num_embeddings</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">,</span> <span class="n">pad_idx</span><span class="p">)</span>
 
@@ -409,10 +412,8 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">reset_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_fn</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">init_fn</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-
-            <span class="k">return</span>
-
-        <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">normal_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">normal_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pad_idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
@@ -444,25 +445,22 @@
 
 
 <span class="nd">@final</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">VocabShardedEmbedding</span><span class="p">(</span><span class="n">Embedding</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">VocabShardedEmbedding</span><span class="p">(</span><span class="n">Embedding</span><span class="p">,</span> <span class="n">Sharded</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Represents a :class:`StandardEmbedding` that is sharded across its</span>
-<span class="sd">    vocabulary dimension.</span>
+<span class="sd">    Represents an :class:`Embedding` sharded across its vocabulary dimension.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">from_embedding</span><span class="p">(</span><span class="n">embed</span><span class="p">:</span> <span class="n">StandardEmbedding</span><span class="p">,</span> <span class="n">gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VocabShardedEmbedding</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Constructs a :class:`VocabShardedEmbedding` by sharding ``embed``.</span>
-
-<span class="sd">        :param embed: The embedding to shard.</span>
-<span class="sd">        :param gang: The gang over which to shard ``embed``.</span>
+<span class="sd">        Creates a :class:`VocabShardedEmbedding` by sharding ``embed`` over its</span>
+<span class="sd">        vocabulary dimension using ``gang``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">device</span> <span class="o">=</span> <span class="n">embed</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">device</span>
 
         <span class="k">if</span> <span class="n">device</span> <span class="o">!=</span> <span class="n">gang</span><span class="o">.</span><span class="n">device</span> <span class="ow">and</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">&quot;meta&quot;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;The device of `embed` must be same as `gang.device` or must be of type `meta`.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Device of `embed` must match `gang.device` or must be of type `meta`, but is `</span><span class="si">{</span><span class="n">device</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
             <span class="p">)</span>
 
         <span class="n">sharded_embed</span> <span class="o">=</span> <span class="n">VocabShardedEmbedding</span><span class="p">(</span>
@@ -493,15 +491,6 @@
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param gang: The gang over which to shard the embedding table.</span>
-<span class="sd">        :param num_embeddings: The size of the embedding table.</span>
-<span class="sd">        :param embed_dim: The dimensionality of returned embeddings.</span>
-<span class="sd">        :param pad_idx: If not ``None``, entries at ``pad_idx`` do not</span>
-<span class="sd">            contribute to the gradient; therefore, the embedding at ``pad_idx``</span>
-<span class="sd">            is not updated during training.</span>
-<span class="sd">        :param init_fn: The callable to initialize the embedding table.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">num_embeddings</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">,</span> <span class="n">pad_idx</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">num_embeddings</span> <span class="o">%</span> <span class="n">gang</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
@@ -517,7 +506,7 @@
             <span class="n">device</span> <span class="o">=</span> <span class="n">gang</span><span class="o">.</span><span class="n">device</span>
         <span class="k">elif</span> <span class="n">device</span> <span class="o">!=</span> <span class="n">gang</span><span class="o">.</span><span class="n">device</span> <span class="ow">and</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">&quot;meta&quot;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;`device` must be same as `gang.device` or must be of type `meta`.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;`device` must match `gang.device` or must be of type `meta`, but is `</span><span class="si">{</span><span class="n">device</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
             <span class="p">)</span>
 
         <span class="n">weight</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
@@ -579,7 +568,7 @@
         <span class="k">return</span> <span class="n">x</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">to_embedding</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StandardEmbedding</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Converts this instance to a :class:`StandardEmbedding`.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unshards this instance to a :class:`StandardEmbedding`.&quot;&quot;&quot;</span>
         <span class="n">embed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_embedding_like</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">META_DEVICE</span><span class="p">)</span>
 
         <span class="n">to_empty</span><span class="p">(</span><span class="n">embed</span><span class="p">,</span> <span class="n">device</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
@@ -602,11 +591,15 @@
         <span class="p">)</span>
 
     <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_shard_dims</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Parameter</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+        <span class="k">return</span> <span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span>
+
+    <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;:meta private:&quot;&quot;&quot;</span>
         <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;rank=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">rank</span><span class="si">}</span><span class="s2">, &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;world_size=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;tp_rank=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">rank</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;tp_size=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">, &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;num_embeddings=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_embeddings</span><span class="si">}</span><span class="s2">, &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;sharded_num_embeddings=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">sharded_num_embeddings</span><span class="si">}</span><span class="s2">, &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;embed_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">embed_dim</span><span class="si">}</span><span class="s2">&quot;</span>
@@ -626,10 +619,9 @@
 <div class="viewcode-block" id="ShardedEmbedding">
 <a class="viewcode-back" href="../../../reference/nn/embedding.html#fairseq2.nn.ShardedEmbedding">[docs]</a>
 <span class="nd">@final</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">ShardedEmbedding</span><span class="p">(</span><span class="n">Embedding</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ShardedEmbedding</span><span class="p">(</span><span class="n">Embedding</span><span class="p">,</span> <span class="n">Sharded</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Represents a :class:`StandardEmbedding` that is sharded across its embedding</span>
-<span class="sd">    dimension.</span>
+<span class="sd">    Represents an :class:`Embedding` sharded across its embedding dimension.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="ShardedEmbedding.from_embedding">
@@ -637,16 +629,14 @@
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">from_embedding</span><span class="p">(</span><span class="n">embed</span><span class="p">:</span> <span class="n">StandardEmbedding</span><span class="p">,</span> <span class="n">gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ShardedEmbedding</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Constructs a :class:`ShardedEmbedding` by sharding ``embed``.</span>
-
-<span class="sd">        :param embed: The embedding to shard.</span>
-<span class="sd">        :param gang: The gang over which to shard ``embed``.</span>
+<span class="sd">        Creates a :class:`ShardedEmbedding` by sharding ``embed`` over its</span>
+<span class="sd">        embedding dimension using ``gang``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">device</span> <span class="o">=</span> <span class="n">embed</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">device</span>
 
         <span class="k">if</span> <span class="n">device</span> <span class="o">!=</span> <span class="n">gang</span><span class="o">.</span><span class="n">device</span> <span class="ow">and</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">&quot;meta&quot;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;The device of `embed` must be same as `gang.device` or must be of type `meta`.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Device of `embed` must match `gang.device` or must be of type `meta`, but is `</span><span class="si">{</span><span class="n">device</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
             <span class="p">)</span>
 
         <span class="n">sharded_embed</span> <span class="o">=</span> <span class="n">ShardedEmbedding</span><span class="p">(</span>
@@ -678,15 +668,6 @@
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param gang: The gang over which to shard the embedding table.</span>
-<span class="sd">        :param num_embeddings: The size of the embedding table.</span>
-<span class="sd">        :param embed_dim: The dimensionality of returned embeddings.</span>
-<span class="sd">        :param pad_idx: If not ``None``, entries at ``pad_idx`` do not</span>
-<span class="sd">            contribute to the gradient; therefore, the embedding at ``pad_idx``</span>
-<span class="sd">            is not updated during training.</span>
-<span class="sd">        :param init_fn: The callable to initialize the embedding table.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">num_embeddings</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">,</span> <span class="n">pad_idx</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">embed_dim</span> <span class="o">%</span> <span class="n">gang</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
@@ -702,7 +683,7 @@
             <span class="n">device</span> <span class="o">=</span> <span class="n">gang</span><span class="o">.</span><span class="n">device</span>
         <span class="k">elif</span> <span class="n">device</span> <span class="o">!=</span> <span class="n">gang</span><span class="o">.</span><span class="n">device</span> <span class="ow">and</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">&quot;meta&quot;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;`device` must be same as `gang.device` or must be of type `meta`.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;`device` must match `gang.device` or must be of type `meta`, but is `</span><span class="si">{</span><span class="n">device</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
             <span class="p">)</span>
 
         <span class="n">weight</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
@@ -747,7 +728,7 @@
 <div class="viewcode-block" id="ShardedEmbedding.to_embedding">
 <a class="viewcode-back" href="../../../reference/nn/embedding.html#fairseq2.nn.ShardedEmbedding.to_embedding">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">to_embedding</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StandardEmbedding</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Converts this instance to a :class:`StandardEmbedding`.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unshards this instance to a :class:`StandardEmbedding`.&quot;&quot;&quot;</span>
         <span class="n">embed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_embedding_like</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">META_DEVICE</span><span class="p">)</span>
 
         <span class="n">to_empty</span><span class="p">(</span><span class="n">embed</span><span class="p">,</span> <span class="n">device</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
@@ -770,12 +751,19 @@
             <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
         <span class="p">)</span>
 
+<div class="viewcode-block" id="ShardedEmbedding.get_shard_dims">
+<a class="viewcode-back" href="../../../reference/nn/embedding.html#fairseq2.nn.ShardedEmbedding.get_shard_dims">[docs]</a>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_shard_dims</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Parameter</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+        <span class="k">return</span> <span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span></div>
+
+
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;:meta private:&quot;&quot;&quot;</span>
         <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;rank=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">rank</span><span class="si">}</span><span class="s2">, &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;world_size=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;tp_rank=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">rank</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;tp_size=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gang</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">, &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;num_embeddings=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_embeddings</span><span class="si">}</span><span class="s2">, &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;embed_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">embed_dim</span><span class="si">}</span><span class="s2">, &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;sharded_embed_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">sharded_embed_dim</span><span class="si">}</span><span class="s2">&quot;</span>
@@ -838,7 +826,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=7d5035a8"></script>
+</div><script src="../../../_static/documentation_options.js?v=480d58a0"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

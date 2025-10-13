@@ -56,8 +56,10 @@ other content generation tasks.
     reference/checkpoint
     reference/data/index
     reference/datasets/index
-    reference/device
+    reference/fairseq2.device
     reference/fairseq2.gang
+    reference/fairseq2.model_checkpoint
+    reference/fairseq2.models
     reference/fairseq2.recipe.optim
     reference/fairseq2.utils.validation
     reference/logging

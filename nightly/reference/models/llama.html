@@ -247,8 +247,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../datasets/hub.html">fairseq2.datasets.hub</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../device.html">fairseq2.device</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fairseq2.device.html">fairseq2.device</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fairseq2.gang.html">fairseq2.gang</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fairseq2.models.html">fairseq2.models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fairseq2.recipe.optim.html">fairseq2.recipe.optim</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fairseq2.utils.validation.html">fairseq2.utils.validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../logging.html">fairseq2.logging</a></li>
@@ -425,27 +427,6 @@ It includes model configurations, hub access, tokenizers, and utilities for load
 </div>
 </section>
 </section>
-<section id="model-hub">
-<h2>Model Hub<a class="headerlink" href="#model-hub" title="Link to this heading">¶</a></h2>
-<section id="get-llama-model-hub">
-<h3>get_llama_model_hub<a class="headerlink" href="#get-llama-model-hub" title="Link to this heading">¶</a></h3>
-<dl class="py function">
-<dt class="sig sig-object py" id="fairseq2.models.llama.get_llama_model_hub">
-<span class="sig-prename descclassname"><span class="pre">fairseq2.models.llama.</span></span><span class="sig-name descname"><span class="pre">get_llama_model_hub</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="hub.html#fairseq2.models.hub.ModelHub" title="fairseq2.models.hub.ModelHub"><span class="pre">ModelHub</span></a><span class="p"><span class="pre">[</span></span><span class="pre">ModelT</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ModelConfigT</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#fairseq2.models.llama.get_llama_model_hub" title="Link to this definition">¶</a></dt>
-<dd><p>Returns the model hub for LLaMA models.</p>
-</dd></dl>
-
-</section>
-<section id="get-llama-tokenizer-hub">
-<h3>get_llama_tokenizer_hub<a class="headerlink" href="#get-llama-tokenizer-hub" title="Link to this heading">¶</a></h3>
-<dl class="py function">
-<dt class="sig sig-object py" id="fairseq2.models.llama.get_llama_tokenizer_hub">
-<span class="sig-prename descclassname"><span class="pre">fairseq2.models.llama.</span></span><span class="sig-name descname"><span class="pre">get_llama_tokenizer_hub</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../data/tokenizers/hub.html#fairseq2.data.tokenizers.hub.TokenizerHub" title="fairseq2.data.tokenizers.hub.TokenizerHub"><span class="pre">TokenizerHub</span></a><span class="p"><span class="pre">[</span></span><span class="pre">TokenizerT</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">TokenizerConfigT</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#fairseq2.models.llama.get_llama_tokenizer_hub" title="Link to this definition">¶</a></dt>
-<dd><p>Returns the tokenizer hub for LLaMA tokenizers.</p>
-</dd></dl>
-
-</section>
-</section>
 <section id="model-configuration">
 <h2>Model Configuration<a class="headerlink" href="#model-configuration" title="Link to this heading">¶</a></h2>
 <section id="llamaconfig">
@@ -453,94 +434,94 @@ It includes model configurations, hub access, tokenizers, and utilities for load
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.models.llama.</span></span><span class="sig-name descname"><span class="pre">LLaMAConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_dim:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">4096</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_seq_len:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vocab_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">32000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad_idx:</span> <span class="pre">int</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tied_embeddings:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_layers:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_attn_heads:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_key_value_heads:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ffn_inner_dim:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">16384</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ffn_inner_dim_scale:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.6666666666666666</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ffn_inner_dim_multiplier:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ffn_inner_dim_multiple_of:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rope_theta:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">10000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_scaled_rope:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rope_scale:</span> <span class="pre">~fairseq2.models.llama.config.LLaMARoPEScaleConfig</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dropout_p:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">init_std:</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">init_std_scale:</span> <span class="pre">~typing.Literal['none'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'layer'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'stack']</span> <span class="pre">=</span> <span class="pre">'layer'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shard_embed_dim:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2/models/llama/config.html#LLaMAConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Holds the configuration of a LLaMA model.</p>
 <p>The default values correspond to the base architecture as described in
 <span id="id1">Touvron <em>et al.</em> [<a class="reference internal" href="../../other/bibliography.html#id4" title="Hugo Touvron, Thibaut Lavril, Gautier Izacard, Xavier Martinet, Marie-Anne Lachaux, Timothée Lacroix, Baptiste Rozière, Naman Goyal, Eric Hambro, Faisal Azhar, Aurelien Rodriguez, Armand Joulin, Edouard Grave, and Guillaume Lample. Llama: open and efficient foundation language models. 2023. URL: https://arxiv.org/abs/2302.13971, arXiv:2302.13971.">4</a>]</span>.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.model_dim">
-<span class="sig-name descname"><span class="pre">model_dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4096</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.model_dim" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">model_dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4096</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.model_dim" title="Link to this definition">¶</a></dt>
 <dd><p>The dimensionality of the model.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.max_seq_len">
-<span class="sig-name descname"><span class="pre">max_seq_len</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2048</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.max_seq_len" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">max_seq_len</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2048</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.max_seq_len" title="Link to this definition">¶</a></dt>
 <dd><p>The maximum sequence length.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.vocab_size">
-<span class="sig-name descname"><span class="pre">vocab_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32000</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.vocab_size" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">vocab_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32000</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.vocab_size" title="Link to this definition">¶</a></dt>
 <dd><p>The size of the vocabulary.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.pad_idx">
-<span class="sig-name descname"><span class="pre">pad_idx</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.pad_idx" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">pad_idx</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.pad_idx" title="Link to this definition">¶</a></dt>
 <dd><p>The index of the PAD symbol in the vocabulary.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.tied_embeddings">
-<span class="sig-name descname"><span class="pre">tied_embeddings</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.tied_embeddings" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">tied_embeddings</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.tied_embeddings" title="Link to this definition">¶</a></dt>
 <dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, ties the embedding table and the output projection layer.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.num_layers">
-<span class="sig-name descname"><span class="pre">num_layers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.num_layers" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">num_layers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.num_layers" title="Link to this definition">¶</a></dt>
 <dd><p>The number of decoder layers.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.num_attn_heads">
-<span class="sig-name descname"><span class="pre">num_attn_heads</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.num_attn_heads" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">num_attn_heads</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.num_attn_heads" title="Link to this definition">¶</a></dt>
 <dd><p>The number of attention heads in decoder layers.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.num_key_value_heads">
-<span class="sig-name descname"><span class="pre">num_key_value_heads</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.num_key_value_heads" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">num_key_value_heads</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.num_key_value_heads" title="Link to this definition">¶</a></dt>
 <dd><p>The number of key/value heads for Grouped Query Attention.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.ffn_inner_dim">
-<span class="sig-name descname"><span class="pre">ffn_inner_dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">16384</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.ffn_inner_dim" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">ffn_inner_dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">16384</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.ffn_inner_dim" title="Link to this definition">¶</a></dt>
 <dd><p>The dimensionality of inner projection layers in feed-forward networks.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.ffn_inner_dim_scale">
-<span class="sig-name descname"><span class="pre">ffn_inner_dim_scale</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.6666666666666666</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.ffn_inner_dim_scale" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">ffn_inner_dim_scale</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.6666666666666666</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.ffn_inner_dim_scale" title="Link to this definition">¶</a></dt>
 <dd><p>The scale factor for the dimensionality of inner projection layers in
 feed-forward networks.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.ffn_inner_dim_multiplier">
-<span class="sig-name descname"><span class="pre">ffn_inner_dim_multiplier</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.ffn_inner_dim_multiplier" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">ffn_inner_dim_multiplier</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.ffn_inner_dim_multiplier" title="Link to this definition">¶</a></dt>
 <dd><p>The multiplier for the dimensionality of inner projection layers in
 feed-forward networks.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.ffn_inner_dim_multiple_of">
-<span class="sig-name descname"><span class="pre">ffn_inner_dim_multiple_of</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">256</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.ffn_inner_dim_multiple_of" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">ffn_inner_dim_multiple_of</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">256</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.ffn_inner_dim_multiple_of" title="Link to this definition">¶</a></dt>
 <dd><p>The dimensionality of inner projection layers in feed-forward networks is
 rounded up to the nearest multiple of this value.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.rope_theta">
-<span class="sig-name descname"><span class="pre">rope_theta</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10000.0</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.rope_theta" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">rope_theta</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10000.0</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.rope_theta" title="Link to this definition">¶</a></dt>
 <dd><p>The coefficient of the long-term decay of the Rotary position encoder.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.use_scaled_rope">
-<span class="sig-name descname"><span class="pre">use_scaled_rope</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.use_scaled_rope" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">use_scaled_rope</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.use_scaled_rope" title="Link to this definition">¶</a></dt>
 <dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, scales Rotary encoder frequencies to the resolver length.</p>
 </dd></dl>
 
@@ -553,20 +534,20 @@ encoder, aiming to increase the resolver length.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.dropout_p">
-<span class="sig-name descname"><span class="pre">dropout_p</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.dropout_p" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">dropout_p</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.dropout_p" title="Link to this definition">¶</a></dt>
 <dd><p>The dropout probability on outputs of Transformer layers.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.init_std">
-<span class="sig-name descname"><span class="pre">init_std</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.init_std" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">init_std</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.init_std" title="Link to this definition">¶</a></dt>
 <dd><p>If not <code class="docutils literal notranslate"><span class="pre">None</span></code>, the standard deviation to initialize input embeddings and
 projection weights; otherwise, <code class="docutils literal notranslate"><span class="pre">model_dim</span> <span class="pre">**</span> <span class="pre">-0.5</span></code> will be used instead.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.init_std_scale">
-<span class="sig-name descname"><span class="pre">init_std_scale</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.13)"><span class="pre">Literal</span></a><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'none'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'layer'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'stack'</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'layer'</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.init_std_scale" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">init_std_scale</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.14)"><span class="pre">Literal</span></a><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'none'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'layer'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'stack'</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'layer'</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.init_std_scale" title="Link to this definition">¶</a></dt>
 <dd><p>The method to use to scale <code class="docutils literal notranslate"><span class="pre">init_std</span></code> per layer. If ‘none’, no scaling
 will be applied. If ‘layer’, <code class="docutils literal notranslate"><span class="pre">init_std</span></code> will be scaled by the depth of
 the layer. If ‘stack’, <code class="docutils literal notranslate"><span class="pre">init_std</span></code> will be scaled by the total depth of
@@ -575,7 +556,7 @@ the decoder.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMAConfig.shard_embed_dim">
-<span class="sig-name descname"><span class="pre">shard_embed_dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.shard_embed_dim" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">shard_embed_dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMAConfig.shard_embed_dim" title="Link to this definition">¶</a></dt>
 <dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, shards the embedding dimension for tensor parallelism.</p>
 </dd></dl>
 
@@ -590,7 +571,7 @@ the decoder.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMATokenizerConfig">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.models.llama.</span></span><span class="sig-name descname"><span class="pre">LLaMATokenizerConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">impl</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">&quot;Literal['sp',</span> <span class="pre">'tiktoken',</span> <span class="pre">'hg']&quot;</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'sp'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_eot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'bool'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_regex</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str</span> <span class="pre">|</span> <span class="pre">None'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2/models/llama/tokenizer.html#LLaMATokenizerConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.llama.LLaMATokenizerConfig" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Configuration for LLaMA tokenizer.</p>
 <p><strong>Key Parameters:</strong></p>
 <ul class="simple">
@@ -600,17 +581,17 @@ the decoder.</p>
 </ul>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMATokenizerConfig.impl">
-<span class="sig-name descname"><span class="pre">impl</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.13)"><span class="pre">Literal</span></a><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'sp'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'tiktoken'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'hg'</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'sp'</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMATokenizerConfig.impl" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">impl</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.14)"><span class="pre">Literal</span></a><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'sp'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'tiktoken'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'hg'</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'sp'</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMATokenizerConfig.impl" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMATokenizerConfig.use_eot">
-<span class="sig-name descname"><span class="pre">use_eot</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMATokenizerConfig.use_eot" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">use_eot</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMATokenizerConfig.use_eot" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.models.llama.LLaMATokenizerConfig.split_regex">
-<span class="sig-name descname"><span class="pre">split_regex</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMATokenizerConfig.split_regex" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">split_regex</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#fairseq2.models.llama.LLaMATokenizerConfig.split_regex" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -756,17 +737,6 @@ the decoder.</p>
 <li><a class="reference internal" href="#tokenizer-modes">Tokenizer Modes</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#model-hub">Model Hub</a><ul>
-<li><a class="reference internal" href="#get-llama-model-hub">get_llama_model_hub</a><ul>
-<li><a class="reference internal" href="#fairseq2.models.llama.get_llama_model_hub"><code class="docutils literal notranslate"><span class="pre">get_llama_model_hub()</span></code></a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#get-llama-tokenizer-hub">get_llama_tokenizer_hub</a><ul>
-<li><a class="reference internal" href="#fairseq2.models.llama.get_llama_tokenizer_hub"><code class="docutils literal notranslate"><span class="pre">get_llama_tokenizer_hub()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li><a class="reference internal" href="#model-configuration">Model Configuration</a><ul>
 <li><a class="reference internal" href="#llamaconfig">LLaMAConfig</a><ul>
 <li><a class="reference internal" href="#fairseq2.models.llama.LLaMAConfig"><code class="docutils literal notranslate"><span class="pre">LLaMAConfig</span></code></a><ul>
@@ -825,7 +795,7 @@ the decoder.</p>
       
     </aside>
   </div>
-</div><script src="../../_static/documentation_options.js?v=7d5035a8"></script>
+</div><script src="../../_static/documentation_options.js?v=480d58a0"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/scripts/furo.js?v=5fa4622c"></script>

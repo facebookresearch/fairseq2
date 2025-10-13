@@ -32,6 +32,7 @@ listed below are used to create sub-gangs for different parallelism strategies.
 Utilities
 =========
 
+.. autofunction:: maybe_get_current_gangs
 .. autofunction:: broadcast_flag
 .. autofunction:: all_sum
 

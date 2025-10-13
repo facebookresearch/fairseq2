@@ -246,8 +246,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/datasets/hub.html">fairseq2.datasets.hub</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../../../reference/device.html">fairseq2.device</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.device.html">fairseq2.device</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.gang.html">fairseq2.gang</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.models.html">fairseq2.models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.recipe.optim.html">fairseq2.recipe.optim</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.utils.validation.html">fairseq2.utils.validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/logging.html">fairseq2.logging</a></li>
@@ -321,7 +323,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generic</span><span class="p">,</span> <span class="n">TypeVar</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">final</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generic</span><span class="p">,</span> <span class="n">TypeVar</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">final</span><span class="p">,</span> <span class="n">overload</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
@@ -329,7 +331,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.assets</span><span class="w"> </span><span class="kn">import</span> <span class="n">AssetCard</span><span class="p">,</span> <span class="n">AssetCardError</span><span class="p">,</span> <span class="n">AssetNotFoundError</span><span class="p">,</span> <span class="n">AssetStore</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.data_type</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataType</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span><span class="p">,</span> <span class="n">Device</span><span class="p">,</span> <span class="n">get_current_device</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InternalError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gangs</span><span class="p">,</span> <span class="n">create_fake_gangs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.family</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelFamily</span>
@@ -343,28 +345,73 @@
 
 
 <div class="viewcode-block" id="ModelHub">
-<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.hub.ModelHub">[docs]</a>
+<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.ModelHub">[docs]</a>
 <span class="nd">@final</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">ModelHub</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">ModelT</span><span class="p">,</span> <span class="n">ModelConfigT</span><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Provides a high-level interface for loading and creating models from a</span>
+<span class="sd">    specific model family.</span>
+
+<span class="sd">    This class serves as the primary entry point for working with models of a</span>
+<span class="sd">    particular family (e.g., LLaMA, Qwen, etc.). It handles model discovery,</span>
+<span class="sd">    configuration loading, and model instantiation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">family</span><span class="p">:</span> <span class="n">ModelFamily</span><span class="p">,</span> <span class="n">asset_store</span><span class="p">:</span> <span class="n">AssetStore</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_family</span> <span class="o">=</span> <span class="n">family</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_asset_store</span> <span class="o">=</span> <span class="n">asset_store</span>
 
 <div class="viewcode-block" id="ModelHub.iter_cards">
-<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.hub.ModelHub.iter_cards">[docs]</a>
+<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.ModelHub.iter_cards">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">iter_cards</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">AssetCard</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Iterates over all asset cards belonging to this model family.</span>
+
+<span class="sd">        .. code:: python</span>
+
+<span class="sd">            from fairseq2.models.qwen import get_qwen_model_hub</span>
+
+<span class="sd">            # List all available Qwen models.</span>
+<span class="sd">            for card in get_qwen_model_hub().iter_cards():</span>
+<span class="sd">                print(f&quot;Model: {card.name}&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_asset_store</span><span class="o">.</span><span class="n">find_cards</span><span class="p">(</span><span class="s2">&quot;model_family&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_family</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="ModelHub.get_archs">
-<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.hub.ModelHub.get_archs">[docs]</a>
+<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.ModelHub.get_archs">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_archs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the set of supported model architectures in this family.</span>
+
+<span class="sd">        .. code:: python</span>
+
+<span class="sd">            from fairseq2.models.qwen import get_qwen_model_hub</span>
+
+<span class="sd">            # List all available Qwen architectures.</span>
+<span class="sd">            for arch in get_qwen_model_hub().get_archs():</span>
+<span class="sd">                print(f&quot;Architecture: {arch}&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_family</span><span class="o">.</span><span class="n">get_archs</span><span class="p">()</span></div>
 
 
 <div class="viewcode-block" id="ModelHub.get_arch_config">
-<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.hub.ModelHub.get_arch_config">[docs]</a>
+<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.ModelHub.get_arch_config">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_arch_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arch</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelConfigT</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the configuration for the specified model architecture.</span>
+
+<span class="sd">        .. code:: python</span>
+
+<span class="sd">            from fairseq2.models.qwen import get_qwen_model_hub</span>
+
+<span class="sd">            config = get_qwen_model_hub().get_arch_config(&quot;qwen25_7b&quot;)</span>
+
+<span class="sd">            print(config)</span>
+
+<span class="sd">        :raises ModelArchitectureNotKnownError: If ``arch`` is not a known</span>
+<span class="sd">            architecture in this family.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">maybe_get_arch_config</span><span class="p">(</span><span class="n">arch</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ModelArchitectureNotKnownError</span><span class="p">(</span><span class="n">arch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_family</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
@@ -373,16 +420,50 @@
 
 
 <div class="viewcode-block" id="ModelHub.maybe_get_arch_config">
-<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.hub.ModelHub.maybe_get_arch_config">[docs]</a>
+<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.ModelHub.maybe_get_arch_config">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">maybe_get_arch_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arch</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelConfigT</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the configuration for the specified model architecture, or</span>
+<span class="sd">        ``None`` if not known.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_family</span><span class="o">.</span><span class="n">maybe_get_arch_config</span><span class="p">(</span><span class="n">arch</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">ModelConfigT</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="ModelHub.get_model_config">
-<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.hub.ModelHub.get_model_config">[docs]</a>
+<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.ModelHub.get_model_config">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_model_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">card</span><span class="p">:</span> <span class="n">AssetCard</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelConfigT</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the model configuration from an asset card.</span>
+
+<span class="sd">        This method loads the base architecture configuration and applies any</span>
+<span class="sd">        model-specific overrides specified in the asset card.</span>
+
+<span class="sd">        As a convenience, this method also accepts an asset name instead of an</span>
+<span class="sd">        asset card.</span>
+
+<span class="sd">        .. code:: python</span>
+
+<span class="sd">            from fairseq2.assets import get_asset_store</span>
+<span class="sd">            from fairseq2.models.qwen import QwenConfig, get_qwen_model_hub</span>
+
+<span class="sd">            card = get_asset_store().retrieve_card(&quot;qwen25_7b_instruct&quot;)</span>
+
+<span class="sd">            qwen_config = get_qwen_model_hub().get_model_config(card)</span>
+
+<span class="sd">            # As a convenience, the card can be omitted and the model name can</span>
+<span class="sd">            # be passed directly to `get_model_config()`:</span>
+<span class="sd">            qwen_config = get_qwen_model_hub().get_model_config(&quot;qwen25_7b_instruct&quot;)</span>
+
+<span class="sd">            print(qwen_config)</span>
+
+<span class="sd">        :raises ModelNotKnownError: If ``card`` is a string and no asset card</span>
+<span class="sd">            with that name exists.</span>
+
+<span class="sd">        :raises AssetCardError: If the asset card&#39;s model family does not match</span>
+<span class="sd">            this hub&#39;s family.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">card</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="n">name</span> <span class="o">=</span> <span class="n">card</span>
 
@@ -405,8 +486,28 @@
         <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">ModelConfigT</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span></div>
 
 
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_new_model</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">ModelConfigT</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">meta</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelT</span><span class="p">:</span> <span class="o">...</span>
+
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_new_model</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">ModelConfigT</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">meta</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelT</span><span class="p">:</span> <span class="o">...</span>
+
 <div class="viewcode-block" id="ModelHub.create_new_model">
-<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.hub.ModelHub.create_new_model">[docs]</a>
+<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.ModelHub.create_new_model">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">create_new_model</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">config</span><span class="p">:</span> <span class="n">ModelConfigT</span><span class="p">,</span>
@@ -416,6 +517,49 @@
         <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">meta</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelT</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates a new model instance with the specified configuration.</span>
+
+<span class="sd">        This method creates a fresh model without loading any pretrained weights.</span>
+<span class="sd">        The model will be initialized with random parameters according to the</span>
+<span class="sd">        architecture&#39;s default initialization scheme.</span>
+
+<span class="sd">        If ``gangs`` is provided, it will be used to apply parallelism (i.e.</span>
+<span class="sd">        model parallelism) to the initialized model. If the model family does</span>
+<span class="sd">        not support a certain parallelism strategy, that strategy will be</span>
+<span class="sd">        ignored. For instance if ``gangs.tp.size &gt; 1``, but the model does not</span>
+<span class="sd">        support tensor parallelism, the model will be instantiated with regular</span>
+<span class="sd">        attention and feed-forward network blocks. If ``None``, the whole model</span>
+<span class="sd">        will be initialized without any parallelism.</span>
+
+<span class="sd">        If ``device`` is provided, the model will be created on the specified</span>
+<span class="sd">        device; otherwise, the device returned from :func:`torch.get_default_device`</span>
+<span class="sd">        will be used. Note that ``device`` and ``gangs`` cannot be provided</span>
+<span class="sd">        together. If ``gangs`` is provided, ``gangs.root.device`` will be used.</span>
+
+<span class="sd">        If ``dtype`` is provided, it will be used as the default data type of</span>
+<span class="sd">        the model parameters and buffers; otherwise, the data type returned from</span>
+<span class="sd">        :func:`torch.get_default_dtype` will be used.</span>
+
+<span class="sd">        If ``meta`` is ``True``, the model will be created on the meta device</span>
+<span class="sd">        for memory-efficient initialization. Only supported if the model family</span>
+<span class="sd">        supports meta device.</span>
+
+<span class="sd">        .. code:: python</span>
+
+<span class="sd">            from fairseq2.models.qwen import QwenConfig, get_qwen_model_hub</span>
+
+<span class="sd">            # Use the default Qwen configuration except the number of</span>
+<span class="sd">            # decoder layers.</span>
+<span class="sd">            config = QwenConfig(num_layers=16)</span>
+
+<span class="sd">            qwen_model = get_qwen_model_hub().create_new_model(config)</span>
+
+<span class="sd">        :raises ValueError: If both ``gangs`` and ``device`` are provided.</span>
+
+<span class="sd">        :raises NotSupportedError: If ``meta`` is ``True`` but the model family</span>
+<span class="sd">            doesn&#39;t support meta device.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">gangs</span> <span class="o">=</span> <span class="n">_get_effective_gangs</span><span class="p">(</span><span class="n">gangs</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -426,8 +570,32 @@
         <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">ModelT</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span></div>
 
 
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">card</span><span class="p">:</span> <span class="n">AssetCard</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">ModelConfigT</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">mmap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">progress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelT</span><span class="p">:</span> <span class="o">...</span>
+
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">card</span><span class="p">:</span> <span class="n">AssetCard</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">ModelConfigT</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">mmap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">progress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelT</span><span class="p">:</span> <span class="o">...</span>
+
 <div class="viewcode-block" id="ModelHub.load_model">
-<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.hub.ModelHub.load_model">[docs]</a>
+<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.ModelHub.load_model">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">card</span><span class="p">:</span> <span class="n">AssetCard</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
@@ -439,6 +607,66 @@
         <span class="n">mmap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">progress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelT</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Loads a pretrained model from an asset card.</span>
+
+<span class="sd">        This method downloads the model checkpoint (if necessary) and loads the</span>
+<span class="sd">        pretrained weights into a model instance. The model architecture and</span>
+<span class="sd">        configuration are determined from the asset card metadata.</span>
+
+<span class="sd">        As a convenience, this method also accepts an asset name instead of an</span>
+<span class="sd">        asset card.</span>
+
+<span class="sd">        If ``gangs`` is provided, it will be used to apply parallelism (i.e.</span>
+<span class="sd">        model parallelism) to the initialized model. If the model family does</span>
+<span class="sd">        not support a certain parallelism strategy, that strategy will be</span>
+<span class="sd">        ignored. For instance if ``gangs.tp.size &gt; 1``, but the model does not</span>
+<span class="sd">        support tensor parallelism, the model will be instantiated with regular</span>
+<span class="sd">        attention and feed-forward network blocks. If ``None``, the whole model</span>
+<span class="sd">        will be initialized without any parallelism.</span>
+
+<span class="sd">        If ``device`` is provided, the model will be created on the specified</span>
+<span class="sd">        device; otherwise, the device returned from :func:`torch.get_default_device`</span>
+<span class="sd">        will be used. Note that ``device`` and ``gangs`` cannot be provided</span>
+<span class="sd">        together. If ``gangs`` is provided, ``gangs.root.device`` will be used.</span>
+
+<span class="sd">        If ``dtype`` is provided, it will be used as the default data type of</span>
+<span class="sd">        the model parameters and buffers; otherwise, the data type returned from</span>
+<span class="sd">        :func:`torch.get_default_dtype` will be used.</span>
+
+<span class="sd">        If ``config`` is provided, it overrides the default model configuration</span>
+<span class="sd">        from the asset card. If ``None``, uses the configuration specified in</span>
+<span class="sd">        the card. Typically used to perform slight adjustments to the model</span>
+<span class="sd">        configuration such as tuning dropout probabilities without changing the</span>
+<span class="sd">        architecture.</span>
+
+<span class="sd">        If ``mmap`` is ``True``, the model checkpoint will be memory-mapped. This</span>
+<span class="sd">        can reduce memory usage but may cause slower load times on some systems.</span>
+
+<span class="sd">        If ``progress`` is ``True``, displays a progress bar during model</span>
+<span class="sd">        download and loading.</span>
+
+<span class="sd">        .. code:: python</span>
+
+<span class="sd">            from fairseq2.assets import get_asset_store</span>
+<span class="sd">            from fairseq2.models.qwen import QwenConfig, get_qwen_model_hub</span>
+
+<span class="sd">            card = get_asset_store().retrieve_card(&quot;qwen25_7b_instruct&quot;)</span>
+
+<span class="sd">            qwen_model = get_qwen_model_hub().load_model(card)</span>
+
+<span class="sd">            # As a convenience, the card can be omitted and the model name can</span>
+<span class="sd">            # be passed directly to `load_model()`:</span>
+<span class="sd">            qwen_model = get_qwen_model_hub().load_model(&quot;qwen25_7b_instruct&quot;)</span>
+
+<span class="sd">        :raises ModelNotKnownError: If ``card`` is a string and no asset card</span>
+<span class="sd">            with that name exists.</span>
+
+<span class="sd">        :raises AssetCardError: If the asset card&#39;s model family doesn&#39;t match</span>
+<span class="sd">            this hub&#39;s family.</span>
+
+<span class="sd">        :raises ValueError: If both ``gangs`` and ``device`` are provided.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">gangs</span> <span class="o">=</span> <span class="n">_get_effective_gangs</span><span class="p">(</span><span class="n">gangs</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">card</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
@@ -466,8 +694,34 @@
         <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">ModelT</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span></div>
 
 
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_custom_model</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">ModelConfigT</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">mmap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">restrict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">progress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelT</span><span class="p">:</span> <span class="o">...</span>
+
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_custom_model</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">ModelConfigT</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">mmap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">restrict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">progress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelT</span><span class="p">:</span> <span class="o">...</span>
+
 <div class="viewcode-block" id="ModelHub.load_custom_model">
-<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.hub.ModelHub.load_custom_model">[docs]</a>
+<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.ModelHub.load_custom_model">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_custom_model</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
@@ -480,6 +734,60 @@
         <span class="n">restrict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">progress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelT</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Loads a model from a custom checkpoint file.</span>
+
+<span class="sd">        This method is useful for loading models from custom training runs or</span>
+<span class="sd">        third-party checkpoints that are not available through the asset store.</span>
+
+<span class="sd">        ``config`` specifies the model configuration. It must match the</span>
+<span class="sd">        architecture of the saved checkpoint.</span>
+
+<span class="sd">        If ``gangs`` is provided, it will be used to apply parallelism (i.e.</span>
+<span class="sd">        model parallelism) to the initialized model. If the model family does</span>
+<span class="sd">        not support a certain parallelism strategy, that strategy will be</span>
+<span class="sd">        ignored. For instance if ``gangs.tp.size &gt; 1``, but the model does not</span>
+<span class="sd">        support tensor parallelism, the model will be instantiated with regular</span>
+<span class="sd">        attention and feed-forward network blocks. If ``None``, the whole model</span>
+<span class="sd">        will be initialized without any parallelism.</span>
+
+<span class="sd">        If ``device`` is provided, the model will be created on the specified</span>
+<span class="sd">        device; otherwise, the device returned from :func:`torch.get_default_device`</span>
+<span class="sd">        will be used. Note that ``device`` and ``gangs`` cannot be provided</span>
+<span class="sd">        together. If ``gangs`` is provided, ``gangs.root.device`` will be used.</span>
+
+<span class="sd">        If ``dtype`` is provided, it will be used as the default data type of</span>
+<span class="sd">        the model parameters and buffers; otherwise, the data type returned from</span>
+<span class="sd">        :func:`torch.get_default_dtype` will be used.</span>
+
+<span class="sd">        If ``mmap`` is ``True``, the model checkpoint will be memory-mapped. This</span>
+<span class="sd">        can reduce memory usage but may cause slower load times on some systems.</span>
+
+<span class="sd">        If ``restrict`` is ``True``, pickle (if used) will be restricted to load</span>
+<span class="sd">        only tensors and types that can be safely serialized and deserialized.</span>
+<span class="sd">        If ``None``, the default restriction setting of the family will be used.</span>
+
+<span class="sd">        If ``progress`` is ``True``, displays a progress bar during model</span>
+<span class="sd">        download and loading.</span>
+
+<span class="sd">        .. code:: python</span>
+
+<span class="sd">            from fairseq2.models.qwen import QwenConfig, get_qwen_model_hub</span>
+
+<span class="sd">            checkpoint_path = ...</span>
+
+<span class="sd">            # The checkpoint contains a Qwen model with 16 decoder layers.</span>
+<span class="sd">            config = QwenConfig(num_layers=16)</span>
+
+<span class="sd">            qwen_model = get_qwen_model_hub().load_custom_model(checkpoint_path, config)</span>
+
+<span class="sd">        :raises ValueError: If both ``gangs`` and ``device`` are provided.</span>
+
+<span class="sd">        :raises FileNotFoundError: If the checkpoint file does not exist.</span>
+
+<span class="sd">        :raises ModelCheckpointError: If the checkpoint format is not valid or</span>
+<span class="sd">            incompatible with the model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">gangs</span> <span class="o">=</span> <span class="n">_get_effective_gangs</span><span class="p">(</span><span class="n">gangs</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -493,7 +801,7 @@
 
 
 <div class="viewcode-block" id="ModelHub.iter_checkpoint">
-<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.hub.ModelHub.iter_checkpoint">[docs]</a>
+<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.ModelHub.iter_checkpoint">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">iter_checkpoint</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
@@ -503,7 +811,38 @@
         <span class="n">mmap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">restrict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]:</span>
-        <span class="n">gangs</span> <span class="o">=</span> <span class="n">_get_effective_gangs</span><span class="p">(</span><span class="n">gangs</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Lazily loads parameters from the specified model checkpoint path.</span>
+
+<span class="sd">        Yields tensors one at a time to minimize memory usage if the underlying</span>
+<span class="sd">        checkpoint format allows it.</span>
+
+<span class="sd">        This method provides low-level access to checkpoint contents without</span>
+<span class="sd">        loading the full model into memory. It&#39;s useful for checkpoint inspection,</span>
+<span class="sd">        custom loading logic, or memory-efficient parameter processing.</span>
+
+<span class="sd">        ``config`` specifies the model configuration used to determine the</span>
+<span class="sd">        expected parameter structure in the checkpoint.</span>
+
+<span class="sd">        If ``gangs`` is provided, it is used to determine the distributed target</span>
+<span class="sd">        configuration and to shard yielded parameters accordingly. If ``None``,</span>
+<span class="sd">        no sharding will be performed and full parameters will be yielded.</span>
+
+<span class="sd">        If ``mmap`` is ``True``, the checkpoint will be memory-mapped. This can</span>
+<span class="sd">        reduce memory usage but may cause slower load times on some systems.</span>
+
+<span class="sd">        If ``restrict`` is ``True``, pickle (if used) will be restricted to load</span>
+<span class="sd">        only tensors and types that can be safely serialized and deserialized.</span>
+<span class="sd">        If ``None``, the default restriction setting of the family will be used.</span>
+
+<span class="sd">        Yields pairs of ``(parameter name, parameter)`` for each parameter in</span>
+<span class="sd">        the checkpoint.</span>
+
+<span class="sd">        :raises FileNotFoundError: If the checkpoint file does not exist.</span>
+
+<span class="sd">        :raises ModelCheckpointError: If the checkpoint format is not valid.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">gangs</span> <span class="o">=</span> <span class="n">_get_effective_gangs</span><span class="p">(</span><span class="n">gangs</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">CPU</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_family</span><span class="o">.</span><span class="n">iter_checkpoint</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">gangs</span><span class="p">,</span> <span class="n">mmap</span><span class="p">,</span> <span class="n">restrict</span><span class="p">)</span></div>
 </div>
@@ -511,9 +850,34 @@
 
 
 <div class="viewcode-block" id="ModelHubAccessor">
-<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.hub.ModelHubAccessor">[docs]</a>
+<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.ModelHubAccessor">[docs]</a>
 <span class="nd">@final</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">ModelHubAccessor</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">ModelT</span><span class="p">,</span> <span class="n">ModelConfigT</span><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates a :class:`ModelHub` instance when called.</span>
+
+<span class="sd">    This class provides a strongly-typed way to access model hubs. Its direct</span>
+<span class="sd">    use is meant for model authors rather than library users.</span>
+
+<span class="sd">    See ``src/fairseq2/models/llama/hub.py`` as an example.</span>
+
+<span class="sd">    .. code::</span>
+<span class="sd">        :caption: The use of `ModelHubAccessor` for model authors</span>
+
+<span class="sd">        from fairseq2.models import ModelHubAccessor</span>
+
+<span class="sd">        # Defined in the Python module where the model is implemented.</span>
+<span class="sd">        get_my_model_hub = ModelHubAccessor(</span>
+<span class="sd">            family_name=&quot;my_model_family&quot;, kls=MyModel, config_kls=MyModelConfig</span>
+<span class="sd">        )</span>
+
+<span class="sd">        # `get_my_model_hub()` is treated as a standalone function by the model</span>
+<span class="sd">        # users in other parts of the code like below:</span>
+<span class="sd">        model_config = MyModelConfig()</span>
+
+<span class="sd">        model = get_my_model_hub().create_new_model(model_config)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">family_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">ModelT</span><span class="p">],</span> <span class="n">config_kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">ModelConfigT</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -547,8 +911,10 @@
 
 
 <div class="viewcode-block" id="ModelNotKnownError">
-<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.hub.ModelNotKnownError">[docs]</a>
+<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.ModelNotKnownError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ModelNotKnownError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when a requested model name is not found in the asset store.&quot;&quot;&quot;</span>
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> is not a known model.&quot;</span><span class="p">)</span>
 
@@ -557,8 +923,10 @@
 
 
 <div class="viewcode-block" id="ModelFamilyNotKnownError">
-<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.hub.ModelFamilyNotKnownError">[docs]</a>
+<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.ModelFamilyNotKnownError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ModelFamilyNotKnownError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when a requested model family is not registered.&quot;&quot;&quot;</span>
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> is not a known model family.&quot;</span><span class="p">)</span>
 
@@ -567,8 +935,12 @@
 
 
 <div class="viewcode-block" id="ModelArchitectureNotKnownError">
-<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.hub.ModelArchitectureNotKnownError">[docs]</a>
+<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.ModelArchitectureNotKnownError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ModelArchitectureNotKnownError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Raised when a requested model architecture is not supported by a model family.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arch</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">family</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        ``family`` defaults to ``None`` due to backwards-compatibility. New code</span>
@@ -588,8 +960,32 @@
 
 
 
+<span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
+    <span class="n">card</span><span class="p">:</span> <span class="n">AssetCard</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">config</span><span class="p">:</span> <span class="nb">object</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">mmap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">progress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Module</span><span class="p">:</span> <span class="o">...</span>
+
+
+<span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
+    <span class="n">card</span><span class="p">:</span> <span class="n">AssetCard</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">config</span><span class="p">:</span> <span class="nb">object</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">mmap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">progress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Module</span><span class="p">:</span> <span class="o">...</span>
+
+
 <div class="viewcode-block" id="load_model">
-<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.hub.load_model">[docs]</a>
+<a class="viewcode-back" href="../../../reference/models/hub.html#fairseq2.models.load_model">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
     <span class="n">card</span><span class="p">:</span> <span class="n">AssetCard</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -600,6 +996,79 @@
     <span class="n">mmap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">progress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Module</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Loads a pretrained model from an asset card.</span>
+
+<span class="sd">    This function downloads the model checkpoint (if necessary) and loads the</span>
+<span class="sd">    pretrained weights into a model instance. The model architecture and</span>
+<span class="sd">    configuration are determined from the asset card metadata.</span>
+
+<span class="sd">    As a convenience, this method also accepts an asset name instead of an</span>
+<span class="sd">    asset card.</span>
+
+<span class="sd">    The difference between ``load_model`` and :meth:`ModelHub.load_model()` is</span>
+<span class="sd">    as follows:</span>
+
+<span class="sd">    - ``load_model`` provides a unified interface for loading models across all</span>
+<span class="sd">      model families. It determines the appropriate model family based on asset</span>
+<span class="sd">      card metadata and delegates to the family-specific loading logic.</span>
+<span class="sd">    - The tradeoff is that (1) the ``config`` parameter of ``load_model`` is not</span>
+<span class="sd">      type-safe, (2) it is possible to accidentally load an unintended model</span>
+<span class="sd">      since the function is not constrained to a specific family.</span>
+<span class="sd">    - The general recommendation is to use :meth:`ModelHub.load_model` if the</span>
+<span class="sd">      model family is known in advance, and to use ``load_model`` if the decision</span>
+<span class="sd">      about the model and its family needs to be made at runtime.</span>
+
+<span class="sd">    If ``gangs`` is provided, it will be used to apply parallelism (i.e.</span>
+<span class="sd">    model parallelism) to the initialized model. If the model family does</span>
+<span class="sd">    not support a certain parallelism strategy, that strategy will be</span>
+<span class="sd">    ignored. For instance if ``gangs.tp.size &gt; 1``, but the model does not</span>
+<span class="sd">    support tensor parallelism, the model will be instantiated with regular</span>
+<span class="sd">    attention and feed-forward network blocks. If ``None``, the whole model</span>
+<span class="sd">    will be initialized without any parallelism.</span>
+
+<span class="sd">    If ``device`` is provided, the model will be created on the specified</span>
+<span class="sd">    device; otherwise, the device returned from :func:`torch.get_default_device`</span>
+<span class="sd">    will be used. Note that ``device`` and ``gangs`` cannot be provided</span>
+<span class="sd">    together. If ``gangs`` is provided, ``gangs.root.device`` will be used.</span>
+
+<span class="sd">    If ``dtype`` is provided, it will be used as the default data type of</span>
+<span class="sd">    the model parameters and buffers; otherwise, the data type returned from</span>
+<span class="sd">    :func:`torch.get_default_dtype` will be used.</span>
+
+<span class="sd">    If ``config`` is provided, it overrides the default model configuration</span>
+<span class="sd">    from the asset card. If ``None``, uses the configuration specified in</span>
+<span class="sd">    the card. Typically used to perform slight adjustments to the model</span>
+<span class="sd">    configuration such as tuning dropout probabilities without changing the</span>
+<span class="sd">    architecture.</span>
+
+<span class="sd">    If ``mmap`` is ``True``, the model checkpoint will be memory-mapped. This</span>
+<span class="sd">    can reduce memory usage but may cause slower load times on some systems.</span>
+
+<span class="sd">    If ``progress`` is ``True``, displays a progress bar during model</span>
+<span class="sd">    download and loading.</span>
+
+<span class="sd">    .. code:: python</span>
+
+<span class="sd">        from fairseq2.assets import get_asset_store</span>
+<span class="sd">        from fairseq2.models.qwen import load_model</span>
+
+<span class="sd">        card = get_asset_store().retrieve_card(&quot;qwen25_7b_instruct&quot;)</span>
+
+<span class="sd">        qwen_model = load_model(card)</span>
+
+<span class="sd">        # As a convenience, the card can be omitted and the model name can</span>
+<span class="sd">        # be passed directly to `load_model()`:</span>
+<span class="sd">        wav2vec2_model = load_model(&quot;wav2vec2_asr_base_10h&quot;)</span>
+
+<span class="sd">    :raises ModelNotKnownError: If ``card`` is a string and no asset card</span>
+<span class="sd">        with that name exists.</span>
+
+<span class="sd">    :raises AssetCardError: If the asset card&#39;s model family doesn&#39;t match</span>
+<span class="sd">        this hub&#39;s family.</span>
+
+<span class="sd">    :raises ValueError: If both ``gangs`` and ``device`` are provided.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">resolver</span> <span class="o">=</span> <span class="n">get_dependency_resolver</span><span class="p">()</span>
 
     <span class="n">global_loader</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">GlobalModelLoader</span><span class="p">)</span>
@@ -610,6 +1079,15 @@
 
 <span class="nd">@final</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">GlobalModelLoader</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A global model loader that can load models from any registered model family.</span>
+
+<span class="sd">    This class is used internally by the :func:`load_model` function to provide</span>
+<span class="sd">    a unified interface for loading models across all model families. It resolves</span>
+<span class="sd">    the appropriate model family based on asset card metadata and delegates to</span>
+<span class="sd">    the family-specific loading logic.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">asset_store</span><span class="p">:</span> <span class="n">AssetStore</span><span class="p">,</span> <span class="n">families</span><span class="p">:</span> <span class="n">Lookup</span><span class="p">[</span><span class="n">ModelFamily</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_asset_store</span> <span class="o">=</span> <span class="n">asset_store</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_families</span> <span class="o">=</span> <span class="n">families</span>
@@ -624,6 +1102,7 @@
         <span class="n">mmap</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
         <span class="n">progress</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Module</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;See :func:`load_model`.&quot;&quot;&quot;</span>
         <span class="n">gangs</span> <span class="o">=</span> <span class="n">_get_effective_gangs</span><span class="p">(</span><span class="n">gangs</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">card</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
@@ -651,24 +1130,21 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_get_effective_gangs</span><span class="p">(</span><span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gangs</span><span class="p">:</span>
-    <span class="k">if</span> <span class="n">gangs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`gangs` and `device` must not be specified at the same time.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">gangs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;`gangs` and `device` must not be specified at the same time.&quot;</span>
+            <span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;meta&quot;</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`device` must be a real device.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">gangs</span>
 
-        <span class="k">return</span> <span class="n">create_fake_gangs</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">get_current_device</span><span class="p">()</span>
 
-    <span class="k">if</span> <span class="n">gangs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">get_default_device</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;meta&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`device` must be a real device.&quot;</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">create_fake_gangs</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="n">gangs</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;meta&quot;</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`gangs.root` must be on a real device.&quot;</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">gangs</span>
+    <span class="k">return</span> <span class="n">create_fake_gangs</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 </pre></div>
         </article>
       </div>
@@ -705,7 +1181,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=7d5035a8"></script>
+</div><script src="../../../_static/documentation_options.js?v=480d58a0"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

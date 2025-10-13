@@ -246,8 +246,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/datasets/hub.html">fairseq2.datasets.hub</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../../../reference/device.html">fairseq2.device</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.device.html">fairseq2.device</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.gang.html">fairseq2.gang</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.models.html">fairseq2.models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.recipe.optim.html">fairseq2.recipe.optim</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.utils.validation.html">fairseq2.utils.validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/logging.html">fairseq2.logging</a></li>
@@ -320,7 +322,7 @@
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">This module provides a set of helper types for object state validation. These</span>
 <span class="sd">types are primarly used by recipe and asset configuration dataclasses to ensure</span>
-<span class="sd">that all options are set correctly.</span>
+<span class="sd">that all fields are set correctly.</span>
 
 <span class="sd">A class -*typically a configuration dataclass*- that wants to support validation</span>
 <span class="sd">should expose a ``validate(self) -&gt; ValidationResult`` method. Optionally,</span>
@@ -329,7 +331,7 @@
 
 <span class="sd">A typical implementation of a ``validate()`` method looks like the following:</span>
 
-<span class="sd">.. code-block:: python</span>
+<span class="sd">.. code:: python</span>
 
 <span class="sd">    from dataclasses import dataclass</span>
 
@@ -353,16 +355,16 @@
 
 
 <span class="sd">Note that ``FooConfig`` must NOT call ``validate()`` on its sub-fields that are</span>
-<span class="sd">validatable. :class:`ObjectValidator` is responsible for traversing the object</span>
-<span class="sd">graph and call each ``validate()`` method it finds in dataclasses, as well as in</span>
-<span class="sd">composite objects of types ``list``, ``Mapping``, ``Set``, and ``tuple``.</span>
+<span class="sd">validatable. :class:`ObjectValidator` will traverse the object graph and call</span>
+<span class="sd">each ``validate()`` method it finds in dataclasses as well as in composite</span>
+<span class="sd">objects of types ``list``, ``Mapping``, ``Set``, and ``tuple``.</span>
 
 <span class="sd">Whenever ``FooConfig`` is used in a recipe configuration, fairseq2 will ensure</span>
 <span class="sd">that it is validated before setting :attr:`RecipeContext.config`. To manually</span>
 <span class="sd">validate an object outside of recipes, :class:`StandardObjectValidator` can</span>
 <span class="sd">be used:</span>
 
-<span class="sd">.. code-block:: python</span>
+<span class="sd">.. code:: python</span>
 
 <span class="sd">    from dataclasses import dataclass</span>
 
@@ -430,9 +432,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Validates ``obj``.</span>
 
-<span class="sd">        :param obj: The object to validate.</span>
-
-<span class="sd">        :raises ValidationError: ``obj`` or one of its sub-objects has a</span>
+<span class="sd">        :raises ValidationError: If ``obj`` or one of its sub-objects has a</span>
 <span class="sd">            validation error.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 </div>
@@ -495,11 +495,7 @@
 <div class="viewcode-block" id="Validatable.validate">
 <a class="viewcode-back" href="../../../reference/fairseq2.utils.validation.html#fairseq2.utils.validation.Validatable.validate">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">validate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidationResult</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Validates the state of the object.</span>
-
-<span class="sd">        :returns: The result of the validation.</span>
-<span class="sd">        &quot;&quot;&quot;</span></div>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validates the state of the object.&quot;&quot;&quot;</span></div>
 </div>
 
 
@@ -527,11 +523,10 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Adds the validation result of a sub-object as a sub-result.</span>
 
-<span class="sd">        :param field: The name of the sub-object. For a dataclass, it is the</span>
-<span class="sd">            name of the field, for a ``Mapping`` it is the name of the key</span>
-<span class="sd">            formatted as ``f&quot;[{repr(key)}]&quot;``, for ``list``, ``Set``, and ``tuple``</span>
-<span class="sd">            it is the index of the value formatted as ``f&quot;[{index}]&quot;``.</span>
-<span class="sd">        :param result: The validation result of the sub-object.</span>
+<span class="sd">        ``field`` specifies the name of the sub-object. For a dataclass, it is</span>
+<span class="sd">        the name of the field, for a ``Mapping``, it is the name of the key</span>
+<span class="sd">        formatted as ``f&quot;[{repr(key)}]&quot;``, for a ``list``, ``Set``, or ``tuple``,</span>
+<span class="sd">        it is the index of the value formatted as ``f&quot;[{index}]&quot;``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_sub_results</span><span class="p">[</span><span class="n">field</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span></div>
 
@@ -605,16 +600,13 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when a validation error occurs.&quot;&quot;&quot;</span>
 
     <span class="n">result</span><span class="p">:</span> <span class="n">ValidationResult</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;The result containing validation errors.&quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">ValidationResult</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param result: The validation result. If ``str``, will be converted</span>
-<span class="sd">            to a result with ``ValidationResult(result)``.</span>
-<span class="sd">        :param field: If not ``None``, ``result`` will be treated as the</span>
-<span class="sd">            sub-result of ``field``.</span>
+<span class="sd">        If ``field`` is provided, ``result`` will be treated as the sub-result</span>
+<span class="sd">        of the specified field.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="n">tmp</span> <span class="o">=</span> <span class="n">ValidationResult</span><span class="p">()</span>
@@ -671,7 +663,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=7d5035a8"></script>
+</div><script src="../../../_static/documentation_options.js?v=480d58a0"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
