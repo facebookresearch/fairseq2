@@ -126,7 +126,7 @@ management.
     # Initialize 2D mesh (2x4) - just coordinates, no semantic meaning
     mesh: DeviceMesh = init_device_mesh("cuda", (2, 4), mesh_dim_names=("dp", "tp"))
 
-    # Manual coordinate extraction - both are just DeviceMesh objects
+    # Manual coordinate extraction
     dp_mesh: DeviceMesh = mesh["dp"]
     tp_mesh: DeviceMesh = mesh["tp"]
 
@@ -138,7 +138,6 @@ management.
     dist.all_reduce(tensor_tp, group=tp_mesh.get_group())  # TP? DP? Can't tell from types
     dist.all_reduce(tensor_dp, group=dp_mesh.get_group())
 
-    # Cleanup
     dist.destroy_process_group()
 
     # --------------------------
@@ -147,14 +146,15 @@ management.
     import torch
     from fairseq2.gang import Gang, Gangs, ProcessGroupGang, ReduceOperation, create_parallel_gangs
     from fairseq2.device import Device, get_default_device
-    
+
+    # Initialize distributed setup
     device: Device = get_default_device()
     root_gang: Gang = ProcessGroupGang.create_default_process_group(device)
     
     # Create semantic parallelism abstractions (dp_size = 8 // 4 = 2)
     gangs: Gangs = create_parallel_gangs(root_gang, tp_size=4)
     
-    # Access typed parallelism strategies - semantic meaning guaranteed
+    # Access parallelism strategies - semantic meaning guaranteed
     dp_gang: Gang = gangs.dp
     tp_gang: Gang = gangs.tp  
     
@@ -165,7 +165,6 @@ management.
     tp_gang.all_reduce(tensor_tp, ReduceOperation.SUM)  # Tensor parallel
     dp_gang.all_reduce(tensor_dp, ReduceOperation.SUM)  # Data parallel
     
-    # Cleanup
     root_gang.close()
 
 How to create a Gang?
