@@ -77,6 +77,7 @@ def prepare_grpo_batch(
     reward_output: dict,
     gangs: Gang,
     rollout_start_end: tuple[int],
+    adv_normalization: bool = True,
 ):
 
     prompt_rollouts = []
@@ -107,9 +108,13 @@ def prepare_grpo_batch(
     # gangs.root.barrier()
 
     rewards = torch.tensor(rewards, device=gangs.dp.device).float()  # [Batch, Rollouts]
-    rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (
-        rewards.std(dim=1, keepdim=True) + 1e-6
-    )  # small epsilon to compensate 0 std
+
+    if adv_normalization:  # normalize advantages
+        rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (
+            rewards.std(dim=1, keepdim=True) + 1e-6
+        )  # small epsilon to compensate 0 std
+    else:
+        rewards_normalized = rewards - rewards.mean(dim=1, keepdim=True)
 
     rewards_normalized = rewards_normalized[
         :, rollout_start_end[0] : rollout_start_end[1]
@@ -279,6 +284,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             rollout_start_end=self._rollout_bag.get_rollout_start_end(
                 self._config.loss_config.forward_group_size
             ),
+            adv_normalization=self._config.loss_config.adv_normalization,
         )
 
         # grpo_batch, reward_output = self._reward.prepare_grpo_batch(prompt_batch, rollouts)  # loss_zeroer is used when entire batch has no valid prefrence pair
@@ -312,15 +318,19 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             prompt_rollout_seqs,
             prompt_rollout_layout,
         ) = grpo_batch.prompt_rollouts.as_input()
-        ref_logps = compute_reference_logps(
-            self._gangs,
-            self._reference_model,
-            prompt_rollout_seqs,
-            prompt_rollout_layout,
-            grpo_batch.prompt_lengths,
-        )
 
-        _grpo_objective = self._compute_grpo_objective(
+        if self._config.loss_config.beta > 0.0:
+            ref_logps = compute_reference_logps(
+                self._gangs,
+                self._reference_model,
+                prompt_rollout_seqs,
+                prompt_rollout_layout,
+                grpo_batch.prompt_lengths,
+            )
+        else:
+            ref_logps = None
+
+        _grpo_objective, total_tokens = self._compute_grpo_objective(
             logps, ref_logps, grpo_batch.rewards, grpo_target_batch
         )
 
@@ -352,7 +362,10 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         loss = grpo_loss
 
-        return loss, prompt_batch.batch_size
+        if self._config.loss_config.loss_token_mean:
+            return loss, total_tokens
+        else:
+            return loss, prompt_batch.batch_size
 
     def _gather_lprobs(self, logits: Tensor, target: SequenceBatch) -> Tensor:
         assert target.target_mask is not None
@@ -374,24 +387,35 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         batch_size = advantages.size(0)
         num_rollouts = advantages.size(1)
         logps = logps.view(batch_size, num_rollouts, -1)
-        ref_logps = ref_logps.view(batch_size, num_rollouts, -1)
-
-        # kl penalty
-        kl = (ref_logps - logps).exp() - (ref_logps - logps) - 1.0
 
         per_token_scaled_advantage = (logps - logps.detach()).exp() * advantages[
             :, :, None
         ]
-        # per_token_scaled_advantage = logps * advantages[:,:,None]
 
-        per_token_loss = per_token_scaled_advantage - self._config.loss_config.beta * kl
+        if self._config.loss_config.beta > 0.0:
+            ref_logps = ref_logps.view(batch_size, num_rollouts, -1)
+
+            # kl penalty
+            kl = (ref_logps - logps).exp() - (ref_logps - logps) - 1.0
+
+            # per_token_scaled_advantage = logps * advantages[:,:,None]
+
+            per_token_loss = (
+                per_token_scaled_advantage - self._config.loss_config.beta * kl
+            )
+        else:
+            per_token_loss = per_token_scaled_advantage
 
         target_mask = target_batch.target_mask.view(batch_size, num_rollouts, -1)
+
+        total_tokens = target_mask.sum().item()
 
         if self._config.loss_config.length_normalization:
             per_seq_loss = (
                 (per_token_loss * target_mask).sum(dim=-1) / target_mask.sum(dim=-1)
             ).mean(dim=1)
+        elif self._config.loss_config.loss_token_mean:
+            per_seq_loss = per_token_loss * target_mask
         else:
             per_seq_loss = ((per_token_loss * target_mask).sum(dim=-1)).mean(dim=1)
 
@@ -401,7 +425,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         # self._gangs.root.barrier()
 
-        return per_seq_loss.sum()
+        return per_seq_loss.sum(), total_tokens
 
     @override
     def set_step_nr(self, step_nr: int) -> None:
@@ -442,8 +466,14 @@ class GrpoLossConfig:
     length_normalization: bool = True
     """If True, normalize loss by sequence length. If False, use sequence-level loss."""
 
+    adv_normalization: bool = True
+    """If True, normalize advantages to have zero mean and unit variance within each batch."""
+
     log_rollouts: bool = False
     """Log sample rollouts during training/validation."""
+
+    loss_token_mean: bool = False
+    """If True, average loss over tokens. If False, sum over tokens."""
 
     validation_vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
     """VLLM sampling params for validation. If empty, training params will be used."""
