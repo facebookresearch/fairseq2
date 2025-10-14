@@ -3,6 +3,11 @@ All notable changes to fairseq2 are documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
+## [0.7.0] - TBD
+- A new `register_recipe_assets` helper function that can be used to register
+  recipe-specific asset cards that cannot be (accidentally) overwritten by users.
+  [More info](https://github.com/facebookresearch/fairseq2/pull/1373)
+
 ## [0.6.0] - Oct 7th, 2025
 - `fairseq2.sharder` is deprecated. fairseq2 now expects parallelism strategies
   to be applied within model factories. This gives model authors full control

@@ -46,6 +46,7 @@ other content generation tasks.
     :maxdepth: 1
     :caption: Concepts
 
+    concepts/assets
     Gangs <concepts/gang>
 
 .. toctree::
@@ -60,6 +61,7 @@ other content generation tasks.
     reference/fairseq2.gang
     reference/fairseq2.model_checkpoint
     reference/fairseq2.models
+    reference/fairseq2.recipe.composition
     reference/fairseq2.recipe.optim
     reference/fairseq2.utils.validation
     reference/logging
