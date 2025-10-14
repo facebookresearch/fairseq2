@@ -396,15 +396,14 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         batch_size = advantages.size(0)
         num_rollouts = advantages.size(1)
         logps = logps.view(batch_size, num_rollouts, -1)
-
-        per_token_scaled_advantage = (logps - logps.detach()).exp() * advantages[
-            :, :, None
-        ]
-
         ref_logps = ref_logps.view(batch_size, num_rollouts, -1)
 
         # kl penalty
         kl = (ref_logps - logps).exp() - (ref_logps - logps) - 1.0
+
+        per_token_scaled_advantage = (logps - logps.detach()).exp() * advantages[
+            :, :, None
+        ]
 
         per_token_loss = per_token_scaled_advantage - self._config.loss_config.beta * kl
 
