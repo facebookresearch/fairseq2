@@ -365,6 +365,17 @@ def combine_prompts_responses_for_scoring(
     return responses
 
 
+def get_vllm_logprobs(vllm_outputs: List[RequestOutput], gangs):
+    scores = []
+    for req_output in vllm_outputs:
+        _logprobs = req_output.outputs[0].logprobs
+        logprobs = [list(d.values())[0].logprob for d in _logprobs]
+        logprobs = torch.tensor(logprobs)
+        scores.append(logprobs)
+
+    return scores
+
+
 def convert_vllm_output_to_ref_score(vllm_outputs: List[RequestOutput], gangs):
     ref_scores = []
     for req_output in vllm_outputs:

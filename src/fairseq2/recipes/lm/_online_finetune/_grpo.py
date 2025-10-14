@@ -47,6 +47,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     update_grpo_loss,
     update_logit_entropy,
     update_std_reward,
+    get_vllm_logprobs,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_model import (
@@ -138,7 +139,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
     _step_nr: int
     _valid_step_nr: int
-    _reference_model: RemoteVllmModel
+    _reference_model: RemoteVllmModel | None
     _vllm_model: RemoteVllmModel
     _vllm_actors: Dict[str, Union[RemoteVllmModel, RemoteHFModel]]
     _config: GrpoFinetuneConfig
@@ -304,6 +305,17 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         logps = self._gather_lprobs(grpo_model_logits, grpo_target_batch)
 
+        # vllm_logps = get_vllm_logprobs(rollouts, self._gangs)
+        # vllm_logps = collate_with_target_mask(
+        #     vllm_logps, grpo_batch.prompt_lengths, device=self._gangs.dp.device
+        # ).seqs
+        # breakpoint()
+        # if self._gangs.root.rank == 0:
+        #     breakpoint()
+        #     print(vllm_logps)
+
+        # vllm_logps
+
         tgt_logit_entropy = compute_token_level_entropy(
             grpo_model_logits, grpo_target_batch.target_mask
         )  # [Batch x Rollouts, 1]
@@ -319,7 +331,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             prompt_rollout_layout,
         ) = grpo_batch.prompt_rollouts.as_input()
 
-        if self._config.loss_config.beta > 0.0:
+        if self._config.loss_config.beta > 0:
             ref_logps = compute_reference_logps(
                 self._gangs,
                 self._reference_model,
@@ -397,8 +409,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
             # kl penalty
             kl = (ref_logps - logps).exp() - (ref_logps - logps) - 1.0
-
-            # per_token_scaled_advantage = logps * advantages[:,:,None]
 
             per_token_loss = (
                 per_token_scaled_advantage - self._config.loss_config.beta * kl
@@ -529,8 +539,11 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         validate(config)
         log.info(f"GRPO loss config:\n{config}")
 
-        reference_model = vllm_actors[config.vllm_reference_model_actor_name]
-        if config.vllm_sync.sync_ref_model_every_n_steps != -1:
+        if config.loss_config.beta > 0:
+            reference_model = vllm_actors[config.vllm_reference_model_actor_name]
+        else:
+            reference_model = None
+        if reference_model and config.vllm_sync.sync_ref_model_every_n_steps != -1:
             if reference_model and reference_model.update_process_groups is None:
                 raise ValueError(
                     f"Reference model actor must have update process group if we sync weights"
