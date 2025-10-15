@@ -135,9 +135,7 @@ class StandardTokenizerFamily(TokenizerFamily):
 
             raise AssetCardError(name, msg)
 
-        path = self._asset_download_manager.download_tokenizer(
-            uri, name, progress=progress
-        )
+        path = self._asset_download_manager.download_tokenizer(uri, name)
 
         # Load the configuration.
         if config is None:

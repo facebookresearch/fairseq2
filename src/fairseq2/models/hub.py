@@ -22,7 +22,7 @@ from fairseq2.gang import Gangs, create_fake_gangs
 from fairseq2.models.family import ModelFamily
 from fairseq2.runtime.dependency import get_dependency_resolver
 from fairseq2.runtime.lookup import Lookup
-from fairseq2.utils.warn import _warn_deprecated
+from fairseq2.utils.warn import _warn_deprecated, _warn_progress_deprecated
 
 ModelT = TypeVar("ModelT", bound=Module)
 
@@ -244,7 +244,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         dtype: DataType | None = None,
         config: ModelConfigT | None = None,
         mmap: bool = False,
-        progress: bool = True,
+        progress: bool | None = None,
     ) -> ModelT: ...
 
     @overload
@@ -256,7 +256,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         dtype: DataType | None = None,
         config: ModelConfigT | None = None,
         mmap: bool = False,
-        progress: bool = True,
+        progress: bool | None = None,
     ) -> ModelT: ...
 
     def load_model(
@@ -268,7 +268,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         dtype: DataType | None = None,
         config: ModelConfigT | None = None,
         mmap: bool = False,
-        progress: bool = True,
+        progress: bool | None = None,
     ) -> ModelT:
         """
         Loads a pretrained model from an asset card.
@@ -306,8 +306,9 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         If ``mmap`` is ``True``, the model checkpoint will be memory-mapped. This
         can reduce memory usage but may cause slower load times on some systems.
 
-        If ``progress`` is ``True``, displays a progress bar during model
-        download and loading.
+        ``progress`` is deprecated and will be removed in v0.13. Use
+        ``FAIRSEQ2_NO_PROGRESS=1`` environment variable or ``no_progress``
+        parameter of :func:`init_fairseq` to disable progress bars.
 
         .. code:: python
 
@@ -330,6 +331,8 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
 
         :raises ValueError: If both ``gangs`` and ``device`` are provided.
         """
+        _warn_progress_deprecated(progress)
+
         gangs = _get_effective_gangs(gangs, device)
 
         if isinstance(card, str):
@@ -352,7 +355,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         if dtype is None:
             dtype = torch.get_default_dtype()
 
-        model = self._family.load_model(card, gangs, dtype, config, mmap, progress)
+        model = self._family.load_model(card, gangs, dtype, config, mmap, progress=True)
 
         return cast(ModelT, model)
 
@@ -366,7 +369,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         dtype: DataType | None = None,
         mmap: bool = False,
         restrict: bool | None = None,
-        progress: bool = True,
+        progress: bool | None = None,
     ) -> ModelT: ...
 
     @overload
@@ -379,7 +382,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         dtype: DataType | None = None,
         mmap: bool = False,
         restrict: bool | None = None,
-        progress: bool = True,
+        progress: bool | None = None,
     ) -> ModelT: ...
 
     def load_custom_model(
@@ -392,7 +395,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         dtype: DataType | None = None,
         mmap: bool = False,
         restrict: bool | None = None,
-        progress: bool = True,
+        progress: bool | None = None,
     ) -> ModelT:
         """
         Loads a model from a custom checkpoint file.
@@ -427,8 +430,9 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         only tensors and types that can be safely serialized and deserialized.
         If ``None``, the default restriction setting of the family will be used.
 
-        If ``progress`` is ``True``, displays a progress bar during model
-        download and loading.
+        ``progress`` is deprecated and will be removed in v0.13. Use
+        ``FAIRSEQ2_NO_PROGRESS=1`` environment variable or ``no_progress``
+        parameter of :func:`init_fairseq` to disable progress bars.
 
         .. code:: python
 
@@ -448,13 +452,15 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         :raises ModelCheckpointError: If the checkpoint format is not valid or
             incompatible with the model.
         """
+        _warn_progress_deprecated(progress)
+
         gangs = _get_effective_gangs(gangs, device)
 
         if dtype is None:
             dtype = torch.get_default_dtype()
 
         model = self._family.load_custom_model(
-            path, config, gangs, dtype, mmap, restrict, progress
+            path, config, gangs, dtype, mmap, restrict, progress=True
         )
 
         return cast(ModelT, model)
@@ -611,7 +617,7 @@ def load_model(
     dtype: DataType | None = None,
     config: object | None = None,
     mmap: bool = False,
-    progress: bool = True,
+    progress: bool | None = None,
 ) -> Module: ...
 
 
@@ -623,7 +629,7 @@ def load_model(
     dtype: DataType | None = None,
     config: object | None = None,
     mmap: bool = False,
-    progress: bool = True,
+    progress: bool | None = None,
 ) -> Module: ...
 
 
@@ -635,7 +641,7 @@ def load_model(
     dtype: DataType | None = None,
     config: object | None = None,
     mmap: bool = False,
-    progress: bool = True,
+    progress: bool | None = None,
 ) -> Module:
     """
     Loads a pretrained model from an asset card.
@@ -686,8 +692,9 @@ def load_model(
     If ``mmap`` is ``True``, the model checkpoint will be memory-mapped. This
     can reduce memory usage but may cause slower load times on some systems.
 
-    If ``progress`` is ``True``, displays a progress bar during model
-    download and loading.
+    ``progress`` is deprecated and will be removed in v0.13. Use
+    ``FAIRSEQ2_NO_PROGRESS=1`` environment variable or ``no_progress`` parameter
+    of :func:`init_fairseq` to disable progress bars.
 
     .. code:: python
 
@@ -740,9 +747,11 @@ class GlobalModelLoader:
         dtype: DataType | None,
         config: object | None,
         mmap: bool,
-        progress: bool,
+        progress: bool | None,
     ) -> Module:
         """See :func:`load_model`."""
+        _warn_progress_deprecated(progress)
+
         gangs = _get_effective_gangs(gangs, device)
 
         if isinstance(card, str):
@@ -766,7 +775,7 @@ class GlobalModelLoader:
         if dtype is None:
             dtype = torch.get_default_dtype()
 
-        return family.load_model(card, gangs, dtype, config, mmap, progress)
+        return family.load_model(card, gangs, dtype, config, mmap, progress=True)
 
 
 def _get_effective_gangs(gangs: Gangs | None, device: Device | None) -> Gangs:

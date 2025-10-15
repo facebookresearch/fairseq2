@@ -50,8 +50,7 @@ class ModelCheckpointLoader(ABC):
         conversion.
 
         ``gangs`` is used to determine the distributed target configuration and
-        shard yielded parameters accordingly. If ``None``, no sharding will be
-        performed and full parameters will be yielded.
+        shard yielded parameters accordingly.
 
         If ``mmap`` is ``True``, the checkpoint will be memory-mapped. This can
         reduce memory usage but may cause slower load times on some systems.
@@ -69,8 +68,8 @@ class ModelCheckpointLoader(ABC):
         checkpoint loading. If ``None``, no resharding will be performed and
         full parameters will be loaded.
 
-        ``shard_specs`` is deprecated and will be removed in a future release;
-        please use ``shard_dims`` instead.
+        ``shard_specs`` is deprecated and will be removed in v0.12; please use
+        ``shard_dims`` instead.
 
         Yields pairs of ``(parameter name, parameter)`` for each parameter in
         the checkpoint.
