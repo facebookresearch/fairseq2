@@ -225,6 +225,7 @@ class LearnedPositionEncoder(PositionEncoder):
         encoding_dim: int,
         max_seq_len: int,
         *,
+        _legacy_pad_idx: int | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -242,6 +243,10 @@ class LearnedPositionEncoder(PositionEncoder):
         )
 
         self.max_seq_len = max_seq_len
+
+        # This is a legacy parameter that should only be set when the encodings
+        # must be compatible with fairseq.
+        self._legacy_pad_idx = 0 if _legacy_pad_idx is None else _legacy_pad_idx
 
         self.reset_parameters()
 
@@ -271,7 +276,7 @@ class LearnedPositionEncoder(PositionEncoder):
                 f"The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence is of length {max_seq_len} instead."
             )
 
-        indices = seqs_layout.position_indices + 1  # +1 for padding
+        indices = seqs_layout.position_indices + (1 + self._legacy_pad_idx)
 
         if not self.training and state_bag is not None:
             indices = state_bag.step_nr + indices
