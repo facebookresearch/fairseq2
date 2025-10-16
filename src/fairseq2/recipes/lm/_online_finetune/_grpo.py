@@ -34,7 +34,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     collate_with_target_mask,
     compute_reference_logps,
     compute_token_level_entropy,
-    format_think_tags,
+    strip_for_octothinker,
     generate_rollouts,
     get_rollout_lengths,
     log_rollouts,
@@ -215,7 +215,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         if self._config.reward.config.strip_thinking:
             rollouts = strip_think_tokens(rollouts)
         else:
-            rollouts = format_think_tags(rollouts)
+            rollouts = strip_for_octothinker(rollouts)
 
         log.info("After stripping")
         if self._config.loss_config.log_rollouts:
@@ -226,7 +226,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         log.info(f"Rewards: {reward_output['rewards']}")
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         std_reward = torch.tensor(reward_output["rewards"]).float().std()
-        failed_to_parse_answers = get_failed_to_parse_answers(prompt_batch)
+        failed_to_parse_answers = get_failed_to_parse_answers(reward_output, prompt_batch.batch_size)
 
         rollout_lengths = get_rollout_lengths(rollouts)
         avg_rollout_length = torch.tensor(rollout_lengths).float().mean()
@@ -284,9 +284,10 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             if self._config.reward.config.strip_thinking:
                 rollouts = strip_think_tokens(rollouts)
             else:
-                rollouts = format_think_tags(rollouts)
+                rollouts = strip_for_octothinker(rollouts)
             log.info("After stripping")
-            log_rollouts(prompt_batch, rollouts, "Train")
+            if self._config.loss_config.log_rollouts:
+                log_rollouts(prompt_batch, rollouts, "Train")
             reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
             self._rollout_bag.save(rollouts, reward_output)
 
@@ -372,7 +373,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         update_std_reward(metric_bag, std_reward)
         update_avg_reward(metric_bag, avg_reward)
         
-        failed_to_parse_answers = get_failed_to_parse_answers(prompt_batch)
+        failed_to_parse_answers = get_failed_to_parse_answers(reward_output, prompt_batch.batch_size)
         update_failed_to_parse_answers(metric_bag, failed_to_parse_answers)
 
         loss = grpo_loss

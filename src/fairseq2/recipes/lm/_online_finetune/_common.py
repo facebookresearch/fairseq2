@@ -440,20 +440,21 @@ def strip_think_tokens(rollouts: List[SequenceData]):
 
     return rollouts
 
-def get_failed_to_parse_answers(prompt_batch: PromptBatch):
-    if "answers" in prompt_batch:        
-        failed_to_parse = sum(answer is None for rollouts in prompt_batch for answer in rollouts)
-        return failed_to_parse/prompt_batch.batch_size
+def get_failed_to_parse_answers(reward_output: dict, batch_size: int):
+    if "answers" in reward_output:
+        log.info(f"Answers: {reward_output['answers']}")
+        failed_to_parse = sum(answer is None for rollouts in reward_output["answers"] for answer in rollouts)
+        return failed_to_parse/batch_size
     else:
         return 0.0
-
-def format_think_tags(rollouts: List[SequenceData]):
+    
+def strip_for_octothinker(rollouts: List[SequenceData]):
     for sample in rollouts:
         for rollout in sample.outputs:
             rollout_text = rollout.text
-            rollout.text = rollout_text.replace(
-                "<think>", "[Start of Assistant Thinking]"
-            ).replace("</think>", "[End of Assistant Thinking]")
+            if "\nUser:" in rollout_text:
+                rollout_text = rollout_text[:rollout_text.find("\nUser:")]
+            rollout.text = rollout_text
 
     return rollouts
 
