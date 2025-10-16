@@ -10,6 +10,8 @@ from typing import final
 
 from typing_extensions import override
 
+from fairseq2.error import raise_operational_system_error
+from fairseq2.gang import GangError, raise_operational_gang_error
 from fairseq2.recipe.base import RecipeContext, TrainRecipe
 from fairseq2.recipe.internal.model import (
     _DelegatingTrainModelPreparer,
@@ -55,4 +57,9 @@ class _CustomTrainModelPreparer(_TrainModelPreparer):
     def prepare(self, model: RecipeModel) -> RecipeModel:
         context = RecipeContext(self._resolver)
 
-        return self._recipe.prepare_model(context, model)
+        try:
+            return self._recipe.prepare_model(context, model)
+        except OSError as ex:
+            raise_operational_system_error(ex)
+        except GangError as ex:
+            raise_operational_gang_error(ex)
