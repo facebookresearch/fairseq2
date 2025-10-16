@@ -169,3 +169,33 @@ checkpoint: "hg://deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
 tokenizer: "hg://deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
 tokenizer_family: llama
 use_v2_tokenizer: true
+
+---
+
+name: octothinker_8b_hybrid
+model_family: llama
+model_arch: llama3_1_8b
+checkpoint: /datasets/pretrained-llms/OctoThinker-8B-Hybrid-Base/
+tokenizer: /datasets/pretrained-llms/OctoThinker-8B-Hybrid-Base/
+tokenizer_family: llama
+use_v2_tokenizer: true
+
+---
+
+name: octothinker_8b_long
+model_family: llama
+model_arch: llama3_1_8b
+checkpoint: /datasets/pretrained-llms/OctoThinker-8B-Long-Base/
+tokenizer: /datasets/pretrained-llms/OctoThinker-8B-Long-Base/
+tokenizer_family: llama
+use_v2_tokenizer: true
+
+---
+
+name: octothinker_8b_short
+model_family: llama
+model_arch: llama3_1_8b
+checkpoint: /datasets/pretrained-llms/OctoThinker-8B-Short-Base/
+tokenizer: /datasets/pretrained-llms/OctoThinker-8B-Short-Base/
+tokenizer_family: llama
+use_v2_tokenizer: true
