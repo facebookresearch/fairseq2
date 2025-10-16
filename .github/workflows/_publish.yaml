@@ -60,7 +60,7 @@ jobs:
       variant: ${{ matrix.variant }}
       release_type: ${{ inputs.release_type }}
 
-  publish_pt28_s3-macos:
+  publish_pt29_s3-macos:
     name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, macos-arm64)
     strategy:
       matrix:
@@ -82,7 +82,7 @@ jobs:
       - publish_pt27_s3-linux
       - publish_pt28_s3-linux
       - publish_pt29_s3-linux
-      - publish_pt28_s3-macos
+      - publish_pt29_s3-macos
     if: inputs.release_type == 'stable'
     uses: ./.github/workflows/_publish_pypi.yaml
     strategy:
