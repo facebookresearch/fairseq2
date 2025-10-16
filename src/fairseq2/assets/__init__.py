@@ -28,6 +28,9 @@ from fairseq2.assets.download_manager import (
 from fairseq2.assets.download_manager import (
     StandardAssetDownloadManager as StandardAssetDownloadManager,
 )
+from fairseq2.assets.download_manager import (
+    get_asset_download_manager as get_asset_download_manager,
+)
 from fairseq2.assets.metadata_provider import AssetMetadataError as AssetMetadataError
 from fairseq2.assets.metadata_provider import (
     AssetMetadataFileLoader as AssetMetadataFileLoader,

@@ -29,7 +29,12 @@ from typing_extensions import override
 
 from fairseq2.error import NotSupportedError
 from fairseq2.logging import log
+from fairseq2.runtime.dependency import get_dependency_resolver
 from fairseq2.utils.uri import Uri
+
+
+def get_asset_download_manager() -> AssetDownloadManager:
+    return get_dependency_resolver().resolve(AssetDownloadManager)
 
 
 class AssetDownloadManager(ABC):
