@@ -14,7 +14,7 @@ from typing import Any, Final, cast, final
 
 import torch
 
-from fairseq2.assets import HuggingFaceHub
+from fairseq2.assets import get_asset_download_manager
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
@@ -342,8 +342,8 @@ def open_lm_sft_dataset(config: LMSFTDatasetConfig) -> LMSFTDataset:
         raise ValueError("config.path cannot be None")
 
     uri = Uri.maybe_parse(config.path)
-    if uri and uri.scheme == "hg":
-        path = HuggingFaceHub().download_dataset(uri, config.path)
+    if uri:
+        path = get_asset_download_manager().download_dataset(uri, config.path)
     else:
         path = Path(config.path)
 
