@@ -1,6 +1,6 @@
 .. _residual:
 
-Residual Layers
+fairseq2.nn.residual
 ====================
 
 .. currentmodule:: fairseq2.nn

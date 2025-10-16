@@ -1,6 +1,6 @@
 .. _norm:
 
-Normalization Layers
+fairseq2.nn.normalization
 ====================
 
 .. currentmodule:: fairseq2.nn
