@@ -1,6 +1,6 @@
 .. _residual:
 
-Residual Connections
+Residual Layers
 ====================
 
 .. currentmodule:: fairseq2.nn

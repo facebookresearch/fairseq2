@@ -1,21 +1,21 @@
-.. _proj:
+.. _norm:
 
-Projection Layers
-=================
+Normalization
+====================
 
 .. currentmodule:: fairseq2.nn
 
-.. autoclass:: Projection
+.. autoclass:: LayerNorm
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. autoclass:: Linear
+.. autoclass:: StandardLayerNorm
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. autoclass:: TiedProjection
+.. autoclass:: RMSNorm
    :members:
    :undoc-members:
    :show-inheritance:

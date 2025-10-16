@@ -175,7 +175,4 @@ Example usage:
     dataset implementations that don't need access to other fairseq2 objects, using
     the basic ``opener`` is recommended.
 
-.. toctree::
-    :maxdepth: 1
-
-    hub
+* :doc: `references/fairseq2.models.hub.rst`
