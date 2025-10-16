@@ -74,10 +74,10 @@ other content generation tasks.
     reference/fairseq2.nn.batch_layout.rst
     reference/fairseq2.nn.embedding.rst
     reference/fairseq2.nn.incremental_state.rst
-    reference/fairseq2.nn_normalization.rst
+    reference/fairseq2.nn.normalization.rst
     reference/fairseq2.nn.position_encoder.rst
     reference/fairseq2.nn.projection.rst
-    reference/fairseq2.nn_residual.rst
+    reference/fairseq2.nn.residual.rst
     reference/fairseq2.nn.utils.rst
     reference/logging
     reference/metrics

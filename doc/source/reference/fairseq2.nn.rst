@@ -13,9 +13,9 @@ utilities for efficient neural network operations.
 * :doc:`/reference/fairseq2.nn.batch_layout`
 * :doc:`/reference/fairseq2.nn.embedding`
 * :doc:`/reference/fairseq2.nn.position_encoder`
-* :doc:`/reference/fairseq2.nn_normalization`
+* :doc:`/reference/fairseq2.nn.normalization`
 * :doc:`/reference/fairseq2.nn.projection`
-* :doc:`/reference/fairseq2.nn_residual`
+* :doc:`/reference/fairseq2.nn.residual`
 * :doc:`/reference/fairseq2.nn.incremental_state`
 * :doc:`/reference/fairseq2.nn.utils`
 
