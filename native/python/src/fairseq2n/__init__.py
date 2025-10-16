@@ -177,18 +177,19 @@ def _check_torch_version() -> None:
 
     source_version, target_version = mmp(torch.__version__), mmp(_TORCH_VERSION)
 
-    if source_var := torch.version.cuda:
+    if cuda_version := torch.version.cuda:
         # Use only the major and minor version segments.
-        source_variant = "CUDA " + ".".join(source_var.split(".", 2)[:2])
+        source_variant = "CUDA " + ".".join(cuda_version.split(".", 2)[:2])
     else:
         source_variant = "CPU-only"
 
     target_variant = _TORCH_VARIANT
 
-    if source_version != target_version or source_variant != target_variant:
-        raise RuntimeError(
-            f"fairseq2 requires a {target_variant} build of PyTorch {target_version}, but the installed version is a {source_variant} build of PyTorch {source_version}. Either follow the instructions at https://pytorch.org/get-started/locally to update PyTorch, or the instructions at https://github.com/facebookresearch/fairseq2#variants to update fairseq2."
-        )
+    if source_version != target_version:
+        if target_variant != "CPU-only" and source_variant != target_variant:
+            raise RuntimeError(
+                f"fairseq2 requires a {target_variant} build of PyTorch {target_version}, but the installed version is a {source_variant} build of PyTorch {source_version}. Either follow the instructions at https://pytorch.org/get-started/locally to update PyTorch, or the instructions at https://github.com/facebookresearch/fairseq2#variants to update fairseq2."
+            )
 
 
 _check_torch_version()
