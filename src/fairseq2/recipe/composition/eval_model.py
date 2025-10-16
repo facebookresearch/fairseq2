@@ -10,6 +10,8 @@ from typing import final
 
 from typing_extensions import override
 
+from fairseq2.error import raise_operational_system_error
+from fairseq2.gang import GangError, raise_operational_gang_error
 from fairseq2.recipe.base import Recipe, RecipeContext
 from fairseq2.recipe.composition.config import register_config_section
 from fairseq2.recipe.config import ReferenceModelSection
@@ -61,9 +63,14 @@ class _CustomEvalModelPreparer(_EvalModelPreparer):
     ) -> RecipeModel:
         context = RecipeContext(self._resolver)
 
-        if section_name == "model":
-            return self._recipe.prepare_model(context, model)
-
-        return self._recipe.prepare_reference_model(
-            context, model, section_name, section
-        )
+        try:
+            if section_name == "model":
+                return self._recipe.prepare_model(context, model)
+            else:
+                return self._recipe.prepare_reference_model(
+                    context, model, section_name, section
+                )
+        except OSError as ex:
+            raise_operational_system_error(ex)
+        except GangError as ex:
+            raise_operational_gang_error(ex)

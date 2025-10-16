@@ -10,7 +10,8 @@ from signal import SIGUSR1, signal
 from types import FrameType
 from typing import final
 
-from fairseq2.gang import Gangs
+from fairseq2.error import raise_operational_system_error
+from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
 from fairseq2.logging import log
 from fairseq2.recipe.task import Task, TaskStopException
 from fairseq2.utils.stopwatch import Stopwatch
@@ -18,14 +19,11 @@ from fairseq2.utils.stopwatch import Stopwatch
 
 @final
 class _TaskRunner:
-    def __init__(self, task: Task, gangs: Gangs, wall_watch: Stopwatch) -> None:
-        self._task = task
+    def __init__(self, gangs: Gangs, wall_watch: Stopwatch) -> None:
         self._gangs = gangs
         self._wall_watch = wall_watch
 
-    def run(self) -> None:
-        task = self._task
-
+    def run(self, task: Task) -> None:
         log.info("Running on {} process(es).", self._gangs.root.size)
 
         # Use SIGUSR1 as the stop signal.
@@ -37,7 +35,11 @@ class _TaskRunner:
         original_signal_handler = signal(SIGUSR1, request_stop)
 
         try:
-            self._task.run()
+            task.run()
+        except OSError as ex:
+            raise_operational_system_error(ex)
+        except GangError as ex:
+            raise_operational_gang_error(ex)
         except TaskStopException:
             elapsed_time = int(self._wall_watch.get_elapsed_time())
 
