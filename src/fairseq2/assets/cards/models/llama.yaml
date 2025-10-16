@@ -66,8 +66,8 @@ num_shards: 8
 
 name: llama3
 model_family: llama
-checkpoint: "https://ai.meta.com/llama/;gated=true"
-tokenizer: "https://ai.meta.com/llama/;gated=true"
+checkpoint: "/datasets/pretrained-llms/Llama-3.1-8B/"
+tokenizer: "/datasets/pretrained-llms/Llama-3.1-8B/"
 tokenizer_family: llama
 use_v2_tokenizer: true
 
@@ -75,6 +75,8 @@ use_v2_tokenizer: true
 
 name: llama3_instruct
 base: llama3
+checkpoint: "/datasets/pretrained-llms/Llama-3.1-8B-Instruct/"
+tokenizer: "/datasets/pretrained-llms/Llama-3.1-8B-Instruct/"
 use_eot: true  # instruct tokenizer to use EOT instead of EOS
 
 ---

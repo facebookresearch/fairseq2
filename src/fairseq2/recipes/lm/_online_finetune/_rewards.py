@@ -217,19 +217,32 @@ class MathVerifyVerifier(VLLMOutputReward):
             boxed="none",
             equations=False,
         )
+        # self.verify_func = math_metric(
+        #     gold_extraction_target=(
+        #         LatexExtractionConfig(normalization_config=label_normalizer),
+        #     ),
+        #     pred_extraction_target=(LatexExtractionConfig(boxed_match_priority=0),),
+        #     aggregation_function=max,
+        #     precision=6,
+        # )
+
         self.verify_func = math_metric(
-            gold_extraction_target=(
-                LatexExtractionConfig(normalization_config=label_normalizer),
+            gold_extraction_target=(LatexExtractionConfig(),),
+            pred_extraction_target=(
+                ExprExtractionConfig(),
+                LatexExtractionConfig(boxed_match_priority=0),
             ),
-            pred_extraction_target=(LatexExtractionConfig(boxed_match_priority=0),),
             aggregation_function=max,
             precision=6,
         )
 
     def verify_answer(self, completion: str, answer: str):
         # here we add extra $$ to label so that LatexExtractor works as expected
-        if not answer.startswith("$"):
-            answer = f"${answer}$"
+        # if answer doesn't contain \\boxed, we add it
+        # if not answer.startswith("$"):
+        if "\\boxed" not in answer:
+            # answer = f"${answer}$"
+            answer = "\\boxed{" + answer + "}"
         try:
             with _mute_output():
                 grade, extracted_answers = self.verify_func([answer], [completion])

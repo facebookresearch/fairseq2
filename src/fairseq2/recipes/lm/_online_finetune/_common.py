@@ -365,6 +365,32 @@ def combine_prompts_responses_for_scoring(
     return responses
 
 
+def get_vllm_logprobs(vllm_outputs: List[RequestOutput], gangs):
+    """Return a single padded tensor of shape (num_samples, max_seq_len).
+
+    For each output we extract per-token logprobs from `req_output.prompt_logprobs`
+    (prompt tokens) and `req_output.logprobs` (generated continuation). Prompt
+    logprobs are prepended to continuation logprobs. Sequences are right-padded
+    with 0.0 so they can be stacked into one tensor.
+    """
+    seq_logprobs: List[Tensor] = []
+    _prompt_logprobs = vllm_outputs.prompt_logprobs[1:]
+    prompt_logprobs = [list(d.values())[0].logprob for d in _prompt_logprobs]
+    for req_output in vllm_outputs.outputs:
+        gen_logprobs = [list(d.values())[0].logprob for d in req_output.logprobs]
+        all_logprobs_list = prompt_logprobs + gen_logprobs
+        all_logprobs = torch.tensor(all_logprobs_list)
+        seq_logprobs.append(all_logprobs)
+
+    max_len = max(t.size(0) for t in seq_logprobs)
+    # Pad with 0.0 (neutral for sum; if logprob padding needs masking downstream, mask separately)
+    padded = torch.zeros(len(seq_logprobs), max_len)
+    for i, t in enumerate(seq_logprobs):
+        padded[i, : t.size(0)] = t
+
+    return padded
+
+
 def convert_vllm_output_to_ref_score(vllm_outputs: List[RequestOutput], gangs):
     ref_scores = []
     for req_output in vllm_outputs:
