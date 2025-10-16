@@ -303,18 +303,16 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             grpo_input_batch_seqs, grpo_input_batch_seqs_layout
         )
 
-        logps = self._gather_lprobs(grpo_model_logits, grpo_target_batch)
+        model_logps = self._gather_lprobs(grpo_model_logits, grpo_target_batch)
+        vllm_logps = get_vllm_logprobs(rollouts[0], self._gangs)
+        # Ensure vllm_logps tensor is on same device as model_logps for subsequent ops
+        if (
+            isinstance(vllm_logps, torch.Tensor)
+            and vllm_logps.device != model_logps.device
+        ):
+            vllm_logps = vllm_logps.to(model_logps.device)
 
-        # vllm_logps = get_vllm_logprobs(rollouts, self._gangs)
-        # vllm_logps = collate_with_target_mask(
-        #     vllm_logps, grpo_batch.prompt_lengths, device=self._gangs.dp.device
-        # ).seqs
-        # breakpoint()
-        # if self._gangs.root.rank == 0:
-        #     breakpoint()
-        #     print(vllm_logps)
-
-        # vllm_logps
+        # logps = torch.exp(model_logps - vllm_logps)
 
         tgt_logit_entropy = compute_token_level_entropy(
             grpo_model_logits, grpo_target_batch.target_mask
@@ -340,7 +338,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )
 
         _grpo_objective, total_tokens = self._compute_grpo_objective(
-            logps, ref_logps, grpo_batch.rewards, grpo_target_batch
+            model_logps, vllm_logps, ref_logps, grpo_batch.rewards, grpo_target_batch
         )
 
         grpo_loss = -_grpo_objective + max_entropy_regularizer
@@ -387,7 +385,8 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
     def _compute_grpo_objective(
         self,
-        logps,
+        model_logps,
+        vllm_logps,
         ref_logps,
         advantages: Tensor,  # outcome based only for now
         target_batch: SequenceBatch,
@@ -395,17 +394,26 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         batch_size = advantages.size(0)
         num_rollouts = advantages.size(1)
-        logps = logps.view(batch_size, num_rollouts, -1)
+        model_logps = model_logps.view(batch_size, num_rollouts, -1)
         ref_logps = ref_logps.view(batch_size, num_rollouts, -1)
 
         # kl penalty
-        kl = (ref_logps - logps).exp() - (ref_logps - logps) - 1.0
+        kl = (ref_logps - model_logps).exp() - (ref_logps - model_logps) - 1.0
 
-        per_token_scaled_advantage = (logps - logps.detach()).exp() * advantages[
-            :, :, None
-        ]
+        per_token_scaled_advantage = (
+            model_logps - model_logps.detach()
+        ).exp() * advantages[:, :, None]
 
-        per_token_loss = per_token_scaled_advantage - self._config.loss_config.beta * kl
+        if self._config.loss_config.use_importance_sampling_correction:
+            ratio = torch.exp(model_logps - vllm_logps)
+            per_token_scaled_advantage = per_token_scaled_advantage * ratio
+
+        if self._config.loss_config.beta > 0:
+            per_token_loss = (
+                per_token_scaled_advantage - self._config.loss_config.beta * kl
+            )
+        else:
+            per_token_loss = per_token_scaled_advantage
 
         target_mask = target_batch.target_mask.view(batch_size, num_rollouts, -1)
 
@@ -478,6 +486,9 @@ class GrpoLossConfig:
 
     validation_vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
     """VLLM sampling params for validation. If empty, training params will be used."""
+
+    use_importance_sampling_correction: bool = False
+    """If True, apply importance sampling correction using the VLLM model's logprobs"""
 
 
 @dataclass(kw_only=True)
