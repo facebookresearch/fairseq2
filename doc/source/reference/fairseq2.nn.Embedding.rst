@@ -1,6 +1,6 @@
 .. _embedding:
 
-fairseq2.nn.Embedding
+fairseq2.nn.embedding
 =====================
 
 .. currentmodule:: fairseq2.nn

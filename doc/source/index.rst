@@ -72,12 +72,12 @@ other content generation tasks.
     reference/fairseq2.utils.validation
     reference/fairseq2.nn.rst
     reference/fairseq2.nn.BatchLayout
-    reference/fairseq2.nn.Embedding
-    reference/fairseq2.nn.IncrementalState
+    reference/fairseq2.nn.embedding
+    reference/fairseq2.nn.incremental_state
     reference/fairseq2.nn.normalization
-    reference/fairseq2.nn.PositionEncoder
-    reference/fairseq2.nn.Projection
-    reference/fairseq2.nn.Residual
+    reference/fairseq2.nn.position_encoder
+    reference/fairseq2.nn.projection
+    reference/fairseq2.nn.residual
     reference/fairseq2.nn.utils
     reference/logging
     reference/metrics

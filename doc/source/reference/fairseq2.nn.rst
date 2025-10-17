@@ -11,12 +11,12 @@ the unified batch layout system, core neural network layers, and various
 utilities for efficient neural network operations.
 
 * :doc:`/reference/fairseq2.nn.BatchLayout`
-* :doc:`/reference/fairseq2.nn.Embedding`
-* :doc:`/reference/fairseq2.nn.PositionEncoder`
+* :doc:`/reference/fairseq2.nn.embedding`
+* :doc:`/reference/fairseq2.nn.position_encoder`
 * :doc:`/reference/fairseq2.nn.normalization`
-* :doc:`/reference/fairseq2.nn.Projection`
-* :doc:`/reference/fairseq2.nn.Residual`
-* :doc:`/reference/fairseq2.nn.IncrementalState`
+* :doc:`/reference/fairseq2.nn.projection`
+* :doc:`/reference/fairseq2.nn.residual`
+* :doc:`/reference/fairseq2.nn.incremental_state`
 * :doc:`/reference/fairseq2.nn.utils`
 
 
