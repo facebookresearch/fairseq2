@@ -26,10 +26,7 @@ utilities for machine learning workflows.
 Text Processing
 ---------------
 
-.. toctree::
-   :maxdepth: 1
-
-   tokenizers/index
+* :doc:`/reference/fairseq2.data.tokenizers`
 
 Data Pipeline Components
 ------------------------
@@ -62,6 +59,6 @@ Structured Data
 See Also
 --------
 
-* :doc:`/reference/nn/index` - Neural network components and BatchLayout
+* :doc:`/reference/fairseq2.nn` - Neural network components and BatchLayout
 * :ref:`api_datasets` - High-level dataset abstractions
-* :doc:`/reference/models/index` - Model implementations that consume data
+* :doc:`/reference/fairseq2.models` - Model implementations that consume data
