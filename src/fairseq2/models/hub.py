@@ -609,7 +609,7 @@ def load_model(
     *,
     gangs: Gangs | None = None,
     dtype: DataType | None = None,
-    config: object = None,
+    config: object | None = None,
     mmap: bool = False,
     progress: bool = True,
 ) -> Module: ...
@@ -621,7 +621,7 @@ def load_model(
     *,
     device: Device | None = None,
     dtype: DataType | None = None,
-    config: object = None,
+    config: object | None = None,
     mmap: bool = False,
     progress: bool = True,
 ) -> Module: ...
@@ -633,7 +633,7 @@ def load_model(
     gangs: Gangs | None = None,
     device: Device | None = None,
     dtype: DataType | None = None,
-    config: object = None,
+    config: object | None = None,
     mmap: bool = False,
     progress: bool = True,
 ) -> Module:

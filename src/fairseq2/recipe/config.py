@@ -102,7 +102,7 @@ class ModelSection(Validatable):
 
     arch: str | None = None
 
-    config_overrides: object = None
+    config_overrides: object | None = None
 
     dtype: DataType = torch.float32
 
@@ -134,7 +134,7 @@ class ReferenceModelSection(Validatable):
 
     arch: str | None = None
 
-    config_overrides: object = None
+    config_overrides: object | None = None
 
     dtype: DataType = torch.float32
 
@@ -180,7 +180,7 @@ class DatasetSection(Validatable):
 
     family: str | None = None
 
-    config_overrides: object = None
+    config_overrides: object | None = None
 
     def validate(self) -> ValidationResult:
         result = ValidationResult()
@@ -199,7 +199,7 @@ class TokenizerSection(Validatable):
 
     family: str | None = None
 
-    config_overrides: object = None
+    config_overrides: object | None = None
 
     def validate(self) -> ValidationResult:
         result = ValidationResult()
@@ -1342,7 +1342,7 @@ STANDARD_BEAM_SEARCH_ALGO: Final = "standard"
 class BeamSearchAlgorithmChoice(SupportsStructure):
     name: str = STANDARD_BEAM_SEARCH_ALGO
 
-    config: object = None
+    config: object | None = None
 
     @override
     def structure(self, resolver: DependencyResolver) -> None:
