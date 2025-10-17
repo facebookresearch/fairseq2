@@ -71,13 +71,13 @@ other content generation tasks.
     reference/fairseq2.recipe.optim
     reference/fairseq2.utils.validation
     reference/fairseq2.nn.rst
-    reference/fairseq2.nn.batch_layout.rst
-    reference/fairseq2.nn.embedding.rst
-    reference/fairseq2.nn.incremental_state.rst
+    reference/fairseq2.nn.BatchLayout.rst
+    reference/fairseq2.nn.Embedding.rst
+    reference/fairseq2.nn.IncrementalState.rst
     reference/fairseq2.nn.normalization.rst
-    reference/fairseq2.nn.position_encoder.rst
-    reference/fairseq2.nn.projection.rst
-    reference/fairseq2.nn.residual.rst
+    reference/fairseq2.nn.PositionEncoder.rst
+    reference/fairseq2.nn.Projection.rst
+    reference/fairseq2.nn.Residual.rst
     reference/fairseq2.nn.utils.rst
     reference/logging
     reference/metrics

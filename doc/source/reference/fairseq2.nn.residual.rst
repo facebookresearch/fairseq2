@@ -1,6 +1,6 @@
 .. _residual:
 
-fairseq2.nn.residual
+fairseq2.nn.Residual
 ====================
 
 .. currentmodule:: fairseq2.nn
