@@ -7,8 +7,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Final, final
+from typing import TYPE_CHECKING, Any, Final, TypeAlias, final
 
+from tqdm.auto import tqdm as auto_tqdm
 from typing_extensions import Self, override
 
 from fairseq2.runtime.closable import Closable
@@ -25,6 +26,20 @@ class ProgressReporter(ABC):
 
     @abstractmethod
     def __exit__(self, *ex: Any) -> None: ...
+
+    def maybe_get_tqdm_kls(self) -> type | None:
+        """
+        Returns a tqdm class that when instantiated reports progress the same
+        way as this reporter.
+
+        The returned class is passed to internally called third-party APIs, such
+        as Hugging Face Hub’s ``snapshot_download()``, to provide a consistent
+        progress reporting interface.
+
+        If ``None`` is returned, the default tqdm class expected by the
+        third-party API will be used.
+        """
+        return None
 
 
 class ProgressTask(Closable):
@@ -57,6 +72,10 @@ class _NoopProgressReporter(ProgressReporter):
     def __exit__(self, *ex: Any) -> None:
         pass
 
+    @override
+    def maybe_get_tqdm_kls(self) -> type | None:
+        return _noop_tqdm
+
 
 NOOP_PROGRESS_REPORTER: Final = _NoopProgressReporter()
 
@@ -74,3 +93,16 @@ class _NoopProgressTask(ProgressTask):
     @override
     def close(self) -> None:
         pass
+
+
+if TYPE_CHECKING:
+    _tqdm: TypeAlias = auto_tqdm[Any]
+else:
+    _tqdm: TypeAlias = auto_tqdm
+
+
+class _noop_tqdm(_tqdm):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        kwargs["disable"] = True
+
+        super().__init__(*args, **kwargs)
