@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 - A new `register_recipe_assets` helper function that can be used to register
   recipe-specific asset cards that cannot be (accidentally) overwritten by users.
   [More info](https://github.com/facebookresearch/fairseq2/pull/1373)
+- Reference API documentation has been flattened and updated for better readability.
 
 ## [0.6.0] - Oct 7th, 2025
 - `fairseq2.sharder` is deprecated. fairseq2 now expects parallelism strategies
