@@ -3,7 +3,29 @@ All notable changes to fairseq2 are documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
-## [0.6.0] - TBD
+## [0.7.0] - TBD
+- `RecipeModel` is now callable and forwards the call to `RecipeModel.module`
+  for a cleaner, more convenient syntax.
+- A new `get_asset_download_manager` helper function to download assets in
+  procedural code.
+- A new `register_recipe_assets` helper function that can be used to register
+  recipe-specific asset cards that cannot be (accidentally) overwritten by users.
+  [More info](https://github.com/facebookresearch/fairseq2/pull/1373)
+
+## [0.6.0] - Oct 7th, 2025
+- `fairseq2.sharder` is deprecated. fairseq2 now expects parallelism strategies
+  to be applied within model factories. This gives model authors full control
+  over how parallelism is applied to their models. [More info](https://github.com/facebookresearch/fairseq2/pull/1349) 
+- `Gangs` can now be used as a context manager, along with a new `maybe_get_current_gangs()`
+  helper function. This feature is particularly useful in procedural programming,
+  as it eliminates the need to pass a `Gangs` instance through every function call.
+  [More info](https://facebookresearch.github.io/fairseq2/stable/concepts/gang.html#how-to-use-gangs-in-deeply-nested-functions)
+- An experimental implementation of LLaMA 4 Scout model is now available.
+- The recipe command line interface now accepts a new `--no-exit-on-error` flag
+  to allow post-mortem debugging of recipe processes. [More info](https://github.com/facebookresearch/fairseq2/pull/1337)
+- The optimizer and learning rate scheduler recipe configurations now support
+  multiple parameter groups. This is in particular convenient for models that
+  require more than one learning rate to train (e.g. GAN models). [More info](https://github.com/facebookresearch/fairseq2/pull/1332)
 - The `regime.save_model_only` recipe option now accepts 'all' and 'all_but_last'
   as alternatives to a boolean value. Setting the option to 'all' is equivalent
   to `True` and means that only the model state is saved during checkpointing.

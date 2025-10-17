@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -86,8 +87,8 @@ def test_structure_works() -> None:
     "data,kls",
     [
         ("a", int),
-        ({"a": 1}, dict),
-        ("a", list),
+        ({"a": 1}, dict[str, str]),
+        ("a", list[int]),
         ("a", FooEnum),
         ({"f1_1": 2, "f1_2": 3}, Foo2),
     ],
@@ -95,8 +96,10 @@ def test_structure_works() -> None:
 def test_structure_raises_error_when_conversion_fails(data: object, kls: type) -> None:
     converter = StandardValueConverter()
 
+    s = re.escape(str(kls))
+
     with pytest.raises(
-        StructureError, match=rf"^`obj` cannot be structured to `{kls}`\."
+        StructureError, match=rf"^Value cannot be structured to `{s}`\."
     ):
         converter.structure(data, kls)
 

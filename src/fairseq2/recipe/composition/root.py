@@ -10,7 +10,8 @@ import torch
 
 from fairseq2.assets import AssetMetadataSource
 from fairseq2.checkpoint import CheckpointManager, StandardCheckpointManager
-from fairseq2.gang import Gangs
+from fairseq2.error import raise_operational_system_error
+from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
 from fairseq2.recipe.base import (
     EvalRecipe,
     GenerationRecipe,
@@ -90,7 +91,12 @@ def _register_train_recipe(container: DependencyContainer, recipe: TrainRecipe) 
     def create_trainer(resolver: DependencyResolver) -> Trainer:
         context = RecipeContext(resolver)
 
-        return recipe.create_trainer(context)
+        try:
+            return recipe.create_trainer(context)
+        except OSError as ex:
+            raise_operational_system_error(ex)
+        except GangError as ex:
+            raise_operational_gang_error(ex)
 
     container.register(Task, create_trainer)
 
@@ -153,7 +159,12 @@ def _register_eval_recipe(container: DependencyContainer, recipe: EvalRecipe) ->
     def create_evaluator(resolver: DependencyResolver) -> Evaluator:
         context = RecipeContext(resolver)
 
-        return recipe.create_evaluator(context)
+        try:
+            return recipe.create_evaluator(context)
+        except OSError as ex:
+            raise_operational_system_error(ex)
+        except GangError as ex:
+            raise_operational_gang_error(ex)
 
     container.register(Task, create_evaluator)
 
@@ -198,7 +209,12 @@ def _register_generation_recipe(
     def create_generator(resolver: DependencyResolver) -> Generator:
         context = RecipeContext(resolver)
 
-        return recipe.create_generator(context)
+        try:
+            return recipe.create_generator(context)
+        except OSError as ex:
+            raise_operational_system_error(ex)
+        except GangError as ex:
+            raise_operational_gang_error(ex)
 
     container.register(Task, create_generator)
 

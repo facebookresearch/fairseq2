@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
-from typing import final
+from typing import Any, final
 
 from torch import Tensor
 from torch.nn import Module
@@ -21,6 +21,9 @@ from fairseq2.typing import ContextManager, Stateful
 
 
 class RecipeModel(ABC, Stateful):
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self.module(*args, **kwargs)
+
     @abstractmethod
     def state_dict(self) -> dict[str, object]: ...
 
@@ -61,23 +64,23 @@ class RecipeModel(ABC, Stateful):
 class _StandardRecipeModel(RecipeModel):
     def __init__(
         self,
-        model: Module,
+        module: Module,
         config: object,
         family: ModelFamily,
         newly_initialized: bool = False,
     ) -> None:
-        self._model = model
+        self._module = module
         self._config = config
         self._family = family
         self._newly_initialized = newly_initialized
 
     @override
     def state_dict(self) -> dict[str, object]:
-        return self._model.state_dict()
+        return self._module.state_dict()
 
     @override
     def load_state_dict(self, state_dict: dict[str, object]) -> None:
-        load_state_dict(self._model, state_dict)
+        load_state_dict(self._module, state_dict)
 
     @override
     def no_sync(self) -> ContextManager[None]:
@@ -85,7 +88,7 @@ class _StandardRecipeModel(RecipeModel):
 
     @override
     def clip_grad_norm(self, max_norm: float | None) -> Tensor:
-        return clip_grad_norm(self._model, max_norm)
+        return clip_grad_norm(self._module, max_norm)
 
     @override
     def summon_full_parameters(self) -> ContextManager[None]:
@@ -94,12 +97,12 @@ class _StandardRecipeModel(RecipeModel):
     @property
     @override
     def module(self) -> Module:
-        return self._model
+        return self._module
 
     @property
     @override
     def base_module(self) -> Module:
-        return self._model
+        return self._module
 
     @property
     @override

@@ -5,7 +5,7 @@ Position Encoders
 
 .. currentmodule:: fairseq2.nn
 
-The diagram below shows the :doc:`position encoder API </reference/api/nn/position_encoder>`
+The diagram below shows the :doc:`position encoder API </reference/nn/position_encoder>`
 as an example. The API is defined by the abstract :class:`PositionEncoder`
 PyTorch module. :class:`SinusoidalPositionEncoder`, :class:`LearnedPositionEncoder`,
 and :class:`RotaryEncoder` implement :class:`PositionEncoder` for their

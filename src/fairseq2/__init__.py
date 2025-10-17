@@ -14,7 +14,7 @@ import fairseq2.runtime.dependency
 from fairseq2.error import InvalidOperationError
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 
-__version__ = "0.6.0.dev0"
+__version__ = "0.7.0.dev0"
 
 
 _in_call: bool = False

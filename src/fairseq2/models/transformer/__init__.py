@@ -19,6 +19,9 @@ from fairseq2.models.transformer.attention_bias import (
 from fairseq2.models.transformer.attention_bias import (
     CausalAttentionBias as CausalAttentionBias,
 )
+from fairseq2.models.transformer.attention_bias import (
+    ChunkedAttentionBias as ChunkedAttentionBias,
+)
 from fairseq2.models.transformer.attention_bias import IdentityBias as IdentityBias
 from fairseq2.models.transformer.attention_bias import (
     materialize_attention_bias as materialize_attention_bias,
@@ -51,6 +54,13 @@ from fairseq2.models.transformer.encoder_layer import (
 )
 from fairseq2.models.transformer.encoder_layer import (
     TransformerEncoderLayer as TransformerEncoderLayer,
+)
+from fairseq2.models.transformer.experts import ExpertNetwork as ExpertNetwork
+from fairseq2.models.transformer.experts import (
+    GroupedExpertNetwork as GroupedExpertNetwork,
+)
+from fairseq2.models.transformer.experts import (
+    TPShardedExpertNetwork as TPShardedExpertNetwork,
 )
 from fairseq2.models.transformer.ffn import (
     DauphinFeedForwardNetwork as DauphinFeedForwardNetwork,

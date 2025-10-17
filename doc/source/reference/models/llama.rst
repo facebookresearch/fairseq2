@@ -117,23 +117,6 @@ The tokenizer supports different modes via ``create_encoder(mode=...)``:
     encoder = tokenizer.create_encoder(mode="prompt_response")
     # Only adds <|eot_id|> or <|end_of_text|>
 
-Model Hub
----------
-
-get_llama_model_hub
-~~~~~~~~~~~~~~~~~~~
-
-.. autofunction:: get_llama_model_hub
-
-    Returns the model hub for LLaMA models.
-
-get_llama_tokenizer_hub
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autofunction:: get_llama_tokenizer_hub
-
-    Returns the tokenizer hub for LLaMA tokenizers.
-
 Model Configuration
 -------------------
 
@@ -233,6 +216,6 @@ The HuggingFace implementation includes support for chat templates through the H
 See Also
 --------
 
-* :doc:`/reference/api/models/hub` - Model hub API reference
-* :doc:`/tutorials/add_model` - Tutorial on adding new models
+* :doc:`/reference/models/hub` - Model hub API reference
+* :doc:`/guides/add_model` - Tutorial on adding new models
 * :doc:`/basics/assets` - Understanding the asset system

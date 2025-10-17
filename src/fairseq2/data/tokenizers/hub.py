@@ -143,7 +143,7 @@ class TokenizerFamilyNotKnownError(Exception):
 
 
 def load_tokenizer(
-    card: AssetCard | str, *, config: object = None, progress: bool = True
+    card: AssetCard | str, *, config: object | None = None, progress: bool = True
 ) -> Tokenizer:
     resolver = get_dependency_resolver()
 

@@ -25,15 +25,19 @@ from fairseq2.recipe.internal.logging import _DistributedLogConfigurer
 from fairseq2.recipe.internal.output_dir import _OutputDirectoryCreator
 from fairseq2.recipe.internal.task import _TaskRunner
 from fairseq2.recipe.internal.torch import _TorchConfigurer
+from fairseq2.recipe.task import Task
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 from fairseq2.utils.rich import configure_rich_logging
 from fairseq2.utils.structured import ValueConverter
+from fairseq2.utils.warn import enable_deprecation_warnings
 from fairseq2.utils.yaml import YamlDumper
 from fairseq2.world_info import WorldInfo
 
 
 def train(recipe: TrainRecipe, config: object, output_dir: Path) -> None:
     from fairseq2.recipe.composition import _register_train_recipe
+
+    enable_deprecation_warnings()
 
     configure_rich_logging()
 
@@ -53,6 +57,8 @@ def train(recipe: TrainRecipe, config: object, output_dir: Path) -> None:
 def evaluate(recipe: EvalRecipe, config: object, output_dir: Path) -> None:
     from fairseq2.recipe.composition import _register_eval_recipe
 
+    enable_deprecation_warnings()
+
     configure_rich_logging()
 
     container = DependencyContainer()
@@ -70,6 +76,8 @@ def evaluate(recipe: EvalRecipe, config: object, output_dir: Path) -> None:
 @torch.inference_mode()
 def generate(recipe: GenerationRecipe, config: object, output_dir: Path) -> None:
     from fairseq2.recipe.composition import _register_generation_recipe
+
+    enable_deprecation_warnings()
 
     configure_rich_logging()
 
@@ -114,9 +122,11 @@ def _run_recipe(resolver: DependencyResolver) -> None:
     log_helper.log_environment_variables()
 
     # Run recipe task.
+    task = resolver.resolve(Task)
+
     task_runner = resolver.resolve(_TaskRunner)
 
-    task_runner.run()
+    task_runner.run(task)
 
 
 @contextmanager

@@ -9,12 +9,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from errno import ENOENT
 from functools import partial
-from os import strerror
 from pathlib import Path
 from typing import Any, Protocol, TypeVar, final
 
+import torch
 from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
@@ -26,24 +25,26 @@ from fairseq2.assets import (
     AssetDownloadManager,
 )
 from fairseq2.data_type import DataType, default_dtype
-from fairseq2.device import CPU, META_DEVICE
+from fairseq2.device import META_DEVICE
 from fairseq2.error import (
     InternalError,
     NotSupportedError,
     raise_operational_system_error,
 )
-from fairseq2.file_system import FileSystem
+from fairseq2.file_system import FileSystem, raise_if_not_exists
 from fairseq2.gang import Gangs
 from fairseq2.model_checkpoint import ModelCheckpointError, ModelCheckpointLoader
 from fairseq2.models.utils.checkpoint import (
     ModelCheckpointMismatchError,
     set_model_state,
 )
+from fairseq2.nn import get_shard_dims
 from fairseq2.nn.fsdp import FSDPWrapper, load_with_sdp_gang
-from fairseq2.nn.utils.module import reset_non_persistent_buffers, to_device, to_empty
+from fairseq2.nn.utils.module import reset_non_persistent_buffers, to_empty
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.sharder import ModelSharder, ShardSpec, ShardSpecError
 from fairseq2.utils.progress import NOOP_PROGRESS_REPORTER, ProgressReporter
+from fairseq2.utils.warn import _warn_deprecated
 
 
 @dataclass
@@ -237,6 +238,11 @@ class StandardModelFamily(ModelFamily):
         hg_exporter: HuggingFaceExporter[ModelConfigT] | None,
         progress_reporter: ProgressReporter,
     ) -> None:
+        if shard_specs is not None:
+            _warn_deprecated(
+                "`shard_specs` and `sharder` parameters of `StandardModelFamily` are deprecated and will be removed in fairseq2 v0.12. See src/fairseq2/sharder.py for details."
+            )
+
         self._name = name
         self._kls: type[Module] = kls
         self._configs: Lookup[object] = configs
@@ -409,9 +415,7 @@ class StandardModelFamily(ModelFamily):
         restrict: bool | None,
         progress: bool,
     ) -> Module:
-        path_exists = self._file_system.exists(path)
-        if not path_exists:
-            raise FileNotFoundError(ENOENT, strerror(ENOENT), path)
+        raise_if_not_exists(self._file_system, path)
 
         model = self._do_create_model(config, gangs, dtype, self._supports_meta)
 
@@ -420,7 +424,14 @@ class StandardModelFamily(ModelFamily):
             # so there is no need to redundantly initialize them.
             to_empty(model, device=gangs.root.device)
 
-        checkpoint = self._do_iter_checkpoint(path, config, gangs, mmap, restrict)
+        if self._shard_specs is None:
+            shard_dims = get_shard_dims(model)
+        else:
+            shard_dims = None
+
+        checkpoint = self._do_iter_checkpoint(
+            path, config, shard_dims, gangs, mmap, restrict
+        )
 
         pr = self._progress_reporter if progress else NOOP_PROGRESS_REPORTER
 
@@ -452,12 +463,32 @@ class StandardModelFamily(ModelFamily):
                 f"`config` must be of type `{self._configs.kls}`, but is of type `{type(config)}` instead."
             )
 
-        return self._do_iter_checkpoint(path, config, gangs, mmap, restrict)
+        if not self._supports_meta:
+            _warn_deprecated(
+                "In fairseq2 v0.12, `ModelFamily.iter_checkpoint` will stop supporting models that cannot be meta-initialized."
+            )
+
+        if self._shard_specs is None:
+            # Initialize a dummy model solely for the purpose of extracting its
+            # parameter sharding information. In the future, require this to be
+            # a meta-initialization to avoid the cost of a full initialization.
+            model = self._do_create_model(
+                config, gangs, torch.float16, self._supports_meta
+            )
+
+            shard_dims = get_shard_dims(model)
+
+            del model
+        else:
+            shard_dims = None
+
+        return self._do_iter_checkpoint(path, config, shard_dims, gangs, mmap, restrict)
 
     def _do_iter_checkpoint(
         self,
         path: Path,
         config: object,
+        shard_dims: Mapping[str, int] | None,
         gangs: Gangs,
         mmap: bool,
         restrict: bool | None,
@@ -488,6 +519,7 @@ class StandardModelFamily(ModelFamily):
                 restrict=restrict,
                 state_dict_converter=state_dict_converter,
                 shard_specs=shard_specs,
+                shard_dims=shard_dims,
             )
 
     def _do_create_model(
@@ -500,14 +532,13 @@ class StandardModelFamily(ModelFamily):
                 )
 
             device = META_DEVICE
-        elif gangs.root.size != gangs.dp.size:
-            device = CPU  # Avoid OOM for sharded models.
         else:
             device = gangs.root.device
 
         try:
-            with device, default_dtype(dtype):
-                model = self._factory(config)
+            with device, gangs:
+                with default_dtype(dtype):
+                    model = self._factory(config)
         except NotImplementedError as ex:
             if "'Meta' backend" not in str(ex):
                 raise
@@ -517,22 +548,15 @@ class StandardModelFamily(ModelFamily):
             ) from ex
 
         if gangs.root.size != gangs.dp.size:
-            if self._shard_specs is None:
-                raise NotSupportedError(
-                    f"{self._name} model family does not support model parallelism."
-                )
+            if self._shard_specs is not None:
+                shard_specs = self._shard_specs(config)
 
-            shard_specs = self._shard_specs(config)
-
-            try:
-                self._sharder.shard(model, gangs, shard_specs)
-            except ShardSpecError as ex:
-                raise InternalError(
-                    f"Shard specification of the {self._name} model family is not valid."
-                ) from ex
-
-            if not meta and device != gangs.root.device:
-                to_device(model, gangs.root.device)
+                try:
+                    self._sharder.shard(model, gangs, shard_specs)
+                except ShardSpecError as ex:
+                    raise InternalError(
+                        f"Shard specification of the {self._name} model family is not valid."
+                    ) from ex
 
         return model
 
@@ -617,6 +641,10 @@ class StandardModelFamily(ModelFamily):
     @property
     @override
     def supports_model_parallelism(self) -> bool:
+        _warn_deprecated(
+            "`ModelFamily.supports_model_parallelism` is deprecated and will be removed in fairseq2 v0.12."
+        )
+
         return self._shard_specs is not None
 
     @property

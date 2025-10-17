@@ -57,6 +57,42 @@ class SupportsStructure(ABC):
     def structure(self, resolver: DependencyResolver) -> None: ...
 
 
+Default: TypeAlias = Literal["default"]
+"""
+Indicates that the default value of a particular configuration field, as defined
+in a higher-level configuration, can be used. See :class:`AdamWGroupConfig`
+as an example.
+"""
+
+default: Final = "default"
+"""
+The singleton sentinel value assignable to a field of type ``Default``
+indicating that the default value must be used.
+
+.. code:: python
+
+    from dataclasses import dataclass, field
+
+    from fairseq2.recipe.config import Default, default
+
+    @dataclass(kw_only=True)
+    class MyOptimizerConfig:
+        lr: float = 0.01
+        \"\"\"The top-level, default learning rate.\"\"\"
+
+        groups: list[MyOptimizerGroupConfig] = field(default_factory=list)
+        \"\"\"The parameter groups.\"\"\"
+
+    @dataclass(kw_only=True)
+    class MyOptimizerGroupConfig:
+        lr: float | Default = default
+        \"\"\"
+        The learning rate of the parameter group. If ``default``, uses 0.01 as
+        specified in ``MyOptimizerConfig``.
+        \"\"\"
+"""
+
+
 @dataclass(kw_only=True)
 class ModelSection(Validatable):
     name: str | None = None
@@ -67,7 +103,7 @@ class ModelSection(Validatable):
 
     arch: str | None = None
 
-    config_overrides: object = None
+    config_overrides: object | None = None
 
     dtype: DataType = torch.float32
 
@@ -99,7 +135,7 @@ class ReferenceModelSection(Validatable):
 
     arch: str | None = None
 
-    config_overrides: object = None
+    config_overrides: object | None = None
 
     dtype: DataType = torch.float32
 
@@ -145,7 +181,7 @@ class DatasetSection(Validatable):
 
     family: str | None = None
 
-    config_overrides: object = None
+    config_overrides: object | None = None
 
     def validate(self) -> ValidationResult:
         result = ValidationResult()
@@ -164,7 +200,7 @@ class TokenizerSection(Validatable):
 
     family: str | None = None
 
-    config_overrides: object = None
+    config_overrides: object | None = None
 
     def validate(self) -> ValidationResult:
         result = ValidationResult()
@@ -713,13 +749,33 @@ class OptimizerSection(SupportsStructure):
 
 
 @dataclass(kw_only=True)
+class ParameterGroupConfig:
+    """
+    Represents the configuration of an optimizer parameter group.
+
+    This configuration is meant to be subclassed and extended with additional
+    fields for a particular optimizer. For an example, see :class:`AdamWGroupConfig`.
+    """
+
+    params: str | Sequence[str] = ".*"
+    """
+    The regular expression(s) used to select the parameters that belong to this
+    group.
+    """
+
+
+@dataclass(kw_only=True)
 class AdamWConfig:
+    """Represents the configuration of :class:`AdamW`."""
+
     lr: float = 1e-3
     """The learning rate."""
 
     betas: tuple[float, float] = (0.9, 0.999)
-    """The coefficients used for computing running averages of gradient and its
-    square."""
+    """
+    The coefficients used for computing running averages of gradient and its
+    square.
+    """
 
     eps: float = 1e-8
     """The term added to the denominator to improve numerical stability."""
@@ -742,10 +798,39 @@ class AdamWConfig:
     impl: Literal["auto", "foreach", "fused", "naive"] = "auto"
     """The implementation variant. See :class:`torch.optim.AdamW` for details."""
 
+    groups: Sequence[AdamWGroupConfig] = field(default_factory=list)
+    """
+    The configuration of individual parameter groups. Each parameter will be
+    assigned to the first group in the list that matches its name. Parameters
+    that do not match any group will use the top-level configuration.
+    """
+
+
+@dataclass(kw_only=True)
+class AdamWGroupConfig(ParameterGroupConfig):
+    """Represents the configuration of an :class:`AdamW` parameter group."""
+
+    lr: float | Default = default
+    """The learning rate."""
+
+    betas: tuple[float, float] | Default = default
+    """
+    The coefficients used for computing running averages of gradient and its
+    square.
+    """
+
+    eps: float | Default = default
+    """The term added to the denominator to improve numerical stability."""
+
+    weight_decay: float | Default = default
+    """The weight decay coefficient."""
+
 
 @dataclass(kw_only=True)
 class AdafactorConfig:
     """
+    Represents the configuration of :class:`Adafactor`.
+
     Adafactor is an optimizer that saves memory compared to AdamW by using
     low-rank representation of gradient running averages. It is recommended to
     use higher learning rate with it.
@@ -756,8 +841,8 @@ class AdafactorConfig:
 
     beta2_decay: float = -0.8
     """
-    The decay rate of beta2. beta2 standardly refers to the coefficient used for
-    computing the running average of the gradient squared.
+    The decay rate of beta2. beta2 refers to the coefficient used for computing
+    the running average of the gradient squared.
     """
 
     eps: tuple[float | None, float] = (None, 0.001)
@@ -774,10 +859,44 @@ class AdafactorConfig:
     """The weight decay coefficient."""
 
     foreach: bool | None = None
-    """Whether ``foreach`` implementation is used."""
+    """If ``True``, ``foreach`` implementation is used."""
 
     maximize: bool = False
     """If ``True``, maximizes the parameters instead of minimizing."""
+
+    groups: Sequence[AdafactorGroupConfig] = field(default_factory=list)
+    """
+    The configuration of individual parameter groups. Each parameter will be
+    assigned to the first group in the list that matches its name. Parameters
+    that do not match any group will use the top-level configuration.
+    """
+
+
+@dataclass(kw_only=True)
+class AdafactorGroupConfig(ParameterGroupConfig):
+    """Represents the configuration of an :class:`Adafactor` parameter group."""
+
+    lr: float | Default = default
+    """The learning rate."""
+
+    beta2_decay: float | Default = default
+    """
+    The decay rate of beta2. beta2 refers to the coefficient used for computing
+    the running average of the gradient squared.
+    """
+
+    eps: tuple[float | None, float] | Default = default
+    """
+    epsilon1 is the term added to the denominator of the update calculation to
+    improve numerical stability. epsilon2 is the term used to avoid having too
+    small a weight update when applying parameter scaling.
+    """
+
+    d: float | Default = default
+    """The clipping threshold, used to avoid larger-than-desired updates."""
+
+    weight_decay: float | Default = default
+    """The weight decay coefficient."""
 
 
 PASSTHROUGH_LR: Final = "passthrough"
@@ -1224,7 +1343,7 @@ STANDARD_BEAM_SEARCH_ALGO: Final = "standard"
 class BeamSearchAlgorithmChoice(SupportsStructure):
     name: str = STANDARD_BEAM_SEARCH_ALGO
 
-    config: object = None
+    config: object | None = None
 
     @override
     def structure(self, resolver: DependencyResolver) -> None:

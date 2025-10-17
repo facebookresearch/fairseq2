@@ -43,8 +43,15 @@ from fairseq2.models.llama import (
     convert_llama_state_dict,
     create_llama_model,
     export_llama,
-    get_llama_shard_specs,
     register_llama_configs,
+)
+from fairseq2.models.llama4 import (
+    LLAMA4_FAMILY,
+    Llama4Config,
+    convert_llama4_state_dict,
+    create_llama4_model,
+    get_llama4_shard_specs,
+    register_llama4_configs,
 )
 from fairseq2.models.mistral import (
     MISTRAL_FAMILY,
@@ -66,7 +73,6 @@ from fairseq2.models.qwen import (
     convert_qwen_state_dict,
     create_qwen_model,
     export_qwen,
-    get_qwen_shard_specs,
     register_qwen_configs,
 )
 from fairseq2.models.s2t_conformer import (
@@ -236,7 +242,6 @@ def _register_model_families(container: DependencyContainer) -> None:
         config_kls=LLaMAConfig,
         factory=create_llama_model,
         state_dict_converter=convert_llama_state_dict,
-        shard_specs=get_llama_shard_specs,
         compiler=compile_transformer_lm,
         fsdp_applier=apply_fsdp_to_transformer_lm,
         layerwise_ac_applier=apply_ac_to_transformer_lm,
@@ -244,6 +249,23 @@ def _register_model_families(container: DependencyContainer) -> None:
     )
 
     register_llama_configs(container)
+
+    # Llama 4
+    register_model_family(
+        container,
+        LLAMA4_FAMILY,
+        kls=TransformerLM,
+        config_kls=Llama4Config,
+        factory=create_llama4_model,
+        state_dict_converter=convert_llama4_state_dict,
+        shard_specs=get_llama4_shard_specs,
+        compiler=compile_transformer_lm,
+        fsdp_applier=apply_fsdp_to_transformer_lm,
+        layerwise_ac_applier=apply_ac_to_transformer_lm,
+        hg_exporter=None,  # export not yet implemented
+    )
+
+    register_llama4_configs(container)
 
     # Mistral
     register_model_family(
@@ -282,7 +304,6 @@ def _register_model_families(container: DependencyContainer) -> None:
         config_kls=QwenConfig,
         factory=create_qwen_model,
         state_dict_converter=convert_qwen_state_dict,
-        shard_specs=get_qwen_shard_specs,
         compiler=compile_transformer_lm,
         fsdp_applier=apply_fsdp_to_transformer_lm,
         layerwise_ac_applier=apply_ac_to_transformer_lm,

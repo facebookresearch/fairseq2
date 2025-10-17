@@ -7,12 +7,18 @@
 from __future__ import annotations
 
 import sys
-from argparse import OPTIONAL, ArgumentError, ArgumentParser, Namespace
+from argparse import (
+    OPTIONAL,
+    ArgumentError,
+    ArgumentParser,
+    BooleanOptionalAction,
+    Namespace,
+)
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
 from signal import SIG_DFL, SIGINT, raise_signal, signal
-from typing import Any, Protocol, TextIO, TypeVar, final, runtime_checkable
+from typing import Any, NoReturn, Protocol, TextIO, TypeVar, final, runtime_checkable
 
 import torch
 from torch.cuda import OutOfMemoryError
@@ -74,7 +80,6 @@ from fairseq2.recipe.error import (
     MetricNotKnownError,
     MinimumLossScaleReachedError,
     ModelCheckpointNotFoundError,
-    ModelParallelismNotSupportedError,
     ModelTypeNotValidError,
     OptimizerNotKnownError,
     RecipeConfigParseError,
@@ -107,11 +112,14 @@ from fairseq2.utils.env import EnvironmentVariableError
 from fairseq2.utils.rich import configure_rich_logging
 from fairseq2.utils.structured import StructureError, ValueConverter
 from fairseq2.utils.validation import ValidationError
+from fairseq2.utils.warn import enable_deprecation_warnings
 from fairseq2.utils.yaml import YamlDumper, YamlError, YamlLoader
 
 
 def train_main(recipe: TrainRecipe) -> None:
     from fairseq2.recipe.composition import _register_train_recipe
+
+    enable_deprecation_warnings()
 
     args = _parse_args()
 
@@ -119,7 +127,7 @@ def train_main(recipe: TrainRecipe) -> None:
 
     container = DependencyContainer()
 
-    with _handle_errors(container):
+    with _handle_errors(container, args.exit_on_error):
         with _swap_default_resolver(container):
             _register_library(container)
 
@@ -134,13 +142,15 @@ def train_main(recipe: TrainRecipe) -> None:
 def eval_main(recipe: EvalRecipe) -> None:
     from fairseq2.recipe.composition import _register_eval_recipe
 
+    enable_deprecation_warnings()
+
     args = _parse_args()
 
     configure_rich_logging()
 
     container = DependencyContainer()
 
-    with _handle_errors(container):
+    with _handle_errors(container, args.exit_on_error):
         with _swap_default_resolver(container):
             _register_library(container)
 
@@ -155,13 +165,15 @@ def eval_main(recipe: EvalRecipe) -> None:
 def generate_main(recipe: GenerationRecipe) -> None:
     from fairseq2.recipe.composition import _register_generation_recipe
 
+    enable_deprecation_warnings()
+
     args = _parse_args()
 
     configure_rich_logging()
 
     container = DependencyContainer()
 
-    with _handle_errors(container):
+    with _handle_errors(container, args.exit_on_error):
         with _swap_default_resolver(container):
             _register_library(container)
 
@@ -245,6 +257,13 @@ def _parse_args() -> Namespace:
         help="dump the configuration in mergeable format to standard output",
     )
 
+    parser.add_argument(
+        "--exit-on-error",
+        default=True,
+        action=BooleanOptionalAction,
+        help="whether to gracefully exit in case of an error",
+    )
+
     output_dir_action = parser.add_argument(
         "output_dir",
         type=Path,
@@ -263,7 +282,13 @@ def _parse_args() -> Namespace:
 
 
 @contextmanager
-def _handle_errors(resolver: DependencyResolver) -> Iterator[None]:
+def _handle_errors(resolver: DependencyResolver, exit_on_error: bool) -> Iterator[None]:
+    def maybe_exit(status: int) -> NoReturn:
+        if exit_on_error:
+            sys.exit(status)
+
+        raise
+
     try:
         yield
     except TaskStopException:
@@ -271,11 +296,11 @@ def _handle_errors(resolver: DependencyResolver) -> Iterator[None]:
     except RecipeConfigParseError:
         log.exception("Recipe configuration cannot be parsed. See logged stack trace for details.")  # fmt: skip
 
-        sys.exit(2)
+        maybe_exit(2)
     except ValidationError as ex:
         log.error(str(ex))
 
-        sys.exit(2)
+        maybe_exit(2)
     except RecipeError as ex:
         msg = str(ex)
 
@@ -284,25 +309,28 @@ def _handle_errors(resolver: DependencyResolver) -> Iterator[None]:
         else:
             log.exception(msg)
 
-        sys.exit(2)
+        maybe_exit(2)
     except OperationalError:
         log.exception("Recipe failed due to an operational error. See logged stack trace for details.")  # fmt: skip
 
-        sys.exit(1)
+        maybe_exit(1)
     except ExtensionError as ex:
         log.exception("{} extension failed to initialize. See logged stack trace for details.", ex.entry_point)  # fmt: skip
 
-        sys.exit(1)
+        maybe_exit(1)
     except OutOfMemoryError:
         s = torch.cuda.memory_summary()
 
         log.exception("CUDA out of memory. See logged memory stats.\n{}", s)  # fmt: skip
 
-        sys.exit(1)
+        maybe_exit(1)
     except KeyboardInterrupt:
-        signal(SIGINT, SIG_DFL)
+        if exit_on_error:
+            signal(SIGINT, SIG_DFL)
 
-        raise_signal(SIGINT)
+            raise_signal(SIGINT)
+
+        raise
     except Exception as ex:
         handler: ExceptionHandler[Any] | None
 
@@ -318,7 +346,7 @@ def _handle_errors(resolver: DependencyResolver) -> Iterator[None]:
         else:
             ret_code = handler(ex)
 
-        sys.exit(ret_code)
+        maybe_exit(ret_code)
 
 
 @final
@@ -497,7 +525,6 @@ def _register_cli_errors(container: DependencyContainer) -> None:
     register(ModelCheckpointNotFoundError, _handle_model_checkpoint_not_found_error)
     register(ModelFamilyNotKnownError, _handle_model_family_not_known_error)
     register(ModelNotKnownError, _handle_model_not_known_error)
-    register(ModelParallelismNotSupportedError, _handle_mp_not_supported_error)
     register(ModelTypeNotValidError, _handle_model_type_not_valid_error)
     register(OptimizerNotKnownError, _handle_optimizer_not_known_error)
     register(SamplerNotKnownError, _handle_sampler_not_known_error)
@@ -681,7 +708,10 @@ def _handle_minimim_loss_scale_reached_error(ex: MinimumLossScaleReachedError) -
 
 
 def _handle_model_arch_not_known_error(ex: ModelArchitectureNotKnownError) -> int:
-    log.error("{} is not a known model architecture.", ex.arch)
+    if ex.family is None:
+        log.error("{} is not a known model architecture.", ex.arch)
+    else:
+        log.error("{} is not a known {} model architecture.", ex.arch, ex.family)
 
     return 2
 
@@ -706,17 +736,6 @@ def _handle_model_family_not_known_error(ex: ModelFamilyNotKnownError) -> int:
 
 def _handle_model_not_known_error(ex: ModelNotKnownError) -> int:
     log.error("{} is not a known model. To see the list of available models run: `python -m fairseq2.assets list --kind model`.", ex.name)
-
-    return 2
-
-
-def _handle_mp_not_supported_error(ex: ModelParallelismNotSupportedError) -> int:
-    section_name = ErrorContext.maybe_get_config_section_name(ex)
-
-    if section_name is None:
-        log.error("Model does not support model parallelism.")
-    else:
-        log.error("Model specified in `{}` section does not support model parallelism.", section_name)
 
     return 2
 

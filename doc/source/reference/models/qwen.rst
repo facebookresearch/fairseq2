@@ -56,32 +56,6 @@ The Qwen family includes several model sizes and versions:
 - ``qwen3_14b`` - 14B parameters
 - ``qwen3_32b`` - 32B parameters
 
-Model Hub
----------
-
-get_qwen_model_hub
-~~~~~~~~~~~~~~~~~~
-
-.. autofunction:: get_qwen_model_hub
-
-    Returns the model hub for Qwen models, providing access to all model operations.
-
-    .. code-block:: python
-
-        from fairseq2.models.qwen import get_qwen_model_hub
-
-        hub = get_qwen_model_hub()
-
-        # List all available Qwen models
-        for card in hub.iter_cards():
-            print(f"Model: {card.name}")
-
-        # Get specific architecture config
-        config = hub.get_arch_config("qwen25_7b")
-        print(f"Model dimensions: {config.model_dim}")
-        print(f"Number of layers: {config.num_layers}")
-        print(f"Attention heads: {config.num_attn_heads}")
-
 Model Configuration
 -------------------
 
@@ -335,6 +309,6 @@ Architecture Comparison
 See Also
 --------
 
-* :doc:`/reference/api/models/hub` - Model hub API reference
-* :doc:`/tutorials/add_model` - Tutorial on adding new models
+* :doc:`/reference/models/hub` - Model hub API reference
+* :doc:`/guides/add_model` - Tutorial on adding new models
 * :doc:`/basics/assets` - Understanding the asset system
