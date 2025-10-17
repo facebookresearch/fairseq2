@@ -1,7 +1,7 @@
 .. _incremental_state:
 
 fairseq2.nn.IncrementalState
------------------
+----------------------------
 
 .. currentmodule:: fairseq2.nn
 

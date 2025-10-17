@@ -1,7 +1,7 @@
 .. _batch_layout:
 
 fairseq2.nn.BatchLayout
-============
+=======================
 
 .. currentmodule:: fairseq2.nn
 

@@ -1,7 +1,7 @@
 .. _position_encoder:
 
 fairseq2.nn.PositionEncoder
-=================
+===========================
 
 .. currentmodule:: fairseq2.nn
 

@@ -1,7 +1,7 @@
 .. _norm:
 
 fairseq2.nn.normalization
-====================
+=========================
 
 .. currentmodule:: fairseq2.nn
 

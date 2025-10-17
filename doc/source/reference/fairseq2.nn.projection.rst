@@ -1,7 +1,7 @@
 .. _proj:
 
 fairseq2.nn.Projection
-=================
+======================
 
 .. currentmodule:: fairseq2.nn
 
