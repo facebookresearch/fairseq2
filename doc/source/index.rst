@@ -55,11 +55,11 @@ other content generation tasks.
 
     reference/assets
     reference/checkpoint
-    reference/fairseq2.data.rst
-    reference/fairseq2.data.tokenizers.rst
-    reference/fairseq2.data.tokenizers.hub.rst
-    reference/fairseq2.datasets.rst
-    reference/fairseq2.datasets.hub.rst
+    reference/fairseq2.data
+    reference/fairseq2.data.tokenizers
+    reference/fairseq2.data.tokenizers.hub
+    reference/fairseq2.datasets
+    reference/fairseq2.datasets.hub
     reference/fairseq2.device
     reference/fairseq2.gang
     reference/fairseq2.model_checkpoint
@@ -71,14 +71,14 @@ other content generation tasks.
     reference/fairseq2.recipe.optim
     reference/fairseq2.utils.validation
     reference/fairseq2.nn.rst
-    reference/fairseq2.nn.BatchLayout.rst
-    reference/fairseq2.nn.Embedding.rst
-    reference/fairseq2.nn.IncrementalState.rst
-    reference/fairseq2.nn.normalization.rst
-    reference/fairseq2.nn.PositionEncoder.rst
-    reference/fairseq2.nn.Projection.rst
-    reference/fairseq2.nn.Residual.rst
-    reference/fairseq2.nn.utils.rst
+    reference/fairseq2.nn.BatchLayout
+    reference/fairseq2.nn.Embedding
+    reference/fairseq2.nn.IncrementalState
+    reference/fairseq2.nn.normalization
+    reference/fairseq2.nn.PositionEncoder
+    reference/fairseq2.nn.Projection
+    reference/fairseq2.nn.Residual
+    reference/fairseq2.nn.utils
     reference/logging
     reference/metrics
     reference/optim
