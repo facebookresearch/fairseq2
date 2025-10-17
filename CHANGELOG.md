@@ -4,6 +4,10 @@ All notable changes to fairseq2 are documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [0.7.0] - TBD
+- `RecipeModel` is now callable and forwards the call to `RecipeModel.module`
+  for a cleaner, more convenient syntax.
+- A new `get_asset_download_manager` helper function to download assets in
+  procedural code.
 - A new `register_recipe_assets` helper function that can be used to register
   recipe-specific asset cards that cannot be (accidentally) overwritten by users.
   [More info](https://github.com/facebookresearch/fairseq2/pull/1373)

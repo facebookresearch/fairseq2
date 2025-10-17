@@ -37,7 +37,7 @@ class SequenceBatch(SupportsDeviceTransfer):
         *,
         packed: bool = False,
         target_mask: Tensor | None = None,
-        example: object = None,
+        example: object | None = None,
     ) -> None:
         self._seqs = seqs
 
@@ -304,7 +304,7 @@ class Seq2SeqBatch(SupportsDeviceTransfer):
         *,
         packed: bool = False,
         target_mask: Tensor | None = None,
-        example: object = None,
+        example: object | None = None,
     ) -> None:
         self._source_seqs = source_seqs
         self._target_seqs = target_seqs
