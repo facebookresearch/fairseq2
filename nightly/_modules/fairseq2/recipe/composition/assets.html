@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../genindex.html" /><link rel="search" title="Search" href="../../../../search.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
-        <title>fairseq2.models.qwen.interop - fairseq2 Documentation</title>
+        <title>fairseq2.recipe.composition.assets - fairseq2 Documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
@@ -314,7 +314,7 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <h1>Source code for fairseq2.models.qwen.interop</h1><div class="highlight"><pre>
+          <h1>Source code for fairseq2.recipe.composition.assets</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
 <span class="c1"># All rights reserved.</span>
 <span class="c1">#</span>
@@ -323,83 +323,111 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Final</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.family</span><span class="w"> </span><span class="kn">import</span> <span class="n">HuggingFaceExport</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.qwen.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">QwenConfig</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.utils.checkpoint</span><span class="w"> </span><span class="kn">import</span> <span class="n">convert_state_dict</span><span class="p">,</span> <span class="n">create_reverse_key_map</span>
-
-<span class="n">_HG_KEY_MAP</span><span class="p">:</span> <span class="n">Final</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="c1"># fmt: off</span>
-    <span class="sa">r</span><span class="s2">&quot;^model\.layers\.([0-9]+)\.self_attn\.q_proj\.&quot;</span><span class="p">:</span>        <span class="sa">r</span><span class="s2">&quot;decoder.layers.\1.self_attn.q_proj.&quot;</span><span class="p">,</span>
-    <span class="sa">r</span><span class="s2">&quot;^model\.layers\.([0-9]+)\.self_attn\.k_proj\.&quot;</span><span class="p">:</span>        <span class="sa">r</span><span class="s2">&quot;decoder.layers.\1.self_attn.k_proj.&quot;</span><span class="p">,</span>
-    <span class="sa">r</span><span class="s2">&quot;^model\.layers\.([0-9]+)\.self_attn\.v_proj\.&quot;</span><span class="p">:</span>        <span class="sa">r</span><span class="s2">&quot;decoder.layers.\1.self_attn.v_proj.&quot;</span><span class="p">,</span>
-    <span class="sa">r</span><span class="s2">&quot;^model\.layers\.([0-9]+)\.self_attn\.q_norm\.&quot;</span><span class="p">:</span>        <span class="sa">r</span><span class="s2">&quot;decoder.layers.\1.self_attn.q_norm.&quot;</span><span class="p">,</span>
-    <span class="sa">r</span><span class="s2">&quot;^model\.layers\.([0-9]+)\.self_attn\.k_norm\.&quot;</span><span class="p">:</span>        <span class="sa">r</span><span class="s2">&quot;decoder.layers.\1.self_attn.k_norm.&quot;</span><span class="p">,</span>
-    <span class="sa">r</span><span class="s2">&quot;^model\.layers\.([0-9]+)\.self_attn\.o_proj\.&quot;</span><span class="p">:</span>        <span class="sa">r</span><span class="s2">&quot;decoder.layers.\1.self_attn.output_proj.&quot;</span><span class="p">,</span>
-    <span class="sa">r</span><span class="s2">&quot;^model\.layers\.([0-9]+)\.post_attention_layernorm\.&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;decoder.layers.\1.ffn_layer_norm.&quot;</span><span class="p">,</span>
-    <span class="sa">r</span><span class="s2">&quot;^model\.layers\.([0-9]+)\.mlp\.up_proj\.&quot;</span><span class="p">:</span>             <span class="sa">r</span><span class="s2">&quot;decoder.layers.\1.ffn.inner_proj.&quot;</span><span class="p">,</span>
-    <span class="sa">r</span><span class="s2">&quot;^model\.layers\.([0-9]+)\.mlp\.gate_proj\.&quot;</span><span class="p">:</span>           <span class="sa">r</span><span class="s2">&quot;decoder.layers.\1.ffn.gate_proj.&quot;</span><span class="p">,</span>
-    <span class="sa">r</span><span class="s2">&quot;^model\.layers\.([0-9]+)\.mlp\.down_proj\.&quot;</span><span class="p">:</span>           <span class="sa">r</span><span class="s2">&quot;decoder.layers.\1.ffn.output_proj.&quot;</span><span class="p">,</span>
-    <span class="sa">r</span><span class="s2">&quot;^model\.layers\.([0-9]+)\.input_layernorm\.&quot;</span><span class="p">:</span>          <span class="sa">r</span><span class="s2">&quot;decoder.layers.\1.self_attn_layer_norm.&quot;</span><span class="p">,</span>
-    <span class="sa">r</span><span class="s2">&quot;^model\.norm\.&quot;</span><span class="p">:</span>                                       <span class="sa">r</span><span class="s2">&quot;decoder.layer_norm.&quot;</span><span class="p">,</span>
-    <span class="sa">r</span><span class="s2">&quot;^model\.embed_tokens\.&quot;</span><span class="p">:</span>                               <span class="sa">r</span><span class="s2">&quot;decoder_frontend.embed.&quot;</span><span class="p">,</span>
-    <span class="sa">r</span><span class="s2">&quot;^lm_head\.&quot;</span><span class="p">:</span>                                           <span class="sa">r</span><span class="s2">&quot;final_proj.&quot;</span><span class="p">,</span>
-    <span class="c1"># fmt: on</span>
-<span class="p">}</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.composition</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_file_assets</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InternalError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.runtime.dependency</span><span class="w"> </span><span class="kn">import</span> <span class="n">DependencyContainer</span>
 
 
-<div class="viewcode-block" id="convert_qwen_state_dict">
-<a class="viewcode-back" href="../../../../reference/models/qwen.html#fairseq2.models.qwen.convert_qwen_state_dict">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">convert_qwen_state_dict</span><span class="p">(</span>
-    <span class="n">state_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span> <span class="n">config</span><span class="p">:</span> <span class="n">QwenConfig</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
-    <span class="k">if</span> <span class="s2">&quot;model.embed_tokens.weight&quot;</span> <span class="ow">in</span> <span class="n">state_dict</span><span class="p">:</span>  <span class="c1"># Hugging Face</span>
-        <span class="n">state_dict</span> <span class="o">=</span> <span class="n">convert_state_dict</span><span class="p">(</span><span class="n">state_dict</span><span class="p">,</span> <span class="n">_HG_KEY_MAP</span><span class="p">)</span>
+<div class="viewcode-block" id="register_recipe_assets">
+<a class="viewcode-back" href="../../../../reference/fairseq2.recipe.composition.html#fairseq2.recipe.composition.register_recipe_assets">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">register_recipe_assets</span><span class="p">(</span>
+    <span class="n">container</span><span class="p">:</span> <span class="n">DependencyContainer</span><span class="p">,</span> <span class="n">rel_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">stack_level</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Registers asset cards located under the specified path, relative to the</span>
+<span class="sd">    calling module’s path (i.e. ``module.__path__``).</span>
 
-    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">tied_embeddings</span><span class="p">:</span>
-        <span class="n">state_dict</span><span class="p">[</span><span class="s2">&quot;final_proj.weight&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">state_dict</span><span class="p">[</span><span class="s2">&quot;decoder_frontend.embed.weight&quot;</span><span class="p">]</span>
+<span class="sd">    The specified path should be either a YAML file or a directory containing</span>
+<span class="sd">    YAML files. If a directory is specified, it will be scanned recursively.</span>
+<span class="sd">    Each YAML file must define one or more asset cards, which are used by</span>
+<span class="sd">    :class:`AssetStore` to represent assets such as models, datasets, and</span>
+<span class="sd">    tokenizers.</span>
 
-    <span class="k">return</span> <span class="n">state_dict</span></div>
+<span class="sd">    Check out the :doc:`/concepts/assets` concept documentation to learn more</span>
+<span class="sd">    about assets and asset cards.</span>
 
+<span class="sd">    This function is intended to be called within the :meth:`~register` method</span>
+<span class="sd">    of a recipe, to register assets that should always be available alongside</span>
+<span class="sd">    the recipe.</span>
 
+<span class="sd">    .. code:: python</span>
 
-<div class="viewcode-block" id="export_qwen">
-<a class="viewcode-back" href="../../../../reference/models/qwen.html#fairseq2.models.qwen.export_qwen">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">export_qwen</span><span class="p">(</span><span class="n">state_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span> <span class="n">config</span><span class="p">:</span> <span class="n">QwenConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HuggingFaceExport</span><span class="p">:</span>
-    <span class="n">key_map</span> <span class="o">=</span> <span class="n">create_reverse_key_map</span><span class="p">(</span><span class="n">_HG_KEY_MAP</span><span class="p">)</span>
+<span class="sd">        from fairseq2.runtime.dependency import DependencyContainer</span>
+<span class="sd">        from fairseq2.recipe import TrainRecipe</span>
+<span class="sd">        from fairseq2.recipe.composition import register_recipe_assets</span>
 
-    <span class="n">hg_state_dict</span> <span class="o">=</span> <span class="n">convert_state_dict</span><span class="p">(</span><span class="n">state_dict</span><span class="p">,</span> <span class="n">key_map</span><span class="p">)</span>
+<span class="sd">        class MyRecipe(TrainRecipe):</span>
+<span class="sd">            def register(self, container: DependencyContainer) -&gt; None:</span>
+<span class="sd">                register_recipe_assets(container, &quot;configs/assets&quot;)</span>
 
-    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">tied_embeddings</span><span class="p">:</span>
-        <span class="k">del</span> <span class="n">hg_state_dict</span><span class="p">[</span><span class="s2">&quot;lm_head.weight&quot;</span><span class="p">]</span>
+<span class="sd">    ``stack_level`` can be used to specify the actual calling module. For</span>
+<span class="sd">    example, if ``register_recipe_assets`` is invoked within a wrapper helper</span>
+<span class="sd">    function, setting ``stack_level`` to 2 indicates that the caller module is</span>
+<span class="sd">    the one that called the helper function.</span>
 
-    <span class="n">hg_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;hidden_size&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">model_dim</span><span class="p">,</span>
-        <span class="s2">&quot;max_position_embeddings&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">max_seq_len</span><span class="p">,</span>
-        <span class="s2">&quot;vocab_size&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">vocab_size</span><span class="p">,</span>
-        <span class="s2">&quot;tie_word_embeddings&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">tied_embeddings</span><span class="p">,</span>
-        <span class="s2">&quot;num_hidden_layers&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">num_layers</span><span class="p">,</span>
-        <span class="s2">&quot;num_attention_heads&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">num_attn_heads</span><span class="p">,</span>
-        <span class="s2">&quot;num_key_value_heads&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">num_key_value_heads</span><span class="p">,</span>
-        <span class="s2">&quot;intermediate_size&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">ffn_inner_dim</span><span class="p">,</span>
-        <span class="s2">&quot;rope_theta&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">rope_theta</span><span class="p">,</span>
-    <span class="p">}</span>
+<span class="sd">    .. code:: python</span>
+<span class="sd">        :caption: A helper function in a Python file named &quot;my_helpers.py&quot;</span>
 
-    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">qkv_proj_bias</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">HuggingFaceExport</span><span class="p">(</span>
-            <span class="n">hg_state_dict</span><span class="p">,</span>
-            <span class="n">hg_config</span><span class="p">,</span>
-            <span class="n">config_kls_name</span><span class="o">=</span><span class="s2">&quot;Qwen2Config&quot;</span><span class="p">,</span>
-            <span class="n">arch</span><span class="o">=</span><span class="s2">&quot;Qwen2ForCausalLM&quot;</span><span class="p">,</span>
+<span class="sd">        from fairseq2.recipe.composition import register_recipe_assets</span>
+<span class="sd">        from fairseq2.runtime.dependency import DependencyContainer</span>
+
+<span class="sd">        def my_recipe_helper_function(container: DependencyContainer) -&gt; None:</span>
+<span class="sd">            # Note that `stack_level` is set to 2, so that the actual calling</span>
+<span class="sd">            # module, and not &quot;my_helpers.py&quot;, is used to resolve the path.</span>
+<span class="sd">            register_recipe_assets(container, &quot;path/to/assets&quot;, stack_level=2)</span>
+
+<span class="sd">    Note that this function is primarily intended for use by recipe authors.</span>
+<span class="sd">    Users of a recipe can specify additional paths to search for asset cards by</span>
+<span class="sd">    using the :attr:`AssetsConfig.extra_paths` configuration option.</span>
+
+<span class="sd">    .. code:: yaml</span>
+<span class="sd">        :caption: A YAML recipe configuration</span>
+
+<span class="sd">        common:</span>
+<span class="sd">          assets:</span>
+<span class="sd">            extra_paths:</span>
+<span class="sd">              - /path/to/extra/recipes1</span>
+<span class="sd">              - /path/to/extra/recipes2</span>
+
+<span class="sd">    :raises ValueError: If ``rel_path`` specifies an absolute path</span>
+<span class="sd">    :raises ValueError: If ``rel_path`` is a string and does not represent a</span>
+<span class="sd">        valid path</span>
+<span class="sd">    :raises ValueError: If ``stack_level`` is less than 1 or larger than the</span>
+<span class="sd">        size of the call stack.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rel_path</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">rel_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">rel_path</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">rel_path</span><span class="o">.</span><span class="n">is_absolute</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`rel_path` must be a relative path.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">stack_level</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;`stack_level` must be greater than or equal to 1, but is </span><span class="si">{</span><span class="n">stack_level</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
         <span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">HuggingFaceExport</span><span class="p">(</span>
-            <span class="n">hg_state_dict</span><span class="p">,</span>
-            <span class="n">hg_config</span><span class="p">,</span>
-            <span class="n">config_kls_name</span><span class="o">=</span><span class="s2">&quot;Qwen3Config&quot;</span><span class="p">,</span>
-            <span class="n">arch</span><span class="o">=</span><span class="s2">&quot;Qwen3ForCausalLM&quot;</span><span class="p">,</span>
-        <span class="p">)</span></div>
+
+    <span class="n">call_stack</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">stack</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">stack_level</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">call_stack</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;`stack_level` must be less than the size of the call stack (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">call_stack</span><span class="p">)</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">stack_level</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">filename</span> <span class="o">=</span> <span class="n">call_stack</span><span class="p">[</span><span class="n">stack_level</span><span class="p">]</span><span class="o">.</span><span class="n">filename</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">module_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Frame </span><span class="si">{</span><span class="n">stack_level</span><span class="si">}</span><span class="s2"> in the call stack does not have a valid `filename` attribute. `filename`: </span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
+
+    <span class="n">asset_path</span> <span class="o">=</span> <span class="n">module_path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">rel_path</span><span class="p">)</span>
+
+    <span class="n">register_file_assets</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">asset_path</span><span class="p">)</span></div>
 
 </pre></div>
         </article>

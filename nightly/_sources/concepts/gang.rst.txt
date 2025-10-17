@@ -119,26 +119,53 @@ management.
     :caption: Gang vs DeviceMesh usage comparison
 
     # DeviceMesh approach - coordinate-based access
-    from torch.distributed.device_mesh import init_device_mesh
+    import torch 
+    import torch.distributed as dist
+    from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 
-    mesh = init_device_mesh("cuda", (2, 4))  # 2D mesh: 2x4
+    # Initialize 2D mesh (2x4) - just coordinates, no semantic meaning
+    mesh: DeviceMesh = init_device_mesh("cuda", (2, 4), mesh_dim_names=("dp", "tp"))
 
-    # Manual coordinate tracking for parallelism strategies
-    dp_mesh = mesh[:, 0]      # First column for data parallel
-    tp_mesh = mesh[0, :]      # First row for tensor parallel
+    # Manual coordinate extraction
+    dp_mesh: DeviceMesh = mesh["dp"]
+    tp_mesh: DeviceMesh = mesh["tp"]
+
+    # Create tensors
+    tensor_tp: torch.Tensor = torch.randn(4, 4, device='cuda')
+    tensor_dp: torch.Tensor = torch.randn(4, 4, device='cuda')
+
+    # AllReduce - no semantic indication of parallelism strategy
+    dist.all_reduce(tensor_tp, group=tp_mesh.get_group())
+    dist.all_reduce(tensor_dp, group=dp_mesh.get_group())
+
+    dist.destroy_process_group()
+
+    # --------------------------
 
     # Gang approach - explicit parallelism strategies 
-    from fairseq2.gang import ProcessGroupGang, create_parallel_gangs
+    import torch
+    from fairseq2.gang import Gang, Gangs, ProcessGroupGang, ReduceOperation, create_parallel_gangs
+    from fairseq2.device import Device, get_default_device
 
-    root_gang = ProcessGroupGang.create_default_process_group(device)
-
-    gangs = create_parallel_gangs(root_gang, tp_size=4)
-
-    tensor = torch.ones((8, 8), device=device)
-
+    # Initialize distributed setup
+    device: Device = get_default_device()
+    root_gang: Gang = ProcessGroupGang.create_default_process_group(device)
+    
+    # Create semantic parallelism abstractions (dp_size = 8 // 4 = 2)
+    gangs: Gangs = create_parallel_gangs(root_gang, tp_size=4)
+    
+    # Access parallelism strategies - semantic meaning guaranteed
+    dp_gang: Gang = gangs.dp
+    tp_gang: Gang = gangs.tp  
+    
+    tensor_tp: torch.Tensor = torch.randn(4, 4, device=device)
+    tensor_dp: torch.Tensor = torch.randn(4, 4, device=device)
+    
     # Direct semantic access to parallelism-specific gangs
-    gangs.dp.all_reduce(tensor, ReduceOperation.SUM)  # Data parallel
-    gangs.tp.all_reduce(tensor, ReduceOperation.SUM)  # Tensor parallel
+    tp_gang.all_reduce(tensor_tp, ReduceOperation.SUM)  # Tensor parallel
+    dp_gang.all_reduce(tensor_dp, ReduceOperation.SUM)  # Data parallel
+    
+    root_gang.close()
 
 How to create a Gang?
 =====================

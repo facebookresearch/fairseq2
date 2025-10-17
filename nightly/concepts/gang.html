@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="fairseq2.assets" href="../reference/assets.html" /><link rel="prev" title="Debugging with PuDB" href="../guides/pudb.html" />
+    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="fairseq2.assets" href="../reference/assets.html" /><link rel="prev" title="Assets" href="assets.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
         <title>What is a Gang? - fairseq2 Documentation</title>
@@ -230,6 +230,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="assets.html">Assets</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Gangs</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -251,6 +252,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.gang.html">fairseq2.gang</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.models.html">fairseq2.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.recipe.composition.html">fairseq2.recipe.composition</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.recipe.optim.html">fairseq2.recipe.optim</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.utils.validation.html">fairseq2.utils.validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/logging.html">fairseq2.logging</a></li>
@@ -434,26 +436,53 @@ patterns.</p></li>
 <div class="literal-block-wrapper docutils container" id="id3">
 <div class="code-block-caption"><span class="caption-text">Gang vs DeviceMesh usage comparison</span><a class="headerlink" href="#id3" title="Link to this code">¶</a></div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># DeviceMesh approach - coordinate-based access</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">torch.distributed.device_mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">init_device_mesh</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.distributed</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dist</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.distributed.device_mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceMesh</span><span class="p">,</span> <span class="n">init_device_mesh</span>
 
-<span class="n">mesh</span> <span class="o">=</span> <span class="n">init_device_mesh</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>  <span class="c1"># 2D mesh: 2x4</span>
+<span class="c1"># Initialize 2D mesh (2x4) - just coordinates, no semantic meaning</span>
+<span class="n">mesh</span><span class="p">:</span> <span class="n">DeviceMesh</span> <span class="o">=</span> <span class="n">init_device_mesh</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">mesh_dim_names</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;dp&quot;</span><span class="p">,</span> <span class="s2">&quot;tp&quot;</span><span class="p">))</span>
 
-<span class="c1"># Manual coordinate tracking for parallelism strategies</span>
-<span class="n">dp_mesh</span> <span class="o">=</span> <span class="n">mesh</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>      <span class="c1"># First column for data parallel</span>
-<span class="n">tp_mesh</span> <span class="o">=</span> <span class="n">mesh</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span>      <span class="c1"># First row for tensor parallel</span>
+<span class="c1"># Manual coordinate extraction</span>
+<span class="n">dp_mesh</span><span class="p">:</span> <span class="n">DeviceMesh</span> <span class="o">=</span> <span class="n">mesh</span><span class="p">[</span><span class="s2">&quot;dp&quot;</span><span class="p">]</span>
+<span class="n">tp_mesh</span><span class="p">:</span> <span class="n">DeviceMesh</span> <span class="o">=</span> <span class="n">mesh</span><span class="p">[</span><span class="s2">&quot;tp&quot;</span><span class="p">]</span>
+
+<span class="c1"># Create tensors</span>
+<span class="n">tensor_tp</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">)</span>
+<span class="n">tensor_dp</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">)</span>
+
+<span class="c1"># AllReduce - no semantic indication of parallelism strategy</span>
+<span class="n">dist</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">tensor_tp</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="n">tp_mesh</span><span class="o">.</span><span class="n">get_group</span><span class="p">())</span>
+<span class="n">dist</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">tensor_dp</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="n">dp_mesh</span><span class="o">.</span><span class="n">get_group</span><span class="p">())</span>
+
+<span class="n">dist</span><span class="o">.</span><span class="n">destroy_process_group</span><span class="p">()</span>
+
+<span class="c1"># --------------------------</span>
 
 <span class="c1"># Gang approach - explicit parallelism strategies</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessGroupGang</span><span class="p">,</span> <span class="n">create_parallel_gangs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gang</span><span class="p">,</span> <span class="n">Gangs</span><span class="p">,</span> <span class="n">ProcessGroupGang</span><span class="p">,</span> <span class="n">ReduceOperation</span><span class="p">,</span> <span class="n">create_parallel_gangs</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span><span class="p">,</span> <span class="n">get_default_device</span>
 
-<span class="n">root_gang</span> <span class="o">=</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">create_default_process_group</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+<span class="c1"># Initialize distributed setup</span>
+<span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">get_default_device</span><span class="p">()</span>
+<span class="n">root_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">=</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">create_default_process_group</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
-<span class="n">gangs</span> <span class="o">=</span> <span class="n">create_parallel_gangs</span><span class="p">(</span><span class="n">root_gang</span><span class="p">,</span> <span class="n">tp_size</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="c1"># Create semantic parallelism abstractions (dp_size = 8 // 4 = 2)</span>
+<span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span> <span class="o">=</span> <span class="n">create_parallel_gangs</span><span class="p">(</span><span class="n">root_gang</span><span class="p">,</span> <span class="n">tp_size</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 
-<span class="n">tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+<span class="c1"># Access parallelism strategies - semantic meaning guaranteed</span>
+<span class="n">dp_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">=</span> <span class="n">gangs</span><span class="o">.</span><span class="n">dp</span>
+<span class="n">tp_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">=</span> <span class="n">gangs</span><span class="o">.</span><span class="n">tp</span>
+
+<span class="n">tensor_tp</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+<span class="n">tensor_dp</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
 <span class="c1"># Direct semantic access to parallelism-specific gangs</span>
-<span class="n">gangs</span><span class="o">.</span><span class="n">dp</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">ReduceOperation</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>  <span class="c1"># Data parallel</span>
-<span class="n">gangs</span><span class="o">.</span><span class="n">tp</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">ReduceOperation</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>  <span class="c1"># Tensor parallel</span>
+<span class="n">tp_gang</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">tensor_tp</span><span class="p">,</span> <span class="n">ReduceOperation</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>  <span class="c1"># Tensor parallel</span>
+<span class="n">dp_gang</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">tensor_dp</span><span class="p">,</span> <span class="n">ReduceOperation</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>  <span class="c1"># Data parallel</span>
+
+<span class="n">root_gang</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -679,14 +708,14 @@ gangs as needed. The current gangs instance can be retrieved by calling the
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="../guides/pudb.html">
+          <a class="prev-page" href="assets.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-bug" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4.72.22a.75.75 0 011.06 0l1 .999a3.492 3.492 0 012.441 0l.999-1a.75.75 0 111.06 1.061l-.775.776c.616.63.995 1.493.995 2.444v.327c0 .1-.009.197-.025.292.408.14.764.392 1.029.722l1.968-.787a.75.75 0 01.556 1.392L13 7.258V9h2.25a.75.75 0 010 1.5H13v.5c0 .409-.049.806-.141 1.186l2.17.868a.75.75 0 01-.557 1.392l-2.184-.873A4.997 4.997 0 018 16a4.997 4.997 0 01-4.288-2.427l-2.183.873a.75.75 0 01-.558-1.392l2.17-.868A5.013 5.013 0 013 11v-.5H.75a.75.75 0 010-1.5H3V7.258L.971 6.446a.75.75 0 01.558-1.392l1.967.787c.265-.33.62-.583 1.03-.722a1.684 1.684 0 01-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72 1.28a.75.75 0 010-1.06zM6.173 5h3.654A.173.173 0 0010 4.827V4.5a2 2 0 10-4 0v.327c0 .096.077.173.173.173zM5.25 6.5a.75.75 0 00-.75.75V11a3.5 3.5 0 107 0V7.25a.75.75 0 00-.75-.75h-5.5z"></path></svg> Debugging with PuDB</div>
+                <div class="title">Assets</div>
                 
               </div>
             </a>
@@ -742,7 +771,7 @@ gangs as needed. The current gangs instance can be retrieved by calling the
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=480d58a0"></script>
+</div><script src="../_static/documentation_options.js?v=0103337d"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>

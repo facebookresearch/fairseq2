@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="fairseq2.utils.validation" href="fairseq2.utils.validation.html" /><link rel="prev" title="fairseq2.models" href="fairseq2.models.html" />
+    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="fairseq2.utils.validation" href="fairseq2.utils.validation.html" /><link rel="prev" title="fairseq2.recipe.composition" href="fairseq2.recipe.composition.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
         <title>fairseq2.recipe.optim - fairseq2 Documentation</title>
@@ -230,6 +230,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/assets.html">Assets</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../concepts/gang.html">Gangs</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -251,6 +252,7 @@
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.gang.html">fairseq2.gang</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.html">fairseq2.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.recipe.composition.html">fairseq2.recipe.composition</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">fairseq2.recipe.optim</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.utils.validation.html">fairseq2.utils.validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="logging.html">fairseq2.logging</a></li>
@@ -332,7 +334,7 @@ and learning rate schedulers in recipes.</p>
 </section>
 <dl class="py function">
 <dt class="sig sig-object py" id="fairseq2.recipe.optim.prepare_parameter_groups">
-<span class="sig-prename descclassname"><span class="pre">fairseq2.recipe.optim.</span></span><span class="sig-name descname"><span class="pre">prepare_parameter_groups</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">RecipeModel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_configs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.14)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><span class="pre">ParameterGroupConfig</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable" title="(in Python v3.14)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.8)"><span class="pre">Tensor</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable" title="(in Python v3.14)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><span class="pre">object</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/recipe/optim.html#prepare_parameter_groups"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipe.optim.prepare_parameter_groups" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">fairseq2.recipe.optim.</span></span><span class="sig-name descname"><span class="pre">prepare_parameter_groups</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">RecipeModel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_configs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.14)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><span class="pre">ParameterGroupConfig</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable" title="(in Python v3.14)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.9)"><span class="pre">Tensor</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable" title="(in Python v3.14)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><span class="pre">object</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/recipe/optim.html#prepare_parameter_groups"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipe.optim.prepare_parameter_groups" title="Link to this definition">¶</a></dt>
 <dd><p>Prepares the parameter groups to pass to an optimizer based on the specified
 model and group recipe configurations.</p>
 <p>Returns an <code class="xref py py-class docutils literal notranslate"><span class="pre">Iterable</span></code> that can be passed as an argument to the
@@ -467,14 +469,14 @@ not match <code class="docutils literal notranslate"><span class="pre">num_param
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="fairseq2.models.html">
+          <a class="prev-page" href="fairseq2.recipe.composition.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">fairseq2.models</div>
+                <div class="title">fairseq2.recipe.composition</div>
                 
               </div>
             </a>
@@ -527,7 +529,7 @@ not match <code class="docutils literal notranslate"><span class="pre">num_param
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=480d58a0"></script>
+</div><script src="../_static/documentation_options.js?v=0103337d"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
