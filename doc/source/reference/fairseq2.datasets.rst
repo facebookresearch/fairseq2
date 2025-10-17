@@ -175,4 +175,4 @@ Example usage:
     dataset implementations that don't need access to other fairseq2 objects, using
     the basic ``opener`` is recommended.
 
-* :doc: `references/fairseq2.models.hub.rst`
+* :doc:`/reference/fairseq2.datasets.hub`
