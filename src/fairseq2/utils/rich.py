@@ -6,8 +6,11 @@
 
 from __future__ import annotations
 
+import warnings
+from collections.abc import Sequence
+from functools import cache
 from logging import INFO, Formatter, NullHandler, getLogger
-from typing import Any, final
+from typing import TYPE_CHECKING, Any, TypeAlias, final
 
 from rich import get_console as get_rich_console
 from rich.console import Console
@@ -23,6 +26,8 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 from rich.text import Text
+from tqdm import TqdmExperimentalWarning
+from tqdm.rich import tqdm_rich
 from typing_extensions import Self, override
 
 from fairseq2.utils.env import StandardEnvironment, get_rank
@@ -67,18 +72,28 @@ def set_error_console(console: Console) -> None:
 
 @final
 class RichProgressReporter(ProgressReporter):
-    def __init__(self, console: Console, world_info: WorldInfo) -> None:
-        columns = [
-            TextColumn("{task.description}:"),
-            BarColumn(),
-            BasicMofNCompleteColumn(),
-            TaskProgressColumn(),
-            TimeRemainingColumn(),
-        ]
+    def __init__(
+        self,
+        console: Console,
+        world_info: WorldInfo,
+        columns: Sequence[ProgressColumn | str] | None = None,
+    ) -> None:
+        disable = world_info.rank != 0
 
-        self._progress = Progress(
-            *columns, transient=True, console=console, disable=world_info.rank != 0
-        )
+        if columns is None:
+            columns = [
+                TextColumn("{task.description}:"),
+                BarColumn(),
+                BasicMofNCompleteColumn(),
+                TaskProgressColumn(),
+                TimeRemainingColumn(),
+            ]
+
+        progress = Progress(*columns, transient=True, console=console, disable=disable)
+
+        self._console = console
+        self._columns = columns
+        self._progress = progress
 
     @override
     def create_task(
@@ -99,6 +114,11 @@ class RichProgressReporter(ProgressReporter):
     @override
     def __exit__(self, *ex: Any) -> None:
         self._progress.__exit__(*ex)
+
+    @override
+    @cache
+    def maybe_get_tqdm_kls(self) -> type | None:
+        return _create_tqdm_kls(self._console, self._columns)
 
 
 @final
@@ -132,6 +152,30 @@ class BasicMofNCompleteColumn(ProgressColumn):
             s = f"{task.completed:5d}/{task.total}"
 
         return Text(s, style="progress.download")
+
+
+if TYPE_CHECKING:
+    _tqdm_rich: TypeAlias = tqdm_rich[Any]
+else:
+    _tqdm_rich: TypeAlias = tqdm_rich
+
+
+def _create_tqdm_kls(console: Console, columns: Sequence[ProgressColumn | str]) -> type:
+    kls: type[_tqdm_rich] = type("_tqdm", (tqdm_rich,), {})
+
+    def init_tqdm(_self: _tqdm_rich, *args: Any, **kwargs: Any) -> None:
+        options = {"transient": True, "console": console}
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=TqdmExperimentalWarning)
+
+            super(kls, _self).__init__(
+                *args, **kwargs, progress=columns, options=options
+            )
+
+    setattr(kls, "__init__", init_tqdm)
+
+    return kls
 
 
 def configure_rich_logging() -> None:
