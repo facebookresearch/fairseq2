@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
-from typing import final
+from typing import Any, final
 
 from torch import Tensor
 from torch.nn import Module
@@ -21,6 +21,9 @@ from fairseq2.typing import ContextManager, Stateful
 
 
 class RecipeModel(ABC, Stateful):
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self.module(*args, **kwargs)
+
     @abstractmethod
     def state_dict(self) -> dict[str, object]: ...
 
