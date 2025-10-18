@@ -64,7 +64,8 @@ class DataReader(ABC, Iterator[list[BatchT_co]], Stateful):
 
 
 class DataReadError(Exception):
-    pass
+    def __init__(self) -> None:
+        self.scope: str | None = None
 
 
 BatchT = TypeVar("BatchT")

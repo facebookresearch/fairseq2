@@ -14,6 +14,7 @@ from fairseq2.datasets.data_reader import DataReadError as DataReadError
 from fairseq2.datasets.data_reader import SyncMode as SyncMode
 from fairseq2.datasets.family import DatasetError as DatasetError
 from fairseq2.datasets.family import DatasetFamily as DatasetFamily
+from fairseq2.datasets.family import DatasetLayoutError as DatasetLayoutError
 from fairseq2.datasets.family import DatasetOpener as DatasetOpener
 from fairseq2.datasets.family import StandardDatasetFamily as StandardDatasetFamily
 from fairseq2.datasets.family import get_dataset_family as get_dataset_family

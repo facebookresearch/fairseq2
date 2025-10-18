@@ -370,11 +370,11 @@ class StandardModelFamily(ModelFamily):
             if has_custom_config:
                 raise
 
-            msg = f"model_config field of the {name} asset card is not a valid {self._name} model configuration."
+            msg = f"model_config_override field of the {name} asset card is not a valid {self._name} model configuration."
 
             raise AssetCardError(name, msg) from ex
         except ModelCheckpointError as ex:
-            msg = f"Model checkpoint of the {name} asset card cannot be loaded."
+            msg = f"Model checkpoint of the {name} asset card at {ex.path} is erroneous."
 
             raise AssetCardError(name, msg) from ex
         except FileNotFoundError as ex:

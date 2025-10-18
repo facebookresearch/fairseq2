@@ -158,11 +158,11 @@ class StandardTokenizerFamily(TokenizerFamily):
             if has_custom_config:
                 raise
 
-            msg = f"tokenizer_config field of the {name} asset card is not a valid {self._name} tokenizer configuration."
+            msg = f"tokenizer_config_override field of the {name} asset card is not a valid {self._name} tokenizer configuration."
 
             raise AssetCardError(name, msg) from ex
         except TokenizerModelError as ex:
-            msg = f"Tokenizer model of the {name} asset card cannot be loaded."
+            msg = f"Tokenizer model of the {name} asset card at {ex.path} is erroneous."
 
             raise AssetCardError(name, msg) from ex
         except FileNotFoundError as ex:

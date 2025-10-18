@@ -41,6 +41,7 @@ from fairseq2.datasets import (
     DataReadError,
     DatasetError,
     DatasetFamilyNotKnownError,
+    DatasetLayoutError,
     DatasetNotKnownError,
 )
 from fairseq2.device import LocalRankOutOfRangeError
@@ -69,8 +70,8 @@ from fairseq2.recipe.component import ComponentNotKnownError
 from fairseq2.recipe.config import RecipeConfig
 from fairseq2.recipe.error import (
     BeamSearchAlgorithmNotKnownError,
+    DatasetSplitNotKnownError,
     DeviceTypeNotSupportedError,
-    ErrorContext,
     FSDPNotSupportedError,
     GangTopologyError,
     HSDPTopologyError,
@@ -507,9 +508,11 @@ def _register_cli_errors(container: DependencyContainer) -> None:
     register(ClusterNotKnownError, _handle_cluster_not_known_error)
     register(ComponentNotKnownError, _handle_component_not_known_error)
     register(DataReadError, _handle_data_read_error)
-    register(DatasetFamilyNotKnownError, _handle_dataset_family_not_known_error)
-    register(DatasetNotKnownError, _handle_dataset_not_known_error)
     register(DatasetError, _handle_dataset_error)
+    register(DatasetFamilyNotKnownError, _handle_dataset_family_not_known_error)
+    register(DatasetLayoutError, _handle_dataset_layout_error)
+    register(DatasetNotKnownError, _handle_dataset_not_known_error)
+    register(DatasetSplitNotKnownError, _handle_dataset_split_not_known_error)
     register(DeviceTypeNotSupportedError, _handle_device_type_not_supported_error)
     register(EnvironmentVariableError, _handle_env_variable_error)
     register(FSDPNotSupportedError, _handle_fsdp_not_supported_error)
@@ -614,10 +617,22 @@ def _handle_data_read_error(ex: DataReadError) -> int:
     return 1
 
 
+def _handle_dataset_error(ex: DatasetError) -> int:
+    log.exception("Dataset is erroneous. See logged stack trace for details.")
+
+    return 1
+
+
 def _handle_dataset_family_not_known_error(ex: DatasetFamilyNotKnownError) -> int:
     log.error("{} is not a known dataset family.", ex.name)
 
     return 2
+
+
+def _handle_dataset_layout_error(ex: DatasetLayoutError) -> int:
+    log.exception("Dataset layout at {} is erroneous. See logged stack trace for details.", ex.path)
+
+    return 1
 
 
 def _handle_dataset_not_known_error(ex: DatasetNotKnownError) -> int:
@@ -626,15 +641,15 @@ def _handle_dataset_not_known_error(ex: DatasetNotKnownError) -> int:
     return 2
 
 
-def _handle_dataset_error(ex: DatasetError) -> int:
-    section_name = ErrorContext.maybe_get_config_section_name(ex)
+def _handle_dataset_split_not_known_error(ex: DatasetSplitNotKnownError) -> int:
+    s = ", ".join(sorted(ex.available_splits))
 
-    if section_name is None:
-        log.exception("Failed to open the dataset. See logged stack trace for details.")
+    if ex.section_name == "dataset":
+        log.error("{} is not a known dataset split. Available splits are {}.", ex.split, s)
     else:
-        log.exception("Failed to open the dataset specified in `{}` section. See logged stack trace for details.", section_name)
+        log.error("{} specified in `{}` section is not a known dataset split. Available splits are {}.", ex.section_name, ex.split, s)
 
-    return 1
+    return 2
 
 
 def _handle_device_type_not_supported_error(ex: DeviceTypeNotSupportedError) -> int:
@@ -668,12 +683,7 @@ def _handle_hsdp_topology_error(ex: HSDPTopologyError) -> int:
 
 
 def _handle_hg_not_supported_error(ex: HuggingFaceNotSupportedError) -> int:
-    section_name = ErrorContext.maybe_get_config_section_name(ex)
-
-    if section_name is None:
-        log.error("Model does not support exporting to Hugging Face.")
-    else:
-        log.error("Model specified in `{}` section does not support exporting to Hugging Face.", section_name)
+    log.error("Model does not support exporting to Hugging Face.")
 
     return 2
 
@@ -687,12 +697,7 @@ def _handle_inconsistent_grad_norm_error(ex: InconsistentGradNormError) -> int:
 
 
 def _handle_layerwise_ac_not_supported_error(ex: LayerwiseACNotSupportedError) -> int:
-    section_name = ErrorContext.maybe_get_config_section_name(ex)
-
-    if section_name is None:
-        log.error("Model does not support layerwise activation checkpointing.")
-    else:
-        log.error("Model specified in `{}` section does not support layerwise activation checkpointing.", section_name)
+    log.error("Model does not support layerwise activation checkpointing.")
 
     return 2
 
@@ -761,12 +766,7 @@ def _handle_model_not_known_error(ex: ModelNotKnownError) -> int:
 
 
 def _handle_model_type_not_valid_error(ex: ModelTypeNotValidError) -> int:
-    section_name = ErrorContext.maybe_get_config_section_name(ex)
-
-    if section_name is None:
-        log.error("Model must be of type `{}`, but is of type `{}` instead.", ex.expected_kls, ex.kls)
-    else:
-        log.error("Model specified in `{}` section must be of type `{}`, but is of type `{}` instead.", section_name, ex.expected_kls, ex.kls)
+    log.error("Model must be of type `{}`, but is of type `{}` instead.", ex.expected_kls, ex.kls)
 
     return 2
 
@@ -796,14 +796,9 @@ def _handle_seq_generator_not_known_error(ex: SequenceGeneratorNotKnownError) ->
 
 
 def _handle_split_not_known_error(ex: SplitNotKnownError) -> int:
-    section_name = ErrorContext.maybe_get_config_section_name(ex)
-
     s = ", ".join(sorted(ex.available_splits))
 
-    if section_name is None:
-        log.error("{} is not a known dataset split. Available splits are {}.", ex.split, s)
-    else:
-        log.error("{} specified in `{}` section is not a known dataset split. Available splits are {}.", section_name, ex.split, s)
+    log.error("{} is not a known dataset split. Available splits are {}.", ex.split, s)
 
     return 2
 
@@ -833,23 +828,19 @@ def _handle_tokenizer_not_known_error(ex: TokenizerNotKnownError) -> int:
 
 
 def _handle_torch_compile_error(ex: TorchCompileError) -> int:
-    section_name = ErrorContext.maybe_get_config_section_name(ex)
-
-    if section_name is None:
+    if ex.section_name == "model":
         log.exception("`torch.compile()` call failed. See logged stack trace for details.")
     else:
-        log.exception("`torch.compile()` call failed for the model specified in `{}` section. See logged stack trace for details.", section_name)
+        log.exception("`torch.compile()` call failed for the model specified in `{}` section. See logged stack trace for details.", ex.section_name)
 
     return 1
 
 
 def _handle_torch_compile_not_supported_error(ex: TorchCompileNotSupportedError) -> int:
-    section_name = ErrorContext.maybe_get_config_section_name(ex)
-
-    if section_name is None:
+    if ex.section_name == "model":
         log.error("Model does not support torch.compile().")
     else:
-        log.error("Model specified in `{}` section does not support torch.compile().", section_name)
+        log.error("Model specified in `{}` section does not support torch.compile().", ex.section_name)
 
     return 2
 

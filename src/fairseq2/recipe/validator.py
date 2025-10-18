@@ -244,6 +244,10 @@ class StandardValidator(Validator):
         with self._data_watch:
             try:
                 batches = next(data_reader)
+            except DataReadError as ex:
+                ex.scope = "valid"
+
+                raise
             except StopIteration:
                 batches = None
 

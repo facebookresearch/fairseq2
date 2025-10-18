@@ -25,7 +25,7 @@ from fairseq2.models import (
 )
 from fairseq2.nn.utils.module import broadcast_module, remove_parametrizations
 from fairseq2.recipe.config import ReferenceModelSection
-from fairseq2.recipe.error import ErrorContext, ModelCheckpointNotFoundError
+from fairseq2.recipe.error import ModelCheckpointNotFoundError
 from fairseq2.recipe.internal.asset_config import _AssetConfigOverrider
 from fairseq2.recipe.internal.compile import _compile_model
 from fairseq2.recipe.internal.log import _LogHelper
@@ -47,14 +47,9 @@ class _EvalModelLoader:
         self._gangs = gangs
 
     def load(self, section_name: str, section: ReferenceModelSection) -> RecipeModel:
-        try:
-            model = self._bootstrapper.bootstrap(section_name, section)
+        model = self._bootstrapper.bootstrap(section_name, section)
 
-            model = self._preparer.prepare(model, section_name, section)
-        except Exception as ex:
-            ErrorContext.set_config_section_name(ex, section_name)
-
-            raise
+        model = self._preparer.prepare(model, section_name, section)
 
         _log_model(model, self._gangs)
 
@@ -277,6 +272,6 @@ class _StandardEvalModelPreparer(_EvalModelPreparer):
         remove_parametrizations(model.module)
 
         if section.compile:
-            _compile_model(model, section.compile_options)
+            _compile_model(model, section_name, section.compile_options)
 
         return model

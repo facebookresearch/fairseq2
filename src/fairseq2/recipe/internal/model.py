@@ -32,7 +32,6 @@ from fairseq2.models import (
 )
 from fairseq2.recipe.config import ModelSection, TrainerSection
 from fairseq2.recipe.error import (
-    ErrorContext,
     LayerwiseACNotSupportedError,
     ModelCheckpointNotFoundError,
 )
@@ -59,16 +58,11 @@ class _TrainModelProvider:
         self._gangs = gangs
 
     def get(self) -> RecipeModel:
-        try:
-            model = self._bootstrapper.bootstrap()
+        model = self._bootstrapper.bootstrap()
 
-            self._metadata_saver.save(model)
+        self._metadata_saver.save(model)
 
-            model = self._preparer.prepare(model)
-        except Exception as ex:
-            ErrorContext.set_config_section_name(ex, "model")
-
-            raise
+        model = self._preparer.prepare(model)
 
         _log_model(model, self._gangs)
 
@@ -449,7 +443,7 @@ class _StandardTrainModelPreparer(_TrainModelPreparer):
             model.family.apply_layerwise_ac(model.module, ac_config.every_nth_layer)
 
         if self._section.compile:
-            _compile_model(model, self._section.compile_options)
+            _compile_model(model, "model", self._section.compile_options)
 
         model = self._data_parallel_wrapper.wrap(model)
 
