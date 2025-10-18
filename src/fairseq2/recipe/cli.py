@@ -30,6 +30,7 @@ from fairseq2.assets import (
     AssetSourceNotFoundError,
 )
 from fairseq2.checkpoint import CheckpointError, CheckpointNotFoundError
+from fairseq2.cluster import ClusterNotDetectedError, ClusterNotKnownError
 from fairseq2.composition import ExtensionError, _register_library
 from fairseq2.data.tokenizers import (
     TokenizerFamilyNotKnownError,
@@ -502,6 +503,8 @@ def _register_cli_errors(container: DependencyContainer) -> None:
     register(BeamSearchAlgorithmNotKnownError, _handle_bs_algo_not_known_error)
     register(CheckpointError, _handle_checkpoint_error)
     register(CheckpointNotFoundError, _handle_checkpoint_not_found_error)
+    register(ClusterNotDetectedError, _handle_cluster_not_detected_error)
+    register(ClusterNotKnownError, _handle_cluster_not_known_error)
     register(ComponentNotKnownError, _handle_component_not_known_error)
     register(DataReadError, _handle_data_read_error)
     register(DatasetFamilyNotKnownError, _handle_dataset_family_not_known_error)
@@ -578,6 +581,23 @@ def _handle_checkpoint_error(ex: CheckpointError) -> int:
 
 def _handle_checkpoint_not_found_error(ex: CheckpointNotFoundError) -> int:
     log.error("Checkpoint of training step {} is not found.", ex.step_nr)
+
+    return 2
+
+
+def _handle_cluster_not_detected_error(ex: ClusterNotDetectedError) -> int:Expand commentComment on line L588Code has comments. Press enter to view.
+    if ex.cluster == "slurm":
+        log.error("{} cluster not detected. If you are within an allocated job (i.e. salloc), make sure to run with srun. If you want to run locally (e.g. via torchrun), use `--config common.cluster=none`.", ex.cluster)
+    else:
+        log.error("{} cluster not detected.", ex.cluster)
+
+    return 2
+
+
+def _handle_cluster_not_known_error(ex: ClusterNotKnownError) -> int:
+    s = ", ".join(sorted(ex.known_clusters))
+
+    log.error("{} is not a known cluster. `common.cluster` must be one of auto, none, {}.", ex.cluster, s)
 
     return 2
 

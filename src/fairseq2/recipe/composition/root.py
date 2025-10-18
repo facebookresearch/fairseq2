@@ -50,6 +50,7 @@ from fairseq2.recipe.internal.assets import (
     _ExtraAssetMetadataSource,
     _ExtraModelMetadataSource,
 )
+from fairseq2.recipe.internal.cluster import _ClusterPreparer
 from fairseq2.recipe.internal.config_preparer import (
     _RecipeConfigPreparer,
     _RecipeConfigStructurer,
@@ -259,6 +260,7 @@ def _register_recipe_common(container: DependencyContainer) -> None:
     _register_tokenizers(container)
 
     container.register_type(_AssetConfigOverrider, _StandardAssetConfigOverrider)
+    container.register_type(_ClusterPreparer)
     container.register_type(ComponentManager, _StandardComponentManager, singleton=True)
     container.register_type(_DistributedLogConfigurer)
     container.register_type(_LogHelper, _StandardLogHelper)

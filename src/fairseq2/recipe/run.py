@@ -11,7 +11,6 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import final
 
-import clusterscope
 import torch
 
 import fairseq2.runtime.dependency
@@ -19,6 +18,7 @@ from fairseq2.composition import _register_library
 from fairseq2.error import raise_operational_system_error
 from fairseq2.recipe.base import EvalRecipe, GenerationRecipe, Recipe, TrainRecipe
 from fairseq2.recipe.config import RecipeConfig
+from fairseq2.recipe.internal.cluster import _ClusterPreparer
 from fairseq2.recipe.internal.config_preparer import _RecipeConfigPreparer
 from fairseq2.recipe.internal.log import _LogHelper
 from fairseq2.recipe.internal.logging import _DistributedLogConfigurer
@@ -95,7 +95,9 @@ def generate(recipe: GenerationRecipe, config: object, output_dir: Path) -> None
 
 def _run_recipe(resolver: DependencyResolver) -> None:
     # Prepare cluster environment.
-    clusterscope.get_job().set_torch_distributed_env_from_slurm()
+    cluster_preparer = resolver.resolve(_ClusterPreparer)
+
+    cluster_preparer.prepare()
 
     # Configure distributed logging.
     log_configurer = resolver.resolve(_DistributedLogConfigurer)

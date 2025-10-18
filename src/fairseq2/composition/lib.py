@@ -15,6 +15,12 @@ from fairseq2.checkpoint import (
     StandardModelMetadataDumper,
     StandardModelMetadataLoader,
 )
+from fairseq2.cluster import (
+    ClusterHandler,
+    ClusterResolver,
+    SlurmHandler,
+    StandardClusterResolver,
+)
 from fairseq2.composition.assets import _register_asset
 from fairseq2.composition.datasets import _register_dataset_families
 from fairseq2.composition.extensions import _register_extensions
@@ -126,6 +132,7 @@ def _register_library(container: DependencyContainer) -> None:
 
     # fmt: off
     container.register_type(AssetConfigLoader, StandardAssetConfigLoader)
+    container.register_type(ClusterResolver, StandardClusterResolver)
     container.register_type(ConfigMerger, StandardConfigMerger)
     container.register_type(ConfigProcessor, StandardConfigProcessor)
     container.register_type(CudaContext, StandardCudaContext)
@@ -146,6 +153,8 @@ def _register_library(container: DependencyContainer) -> None:
     container.register_type(ValueConverter, StandardValueConverter, singleton=True)
     container.register_type(YamlDumper, RuamelYamlDumper, singleton=True)
     container.register_type(YamlLoader, RuamelYamlLoader, singleton=True)
+
+    container.collection.register_type(ClusterHandler, SlurmHandler)
 
     container.collection.register_type(ModuleSharder, EmbeddingSharder)
     container.collection.register_type(ModuleSharder, LinearSharder)

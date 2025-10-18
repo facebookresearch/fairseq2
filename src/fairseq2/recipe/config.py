@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, Literal, TypeAlias, TypeVar, final
 
-import clusterscope
 import torch
 from torch.optim import Optimizer
 from typing_extensions import override
@@ -562,7 +561,7 @@ class CommonSection:
 
     debug: bool = False
 
-    cluster: str = clusterscope.cluster()
+    cluster: str = "auto"
 
     no_sweep_dir: bool = False
 
