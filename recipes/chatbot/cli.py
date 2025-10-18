@@ -251,7 +251,7 @@ def _run(args: Namespace) -> None:
     log.info("{}", model)
 
     if not isinstance(model, CausalLM):
-        raise ModelTypeNotValidError(type(model), CausalLM)
+        raise ModelTypeNotValidError(model, CausalLM)
 
     log.info("Loading {} tokenizer.", card.name)
 

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Protocol, TypeVar, final
 
 from typing_extensions import override
@@ -14,6 +15,7 @@ from typing_extensions import override
 from fairseq2.assets import AssetCard, AssetCardError, AssetConfigLoader
 from fairseq2.error import InternalError, raise_operational_system_error
 from fairseq2.runtime.lookup import Lookup
+from fairseq2.utils.warn import _warn_deprecated
 
 
 class DatasetFamily(ABC):
@@ -40,7 +42,19 @@ class DatasetFamily(ABC):
 
 
 class DatasetError(Exception):
-    pass
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+        _warn_deprecated(
+            "`DatasetError` is deprecated and will be removed in v0.13. Use `DatasetLayoutError` instead."
+        )
+
+
+class DatasetLayoutError(Exception):
+    def __init__(self, path: Path, message: str) -> None:
+        super().__init__(message)
+
+        self.path = path
 
 
 def get_dataset_family(

@@ -21,7 +21,7 @@ from fairseq2.error import InternalError, raise_operational_system_error
 from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
 from fairseq2.logging import log
 from fairseq2.recipe.config import TokenizerSection
-from fairseq2.recipe.error import ErrorContext, TokenizerModelNotFoundError
+from fairseq2.recipe.error import TokenizerModelNotFoundError
 from fairseq2.recipe.internal.asset_config import _AssetConfigOverrider
 from fairseq2.recipe.internal.log import _LogHelper
 from fairseq2.recipe.tokenizer import RecipeTokenizer
@@ -45,22 +45,17 @@ class _RecipeTokenizerLoader:
         self._log_helper = log_helper
 
     def load(self, section_name: str, section: TokenizerSection) -> RecipeTokenizer:
-        try:
-            if section.path is not None:
-                if section.name is not None:
-                    log.warning("Both `{0}.name` and `{0}.path` are specified. `{0}.path` takes precedence.", section_name)  # fmt: skip
-
-                return self._load_custom_tokenizer(section_name, section)
-
+        if section.path is not None:
             if section.name is not None:
-                if section.family is not None:
-                    log.warning("`{0}.family` will be ignored since `{0}.name` is specified.", section_name)  # fmt: skip
+                log.warning("Both `{0}.name` and `{0}.path` are specified. `{0}.path` takes precedence.", section_name)  # fmt: skip
 
-                return self._load_tokenizer(section_name, section)
-        except Exception as ex:
-            ErrorContext.set_config_section_name(ex, section_name)
+            return self._load_custom_tokenizer(section_name, section)
 
-            raise
+        if section.name is not None:
+            if section.family is not None:
+                log.warning("`{0}.family` will be ignored since `{0}.name` is specified.", section_name)  # fmt: skip
+
+            return self._load_tokenizer(section_name, section)
 
         raise InternalError("`section.name` and `section.path` are both `None`.")
 

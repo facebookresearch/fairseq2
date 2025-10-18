@@ -6,13 +6,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from pathlib import Path
 from typing import Final, final
 
 from torch.nn import Module
 
 from fairseq2.device import Device
+from fairseq2.utils.warn import _warn_deprecated
 
 
 class RecipeConfigParseError(Exception):
@@ -25,9 +26,23 @@ class RecipeError(Exception):
 
 class BeamSearchAlgorithmNotKnownError(Exception):
     def __init__(self, name: str) -> None:
-        super().__init__(f"'{name}' is not a known beam search algorithm.")
+        super().__init__(f"{name} is not a known beam search algorithm.")
 
         self.name = name
+
+
+class DatasetSplitNotKnownError(Exception):
+    def __init__(
+        self,
+        split: str,
+        available_splits: Collection[str],
+        section_name: str = "dataset",
+    ) -> None:
+        super().__init__(f"{split} is not a known dataset split.")
+
+        self.split = split
+        self.available_splits = available_splits
+        self.section_name = section_name
 
 
 class DeviceTypeNotSupportedError(Exception):
@@ -111,13 +126,18 @@ class ModelCheckpointNotFoundError(Exception):
 
 
 class ModelTypeNotValidError(Exception):
-    def __init__(self, kls: type[Module], expected_kls: type[Module]) -> None:
+    def __init__(
+        self, module: Module, expected_kls: type[Module], section_name: str = "model"
+    ) -> None:
+        kls = type(module)
+
         super().__init__(
             f"Model must be of type `{expected_kls}`, but is of type `{kls}` instead."
         )
 
         self.kls = kls
         self.expected_kls = expected_kls
+        self.section_name = section_name
 
 
 class OptimizerNotKnownError(Exception):
@@ -129,14 +149,14 @@ class OptimizerNotKnownError(Exception):
 
 class SamplerNotKnownError(Exception):
     def __init__(self, name: str) -> None:
-        super().__init__(f"'{name}' is not a known sampler.")
+        super().__init__(f"{name} is not a known sampler.")
 
         self.name = name
 
 
 class SequenceGeneratorNotKnownError(Exception):
     def __init__(self, name: str) -> None:
-        super().__init__(f"'{name}' is not a known sequence generator.")
+        super().__init__(f"{name} is not a known sequence generator.")
 
         self.name = name
 
@@ -145,6 +165,10 @@ class SplitNotKnownError(Exception):
     def __init__(
         self, dataset_name: str, split: str, available_splits: Sequence[str]
     ) -> None:
+        _warn_deprecated(
+            "`SplitNotKnownError` is deprecated and will be removed in v0.13. Use `DatasetSplitNotKnownError` instead."
+        )
+
         super().__init__(f"{split} is not a known split of the {dataset_name} dataset.")
 
         self.dataset_name = dataset_name
@@ -160,13 +184,17 @@ class TokenizerModelNotFoundError(Exception):
 
 
 class TorchCompileError(Exception):
-    def __init__(self) -> None:
+    def __init__(self, section_name: str = "model") -> None:
         super().__init__("torch.compile() failed.")
+
+        self.section_name = section_name
 
 
 class TorchCompileNotSupportedError(Exception):
-    def __init__(self) -> None:
+    def __init__(self, section_name: str = "model") -> None:
         super().__init__("Model does not support torch.compile().")
+
+        self.section_name = section_name
 
 
 class TorchDistributedNotAvailableError(Exception):
@@ -179,14 +207,19 @@ class WandbInitializationError(Exception):
         super().__init__("Weights & Biases client cannot be initialized.")
 
 
+
 @final
 class ErrorContext:
     _CONFIG_SECTION_ATTR_NAME: Final = "__fs2_config_section__"
 
     @classmethod
     def set_config_section_name(cls, ex: Exception, name: str) -> None:
+        _warn_deprecated("`ErrorContext` is deprecated and will be removed in v0.13. Use an explicit `section_name` parameter in your `Exception` class instead.")
+
         setattr(ex, cls._CONFIG_SECTION_ATTR_NAME, name)
 
     @classmethod
     def maybe_get_config_section_name(cls, ex: Exception) -> str | None:
+        _warn_deprecated("`ErrorContext` is deprecated and will be removed in v0.13. Use an explicit `section_name` parameter in your `Exception` class instead.")
+
         return getattr(ex, cls._CONFIG_SECTION_ATTR_NAME, None)

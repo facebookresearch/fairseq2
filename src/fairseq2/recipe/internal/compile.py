@@ -12,9 +12,11 @@ from fairseq2.recipe.error import TorchCompileError, TorchCompileNotSupportedErr
 from fairseq2.recipe.model import RecipeModel
 
 
-def _compile_model(model: RecipeModel, options: CompileOptions) -> None:
+def _compile_model(
+    model: RecipeModel, section_name: str, options: CompileOptions
+) -> None:
     if not model.family.supports_compilation:
-        raise TorchCompileNotSupportedError()
+        raise TorchCompileNotSupportedError(section_name)
 
     log.info("Applying torch.compile() to the model.")
 
@@ -28,4 +30,4 @@ def _compile_model(model: RecipeModel, options: CompileOptions) -> None:
             options=options.backend_options,
         )
     except RuntimeError as ex:
-        raise TorchCompileError() from ex
+        raise TorchCompileError(section_name) from ex
