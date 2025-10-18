@@ -12,6 +12,7 @@ from collections.abc import Collection, Iterable
 from random import Random
 from typing import final
 
+import clusterscope
 from typing_extensions import override
 
 from fairseq2.error import OperationalError
@@ -96,82 +97,26 @@ class ClusterNotDetectedError(Exception):
 
 @final
 class SlurmHandler(ClusterHandler):
-    def __init__(self, env: Environment) -> None:
-        self._job_id: int | None = None
-        self._env = env
+    def __init__(self) -> None:
+        self._job = clusterscope.get_job()
 
     @override
     def set_torch_distributed_env_variables(self) -> None:
-        env = self._env
+        self._job.set_torch_distributed_env_from_slurm()
 
-        if not env.has("SLURM_PROCID"):
-            raise ClusterNotDetectedError("slurm")
-
-        job_id = self._ensure_job_id()
-
-        try:
-            env.set("WORLD_SIZE", env.get("SLURM_NTASKS"))
-            env.set("RANK", env.get("SLURM_PROCID"))
-
-            try:
-                env.set("LOCAL_WORLD_SIZE", env.get("SLURM_NTASKS_PER_NODE"))
-            except KeyError:
-                env.set("LOCAL_WORLD_SIZE", "1")
-
-            env.set("LOCAL_RANK", env.get("SLURM_LOCALID"))
-
-            env.set("MASTER_ADDR", self._get_master_addr())
-            env.set("MASTER_PORT", self._get_master_port(job_id))
-
-            env.set("CUDA_VISIBLE_DEVICES", env.get("SLURM_LOCALID"))
-        except KeyError as ex:
-            raise OperationalError(
-                "Slurm job environment variables are not set correctly."
-            ) from ex
 
     def _ensure_job_id(self) -> int:
-        if self._job_id is not None:
-            return self._job_id
-
-        try:
-            job_id = self._env.get("SLURM_JOB_ID")
-        except KeyError:
-            raise OperationalError(
-                "SLURM_JOB_ID environment variable does not exist."
-            ) from None
-
-        try:
-            self._job_id = int(job_id)
-        except ValueError:
-            raise OperationalError("Slurm job ID cannot be parsed.") from None
-
-        return self._job_id
+        return self._job.get_job_id()
 
     def _get_master_addr(self) -> str:
-        nodes = self._env.get("SLURM_JOB_NODELIST")
-
-        result = subprocess.run(
-            ["scontrol", "show", "hostnames", nodes], capture_output=True, text=True
-        )
-
-        if result.returncode == 0:
-            if node_list := result.stdout.split("\n"):
-                return node_list[0]
-
-        raise OperationalError(
-            "Hostname or IP address of the Slurm node corresponding to rank 0 cannot be retrieved."  # fmt: skip
-        )
+        return self._job.get_master_addr()
 
     def _get_master_port(self, job_id: int) -> str:
-        port = self._env.maybe_get("MASTER_PORT")
-        if port is not None:
-            return port
-
-        return str(Random(job_id).randint(20_000, 60_000))
+        return self._job.get_master_port()
 
     @override
     def supports_current_cluster(self) -> bool:
-        return self._env.has("SLURM_PROCID")
+        return self.job.is_slurm_job()
 
     @property
     @override
