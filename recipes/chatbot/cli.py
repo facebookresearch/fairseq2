@@ -68,16 +68,16 @@ def _main() -> None:
         get_console().print()
 
         raise
-    except GangTopologyError as ex:
-        log.error("--tensor-parallel-size must be a factor of the number of processes in the root gang ({}), but is {} instead.", ex.world_size, ex.tp_size)  # fmt: skip
-
-        sys.exit(2)
-    except ClusterNotDetectedError as ex:Expand commentComment on line L71Code has comments. Press enter to view.
+    except ClusterNotDetectedError as ex:
         log.error("{} cluster not detected.", ex.cluster)  # fmt: skip
 
         sys.exit(2)
     except ClusterNotKnownError as ex:
         log.error("{} is not a known cluster.", ex.cluster)  # fmt: skip
+
+        sys.exit(2)
+    except GangTopologyError as ex:
+        log.error("--tensor-parallel-size must be a factor of the number of processes in the root gang ({}), but is {} instead.", ex.world_size, ex.tp_size)  # fmt: skip
 
         sys.exit(2)
     except ModelNotKnownError as ex:

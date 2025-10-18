@@ -26,7 +26,7 @@ class _ClusterPreparer:
 
         handler.set_torch_distributed_env_variables()
 
-        if self._section.cluster == "auto":Expand commentComment on line L29Code has comments. Press enter to view.
+        if self._section.cluster == "auto":
             if handler.cluster == "none":
                 log.info("No cluster detected.")
             else:

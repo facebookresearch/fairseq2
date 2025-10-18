@@ -585,7 +585,7 @@ def _handle_checkpoint_not_found_error(ex: CheckpointNotFoundError) -> int:
     return 2
 
 
-def _handle_cluster_not_detected_error(ex: ClusterNotDetectedError) -> int:Expand commentComment on line L588Code has comments. Press enter to view.
+def _handle_cluster_not_detected_error(ex: ClusterNotDetectedError) -> int:
     if ex.cluster == "slurm":
         log.error("{} cluster not detected. If you are within an allocated job (i.e. salloc), make sure to run with srun. If you want to run locally (e.g. via torchrun), use `--config common.cluster=none`.", ex.cluster)
     else:
