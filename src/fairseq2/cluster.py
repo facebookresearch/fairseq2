@@ -6,16 +6,13 @@
 
 from __future__ import annotations
 
-import subprocess
 from abc import ABC, abstractmethod
 from collections.abc import Collection, Iterable
-from random import Random
 from typing import final
 
 import clusterscope
 from typing_extensions import override
 
-from fairseq2.error import OperationalError
 from fairseq2.runtime.dependency import get_dependency_resolver
 from fairseq2.utils.env import Environment
 
@@ -104,7 +101,6 @@ class SlurmHandler(ClusterHandler):
     def set_torch_distributed_env_variables(self) -> None:
         self._job.set_torch_distributed_env_from_slurm()
 
-
     def _ensure_job_id(self) -> int:
         return self._job.get_job_id()
 
@@ -112,11 +108,11 @@ class SlurmHandler(ClusterHandler):
         return self._job.get_master_addr()
 
     def _get_master_port(self, job_id: int) -> str:
-        return self._job.get_master_port()
+        return str(self._job.get_master_port())
 
     @override
     def supports_current_cluster(self) -> bool:
-        return self.job.is_slurm_job()
+        return self._job.is_slurm_job()
 
     @property
     @override
