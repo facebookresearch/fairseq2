@@ -304,15 +304,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )
 
         model_logps = self._gather_lprobs(grpo_model_logits, grpo_target_batch)
-        vllm_logps = get_vllm_logprobs(rollouts[0], self._gangs)
-        # Ensure vllm_logps tensor is on same device as model_logps for subsequent ops
-        if (
-            isinstance(vllm_logps, torch.Tensor)
-            and vllm_logps.device != model_logps.device
-        ):
-            vllm_logps = vllm_logps.to(model_logps.device)
-
-        # logps = torch.exp(model_logps - vllm_logps)
+        vllm_logps = get_vllm_logprobs(rollouts[0], self._gangs).to(model_logps.device)
 
         tgt_logit_entropy = compute_token_level_entropy(
             grpo_model_logits, grpo_target_batch.target_mask
