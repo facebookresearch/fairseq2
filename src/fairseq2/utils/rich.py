@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from logging import INFO, Formatter, NullHandler, getLogger
 from typing import Any, final
 
@@ -14,6 +15,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import (
     BarColumn,
+    DownloadColumn,
     Progress,
     ProgressColumn,
     Task,
@@ -21,6 +23,7 @@ from rich.progress import (
     TaskProgressColumn,
     TextColumn,
     TimeRemainingColumn,
+    TransferSpeedColumn,
 )
 from rich.text import Text
 from typing_extensions import Self, override
@@ -67,17 +70,25 @@ def set_error_console(console: Console) -> None:
 
 @final
 class RichProgressReporter(ProgressReporter):
-    def __init__(self, console: Console, world_info: WorldInfo) -> None:
-        columns = [
-            TextColumn("{task.description}:"),
-            BarColumn(),
-            BasicMofNCompleteColumn(),
-            TaskProgressColumn(),
-            TimeRemainingColumn(),
-        ]
+    def __init__(
+        self,
+        console: Console,
+        world_info: WorldInfo,
+        columns: Sequence[ProgressColumn] | None = None,
+    ) -> None:
+        disable = world_info.rank != 0
+
+        if columns is None:
+            columns = [
+                TextColumn("{task.description}:", style="progress.description"),
+                BarColumn(),
+                BasicMofNCompleteColumn(),
+                TaskProgressColumn(),
+                TimeRemainingColumn(),
+            ]
 
         self._progress = Progress(
-            *columns, transient=True, console=console, disable=world_info.rank != 0
+            *columns, transient=True, console=console, disable=disable
         )
 
     @override
@@ -132,6 +143,17 @@ class BasicMofNCompleteColumn(ProgressColumn):
             s = f"{task.completed:5d}/{task.total}"
 
         return Text(s, style="progress.download")
+
+
+def create_rich_download_progress_columns() -> list[ProgressColumn | str]:
+    return [
+        TextColumn("{task.description}:", style="progress.description"),
+        TextColumn("{task.percentage:>4.0f}%", style="progress.percentage"),
+        BarColumn(),
+        DownloadColumn(binary_units=True),
+        TransferSpeedColumn(),
+        TimeRemainingColumn(),
+    ]
 
 
 def configure_rich_logging() -> None:

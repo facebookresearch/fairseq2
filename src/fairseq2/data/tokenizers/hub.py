@@ -17,6 +17,7 @@ from fairseq2.data.tokenizers.tokenizer import Tokenizer
 from fairseq2.error import InternalError
 from fairseq2.runtime.dependency import get_dependency_resolver
 from fairseq2.runtime.lookup import Lookup
+from fairseq2.utils.warn import _warn_progress_deprecated
 
 TokenizerT = TypeVar("TokenizerT", bound=Tokenizer)
 
@@ -61,8 +62,10 @@ class TokenizerHub(Generic[TokenizerT, TokenizerConfigT]):
         card: AssetCard | str,
         *,
         config: TokenizerConfigT | None = None,
-        progress: bool = True,
+        progress: bool | None = None,
     ) -> TokenizerT:
+        _warn_progress_deprecated(progress)
+
         if isinstance(card, str):
             name = card
 
@@ -82,7 +85,7 @@ class TokenizerHub(Generic[TokenizerT, TokenizerConfigT]):
 
             raise AssetCardError(name, msg)
 
-        tokenizer = self._family.load_tokenizer(card, config, progress)
+        tokenizer = self._family.load_tokenizer(card, config, progress=True)
 
         return cast(TokenizerT, tokenizer)
 
@@ -143,7 +146,7 @@ class TokenizerFamilyNotKnownError(Exception):
 
 
 def load_tokenizer(
-    card: AssetCard | str, *, config: object | None = None, progress: bool = True
+    card: AssetCard | str, *, config: object | None = None, progress: bool | None = None
 ) -> Tokenizer:
     resolver = get_dependency_resolver()
 
@@ -161,8 +164,10 @@ class GlobalTokenizerLoader:
         self._families = families
 
     def load(
-        self, card: AssetCard | str, config: object | None, progress: bool
+        self, card: AssetCard | str, config: object | None, progress: bool | None
     ) -> Tokenizer:
+        _warn_progress_deprecated(progress)
+
         if isinstance(card, str):
             name = card
 
@@ -183,4 +188,4 @@ class GlobalTokenizerLoader:
 
             raise AssetCardError(name, msg)
 
-        return family.load_tokenizer(card, config, progress)
+        return family.load_tokenizer(card, config, progress=True)

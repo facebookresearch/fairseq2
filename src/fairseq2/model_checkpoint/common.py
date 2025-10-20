@@ -65,8 +65,8 @@ def reshard_tensor(
     Omitted for replicated tensors. See :func:`~fairseq2.nn.get_sharding_dims`
     for more information.
 
-    ``shard_specs`` is deprecated and will be removed in a future release;
-    please use ``shard_dims`` instead.
+    ``shard_specs`` is deprecated and will be removed in v0.12; please use
+    ``shard_dims`` instead.
 
     Returns the resharded tensor for the target rank and configuration.
 
