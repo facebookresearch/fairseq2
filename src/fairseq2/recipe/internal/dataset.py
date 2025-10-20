@@ -96,7 +96,9 @@ class _RecipeDatasetOpener:
 
         log.info("Dataset loaded.")
 
-        return RecipeDataset(inner_dataset, config, family)
+        return RecipeDataset(
+            inner_dataset, config, family.name, section_name=section_name
+        )
 
     def _open_custom_dataset(
         self, section_name: str, section: DatasetSection
@@ -138,4 +140,6 @@ class _RecipeDatasetOpener:
 
         log.info("Dataset loaded.")
 
-        return RecipeDataset(inner_dataset, config, family)
+        return RecipeDataset(
+            inner_dataset, config, family.name, section_name=section_name
+        )

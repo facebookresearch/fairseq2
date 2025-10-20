@@ -30,7 +30,7 @@ from fairseq2.recipe.internal.asset_config import _AssetConfigOverrider
 from fairseq2.recipe.internal.compile import _compile_model
 from fairseq2.recipe.internal.log import _LogHelper
 from fairseq2.recipe.internal.model import _log_model
-from fairseq2.recipe.model import RecipeModel, _StandardRecipeModel
+from fairseq2.recipe.model import RecipeModel, StandardRecipeModel
 from fairseq2.runtime.lookup import Lookup
 
 
@@ -153,7 +153,9 @@ class _StandardEvalModelBootstrapper(_EvalModelBootstrapper):
 
         module.eval()
 
-        return _StandardRecipeModel(module, config, family)
+        return StandardRecipeModel(
+            module, config, family.name, section_name=section_name
+        )
 
     def _load_custom_model(
         self, section_name: str, section: ReferenceModelSection
@@ -230,7 +232,9 @@ class _StandardEvalModelBootstrapper(_EvalModelBootstrapper):
 
         module.eval()
 
-        return _StandardRecipeModel(module, config, family)
+        return StandardRecipeModel(
+            module, config, family.name, section_name=section_name
+        )
 
 
 class _EvalModelPreparer(ABC):
@@ -257,8 +261,9 @@ class _DelegatingEvalModelPreparer(_EvalModelPreparer):
 
 @final
 class _StandardEvalModelPreparer(_EvalModelPreparer):
-    def __init__(self, gangs: Gangs) -> None:
+    def __init__(self, gangs: Gangs, families: Lookup[ModelFamily]) -> None:
         self._gangs = gangs
+        self._families = families
 
     @override
     def prepare(
@@ -277,6 +282,10 @@ class _StandardEvalModelPreparer(_EvalModelPreparer):
         remove_parametrizations(model.module)
 
         if section.compile:
-            _compile_model(model, section.compile_options)
+            family = self._families.maybe_get(model.family_name)
+            if family is None:
+                raise InternalError(f"`{model.family_name} model family is not found.")
+
+            _compile_model(model, family, section.compile_options)
 
         return model

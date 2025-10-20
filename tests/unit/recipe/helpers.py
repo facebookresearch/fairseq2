@@ -6,8 +6,11 @@
 
 from __future__ import annotations
 
-from fairseq2.recipe.model import RecipeModel, _StandardRecipeModel
-from tests.unit.models.helpers import FooModel, FooModelConfig, FooModelFamily
+from dataclasses import dataclass
+
+from torch.nn import Linear, Module
+
+from fairseq2.recipe import RecipeModel, StandardRecipeModel
 
 
 def create_foo_model() -> RecipeModel:
@@ -15,6 +18,18 @@ def create_foo_model() -> RecipeModel:
 
     config = FooModelConfig()
 
-    family = FooModelFamily()
+    return StandardRecipeModel(module, config, family_name="foo")
 
-    return _StandardRecipeModel(module, config, family)
+
+@dataclass
+class FooModelConfig:
+    num_layers: int = 2
+
+
+class FooModel(Module):
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.proj1 = Linear(10, 10, bias=True)
+        self.proj2 = Linear(10, 10, bias=True)
+        self.proj3 = Linear(10, 10, bias=True)

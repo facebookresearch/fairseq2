@@ -40,7 +40,7 @@ from fairseq2.recipe.internal.asset_config import _AssetConfigOverrider
 from fairseq2.recipe.internal.compile import _compile_model
 from fairseq2.recipe.internal.data_parallel import _DPModelWrapper
 from fairseq2.recipe.internal.log import _LogHelper
-from fairseq2.recipe.model import RecipeModel, _StandardRecipeModel
+from fairseq2.recipe.model import RecipeModel, StandardRecipeModel
 from fairseq2.runtime.lookup import Lookup
 
 
@@ -191,7 +191,7 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
 
         module.train()
 
-        return _StandardRecipeModel(module, config, family)
+        return StandardRecipeModel(module, config, family.name)
 
     def _load_custom_model(self) -> RecipeModel:
         path = self._section.path
@@ -287,7 +287,7 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
 
         module.train()
 
-        return _StandardRecipeModel(module, config, family)
+        return StandardRecipeModel(module, config, family.name)
 
     def _create_new_model(self) -> RecipeModel:
         family_name = self._section.family
@@ -369,8 +369,8 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
 
         module.train()
 
-        return _StandardRecipeModel(
-            module, config, family, newly_initialized=not has_checkpoint
+        return StandardRecipeModel(
+            module, config, family.name, newly_initialized=not has_checkpoint
         )
 
 
@@ -395,7 +395,7 @@ class _StandardTrainModelMetadataSaver(_TrainModelMetadataSaver):
         if self._gangs.root.rank == 0:
             try:
                 self._metadata_dumper.dump(
-                    checkpoint_dir, model.family.name, model.config
+                    checkpoint_dir, model.family_name, model.config
                 )
             except OSError as ex:
                 raise_operational_system_error(ex)
@@ -431,25 +431,31 @@ class _StandardTrainModelPreparer(_TrainModelPreparer):
         section: ModelSection,
         trainer_section: TrainerSection,
         data_parallel_wrapper: _DPModelWrapper,
+        families: Lookup[ModelFamily],
     ) -> None:
         self._section = section
         self._trainer_section = trainer_section
         self._data_parallel_wrapper = data_parallel_wrapper
+        self._families = families
 
     @override
     def prepare(self, model: RecipeModel) -> RecipeModel:
+        family = self._families.maybe_get(model.family_name)
+        if family is None:
+            raise InternalError(f"`{model.family_name} model family is not found.")
+
         ac_config = self._trainer_section.activation_checkpointing
 
         # Apply AC before torch.compile() so that min-cut partitioner can see
         # the AC information and avoid recomputing twice.
         if ac_config.mode == "layerwise":
-            if not model.family.supports_layerwise_ac:
+            if not family.supports_layerwise_ac:
                 raise LayerwiseACNotSupportedError()
 
-            model.family.apply_layerwise_ac(model.module, ac_config.every_nth_layer)
+            family.apply_layerwise_ac(model.module, ac_config.every_nth_layer)
 
         if self._section.compile:
-            _compile_model(model, self._section.compile_options)
+            _compile_model(model, family, self._section.compile_options)
 
         model = self._data_parallel_wrapper.wrap(model)
 
