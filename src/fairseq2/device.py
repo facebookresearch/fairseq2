@@ -89,7 +89,7 @@ def get_current_device() -> Device:
 
         import torch
 
-        from fairseq2.device get_current_device
+        from fairseq2.device import get_current_device
 
         # Default device used by PyTorch. Typically CPU.
         default_device = torch.get_default_device()
