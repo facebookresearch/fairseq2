@@ -65,7 +65,6 @@ setup(
         "safetensors~=0.6",
         "tiktoken~=0.7",
         "torcheval~=0.0.6",
-        "tqdm~=4.62",
         "typing_extensions~=4.12",
         # This dependency is required for tiktoken.load.read_file, but it's
         # listed as optional in tiktoken's pyproject.toml

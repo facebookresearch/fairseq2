@@ -23,3 +23,11 @@ def enable_deprecation_warnings() -> None:
 
 def _warn_deprecated(msg: str) -> None:
     warnings.warn(msg, DeprecationWarning, stacklevel=2)
+
+
+# TODO: Remove in v0.13
+def _warn_progress_deprecated(value: bool | None) -> None:
+    if value is not None:
+        _warn_deprecated(
+            "`progress` parameter in all fairseq2 APIs is deprecated, has no effect, and will be removed in v0.13."
+        )
