@@ -7,10 +7,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from contextlib import nullcontext
 from typing import Literal, Protocol, cast, final, runtime_checkable
 
-from torch import Tensor
 from torch.nn import Module
 from torch.nn.parallel import DistributedDataParallel as DDPModule
 from typing_extensions import override
@@ -21,26 +19,12 @@ from fairseq2.error import InternalError
 from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
 from fairseq2.logging import log
 from fairseq2.models import ModelFamily
-from fairseq2.nn.fsdp import (
-    FSDP1Module,
-    FSDP2Module,
-    FSDPApplier,
-    FSDPWrapper,
-    fsdp1_load_local_state_dict,
-    fsdp1_local_state_dict,
-    fsdp1_summon_full_parameters,
-    fsdp2_load_local_state_dict,
-    fsdp2_local_state_dict,
-    fsdp2_no_sync,
-    fsdp2_summon_full_parameters,
-)
-from fairseq2.nn.utils.grad import clip_grad_norm
-from fairseq2.nn.utils.module import load_state_dict, to_device
+from fairseq2.nn.fsdp import FSDP1Module, FSDP2Module, FSDPApplier, FSDPWrapper
+from fairseq2.nn.utils.module import to_device
 from fairseq2.recipe.config import TrainerSection
 from fairseq2.recipe.error import FSDPNotSupportedError
-from fairseq2.recipe.model import RecipeModel
+from fairseq2.recipe.model import DDPModel, FSDP1Model, FSDP2Model, RecipeModel
 from fairseq2.runtime.lookup import Lookup
-from fairseq2.typing import ContextManager
 
 
 class _DPModelWrapper(ABC):
@@ -116,67 +100,12 @@ class _DDPModelWrapper(_DPModelWrapper):
 
         log.info("Model wrapped with DDP and broadcasted.")
 
-        return _DDPModel(module, model.config, model.family, model.newly_initialized)
-
-
-@final
-class _DDPModel(RecipeModel):
-    def __init__(
-        self,
-        ddp_module: DDPModule,
-        config: object,
-        family: ModelFamily,
-        newly_initialized: bool,
-    ) -> None:
-        self._ddp_module = ddp_module
-        self._config = config
-        self._family = family
-        self._newly_initialized = newly_initialized
-
-    @override
-    def state_dict(self) -> dict[str, object]:
-        return self._ddp_module.module.state_dict()  # type: ignore[no-any-return]
-
-    @override
-    def load_state_dict(self, state_dict: dict[str, object]) -> None:
-        load_state_dict(self._ddp_module.module, state_dict)
-
-    @override
-    def no_sync(self) -> ContextManager[None]:
-        return self._ddp_module.no_sync()
-
-    @override
-    def clip_grad_norm(self, max_norm: float | None) -> Tensor:
-        return clip_grad_norm(self._ddp_module, max_norm)
-
-    @override
-    def summon_full_parameters(self) -> ContextManager[None]:
-        return nullcontext()
-
-    @property
-    @override
-    def module(self) -> Module:
-        return self._ddp_module
-
-    @property
-    @override
-    def base_module(self) -> Module:
-        return self._ddp_module.module  # type: ignore[no-any-return]
-
-    @property
-    @override
-    def config(self) -> object:
-        return self._config
-
-    @property
-    @override
-    def family(self) -> ModelFamily:
-        return self._family
-
-    @property
-    @override
-    def newly_initialized(self) -> bool:
-        return self._newly_initialized
+        return DDPModel(
+            module,
+            model.config,
+            model.family_name,
+            newly_initialized=model.newly_initialized,
+        )
 
 
 @runtime_checkable
@@ -204,15 +133,21 @@ class _FSDPModelWrapper(_DPModelWrapper):
         section: TrainerSection,
         checkpoint_manager: CheckpointManager,
         gangs: Gangs,
+        families: Lookup[ModelFamily],
     ) -> None:
         self._fsdp_factory = fsdp_factory
         self._section = section
         self._checkpoint_manager = checkpoint_manager
         self._gangs = gangs
+        self._families = families
 
     @override
     def wrap(self, model: RecipeModel) -> RecipeModel:
-        if not model.family.supports_fsdp:
+        family = self._families.maybe_get(model.family_name)
+        if family is None:
+            raise InternalError(f"`{model.family_name} model family is not found.")
+
+        if not family.supports_fsdp:
             raise FSDPNotSupportedError()
 
         fsdp_config = self._section.fsdp
@@ -221,7 +156,7 @@ class _FSDPModelWrapper(_DPModelWrapper):
             if fsdp_config.granularity == "model":
                 return wrapper(module, reshard_after_forward=False)
 
-            return model.family.apply_fsdp(module, fsdp_config.granularity, wrapper)
+            return family.apply_fsdp(module, fsdp_config.granularity, wrapper)
 
         if self._section.mixed_precision.mode == "static":
             mp_dtype = self._section.mixed_precision.dtype
@@ -258,8 +193,11 @@ class _FSDPModelWrapper(_DPModelWrapper):
             else:
                 log.info("Model wrapped with FSDP1 and broadcasted.")
 
-            return _FSDP1Model(
-                fsdp1, model.config, model.family, model.newly_initialized
+            return FSDP1Model(
+                fsdp1,
+                model.config,
+                model.family_name,
+                newly_initialized=model.newly_initialized,
             )
         else:
             if has_checkpoint:
@@ -289,126 +227,9 @@ class _FSDPModelWrapper(_DPModelWrapper):
             else:
                 log.info("Model wrapped with FSDP2 and broadcasted.")
 
-            return _FSDP2Model(
-                fsdp2, model.config, model.family, model.newly_initialized
+            return FSDP2Model(
+                fsdp2,
+                model.config,
+                model.family_name,
+                newly_initialized=model.newly_initialized,
             )
-
-
-@final
-class _FSDP1Model(RecipeModel):
-    def __init__(
-        self,
-        fsdp1_module: FSDP1Module,
-        config: object,
-        family: ModelFamily,
-        newly_initialized: bool,
-    ) -> None:
-        self._fsdp1_module = fsdp1_module
-        self._config = config
-        self._family = family
-        self._newly_initialized = newly_initialized
-
-    @override
-    def state_dict(self) -> dict[str, object]:
-        return fsdp1_local_state_dict(self._fsdp1_module)
-
-    @override
-    def load_state_dict(self, state_dict: dict[str, object]) -> None:
-        fsdp1_load_local_state_dict(self._fsdp1_module, state_dict)
-
-    @override
-    def no_sync(self) -> ContextManager[None]:
-        return self._fsdp1_module.no_sync()
-
-    @override
-    def clip_grad_norm(self, max_norm: float | None) -> Tensor:
-        return clip_grad_norm(self._fsdp1_module, max_norm)
-
-    @override
-    def summon_full_parameters(self) -> ContextManager[None]:
-        return fsdp1_summon_full_parameters(self._fsdp1_module)
-
-    @property
-    @override
-    def module(self) -> Module:
-        return self._fsdp1_module
-
-    @property
-    @override
-    def base_module(self) -> Module:
-        return self._fsdp1_module.module
-
-    @property
-    @override
-    def config(self) -> object:
-        return self._config
-
-    @property
-    @override
-    def family(self) -> ModelFamily:
-        return self._family
-
-    @property
-    @override
-    def newly_initialized(self) -> bool:
-        return self._newly_initialized
-
-
-@final
-class _FSDP2Model(RecipeModel):
-    def __init__(
-        self,
-        fsdp2_module: FSDP2Module,
-        config: object,
-        family: ModelFamily,
-        newly_initialized: bool,
-    ) -> None:
-        self._fsdp2_module = fsdp2_module
-        self._config = config
-        self._family = family
-        self._newly_initialized = newly_initialized
-
-    @override
-    def state_dict(self) -> dict[str, object]:
-        return fsdp2_local_state_dict(self._fsdp2_module)
-
-    @override
-    def load_state_dict(self, state_dict: dict[str, object]) -> None:
-        fsdp2_load_local_state_dict(self._fsdp2_module, state_dict)
-
-    @override
-    def no_sync(self) -> ContextManager[None]:
-        return fsdp2_no_sync(self._fsdp2_module)
-
-    @override
-    def clip_grad_norm(self, max_norm: float | None) -> Tensor:
-        return clip_grad_norm(self._fsdp2_module, max_norm)
-
-    @override
-    def summon_full_parameters(self) -> ContextManager[None]:
-        return fsdp2_summon_full_parameters(self._fsdp2_module)
-
-    @property
-    @override
-    def module(self) -> Module:
-        return self._fsdp2_module
-
-    @property
-    @override
-    def base_module(self) -> Module:
-        return self._fsdp2_module
-
-    @property
-    @override
-    def config(self) -> object:
-        return self._config
-
-    @property
-    @override
-    def family(self) -> ModelFamily:
-        return self._family
-
-    @property
-    @override
-    def newly_initialized(self) -> bool:
-        return self._newly_initialized

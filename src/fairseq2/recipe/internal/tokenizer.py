@@ -105,7 +105,9 @@ class _RecipeTokenizerLoader:
 
         _log_tokenizer(inner_tokenizer)
 
-        return RecipeTokenizer(inner_tokenizer, config, family)
+        return RecipeTokenizer(
+            inner_tokenizer, config, family.name, section_name=section_name
+        )
 
     def _load_custom_tokenizer(
         self, section_name: str, section: TokenizerSection
@@ -158,7 +160,9 @@ class _RecipeTokenizerLoader:
 
         _log_tokenizer(inner_tokenizer)
 
-        return RecipeTokenizer(inner_tokenizer, config, family)
+        return RecipeTokenizer(
+            inner_tokenizer, config, family.name, section_name=section_name
+        )
 
 
 def _log_tokenizer(tokenizer: Tokenizer) -> None:

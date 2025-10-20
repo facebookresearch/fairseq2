@@ -21,7 +21,11 @@ from fairseq2.recipe.evaluator import Evaluator as Evaluator
 from fairseq2.recipe.evaluator import EvalUnit as EvalUnit
 from fairseq2.recipe.generator import Generator as Generator
 from fairseq2.recipe.generator import GeneratorUnit as GeneratorUnit
+from fairseq2.recipe.model import DDPModel as DDPModel
+from fairseq2.recipe.model import FSDP1Model as FSDP1Model
+from fairseq2.recipe.model import FSDP2Model as FSDP2Model
 from fairseq2.recipe.model import RecipeModel as RecipeModel
+from fairseq2.recipe.model import StandardRecipeModel as StandardRecipeModel
 from fairseq2.recipe.run import evaluate as evaluate
 from fairseq2.recipe.run import generate as generate
 from fairseq2.recipe.run import train as train

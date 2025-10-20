@@ -14,22 +14,28 @@ from fairseq2.data.tokenizers import (
     TokenDecoder,
     TokenEncoder,
     Tokenizer,
-    TokenizerFamily,
     VocabularyInfo,
 )
 from fairseq2.device import Device
+from fairseq2.recipe.error import TokenizerTypeNotValidError
 
-TokenizerT = TypeVar("TokenizerT")
+TokenizerT = TypeVar("TokenizerT", bound=Tokenizer)
 
 
 @final
 class RecipeTokenizer(Tokenizer):
     def __init__(
-        self, inner_tokenizer: Tokenizer, config: object, family: TokenizerFamily
+        self,
+        inner_tokenizer: Tokenizer,
+        config: object,
+        family_name: str,
+        *,
+        section_name: str = "tokenizer",
     ) -> None:
         self._inner_tokenizer = inner_tokenizer
         self._config = config
-        self._family = family
+        self._family_name = family_name
+        self._section_name = section_name
 
     @override
     def create_encoder(
@@ -61,8 +67,8 @@ class RecipeTokenizer(Tokenizer):
 
     def as_(self, kls: type[TokenizerT]) -> TokenizerT:
         if not isinstance(self._inner_tokenizer, kls):
-            raise TypeError(
-                f"Tokenizer is expected to be of type `{kls}`, but is of type `{type(self._inner_tokenizer)}` instead."
+            raise TokenizerTypeNotValidError(
+                type(self._inner_tokenizer), kls, self._section_name
             )
 
         return self._inner_tokenizer
@@ -72,10 +78,14 @@ class RecipeTokenizer(Tokenizer):
         return self._config
 
     @property
-    def family(self) -> TokenizerFamily:
-        return self._family
+    def family_name(self) -> str:
+        return self._family_name
 
     @property
     @override
     def vocab_info(self) -> VocabularyInfo:
         return self._inner_tokenizer.vocab_info
+
+    @property
+    def section_name(self) -> str:
+        return self._section_name
