@@ -405,12 +405,15 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         ).exp() * advantages[:, :, None]
 
         if self._config.loss_config.use_importance_sampling_correction:
-            ratio = torch.exp(model_logps - vllm_logps)
-            per_token_scaled_advantage = per_token_scaled_advantage * ratio
+            tis_imp_ratio = torch.exp(model_logps - vllm_logps)
+            tis_imp_ratio = torch.clamp(
+                tis_imp_ratio, max=self._config.loss_config.tis_imp_ratio_cap
+            )
+            per_token_scaled_advantage = per_token_scaled_advantage * tis_imp_ratio
 
-        if  ref_logps is not None:
+        if ref_logps is not None:
             ref_logps = ref_logps.view(batch_size, num_rollouts, -1)
-            
+
             # kl penalty
             kl = (ref_logps - model_logps).exp() - (ref_logps - model_logps) - 1.0
             per_token_loss = (
@@ -493,6 +496,9 @@ class GrpoLossConfig:
 
     use_importance_sampling_correction: bool = False
     """If True, apply importance sampling correction using the VLLM model's logprobs"""
+
+    tis_imp_ratio_cap: float = 2.0
+    """Maximum cap for the truncated importance sampling ratio."""
 
 
 @dataclass(kw_only=True)
