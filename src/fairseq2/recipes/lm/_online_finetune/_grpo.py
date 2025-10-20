@@ -329,13 +329,17 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             prompt_rollout_layout,
         ) = grpo_batch.prompt_rollouts.as_input()
 
-        ref_logps = compute_reference_logps(
-            self._gangs,
-            self._reference_model,
-            prompt_rollout_seqs,
-            prompt_rollout_layout,
-            grpo_batch.prompt_lengths,
-        )
+        # if beta > 0, compute reference logprobs
+        if self._config.loss_config.beta > 0:
+            ref_logps = compute_reference_logps(
+                self._gangs,
+                self._reference_model,
+                prompt_rollout_seqs,
+                prompt_rollout_layout,
+                grpo_batch.prompt_lengths,
+            )
+        else:
+            ref_logps = None
 
         _grpo_objective, total_tokens = self._compute_grpo_objective(
             model_logps, vllm_logps, ref_logps, grpo_batch.rewards, grpo_target_batch
@@ -395,10 +399,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         batch_size = advantages.size(0)
         num_rollouts = advantages.size(1)
         model_logps = model_logps.view(batch_size, num_rollouts, -1)
-        ref_logps = ref_logps.view(batch_size, num_rollouts, -1)
-
-        # kl penalty
-        kl = (ref_logps - model_logps).exp() - (ref_logps - model_logps) - 1.0
 
         per_token_scaled_advantage = (
             model_logps - model_logps.detach()
@@ -408,7 +408,11 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             ratio = torch.exp(model_logps - vllm_logps)
             per_token_scaled_advantage = per_token_scaled_advantage * ratio
 
-        if self._config.loss_config.beta > 0:
+        if  ref_logps is not None:
+            ref_logps = ref_logps.view(batch_size, num_rollouts, -1)
+            
+            # kl penalty
+            kl = (ref_logps - model_logps).exp() - (ref_logps - model_logps) - 1.0
             per_token_loss = (
                 per_token_scaled_advantage - self._config.loss_config.beta * kl
             )
