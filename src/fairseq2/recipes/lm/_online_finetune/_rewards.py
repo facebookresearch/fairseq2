@@ -209,25 +209,11 @@ class MathVerifyVerifier(VLLMOutputReward):
         self.prompt_key = prompt_key
         self.reward_name = reward_name
 
-        label_normalizer = NormalizationConfig(
-            basic_latex=True,
-            units=True,
-            malformed_operators=True,
-            nits=True,
-            boxed="none",
-            equations=False,
-        )
-        # self.verify_func = math_metric(
-        #     gold_extraction_target=(
-        #         LatexExtractionConfig(normalization_config=label_normalizer),
-        #     ),
-        #     pred_extraction_target=(LatexExtractionConfig(boxed_match_priority=0),),
-        #     aggregation_function=max,
-        #     precision=6,
-        # )
-
         self.verify_func = math_metric(
-            gold_extraction_target=(LatexExtractionConfig(),),
+            gold_extraction_target=(
+                ExprExtractionConfig(),
+                LatexExtractionConfig(boxed_match_priority=0),
+            ),
             pred_extraction_target=(
                 ExprExtractionConfig(),
                 LatexExtractionConfig(boxed_match_priority=0),

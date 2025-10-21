@@ -19,6 +19,15 @@ use_im_end: true
 
 ---
 
+name: qwen25_3b
+model_family: qwen
+model_arch: qwen25_3b
+checkpoint: "hg://qwen/qwen2.5-3b"
+tokenizer: "hg://qwen/qwen2.5-3b"
+tokenizer_family: qwen
+
+---
+
 name: qwen25_7b
 model_family: qwen
 model_arch: qwen25_7b

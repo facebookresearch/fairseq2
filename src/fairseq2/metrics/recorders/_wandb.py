@@ -36,6 +36,10 @@ from fairseq2.metrics.recorders._recorder import (
     NoopMetricRecorder,
 )
 
+# import os
+
+# os.environ["WANDB_MODE"] = "offline"
+
 
 @final
 class WandbRecorder(MetricRecorder):
@@ -160,6 +164,7 @@ class WandbRecorderHandler(MetricRecorderHandler):
                 group=config.group,
                 job_type=config.job_type,
                 resume=config.resume_mode,
+                settings=wandb.Settings(init_timeout=120),
             )
         except (RuntimeError, ValueError) as ex:
             raise MetricRecordError(
