@@ -309,6 +309,6 @@ Architecture Comparison
 See Also
 --------
 
-* :doc:`/reference/models/hub` - Model hub API reference
+* :doc:`/reference/fairseq2.models.hub` - Model hub API reference
 * :doc:`/guides/add_model` - Tutorial on adding new models
 * :doc:`/basics/assets` - Understanding the asset system
