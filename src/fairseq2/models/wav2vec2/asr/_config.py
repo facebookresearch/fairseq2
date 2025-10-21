@@ -500,3 +500,51 @@ def register_wav2vec2_asr_configs(context: RuntimeContext) -> None:
             pad_idx=1,
         )
         return config
+
+    @wav2vec2_asr_arch("7b_v7_tokenizer")
+    def v7_tokenizer_7b() -> Wav2Vec2AsrConfig:
+        config = bib1143_7b()
+        config.vocab_info = VocabularyInfo(
+            size=9818,
+            unk_idx=3,
+            bos_idx=0,
+            eos_idx=2,
+            pad_idx=1,
+        )
+        return config
+
+    @wav2vec2_asr_arch("300m_v7_tokenizer")
+    def v7_tokenizer_300m() -> Wav2Vec2AsrConfig:
+        config = bib1143_300m()
+        config.vocab_info = VocabularyInfo(
+            size=9818,
+            unk_idx=3,
+            bos_idx=0,
+            eos_idx=2,
+            pad_idx=1,
+        )
+        return config
+
+    @wav2vec2_asr_arch("1b_v7_tokenizer")
+    def v7_tokenizer_1b() -> Wav2Vec2AsrConfig:
+        config = bib1143_1b()
+        config.vocab_info = VocabularyInfo(
+            size=9818,
+            unk_idx=3,
+            bos_idx=0,
+            eos_idx=2,
+            pad_idx=1,
+        )
+        return config
+
+    @wav2vec2_asr_arch("3b_v7_tokenizer")
+    def v7_tokenizer_3b() -> Wav2Vec2AsrConfig:
+        config = bib1143_3b()
+        config.vocab_info = VocabularyInfo(
+            size=9818,
+            unk_idx=3,
+            bos_idx=0,
+            eos_idx=2,
+            pad_idx=1,
+        )
+        return config
