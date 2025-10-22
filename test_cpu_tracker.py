@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""
+""" 
+DEVELOPMENT ONLY FILE
+
 Simple test script to verify CPU stat tracker implementation.
 Run this after installing fairseq2 with: pip install -e .
 """
