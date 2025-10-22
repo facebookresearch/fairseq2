@@ -16,7 +16,7 @@ from fairseq2.metrics.recorders.recorder import MetricRecorder
 @final
 class CompositeMetricRecorder(MetricRecorder):
     """
-    Class for defining a recorder for multiple metrics
+    Represents a collection defining a recorder for multiple metrics
     """
     def __init__(self, recorders: Collection[MetricRecorder]) -> None:
         self._recorders = recorders
