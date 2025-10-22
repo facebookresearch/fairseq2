@@ -78,7 +78,7 @@ def prepare_grpo_batch(
     reward_output: dict,
     gangs: Gang,
     rollout_start_end: tuple[int],
-    adv_normalization: bool = True,
+    adv_std_normalization: bool = True,
 ):
 
     prompt_rollouts = []
@@ -110,12 +110,11 @@ def prepare_grpo_batch(
 
     rewards = torch.tensor(rewards, device=gangs.dp.device).float()  # [Batch, Rollouts]
 
-    if adv_normalization:  # normalize advantages
-        rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (
+    rewards_normalized = rewards - rewards.mean(dim=1, keepdim=True)
+    if adv_std_normalization:  # normalize advantages with std
+        rewards_normalized = rewards_normalized / (
             rewards.std(dim=1, keepdim=True) + 1e-6
         )  # small epsilon to compensate 0 std
-    else:
-        rewards_normalized = rewards - rewards.mean(dim=1, keepdim=True)
 
     rewards_normalized = rewards_normalized[
         :, rollout_start_end[0] : rollout_start_end[1]
@@ -285,7 +284,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             rollout_start_end=self._rollout_bag.get_rollout_start_end(
                 self._config.loss_config.forward_group_size
             ),
-            adv_normalization=self._config.loss_config.adv_normalization,
+            adv_std_normalization=self._config.loss_config.adv_std_normalization,
         )
 
         # grpo_batch, reward_output = self._reward.prepare_grpo_batch(prompt_batch, rollouts)  # loss_zeroer is used when entire batch has no valid prefrence pair
@@ -474,8 +473,8 @@ class GrpoLossConfig:
     length_normalization: bool = True
     """If True, normalize loss by sequence length. If False, use sequence-level loss."""
 
-    adv_normalization: bool = True
-    """If True, normalize advantages to have zero mean and unit variance within each batch."""
+    adv_std_normalization: bool = True
+    """If True, normalize advantages with standard deviation."""
 
     log_rollouts: bool = False
     """Log sample rollouts during training/validation."""
