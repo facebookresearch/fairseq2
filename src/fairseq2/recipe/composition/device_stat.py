@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from fairseq2.recipe.internal.device_stat import _RecipeDeviceStatTrackerProvider
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
+from fairseq2.utils.cpu_stat import CpuDeviceStatTracker
 from fairseq2.utils.device_stat import CudaDeviceStatTracker, DeviceStatTracker
 
 
@@ -21,6 +22,9 @@ def _register_device_stat(container: DependencyContainer) -> None:
     container.register(DeviceStatTracker, get_device_stat_tracker, singleton=True)
 
     container.register_type(_RecipeDeviceStatTrackerProvider)
+
+    # CPU
+    container.register_type(DeviceStatTracker, CpuDeviceStatTracker, key="cpu")
 
     # CUDA
     container.register_type(DeviceStatTracker, CudaDeviceStatTracker, key="cuda")

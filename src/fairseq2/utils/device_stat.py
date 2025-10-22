@@ -15,6 +15,8 @@ from fairseq2.device import CudaContext, Device
 from fairseq2.error import OperationalError
 
 
+
+
 class DeviceStatTracker(ABC):
     @abstractmethod
     def get_stats(self) -> dict[str, object]: ...
