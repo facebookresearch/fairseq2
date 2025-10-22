@@ -78,7 +78,7 @@ def prepare_grpo_batch(
     reward_output: dict,
     gangs: Gang,
     rollout_start_end: tuple[int],
-    adv_std_normalization: bool = True,
+    adv_std_normalization: bool,
 ):
 
     prompt_rollouts = []
