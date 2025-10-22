@@ -17,6 +17,9 @@ class MetricFormatter(Protocol):
 
 @dataclass
 class MetricDescriptor:
+    """
+    Class to store description of a metric
+    """
     name: str
     display_name: str
     priority: int
@@ -32,8 +35,14 @@ NOOP_METRIC_DESCRIPTOR: Final = MetricDescriptor(
 
 @final
 class MetricDescriptorRegistry:
+    """
+    Class for storing descriptors for multiple metrics in a composite metric
+    """
     def __init__(self, descriptors: Iterable[MetricDescriptor]) -> None:
         self._descriptors = {d.name: d for d in descriptors}
 
     def maybe_get(self, name: str) -> MetricDescriptor | None:
+        """
+        Returns a metric descriptor if it exists
+        """
         return self._descriptors.get(name)

@@ -40,6 +40,11 @@ class WandbRecorder(MetricRecorder):
     def record_metric_values(
         self, category: str, values: Mapping[str, object], step_nr: int | None = None
     ) -> None:
+        """
+        Retrieves and stores a `descriptor` and `value` as a ``Mapping`` for each metric
+        :raises OSError: If an operational system error occurs (file not found, permission issue, connection problem)
+        :raises RuntimeError: If 
+        """
         output: dict[str, object] = {}
 
         for name, value in values.items():
@@ -61,6 +66,10 @@ class WandbRecorder(MetricRecorder):
             ) from ex
 
     def _add_value(self, name: str, value: object, output: dict[str, object]) -> None:
+        """
+        Adds a value to the output dictionary
+        :raises ValueError: If `values` are not of type int, float, Tensor or str
+        """
         if isinstance(value, (int, float, Tensor, str)):
             output[name] = value
 
@@ -78,4 +87,7 @@ class WandbRecorder(MetricRecorder):
 
     @override
     def close(self) -> None:
+        """
+        Close wandb logger and end run
+        """
         self._run.finish()
