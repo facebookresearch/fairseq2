@@ -427,6 +427,7 @@ class J1PointwiseExtractor(JudgmentExtractor):
         chat_str = self.tokenizer.apply_chat_template(
             wrapped_text, tokenize=False, add_generation_prompt=True
         )
+        log.info(f"Judge input = {chat_str}")
         return chat_str
 
     @override
