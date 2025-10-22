@@ -43,7 +43,7 @@ class WandbRecorder(MetricRecorder):
         """
         Retrieves and stores a `descriptor` and `value` as a ``Mapping`` for each metric
         :raises OSError: If an operational system error occurs (file not found, permission issue, connection problem)
-        :raises RuntimeError: If 
+        :raises RuntimeError: If unable to write the metrics to wandb
         """
         output: dict[str, object] = {}
 
