@@ -10,6 +10,8 @@ from collections.abc import Callable
 
 import fairseq2n  # Report any fairseq2n initialization error eagerly.
 
+from fairseq2.device import Device
+from fairseq2.utils.warn import enable_deprecation_warnings
 import fairseq2.runtime.dependency
 from fairseq2.error import InvalidOperationError
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver

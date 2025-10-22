@@ -4,18 +4,20 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 from __future__ import annotations
 
+import tests.common
 from argparse import ArgumentTypeError
 from pathlib import Path
 from typing import cast
 
 from pytest import Config, Parser, Session
 
-import tests.common
+
 from fairseq2 import init_fairseq2
 from fairseq2.device import Device
-from fairseq2.utils.warn import enable_deprecation_warnings
+from fairseq2 import enable_deprecation_warnings
 
 
 def pytest_addoption(parser: Parser) -> None:
