@@ -395,7 +395,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             model_logps - model_logps.detach()
         ).exp() * advantages[:, :, None]
 
-        if self._config.loss_config.use_importance_sampling_correction:
+        if self._config.loss_config.tis_imp_ratio_cap > 0:
             tis_imp_ratio = torch.exp(model_logps - vllm_logps)
             tis_imp_ratio = torch.clamp(
                 tis_imp_ratio, max=self._config.loss_config.tis_imp_ratio_cap
@@ -485,11 +485,8 @@ class GrpoLossConfig:
     validation_vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
     """VLLM sampling params for validation. If empty, training params will be used."""
 
-    use_importance_sampling_correction: bool = False
-    """If True, apply importance sampling correction using the VLLM model's logprobs"""
-
     tis_imp_ratio_cap: float = 2.0
-    """Maximum cap for the truncated importance sampling ratio."""
+    """Maximum cap for the truncated importance sampling ratio. If <= 0, no cap is applied."""
 
 
 @dataclass(kw_only=True)
