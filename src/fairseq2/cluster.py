@@ -94,25 +94,24 @@ class ClusterNotDetectedError(Exception):
 
 @final
 class SlurmHandler(ClusterHandler):
-    def __init__(self) -> None:
-        self._job = clusterscope.get_job()
+    def __init__(self, env: Environment) -> None:
+        self._env = env
 
     @override
     def set_torch_distributed_env_variables(self) -> None:
-        self._job.set_torch_distributed_env_from_slurm()
+        if not self._env.has("SLURM_PROCID"):
+            raise ClusterNotDetectedError("slurm")
 
-    def _ensure_job_id(self) -> int:
-        return self._job.get_job_id()
+        try:
+            job = clusterscope.get_job()
+        except RuntimeError as ex:
+            raise OperationalError("SLURM job information cannot be retrieved.") from ex
 
-    def _get_master_addr(self) -> str:
-        return self._job.get_master_addr()
-
-    def _get_master_port(self, job_id: int) -> str:
-        return str(self._job.get_master_port())
+        job.set_torch_distributed_env_from_slurm()
 
     @override
     def supports_current_cluster(self) -> bool:
-        return self._job.is_slurm_job()
+        return self._env.has("SLURM_PROCID")
 
     @property
     @override
