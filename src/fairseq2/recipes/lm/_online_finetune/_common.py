@@ -365,7 +365,7 @@ def combine_prompts_responses_for_scoring(
     return responses
 
 
-def get_vllm_logprobs(vllm_outputs: List[RequestOutput], gangs):
+def get_vllm_logprobs(vllm_outputs: RequestOutput, gangs):
     """Get logprobs for the rollout from vllm
 
     Returns a single padded tensor of shape (num_samples, max_seq_len).
