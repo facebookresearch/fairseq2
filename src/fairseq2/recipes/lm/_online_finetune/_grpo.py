@@ -17,9 +17,7 @@ from typing_extensions import override
 from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
 
 from fairseq2.context import RuntimeContext
-from fairseq2.datasets import (
-    SequenceBatch,
-)
+from fairseq2.datasets import SequenceBatch
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gang, Gangs
@@ -38,6 +36,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     compute_token_level_entropy,
     generate_rollouts,
     get_rollout_lengths,
+    get_vllm_logprobs,
     log_rollouts,
     update_avg_reward,
     update_avg_reward_len_norm,
@@ -47,7 +46,6 @@ from fairseq2.recipes.lm._online_finetune._common import (
     update_grpo_loss,
     update_logit_entropy,
     update_std_reward,
-    get_vllm_logprobs,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_model import (

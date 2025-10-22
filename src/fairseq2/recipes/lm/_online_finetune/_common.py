@@ -17,14 +17,8 @@ import torch.nn as nn
 from torch import Tensor
 from vllm import RequestOutput
 
-from fairseq2.data import (
-    CollateOptionsOverride,
-    Collater,
-    SequenceData,
-)
-from fairseq2.datasets import (
-    SequenceBatch,
-)
+from fairseq2.data import CollateOptionsOverride, Collater, SequenceData
+from fairseq2.datasets import SequenceBatch
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gang, Gangs
