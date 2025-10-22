@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import re
 from dataclasses import dataclass
 from typing import List, cast
 
@@ -17,14 +18,8 @@ import torch.nn as nn
 from torch import Tensor
 from vllm import RequestOutput
 
-from fairseq2.data import (
-    CollateOptionsOverride,
-    Collater,
-    SequenceData,
-)
-from fairseq2.datasets import (
-    SequenceBatch,
-)
+from fairseq2.data import CollateOptionsOverride, Collater, SequenceData
+from fairseq2.datasets import SequenceBatch
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gang, Gangs
@@ -93,9 +88,13 @@ def collate_with_target_mask(
 
     seq_data = cast(SequenceData, collater(to_collate))
 
+    seq_lens = seq_data["seqs"]["seq_lens"]
+    assert isinstance(seq_lens, Tensor) or isinstance(seq_lens, list)
+    if isinstance(seq_lens, Tensor):
+        seq_lens = seq_lens.tolist()
     batch = SequenceBatch(
         seq_data["seqs"]["seqs"],
-        seq_data["seqs"]["seq_lens"],
+        seq_lens,
         target_mask=seq_data["target_loss_mask"]["seqs"],
     )
     batch.to(device)
@@ -395,6 +394,8 @@ def log_rollouts(prompt_batch: PromptBatch, rollouts, split_name, num_rollouts=1
         prompt = prompt_batch.meta_info.get("prompt_raw")[0]
     elif "raw_prompt" in prompt_batch.meta_info:
         prompt = prompt_batch.meta_info.get("raw_prompt")[0]
+    elif "problem" in prompt_batch.meta_info:
+        prompt = prompt_batch.meta_info.get("problem")[0]
     else:
         # raw text prompt doesn't exist for this dataset
         prompt = "DUMMY PROMPT"
@@ -414,6 +415,48 @@ def get_rollout_lengths(rollouts: List[SequenceData]):
             token_ids_len = len(token_ids)
             rollout_lengths.append(token_ids_len)
     return rollout_lengths
+
+
+def strip_think_tokens(rollouts: List[SequenceData]):
+    count_stripped, count_not_stripped, total_count, think_present = 0, 0, 0, 0
+    for sample in rollouts:
+        for rollout in sample.outputs:
+            rollout_text = rollout.text
+            if "<think>" in rollout_text:
+                think_present += 1
+            if rollout.finish_reason == "length":
+                count_not_stripped += 1
+            if rollout.finish_reason == "stop":
+                count_stripped += 1
+            total_count += 1
+            rollout.text = re.sub(
+                r"<think>.*?</think>", "", rollout_text, flags=re.DOTALL
+            ).strip()
+
+    log.info(f"Total count: {total_count}")
+    log.info(f"Think present: {think_present}")
+    log.info(f"Count stripped: {count_stripped/total_count}")
+    log.info(f"Count not stripped: {count_not_stripped/total_count}")
+
+    return rollouts
+
+def get_failed_to_parse_answers(reward_output: dict, batch_size: int):
+    if "answers" in reward_output:
+        log.info(f"Answers: {reward_output['answers']}")
+        failed_to_parse = sum(answer is None for rollouts in reward_output["answers"] for answer in rollouts)
+        return failed_to_parse/batch_size
+    else:
+        return 0.0
+    
+def strip_for_octothinker(rollouts: List[SequenceData]):
+    for sample in rollouts:
+        for rollout in sample.outputs:
+            rollout_text = rollout.text
+            if "\nUser:" in rollout_text:
+                rollout_text = rollout_text[:rollout_text.find("\nUser:")]
+            rollout.text = rollout_text
+
+    return rollouts
 
 
 class StatefulRolloutBag:
@@ -509,6 +552,10 @@ def update_avg_reward(metric_bag: MetricBag, avg_reward):
 @torch.inference_mode()
 def update_std_reward(metric_bag: MetricBag, std_reward):
     metric_bag.get(Mean, "std_reward").update(std_reward, weight=1)
+    
+@torch.inference_mode()
+def update_failed_to_parse_answers(metric_bag: MetricBag, failed_to_parse_answers):
+    metric_bag.get(Mean, "failed_to_parse_answers").update(failed_to_parse_answers, weight=1)
 
 
 @torch.inference_mode()
