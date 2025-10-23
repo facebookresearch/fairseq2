@@ -17,9 +17,7 @@ from typing_extensions import override
 from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
 
 from fairseq2.context import RuntimeContext
-from fairseq2.datasets import (
-    SequenceBatch,
-)
+from fairseq2.datasets import SequenceBatch
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gang, Gangs
@@ -38,6 +36,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     compute_token_level_entropy,
     generate_rollouts,
     get_rollout_lengths,
+    get_vllm_logprobs,
     log_rollouts,
     update_avg_reward,
     update_avg_reward_len_norm,
@@ -47,7 +46,6 @@ from fairseq2.recipes.lm._online_finetune._common import (
     update_grpo_loss,
     update_logit_entropy,
     update_std_reward,
-    get_vllm_logprobs,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_model import (
@@ -303,7 +301,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )
 
         model_logps = self._gather_lprobs(grpo_model_logits, grpo_target_batch)
-        vllm_logps = get_vllm_logprobs(rollouts, self._gangs).to(model_logps.device)
+        vllm_logps = get_vllm_logprobs(rollouts[0], self._gangs).to(model_logps.device)
 
         tgt_logit_entropy = compute_token_level_entropy(
             grpo_model_logits, grpo_target_batch.target_mask
@@ -390,7 +388,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         batch_size = advantages.size(0)
         num_rollouts = advantages.size(1)
         model_logps = model_logps.view(batch_size, num_rollouts, -1)
-        vllm_logps = vllm_logps.view(batch_size, num_rollouts, -1)
 
         per_token_scaled_advantage = (
             model_logps - model_logps.detach()
