@@ -122,6 +122,7 @@ class DefaultDeviceDetector:
         self._cuda_context = cuda_context
 
     def detect(self) -> Device:
+        """Refer to :func:`get_default_device`"""
         device = self._maybe_get_device_from_env("FAIRSEQ2_DEVICE")
 
         if device is None:
