@@ -52,11 +52,6 @@ class JsonlMetricRecorder(MetricRecorder):
     def record_metric_values(
         self, category: str, values: Mapping[str, object], step_nr: int | None = None
     ) -> None:
-        """
-        Gets, sorts, and maps metrics, their values, and descriptions to a ``dict``
-        as a stream. Dumps output to a json file.
-        :raises OSError: If unable to write to file
-        """
         stream = self._get_stream(category)
 
         values_and_descriptors = []
@@ -74,10 +69,6 @@ class JsonlMetricRecorder(MetricRecorder):
         values_and_descriptors.sort(key=lambda p: (p[1].priority, p[1].display_name))
 
         def sanitize(value: object) -> object:
-            """
-            Sanitizes `value` by enforcing object type
-            :raise ValueError: If `value` is not of type ``int``, ``float``, ``Tensor``, ``str``
-            """
             if isinstance(value, Tensor):
                 if value.numel() != 1:
                     return value.tolist()
@@ -112,11 +103,6 @@ class JsonlMetricRecorder(MetricRecorder):
             raise_operational_system_error(ex)
 
     def _get_stream(self, category: str) -> TextIO:
-        """
-        Opens a stream for a given category
-        :raise ValueError: If regex catches nonalphnumeric chars or dash, underscore, forward slash
-        :raise OSError: If an operating system error occurs when making directory or creating a file
-        """
         category = category.strip()
 
         fp = self._streams.get(category)
@@ -147,9 +133,6 @@ class JsonlMetricRecorder(MetricRecorder):
 
     @override
     def close(self) -> None:
-        """
-        Closes the stream and clears object
-        """
         for stream in self._streams.values():
             stream.close()
 
