@@ -9,9 +9,9 @@ from __future__ import annotations
 from fairseq2.recipe.internal.device_stat import _RecipeDeviceStatTrackerProvider
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 from fairseq2.utils.device_stat import (
+    NOOP_DEVICE_STAT_TRACKER,
     CudaDeviceStatTracker,
     DeviceStatTracker,
-    _NoopDeviceStatTracker,
 )
 
 
@@ -31,4 +31,4 @@ def _register_device_stat(container: DependencyContainer) -> None:
 
     # CPU
     # No-op implementation is enough for now, since CPU-only is not a primary use case
-    container.register_type(DeviceStatTracker, _NoopDeviceStatTracker, key="cpu")
+    container.register_instance(DeviceStatTracker, NOOP_DEVICE_STAT_TRACKER, key="cpu")
