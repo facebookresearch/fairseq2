@@ -15,9 +15,6 @@ from fairseq2.metrics.recorders.recorder import MetricRecorder
 
 @final
 class CompositeMetricRecorder(MetricRecorder):
-    """
-    Represents a collection defining a recorder for multiple metrics
-    """
     def __init__(self, recorders: Collection[MetricRecorder]) -> None:
         self._recorders = recorders
 
@@ -25,17 +22,10 @@ class CompositeMetricRecorder(MetricRecorder):
     def record_metric_values(
         self, category: str, values: Mapping[str, object], step_nr: int | None = None
     ) -> None:
-        """
-        Iterates through recorders for all metrics and records the values
-        For each metric type, the category, values, and step number are recorded
-        """
         for recorder in self._recorders:
             recorder.record_metric_values(category, values, step_nr)
 
     @override
     def close(self) -> None:
-        """
-        Closes and removes the :class:MetricRecorder
-        """
         for recorder in self._recorders:
             recorder.close()
