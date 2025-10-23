@@ -21,6 +21,7 @@ class MetricDescriptor:
     Represents a description of a metric including high level name,
     name to display, and formatting
     """
+
     name: str
     display_name: str
     priority: int
@@ -39,6 +40,7 @@ class MetricDescriptorRegistry:
     """
     Represents a way to store descriptors for multiple metrics in a composite metric
     """
+
     def __init__(self, descriptors: Iterable[MetricDescriptor]) -> None:
         self._descriptors = {d.name: d for d in descriptors}
 
