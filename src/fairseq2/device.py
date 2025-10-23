@@ -140,13 +140,7 @@ class DefaultDeviceDetector:
         return device
 
     def _maybe_get_device_from_env(self, var_name: str) -> Device | None:
-        """
-        Attempt to get device from an environment variable (e.g. ``FAIRSEQ2_DEVICE``)
-
-        1) Returns a device if one has been set
-        2) :raises EnvironmentVariableError: if the environment
-           variable is incorrectly formatted or cannot be found
-        """
+        """Refer to :func:get_default_device."""
         s = self._env.maybe_get(var_name)
         if s is None:
             return None
