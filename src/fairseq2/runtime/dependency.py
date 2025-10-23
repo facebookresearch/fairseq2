@@ -14,7 +14,6 @@ import types
 from typing import (
     Any,
     Final,
-    Optional,
     Protocol,
     TypeVar,
     Union,
@@ -371,11 +370,7 @@ def _strip_optional(type_hint: object) -> tuple[bool, object]:
     """If the type is Optional[T] or T | None, return (True, T).
     Otherwise return (False, type_hint)."""
     origin = get_origin(type_hint)
-    if (
-        origin is Union
-        or origin is Optional
-        or (hasattr(types, 'UnionType') and origin is types.UnionType)
-    ):
+    if origin is Union or origin is types.UnionType:
         args = tuple(a for a in get_args(type_hint) if a is not type(None))
         if len(args) == 1:
             return True, args[0]
@@ -502,8 +497,8 @@ def _create_auto_wired_instance(
                     arg = resolver
                 elif param.default != Parameter.empty:
                     arg = resolver.resolve_optional(param_type)
-                    if arg is None:
-                        arg = _NOT_SET if not is_optional else None
+                    if arg is None and not is_optional:
+                        arg = _NOT_SET
                 else:
                     arg = resolver.resolve(param_type)
 

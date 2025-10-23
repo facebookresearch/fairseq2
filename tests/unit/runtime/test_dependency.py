@@ -49,6 +49,7 @@ class TestStripOptional:
         ("method_with_int", False, int),
         ("method_with_custom_class", False, CustomSimpleClass),
         ("method_with_optional_custom_class", True, CustomSimpleClass),
+        ("method_with_union_custom_class_none", True, CustomSimpleClass),
     ])
     def test_plain_and_optional_types(self, method_name, expected_optional, expected_type):
         """Test with plain non-optional types and Optional types."""
@@ -61,18 +62,6 @@ class TestStripOptional:
         assert is_optional is expected_optional
         assert stripped_type is expected_type
     
-    @pytest.mark.skipif(sys.version_info < (3, 10), reason="requires python3.10 or higher for | union syntax")
-    def test_union_custom_class_none_type(self):
-        """Test with CustomSimpleClass | None type (Python 3.10+ syntax)."""
-        type_hints = get_type_hints(TestClass.method_with_union_custom_class_none)
-        param_type = type_hints['param']
-        
-        is_optional, stripped_type = _strip_optional(param_type)
-        
-        assert is_optional is True
-        assert stripped_type is CustomSimpleClass
-    
-    @pytest.mark.skipif(sys.version_info < (3, 10), reason="requires python3.10 or higher for | union syntax")
     @pytest.mark.parametrize("method_name", [
         "method_with_union_three_types",
         "method_with_union_two_types_no_none",
