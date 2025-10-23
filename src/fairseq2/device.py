@@ -122,7 +122,7 @@ class DefaultDeviceDetector:
         self._cuda_context = cuda_context
 
     def detect(self) -> Device:
-        """Refer to :func:get_default_device."""
+        """Refer to :func:`get_default_device`"""
         device = self._maybe_get_device_from_env("FAIRSEQ2_DEVICE")
 
         if device is None:
@@ -134,7 +134,6 @@ class DefaultDeviceDetector:
         return device
 
     def _maybe_get_device_from_env(self, var_name: str) -> Device | None:
-        """Refer to :func:get_default_device."""
         s = self._env.maybe_get(var_name)
         if s is None:
             return None
@@ -149,7 +148,6 @@ class DefaultDeviceDetector:
             raise EnvironmentVariableError(var_name, msg) from ex
 
     def _get_default_cuda_device(self) -> Device | None:
-        """Refer to :func:get_default_device."""
         if not self._cuda_context.is_available():
             return None
 
@@ -178,7 +176,6 @@ class DefaultDeviceDetector:
         return device
 
     def _get_device_index(self, num_devices: int, device_type: str) -> int:
-        """Refer to :func:get_default_device."""
         if num_devices <= 0:
             raise InternalError(f"`num_devices` is {num_devices}.")
 
