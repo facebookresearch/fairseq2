@@ -71,7 +71,7 @@ other content generation tasks.
     reference/fairseq2.recipe.optim
     reference/fairseq2.utils.validation
     reference/fairseq2.nn.rst
-    reference/fairseq2.nn.BatchLayout
+    reference/fairseq2.nn.batch_layout
     reference/fairseq2.nn.embedding
     reference/fairseq2.nn.incremental_state
     reference/fairseq2.nn.normalization
