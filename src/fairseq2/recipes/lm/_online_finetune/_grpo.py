@@ -401,7 +401,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             )
             per_token_scaled_advantage = per_token_scaled_advantage * tis_imp_ratio
 
-        if ref_logps is not None:
+        if self._config.loss_config.beta > 0:
             ref_logps = ref_logps.view(batch_size, num_rollouts, -1)
 
             # kl penalty
