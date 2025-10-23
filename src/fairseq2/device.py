@@ -122,13 +122,7 @@ class DefaultDeviceDetector:
         self._cuda_context = cuda_context
 
     def detect(self) -> Device:
-        """
-        Attemps to detect a default device. If ``FAIRSEQ2_DEVICE`` is set, use
-        indicated device
-
-        1) If env variable not set, attempt to get default CUDA device
-        2) If no CUDA device is found, set device to CPU
-        """
+        """Refer to :func:get_default_device."""
         device = self._maybe_get_device_from_env("FAIRSEQ2_DEVICE")
 
         if device is None:
@@ -155,17 +149,7 @@ class DefaultDeviceDetector:
             raise EnvironmentVariableError(var_name, msg) from ex
 
     def _get_default_cuda_device(self) -> Device | None:
-        """
-        Retrieve the system's default CUDA device
-        By default, this is device at index 0 (first listed cuda device)
-
-        1) If there is no cuda context, return None (no device available)
-        2) If number of devices is 0, return None (no device available)
-        3) If at least one device available, get number of visible devices
-           :raises a ValueError: if devices stored as a list
-        4) By default, grab device at index 0 and set device to CUDA
-        5) If multiple devices, get first device with CUDA index
-        """
+        """Refer to :func:get_default_device."""
         if not self._cuda_context.is_available():
             return None
 
@@ -194,15 +178,7 @@ class DefaultDeviceDetector:
         return device
 
     def _get_device_index(self, num_devices: int, device_type: str) -> int:
-        """
-        Get index of a device
-
-        1) If no devices, :raises an InternalError:
-        2) Else, get number of devices available as local_rank
-        3) If local_rank is greater than num declared devices,
-           :raises a LocalRankOutOfRangeError: (rank is outside
-           of num_devices index bounds)
-        """
+        """Refer to :func:get_default_device."""
         if num_devices <= 0:
             raise InternalError(f"`num_devices` is {num_devices}.")
 
