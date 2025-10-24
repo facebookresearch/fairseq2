@@ -359,37 +359,32 @@ def combine_prompts_responses_for_scoring(
     return responses
 
 
-def get_vllm_logprobs(vllm_outputs: RequestOutput, gangs):
-    """Get logprobs for the rollout from vllm
+def get_vllm_logprobs(vllm_outputs: List[RequestOutput], gangs):
+    """Compute per-token logprobs for all continuations across a list of requests.
 
-    Returns a single padded tensor of shape (num_samples, max_seq_len).
+    For each RequestOutput (one prompt) and each of its sampled continuations we concatenate the prompt logprobs (skipping the first entry) with the generation logprobs. All resulting sequences are then right-padded with 0.0 to the global maximum length and stacked into a single tensor.
 
-    For each output we extract per-token logprobs from `req_output.prompt_logprobs`
-    (prompt tokens) and `req_output.logprobs` (generated continuation). Prompt
-    logprobs are prepended to continuation logprobs. Sequences are right-padded
-    with 0.0 so they can be stacked into one tensor.
+    Returns
+    -------
+    Tensor
+        Shape ``(total_num_continuations, max_seq_len)`` with 0.0 padding.
     """
-    prompt_logprobs = [
-        list(d.values())[0].logprob for d in vllm_outputs.prompt_logprobs[1:]
-    ]
+    sequences: List[Tensor] = []
+    for request in vllm_outputs:
+        prompt_logprobs = [
+            list(d.values())[0].logprob for d in request.prompt_logprobs[1:]
+        ]
+        for output in request.outputs:
+            gen_logprobs = [list(d.values())[0].logprob for d in output.logprobs]
+            seq = torch.tensor(prompt_logprobs + gen_logprobs)
+            sequences.append(seq)
 
-    # Append one sequence per generated output.
-    seq_logprobs: List[Tensor] = []
-    for req_output in vllm_outputs.outputs:
-        gen_logprobs = [list(d.values())[0].logprob for d in req_output.logprobs]
-        # concatenate (prompt + generation)
-        all_logprobs_list = prompt_logprobs + gen_logprobs
-        all_logprobs = torch.tensor(all_logprobs_list)
-        seq_logprobs.append(all_logprobs)
-
-    # Pad to uniform length with zeros.
-    max_len = max(t.size(0) for t in seq_logprobs)
-    padded = torch.zeros(len(seq_logprobs), max_len)
-    for i, t in enumerate(seq_logprobs):
+    max_len = max(t.size(0) for t in sequences)
+    padded = torch.zeros(len(sequences), max_len)
+    for i, t in enumerate(sequences):
         padded[i, : t.size(0)] = t
 
     return padded
-
 
 def convert_vllm_output_to_ref_score(vllm_outputs: List[RequestOutput], gangs):
     ref_scores = []

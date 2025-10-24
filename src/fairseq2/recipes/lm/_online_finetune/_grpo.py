@@ -301,7 +301,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )
 
         model_logps = self._gather_lprobs(grpo_model_logits, grpo_target_batch)
-        vllm_logps = get_vllm_logprobs(rollouts[0], self._gangs).to(model_logps.device)
+        vllm_logps = get_vllm_logprobs(rollouts, self._gangs).to(model_logps.device)
 
         tgt_logit_entropy = compute_token_level_entropy(
             grpo_model_logits, grpo_target_batch.target_mask
@@ -401,7 +401,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             )
             per_token_scaled_advantage = per_token_scaled_advantage * tis_imp_ratio
 
-        if ref_logps is not None:
+        if self._config.loss_config.beta > 0:
             ref_logps = ref_logps.view(batch_size, num_rollouts, -1)
 
             # kl penalty
