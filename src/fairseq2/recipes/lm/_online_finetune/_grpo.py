@@ -388,6 +388,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         batch_size = advantages.size(0)
         num_rollouts = advantages.size(1)
         model_logps = model_logps.view(batch_size, num_rollouts, -1)
+        vllm_logps = vllm_logps.view(batch_size, num_rollouts, -1)
 
         per_token_scaled_advantage = (
             model_logps - model_logps.detach()
