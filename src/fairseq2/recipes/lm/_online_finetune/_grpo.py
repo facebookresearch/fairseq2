@@ -301,7 +301,19 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )
 
         model_logps = self._gather_lprobs(grpo_model_logits, grpo_target_batch)
-        vllm_logps = get_vllm_logprobs(rollouts, self._gangs).to(model_logps.device)
+        rollout_window = self._rollout_bag.get_rollout_start_end(
+            self._config.loss_config.forward_group_size
+        )
+        vllm_logps = get_vllm_logprobs(
+            rollouts, self._gangs, rollout_start_end=rollout_window
+        ).to(model_logps.device)
+
+        if vllm_logps.size(0) != model_logps.size(0):
+            raise RuntimeError(
+                "Mismatch between vLLM and model logprobs row counts after slicing: "
+                f"model={model_logps.size(0)}, vllm={vllm_logps.size(0)}. "
+                "Ensure rollout slicing aligns with forward_group_size and group_size."
+            )
 
         tgt_logit_entropy = compute_token_level_entropy(
             grpo_model_logits, grpo_target_batch.target_mask

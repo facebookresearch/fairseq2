@@ -359,22 +359,43 @@ def combine_prompts_responses_for_scoring(
     return responses
 
 
-def get_vllm_logprobs(vllm_outputs: List[RequestOutput], gangs):
-    """Compute per-token logprobs for all continuations across a list of requests.
+def get_vllm_logprobs(
+    vllm_outputs: List[RequestOutput],
+    gangs,
+    rollout_start_end: tuple[int, int] | None = None,
+):
+    """Compute per-token logprobs for selected continuations across a list of requests.
 
-    For each RequestOutput (one prompt) and each of its sampled continuations we concatenate the prompt logprobs (skipping the first entry) with the generation logprobs. All resulting sequences are then right-padded with 0.0 to the global maximum length and stacked into a single tensor.
+    For each RequestOutput (one prompt) and each of its sampled continuations we
+    concatenate the prompt logprobs (skipping the first entry) with the generation
+    logprobs. All resulting sequences are then right-padded with 0.0 to the global
+    maximum length and stacked into a single tensor.
+
+    Parameters
+    ----------
+    vllm_outputs:
+        List of vLLM RequestOutput objects (one per prompt).
+    gangs:
+        Fairseq2 gangs object (unused, kept for parity/extensibility).
+    rollout_start_end:
+        Optional (start, end) slice specifying which continuation indices to include
+        per prompt (used for micro-batching when forward_group_size < group_size).
 
     Returns
     -------
     Tensor
-        Shape ``(total_num_continuations, max_seq_len)`` with 0.0 padding.
+        Shape ``(num_selected_continuations, max_seq_len)`` with 0.0 padding.
     """
     sequences: List[Tensor] = []
     for request in vllm_outputs:
         prompt_logprobs = [
             list(d.values())[0].logprob for d in request.prompt_logprobs[1:]
         ]
-        for output in request.outputs:
+        outputs = request.outputs
+        if rollout_start_end is not None:  # micro-batching
+            s, e = rollout_start_end
+            outputs = outputs[s:e]
+        for output in outputs:
             gen_logprobs = [list(d.values())[0].logprob for d in output.logprobs]
             seq = torch.tensor(prompt_logprobs + gen_logprobs)
             sequences.append(seq)
@@ -385,6 +406,7 @@ def get_vllm_logprobs(vllm_outputs: List[RequestOutput], gangs):
         padded[i, : t.size(0)] = t
 
     return padded
+
 
 def convert_vllm_output_to_ref_score(vllm_outputs: List[RequestOutput], gangs):
     ref_scores = []
