@@ -504,6 +504,6 @@ Troubleshooting
 See Also
 --------
 
-- :doc:`Models </reference/models/index>` - Model-specific asset management
-- :doc:`Datasets </reference/datasets/index>` - Dataset-specific asset management
-- :doc:`Data Tokenizers </reference/data/tokenizers/index>` - Tokenizer asset management
+- :doc:`Models </reference/fairseq2.models>` - Model-specific asset management
+- :doc:`Datasets </reference/fairseq2.datasets>` - Dataset-specific asset management
+- :doc:`Data Tokenizers </reference/fairseq2.data.tokenizers>` - Tokenizer asset management

@@ -43,7 +43,7 @@ from fairseq2.nn.fsdp import FSDPWrapper, load_with_sdp_gang
 from fairseq2.nn.utils.module import reset_non_persistent_buffers, to_empty
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.sharder import ModelSharder, ShardSpec, ShardSpecError
-from fairseq2.utils.progress import NOOP_PROGRESS_REPORTER, ProgressReporter
+from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.warn import _warn_deprecated
 
 
@@ -337,7 +337,7 @@ class StandardModelFamily(ModelFamily):
 
             raise AssetCardError(name, msg)
 
-        path = self._asset_download_manager.download_model(uri, name, progress=progress)
+        path = self._asset_download_manager.download_model(uri, name)
 
         # Handle legacy paths with format specifiers.
         if "shard_idx" in path.name:
@@ -363,9 +363,7 @@ class StandardModelFamily(ModelFamily):
             restrict = self._restrict
 
         try:
-            return self._do_load_model(
-                path, config, gangs, dtype, mmap, restrict, progress
-            )
+            return self._do_load_model(path, config, gangs, dtype, mmap, restrict)
         except ValueError as ex:
             if has_custom_config:
                 raise
@@ -403,7 +401,7 @@ class StandardModelFamily(ModelFamily):
                 f"`config` must be of type `{self._configs.kls}`, but is of type `{type(config)}` instead."
             )
 
-        return self._do_load_model(path, config, gangs, dtype, mmap, restrict, progress)
+        return self._do_load_model(path, config, gangs, dtype, mmap, restrict)
 
     def _do_load_model(
         self,
@@ -413,7 +411,6 @@ class StandardModelFamily(ModelFamily):
         dtype: DataType,
         mmap: bool,
         restrict: bool | None,
-        progress: bool,
     ) -> Module:
         raise_if_not_exists(self._file_system, path)
 
@@ -433,10 +430,8 @@ class StandardModelFamily(ModelFamily):
             path, config, shard_dims, gangs, mmap, restrict
         )
 
-        pr = self._progress_reporter if progress else NOOP_PROGRESS_REPORTER
-
         try:
-            set_model_state(model, checkpoint, pr)
+            set_model_state(model, checkpoint, self._progress_reporter)
         except ModelCheckpointMismatchError as ex:
             msg = f"Checkpoint at {path} is not compatible with the {self._name} model."
 

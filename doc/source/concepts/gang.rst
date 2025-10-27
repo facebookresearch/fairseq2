@@ -343,7 +343,7 @@ fairseq2 is designed to allow researchers to begin their work on a single device
 with simple experimentation code, which can later be gradually scaled up to
 thousands of GPUs with minimal code changes. Consequently, several major APIs
 such as :doc:`model loading </guides/add_model>`, :doc:`checkpointing </reference/fairseq2.model_checkpoint>`,
-and :doc:`dataset reading </reference/datasets/index>` natively support scaling
+and :doc:`dataset reading </reference/fairseq2.datasets>` natively support scaling
 and parallelism through the gang abstraction. Refer to the relevant guides to
 learn more about how gangs are utilized there.
 

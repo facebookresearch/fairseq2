@@ -89,7 +89,7 @@ def get_current_device() -> Device:
 
         import torch
 
-        from fairseq2.device get_current_device
+        from fairseq2.device import get_current_device
 
         # Default device used by PyTorch. Typically CPU.
         default_device = torch.get_default_device()
@@ -122,6 +122,7 @@ class DefaultDeviceDetector:
         self._cuda_context = cuda_context
 
     def detect(self) -> Device:
+        """Refer to :func:`get_default_device`"""
         device = self._maybe_get_device_from_env("FAIRSEQ2_DEVICE")
 
         if device is None:

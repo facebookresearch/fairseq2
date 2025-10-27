@@ -127,7 +127,4 @@ Or, it can be done programmatically:
         print(f"Found tokenizer: {card.name}")
 
 
-.. toctree::
-    :maxdepth: 1
-
-    hub
+* :doc: `references/fairseq2.data.tokenizers.hub`

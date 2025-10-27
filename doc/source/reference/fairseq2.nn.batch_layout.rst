@@ -1,14 +1,9 @@
 .. _batch_layout:
 
-Batch Layout
-============
+fairseq2.nn.batch_layout
+========================
 
 .. currentmodule:: fairseq2.nn
-
-.. autoclass:: BatchLayout
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
 ``BatchLayout`` is the cornerstone of fairseq2 v0.5's unified batching system. It
 consolidates both padded and packed batching strategies under a single, consistent
@@ -21,6 +16,11 @@ API, making it easier to work with variable-length sequences efficiently.
 - **Torch.compile Compatible**: Full integration with PyTorch's compilation system
 - **Dynamic Sequences**: Support for dynamic sequence lengths during training
 
+.. autoclass:: BatchLayout
+   :members:
+   :undoc-members:
+   :show-inheritance:
+  
 Creating BatchLayout
 --------------------
 
