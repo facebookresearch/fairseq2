@@ -64,7 +64,7 @@ class WerCalculator:
 
     @classmethod
     def from_context(cls, context: RecipeContext) -> "WerCalculator":
-        """Creates a WerCalculator by gluing output paths together for saving transcriptions. Only TP=0 and every DP rank run this."""
+        """Creates a WerCalculator by gluing output paths together for saving transcriptions. Only TP=0 and every DP rank runs this."""
 
         if context.gangs.tp.rank == 0:
             file_system = context.file_system

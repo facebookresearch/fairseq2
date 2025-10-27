@@ -24,15 +24,6 @@ def convert_wav2vec2_asr_state_dict(
     except KeyError:
         pass
 
-    # TODO: cirquit - remove after this was merged into v0.5.0a2
-    if "module.encoder_frontend.feature_extractor.layers.0.conv.weight" in state_dict:
-        items = list(state_dict.items())
-        state_dict.clear()
-
-        for old_key, value in items:
-            new_key = old_key[7:]  # drop 'module.'
-            state_dict[new_key] = value
-
     if "w2v_encoder.proj.weight" in state_dict:  # fairseq
         if config.encoder_config.norm_order == TransformerNormOrder.POST:
             # fmt: off

@@ -9,14 +9,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
-from typing import Final, final
+from typing import Any, Final, final
 
 import torch
 
-from fairseq2.data.data_pipeline import (
-    Collater,
-    DataPipelineBuilder,
-)
+from fairseq2.data.data_pipeline import Collater, DataPipelineBuilder
 from fairseq2.data.text import StrSplitter, read_text
 from fairseq2.data_type import DataType
 from fairseq2.datasets import (
@@ -31,8 +28,12 @@ from fairseq2.gang import Gangs
 from fairseq2.logging import log
 from fairseq2.recipe.config import DatasetSection
 
-from .batch_utils import BatchingPipeline, BatchingStrategy, create_sequence_batch
-from .preprocessing import AudioProcessingPipeline
+from .batch_utils import add_batch_shuffling, add_length_batching
+from .preprocessing import (
+    add_audio_cropping,
+    add_audio_decoding,
+    add_audio_file_loading,
+)
 
 WAV2VEC2_SSL_DATASET: Final = "wav2vec2_ssl"
 
@@ -64,58 +65,24 @@ class Wav2Vec2SslDatasetSection(DatasetSection):
     """Numerical precision for audio decoding. Overridden to `torch.float32` when ``config.normalize_audio = True``."""
 
     # Batching configuration
-    batching_strategy: BatchingStrategy = BatchingStrategy.LENGTH
-    """Batching strategy is defined through an enum:
-    - BatchingStrategy.LENGTH ("LENGTH") = Specifies batching where each batch has a maximum number of elements.
-    - BatchingStrategy.STATIC ("STATIC") = Specifies batching where each batch has the same number of examples.
-    """
-
-    batch_size: int | None = None
-    """If `batching_strategy = BatchingStrategy.STATIC`, ignores `max_num_tokens` and each batch will have `batch_size` examples.
-    """
-
     num_seqs_multiple_of: int = 8
-    """If `batching_strategy = BatchingStrategy.LENGTH, ignores `batch_size` and each batch will have
-    `<= max_num_elements` elements with `<= num_seqs_multipe_of` or `num_seqs_multiple_of * N` sequences.
+    """Each batch will have `<= max_num_elements` elements with `<= num_seqs_multipe_of` or `num_seqs_multiple_of * N` sequences.
     This is primarily for hardware optimization, but will only work when sufficient enough sequences are available for bucketing.
     """
 
     max_num_elements: int = 1_500_000
-    """If `batching_strategy = BatchingStrategy.LENGTH, ignores `batch_size` and each batch will have
-    `<= max_num_elements` elements with `<= num_seqs_multipe_of` or `num_seqs_multiple_of * N` sequences.
+    """Each batch will have `<= max_num_elements` elements with `<= num_seqs_multipe_of` or `num_seqs_multiple_of * N` sequences.
     This is primarily for hardware optimization, but will only work when sufficient enough sequences are available for bucketing.
     """
+
+    drop_remainder: bool = False
+    """If ``True``, drops the last set of batches if they have in total fewer examples than requested."""
 
     normalize_audio: bool = False
     """If ``True``, normalizes audio to have zero mean and unit variance and uses torch.float32 during audio decoding (overriding ``config.dtype``)."""
 
-    use_fbank: bool = False
-    """If ``True``, use fbank features instead of waveform."""
-
-    no_padding: bool = True
-    """If ``True``, all elements in the batch will be truncated to by batch minimal length.
-    Therefore, no padding will be applied to the batch.
-    """
-
     npc: int = 10
     """The number of parallel calls to use in the pipeline."""
-
-    # Upsampling
-    beta_corpus: float | None = None
-    """Corpus sampling temperature; between [0,1]."""
-
-    beta_language: float | None = None
-    """Language sampling temperature; between [0,1]."""
-
-    # SpecAugment
-    spec_aug_p: float | None = None
-    """Probability of applying SpecAugment per row."""
-
-    spec_aug_freq_mask_param: int = 80
-    """Maximum frequency mask length."""
-
-    spec_aug_time_mask_param: int = 80
-    """Maximum time mask length."""
 
     # Shuffling
     example_shuffle_window: int = 500_000
@@ -124,25 +91,12 @@ class Wav2Vec2SslDatasetSection(DatasetSection):
     batch_shuffle_window: int = 0
     """The size of the sliding window for shuffling batches. Zero shuffles all batches."""
 
-    # Batching behavior
-    drop_remainder: bool = False
-    """If ``True``, drops the last set of batches if they have in total fewer examples than requested."""
-
-    sync_batches: bool = True
-    """If ``True``, ensures that each process reads the same number of batches."""
-
-    sync_mode: SyncMode = SyncMode.UNTIL_FIRST
-    """The data synchronization mode among processes."""
-
     # Misc
     max_num_batches: int | None = None
     """The maximum number of batches to return."""
 
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
-
-    seed: int = 2
-    """The seed to initialize the random number generators used internally."""
 
     cached_fd_count: int = 1000
     """Enables an LRU cache on the last ``cached_fd_count`` files read.
@@ -182,7 +136,7 @@ class Wav2Vec2SslDataset:
 
         return cls(manifest_dir=path, splits=splits)
 
-    def _retrieve_audio_directory(self, split: str) -> Path | None:
+    def _retrieve_audio_directory(self, split: str) -> Path:
         """
         Retrieve audio directory from manifest file header.
         Expecting the following structure:
@@ -204,20 +158,15 @@ class Wav2Vec2SslDataset:
                 f"The {manifest_file} manifest file cannot be read. See the nested exception for details.",
             ) from ex
 
-        try:
-            audio_dir = Path(header)
-            if audio_dir.exists():
-                return audio_dir
-            else:
-                raise ValueError
-        except ValueError:
+        audio_dir = Path(header)
+        if not audio_dir.is_dir():
             raise DataReadError(
-                f"The first line of {manifest_file} must point to a data directory.",
-            ) from None
+                f"{audio_dir} pointed by the {manifest_file} manifest file is not a directory.",
+            )
 
-    def _read_manifest(
-        self, split: str, audio_dir: Path | None, min_audio_len: int, max_audio_len: int
-    ) -> DataPipelineBuilder:
+        return audio_dir
+
+    def _read_manifest(self, split: str) -> DataPipelineBuilder:
         """
         Read and parse TSV manifest file.
         Expecting the following structure:
@@ -235,25 +184,20 @@ class Wav2Vec2SslDataset:
             tsv_file,
             rtrim=True,
             memory_map=True,
-            block_size=10 * 1024 * 1024,
         )
 
-        if audio_dir is not None:
-            builder.skip(1)  # Path to the data directory.
+        builder.skip(1)  # Skip one line to the path to the data directory
 
         field_splitter = StrSplitter(names=["audio", "audio_size"])
         builder.map(field_splitter)
 
-        # Convert audio_size to int and clamp to max_audio_len
-        builder.map(
-            lambda x: min(int(x), max_audio_len),
-            selector="audio_size",
-        )
+        # Convert audio_size to int
+        return builder.map(int, selector="audio_size")
 
-        # Filter by minimum length
-        builder.filter(lambda sample: sample["audio_size"] >= min_audio_len)
-
-        return builder
+    @staticmethod
+    def create_sequence_batch(batch_dict: dict[str, Any]) -> SequenceBatch:
+        feature_tensor = batch_dict["audio"]["data"]["waveform"]
+        return SequenceBatch(feature_tensor, seq_lens=None, example=batch_dict)
 
     def create_reader(
         self,
@@ -263,27 +207,18 @@ class Wav2Vec2SslDataset:
         max_audio_len: int,
         *,
         # Batching
-        batching_strategy: BatchingStrategy,
-        batch_size: int | None,
         max_num_elements: int,
         num_seqs_multiple_of: int,
         # Audio processing
         dtype: torch.dtype,
         normalize_audio: bool,
-        use_fbank: bool,
-        no_padding: bool,
         npc: int,
-        # SpecAugment
-        spec_aug_p: float | None,
-        spec_aug_freq_mask_param: int,
-        spec_aug_time_mask_param: int,
         # Shuffling
         example_shuffle_window: int,
         batch_shuffle_window: int,
         # Misc
         num_prefetch: int,
         drop_remainder: bool,
-        sync_batches: bool,
         sync_mode: SyncMode,
         seed: int,
         max_num_batches: int | None,
@@ -294,7 +229,7 @@ class Wav2Vec2SslDataset:
         """Create data reader with complete audio processing pipeline."""
 
         if split not in self._splits:
-            raise ValueError(f"Unknown split '{split}'. Available: {self._splits}")
+            raise DataReadError(f"Unknown split '{split}'. Available: {self._splits}")
 
         log.info(f"Creating a reader for the <{split}> split of the dataset.")
 
@@ -302,7 +237,7 @@ class Wav2Vec2SslDataset:
         audio_dir = self._retrieve_audio_directory(split)
 
         # Read TSV manifest -> { audio: str, audio_size: int }
-        builder = self._read_manifest(split, audio_dir, min_audio_len, max_audio_len)
+        builder = self._read_manifest(split)
 
         # Shuffle the dataset samples
         if example_shuffle_window != 1:
@@ -314,63 +249,52 @@ class Wav2Vec2SslDataset:
             builder.shard(gangs.dp.rank, gangs.dp.size, allow_uneven=True)
             seed += gangs.dp.rank
 
-        # Batching pipeline - works on metadata only
-        batch_pipeline = BatchingPipeline()
-        if batching_strategy == BatchingStrategy.STATIC:
-            builder = batch_pipeline.add_static_batching(builder, batch_size, drop_remainder)  # type: ignore
-        else:
-            # Length batching -> list( { audio: str, audio_size: int, text: str } )
-            builder = batch_pipeline.add_length_batching(
-                builder,
-                min_audio_len,
-                max_audio_len,
-                max_num_elements,
-                num_seqs_multiple_of,
-                drop_remainder,
-            )
+        # Length batching -> list( { audio: str, audio_size: int } )
+        builder = add_length_batching(
+            builder,
+            min_audio_len=min_audio_len,
+            max_audio_len=max_audio_len,
+            max_num_elements=max_num_elements,
+            num_seqs_multiple_of=num_seqs_multiple_of,
+            drop_remainder=drop_remainder,
+            selector="audio_size",
+        )
         # Batch shuffling
-        builder = batch_pipeline.add_batch_shuffling(
-            builder, batch_shuffle_window, seed
+        builder = add_batch_shuffling(
+            builder, batch_shuffle_window=batch_shuffle_window, seed=seed
         )
         seed += 1
 
-        audio_pipeline = AudioProcessingPipeline()
         # Path resolution -> list( { audio.path: str, audio_size: int } )
-        builder = audio_pipeline.add_path_resolution(
-            builder, audio_dir, cached_fd_count
+        builder = add_audio_file_loading(
+            builder,
+            audio_dir=audio_dir,
+            cached_fd_count=cached_fd_count,
+            selector="[*].audio",
         )
 
         # Audio decoding -> list ( { audio.path: str, audio.data.sample_rate: int, audio.data.format: int
         #                            audio.data.waveform: tensor, audio.audio_size: int } )
-        builder = audio_pipeline.add_audio_decoding(
-            builder, dtype, normalize_audio, npc
+        builder = add_audio_decoding(
+            builder,
+            dtype=dtype,
+            normalize_audio=normalize_audio,
+            npc=npc,
+            selector="[*].audio.data",
         )
 
-        # Audio post-processing
-        if use_fbank:
-            builder = audio_pipeline.add_fbank_processing(builder, dtype, npc)
-        else:
-            builder = audio_pipeline.add_waveform_processing(
-                builder,
-                normalize_audio,
-                dtype,
-                spec_aug_p,
-                spec_aug_freq_mask_param,
-                spec_aug_time_mask_param,
-            )
-
-        # Feature renaming -> list ( { audio.path: str, audio.data.sample_rate: int, audio.data.format: int
-        #                              audio.feature: tensor, audio_size: int } )
-        builder = audio_pipeline.add_feature_renaming(builder, use_fbank)
-
         # Audio cropping
-        builder = audio_pipeline.add_audio_cropping(
-            builder, seed, max_audio_len, crop_to_batch_minimal_size=no_padding
+        builder = add_audio_cropping(
+            builder,
+            seed=seed,
+            max_audio_len=max_audio_len,
+            crop_to_batch_minimal_size=True,
+            audio_feature_selector="audio.data.waveform",
         )
 
         # Collation -> { audio.path: list(str), audio.data.sample_rate: list(int), audio.data.format: list(int),
-        #                audio_size: list(int), audio_feature: list(tensor) }
-        collater = Collater(pad_value=None if no_padding else 0)
+        #                audio_size: list(int), audio.data.waveform: list(tensor) }
+        collater = Collater(pad_value=None)
         builder.map(collater)
 
         # Limit batches
@@ -381,7 +305,7 @@ class Wav2Vec2SslDataset:
         builder.prefetch(num_prefetch)
 
         # Wrap in SequenceBatch
-        builder.map(partial(create_sequence_batch, no_padding=no_padding))
+        builder.map(partial(Wav2Vec2SslDataset.create_sequence_batch))
 
         pipeline = builder.and_return()
 
@@ -389,7 +313,7 @@ class Wav2Vec2SslDataset:
             pipeline,
             gangs,
             num_accumulate=num_accumulate,
-            sync=sync_batches,
+            sync=True,
             sync_mode=sync_mode,
         )
 
@@ -403,13 +327,13 @@ class Wav2Vec2SslDatasetConfig:
     ```yaml
     name: mydataset
     dataset_config:
-      data: (all keys here must have a companion parameter in this config)
+      manifest_dir:
     ```
     """
 
-    data: Path = field(default_factory=Path)
+    manifest_dir: Path = field(default_factory=Path)
 
 
 def open_wav2vec2_ssl_dataset(config: Wav2Vec2SslDatasetConfig) -> Wav2Vec2SslDataset:
     """The mapping between the dataset asset card definition and the Wav2Vec2SslDataset."""
-    return Wav2Vec2SslDataset.from_path(config.data)
+    return Wav2Vec2SslDataset.from_path(config.manifest_dir)

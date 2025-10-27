@@ -8,14 +8,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Final, final
+from typing import Any, Final, final
 
 import torch
 
-from fairseq2.data.data_pipeline import (
-    DataPipeline,
-    DataPipelineBuilder,
-)
+from fairseq2.data.data_pipeline import DataPipeline, DataPipelineBuilder
 from fairseq2.data.text import StrSplitter, read_text
 from fairseq2.data.tokenizers import Tokenizer
 from fairseq2.data_type import DataType
@@ -28,14 +25,17 @@ from fairseq2.datasets import (
     SyncMode,
 )
 from fairseq2.gang import Gangs
-from fairseq2.logging import log
 from fairseq2.recipe.config import DatasetSection
 
-from .batch_utils import (
-    BatchingPipeline,
-    BatchingStrategy,
+from .batch_utils import add_batch_shuffling, add_length_batching
+from .preprocessing import (
+    add_audio_decoding,
+    add_audio_file_loading,
+    add_layernorm,
+    collate_with_pad_ix,
+    encode_text,
+    filter_by_min_max_audio_size,
 )
-from .preprocessing import AudioProcessingPipeline, TextProcessingPipeline
 
 WAV2VEC2_ASR_DATASET: Final = "wav2vec2_asr"
 
@@ -50,11 +50,11 @@ class Wav2Vec2AsrDatasetSection(DatasetSection):
     family: str = WAV2VEC2_ASR_DATASET  # type: ignore
 
     train_split: str | None = "train"
-    """The name of the training data split. Expecting a {train_split}.tsvfile in the dataset directory. Only `None` during evaluation.
+    """The name of the training data split. Expecting a {train_split}.tsv file in the dataset directory. Only `None` during evaluation.
     """
 
     valid_split: str | None = "dev_other"
-    """The name of the validation data split(s). Expecting a {valid_split}.tsv and {valid_split}.wrd files in the dataset directory. Format multiple splits interspersed by `,`and without spaces (`'valid,dev_clean,test_clean'`).
+    """The name of the validation data split. Expecting a {valid_split}.tsv and {valid_split}.wrd files in the dataset directory.
     """
 
     min_audio_len: int = 1
@@ -67,36 +67,21 @@ class Wav2Vec2AsrDatasetSection(DatasetSection):
     """Numerical precision for audio decoding. Overridden to `torch.float32` when ``config.normalize_audio = True``."""
 
     # Batching parameters
-    batching_strategy: BatchingStrategy = BatchingStrategy.LENGTH
-    """Batching strategy is defined through an enum:
-    - BatchingStrategy.LENGTH ("LENGTH") = Specifies batching where each batch has a maximum number of elements.
-    - BatchingStrategy.STATIC ("STATIC") = Specifies batching where each batch has the same number of examples.
-    """
-
-    batch_size: int | None = None
-    """If `batching_strategy = BatchingStrategy.STATIC`, ignores `max_num_tokens` and each batch will have `batch_size` examples.
-    """
-
     num_seqs_multiple_of: int = 8
-    """If `batching_strategy = BatchingStrategy.LENGTH, ignores `batch_size` and each batch will have
-    `<= max_num_elements` elements with `<= num_seqs_multipe_of` or `num_seqs_multiple_of * N` sequences.
+    """Each batch will have `<= max_num_elements` elements with `<= num_seqs_multipe_of` or `num_seqs_multiple_of * N` sequences.
     This is primarily for hardware optimization, but will only work when sufficient enough sequences are available for bucketing.
     """
 
     max_num_elements: int = 3_200_000
-    """If `batching_strategy = BatchingStrategy.LENGTH, ignores `batch_size` and each batch will have
-    `<= max_num_elements` elements with `<= num_seqs_multipe_of` or `num_seqs_multiple_of * N` sequences.
-    This is primarily for hardware optimization, but will only work when sufficient enough sequences are available for bucketing.
+    """Ignores `batch_size` and each batch will have `<= max_num_elements` elements with `<= num_seqs_multipe_of` or `num_seqs_multiple_of * N` sequences.
     """
+
+    drop_remainder: bool = False
+    """If ``True``, drops the last set of batches if they have in total fewer examples than requested."""
 
     # Audio processing
     normalize_audio: bool = False
     """If ``True``, normalizes audio to have zero mean and unit variance and uses torch.float32 during audio decoding (overriding ``config.dtype``)."""
-
-    no_padding: bool = True
-    """If ``True``, all elements in the batch will be truncated to by batch minimal length.
-    Therefore, no padding will be applied to the batch.
-    """
 
     npc: int = 10
     """The number of parallel calls to use in the pipeline."""
@@ -108,25 +93,12 @@ class Wav2Vec2AsrDatasetSection(DatasetSection):
     batch_shuffle_window: int = 1000
     """The size of the sliding window for shuffling batches."""
 
-    # Batching behavior
-    drop_remainder: bool = False
-    """If ``True``, drops the last set of batches if they have in total fewer examples than requested."""
-
-    sync_batches: bool = True
-    """If ``True``, ensures that each process reads the same number of batches."""
-
-    sync_mode: SyncMode = SyncMode.UNTIL_FIRST
-    """The data synchronization mode among processes."""
-
     # Misc
     max_num_batches: int | None = None
     """The maximum number of batches to return."""
 
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
-
-    seed: int = 2
-    """The seed to initialize the random number generators used internally."""
 
     cached_fd_count: int = 1000
     """Enables an LRU cache on the last ``cached_fd_count`` files read.
@@ -166,7 +138,7 @@ class Wav2Vec2AsrDataset:
 
         return cls(manifest_dir=path, splits=splits)
 
-    def _retrieve_audio_directory(self, split: str) -> Path | None:
+    def _retrieve_audio_directory(self, split: str) -> Path:
         """
         Retrieve audio directory from manifest file header.
         Expecting the following structure:
@@ -188,20 +160,15 @@ class Wav2Vec2AsrDataset:
                 f"The {manifest_file} manifest file cannot be read. See the nested exception for details.",
             ) from ex
 
-        try:
-            audio_dir = Path(header)
-            if audio_dir.exists():
-                return audio_dir
-            else:
-                raise ValueError
-        except ValueError:
+        audio_dir = Path(header)
+        if not audio_dir.is_dir():
             raise DataReadError(
-                f"The first line of the '{manifest_file}' manifest file must point to a data directory.",
-            ) from None
+                f"{audio_dir} pointed by the {manifest_file} manifest file is not a directory.",
+            )
 
-    def _read_manifest(
-        self, split: str, audio_dir: Path | None, min_audio_len: int, max_audio_len: int
-    ) -> DataPipelineBuilder:
+        return audio_dir
+
+    def _read_manifest(self, split: str) -> DataPipelineBuilder:
         """
         Read and parse TSV manifest file.
         Expecting the following structure:
@@ -219,23 +186,15 @@ class Wav2Vec2AsrDataset:
             tsv_file,
             rtrim=True,
             memory_map=True,
-            block_size=10 * 1024 * 1024,
         )
 
-        if audio_dir is not None:
-            builder.skip(1)  # Path to the data directory
+        builder.skip(1)  # Skip one line to the path to the data directory
 
         field_splitter = StrSplitter(names=["audio", "audio_size"])
         builder.map(field_splitter)
 
-        # Convert audio_size to int and clamp to max_audio_len
-        builder.map(
-            lambda x: min(int(x), max_audio_len),
-            selector="audio_size",
-        )
-
-        # Filter by minimum length
-        return builder.filter(lambda sample: sample["audio_size"] >= min_audio_len)
+        # Convert audio_size to int
+        return builder.map(int, selector="audio_size")
 
     def _read_wrd_file(self, split: str) -> DataPipelineBuilder:
         """Read WRD file containing text transcriptions."""
@@ -271,14 +230,11 @@ class Wav2Vec2AsrDataset:
         max_audio_len: int,
         *,
         # Batching
-        batching_strategy: BatchingStrategy,
-        batch_size: int | None,
         max_num_elements: int,
         num_seqs_multiple_of: int,
         # Audio processing
         dtype: torch.dtype,
         normalize_audio: bool,
-        no_padding: bool,
         npc: int,
         # Shuffling
         example_shuffle_window: int,
@@ -286,11 +242,10 @@ class Wav2Vec2AsrDataset:
         # Misc
         num_prefetch: int,
         drop_remainder: bool,
-        sync_batches: bool,
-        sync_mode: SyncMode,
         seed: int,
         max_num_batches: int | None,
         cached_fd_count: int,
+        sync_mode: SyncMode,
         # Provided by TrainerSection
         num_accumulate: int,
     ) -> DataReader[Seq2SeqBatch]:
@@ -303,10 +258,8 @@ class Wav2Vec2AsrDataset:
         # Read audio directory path from the first line of the manifest
         audio_dir = self._retrieve_audio_directory(split)
 
-        # Read TSV manifest
-        tsv_pipeline = self._read_manifest(
-            split, audio_dir, min_audio_len, max_audio_len
-        ).and_return()
+        # Read TSV manifest -> { audio: str, audio_size: int }
+        tsv_pipeline = self._read_manifest(split).and_return()
 
         # Read WRD text file
         wrd_pipeline = self._read_wrd_file(split).and_return()
@@ -316,12 +269,20 @@ class Wav2Vec2AsrDataset:
             pipelines=[tsv_pipeline, wrd_pipeline], names=["tsv", "wrd"]
         )
 
-        def flatten_example(example: Dict[str, Any]) -> Dict[str, Any]:
+        def flatten_example(example: dict[str, Any]) -> dict[str, Any]:
             """Flatten TSV+WRD structure into single example."""
             return {**example["tsv"], **example["wrd"]}  # Merge TSV and WRD data
 
-        # flattening -> { audio: str, audio_size: int, text: str }
+        # Flattening -> { audio: str, audio_size: int, text: str }
         builder.map(flatten_example)
+
+        # Filter to match audio size expectations
+        builder = filter_by_min_max_audio_size(
+            builder,
+            min_audio_len=min_audio_len,
+            max_audio_len=max_audio_len,
+            audio_size_selector="audio_size",
+        )
 
         # Shuffle the dataset samples
         if example_shuffle_window != 1:
@@ -333,65 +294,63 @@ class Wav2Vec2AsrDataset:
             builder.shard(gangs.dp.rank, gangs.dp.size, allow_uneven=True)
             seed += gangs.dp.rank
 
-        # Batching pipeline - works on metadata only
-        batch_pipeline = BatchingPipeline()
-        if batching_strategy == BatchingStrategy.STATIC:
-            # Note that we filter by audio_length here while the w2v2 train code
-            # applies the functionally similar `add_audio_cropping` but **does not** filter by min_audio_length
-            # This interplays with the required padding at the collator to stack samples
-            builder = batch_pipeline.filter_by_min_max_audio_length(
-                builder, min_audio_len, max_audio_len
-            )
-            builder = batch_pipeline.add_static_batching(
-                builder, batch_size, drop_remainder  # type: ignore
-            )
-        else:
-            # Length batching -> list( { audio: str, audio_size: int, text: str } )
-            builder = batch_pipeline.add_length_batching(
-                builder,
-                min_audio_len,
-                max_audio_len,
-                max_num_elements,
-                num_seqs_multiple_of,
-                drop_remainder,
-            )
+        # Length batching -> list( { audio: str, audio_size: int, text: str } )
+        builder = add_length_batching(
+            builder,
+            min_audio_len=min_audio_len,
+            max_audio_len=max_audio_len,
+            max_num_elements=max_num_elements,
+            num_seqs_multiple_of=num_seqs_multiple_of,
+            drop_remainder=drop_remainder,
+            selector="audio_size",
+        )
 
         # Shuffle batches (to get randomized lengths)
-        builder = batch_pipeline.add_batch_shuffling(
-            builder, batch_shuffle_window, seed
+        builder = add_batch_shuffling(
+            builder, batch_shuffle_window=batch_shuffle_window, seed=seed
         )
         seed += 1
 
-        audio_pipeline = AudioProcessingPipeline()
-        # Path resolution -> list( { audio.path: str, audio.data: MemoryBlock, audio_size: int, text: str } )
-        builder = audio_pipeline.add_path_resolution(
-            builder, audio_dir, cached_fd_count
+        # Load audios -> list( { audio.path: str, audio.data: MemoryBlock, audio_size: int, text: str } )
+        builder = add_audio_file_loading(
+            builder,
+            audio_dir=audio_dir,
+            cached_fd_count=cached_fd_count,
+            selector="[*].audio",
         )
         # Audio decoding -> list( { audio.path: str, audio.data.sample_rate: int, audio.data.format: int,
         #                           audio.data.waveform: tensor, audio_size: int, text: str } )
-        builder = audio_pipeline.add_audio_decoding(
-            builder, dtype, normalize_audio, npc
+        builder = add_audio_decoding(
+            builder,
+            dtype=dtype,
+            normalize_audio=normalize_audio,
+            npc=npc,
+            selector="[*].audio.data",
         )
         if normalize_audio:
-            builder = audio_pipeline.add_layernorm(builder, dtype)
+            builder = add_layernorm(
+                builder, dtype=dtype, selector="[*].audio.data.waveform"
+            )
 
-        text_pipeline = TextProcessingPipeline(tokenizer)
         # Text encoding -> list( { audio.path: str, audio.data.sample_rate: int, audio.data.format: int,
         #                          audio.data.waveform: tensor, audio_size: int, text: tensor } )
-        builder = text_pipeline.encode_text(builder, npc)
-
-        if no_padding:
-            log.warning(
-                "Collating without padding is currently not supported, defaulting to padding."
-            )
+        token_encoder = tokenizer.create_encoder()
+        builder = encode_text(
+            builder, token_encoder=token_encoder, npc=npc, selector="[*].text"
+        )
 
         # Collating -> { audio.path: list(str), audio.data.sample_rate: list(int), audio.data.format: list(int),
         #                audio.data.waveform.is_ragged: bool, audio.data.waveform.seqs: [tensor],
         #                audio.data.waveform.seq_lens: list(int), audio_size: int,
         #                text.is_ragged: bool, text.seqs: [tensor], text.seq_lens: list(int) }
-        builder = text_pipeline.collate_with_pad_ix(
-            builder, no_padding=False
-        )  # no_padding)
+        pad_idx = tokenizer.vocab_info.pad_idx
+        if pad_idx is None:
+            raise ValueError(
+                f"Tokenizer must have a pad_idx for ASR training but consists of {tokenizer.vocab_info}."
+            )
+        builder = collate_with_pad_ix(
+            builder, pad_idx=pad_idx, no_padding=False, selector="text"
+        )
 
         # Limit batches
         if max_num_batches is not None:
@@ -409,7 +368,7 @@ class Wav2Vec2AsrDataset:
             pipeline,
             gangs,
             num_accumulate=num_accumulate,
-            sync=sync_batches,
+            sync=True,
             sync_mode=sync_mode,
         )
 
@@ -423,13 +382,13 @@ class Wav2Vec2AsrDatasetConfig:
     ```yaml
     name: mydataset
     dataset_config:
-      data: (all keys here must have a companion parameter in this config)
+      manifest_dir:
     ```
     """
 
-    data: Path = field(default_factory=Path)
+    manifest_dir: Path = field(default_factory=Path)
 
 
 def open_wav2vec2_asr_dataset(config: Wav2Vec2AsrDatasetConfig) -> Wav2Vec2AsrDataset:
     """The mapping between the dataset asset card definition and the Wav2Vec2AsrDataset."""
-    return Wav2Vec2AsrDataset.from_path(config.data)
+    return Wav2Vec2AsrDataset.from_path(config.manifest_dir)

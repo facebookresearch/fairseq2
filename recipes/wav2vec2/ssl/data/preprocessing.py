@@ -6,277 +6,128 @@
 
 from __future__ import annotations
 
-import random
-from functools import partial, reduce
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import torch
-from torch import Tensor
-from torch.nn.functional import layer_norm
 
-from fairseq2.data.audio import AudioDecoder, WaveformToFbankConverter
+from fairseq2.data.audio import AudioDecoder
 from fairseq2.data.data_pipeline import DataPipelineBuilder, FileMapper
-from fairseq2.logging import log
 
-try:
-    import torchaudio  # type: ignore
-except ImportError:
-    torchaudio = None
-    log.warning(
-        "torchaudio is not installed. Please install it with `pip install torchaudio`."
+
+def add_audio_file_loading(
+    builder: DataPipelineBuilder, audio_dir: Path, cached_fd_count: int, selector: str
+) -> DataPipelineBuilder:
+    """
+    Load audio files from disk into memory via ``FileMapper``.
+
+    Transforms relative audio paths into absolute paths and memory-maps the files.
+
+    :param audio_dir:
+        Root directory for resolving relative audio paths.
+    :param cached_fd_count:
+        Number of files to cache in an LRU cache. ``FileMapper`` will keep the last
+        ``cached_fd_count`` files memory-mapped, which is especially useful when
+        reading multiple slices from the same audio file.
+    :param selector:
+        JSONPath selector for the field containing audio paths (e.g., ``"[*].audio"``).
+    """
+
+    file_mapper = FileMapper(audio_dir, cached_fd_count=cached_fd_count)
+    return builder.map(file_mapper, selector=selector)
+
+
+def add_audio_decoding(
+    builder: DataPipelineBuilder,
+    dtype: torch.dtype,
+    normalize_audio: bool,
+    npc: int,
+    selector: str,
+) -> DataPipelineBuilder:
+    """Add audio decoding to pipeline by creating a ``fairseq2.data._memory.MemoryBlock`` at
+    the selector. Waveforms are in ``torch.float32`` if ``normalize_audio``, else ``dtype``.
+    """
+    audio_decoder = AudioDecoder(dtype=torch.float32 if normalize_audio else dtype)
+    return builder.map(
+        audio_decoder,
+        selector=selector,
+        num_parallel_calls=npc,
     )
 
 
-@torch.no_grad()
-def apply_audio_normalization(waveform: Tensor) -> Tensor:
-    """Normalize audio to zero mean and unit variance."""
-    return layer_norm(waveform, waveform.shape)
-
-
-@torch.no_grad()
-def convert_to_mono(waveform: Tensor) -> Tensor:
-    """Convert multi-channel audio to mono by averaging channels."""
-    if waveform.dim() == 2:
-        # reduce channels inplace to save the memory
-        size = waveform.size(1)
-        result = reduce(
-            torch.Tensor.add_, [waveform[:, i] for i in range(1, size)], waveform[:, 0]
-        )
-        waveform = result
-        waveform /= size
-
-    return waveform
-
-
-@torch.no_grad()
-def apply_freq_mask(spec: Tensor, freq_mask_param: int = 80) -> Tensor:
-    """Apply frequency masking to the spectrogram."""
-    n_freq = spec.size(-2)
-
-    assert freq_mask_param < n_freq
-    fmask_len = random.randint(20, freq_mask_param)
-    fmask_i = random.randint(0, (n_freq - fmask_len - 1))
-
-    masked_spec = spec.clone()
-    masked_spec[:, fmask_i : (fmask_i + fmask_len)] = 0.0
-    return masked_spec
-
-
-@torch.no_grad()
-def apply_time_mask(spec: Tensor, time_mask_param: int = 80) -> Tensor:
-    """Apply time masking to the spectrogram."""
-    n_t = spec.size(-1)
-
-    time_mask_param = min(120, int(n_t / 4))
-    assert time_mask_param < n_t
-    tmask_len = random.randint(0, time_mask_param)
-    tmask_i = random.randint(0, (n_t - tmask_len - 1))
-
-    masked_spec = spec.clone()
-    masked_spec[..., tmask_i : (tmask_i + tmask_len)] = 0.0
-    return masked_spec
-
-
-@torch.no_grad()
-def apply_spec_augment(
-    waveform: Tensor,
-    n_fft: int = 400,
-    win_len: Optional[int] = None,
-    hop_len: Optional[int] = None,
-    power: int | None = None,
-    freq_mask_param: int = 80,
-    time_mask_param: int = 80,
-) -> Tensor:
-    """Apply SpecAugment with frequency and time masking."""
-    spectrogram = torchaudio.transforms.Spectrogram(  # type: ignore
-        n_fft=n_fft,
-        win_length=win_len,
-        hop_length=hop_len,
-        center=True,
-        pad_mode="reflect",
-        power=power,
-    )(waveform)
-
-    # augment
-    spectrogram_aug = apply_freq_mask(spectrogram, freq_mask_param)
-    spectrogram_aug = apply_time_mask(spectrogram_aug, time_mask_param)
-
-    # convert back to waveform
-    inverse_spec = torchaudio.transforms.InverseSpectrogram()  # type: ignore
-    waveform_aug: Tensor = inverse_spec(spectrogram_aug)
-    return waveform_aug
-
-
-@torch.no_grad()
-def postprocess_waveform(
-    waveform: Tensor,
-    normalize_audio: bool,
-    dtype: torch.dtype,
-    spec_aug_p: Optional[float] = None,
-    spec_aug_freq_mask_param: int = 80,
-    spec_aug_time_mask_param: int = 80,
-) -> Tensor:
-    """Post-process audio waveform with normalization and optional SpecAugment."""
-    # Handle multi-channel audio
-    waveform = convert_to_mono(waveform)
-
-    # Apply normalization
-    if normalize_audio:
-        waveform = apply_audio_normalization(waveform)
-
-    # Apply SpecAugment
-    if spec_aug_p is not None and random.random() < spec_aug_p:
-        waveform = apply_spec_augment(
-            waveform,
-            freq_mask_param=spec_aug_freq_mask_param,
-            time_mask_param=spec_aug_time_mask_param,
-        )
-
-    return waveform.to(dtype)
-
-
 class AudioCropper:
-    """Crops audio sequences to maximum length."""
-
-    audio_feature: str = "audio_feature"
+    """Crops audio sequences to maximum length.
+    Emulates the JSONPath access scheme naively to be independent of hardcoded selector keys.
+    """
 
     def __init__(
-        self, max_audio_len: int, seed: int, crop_to_batch_minimal_size: bool = False
+        self,
+        max_audio_len: int,
+        seed: int,
+        crop_to_batch_minimal_size: bool,
+        audio_feature_selector: str,
     ) -> None:
         self.rng: np.random.RandomState = np.random.RandomState(seed)
         self.max_audio_len: int = max_audio_len
         self.crop_to_batch_minimal_size: bool = crop_to_batch_minimal_size
+        self.audio_feature_selector = audio_feature_selector
 
-    def crop_audios_in_batch(self, batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def crop_audios_in_batch(self, batch: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Crop audio sequences in a batch."""
         if self.crop_to_batch_minimal_size:
             min_audio_len_batch = min(
-                (item[self.audio_feature].size(0) for item in batch)
+                (
+                    AudioCropper._get_nested(item, self.audio_feature_selector).size(0)  # type: ignore
+                    for item in batch
+                )
             )
             crop_size = min(self.max_audio_len, min_audio_len_batch)
         else:
             crop_size = self.max_audio_len
 
         for item in batch:
-            audio = item[self.audio_feature]
-            if audio.size(0) > crop_size:
-                start = self.rng.randint(0, audio.size(0) - crop_size)
-                item[self.audio_feature] = audio[start : start + crop_size]
 
+            audio = AudioCropper._get_nested(item, self.audio_feature_selector)
+            audio_size = audio.size(0)  # type: ignore
+            if audio_size > crop_size:
+                start = self.rng.randint(0, audio_size - crop_size)
+                value = audio[start : start + crop_size]  # type: ignore
+                AudioCropper._set_nested(item, self.audio_feature_selector, value)
         return batch
 
-
-class AudioProcessingPipeline:
-    """Composable audio processing pipeline builder."""
+    @staticmethod
+    def _get_nested(d: dict[str, Any], selector: str) -> dict[str, Any]:
+        """Getter that emulates the JSONPath selector from DataPipeline in Python."""
+        keys = selector.split(".")
+        for key in keys:
+            d = d[key]
+        return d
 
     @staticmethod
-    def add_path_resolution(
-        builder: DataPipelineBuilder,
-        audio_dir: Optional[Path],
-        cached_fd_count: int,
-    ) -> DataPipelineBuilder:
-        """
-        Add audio path resolution to pipeline via ``FileMapper``.
+    def _set_nested(d: dict[str, Any], selector: str, value: Any) -> None:
+        """Setter that emulates the JSONPath selector from DataPipeline in Python."""
+        keys = selector.split(".")
+        # navigate to parent of last key
+        for key in keys[:-1]:
+            d = d[key]
+        # set last key
+        last_key = keys[-1]
+        d[last_key] = value
 
-        :param audio_dir:
-            Optional prefix for the audio directory
-        :param cached_fd_count:
-            Enables an LRU cache on the last ``cached_fd_count`` files read.
-            ``FileMapper`` will memory map all the cached file,
-            so this is especially useful for reading several slices of the same file.
-        """
-        selector = "[*].audio"
-        file_mapper = FileMapper(audio_dir, cached_fd_count=cached_fd_count)
-        return builder.map(file_mapper, selector=selector)
 
-    @staticmethod
-    def add_audio_decoding(
-        builder: DataPipelineBuilder,
-        dtype: torch.dtype,
-        normalize_audio: bool,
-        npc: int = 10,
-    ) -> DataPipelineBuilder:
-        """Add audio decoding to pipeline by creating a ``fairseq2.data._memory.MemoryBlock`` at
-        the selector. Waveforms are in ``torch.float32`` if ``normalize_audio``, else ``dtype``.
-        """
-        audio_decoder = AudioDecoder(dtype=torch.float32 if normalize_audio else dtype)
-        return builder.map(
-            audio_decoder,
-            selector="[*].audio.data",
-            num_parallel_calls=npc,
-        )
-
-    @staticmethod
-    def add_waveform_processing(
-        builder: DataPipelineBuilder,
-        normalize_audio: bool,
-        dtype: torch.dtype,
-        spec_aug_p: Optional[float] = None,
-        spec_aug_freq_mask_param: int = 80,
-        spec_aug_time_mask_param: int = 80,
-    ) -> DataPipelineBuilder:
-        """Add waveform processing (normalization + SpecAugment)."""
-        return builder.map(
-            partial(
-                postprocess_waveform,
-                normalize_audio=normalize_audio,
-                dtype=dtype,
-                spec_aug_p=spec_aug_p,
-                spec_aug_freq_mask_param=spec_aug_freq_mask_param,
-                spec_aug_time_mask_param=spec_aug_time_mask_param,
-            ),
-            selector="[*].audio.data.waveform",
-        )
-
-    @staticmethod
-    def add_fbank_processing(
-        builder: DataPipelineBuilder, dtype: torch.dtype, npc: int = 10
-    ) -> DataPipelineBuilder:
-        """Add filterbank feature extraction."""
-        fbank_converter = WaveformToFbankConverter(
-            num_mel_bins=80,
-            waveform_scale=2**15,
-            channel_last=True,
-            standardize=True,
-            dtype=dtype,
-        )
-
-        return builder.map(
-            fbank_converter,
-            selector="[*].audio.data",
-            num_parallel_calls=npc,
-        )
-
-    @staticmethod
-    def add_feature_renaming(
-        builder: DataPipelineBuilder, use_fbank: bool
-    ) -> DataPipelineBuilder:
-        """Add feature renaming step."""
-
-        def rename_feature(batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-            # operates on batch, not individual examples
-            for example in batch:
-                if use_fbank and "fbank" in example["audio"]["data"]:
-                    example["audio_feature"] = example["audio"]["data"].pop("fbank")
-                elif not use_fbank and "waveform" in example["audio"]["data"]:
-                    example["audio_feature"] = example["audio"]["data"].pop("waveform")
-            return batch
-
-        return builder.map(rename_feature)  # NO SELECTOR - operates on full batch
-
-    @staticmethod
-    def add_audio_cropping(
-        builder: DataPipelineBuilder,
-        seed: int,
-        max_audio_len: int,
-        crop_to_batch_minimal_size: bool,
-    ) -> DataPipelineBuilder:
-        """Crop long audios to `max_audio_len`."""
-        audio_cropper = AudioCropper(
-            max_audio_len,
-            seed=seed,
-            crop_to_batch_minimal_size=crop_to_batch_minimal_size,
-        )
-        return builder.map(audio_cropper.crop_audios_in_batch)
+def add_audio_cropping(
+    builder: DataPipelineBuilder,
+    seed: int,
+    max_audio_len: int,
+    crop_to_batch_minimal_size: bool,
+    audio_feature_selector: str,
+) -> DataPipelineBuilder:
+    """Crop long audios to `max_audio_len`."""
+    audio_cropper = AudioCropper(
+        max_audio_len,
+        seed=seed,
+        crop_to_batch_minimal_size=crop_to_batch_minimal_size,
+        audio_feature_selector=audio_feature_selector,
+    )
+    return builder.map(audio_cropper.crop_audios_in_batch)

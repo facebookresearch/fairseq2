@@ -16,8 +16,10 @@ from fairseq2.datasets import SequenceBatch, SyncMode
 from fairseq2.metrics import MetricBag
 from fairseq2.recipe import EvalUnit, RecipeModel, Trainer, TrainUnit
 from fairseq2.recipe.base import RecipeContext, TrainRecipe
+from fairseq2.recipe.error import RecipeError
 from fairseq2.runtime.dependency import DependencyContainer
 
+from .config import Wav2Vec2SslRecipeConfig
 from .criterion import Wav2Vec2SslCriterion
 from .data import (
     WAV2VEC2_SSL_DATASET,
@@ -25,7 +27,6 @@ from .data import (
     Wav2Vec2SslDatasetConfig,
     open_wav2vec2_ssl_dataset,
 )
-from .default_config import Wav2Vec2SslRecipeConfig
 
 
 @final
@@ -54,7 +55,7 @@ class Wav2Vec2SslRecipe(TrainRecipe):
         dataset = context.default_dataset.as_(Wav2Vec2SslDataset)
 
         if config.dataset.train_split is None:
-            raise ValueError(
+            raise RecipeError(
                 "Wav2Vec2SslDatasetConfig.train_split must be defined for training but is `None`."
             )
 
@@ -66,83 +67,59 @@ class Wav2Vec2SslRecipe(TrainRecipe):
             min_audio_len=config.dataset.min_audio_len,
             max_audio_len=config.dataset.max_audio_len,
             # Batching parameters
-            batching_strategy=config.dataset.batching_strategy,
-            batch_size=config.dataset.batch_size,
             num_seqs_multiple_of=config.dataset.num_seqs_multiple_of,
             max_num_elements=config.dataset.max_num_elements,
             # Audio processing parameters
             dtype=config.dataset.dtype,
             normalize_audio=config.dataset.normalize_audio,
-            use_fbank=config.dataset.use_fbank,
-            no_padding=config.dataset.no_padding,
             npc=config.dataset.npc,
-            # SpecAugment parameters
-            spec_aug_p=config.dataset.spec_aug_p,
-            spec_aug_freq_mask_param=config.dataset.spec_aug_freq_mask_param,
-            spec_aug_time_mask_param=config.dataset.spec_aug_time_mask_param,
             # Shuffling and performance parameters
             example_shuffle_window=config.dataset.example_shuffle_window,
             batch_shuffle_window=config.dataset.batch_shuffle_window,
             num_accumulate=config.trainer.grad_accumulation.num_batches,
             num_prefetch=config.dataset.num_prefetch,
             drop_remainder=config.dataset.drop_remainder,
-            sync_batches=config.dataset.sync_batches,
-            sync_mode=config.dataset.sync_mode,
+            sync_mode=SyncMode.UNTIL_FIRST,
+            seed=seed,
+            max_num_batches=config.dataset.max_num_batches,
+            cached_fd_count=config.dataset.cached_fd_count,
+        )
+        seed += 1
+
+        valid_unit = Wav2Vec2SslEvalUnit(criterion)
+
+        if config.dataset.valid_split is None:
+            raise RecipeError(
+                "Wav2Vec2SslDatasetConfig.valid_split must be defined for training but is `None`."
+            )
+
+        # Same parameters as training but with validation-specific settings
+        valid_data_reader = dataset.create_reader(
+            config.dataset.valid_split,
+            context.gangs,
+            min_audio_len=config.dataset.min_audio_len,
+            max_audio_len=config.dataset.max_audio_len,
+            # Batching parameters
+            num_seqs_multiple_of=config.dataset.num_seqs_multiple_of,
+            max_num_elements=config.dataset.max_num_elements,
+            # Audio processing parameters
+            dtype=config.dataset.dtype,
+            normalize_audio=config.dataset.normalize_audio,
+            npc=config.dataset.npc,
+            # Shuffling and performance parameters
+            example_shuffle_window=1,  # No sample shuffling
+            batch_shuffle_window=1,  # No batch shuffling
+            num_accumulate=1,  # No grad accumulation
+            num_prefetch=config.dataset.num_prefetch,
+            drop_remainder=config.dataset.drop_remainder,
+            sync_mode=SyncMode.UNTIL_LAST,  # Wait for all processes
             seed=seed,
             max_num_batches=config.dataset.max_num_batches,
             cached_fd_count=config.dataset.cached_fd_count,
         )
 
-        valid_units = []
-        valid_data_readers = []
-
-        if config.dataset.valid_split is not None:
-            # Support multiple validation splits
-            valid_splits = config.dataset.valid_split.split(",")
-
-            for split in valid_splits:
-                seed += 1
-
-                valid_unit = Wav2Vec2SslEvalUnit(criterion)
-                valid_units.append(valid_unit)
-
-                # Same parameters as training but with validation-specific settings
-                valid_data_reader = dataset.create_reader(
-                    split,
-                    context.gangs,
-                    min_audio_len=config.dataset.min_audio_len,
-                    max_audio_len=config.dataset.max_audio_len,
-                    # Batching parameters
-                    batching_strategy=config.dataset.batching_strategy,
-                    batch_size=config.dataset.batch_size,
-                    num_seqs_multiple_of=config.dataset.num_seqs_multiple_of,
-                    max_num_elements=config.dataset.max_num_elements,
-                    # Audio processing parameters
-                    dtype=config.dataset.dtype,
-                    normalize_audio=config.dataset.normalize_audio,
-                    use_fbank=config.dataset.use_fbank,
-                    no_padding=config.dataset.no_padding,
-                    npc=config.dataset.npc,
-                    # SpecAugment parameters
-                    spec_aug_p=config.dataset.spec_aug_p,
-                    spec_aug_freq_mask_param=config.dataset.spec_aug_freq_mask_param,
-                    spec_aug_time_mask_param=config.dataset.spec_aug_time_mask_param,
-                    # Shuffling and performance parameters
-                    example_shuffle_window=1,  # No sample shuffling
-                    batch_shuffle_window=1,  # No batch shuffling
-                    num_accumulate=1,  # No grad accumulation
-                    num_prefetch=config.dataset.num_prefetch,
-                    drop_remainder=config.dataset.drop_remainder,
-                    sync_batches=config.dataset.sync_batches,
-                    sync_mode=SyncMode.UNTIL_LAST,  # Wait for all processes
-                    seed=seed,
-                    max_num_batches=config.dataset.max_num_batches,
-                    cached_fd_count=config.dataset.cached_fd_count,
-                )
-                valid_data_readers.append(valid_data_reader)
-
         return context.create_trainer(
-            unit, data_reader, valid_units, valid_data_readers
+            unit, data_reader, [valid_unit], [valid_data_reader]
         )
 
     @property

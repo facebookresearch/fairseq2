@@ -8,48 +8,47 @@ from dataclasses import dataclass, field
 
 import torch
 
-from fairseq2.datasets import SyncMode
 from fairseq2.recipe.config import (
     CommonSection,
     EvaluatorSection,
     GangSection,
     ReferenceModelSection,
-    TokenizerSection,
 )
 
-from ..data import Wav2Vec2AsrDatasetSection
+from ..criterion import Wav2Vec2SslLossSection
+from ..data import Wav2Vec2SslDatasetSection
 
 
 @dataclass(kw_only=True)
-class Wav2Vec2AsrEvalRecipeConfig:
-    """wav2vec2 ASR evaluation configuration."""
+class Wav2Vec2SslEvalRecipeConfig:
+    """
+    Configuration for wav2vec2 SSL evaluation runner.
+    """
 
     # ReferenceModelSection instead of ModelSection because we are
     # loading a checkpoint instead of training the model.
     model: ReferenceModelSection = field(
         default_factory=lambda: ReferenceModelSection(
-            name="wav2vec2_asr_base_10h",
+            name="wav2vec2_base",
         )
     )
 
-    dataset: Wav2Vec2AsrDatasetSection = field(
-        default_factory=lambda: Wav2Vec2AsrDatasetSection(
+    dataset: Wav2Vec2SslDatasetSection = field(
+        default_factory=lambda: Wav2Vec2SslDatasetSection(
             # eval specific defaults
             train_split=None,
-            valid_split="test_clean",
-            batch_shuffle_window=1,
-            sync_mode=SyncMode.UNTIL_LAST,
+            valid_split="valid",
         )
-    )
-
-    tokenizer: TokenizerSection = field(
-        default_factory=lambda: TokenizerSection(name="librispeech_asr")
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
 
     evaluator: EvaluatorSection = field(
         default_factory=lambda: EvaluatorSection(amp=True, amp_dtype=torch.float16)
+    )
+
+    loss: Wav2Vec2SslLossSection = field(
+        default_factory=lambda: Wav2Vec2SslLossSection()
     )
 
     common: CommonSection = field(default_factory=lambda: CommonSection())
