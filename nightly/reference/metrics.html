@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="fairseq2.models" href="models/index.html" /><link rel="prev" title="fairseq2.logging" href="logging.html" />
+    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="fairseq2.optim" href="optim.html" /><link rel="prev" title="fairseq2.logging" href="logging.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
         <title>fairseq2.metrics - fairseq2 Documentation</title>
@@ -237,43 +237,32 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="assets.html">fairseq2.assets</a></li>
 <li class="toctree-l1"><a class="reference internal" href="checkpoint.html">fairseq2.checkpoint</a></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="data/index.html">fairseq2.data</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of fairseq2.data</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l2 has-children"><a class="reference internal" href="data/tokenizers/index.html">fairseq2.data.tokenizers</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of fairseq2.data.tokenizers</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l3"><a class="reference internal" href="data/tokenizers/hub.html">fairseq2.data.tokenizers.hub</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="datasets/index.html">fairseq2.datasets</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><div class="visually-hidden">Toggle navigation of fairseq2.datasets</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l2"><a class="reference internal" href="datasets/hub.html">fairseq2.datasets.hub</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.data.html">fairseq2.data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.data.tokenizers.html">fairseq2.data.tokenizers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.data.tokenizers.hub.html">fairseq2.data.tokenizers.hub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.datasets.html">fairseq2.datasets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.datasets.hub.html">fairseq2.datasets.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.device.html">fairseq2.device</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.gang.html">fairseq2.gang</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.html">fairseq2.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.models.hub.html">fairseq2.models.hub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.models.llama.html">fairseq2.models.llama</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.models.qwen.html">fairseq2.models.qwen</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.recipe.composition.html">fairseq2.recipe.composition</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.recipe.optim.html">fairseq2.recipe.optim</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.utils.validation.html">fairseq2.utils.validation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.html">fairseq2.nn</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.batch_layout.html">fairseq2.nn.batch_layout</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.embedding.html">fairseq2.nn.embedding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.incremental_state.html">fairseq2.nn.incremental_state</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.normalization.html">fairseq2.nn.normalization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.position_encoder.html">fairseq2.nn.position_encoder</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.projection.html">fairseq2.nn.projection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.residual.html">fairseq2.nn.residual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.utils.html">fairseq2.nn.utils</a></li>
 <li class="toctree-l1"><a class="reference internal" href="logging.html">fairseq2.logging</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">fairseq2.metrics</a></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="models/index.html">fairseq2.models</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of fairseq2.models</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l2"><a class="reference internal" href="models/hub.html">fairseq2.models.hub</a></li>
-<li class="toctree-l2"><a class="reference internal" href="models/qwen.html">fairseq2.models.qwen</a></li>
-<li class="toctree-l2"><a class="reference internal" href="models/llama.html">fairseq2.models.llama</a></li>
-</ul>
-</li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="nn/index.html">fairseq2.nn</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><div class="visually-hidden">Toggle navigation of fairseq2.nn</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l2"><a class="reference internal" href="nn/batch_layout.html">Batch Layout</a></li>
-<li class="toctree-l2"><a class="reference internal" href="nn/embedding.html">Embeddings</a></li>
-<li class="toctree-l2"><a class="reference internal" href="nn/position_encoder.html">Position Encoders</a></li>
-<li class="toctree-l2"><a class="reference internal" href="nn/normalization.html">Normalization Layers</a></li>
-<li class="toctree-l2"><a class="reference internal" href="nn/projection.html">Projection Layers</a></li>
-<li class="toctree-l2"><a class="reference internal" href="nn/residual.html">Residual Connections</a></li>
-<li class="toctree-l2"><a class="reference internal" href="nn/incremental_state.html">Incremental State</a></li>
-<li class="toctree-l2"><a class="reference internal" href="nn/utils.html">fairseq2.nn.utils</a></li>
-</ul>
-</li>
 <li class="toctree-l1"><a class="reference internal" href="optim.html">fairseq2.optim</a></li>
 <li class="toctree-l1"><a class="reference internal" href="recipe.html">fairseq2.recipe</a></li>
 </ul>
@@ -339,12 +328,12 @@ evaluation metrics.</p>
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="models/index.html">
+          <a class="next-page" href="optim.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">fairseq2.models</div>
+                <div class="title">fairseq2.optim</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -387,7 +376,7 @@ evaluation metrics.</p>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=12125cee"></script>
+</div><script src="../_static/documentation_options.js?v=3f1f6526"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
