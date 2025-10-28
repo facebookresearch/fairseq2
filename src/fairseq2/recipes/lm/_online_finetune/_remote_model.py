@@ -91,6 +91,7 @@ class NoEnvLLM(LLM):
         # at the top-level
         del os.environ["CUDA_VISIBLE_DEVICES"]
         # os.environ["VLLM_USE_V1"] = "1"
+        os.environ["VLLM_ALLOW_INSECURE_SERIALIZATION"] = "1"
         super().__init__(*args, **kwargs)
 
         self.ready = True  # Set a flag or return a signal
@@ -411,6 +412,7 @@ class RemoteVllmModel:
         for replica_i, chunk in enumerate(chunks):
             if len(chunk) > 0:  # Only send non-empty chunks
                 generate_args = {
+                    # for later vllm versions, use: "prompts":  [TokensPrompt(**{prompt_argname: item}) for item in chunk],
                     prompt_argname: chunk,
                     "sampling_params": sampling_params,
                     "use_tqdm": False,
