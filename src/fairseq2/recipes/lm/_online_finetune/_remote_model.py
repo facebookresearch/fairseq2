@@ -12,7 +12,6 @@ from abc import ABC, abstractmethod
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Dict, Union
-
 import ray
 import torch
 from ray.util.placement_group import placement_group
@@ -20,6 +19,7 @@ from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 from typing_extensions import override
 from vllm import LLM, SamplingParams
 from vllm.engine.arg_utils import PoolerConfig
+from vllm.inputs import TokensPrompt, TextPrompt
 from vllm.utils import get_ip, get_open_port
 from vllm.worker.worker import Worker
 
@@ -393,8 +393,6 @@ class RemoteVllmModel:
         if sampling_params is None:
             sampling_params = self.sampling_params
 
-        prompt_argname = "prompts" if string_input else "prompt_token_ids"
-
         # Split prompts evenly across replicas
         chunk_size = len(prompt_list) // self.num_replicas
         remainder = len(prompt_list) % self.num_replicas
@@ -412,8 +410,14 @@ class RemoteVllmModel:
         for replica_i, chunk in enumerate(chunks):
             if len(chunk) > 0:  # Only send non-empty chunks
                 generate_args = {
-                    # for later vllm versions, use: "prompts":  [TokensPrompt(**{prompt_argname: item}) for item in chunk],
-                    prompt_argname: chunk,
+                    "prompts": [
+                        (
+                            TextPrompt(prompt=item)
+                            if string_input
+                            else TokensPrompt(prompt_token_ids=item)
+                        )
+                        for item in chunk
+                    ],
                     "sampling_params": sampling_params,
                     "use_tqdm": False,
                 }
