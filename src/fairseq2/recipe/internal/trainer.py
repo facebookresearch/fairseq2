@@ -18,6 +18,7 @@ from fairseq2.checkpoint import (
     OutOfProcCheckpointHGExporter,
 )
 from fairseq2.datasets import DataReader
+from fairseq2.error import InternalError
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
 from fairseq2.metrics.recorders import (
@@ -25,6 +26,7 @@ from fairseq2.metrics.recorders import (
     MetricDescriptor,
     MetricDescriptorRegistry,
 )
+from fairseq2.models import ModelFamily
 from fairseq2.optim.fp16_loss_scaler import (
     NOOP_FP16_LOSS_SCALER,
     Float16LossScaler,
@@ -46,6 +48,7 @@ from fairseq2.recipe.evaluator import EvalUnit
 from fairseq2.recipe.model import RecipeModel
 from fairseq2.recipe.trainer import BatchT, Trainer, TrainUnit
 from fairseq2.recipe.validator import NOOP_VALIDATOR, StandardValidator, Validator
+from fairseq2.runtime.lookup import Lookup
 from fairseq2.utils.gc import (
     NOOP_GARBAGE_COLLECTOR,
     GarbageCollector,
@@ -235,16 +238,24 @@ class _RecipeCheckpointHGExporterFactory:
         section: RegimeSection,
         model: RecipeModel,
         default_factory: Callable[[], OutOfProcCheckpointHGExporter],
+        families: Lookup[ModelFamily],
     ) -> None:
         self._section = section
         self._model = model
         self._default_factory = default_factory
+        self._families = families
 
     def create(self) -> CheckpointHGExporter:
         if not self._section.export_hugging_face:
             return NOOP_CHECKPOINT_HG_EXPORTER
 
-        if not self._model.family.supports_hugging_face:
+        family = self._families.maybe_get(self._model.family_name)
+        if family is None:
+            raise InternalError(
+                f"`{self._model.family_name} model family is not found."
+            )
+
+        if not family.supports_hugging_face:
             raise HuggingFaceNotSupportedError()
 
         return self._default_factory()

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TypeVar, final
 
-from fairseq2.datasets import DatasetFamily
+from fairseq2.recipe.error import DatasetTypeNotValidError
 
 DatasetT = TypeVar("DatasetT")
 
@@ -16,16 +16,22 @@ DatasetT = TypeVar("DatasetT")
 @final
 class RecipeDataset:
     def __init__(
-        self, inner_dataset: object, config: object, family: DatasetFamily
+        self,
+        inner_dataset: object,
+        config: object,
+        family_name: str,
+        *,
+        section_name: str = "dataset",
     ) -> None:
         self._inner_dataset = inner_dataset
         self._config = config
-        self._family = family
+        self._family_name = family_name
+        self._section_name = section_name
 
     def as_(self, kls: type[DatasetT]) -> DatasetT:
         if not isinstance(self._inner_dataset, kls):
-            raise TypeError(
-                f"Dataset is expected to be of type `{kls}`, but is of type `{type(self._inner_dataset)}` instead."
+            raise DatasetTypeNotValidError(
+                type(self._inner_dataset), kls, self._section_name
             )
 
         return self._inner_dataset
@@ -35,5 +41,9 @@ class RecipeDataset:
         return self._config
 
     @property
-    def family(self) -> DatasetFamily:
-        return self._family
+    def family_name(self) -> str:
+        return self._family_name
+
+    @property
+    def section_name(self) -> str:
+        return self._section_name
