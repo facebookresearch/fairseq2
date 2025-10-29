@@ -71,6 +71,6 @@ class HFProcessor:
 
     def create_omni_processor(model_name, **kwargs):
         if model_name == "Qwen/Qwen2.5-Omni-7B":
-            return HFQwen2_5OmniProcessor.from_pretrained(model_name, **kwargs)
+            return Qwen2_5OmniProcessor.from_pretrained(model_name, **kwargs)
         else:
             return AutoProcessor.from_pretrained(model_name, **kwargs)
