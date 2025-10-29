@@ -95,7 +95,6 @@ class ClusterNotDetectedError(Exception):
 @final
 class SlurmHandler(ClusterHandler):
     def __init__(self, env: Environment) -> None:
-        self._env = env
         self._job = clusterscope.get_job()
 
     @override
