@@ -9,6 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Collection, Iterable
 from typing import final
+from functools import cached_property
 
 import clusterscope
 from typing_extensions import override
@@ -95,8 +96,12 @@ class ClusterNotDetectedError(Exception):
 
 @final
 class SlurmHandler(ClusterHandler):
-    def __init__(self, env: Environment) -> None:
-        self._job = clusterscope.get_job()
+    @cached_property
+    def _job(self) -> JobInfo:
+        try:
+            return clusterscope.get_job()
+        except RuntimeError as ex:
+            raise OperationalError("`clusterscope.get_job()` has failed.") from ex
 
     @override
     def set_torch_distributed_env_variables(self) -> None:
