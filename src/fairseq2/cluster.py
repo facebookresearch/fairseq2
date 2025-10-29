@@ -13,6 +13,7 @@ from typing import final
 import clusterscope
 from typing_extensions import override
 
+from fairseq2.error import OperationalError
 from fairseq2.runtime.dependency import get_dependency_resolver
 from fairseq2.utils.env import Environment
 
@@ -99,6 +100,13 @@ class SlurmHandler(ClusterHandler):
 
     @override
     def set_torch_distributed_env_variables(self) -> None:
+        if not self._job.is_slurm_srun():
+            raise ClusterNotDetectedError("slurm")
+
+        try:
+            job = clusterscope.get_job()
+        except RuntimeError as ex:
+            raise OperationalError("SLURM job information cannot be retrieved.") from ex
         self._job.set_torch_distributed_env_from_slurm()
 
     @override
