@@ -97,7 +97,7 @@ class ClusterNotDetectedError(Exception):
 @final
 class SlurmHandler(ClusterHandler):
     @cached_property
-    def _job(self) -> clusterscope.JobInfo:
+    def _job(self) -> clusterscope.job_info.JobInfo:
         try:
             return clusterscope.get_job()
         except RuntimeError as ex:
