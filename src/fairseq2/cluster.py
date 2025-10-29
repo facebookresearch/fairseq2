@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Collection, Iterable
-from typing import final
 from functools import cached_property
+from typing import final
 
 import clusterscope
 from typing_extensions import override
@@ -97,7 +97,7 @@ class ClusterNotDetectedError(Exception):
 @final
 class SlurmHandler(ClusterHandler):
     @cached_property
-    def _job(self) -> JobInfo:
+    def _job(self) -> clusterscope.JobInfo:
         try:
             return clusterscope.get_job()
         except RuntimeError as ex:
