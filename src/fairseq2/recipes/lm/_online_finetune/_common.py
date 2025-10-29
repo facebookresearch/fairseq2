@@ -547,6 +547,14 @@ def update_num_dummy_batches(
 @torch.inference_mode()
 def update_avg_reward(metric_bag: MetricBag, avg_reward):
     metric_bag.get(Mean, "avg_reward").update(avg_reward, weight=1)
+    
+@torch.inference_mode()
+def update_avg_second_reward(metric_bag: MetricBag, avg_reward):
+    metric_bag.get(Mean, "avg_second_reward").update(avg_reward, weight=1)
+    
+@torch.inference_mode()
+def update_reward_matches(metric_bag: MetricBag, reward_matches):
+    metric_bag.get(Mean, "reward_matches").update(reward_matches, weight=1)
 
 
 @torch.inference_mode()

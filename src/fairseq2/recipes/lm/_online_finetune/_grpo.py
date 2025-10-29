@@ -41,6 +41,8 @@ from fairseq2.recipes.lm._online_finetune._common import (
     get_failed_to_parse_answers,
     strip_think_tokens,
     update_avg_reward,
+    update_avg_second_reward,
+    update_reward_matches,
     update_avg_reward_len_norm,
     update_avg_rollout_length,
     update_batch_metrics,
@@ -141,6 +143,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     _config: GrpoFinetuneConfig
     _model_update_group: PyNcclCommunicator
     _reward: VLLMOutputReward
+    _second_reward: VLLMOutputReward
     _display_name: str
     _rollout_bag: StatefulRolloutBag
 
@@ -151,6 +154,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         vllm_model: RemoteVllmModel,
         vllm_actors: List[Union[RemoteVllmModel, RemoteHFModel]],
         reward,
+        second_reward,
         gangs: Gangs,
         config: GrpoFinetuneConfig,
     ) -> None:
@@ -162,6 +166,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._vllm_model = vllm_model
         self._gangs = gangs
         self._reward = reward
+        self._second_reward = second_reward
         self._rollout_bag = StatefulRolloutBag(
             max_bag_steps=int(
                 config.loss_config.group_size / config.loss_config.forward_group_size
@@ -227,6 +232,15 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         std_reward = torch.tensor(reward_output["rewards"]).float().std()
         failed_to_parse_answers = get_failed_to_parse_answers(reward_output, prompt_batch.batch_size)
+        
+        second_reward_output = self._second_reward.process_rollouts(rollouts, prompt_batch)
+        log.info(f"Second Rewards: {second_reward_output['rewards']}")
+        avg_second_reward = torch.tensor(second_reward_output["rewards"]).float().mean()
+        update_avg_second_reward(metric_bag, avg_second_reward)
+        
+        reward_matches = (torch.tensor(reward_output["rewards"]) == torch.tensor(second_reward_output["rewards"])).all(dim=1).float().mean()
+        log.info(f"Reward matches: {reward_matches}")
+        update_reward_matches(metric_bag, reward_matches)
 
         rollout_lengths = get_rollout_lengths(rollouts)
         avg_rollout_length = torch.tensor(rollout_lengths).float().mean()
@@ -492,6 +506,9 @@ class GrpoFinetuneConfig:
 
     vllm_reward_model_actor_name: str | None = None
     """Optional name of the Ray vLLM actor used as a reward model."""
+    
+    vllm_second_reward_model_actor_name: str | None = None
+    """Optional name of the Ray vLLM actor used as a reward model."""
 
     vllm_reference_model_actor_name: str | None = None
     """Optional name of the Ray vLLM actor used as a reference model."""
@@ -500,6 +517,10 @@ class GrpoFinetuneConfig:
         default_factory=lambda: RewardSection(name="gsm8k_verifier")
     )
     """Configuration for the reward function that evaluates generated rollouts."""
+    
+    second_reward: RewardSection = field(
+        default_factory=lambda: RewardSection(name="gsm8k_verifier")
+    )
 
     vllm_sync: VllmSyncSection = field(default_factory=lambda: VllmSyncSection())
 
@@ -539,6 +560,8 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
                 vllm_model.sampling_params.n = config.loss_config.group_size
 
         vllm_reward_model = vllm_actors.get(config.vllm_reward_model_actor_name, None)
+        vllm_second_reward_model = vllm_actors.get(config.vllm_second_reward_model_actor_name, None)
+        
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         reward_name = config.reward.name
         reward_handler = reward_registry.get(reward_name)
@@ -546,6 +569,16 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             reward_model=vllm_reward_model,
             reward_name=reward_name,
             reward_config=config.reward.config,
+            gangs=gangs,
+            context=self._context,
+        )
+        
+        second_reward_name = config.second_reward.name
+        second_reward_handler = reward_registry.get(second_reward_name)
+        second_reward = second_reward_handler.create(
+            reward_model=vllm_second_reward_model,
+            reward_name=second_reward_name,
+            reward_config=config.second_reward.config,
             gangs=gangs,
             context=self._context,
         )
@@ -559,7 +592,7 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         log.info("GRPO setup complete.")
 
         return GrpoFinetuneUnit(
-            model, reference_model, vllm_model, vllm_actors, reward, gangs, config
+            model, reference_model, vllm_model, vllm_actors, reward, second_reward, gangs, config
         )
 
     @property

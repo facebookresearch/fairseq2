@@ -93,6 +93,7 @@ class NoEnvLLM(LLM):
         # at the top-level
         del os.environ["CUDA_VISIBLE_DEVICES"]
         # os.environ["VLLM_USE_V1"] = "1"
+        os.environ["VLLM_ALLOW_INSECURE_SERIALIZATION"] = "1"
         super().__init__(*args, **kwargs)
 
         self.ready = True  # Set a flag or return a signal
