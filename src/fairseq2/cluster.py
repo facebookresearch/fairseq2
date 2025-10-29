@@ -104,10 +104,9 @@ class SlurmHandler(ClusterHandler):
             raise ClusterNotDetectedError("slurm")
 
         try:
-            job = clusterscope.get_job()
+            self._job.set_torch_distributed_env_from_slurm()
         except RuntimeError as ex:
             raise OperationalError("SLURM job information cannot be retrieved.") from ex
-        self._job.set_torch_distributed_env_from_slurm()
 
     @override
     def supports_current_cluster(self) -> bool:
