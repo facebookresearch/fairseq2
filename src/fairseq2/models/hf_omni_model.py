@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import soundfile as sf
 
-from transformers import Qwen2_5OmniForConditionalGeneration, Qwen2_5OmniProcessor
+from transformers import Qwen2_5OmniForConditionalGeneration, AutoProcessor, Qwen2_5OmniProcessor
 from qwen_omni_utils import process_mm_info
 
 from typing import final
@@ -23,24 +23,17 @@ from fairseq2.device import Device
 from fairseq2.nn import BatchLayout, Linear
 from fairseq2.nn.functional import cross_entropy
 
-def create_processor(model_name:str, **kwargs):
-    return Qwen2_5OmniProcessor.from_pretrained(model_name, **kwargs, is_fast=True)
-
-def create_model(model_name:str, from_config=False, output_hidden_states=False, device="cpu", dtype="auto", **kwargs):
-    return HFModel(from_config, model_name, device, dtype, **kwargs)
-
-@final
-class HFModel(Module):
-    """Represents a PyTorch model as can be found
-    on huggingface.co"""
+class HFQwen2_5OmniModel(Module):
+    """Represents a Qwen Omni model as found on
+    huggingface.co"""
 
     def __init__(
         self,
-        from_config: bool,
-        model_name: str,
-        output_hidden_states: bool,
-        device: Device | None = None,
-        dtype: DataType | None = None,
+        output_hidden_states: bool = False,
+        attn_implementation: str = "flash_attn_2",
+        device: str = "auto",
+        dtype: str = "float32",
+        **kwargs: dict,
     ) -> None:
         """
         :param config:
@@ -53,11 +46,31 @@ class HFModel(Module):
             The tensor precision to use (e.g. float32, float16, bfloat16, etc.)
         """
         super().__init__()
-
-        self.model = Qwen2_5OmniForConditionalGeneration.from_pretrained(model_name, dtype=dtype, device_map=device)
+        self.model_name = "Qwen/Qwen2.5-Omni-7B"
+        self.model = Qwen2_5OmniForConditionalGeneration.from_pretrained(self.model_name, dtype=dtype, device_map=device, **kwargs)
         if output_hidden_states:
             self.model.config.output_hidden_states = True
 
     def forward(self, **inputs):
         logits = self.model(**inputs)
         return logits
+    
+class HFModel:
+    """Represents a PyTorch model as can be found
+    on huggingface.co"""
+
+    def create_omni_model(model_name:str, **kwargs):
+        if model_name == "Qwen/Qwen2.5-Omni-7B":
+            return HFQwen2_5OmniModel(**kwargs)
+        else:
+            print(f"Model not currently supported")
+    
+class HFProcessor:
+    """Represents a processor as can be found
+    on huggingface.co"""
+
+    def create_omni_processor(model_name, **kwargs):
+        if model_name == "Qwen/Qwen2.5-Omni-7B":
+            return HFQwen2_5OmniProcessor.from_pretrained(model_name, **kwargs)
+        else:
+            return AutoProcessor.from_pretrained(model_name, **kwargs)
