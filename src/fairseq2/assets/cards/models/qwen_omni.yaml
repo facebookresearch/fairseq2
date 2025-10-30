@@ -1,0 +1,12 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: qwen25_omni_7b
+model_family: qwen_omni
+model_arch: qwen25_omni_7b
+checkpoint: "hg://hf_omni/qwen2.5-omni-7b"
+tokenizer: "hg://hf_omni/qwen2.5-omni-7b"
+tokenizer_family: qwen_omni
