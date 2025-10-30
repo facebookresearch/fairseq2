@@ -192,15 +192,16 @@ def get_data_parallel_facade(module: Module) -> DataParallelFacade:
     """
     facade = getattr(module, _FACADE_KEY, None)
     if facade is None:
-        if isinstance(module, DDPModule):
-            return _DDPFacade(module)
+        match module:
+            case DDPModule():
+                facade = _DDPFacade(module)
+            case FSDP1Module():
+                facade = _FSDP1Facade(module)
+            case FSDP2Module():
+                facade = _FSDP2Facade(module)
+            case _:
+                facade = _NoopDataParallelFacade(module)
 
-        if isinstance(module, FSDP1Module):
-            return _FSDP1Facade(module)
-
-        if isinstance(module, FSDP2Module):
-            return _FSDP2Facade(module)
-
-        facade = _NoopDataParallelFacade(module)
+        setattr(module, _FACADE_KEY, facade)
 
     return facade
