@@ -76,9 +76,8 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any
 
-from typing_extensions import override
-
 from fairseq2.logging import log
+from typing_extensions import override
 
 
 class JudgmentExtractorHandler(ABC):
@@ -217,7 +216,6 @@ class GeneralVerifierExtractor(JudgmentExtractor):
 
     @override
     def format_prompt(self, prompt_text, rollout_text, reference_answer):
-
         student_answer_list = self.parse(rollout_text, self.student_extraction_config)
         student_answer = self.get_preferred_index(student_answer_list)
 

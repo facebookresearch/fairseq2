@@ -163,6 +163,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._vllm_model = vllm_model
         self._gangs = gangs
         self._reward = reward
+        self._reward_model = getattr(reward, "reward_model", None)
         self._rollout_bag = StatefulRolloutBag(
             max_bag_steps=int(
                 config.loss_config.group_size / config.loss_config.forward_group_size
@@ -259,6 +260,14 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 self._step_nr,
                 self._config.vllm_sync.sync_ref_model_every_n_steps,
             )
+            if self._config.vllm_sync.sync_reward_model_every_n_steps > 0:
+                maybe_sync_model(
+                    self._gangs,
+                    self._model,
+                    self._reward_model,
+                    self._step_nr,
+                    self._config.vllm_sync.sync_reward_model_every_n_steps,
+                )
 
             rollouts = generate_rollouts(
                 prompt_batch.prompts,
@@ -566,6 +575,11 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
                 vllm_model.sampling_params.n = config.loss_config.group_size
 
         vllm_reward_model = vllm_actors.get(config.vllm_reward_model_actor_name, None)
+        if config.vllm_sync.sync_reward_model_every_n_steps != -1:
+            if vllm_reward_model and vllm_reward_model.update_process_groups is None:
+                raise ValueError(
+                    f"reward model actor must have update process group if we sync weights"
+                )
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         reward_name = config.reward.name
         reward_handler = reward_registry.get(reward_name)
@@ -585,6 +599,10 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             and config.vllm_sync.sync_ref_model_every_n_steps > 0
         ):
             maybe_sync_model(gangs, model, reference_model, -1, -1, force_sync=True)
+        if config.vllm_sync.sync_reward_model_every_n_steps > 0:
+            # TODO(lidli): check for the no rm remote case but make sure
+            # synchronization by having all ranks call maybe_sync_model (has barrier func).
+            maybe_sync_model(gangs, model, vllm_reward_model, -1, -1, force_sync=True)
 
         log.info("GRPO setup complete.")
 
