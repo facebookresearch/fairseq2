@@ -18,6 +18,7 @@ from fairseq2.models.wav2vec2.asr.config import Wav2Vec2AsrConfig
 def convert_wav2vec2_asr_state_dict(
     state_dict: dict[str, object], config: Wav2Vec2AsrConfig
 ) -> dict[str, object]:
+
     try:
         state_dict = cast(dict[str, object], state_dict["model"])
     except KeyError:

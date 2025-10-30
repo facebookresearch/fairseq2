@@ -1,0 +1,16 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+model:
+  name: "wav2vec2_asr_base_10h"
+
+dataset:
+  name: "librilight_asr_10h"
+  valid_split: "test_other"
+  max_audio_len: 800_000
+  max_num_elements: 3_200_000
+  normalize_audio: False
+  num_prefetch: 4
