@@ -12,6 +12,8 @@ from typing import Final
 from fairseq2.runtime.config_registry import ConfigRegistrar
 from fairseq2.runtime.dependency import DependencyContainer
 
+from transformers import AutoConfig
+
 QWEN_FAMILY: Final = "qwen"
 
 
@@ -84,6 +86,26 @@ def register_qwen_configs(container: DependencyContainer) -> None:
     def qwen25_7b() -> QwenConfig:
         return QwenConfig()
 
+    @arch("qwen25_omni_7b")
+    def qwen25_omni_7b() -> QwenConfig:
+        main_config = QwenConfig()
+        
+        hf_config = AutoConfig.from_pretrained("Qwen/Qwen2.5-Omni-7B")
+        hf_config_dict = hf_config.to_dict()
+
+        for key, config_item in hf_config_dict.items():
+            if type(config_item) != dict:
+                main_config.key = config_item
+            else:
+                sub_config = QwenConfig()
+                for param, val in config_item.items():
+                    sub_config.param = val
+                main_config.key = sub_config
+            
+        print(main_config)
+
+        return main_config
+    
     @arch("qwen25_14b")
     def qwen25_14b() -> QwenConfig:
         config = QwenConfig()

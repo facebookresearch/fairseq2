@@ -13,6 +13,15 @@ tokenizer_family: qwen
 
 ---
 
+name: qwen25_omni_7b
+model_family: qwen
+model_arch: qwen25_omni_7b
+checkpoint: "hg://Qwen/Qwen2.5-Omni-7B"
+tokenizer: "hg://Qwen/Qwen2.5-Omni-7B"
+tokenizer_family: qwen
+
+---
+
 name: qwen25_7b_instruct
 model_family: qwen
 model_arch: qwen25_7b
