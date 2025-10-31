@@ -1,12 +1,12 @@
 POINTWISE_J1_PROMPT = """
-You are given a user question and a response from an AI assistant. Your task is to act as an impartial judge and evaluate how well the response fulfills the user's instructions. You will be shown multiple responses to the same prompt, but only one at a time. Evaluate each response independently. 
+You are given a user question and a response from an AI assistant. Your task is to act as an impartial judge and evaluate how well the response fulfills the user's instructions. You will be shown multiple responses to the same prompt, but only one at a time. Evaluate each response independently.
 
-Think carefully about how to assess the quality of the response, and enclose your reasoning within <think> and </think> tags. Your reasoning should include your evaluation criteria, a clear understanding of what an ideal response would look like for this particular question, and a concrete example of such an ideal or reference answer if possible. Then compare the assistant's response to your ideal or reference answer, explaining how it aligns with or deviates from your expectations. Be specific and avoid vague or overly general judgments. Remain as objective as possible. 
+Think carefully about how to assess the quality of the response, and enclose your reasoning within <think> and </think> tags. Your reasoning should include your evaluation criteria, a clear understanding of what an ideal response would look like for this particular question, and a concrete example of such an ideal or reference answer if possible. Then compare the assistant's response to your ideal or reference answer, explaining how it aligns with or deviates from your expectations. Be specific and avoid vague or overly general judgments. Remain as objective as possible.
 
 Finally, assign the assistant's response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision. A higher score should indicate a higher-quality response. Enclose the score within <score> and </score> tags.
 
-Format your output like this: 
-<think> your_thinking_process </think> 
+Format your output like this:
+<think> your_thinking_process </think>
 <score> your_score </score>
 
 Below are the user's question and the assistant's response:
@@ -248,6 +248,61 @@ class GeneralVerifierExtractor(JudgmentExtractor):
         return round(avg_score / len(judgments), 4)
 
 
+class SelfAugmentingExtractorHandler(JudgmentExtractorHandler):
+    def __init__(self):
+        pass
+
+    @override
+    def create(self):
+        return SelfAugmentingExtractor()
+
+    @property
+    @override
+    def name(self):
+        return "self_augmenting_extractor"
+
+    @property
+    @override
+    def config_kls(self):
+        return None
+
+
+class SelfAugmentingExtractor(JudgmentExtractor):
+    def __init__(
+        self,
+    ):
+        pass
+
+    @override
+    def prompt(self):
+        return POINTWISE_J1_PROMPT
+
+    @override
+    def format_prompt(self, tokenizer, prompt_text, rollout_text, reference_answer):
+        content = self.prompt().format(instruction=prompt_text, response=rollout_text)
+        wrapped_text = [{"role": "user", "content": content}]
+        chat_str = tokenizer.apply_chat_template(
+            wrapped_text, tokenize=False, add_generation_prompt=True
+        )
+        return chat_str
+
+    @override
+    def extract(self, generation):
+        matches = re.findall(
+            r"<score>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score>", generation
+        )
+        if matches and float(matches[-1].strip()) > 10.0:
+            log.info(f"Judge output = {generation}")
+        return float(matches[-1].strip()) if matches else 0.0
+
+    @override
+    def aggregate(self, judgments):
+        avg_score = 0.0
+        for score in judgments:
+            avg_score += score
+
+        return round(avg_score / len(judgments), 4)
+
 class J1PointwiseExtractorHandler(JudgmentExtractorHandler):
     def __init__(self):
         pass
@@ -268,7 +323,9 @@ class J1PointwiseExtractorHandler(JudgmentExtractorHandler):
 
 
 class J1PointwiseExtractor(JudgmentExtractor):
-    def __init__(self):
+    def __init__(
+        self,
+    ):
         pass
 
     @override
