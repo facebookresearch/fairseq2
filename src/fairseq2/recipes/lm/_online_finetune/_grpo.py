@@ -462,13 +462,13 @@ GRPO_FINETUNE_UNIT: Final = "grpo"
 class GrpoLossConfig:
     group_size: int = 4
     """Number of responses to sample per prompt for advantage computation.
-    
+
     This value must match the 'n' parameter in the VLLM sampling params.
     """
 
     forward_group_size: int = 4
     """Maximum number of responses to process in a single forward pass.
-    
+
     When group_size > forward_group_size, responses are processed in multiple micro-batches
     to reduce memory usage (similar to gradient accumulation). Each micro-batch processes
     forward_group_size responses and accumulates gradients until all group_size responses
@@ -550,12 +550,14 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         validate(config)
         log.info(f"GRPO loss config:\n{config}")
 
-        reference_model = vllm_actors[config.vllm_reference_model_actor_name]
-        if reference_model and config.vllm_sync.sync_ref_model_every_n_steps != -1:
-            if reference_model and reference_model.update_process_groups is None:
-                raise ValueError(
-                    f"Reference model actor must have update process group if we sync weights"
-                )
+        reference_model = None
+        if config.vllm_reference_model_actor_name is not None:
+            reference_model = vllm_actors[config.vllm_reference_model_actor_name]
+            if config.vllm_sync.sync_ref_model_every_n_steps != -1:
+                if reference_model.update_process_groups is None:
+                    raise ValueError(
+                        f"Reference model actor must have update process group if we sync weights"
+                    )
 
         vllm_model = vllm_actors[config.vllm_model_actor_name]
         if gangs.dp.rank == 0:
@@ -578,7 +580,10 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         # sync models here before we start training
         if config.vllm_sync.sync_model_every_n_steps > 0:
             maybe_sync_model(gangs, model, vllm_model, -1, -1, force_sync=True)
-        if config.vllm_sync.sync_ref_model_every_n_steps > 0:
+        if (
+            reference_model is not None
+            and config.vllm_sync.sync_ref_model_every_n_steps > 0
+        ):
             maybe_sync_model(gangs, model, reference_model, -1, -1, force_sync=True)
 
         log.info("GRPO setup complete.")
