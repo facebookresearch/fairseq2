@@ -565,7 +565,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
             for rollout_output in i_batch_request_output.outputs:
                 rollout_text = rollout_output.text
                 vllm_input = self.judgment_extractor.format_prompt(
-                    self.tokenizer, prompt_text, rollout_text, i_reference_answer
+                    self.tokenizer, prompt_text, rollout_text, i_reference_answer, self._gangs.dp
                 )
                 vllm_inputs.append(vllm_input)
                 rollouts_text.append(rollout_output.text)

@@ -71,6 +71,26 @@ Below are the user's question and the two responses:
 [The End of Assistant B's Answer]
 """
 
+SELF_AUGMENTING_PROMPT = """
+You are given a ground truth text, and a generated text from an AI assistant. Your task is to act as an impartial judge and evaluate how well the response matches the ground truth text. It doesn't have to match word for word, but it should be very similar.
+
+Think carefully about how to assess how well the generated text matches the ground truth. Your reasoning should include your evaluation criteria.
+
+Finally, assign the assistant's generation a binary score, either 0 or 1. A 0 indicates that the generated text does not match the ground truth text, and a 1 indicates that it matches well.
+
+Format your score as \\boxed{{SCORE}} where SCORE is either 0 or 1.
+
+Below are the ground truth text and the assistant's Generation:
+
+[Start of Ground Truth Text]
+{ground_truth}
+[End of Ground Truth Text]
+
+[Start of Assistant's Generation]
+{generation}
+[End of Assistant's Generation]
+"""
+
 
 import re
 from abc import ABC, abstractmethod
@@ -275,11 +295,30 @@ class SelfAugmentingExtractor(JudgmentExtractor):
 
     @override
     def prompt(self):
-        return POINTWISE_J1_PROMPT
+        return SELF_AUGMENTING_PROMPT
+
+
+    def remove_think_tags(self, rollout_text):
+        tag = "</think>"
+        count = rollout_text.count(tag)
+        if count == 1:
+            # Find the position after the tag and return everything after it
+            index = rollout_text.find(tag) + len(tag)
+            return rollout_text[index:]
+        else:
+            return "" # set rollout to empty string if it doesn't contain thought or has multiple
 
     @override
-    def format_prompt(self, tokenizer, prompt_text, rollout_text, reference_answer):
-        content = self.prompt().format(instruction=prompt_text, response=rollout_text)
+    def format_prompt(self, tokenizer, prompt_text, rollout_text, reference_answer, dp_gangs):
+        # if dp_gangs.rank == 0
+        #     breakpoint()
+        # dp_gangs.root.barrier()
+
+        rollout_text = self.remove_think_tags(rollout_text)
+
+        content = self.prompt().format(ground_truth=reference_answer, generation=rollout_text)
+
+        log.info(f"Judge prompt = {content}")
         wrapped_text = [{"role": "user", "content": content}]
         chat_str = tokenizer.apply_chat_template(
             wrapped_text, tokenize=False, add_generation_prompt=True
@@ -288,12 +327,14 @@ class SelfAugmentingExtractor(JudgmentExtractor):
 
     @override
     def extract(self, generation):
-        matches = re.findall(
-            r"<score>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score>", generation
-        )
-        if matches and float(matches[-1].strip()) > 10.0:
-            log.info(f"Judge output = {generation}")
-        return float(matches[-1].strip()) if matches else 0.0
+        # pattern = r'\\boxed\{(-?\d+)\}'
+        pattern = r'\\boxed\{([01])\}'
+        match = re.search(pattern, generation)
+        if match:
+            score = float(match.group(1))
+        else:
+            score = 0.0
+        return score
 
     @override
     def aggregate(self, judgments):
