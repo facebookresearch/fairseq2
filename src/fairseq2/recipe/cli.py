@@ -68,6 +68,7 @@ from fairseq2.recipe.base import (
 from fairseq2.recipe.component import ComponentNotKnownError
 from fairseq2.recipe.error import (
     BeamSearchAlgorithmNotKnownError,
+    DatasetTypeNotValidError,
     DeviceTypeNotSupportedError,
     FSDPNotSupportedError,
     GangTopologyError,
@@ -87,6 +88,7 @@ from fairseq2.recipe.error import (
     SequenceGeneratorNotKnownError,
     SplitNotKnownError,
     TokenizerModelNotFoundError,
+    TokenizerTypeNotValidError,
     TorchCompileError,
     TorchCompileNotSupportedError,
     WandbInitializationError,
@@ -520,6 +522,7 @@ def _register_cli_errors(container: DependencyContainer) -> None:
     register(DatasetError, _handle_dataset_error)
     register(DatasetFamilyNotKnownError, _handle_dataset_family_not_known_error)
     register(DatasetNotKnownError, _handle_dataset_not_known_error)
+    register(DatasetTypeNotValidError, _handle_dataset_type_not_valid_error)
     register(DeviceTypeNotSupportedError, _handle_device_type_not_supported_error)
     register(EnvironmentVariableError, _handle_env_variable_error)
     register(FSDPNotSupportedError, _handle_fsdp_not_supported_error)
@@ -548,6 +551,7 @@ def _register_cli_errors(container: DependencyContainer) -> None:
     register(TokenizerModelError, _handle_tokenizer_model_error)
     register(TokenizerModelNotFoundError, _handle_tokenizer_model_not_found_error)
     register(TokenizerNotKnownError, _handle_tokenizer_not_known_error)
+    register(TokenizerTypeNotValidError, _handle_tokenizer_type_not_valid_error)
     register(TorchCompileError, _handle_torch_compile_error)
     register(TorchCompileNotSupportedError, _handle_torch_compile_not_supported_error)
     register(WandbInitializationError, _handle_wandb_init_error)
@@ -640,6 +644,15 @@ def _handle_dataset_error(ex: DatasetError) -> int:
     log.exception("Failed to open the dataset. See logged stack trace for details.")
 
     return 1
+
+
+def _handle_dataset_type_not_valid_error(ex: DatasetTypeNotValidError) -> int:
+    if ex.section_name == "dataset":
+        log.error("Dataset must be of type `{}`, but is of type `{}` instead.", ex.valid_kls.__name__, ex.kls.__name__)
+    else:
+        log.error("Dataset specified in `{}` section must be of type `{}`, but is of type `{}` instead.", ex.section_name, ex.valid_kls.__name__, ex.kls.__name__)
+
+    return 2
 
 
 def _handle_device_type_not_supported_error(ex: DeviceTypeNotSupportedError) -> int:
@@ -816,6 +829,15 @@ def _handle_tokenizer_model_not_found_error(ex: TokenizerModelNotFoundError) -> 
 
 def _handle_tokenizer_not_known_error(ex: TokenizerNotKnownError) -> int:
     log.error("{} is not a known tokenizer. To see the list of available tokenizers run: `python -m fairseq2.assets list --kind tokenizer`.", ex.name)
+
+    return 2
+
+
+def _handle_tokenizer_type_not_valid_error(ex: TokenizerTypeNotValidError) -> int:
+    if ex.section_name == "tokenizer":
+        log.error("Tokenizer must be of type `{}`, but is of type `{}` instead.", ex.valid_kls.__name__, ex.kls.__name__)
+    else:
+        log.error("Tokenizer specified in `{}` section must be of type `{}`, but is of type `{}` instead.", ex.section_name, ex.valid_kls.__name__, ex.kls.__name__)
 
     return 2
 

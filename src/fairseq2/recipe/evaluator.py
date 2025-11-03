@@ -12,6 +12,7 @@ from contextlib import nullcontext
 from typing import Any, Generic, TypeVar, final
 
 import torch
+from torch.nn import Module
 from torch.profiler import record_function
 from typing_extensions import override
 
@@ -32,6 +33,7 @@ from fairseq2.utils.device_stat import DeviceStatTracker
 from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.stopwatch import Stopwatch
+from fairseq2.utils.warn import _warn_deprecated
 
 BatchT_contra = TypeVar(
     "BatchT_contra", bound=SupportsDeviceTransfer, contravariant=True
@@ -61,8 +63,10 @@ class EvalUnit(ABC, Generic[BatchT_contra]):
         return None
 
     @property
-    @abstractmethod
-    def model(self) -> RecipeModel: ...
+    def model(self) -> RecipeModel:
+        _warn_deprecated("`EvalUnit.model` is deprecated and will be removed in v0.13.")
+
+        raise NotImplementedError()
 
 
 BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
@@ -73,6 +77,7 @@ class Evaluator(Task):
     def __init__(
         self,
         *,
+        model: Module,
         units: Sequence[EvalUnit[BatchT]],
         data_readers: Sequence[DataReader[BatchT]],
         gangs: Gangs,
@@ -102,6 +107,8 @@ class Evaluator(Task):
             raise ValueError(
                 f"Number of data readers in `data_readers` must match the number of units in `units` ({len(units)}), but is {len(data_readers)} instead."
             )
+
+        self._model = model
 
         self._units = units
 
@@ -155,6 +162,8 @@ class Evaluator(Task):
         self._gangs.close()
 
     def _do_run(self) -> None:
+        self._model.eval()
+
         for unit, data_reader in zip(self._units, self._data_readers):
             if unit.name:
                 log.info("Evaluating {}.", unit.name)
@@ -162,8 +171,6 @@ class Evaluator(Task):
             self._run_unit(unit, data_reader)
 
     def _run_unit(self, unit: EvalUnit[Any], data_reader: DataReader[Any]) -> None:
-        unit.model.module.eval()
-
         metric_bag = MetricBag(device=self._gangs.root.device)
 
         unit.prepare_metric_bag(metric_bag)

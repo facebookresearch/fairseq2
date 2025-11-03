@@ -77,13 +77,18 @@ class _UserTrainModelPreparer(_TrainModelPreparer):
     def prepare(self, model_holder: _ModelHolder) -> None:
         context = RecipeContext(self._resolver)
 
-        model: RecipeModel = _StandardRecipeModel(model_holder)
-
         try:
+            model_holder.model = self._recipe.setup_model(
+                context, model_holder.model, model_holder.newly_initialized
+            )
+
+            # TODO: Deprecated, remove in v0.13
+            model: RecipeModel = _StandardRecipeModel(model_holder)
+
             model = self._recipe.prepare_model(context, model)
+
+            model_holder.model = model.module
         except OSError as ex:
             raise_operational_system_error(ex)
         except GangError as ex:
             raise_operational_gang_error(ex)
-
-        model_holder.model = model.base_module

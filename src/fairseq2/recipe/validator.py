@@ -197,8 +197,6 @@ class StandardValidator(Validator):
     def _run_unit(
         self, train_step_nr: int, unit: EvalUnit[Any], data_reader: DataReader[Any]
     ) -> float | None:
-        unit.model.module.eval()
-
         metric_bag = MetricBag(device=self._gangs.root.device)
 
         unit.prepare_metric_bag(metric_bag)
