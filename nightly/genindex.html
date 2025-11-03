@@ -252,6 +252,7 @@
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.utils.validation.html">fairseq2.utils.validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.nn.html">fairseq2.nn</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.nn.batch_layout.html">fairseq2.nn.batch_layout</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.nn.data_parallel.html">fairseq2.nn.data_parallel</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.nn.embedding.html">fairseq2.nn.embedding</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.nn.incremental_state.html">fairseq2.nn.incremental_state</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.nn.normalization.html">fairseq2.nn.normalization</a></li>
@@ -415,6 +416,8 @@
         </ul></li>
         <li><a href="reference/fairseq2.nn.incremental_state.html#fairseq2.nn.IncrementalStateBag.capacity_increment">capacity_increment (fairseq2.nn.IncrementalStateBag property)</a>
 </li>
+        <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade.clip_grad_norm">clip_grad_norm() (fairseq2.nn.data_parallel.DataParallelFacade method)</a>
+</li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.FakeGang.close">close() (fairseq2.gang.FakeGang method)</a>
 
         <ul>
@@ -503,6 +506,8 @@
   <h2>D</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade">DataParallelFacade (class in fairseq2.nn.data_parallel)</a>
+</li>
         <li><a href="reference/fairseq2.datasets.hub.html#fairseq2.datasets.hub.DatasetFamilyNotKnownError">DatasetFamilyNotKnownError</a>
 </li>
         <li><a href="reference/fairseq2.datasets.hub.html#fairseq2.datasets.hub.DatasetHub">DatasetHub (class in fairseq2.datasets.hub)</a>
@@ -515,6 +520,8 @@
 </li>
         <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.DelegatingModelCheckpointLoader">DelegatingModelCheckpointLoader (class in fairseq2.model_checkpoint)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.FakeGang.device">device (fairseq2.gang.FakeGang property)</a>
 
         <ul>
@@ -523,8 +530,6 @@
           <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ProcessGroupGang.device">(fairseq2.gang.ProcessGroupGang property)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.device.html#fairseq2.device.CudaContext.device_count">device_count() (fairseq2.device.CudaContext method)</a>
 
         <ul>
@@ -718,6 +723,8 @@
         </ul></li>
         <li><a href="reference/fairseq2.device.html#fairseq2.device.get_current_device">get_current_device() (in module fairseq2.device)</a>
 </li>
+        <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.get_data_parallel_facade">get_data_parallel_facade() (in module fairseq2.nn.data_parallel)</a>
+</li>
         <li><a href="reference/fairseq2.datasets.hub.html#fairseq2.datasets.hub.DatasetHub.get_dataset_config">get_dataset_config() (fairseq2.datasets.hub.DatasetHub method)</a>
 </li>
     </ul></td>
@@ -866,6 +873,8 @@
           <li><a href="reference/fairseq2.models.hub.html#fairseq2.models.hub.load_model">(in module fairseq2.models.hub)</a>
 </li>
         </ul></li>
+        <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade.load_state_dict">load_state_dict() (fairseq2.nn.data_parallel.DataParallelFacade method)</a>
+</li>
         <li><a href="reference/fairseq2.data.tokenizers.hub.html#fairseq2.data.tokenizers.hub.TokenizerHub.load_tokenizer">load_tokenizer() (fairseq2.data.tokenizers.hub.TokenizerHub method)</a>
 
         <ul>
@@ -992,6 +1001,8 @@
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.NativeModelCheckpointLoader">NativeModelCheckpointLoader (class in fairseq2.model_checkpoint)</a>
+</li>
+        <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade.no_sync">no_sync() (fairseq2.nn.data_parallel.DataParallelFacade method)</a>
 </li>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.num_attn_heads">num_attn_heads (fairseq2.models.llama.LLaMAConfig attribute)</a>
 
@@ -1195,6 +1206,8 @@
 </li>
         <li><a href="reference/fairseq2.nn.batch_layout.html#fairseq2.nn.BatchLayout.seq_lens_pt">seq_lens_pt (fairseq2.nn.BatchLayout property)</a>
 </li>
+        <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.set_data_parallel_facade">set_data_parallel_facade() (in module fairseq2.nn.data_parallel)</a>
+</li>
         <li><a href="reference/fairseq2.nn.incremental_state.html#fairseq2.nn.IncrementalStateBag.set_state">set_state() (fairseq2.nn.IncrementalStateBag method)</a>
 </li>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.shard_embed_dim">shard_embed_dim (fairseq2.models.llama.LLaMAConfig attribute)</a>
@@ -1219,10 +1232,10 @@
           <li><a href="reference/fairseq2.nn.incremental_state.html#fairseq2.nn.IncrementalStateBag.size_bytes">(fairseq2.nn.IncrementalStateBag method)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMATokenizerConfig.split_regex">split_regex (fairseq2.models.llama.LLaMATokenizerConfig attribute)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.device.html#fairseq2.device.StandardCudaContext">StandardCudaContext (class in fairseq2.device)</a>
 </li>
         <li><a href="reference/fairseq2.nn.embedding.html#fairseq2.nn.StandardEmbedding">StandardEmbedding (class in fairseq2.nn)</a>
@@ -1231,6 +1244,8 @@
 </li>
         <li><a href="reference/fairseq2.utils.validation.html#fairseq2.utils.validation.StandardObjectValidator">StandardObjectValidator (class in fairseq2.utils.validation)</a>
 </li>
+        <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade.state_dict">state_dict() (fairseq2.nn.data_parallel.DataParallelFacade method)</a>
+</li>
         <li><a href="reference/fairseq2.nn.incremental_state.html#fairseq2.nn.IncrementalStateBag.step_nr">step_nr (fairseq2.nn.IncrementalStateBag property)</a>
 </li>
         <li><a href="reference/fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationResult.sub_results">sub_results (fairseq2.utils.validation.ValidationResult property)</a>
@@ -1238,6 +1253,8 @@
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.TokenEncoder.suffix_indices">suffix_indices (fairseq2.data.tokenizers.TokenEncoder property)</a>
 </li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ReduceOperation.SUM">SUM (fairseq2.gang.ReduceOperation attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade.summon_full_parameters">summon_full_parameters() (fairseq2.nn.data_parallel.DataParallelFacade method)</a>
 </li>
         <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.BasicModelCheckpointLoader.supports_path">supports_path() (fairseq2.model_checkpoint.BasicModelCheckpointLoader method)</a>
 
@@ -1405,7 +1422,7 @@
       
     </aside>
   </div>
-</div><script src="_static/documentation_options.js?v=3f1f6526"></script>
+</div><script src="_static/documentation_options.js?v=a133ad0e"></script>
     <script src="_static/doctools.js?v=9a2dae69"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/scripts/furo.js?v=5fa4622c"></script>

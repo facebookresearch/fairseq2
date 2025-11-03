@@ -3,10 +3,10 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="fairseq2.checkpoint" href="checkpoint.html" /><link rel="prev" title="What is a Gang?" href="../concepts/gang.html" />
+    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="fairseq2.nn.embedding" href="fairseq2.nn.embedding.html" /><link rel="prev" title="fairseq2.nn.batch_layout" href="fairseq2.nn.batch_layout.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
-        <title>fairseq2.assets - fairseq2 Documentation</title>
+        <title>fairseq2.nn.data_parallel - fairseq2 Documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
@@ -181,7 +181,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -235,7 +235,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul class="current">
-<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">fairseq2.assets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="assets.html">fairseq2.assets</a></li>
 <li class="toctree-l1"><a class="reference internal" href="checkpoint.html">fairseq2.checkpoint</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.data.html">fairseq2.data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.data.tokenizers.html">fairseq2.data.tokenizers</a></li>
@@ -254,7 +254,7 @@
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.utils.validation.html">fairseq2.utils.validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.html">fairseq2.nn</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.batch_layout.html">fairseq2.nn.batch_layout</a></li>
-<li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.data_parallel.html">fairseq2.nn.data_parallel</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">fairseq2.nn.data_parallel</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.embedding.html">fairseq2.nn.embedding</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.incremental_state.html">fairseq2.nn.incremental_state</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.normalization.html">fairseq2.nn.normalization</a></li>
@@ -291,7 +291,7 @@
         </a>
         <div class="content-icon-container">
           <div class="view-this-page">
-  <a class="muted-link" href="../_sources/reference/assets.rst.txt" title="View this page">
+  <a class="muted-link" href="../_sources/reference/fairseq2.nn.data_parallel.rst.txt" title="View this page">
     <svg><use href="#svg-eye"></use></svg>
     <span class="visually-hidden">View this page</span>
   </a>
@@ -305,24 +305,79 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="module-fairseq2.assets">
-<span id="fairseq2-assets"></span><h1>fairseq2.assets<a class="headerlink" href="#module-fairseq2.assets" title="Link to this heading">¶</a></h1>
-<p>The assets module provides a model hub system for loading pre-trained models,
-tokenizers, and other assets.</p>
-<p><strong>Coming soon:</strong> This documentation is being developed. The assets module includes:</p>
-<ul class="simple">
-<li><p>Asset store and registry</p></li>
-<li><p>Model downloading and caching</p></li>
-<li><p>Asset metadata management</p></li>
-<li><p>Pre-trained model catalogs</p></li>
-</ul>
-<p>Please refer to the source code and examples in the meantime.</p>
+          <section id="fairseq2-nn-data-parallel">
+<h1>fairseq2.nn.data_parallel<a class="headerlink" href="#fairseq2-nn-data-parallel" title="Link to this heading">¶</a></h1>
+<section id="interfaces">
+<h2>Interfaces<a class="headerlink" href="#interfaces" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.nn.data_parallel.DataParallelFacade">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.data_parallel.</span></span><span class="sig-name descname"><span class="pre">DataParallelFacade</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/nn/data_parallel.html#DataParallelFacade"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.data_parallel.DataParallelFacade" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Stateful</span></code></p>
+<p>Provides an API-agnostic way to interact with different data parallelism
+implementations.</p>
+<p>DDP, FSDP, and other data parallelism implementations expose different APIs
+for operations such as state handling and gradient clipping. This interface
+acts as a facade, providing a consistent way to access these underlying APIs.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.nn.data_parallel.DataParallelFacade.state_dict">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">state_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><span class="pre">object</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/nn/data_parallel.html#DataParallelFacade.state_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.data_parallel.DataParallelFacade.state_dict" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.nn.data_parallel.DataParallelFacade.load_state_dict">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_state_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><span class="pre">object</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/nn/data_parallel.html#DataParallelFacade.load_state_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.data_parallel.DataParallelFacade.load_state_dict" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.nn.data_parallel.DataParallelFacade.no_sync">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">no_sync</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/contextlib.html#contextlib.AbstractContextManager" title="(in Python v3.14)"><span class="pre">AbstractContextManager</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/nn/data_parallel.html#DataParallelFacade.no_sync"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.data_parallel.DataParallelFacade.no_sync" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.nn.data_parallel.DataParallelFacade.clip_grad_norm">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">clip_grad_norm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_norm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.9)"><span class="pre">Tensor</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/nn/data_parallel.html#DataParallelFacade.clip_grad_norm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.data_parallel.DataParallelFacade.clip_grad_norm" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.nn.data_parallel.DataParallelFacade.summon_full_parameters">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">summon_full_parameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/contextlib.html#contextlib.AbstractContextManager" title="(in Python v3.14)"><span class="pre">AbstractContextManager</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/nn/data_parallel.html#DataParallelFacade.summon_full_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.data_parallel.DataParallelFacade.summon_full_parameters" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.nn.data_parallel.get_data_parallel_facade">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.nn.data_parallel.</span></span><span class="sig-name descname"><span class="pre">get_data_parallel_facade</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.9)"><span class="pre">Module</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#fairseq2.nn.data_parallel.DataParallelFacade" title="fairseq2.nn.data_parallel.DataParallelFacade"><span class="pre">DataParallelFacade</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/nn/data_parallel.html#get_data_parallel_facade"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.data_parallel.get_data_parallel_facade" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the data parallel facade associated with the specified module.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">module</span></code> is of type <code class="xref py py-class docutils literal notranslate"><span class="pre">DDPModule</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">FSDP1Module</span></code>, or <code class="xref py py-class docutils literal notranslate"><span class="pre">FSDP2Module</span></code>,
+this function will return the corresponding facade, even if one was not
+previously set.</p>
+<p>If the module is not a data parallel module and has no facade, this function
+will return a no-op implementation.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.nn.data_parallel.set_data_parallel_facade">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.nn.data_parallel.</span></span><span class="sig-name descname"><span class="pre">set_data_parallel_facade</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.9)"><span class="pre">Module</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">facade</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fairseq2.nn.data_parallel.DataParallelFacade" title="fairseq2.nn.data_parallel.DataParallelFacade"><span class="pre">DataParallelFacade</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/nn/data_parallel.html#set_data_parallel_facade"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.data_parallel.set_data_parallel_facade" title="Link to this definition">¶</a></dt>
+<dd><p>Associates <code class="docutils literal notranslate"><span class="pre">facade</span></code> with the specified module.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>InvalidOperationError</strong> – if the module has already a facade associated
+with it.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
 </section>
 
         </article>
@@ -330,23 +385,23 @@ tokenizers, and other assets.</p>
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="checkpoint.html">
+          <a class="next-page" href="fairseq2.nn.embedding.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">fairseq2.checkpoint</div>
+                <div class="title">fairseq2.nn.embedding</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="../concepts/gang.html">
+          <a class="prev-page" href="fairseq2.nn.batch_layout.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">What is a Gang?</div>
+                <div class="title">fairseq2.nn.batch_layout</div>
                 
               </div>
             </a>
@@ -372,8 +427,42 @@ tokenizers, and other assets.</p>
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">fairseq2.nn.data_parallel</a><ul>
+<li><a class="reference internal" href="#interfaces">Interfaces</a><ul>
+<li><a class="reference internal" href="#fairseq2.nn.data_parallel.DataParallelFacade"><code class="docutils literal notranslate"><span class="pre">DataParallelFacade</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.nn.data_parallel.DataParallelFacade.state_dict"><code class="docutils literal notranslate"><span class="pre">DataParallelFacade.state_dict()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.nn.data_parallel.DataParallelFacade.load_state_dict"><code class="docutils literal notranslate"><span class="pre">DataParallelFacade.load_state_dict()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.nn.data_parallel.DataParallelFacade.no_sync"><code class="docutils literal notranslate"><span class="pre">DataParallelFacade.no_sync()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.nn.data_parallel.DataParallelFacade.clip_grad_norm"><code class="docutils literal notranslate"><span class="pre">DataParallelFacade.clip_grad_norm()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.nn.data_parallel.DataParallelFacade.summon_full_parameters"><code class="docutils literal notranslate"><span class="pre">DataParallelFacade.summon_full_parameters()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#functions">Functions</a><ul>
+<li><a class="reference internal" href="#fairseq2.nn.data_parallel.get_data_parallel_facade"><code class="docutils literal notranslate"><span class="pre">get_data_parallel_facade()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.nn.data_parallel.set_data_parallel_facade"><code class="docutils literal notranslate"><span class="pre">set_data_parallel_facade()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>

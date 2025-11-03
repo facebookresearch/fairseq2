@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
-        <title>fairseq2.nn.batch_layout - fairseq2 Documentation</title>
+        <title>fairseq2.nn.data_parallel - fairseq2 Documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
@@ -304,7 +304,7 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <h1>Source code for fairseq2.nn.batch_layout</h1><div class="highlight"><pre>
+          <h1>Source code for fairseq2.nn.data_parallel</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
 <span class="c1"># All rights reserved.</span>
 <span class="c1">#</span>
@@ -313,236 +313,228 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">final</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">weakref</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">nullcontext</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Final</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">final</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.tensor</span><span class="w"> </span><span class="kn">import</span> <span class="n">to_tensor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InvalidOperationError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.nn.ddp</span><span class="w"> </span><span class="kn">import</span> <span class="n">DDPModule</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.nn.fsdp</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">FSDP1Module</span><span class="p">,</span>
+    <span class="n">FSDP2Module</span><span class="p">,</span>
+    <span class="n">fsdp1_load_local_state_dict</span><span class="p">,</span>
+    <span class="n">fsdp1_local_state_dict</span><span class="p">,</span>
+    <span class="n">fsdp1_summon_full_parameters</span><span class="p">,</span>
+    <span class="n">fsdp2_load_local_state_dict</span><span class="p">,</span>
+    <span class="n">fsdp2_local_state_dict</span><span class="p">,</span>
+    <span class="n">fsdp2_no_sync</span><span class="p">,</span>
+    <span class="n">fsdp2_summon_full_parameters</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.nn.utils.grad</span><span class="w"> </span><span class="kn">import</span> <span class="n">clip_grad_norm</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.nn.utils.module</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_state_dict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContextManager</span><span class="p">,</span> <span class="n">Stateful</span>
 
 
-<div class="viewcode-block" id="BatchLayout">
-<a class="viewcode-back" href="../../../reference/fairseq2.nn.batch_layout.html#fairseq2.nn.BatchLayout">[docs]</a>
+<div class="viewcode-block" id="DataParallelFacade">
+<a class="viewcode-back" href="../../../reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DataParallelFacade</span><span class="p">(</span><span class="n">ABC</span><span class="p">,</span> <span class="n">Stateful</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Provides an API-agnostic way to interact with different data parallelism</span>
+<span class="sd">    implementations.</span>
+
+<span class="sd">    DDP, FSDP, and other data parallelism implementations expose different APIs</span>
+<span class="sd">    for operations such as state handling and gradient clipping. This interface</span>
+<span class="sd">    acts as a facade, providing a consistent way to access these underlying APIs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="DataParallelFacade.state_dict">
+<a class="viewcode-back" href="../../../reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade.state_dict">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span> <span class="o">...</span></div>
+
+
+<div class="viewcode-block" id="DataParallelFacade.load_state_dict">
+<a class="viewcode-back" href="../../../reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade.load_state_dict">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span></div>
+
+
+<div class="viewcode-block" id="DataParallelFacade.no_sync">
+<a class="viewcode-back" href="../../../reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade.no_sync">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">no_sync</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span> <span class="o">...</span></div>
+
+
+<div class="viewcode-block" id="DataParallelFacade.clip_grad_norm">
+<a class="viewcode-back" href="../../../reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade.clip_grad_norm">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clip_grad_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_norm</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span> <span class="o">...</span></div>
+
+
+<div class="viewcode-block" id="DataParallelFacade.summon_full_parameters">
+<a class="viewcode-back" href="../../../reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade.summon_full_parameters">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">summon_full_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span> <span class="o">...</span></div>
+</div>
+
+
+
 <span class="nd">@final</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">BatchLayout</span><span class="p">:</span>
-    <span class="n">_width</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">_seq_begin_indices</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
-    <span class="n">_seq_begin_indices_pt</span><span class="p">:</span> <span class="n">Tensor</span>
-    <span class="n">_seq_lens</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
-    <span class="n">_seq_lens_pt</span><span class="p">:</span> <span class="n">Tensor</span>
-    <span class="n">_position_indices</span><span class="p">:</span> <span class="n">Tensor</span>
-    <span class="n">_min_seq_len</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">_max_seq_len</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">_packed</span><span class="p">:</span> <span class="nb">bool</span>
-    <span class="n">_padded</span><span class="p">:</span> <span class="nb">bool</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_NoopDataParallelFacade</span><span class="p">(</span><span class="n">DataParallelFacade</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">Module</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_module</span> <span class="o">=</span> <span class="n">module</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
-        <span class="n">seq_lens</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="o">*</span><span class="p">,</span>
-        <span class="n">packed</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_packed</span> <span class="o">=</span> <span class="n">packed</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
 
-        <span class="k">if</span> <span class="n">packed</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;`shape` must be 1 dimensional, but is </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2"> dimensional instead.&quot;</span>
-                <span class="p">)</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">load_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">)</span>
 
-            <span class="n">batch_width</span> <span class="o">=</span> <span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">no_sync</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">nullcontext</span><span class="p">()</span>
 
-            <span class="k">if</span> <span class="n">batch_width</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`shape[0]` must be greater than or equal to 1.&quot;</span><span class="p">)</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clip_grad_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_norm</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">clip_grad_norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="p">,</span> <span class="n">max_norm</span><span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">seq_lens</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">seq_lens</span> <span class="o">=</span> <span class="p">[</span><span class="n">batch_width</span><span class="p">]</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">_seq_begin_indices</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">_seq_lens</span> <span class="o">=</span> <span class="p">[]</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">_position_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">batch_width</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">_num_elements</span> <span class="o">=</span> <span class="mi">0</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">_min_seq_len</span> <span class="o">=</span> <span class="n">batch_width</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_max_seq_len</span> <span class="o">=</span> <span class="mi">0</span>
-
-            <span class="n">seq_beg</span> <span class="o">=</span> <span class="mi">0</span>
-            <span class="n">seq_end</span> <span class="o">=</span> <span class="mi">0</span>
-
-            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">seq_len</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">seq_lens</span><span class="p">):</span>
-                <span class="k">if</span> <span class="n">seq_len</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;All lengths in `seq_lens` must be greater than or equal to 1, but the length at index </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2"> is </span><span class="si">{</span><span class="n">seq_len</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-                    <span class="p">)</span>
-
-                <span class="n">seq_end</span> <span class="o">=</span> <span class="n">seq_beg</span> <span class="o">+</span> <span class="n">seq_len</span>
-
-                <span class="k">if</span> <span class="n">seq_end</span> <span class="o">&gt;</span> <span class="n">batch_width</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;`sum(seq_lens)` must be less than or equal to `shape[0]` (</span><span class="si">{</span><span class="n">batch_width</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="n">seq_lens</span><span class="p">)</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-                    <span class="p">)</span>
-
-                <span class="bp">self</span><span class="o">.</span><span class="n">_seq_begin_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">seq_end</span><span class="p">)</span>
-
-                <span class="bp">self</span><span class="o">.</span><span class="n">_seq_lens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">seq_len</span><span class="p">)</span>
-
-                <span class="bp">self</span><span class="o">.</span><span class="n">_position_indices</span><span class="p">[</span><span class="n">seq_beg</span><span class="p">:</span><span class="n">seq_end</span><span class="p">]</span> <span class="o">-=</span> <span class="n">seq_beg</span>
-
-                <span class="bp">self</span><span class="o">.</span><span class="n">_min_seq_len</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_min_seq_len</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_max_seq_len</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_seq_len</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">)</span>
-
-                <span class="n">seq_beg</span> <span class="o">=</span> <span class="n">seq_end</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">_position_indices</span><span class="p">[</span><span class="n">seq_end</span><span class="p">:]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>  <span class="c1"># pad</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">_padded</span> <span class="o">=</span> <span class="n">seq_end</span> <span class="o">&lt;</span> <span class="n">batch_width</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;`shape` must be 2 dimensional, but is </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2"> dimensional instead.&quot;</span>
-                <span class="p">)</span>
-
-            <span class="n">batch_size</span><span class="p">,</span> <span class="n">batch_width</span> <span class="o">=</span> <span class="n">shape</span>
-
-            <span class="k">if</span> <span class="n">batch_width</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`shape[1]` must be greater than or equal to 1.&quot;</span><span class="p">)</span>
-
-            <span class="k">if</span> <span class="n">seq_lens</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">seq_lens</span> <span class="o">=</span> <span class="p">[</span><span class="n">batch_width</span><span class="p">]</span> <span class="o">*</span> <span class="n">batch_size</span>
-
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq_lens</span><span class="p">)</span> <span class="o">!=</span> <span class="n">batch_size</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;`len(seq_lens)` must be equal to `shape[0]` (</span><span class="si">{</span><span class="n">batch_size</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">seq_lens</span><span class="p">)</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-                <span class="p">)</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">_seq_begin_indices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
-                <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="n">batch_size</span> <span class="o">*</span> <span class="n">batch_width</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">batch_width</span><span class="p">)</span>
-            <span class="p">)</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">_seq_lens</span> <span class="o">=</span> <span class="p">[]</span>
-
-            <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">batch_width</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
-
-            <span class="c1"># (S) -&gt; (N, S)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_position_indices</span> <span class="o">=</span> <span class="n">indices</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">_min_seq_len</span> <span class="o">=</span> <span class="n">batch_width</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_max_seq_len</span> <span class="o">=</span> <span class="mi">0</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">_padded</span> <span class="o">=</span> <span class="kc">False</span>
-
-            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">seq_len</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">seq_lens</span><span class="p">):</span>
-                <span class="k">if</span> <span class="n">seq_len</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;All lengths in `seq_lens` must be greater than or equal to 1, but the length at index </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2"> is </span><span class="si">{</span><span class="n">seq_len</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-                    <span class="p">)</span>
-
-                <span class="k">if</span> <span class="n">seq_len</span> <span class="o">&gt;</span> <span class="n">batch_width</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;All lengths in `seq_lens` must be less than or equal to `shape[1]` (</span><span class="si">{</span><span class="n">batch_width</span><span class="si">}</span><span class="s2">), but the length at index </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2"> is </span><span class="si">{</span><span class="n">seq_len</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-                    <span class="p">)</span>
-
-                <span class="bp">self</span><span class="o">.</span><span class="n">_seq_lens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">seq_len</span><span class="p">)</span>
-
-                <span class="k">if</span> <span class="n">seq_len</span> <span class="o">&lt;</span> <span class="n">batch_width</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_padded</span> <span class="o">=</span> <span class="kc">True</span>
-
-                <span class="bp">self</span><span class="o">.</span><span class="n">_position_indices</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">:]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>  <span class="c1"># pad</span>
-
-                <span class="bp">self</span><span class="o">.</span><span class="n">_min_seq_len</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_min_seq_len</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_max_seq_len</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_seq_len</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_width</span> <span class="o">=</span> <span class="n">batch_width</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_seq_begin_indices_pt</span> <span class="o">=</span> <span class="n">to_tensor</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_seq_begin_indices</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
-        <span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_seq_lens_pt</span> <span class="o">=</span> <span class="n">to_tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_seq_lens</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
-
-        <span class="c1"># Both `seq_begin_indices` and `seq_lens` are inherently dynamic and</span>
-        <span class="c1"># require to be marked so to avoid redundant recompilations.</span>
-        <span class="n">torch</span><span class="o">.</span><span class="n">_dynamo</span><span class="o">.</span><span class="n">maybe_mark_dynamic</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_seq_begin_indices_pt</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-        <span class="n">torch</span><span class="o">.</span><span class="n">_dynamo</span><span class="o">.</span><span class="n">maybe_mark_dynamic</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_seq_lens_pt</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-
-<div class="viewcode-block" id="BatchLayout.of">
-<a class="viewcode-back" href="../../../reference/fairseq2.nn.batch_layout.html#fairseq2.nn.BatchLayout.of">[docs]</a>
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">of</span><span class="p">(</span>
-        <span class="n">batch</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">seq_lens</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">packed</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BatchLayout</span><span class="p">:</span>
-        <span class="n">shape</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">packed</span> <span class="k">else</span> <span class="n">batch</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
-
-        <span class="k">return</span> <span class="n">BatchLayout</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">seq_lens</span><span class="p">,</span> <span class="n">packed</span><span class="o">=</span><span class="n">packed</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">batch</span><span class="o">.</span><span class="n">device</span><span class="p">)</span></div>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">summon_full_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">nullcontext</span><span class="p">()</span>
 
 
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">width</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_width</span>
+<span class="nd">@final</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_DDPFacade</span><span class="p">(</span><span class="n">DataParallelFacade</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">DDPModule</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_module</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">DDPModule</span><span class="p">,</span> <span class="n">weakref</span><span class="o">.</span><span class="n">proxy</span><span class="p">(</span><span class="n">module</span><span class="p">))</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">seq_begin_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_seq_begin_indices</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>  <span class="c1"># type: ignore[no-any-return]</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">seq_begin_indices_pt</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_seq_begin_indices_pt</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">load_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="o">.</span><span class="n">module</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">)</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">seq_lens</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_seq_lens</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">no_sync</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="o">.</span><span class="n">no_sync</span><span class="p">()</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">seq_lens_pt</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_seq_lens_pt</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clip_grad_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_norm</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">clip_grad_norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="p">,</span> <span class="n">max_norm</span><span class="p">)</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">min_seq_len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min_seq_len</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">summon_full_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">nullcontext</span><span class="p">()</span>
 
-    <span class="n">compiled_max_seq_len</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">max_seq_len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="c1"># TODO: As of PyTorch 2.7, integers cannot be marked as dynamic during</span>
-        <span class="c1"># compilation. This is a workaround till that gets fixed.</span>
-        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">compiler</span><span class="o">.</span><span class="n">is_compiling</span><span class="p">():</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compiled_max_seq_len</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">compiled_max_seq_len</span>
+<span class="nd">@final</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_FSDP1Facade</span><span class="p">(</span><span class="n">DataParallelFacade</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">FSDP1Module</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_module</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">FSDP1Module</span><span class="p">,</span> <span class="n">weakref</span><span class="o">.</span><span class="n">proxy</span><span class="p">(</span><span class="n">module</span><span class="p">))</span>
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_max_seq_len</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">fsdp1_local_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="p">)</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">position_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_position_indices</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">fsdp1_load_local_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">)</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">padded</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_padded</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">no_sync</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="o">.</span><span class="n">no_sync</span><span class="p">()</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">packed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_packed</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clip_grad_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_norm</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">clip_grad_norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="p">,</span> <span class="n">max_norm</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;width=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_width</span><span class="si">}</span><span class="s2">, &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;seq_begin_indices=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_seq_begin_indices</span><span class="si">}</span><span class="s2">, &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;seq_lens=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_seq_lens</span><span class="si">}</span><span class="s2">, &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;min_seq_len=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_min_seq_len</span><span class="si">}</span><span class="s2">, &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;max_seq_len=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_seq_len</span><span class="si">}</span><span class="s2">, &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;padded=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_padded</span><span class="si">}</span><span class="s2">, &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;packed=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_packed</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="p">)</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">summon_full_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">fsdp1_summon_full_parameters</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;BatchLayout(</span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">)&quot;</span></div>
+
+<span class="nd">@final</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_FSDP2Facade</span><span class="p">(</span><span class="n">DataParallelFacade</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">FSDP2Module</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_module</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">FSDP2Module</span><span class="p">,</span> <span class="n">weakref</span><span class="o">.</span><span class="n">proxy</span><span class="p">(</span><span class="n">module</span><span class="p">))</span>
+
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">fsdp2_local_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="p">)</span>
+
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">fsdp2_load_local_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">)</span>
+
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">no_sync</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">fsdp2_no_sync</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="p">)</span>
+
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clip_grad_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_norm</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">clip_grad_norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="p">,</span> <span class="n">max_norm</span><span class="p">)</span>
+
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">summon_full_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">fsdp2_summon_full_parameters</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="p">)</span>
+
+
+<span class="n">_FACADE_KEY</span><span class="p">:</span> <span class="n">Final</span> <span class="o">=</span> <span class="s2">&quot;__fs2_dp_facade__&quot;</span>
+
+
+<div class="viewcode-block" id="set_data_parallel_facade">
+<a class="viewcode-back" href="../../../reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.set_data_parallel_facade">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_data_parallel_facade</span><span class="p">(</span><span class="n">module</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span> <span class="n">facade</span><span class="p">:</span> <span class="n">DataParallelFacade</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Associates ``facade`` with the specified module.</span>
+
+<span class="sd">    :raises InvalidOperationError: if the module has already a facade associated</span>
+<span class="sd">        with it.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">_FACADE_KEY</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">InvalidOperationError</span><span class="p">(</span><span class="s2">&quot;`module` has already data parallelism.&quot;</span><span class="p">)</span>
+
+    <span class="nb">setattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">_FACADE_KEY</span><span class="p">,</span> <span class="n">facade</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_data_parallel_facade">
+<a class="viewcode-back" href="../../../reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.get_data_parallel_facade">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_data_parallel_facade</span><span class="p">(</span><span class="n">module</span><span class="p">:</span> <span class="n">Module</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataParallelFacade</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the data parallel facade associated with the specified module.</span>
+
+<span class="sd">    If ``module`` is of type :class:`DDPModule`, :class:`FSDP1Module`, or :class:`FSDP2Module`,</span>
+<span class="sd">    this function will return the corresponding facade, even if one was not</span>
+<span class="sd">    previously set.</span>
+
+<span class="sd">    If the module is not a data parallel module and has no facade, this function</span>
+<span class="sd">    will return a no-op implementation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">facade</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">_FACADE_KEY</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">facade</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">match</span> <span class="n">module</span><span class="p">:</span>
+            <span class="k">case</span> <span class="n">DDPModule</span><span class="p">():</span>
+                <span class="n">facade</span> <span class="o">=</span> <span class="n">_DDPFacade</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+            <span class="k">case</span> <span class="n">FSDP1Module</span><span class="p">():</span>
+                <span class="n">facade</span> <span class="o">=</span> <span class="n">_FSDP1Facade</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+            <span class="k">case</span> <span class="n">FSDP2Module</span><span class="p">():</span>
+                <span class="n">facade</span> <span class="o">=</span> <span class="n">_FSDP2Facade</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+            <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
+                <span class="n">facade</span> <span class="o">=</span> <span class="n">_NoopDataParallelFacade</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">_FACADE_KEY</span><span class="p">,</span> <span class="n">facade</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">facade</span></div>
 
 </pre></div>
         </article>
