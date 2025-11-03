@@ -459,6 +459,46 @@ def get_rollout_lengths(rollouts: List[SequenceData]):
     return rollout_lengths
 
 
+def get_think_rollout_lengths(rollouts: List[SequenceData]):
+    """Get the lengths of tokens before the </think> tag in rollouts.
+
+    This function calculates the approximate number of tokens generated before
+    the </think> closing tag in each rollout. It uses a proportional approximation
+    based on character positions to estimate token counts.
+
+    Args:
+        rollouts: List of SequenceData containing rollout outputs
+
+    Returns:
+        List of token lengths before </think> tag for rollouts that contain the tag
+    """
+    think_rollout_lengths = []
+    think_tag = "</think>"
+
+    for rollout in rollouts:
+        for sample in rollout.outputs:
+            rollout_text = sample.text
+            if think_tag in rollout_text:
+                # Find the position of </think> in the text
+                think_end_pos = rollout_text.find(think_tag) + len(think_tag)
+                # Count tokens up to and including </think>
+                # We need to find how many tokens correspond to the text before </think>
+                # Since we have token_ids, we'll approximate by finding the proportion
+                text_before_think = rollout_text[:think_end_pos]
+                total_text = rollout_text
+                total_tokens = len(sample.token_ids)
+                # Approximate token count proportionally (rough estimate)
+                # A better approach would be to tokenize text_before_think, but we use approximation
+                think_token_length = (
+                    int((len(text_before_think) / len(total_text)) * total_tokens)
+                    if len(total_text) > 0
+                    else 0
+                )
+                think_rollout_lengths.append(think_token_length)
+
+    return think_rollout_lengths
+
+
 class StatefulRolloutBag:
     """A stateful container for managing and reusing model rollouts across multiple micro-batches.
 
@@ -557,6 +597,13 @@ def update_std_reward(metric_bag: MetricBag, std_reward):
 @torch.inference_mode()
 def update_avg_rollout_length(metric_bag: MetricBag, avg_rollout_length):
     metric_bag.get(Mean, "avg_rollout_length").update(avg_rollout_length, weight=1)
+
+
+@torch.inference_mode()
+def update_avg_think_rollout_length(metric_bag: MetricBag, avg_think_rollout_length):
+    metric_bag.get(Mean, "avg_think_rollout_length").update(
+        avg_think_rollout_length, weight=1
+    )
 
 
 @torch.inference_mode()

@@ -36,11 +36,13 @@ from fairseq2.recipes.lm._online_finetune._common import (
     compute_token_level_entropy,
     generate_rollouts,
     get_rollout_lengths,
+    get_think_rollout_lengths,
     get_vllm_logprobs,
     log_rollouts,
     update_avg_reward,
     update_avg_reward_len_norm,
     update_avg_rollout_length,
+    update_avg_think_rollout_length,
     update_batch_metrics,
     update_grpo_batch_metrics,
     update_grpo_loss,
@@ -360,6 +362,16 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             .mean(dim=1)
         )  # [Batch]
         update_avg_rollout_length(metric_bag, rollouts_lengths)
+
+        # Calculate average think rollout length (tokens before </think>)
+        think_rollout_lengths = get_think_rollout_lengths(rollouts)
+        if think_rollout_lengths:
+            avg_think_rollout_length = (
+                torch.tensor(think_rollout_lengths, device=self._gangs.dp.device)
+                .float()
+                .mean()
+            )
+            update_avg_think_rollout_length(metric_bag, avg_think_rollout_length)
 
         update_grpo_batch_metrics(
             metric_bag,
