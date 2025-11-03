@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from functools import cache, cached_property
 from pathlib import Path
 from typing import TypeVar, final
 
@@ -21,15 +22,15 @@ from fairseq2.recipe.config import RecipeConfig, ReferenceModelSection
 from fairseq2.recipe.dataset import RecipeDataset
 from fairseq2.recipe.evaluator import Evaluator, EvalUnit
 from fairseq2.recipe.generator import Generator, GeneratorUnit
-from fairseq2.recipe.internal.config import _get_config_section
-from fairseq2.recipe.internal.eval_model import _EvalModelBootstrapper
-from fairseq2.recipe.internal.evaluator import _RecipeEvaluatorFactory
-from fairseq2.recipe.internal.generator import _RecipeGeneratorFactory
-from fairseq2.recipe.internal.trainer import (
-    _RecipeTrainerFactory,
-    _RecipeValidatorFactory,
-)
-from fairseq2.recipe.model import RecipeModel
+from fairseq2.recipe.internal.config import _get_config_section, _RecipeConfigHolder
+from fairseq2.recipe.internal.dataset import _DatasetHolder
+from fairseq2.recipe.internal.evaluator import _EvaluatorFactory
+from fairseq2.recipe.internal.generator import _GeneratorFactory
+from fairseq2.recipe.internal.model import _ModelHolder
+from fairseq2.recipe.internal.reference_model import _ReferenceModelBootstrapper
+from fairseq2.recipe.internal.tokenizer import _TokenizerHolder
+from fairseq2.recipe.internal.trainer import _TrainerFactory, _ValidatorFactory
+from fairseq2.recipe.model import RecipeModel, _StandardRecipeModel
 from fairseq2.recipe.tokenizer import RecipeTokenizer
 from fairseq2.recipe.trainer import Trainer, TrainUnit
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
@@ -42,9 +43,11 @@ class RecipeContext:
     def __init__(self, resolver: DependencyResolver) -> None:
         self._resolver = resolver
 
-    @property
+    @cached_property
     def config(self) -> RecipeConfig:
-        return self._resolver.resolve(RecipeConfig)
+        config_holder = self._resolver.resolve(_RecipeConfigHolder)
+
+        return RecipeConfig(config_holder.config)
 
     @property
     def output_dir(self) -> Path:
@@ -62,26 +65,41 @@ class RecipeContext:
     def gangs(self) -> Gangs:
         return self._resolver.resolve(Gangs)
 
-    @property
+    @cached_property
     def model(self) -> RecipeModel:
-        return self._resolver.resolve(RecipeModel)
+        model_holder = self._resolver.resolve(_ModelHolder)
 
+        return _StandardRecipeModel(model_holder)
+
+    @cache
     def get_reference_model(self, section_name: str) -> RecipeModel:
-        return self._resolver.resolve(RecipeModel, key=section_name)
+        model_holder = self._resolver.resolve(_ModelHolder, key=section_name)
+
+        return _StandardRecipeModel(model_holder)
 
     @property
     def default_dataset(self) -> RecipeDataset:
         return self.get_dataset("dataset")
 
+    @cache
     def get_dataset(self, section_name: str) -> RecipeDataset:
-        return self._resolver.resolve(RecipeDataset, key=section_name)
+        dataset_holder = self._resolver.resolve(_DatasetHolder, key=section_name)
+
+        return RecipeDataset(
+            dataset_holder.dataset, dataset_holder.config, dataset_holder.family
+        )
 
     @property
     def default_tokenizer(self) -> RecipeTokenizer:
         return self.get_tokenizer("tokenizer")
 
+    @cache
     def get_tokenizer(self, section_name: str) -> RecipeTokenizer:
-        return self._resolver.resolve(RecipeTokenizer, key=section_name)
+        tokenizer_holder = self._resolver.resolve(_TokenizerHolder, key=section_name)
+
+        return RecipeTokenizer(
+            tokenizer_holder.tokenizer, tokenizer_holder.config, tokenizer_holder.family
+        )
 
     @property
     def default_seq_generator(self) -> SequenceGenerator:
@@ -100,9 +118,11 @@ class RecipeContext:
             self._resolver, section_name, ReferenceModelSection
         )
 
-        model_bootstrapper = self._resolver.resolve(_EvalModelBootstrapper)
+        model_bootstrapper = self._resolver.resolve(_ReferenceModelBootstrapper)
 
-        return model_bootstrapper.bootstrap(section_name, section)
+        model_holder = model_bootstrapper.bootstrap(section_name, section)
+
+        return _StandardRecipeModel(model_holder)
 
     def create_trainer(
         self,
@@ -111,11 +131,11 @@ class RecipeContext:
         valid_units: Sequence[EvalUnit[BatchT]] | None = None,
         valid_data_readers: Sequence[DataReader[BatchT]] | None = None,
     ) -> Trainer:
-        validator_factory = self._resolver.resolve(_RecipeValidatorFactory)
+        validator_factory = self._resolver.resolve(_ValidatorFactory)
 
         validator = validator_factory.create(valid_units, valid_data_readers)
 
-        factory = self._resolver.resolve(_RecipeTrainerFactory)
+        factory = self._resolver.resolve(_TrainerFactory)
 
         return factory.create(unit, data_reader, validator)
 
@@ -124,14 +144,14 @@ class RecipeContext:
         units: Sequence[EvalUnit[BatchT]],
         data_readers: Sequence[DataReader[BatchT]],
     ) -> Evaluator:
-        factory = self._resolver.resolve(_RecipeEvaluatorFactory)
+        factory = self._resolver.resolve(_EvaluatorFactory)
 
         return factory.create(units, data_readers)
 
     def create_generator(
         self, unit: GeneratorUnit[BatchT], data_reader: DataReader[BatchT]
     ) -> Generator:
-        factory = self._resolver.resolve(_RecipeGeneratorFactory)
+        factory = self._resolver.resolve(_GeneratorFactory)
 
         return factory.create(unit, data_reader)
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from fairseq2.recipe.generator import Generator
-from fairseq2.recipe.internal.generator import _RecipeGeneratorFactory
+from fairseq2.recipe.internal.generator import _GeneratorFactory
 from fairseq2.runtime.dependency import (
     DependencyContainer,
     DependencyResolver,
@@ -18,14 +18,10 @@ from fairseq2.runtime.dependency import (
 
 
 def _register_generator_factory(container: DependencyContainer) -> None:
-    def create_generator_factory(
-        resolver: DependencyResolver,
-    ) -> _RecipeGeneratorFactory:
+    def get_generator_factory(resolver: DependencyResolver) -> _GeneratorFactory:
         def create_generator(**kwargs: Any) -> Generator:
             return wire_object(resolver, Generator, **kwargs)
 
-        return wire_object(
-            resolver, _RecipeGeneratorFactory, inner_factory=create_generator
-        )
+        return wire_object(resolver, _GeneratorFactory, activator=create_generator)
 
-    container.register(_RecipeGeneratorFactory, create_generator_factory)
+    container.register(_GeneratorFactory, get_generator_factory)

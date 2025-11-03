@@ -6,23 +6,27 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TypeVar
 
-from fairseq2.recipe.config import ConfigSectionNotFoundError, RecipeConfig
+from fairseq2.recipe.config import ConfigSectionNotFoundError
 from fairseq2.runtime.dependency import DependencyResolver
 
 SectionT = TypeVar("SectionT")
 
 
+@dataclass
+class _RecipeConfigHolder:
+    config: object
+
+
 def _get_config_section(
     resolver: DependencyResolver, name: str, kls: type[SectionT]
 ) -> SectionT:
-    config = resolver.resolve(RecipeConfig)
-
-    untyped_config = config.as_(object)
+    config_holder = resolver.resolve(_RecipeConfigHolder)
 
     try:
-        section = getattr(untyped_config, name)
+        section = getattr(config_holder.config, name)
     except AttributeError:
         raise ConfigSectionNotFoundError(name) from None
 

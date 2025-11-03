@@ -66,11 +66,9 @@ from fairseq2.recipe.base import (
     TrainRecipe,
 )
 from fairseq2.recipe.component import ComponentNotKnownError
-from fairseq2.recipe.config import RecipeConfig
 from fairseq2.recipe.error import (
     BeamSearchAlgorithmNotKnownError,
     DeviceTypeNotSupportedError,
-    ErrorContext,
     FSDPNotSupportedError,
     GangTopologyError,
     HSDPTopologyError,
@@ -93,6 +91,7 @@ from fairseq2.recipe.error import (
     TorchCompileNotSupportedError,
     WandbInitializationError,
 )
+from fairseq2.recipe.internal.config import _RecipeConfigHolder
 from fairseq2.recipe.internal.config_preparer import _RecipeConfigPreparer
 from fairseq2.recipe.internal.output_dir import _OutputDirectoryCreator
 from fairseq2.recipe.run import _run_recipe, _swap_default_resolver
@@ -205,7 +204,7 @@ def _register_main(
     config_kls = recipe.config_kls
 
     # Recipe Configuration
-    def load_config(resolver: DependencyResolver) -> object:
+    def get_config(resolver: DependencyResolver) -> object:
         config_loader = resolver.resolve(_RecipeConfigLoader)
 
         unstructured_config = config_loader.load(
@@ -216,18 +215,18 @@ def _register_main(
 
         return config_preparer.prepare(config_kls, unstructured_config)
 
-    container.register(RecipeConfig, load_config)
+    container.register(_RecipeConfigHolder, get_config)
 
     container.register_type(_RecipeConfigLoader)
     container.register_type(_RecipeConfigPrinter)
 
     # Recipe Output Directory
-    def create_output_dir(resolver: DependencyResolver) -> Path:
+    def get_output_dir(resolver: DependencyResolver) -> Path:
         dir_creator = resolver.resolve(_OutputDirectoryCreator)
 
         return dir_creator.create(args.output_dir)
 
-    container.register(Path, create_output_dir)
+    container.register(Path, get_output_dir)
 
     # CLI Errors
     _register_cli_errors(container)
@@ -354,18 +353,18 @@ def _handle_errors(resolver: DependencyResolver, exit_on_error: bool) -> Iterato
 class _RecipeConfigPrinter:
     def __init__(
         self,
-        config: RecipeConfig,
+        config_holder: _RecipeConfigHolder,
         value_converter: ValueConverter,
         yaml_dumper: YamlDumper,
     ) -> None:
-        self._config = config
+        self._config_holder = config_holder
         self._value_converter = value_converter
         self._yaml_dumper = yaml_dumper
 
     def print(self, stream: TextIO) -> None:
-        untyped_config = self._config.as_(object)
-
-        unstructured_config = self._value_converter.unstructure(untyped_config)
+        unstructured_config = self._value_converter.unstructure(
+            self._config_holder.config
+        )
 
         try:
             self._yaml_dumper.dump(unstructured_config, stream)
@@ -507,9 +506,9 @@ def _register_cli_errors(container: DependencyContainer) -> None:
     register(ClusterNotKnownError, _handle_cluster_not_known_error)
     register(ComponentNotKnownError, _handle_component_not_known_error)
     register(DataReadError, _handle_data_read_error)
+    register(DatasetError, _handle_dataset_error)
     register(DatasetFamilyNotKnownError, _handle_dataset_family_not_known_error)
     register(DatasetNotKnownError, _handle_dataset_not_known_error)
-    register(DatasetError, _handle_dataset_error)
     register(DeviceTypeNotSupportedError, _handle_device_type_not_supported_error)
     register(EnvironmentVariableError, _handle_env_variable_error)
     register(FSDPNotSupportedError, _handle_fsdp_not_supported_error)
@@ -603,7 +602,7 @@ def _handle_cluster_not_known_error(ex: ClusterNotKnownError) -> int:
 
 
 def _handle_component_not_known_error(ex: ComponentNotKnownError) -> int:
-    log.error("{} is not a known `{}`.", ex.name, ex.component_kls)
+    log.error("{} is not a known `{}`.", ex.name, ex.component_kls.__name__)
 
     return 2
 
@@ -627,12 +626,7 @@ def _handle_dataset_not_known_error(ex: DatasetNotKnownError) -> int:
 
 
 def _handle_dataset_error(ex: DatasetError) -> int:
-    section_name = ErrorContext.maybe_get_config_section_name(ex)
-
-    if section_name is None:
-        log.exception("Failed to open the dataset. See logged stack trace for details.")
-    else:
-        log.exception("Failed to open the dataset specified in `{}` section. See logged stack trace for details.", section_name)
+    log.exception("Failed to open the dataset. See logged stack trace for details.")
 
     return 1
 
@@ -668,12 +662,7 @@ def _handle_hsdp_topology_error(ex: HSDPTopologyError) -> int:
 
 
 def _handle_hg_not_supported_error(ex: HuggingFaceNotSupportedError) -> int:
-    section_name = ErrorContext.maybe_get_config_section_name(ex)
-
-    if section_name is None:
-        log.error("Model does not support exporting to Hugging Face.")
-    else:
-        log.error("Model specified in `{}` section does not support exporting to Hugging Face.", section_name)
+    log.error("Model does not support exporting to Hugging Face.")
 
     return 2
 
@@ -687,12 +676,7 @@ def _handle_inconsistent_grad_norm_error(ex: InconsistentGradNormError) -> int:
 
 
 def _handle_layerwise_ac_not_supported_error(ex: LayerwiseACNotSupportedError) -> int:
-    section_name = ErrorContext.maybe_get_config_section_name(ex)
-
-    if section_name is None:
-        log.error("Model does not support layerwise activation checkpointing.")
-    else:
-        log.error("Model specified in `{}` section does not support layerwise activation checkpointing.", section_name)
+    log.error("Model does not support layerwise activation checkpointing.")
 
     return 2
 
@@ -761,12 +745,10 @@ def _handle_model_not_known_error(ex: ModelNotKnownError) -> int:
 
 
 def _handle_model_type_not_valid_error(ex: ModelTypeNotValidError) -> int:
-    section_name = ErrorContext.maybe_get_config_section_name(ex)
-
-    if section_name is None:
-        log.error("Model must be of type `{}`, but is of type `{}` instead.", ex.expected_kls, ex.kls)
+    if ex.section_name == "model":
+        log.error("Model must be of type `{}`, but is of type `{}` instead.", ex.valid_kls.__name__, ex.kls.__name__)
     else:
-        log.error("Model specified in `{}` section must be of type `{}`, but is of type `{}` instead.", section_name, ex.expected_kls, ex.kls)
+        log.error("Model specified in `{}` section must be of type `{}`, but is of type `{}` instead.", ex.section_name, ex.valid_kls.__name__, ex.kls.__name__)
 
     return 2
 
@@ -796,14 +778,9 @@ def _handle_seq_generator_not_known_error(ex: SequenceGeneratorNotKnownError) ->
 
 
 def _handle_split_not_known_error(ex: SplitNotKnownError) -> int:
-    section_name = ErrorContext.maybe_get_config_section_name(ex)
-
     s = ", ".join(sorted(ex.available_splits))
 
-    if section_name is None:
-        log.error("{} is not a known dataset split. Available splits are {}.", ex.split, s)
-    else:
-        log.error("{} specified in `{}` section is not a known dataset split. Available splits are {}.", section_name, ex.split, s)
+    log.error("{} is not a known dataset split. Available splits are {}.", ex.split, s)
 
     return 2
 
@@ -833,23 +810,19 @@ def _handle_tokenizer_not_known_error(ex: TokenizerNotKnownError) -> int:
 
 
 def _handle_torch_compile_error(ex: TorchCompileError) -> int:
-    section_name = ErrorContext.maybe_get_config_section_name(ex)
-
-    if section_name is None:
+    if ex.section_name == "model":
         log.exception("`torch.compile()` call failed. See logged stack trace for details.")
     else:
-        log.exception("`torch.compile()` call failed for the model specified in `{}` section. See logged stack trace for details.", section_name)
+        log.exception("`torch.compile()` call failed for the model specified in `{}` section. See logged stack trace for details.", ex.section_name)
 
     return 1
 
 
 def _handle_torch_compile_not_supported_error(ex: TorchCompileNotSupportedError) -> int:
-    section_name = ErrorContext.maybe_get_config_section_name(ex)
-
-    if section_name is None:
+    if ex.section_name == "model":
         log.error("Model does not support torch.compile().")
     else:
-        log.error("Model specified in `{}` section does not support torch.compile().", section_name)
+        log.error("Model specified in `{}` section does not support torch.compile().", ex.section_name)
 
     return 2
 

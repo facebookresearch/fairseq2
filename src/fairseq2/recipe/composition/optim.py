@@ -18,27 +18,27 @@ from fairseq2.recipe.config import (
 from fairseq2.recipe.internal.optim import (
     _AdafactorFactory,
     _AdamWFactory,
-    _RecipeOptimizerFactory,
+    _OptimizerFactory,
 )
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 
 
 def _register_optim(container: DependencyContainer) -> None:
     # Optimizer
-    def create_optimizer(resolver: DependencyResolver) -> Optimizer:
-        optim_factory = resolver.resolve(_RecipeOptimizerFactory)
+    def get_optimizer(resolver: DependencyResolver) -> Optimizer:
+        optimizer_factory = resolver.resolve(_OptimizerFactory)
 
-        return optim_factory.create()
+        return optimizer_factory.create()
 
-    container.register(Optimizer, create_optimizer, singleton=True)
+    container.register(Optimizer, get_optimizer, singleton=True)
 
-    container.register_type(_RecipeOptimizerFactory)
+    container.register_type(_OptimizerFactory)
 
     # AdamW
     def create_adamw(resolver: DependencyResolver, config: AdamWConfig) -> Optimizer:
-        optim_factory = resolver.resolve(_AdamWFactory)
+        optimizer_factory = resolver.resolve(_AdamWFactory)
 
-        return optim_factory.create(config)
+        return optimizer_factory.create(config)
 
     register_component(
         container,
@@ -54,9 +54,9 @@ def _register_optim(container: DependencyContainer) -> None:
     def create_adafactor(
         resolver: DependencyResolver, config: AdafactorConfig
     ) -> Optimizer:
-        optim_factory = resolver.resolve(_AdafactorFactory)
+        optimizer_factory = resolver.resolve(_AdafactorFactory)
 
-        return optim_factory.create(config)
+        return optimizer_factory.create(config)
 
     register_component(
         container,

@@ -13,21 +13,21 @@ from fairseq2.recipe.config import CommonSection, GeneratorSection
 from fairseq2.recipe.generator import BatchT, Generator, GeneratorUnit
 
 
-class _GeneratorFactory(Protocol):
+class _GeneratorActivator(Protocol):
     def __call__(self, **kwargs: Any) -> Generator: ...
 
 
 @final
-class _RecipeGeneratorFactory:
+class _GeneratorFactory:
     def __init__(
         self,
         section: GeneratorSection,
         common_section: CommonSection,
-        inner_factory: _GeneratorFactory,
+        activator: _GeneratorActivator,
     ) -> None:
         self._section = section
         self._common_section = common_section
-        self._inner_factory = inner_factory
+        self._activator = activator
 
     def create(
         self, unit: GeneratorUnit[BatchT], data_reader: DataReader[BatchT]
@@ -36,7 +36,7 @@ class _RecipeGeneratorFactory:
 
         section = self._section
 
-        return self._inner_factory(
+        return self._activator(
             unit=unit,
             data_reader=data_reader,
             amp=section.amp,

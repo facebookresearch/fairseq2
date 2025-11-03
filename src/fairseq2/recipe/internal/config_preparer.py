@@ -13,8 +13,9 @@ from typing import final
 from typing_extensions import override
 
 from fairseq2.recipe.component import ComponentManager
-from fairseq2.recipe.config import RecipeConfig, SupportsStructure
+from fairseq2.recipe.config import SupportsStructure
 from fairseq2.recipe.error import RecipeConfigParseError
+from fairseq2.recipe.internal.config import _RecipeConfigHolder
 from fairseq2.runtime.dependency import DependencyResolver
 from fairseq2.typing import is_dataclass_instance
 from fairseq2.utils.structured import StructureError, ValueConverter
@@ -31,7 +32,7 @@ class _RecipeConfigPreparer:
 
     def prepare(
         self, config_kls: type[object], unstructured_config: object
-    ) -> RecipeConfig:
+    ) -> _RecipeConfigHolder:
         try:
             config = self._structurer.structure(config_kls, unstructured_config)
         except StructureError as ex:
@@ -41,7 +42,7 @@ class _RecipeConfigPreparer:
 
         self._validator.validate(config)
 
-        return RecipeConfig(config)
+        return _RecipeConfigHolder(config)
 
 
 class _RecipeConfigStructurer(ABC):

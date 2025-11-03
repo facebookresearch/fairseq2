@@ -9,15 +9,14 @@ from __future__ import annotations
 from fairseq2.data.tokenizers import Tokenizer
 from fairseq2.recipe.composition.config import register_config_section
 from fairseq2.recipe.config import TokenizerSection
-from fairseq2.recipe.internal.tokenizer import _RecipeTokenizerLoader
-from fairseq2.recipe.tokenizer import RecipeTokenizer
+from fairseq2.recipe.internal.tokenizer import _RecipeTokenizerLoader, _TokenizerHolder
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 
 
 def register_tokenizer(container: DependencyContainer, section_name: str) -> None:
     register_config_section(container, section_name, TokenizerSection, keyed=True)
 
-    def load_tokenizer(resolver: DependencyResolver) -> RecipeTokenizer:
+    def get_tokenizer_holder(resolver: DependencyResolver) -> _TokenizerHolder:
         section = resolver.resolve(TokenizerSection, key=section_name)
 
         tokenizer_loader = resolver.resolve(_RecipeTokenizerLoader)
@@ -25,18 +24,29 @@ def register_tokenizer(container: DependencyContainer, section_name: str) -> Non
         return tokenizer_loader.load(section_name, section)
 
     container.register(
-        RecipeTokenizer, load_tokenizer, key=section_name, singleton=True
+        _TokenizerHolder, get_tokenizer_holder, key=section_name, singleton=True
     )
 
-    if section_name == "tokenizer":
+    def get_tokenizer(resolver: DependencyResolver) -> Tokenizer:
+        tokenizer_holder = resolver.resolve(_TokenizerHolder, key=section_name)
 
-        def get_default_tokenizer(resolver: DependencyResolver) -> Tokenizer:
-            return resolver.resolve(RecipeTokenizer, key=section_name)
+        return tokenizer_holder.tokenizer
 
-        container.register(Tokenizer, get_default_tokenizer)
+    container.register(Tokenizer, get_tokenizer, key=section_name, singleton=True)
 
 
 def _register_tokenizers(container: DependencyContainer) -> None:
+    container.register_type(_RecipeTokenizerLoader)
+
     register_tokenizer(container, section_name="tokenizer")
 
-    container.register_type(_RecipeTokenizerLoader)
+    # Default Tokenizer
+    def get_tokenizer_holder(resolver: DependencyResolver) -> _TokenizerHolder:
+        return resolver.resolve(_TokenizerHolder, key="tokenizer")
+
+    container.register(_TokenizerHolder, get_tokenizer_holder, singleton=True)
+
+    def get_tokenizer(resolver: DependencyResolver) -> Tokenizer:
+        return resolver.resolve(Tokenizer, key="tokenizer")
+
+    container.register(Tokenizer, get_tokenizer, singleton=True)

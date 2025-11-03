@@ -31,9 +31,9 @@ from fairseq2.recipe.internal.metric_recorders import (
     _init_wandb,
     _MaybeTensorBoardRecorderFactory,
     _MaybeWandbRecorderFactory,
-    _RecipeMetricRecorderFactory,
-    _RecipeWandbClientFactory,
+    _MetricRecorderFactory,
     _StandardWandbRunIdManager,
+    _WandbClientFactory,
     _WandbIdGenerator,
     _WandbInitializer,
     _WandbRunIdManager,
@@ -45,14 +45,14 @@ def _register_metric_recorders(container: DependencyContainer) -> None:
     _register_metric_descriptors(container)
 
     # Metric Recorder
-    def create_metric_recorder(resolver: DependencyResolver) -> MetricRecorder:
-        recorder_factory = resolver.resolve(_RecipeMetricRecorderFactory)
+    def get_metric_recorder(resolver: DependencyResolver) -> MetricRecorder:
+        recorder_factory = resolver.resolve(_MetricRecorderFactory)
 
         return recorder_factory.create()
 
-    container.register(MetricRecorder, create_metric_recorder, singleton=True)
+    container.register(MetricRecorder, get_metric_recorder, singleton=True)
 
-    container.register_type(_RecipeMetricRecorderFactory)
+    container.register_type(_MetricRecorderFactory)
 
     container.register_type(CompositeMetricRecorder)
 
@@ -61,42 +61,42 @@ def _register_metric_recorders(container: DependencyContainer) -> None:
     container.collection.register_type(MetricRecorder, JsonlMetricRecorder)
 
     # TensorBoard or None
-    def maybe_create_tensorboard_recorder(
+    def maybe_get_tensorboard_recorder(
         resolver: DependencyResolver,
     ) -> TensorBoardRecorder | None:
         recorder_factory = resolver.resolve(_MaybeTensorBoardRecorderFactory)
 
         return recorder_factory.maybe_create()
 
-    container.collection.register(MetricRecorder, maybe_create_tensorboard_recorder)
+    container.collection.register(MetricRecorder, maybe_get_tensorboard_recorder)
 
     container.register_type(_MaybeTensorBoardRecorderFactory)
 
     container.register_type(TensorBoardRecorder)
 
     # Weights & Biases or None
-    def maybe_create_wandb_recorder(
+    def maybe_get_wandb_recorder(
         resolver: DependencyResolver,
     ) -> MetricRecorder | None:
         recorder_factory = resolver.resolve(_MaybeWandbRecorderFactory)
 
         return recorder_factory.maybe_create()
 
-    container.collection.register(MetricRecorder, maybe_create_wandb_recorder)
+    container.collection.register(MetricRecorder, maybe_get_wandb_recorder)
 
     container.register_type(_MaybeWandbRecorderFactory)
 
     container.register_type(WandbRecorder)
 
     # Weights & Biases Client
-    def create_wandb_client(resolver: DependencyResolver) -> WandbClient:
-        client_factory = resolver.resolve(_RecipeWandbClientFactory)
+    def get_wandb_client(resolver: DependencyResolver) -> WandbClient:
+        client_factory = resolver.resolve(_WandbClientFactory)
 
         return client_factory.create()
 
-    container.register(WandbClient, create_wandb_client)
+    container.register(WandbClient, get_wandb_client)
 
-    container.register_type(_RecipeWandbClientFactory)
+    container.register_type(_WandbClientFactory)
 
     container.register_instance(_WandbInitializer, _init_wandb)
 

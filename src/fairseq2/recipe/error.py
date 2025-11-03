@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Final, final
 
 from torch.nn import Module
+from typing_extensions import NoReturn
 
 from fairseq2.device import Device
 
@@ -111,13 +111,22 @@ class ModelCheckpointNotFoundError(Exception):
 
 
 class ModelTypeNotValidError(Exception):
-    def __init__(self, kls: type[Module], expected_kls: type[Module]) -> None:
+    def __init__(
+        self, kls: type[Module], valid_kls: type[Module], section_name: str
+    ) -> None:
         super().__init__(
-            f"Model must be of type `{expected_kls}`, but is of type `{kls}` instead."
+            f"Model must be of type `{valid_kls}`, but is of type `{kls}` instead."
         )
 
         self.kls = kls
-        self.expected_kls = expected_kls
+        self.valid_kls = valid_kls
+        self.section_name = section_name
+
+
+def raise_model_type_not_valid_error(
+    model: Module, valid_kls: type[Module]
+) -> NoReturn:
+    raise ModelTypeNotValidError(type(model), valid_kls, section_name="model")
 
 
 class OptimizerNotKnownError(Exception):
@@ -160,13 +169,17 @@ class TokenizerModelNotFoundError(Exception):
 
 
 class TorchCompileError(Exception):
-    def __init__(self) -> None:
+    def __init__(self, section_name: str) -> None:
         super().__init__("torch.compile() failed.")
+
+        self.section_name = section_name
 
 
 class TorchCompileNotSupportedError(Exception):
-    def __init__(self) -> None:
+    def __init__(self, section_name: str) -> None:
         super().__init__("Model does not support torch.compile().")
+
+        self.section_name = section_name
 
 
 class TorchDistributedNotAvailableError(Exception):
@@ -177,16 +190,3 @@ class TorchDistributedNotAvailableError(Exception):
 class WandbInitializationError(Exception):
     def __init__(self) -> None:
         super().__init__("Weights & Biases client cannot be initialized.")
-
-
-@final
-class ErrorContext:
-    _CONFIG_SECTION_ATTR_NAME: Final = "__fs2_config_section__"
-
-    @classmethod
-    def set_config_section_name(cls, ex: Exception, name: str) -> None:
-        setattr(ex, cls._CONFIG_SECTION_ATTR_NAME, name)
-
-    @classmethod
-    def maybe_get_config_section_name(cls, ex: Exception) -> str | None:
-        return getattr(ex, cls._CONFIG_SECTION_ATTR_NAME, None)

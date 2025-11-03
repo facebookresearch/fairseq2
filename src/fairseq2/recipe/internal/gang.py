@@ -35,7 +35,7 @@ from fairseq2.world_info import WorldInfo
 
 
 @final
-class _RecipeGangsFactory:
+class _GangsFactory:
     def __init__(
         self, section: GangSection, world_info: WorldInfo, device: Device
     ) -> None:
@@ -88,7 +88,7 @@ class _RecipeGangsFactory:
 
 
 @final
-class _RecipeFSDPGangsFactory:
+class _FSDPGangsFactory:
     def __init__(self, section: TrainerSection, world_info: WorldInfo) -> None:
         self._section = section
         self._world_info = world_info

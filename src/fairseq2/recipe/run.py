@@ -17,8 +17,8 @@ import fairseq2.runtime.dependency
 from fairseq2.composition import _register_library
 from fairseq2.error import raise_operational_system_error
 from fairseq2.recipe.base import EvalRecipe, GenerationRecipe, Recipe, TrainRecipe
-from fairseq2.recipe.config import RecipeConfig
 from fairseq2.recipe.internal.cluster import _ClusterPreparer
+from fairseq2.recipe.internal.config import _RecipeConfigHolder
 from fairseq2.recipe.internal.config_preparer import _RecipeConfigPreparer
 from fairseq2.recipe.internal.log import _LogHelper
 from fairseq2.recipe.internal.logging import _DistributedLogConfigurer
@@ -159,29 +159,29 @@ def _register_run(
 
         return config_preparer.prepare(config_kls, config)
 
-    container.register(RecipeConfig, get_config)
+    container.register(_RecipeConfigHolder, get_config)
 
     # Recipe Output Directory
-    def create_output_dir(resolver: DependencyResolver) -> Path:
+    def get_output_dir(resolver: DependencyResolver) -> Path:
         dir_creator = resolver.resolve(_OutputDirectoryCreator)
 
         return dir_creator.create(output_dir)
 
-    container.register(Path, create_output_dir)
+    container.register(Path, get_output_dir)
 
 
 @final
 class _RecipeConfigDumper:
     def __init__(
         self,
-        config: RecipeConfig,
+        config_holder: _RecipeConfigHolder,
         output_dir: Path,
         world_info: WorldInfo,
         log_helper: _LogHelper,
         value_converter: ValueConverter,
         yaml_dumper: YamlDumper,
     ) -> None:
-        self._config = config
+        self._config_holder = config_holder
         self._output_dir = output_dir
         self._world_info = world_info
         self._log_helper = log_helper
@@ -189,14 +189,14 @@ class _RecipeConfigDumper:
         self._yaml_dumper = yaml_dumper
 
     def dump(self) -> None:
-        untyped_config = self._config.as_(object)
-
-        self._log_helper.log_config("Config", untyped_config)
+        self._log_helper.log_config("Config", self._config_holder.config)
 
         if self._world_info.rank != 0:
             return
 
-        unstructured_config = self._value_converter.unstructure(untyped_config)
+        unstructured_config = self._value_converter.unstructure(
+            self._config_holder.config
+        )
 
         file = self._output_dir.joinpath("config.yaml")
 
