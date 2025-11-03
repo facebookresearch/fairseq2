@@ -93,7 +93,7 @@ class TorchTensorLoader(TensorLoader):
                 data: dict[str, object] = torch.load(
                     file, map_location, weights_only=restrict, mmap=mmap  # type: ignore[arg-type]
                 )
-            except (RuntimeError, PickleError) as ex:
+            except (RuntimeError, PickleError, EOFError) as ex:
                 msg = f"{file} is not a valid PyTorch tensor file."
 
                 raise TensorFileError(file, msg) from ex
@@ -167,7 +167,7 @@ class HuggingFaceSafetensorsLoader(SafetensorsLoader):
 
                 for key, tensor in tensors.items():
                     data[key] = tensor.to(device)
-        except (RuntimeError, PickleError) as ex:
+        except (RuntimeError, PickleError, EOFError) as ex:
             msg = f"{file} is not a valid Safetensors file."
 
             raise TensorFileError(file, msg) from ex
