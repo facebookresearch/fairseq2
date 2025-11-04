@@ -3,7 +3,7 @@ All notable changes to fairseq2 are documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
-## [0.7.0] - TBD
+## [0.7.0] - Nov 4th, 2025
 - `RecipeModel` is now callable and forwards the call to `RecipeModel.module`
   for a cleaner, more convenient syntax.
 - A new `get_asset_download_manager` helper function to download assets in
@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
   recipe-specific asset cards that cannot be (accidentally) overwritten by users.
   [More info](https://github.com/facebookresearch/fairseq2/pull/1373)
 - Reference API documentation has been flattened and updated for better readability.
+- Revised Wav2Vec 2.0 recipes have been merged back and are available under the
+  recipes/wav2vec2 directory.
 
 ## [0.6.0] - Oct 7th, 2025
 - `fairseq2.sharder` is deprecated. fairseq2 now expects parallelism strategies
