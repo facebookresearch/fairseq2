@@ -22,7 +22,6 @@ from fairseq2.error import InternalError, OperationalError
 from fairseq2.logging import log
 from fairseq2.utils.rich import configure_rich_logging, get_console
 
-
 def _main() -> None:
     args = _parse_args()
 

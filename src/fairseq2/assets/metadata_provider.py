@@ -22,10 +22,12 @@ from fairseq2.error import OperationalError, raise_operational_system_error
 from fairseq2.file_system import FileSystem
 from fairseq2.utils.yaml import YamlError, YamlLoader
 
+"""
+Asset metadata is managed via `AssetMetadataProvider` ``objects``. These can
+be accessed via a Python namespace package, or user or cache directories.
+"""
 
 class AssetMetadataProvider(ABC):
-    """Provides asset metadata."""
-
     @abstractmethod
     def maybe_get_metadata(self, name: str) -> dict[str, object] | None:
         """
@@ -42,9 +44,13 @@ class AssetMetadataProvider(ABC):
     @property
     @abstractmethod
     def source(self) -> str: ...
-
+        """Returns the source of the asset from the metadata"""
 
 class AssetMetadataError(Exception):
+    """
+    Raised when metadata is unable to be retrieved due to it not existing,
+    being improperly formatted in the request, or not supported
+    """
     def __init__(self, source: str, message: str) -> None:
         super().__init__(message)
 
@@ -53,6 +59,7 @@ class AssetMetadataError(Exception):
 
 @final
 class CachedAssetMetadataProvider(AssetMetadataProvider):
+    """Provides metadata for assets that have been saved to the cache dir"""
     def __init__(self, source: str, metadata: dict[str, dict[str, object]]) -> None:
         self._source = source
         self._metadata = metadata
@@ -84,9 +91,11 @@ class CachedAssetMetadataProvider(AssetMetadataProvider):
 class AssetMetadataSource(ABC):
     @abstractmethod
     def load(self) -> Iterator[AssetMetadataProvider]: ...
+        """Load an `Asset` source from metadata"""
 
 
 class AssetSourceNotFoundError(Exception):
+    """Raised if an `Asset` source is unable to be located or is not supported"""
     def __init__(self, source: str) -> None:
         super().__init__(f"{source} asset source is not found.")
 
@@ -96,7 +105,7 @@ class AssetSourceNotFoundError(Exception):
 class FileAssetMetadataLoader(ABC):
     @abstractmethod
     def load(self, path: Path) -> AssetMetadataProvider: ...
-
+        """Load `Asset` metadata from a `Path`"""
 
 @final
 class StandardFileAssetMetadataLoader(FileAssetMetadataLoader):
@@ -162,7 +171,7 @@ class StandardFileAssetMetadataLoader(FileAssetMetadataLoader):
 class PackageAssetMetadataLoader(ABC):
     @abstractmethod
     def load(self, package: str) -> AssetMetadataProvider: ...
-
+        """Loads `Asset` metadata from a Python namespace package"""
 
 @final
 class StandardPackageAssetMetadataLoader(PackageAssetMetadataLoader):
@@ -200,12 +209,14 @@ class StandardPackageAssetMetadataLoader(PackageAssetMetadataLoader):
 
 
 class PackageFileLister(ABC):
+    """Provides a way to list files stored within a package"""
     @abstractmethod
     def list(self, package: str, source: str) -> list[Path]: ...
-
+        """List files stored in a package from source ``str``"""
 
 @final
 class StandardPackageFileLister(PackageFileLister):
+    """Lists standard Python namespace package files"""
     @override
     def list(self, package: str, source: str) -> list[Path]:
         files = []
@@ -239,6 +250,16 @@ class StandardPackageFileLister(PackageFileLister):
 def load_in_memory_asset_metadata(
     source: str, entries: Sequence[dict[str, object]]
 ) -> AssetMetadataProvider:
+    """
+    Loads `Assets` named in metadata into memory
+
+    :raises AssetMetadataError: If the `Asset` `metadata` does not list a name,
+        the name is not of type ``str``, or the asset name already exists.
+
+    :raises AssetMetadataError: If the `Asset` `metadata` does not contain a
+        valid base name or if the base name is not of type ``str``.
+    
+    """
     metadata = {}
 
     for idx, asset_metadata in enumerate(entries):
@@ -285,11 +306,12 @@ def load_in_memory_asset_metadata(
 class AssetMetadataFileLoader(ABC):
     @abstractmethod
     def load(self, file: Path, source: str) -> list[tuple[str, dict[str, object]]]:
-        """Load asset metadata included in ``file``."""
+        """Load asset metadata included in a single named file."""
 
 
 @final
 class YamlAssetMetadataFileLoader(AssetMetadataFileLoader):
+    """Loader for `Asset` metadata stored in a YAML file."""
     def __init__(self, yaml_loader: YamlLoader) -> None:
         self._yaml_loader = yaml_loader
 
@@ -379,6 +401,7 @@ def sanitize_base_asset_name(name: str) -> str | None:
 
 @final
 class WellKnownAssetMetadataSource(AssetMetadataSource):
+    """Represents metadata for an `Asset` already known to the library"""
     def __init__(
         self, dirs: AssetDirectoryAccessor, metadata_loader: FileAssetMetadataLoader
     ) -> None:
@@ -407,6 +430,7 @@ class WellKnownAssetMetadataSource(AssetMetadataSource):
 
 @final
 class FileAssetMetadataSource(AssetMetadataSource):
+    """Represents `Asset` metadata from a single source file"""
     def __init__(
         self, path: Path, metadata_loader: FileAssetMetadataLoader, not_exist_ok: bool
     ) -> None:
@@ -429,6 +453,7 @@ class FileAssetMetadataSource(AssetMetadataSource):
 
 @final
 class PackageAssetMetadataSource(AssetMetadataSource):
+    """Represents `Asset` metadata from a Python namespace package"""
     def __init__(
         self, package: str, metadata_loader: PackageAssetMetadataLoader
     ) -> None:
@@ -445,6 +470,7 @@ class PackageAssetMetadataSource(AssetMetadataSource):
 
 @final
 class InMemoryAssetMetadataSource(AssetMetadataSource):
+    """Represents metadata from an `Asset` in memory"""
     def __init__(self, name: str, entries: Sequence[dict[str, object]]) -> None:
         self._name = name
         self._entries = entries

@@ -1,5 +1,6 @@
 # Build Artifacts
 build/
+doc/rebuild.sh
 
 # Core Dumps
 core

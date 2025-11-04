@@ -17,27 +17,46 @@ from fairseq2.assets.metadata_provider import AssetMetadataError, AssetMetadataP
 from fairseq2.error import InternalError
 from fairseq2.runtime.dependency import DependencyResolver, get_dependency_resolver
 
+"""
+An `AssetStore` offers a convenient way to load asset cards from named
+providers in the local environment.
+"""
 
 def get_asset_store() -> AssetStore:
     return get_dependency_resolver().resolve(AssetStore)
 
 
 class AssetStore(ABC):
+    """Represents a way to load asset cards"""
+    
     @abstractmethod
     def retrieve_card(self, name: str) -> AssetCard: ...
+        """
+        Retrieve the card with the name ``str``
+
+        :raises AssetNotFoundError: If no card is found with the name
+        specified or no name is specified.
+        """
 
     @abstractmethod
     def maybe_retrieve_card(self, name: str) -> AssetCard | None: ...
-
+        """Attempt to retrieve the card if it exists"""
+        
     @abstractmethod
     def find_cards(self, field: str, value: object) -> Iterator[AssetCard]: ...
+        """
+        Retrieve multiple cards from an `AssetCard` iterable
 
+        The cards returned have specified value in the designated field
+        """
+    
     @property
     @abstractmethod
     def asset_names(self) -> Set[str]: ...
 
-
 class AssetNotFoundError(Exception):
+    """Raised when an asset cannot be found under the name provided."""
+    
     def __init__(self, name: str) -> None:
         super().__init__(f"{name} asset is not found.")
 
@@ -46,6 +65,8 @@ class AssetNotFoundError(Exception):
 
 @final
 class StandardAssetStore(AssetStore):
+    """Represents a standardized way to load asset cards from a store"""
+
     def __init__(
         self,
         metadata_providers: Iterable[AssetMetadataProvider],
