@@ -31,24 +31,24 @@ class AssetStore(ABC):
     
     @abstractmethod
     def retrieve_card(self, name: str) -> AssetCard: ...
-        """
-        Retrieve the card with the name ``str``
-
-        :raises AssetNotFoundError: If no card is found with the name
-        specified or no name is specified.
-        """
+    """
+    Retrieve the card with the name ``str``
+    
+    :raises AssetNotFoundError: If no card is found with the name
+    specified or no name is specified.
+    """
 
     @abstractmethod
     def maybe_retrieve_card(self, name: str) -> AssetCard | None: ...
-        """Attempt to retrieve the card if it exists"""
+    """Attempt to retrieve the card if it exists"""
         
     @abstractmethod
     def find_cards(self, field: str, value: object) -> Iterator[AssetCard]: ...
-        """
-        Retrieve multiple cards from an `AssetCard` iterable
+    """
+    Retrieve multiple cards from an `AssetCard` iterable
 
-        The cards returned have specified value in the designated field
-        """
+    The cards returned have specified value in the designated field
+    """
     
     @property
     @abstractmethod

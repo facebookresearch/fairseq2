@@ -44,7 +44,7 @@ class AssetMetadataProvider(ABC):
     @property
     @abstractmethod
     def source(self) -> str: ...
-        """Returns the source of the asset from the metadata"""
+    """Returns the source of the asset from the metadata"""
 
 class AssetMetadataError(Exception):
     """
@@ -91,11 +91,12 @@ class CachedAssetMetadataProvider(AssetMetadataProvider):
 class AssetMetadataSource(ABC):
     @abstractmethod
     def load(self) -> Iterator[AssetMetadataProvider]: ...
-        """Load an `Asset` source from metadata"""
+    """Load an `Asset` source from metadata"""
 
 
 class AssetSourceNotFoundError(Exception):
     """Raised if an `Asset` source is unable to be located or is not supported"""
+
     def __init__(self, source: str) -> None:
         super().__init__(f"{source} asset source is not found.")
 
@@ -105,7 +106,7 @@ class AssetSourceNotFoundError(Exception):
 class FileAssetMetadataLoader(ABC):
     @abstractmethod
     def load(self, path: Path) -> AssetMetadataProvider: ...
-        """Load `Asset` metadata from a `Path`"""
+    """Load `Asset` metadata from a `Path`"""
 
 @final
 class StandardFileAssetMetadataLoader(FileAssetMetadataLoader):
@@ -171,7 +172,7 @@ class StandardFileAssetMetadataLoader(FileAssetMetadataLoader):
 class PackageAssetMetadataLoader(ABC):
     @abstractmethod
     def load(self, package: str) -> AssetMetadataProvider: ...
-        """Loads `Asset` metadata from a Python namespace package"""
+    """Loads `Asset` metadata from a Python namespace package"""
 
 @final
 class StandardPackageAssetMetadataLoader(PackageAssetMetadataLoader):
@@ -212,7 +213,7 @@ class PackageFileLister(ABC):
     """Provides a way to list files stored within a package"""
     @abstractmethod
     def list(self, package: str, source: str) -> list[Path]: ...
-        """List files stored in a package from source ``str``"""
+    """List files stored in a package from source ``str``"""
 
 @final
 class StandardPackageFileLister(PackageFileLister):
