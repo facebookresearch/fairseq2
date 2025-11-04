@@ -35,7 +35,7 @@ class AssetStore(ABC):
 
     """
     Retrieve the card with the name ``str``
-    
+
     :raises AssetNotFoundError: If no card is found with the name
     specified or no name is specified.
     """

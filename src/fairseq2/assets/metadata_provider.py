@@ -115,6 +115,7 @@ class FileAssetMetadataLoader(ABC):
 
     """Load `Asset` metadata from a `Path`"""
 
+
 @final
 class StandardFileAssetMetadataLoader(FileAssetMetadataLoader):
     """Provides asset metadata stored on a file system."""

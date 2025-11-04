@@ -178,19 +178,27 @@ class AssetConfigLoader(ABC):
 
     """
     Loads an asset from an `AssetCard`
-    
+
     :param card: The card of the asset to load.
 
     :param base_config: The base configuration of the asset to be loaded.
 
     :param config_key: The specific configuration for the requested asset.
-    
+
     :raises AssetCardError: If the requested `AssetCard` or config ``object`
         are not able to be parsed or merged with the base configuration
         or if a directive cannot be processed.
     """
 
+<<<<<<< HEAD
     
+=======
+<<<<<<< HEAD
+    
+=======
+
+>>>>>>> 02a9d98b (Removed newline whitespace)
+>>>>>>> e5a59272 (Fixed newline whitespace)
 @final
 class StandardAssetConfigLoader(AssetConfigLoader):
     def __init__(
