@@ -19,6 +19,12 @@ from fairseq2.utils.uri import Uri
 
 T = TypeVar("T", bool, int, float, str)
 
+"""
+`Cards` represent unique identifiers for various assets, including
+datasets, models, and tokenizers. They contain the information needed
+to load and/or pull a given asset.
+"""
+
 
 @final
 class AssetCard:
@@ -32,6 +38,15 @@ class AssetCard:
         self._base = base
 
     def field(self, name: str) -> AssetCardField:
+        """
+        Retrieves a field from an asset card
+
+        :param name: The field in the asset card to retrieve.
+
+        :raises AssetCardError: if the field does not exist.
+
+        :returns: the asset card field
+        """
         field = self.maybe_get_field(name)
         if field is None:
             msg = f"{self._name} asset card does not have a field named {name}."
@@ -41,6 +56,18 @@ class AssetCard:
         return field
 
     def maybe_get_field(self, name: str) -> AssetCardField | None:
+        """
+        Attempts to retrieve the field from an asset card
+
+        Returns ``None`` if the asset card passed is none.
+
+        :param name: The field of the asset card to attempt to retrieve.
+
+        :raises KeyError: If the name field in the card metadata
+            cannot be found.
+
+        :returns: The designated asset field.
+        """
         card: AssetCard | None = self
 
         while card is not None:
@@ -56,6 +83,13 @@ class AssetCard:
         return None
 
     def has_field(self, name: str) -> bool:
+        """
+        Returns whether a card contains a field
+
+        :param name: The field name to check.
+
+        :returns: Whether the field exists
+        """
         card: AssetCard | None = self
 
         while card is not None:
@@ -128,6 +162,8 @@ class AssetCardField:
 
 
 class AssetCardError(Exception):
+    """Raised when an `AssetCard` of a given name cannot be found"""
+
     def __init__(self, name: str, message: str) -> None:
         super().__init__(message)
 
@@ -135,8 +171,24 @@ class AssetCardError(Exception):
 
 
 class AssetConfigLoader(ABC):
+    """Represents a loader for `AssetCard` configuration files"""
+
     @abstractmethod
     def load(self, card: AssetCard, base_config: object, config_key: str) -> object: ...
+
+    """
+    Loads an asset from an `AssetCard`
+
+    :param card: The card of the asset to load.
+
+    :param base_config: The base configuration of the asset to be loaded.
+
+    :param config_key: The specific configuration for the requested asset.
+
+    :raises AssetCardError: If the requested `AssetCard` or config ``object`
+        are not able to be parsed or merged with the base configuration
+        or if a directive cannot be processed.
+    """
 
 
 @final

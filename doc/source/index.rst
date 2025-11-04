@@ -53,8 +53,8 @@ other content generation tasks.
     :maxdepth: 1
     :caption: API Reference
 
-    reference/assets
     reference/checkpoint
+    reference/fairseq2.assets
     reference/fairseq2.data
     reference/fairseq2.data.tokenizers
     reference/fairseq2.data.tokenizers.hub
