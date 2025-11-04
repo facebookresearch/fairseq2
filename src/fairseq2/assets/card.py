@@ -172,19 +172,19 @@ class AssetConfigLoader(ABC):
     """Represents a loader for `AssetCard` configuration files"""
     @abstractmethod
     def load(self, card: AssetCard, base_config: object, config_key: str) -> object: ...
-        """
-        Loads an asset from an `AssetCard`
+    """
+    Loads an asset from an `AssetCard`
+    
+    :param card: The card of the asset to load.
 
-        :param card: The card of the asset to load.
+    :param base_config: The base configuration of the asset to be loaded.
 
-        :param base_config: The base configuration of the asset to be loaded.
-
-        :param config_key: The specific configuration for the requested asset.
-
-        :raises AssetCardError: If the requested `AssetCard` or config ``object`
-            are not able to be parsed or merged with the base configuration
-            or if a directive cannot be processed.
-        """
+    :param config_key: The specific configuration for the requested asset.
+    
+    :raises AssetCardError: If the requested `AssetCard` or config ``object`
+        are not able to be parsed or merged with the base configuration
+        or if a directive cannot be processed.
+    """
 
 @final
 class StandardAssetConfigLoader(AssetConfigLoader):
