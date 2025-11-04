@@ -1,0 +1,82 @@
+graph TD
+    %% Source Handling
+    subgraph SRC[Data Sources]
+        S3[S3] & BLOB[Blobstore] & HF[HuggingFace] & OTHER_SRC[Other Sources]
+        CONFIG[Dataset Config]
+        S3 & BLOB & HF & OTHER_SRC --> CONFIG
+    end
+
+    %% Data Ingestion
+    subgraph INGEST[Data Ingestion]
+        READ[Parallel AsyncIO Reading]
+        LOAD{Load Strategy}
+        MEM[Memory Load]
+        STREAM[Stream Load]
+        
+        CONFIG --> READ
+        READ --> LOAD
+        LOAD -->|Full| MEM
+        LOAD -->|Stream| STREAM
+    end
+
+    %% Preprocessing
+    subgraph PREP[Preprocessing]
+        SHUFFLE[Shuffle]
+        REPEAT[Repeat]
+        WEIGHT[Weight]
+    end
+    
+    MEM & STREAM --> PREP
+
+    %% Sharding
+    subgraph SHARD[Sharding]
+        MULTI[Multi-GPU Setup]
+        EVEN[Even Sharding]
+        UNEVEN[Uneven Sharding]
+        
+        MULTI -->|Seed| EVEN
+        MULTI -->|Dynamic| UNEVEN
+    end
+    
+    PREP --> MULTI
+
+    %% Data Processing
+    subgraph PROCESS[Data Processing]
+        direction TB
+
+        subgraph FILTER[Filter]
+            FILTER_STD[Standard]
+            FILTER_CUSTOM[Custom]
+        end
+        
+        subgraph TRANS[Transform - map]
+            CLIP[Clip] & WRAP[Wrap] & AUG[Augment] & CLEAN[Clean] & OTHER[Other]
+        end
+        
+        subgraph BUCKET[Dynamic Bucketing]
+            TOK[By Token] & ROW[By Row] & COST_FN[By Cost Function]
+        end
+        
+        EVEN & UNEVEN --> FILTER
+        FILTER --> TRANS
+        TRANS --> BUCKET
+    end
+
+    %% Output
+    subgraph OUT[Output]
+        YIELD[Dataset Yield]
+        FORMAT[Format Conversion]
+        
+        YIELD -->|Convert| FORMAT
+    end
+    
+    PROCESS --> OUT
+
+    %% Styling
+    classDef primary fill:#eee,stroke:#333,stroke-width:2px
+    classDef secondary fill:#bbf,stroke:#333
+    classDef action fill:#bfb,stroke:#333
+    
+    class SRC,INGEST,PREP,SHARD,PROCESS,OUT primary
+    class CONFIG,READ,MULTI,TRANS,BUCKET,FORMAT secondary
+    class SHUFFLE,REPEAT,WEIGHT,CLIP,FILTER_STD,FILTER_CUSTOM,WRAP,AUG,CLEAN,OTHER action
