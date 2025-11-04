@@ -372,7 +372,10 @@ class StandardModelFamily(ModelFamily):
 
             raise AssetCardError(name, msg) from ex
         except ModelCheckpointError as ex:
-            msg = f"Model checkpoint of the {name} asset card cannot be loaded."
+            msg = f"Model checkpoint of the {name} asset card is erroneous."
+
+            if uri.scheme != "file":
+                msg = f"{msg} Make sure that it is downloaded correctly and, if not, clean your asset cache directory at {path.parent}."
 
             raise AssetCardError(name, msg) from ex
         except FileNotFoundError as ex:
