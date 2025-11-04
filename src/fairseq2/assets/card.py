@@ -190,15 +190,7 @@ class AssetConfigLoader(ABC):
         or if a directive cannot be processed.
     """
 
-<<<<<<< HEAD
-    
-=======
-<<<<<<< HEAD
-    
-=======
 
->>>>>>> 02a9d98b (Removed newline whitespace)
->>>>>>> e5a59272 (Fixed newline whitespace)
 @final
 class StandardAssetConfigLoader(AssetConfigLoader):
     def __init__(
