@@ -134,7 +134,7 @@ class Uri:
 
         s = str(self)
 
-        return Path(s[5:])
+        return Path(s[7:])
 
     def __str__(self) -> str:
         return urlunparse(self._result)
