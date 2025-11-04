@@ -27,6 +27,7 @@ Asset metadata is managed via `AssetMetadataProvider` ``objects``. These can
 be accessed via a Python namespace package, or user or cache directories.
 """
 
+
 class AssetMetadataProvider(ABC):
     @abstractmethod
     def maybe_get_metadata(self, name: str) -> dict[str, object] | None:
@@ -44,13 +45,16 @@ class AssetMetadataProvider(ABC):
     @property
     @abstractmethod
     def source(self) -> str: ...
+
     """Returns the source of the asset from the metadata"""
+
 
 class AssetMetadataError(Exception):
     """
     Raised when metadata is unable to be retrieved due to it not existing,
     being improperly formatted in the request, or not supported
     """
+
     def __init__(self, source: str, message: str) -> None:
         super().__init__(message)
 
@@ -60,6 +64,7 @@ class AssetMetadataError(Exception):
 @final
 class CachedAssetMetadataProvider(AssetMetadataProvider):
     """Provides metadata for assets that have been saved to the cache dir"""
+
     def __init__(self, source: str, metadata: dict[str, dict[str, object]]) -> None:
         self._source = source
         self._metadata = metadata
@@ -91,6 +96,7 @@ class CachedAssetMetadataProvider(AssetMetadataProvider):
 class AssetMetadataSource(ABC):
     @abstractmethod
     def load(self) -> Iterator[AssetMetadataProvider]: ...
+
     """Load an `Asset` source from metadata"""
 
 
@@ -106,6 +112,7 @@ class AssetSourceNotFoundError(Exception):
 class FileAssetMetadataLoader(ABC):
     @abstractmethod
     def load(self, path: Path) -> AssetMetadataProvider: ...
+
     """Load `Asset` metadata from a `Path`"""
 
 @final
@@ -172,7 +179,9 @@ class StandardFileAssetMetadataLoader(FileAssetMetadataLoader):
 class PackageAssetMetadataLoader(ABC):
     @abstractmethod
     def load(self, package: str) -> AssetMetadataProvider: ...
+
     """Loads `Asset` metadata from a Python namespace package"""
+
 
 @final
 class StandardPackageAssetMetadataLoader(PackageAssetMetadataLoader):
@@ -211,13 +220,17 @@ class StandardPackageAssetMetadataLoader(PackageAssetMetadataLoader):
 
 class PackageFileLister(ABC):
     """Provides a way to list files stored within a package"""
+
     @abstractmethod
     def list(self, package: str, source: str) -> list[Path]: ...
+
     """List files stored in a package from source ``str``"""
+
 
 @final
 class StandardPackageFileLister(PackageFileLister):
     """Lists standard Python namespace package files"""
+
     @override
     def list(self, package: str, source: str) -> list[Path]:
         files = []
@@ -259,7 +272,7 @@ def load_in_memory_asset_metadata(
 
     :raises AssetMetadataError: If the `Asset` `metadata` does not contain a
         valid base name or if the base name is not of type ``str``.
-    
+
     """
     metadata = {}
 
@@ -313,6 +326,7 @@ class AssetMetadataFileLoader(ABC):
 @final
 class YamlAssetMetadataFileLoader(AssetMetadataFileLoader):
     """Loader for `Asset` metadata stored in a YAML file."""
+
     def __init__(self, yaml_loader: YamlLoader) -> None:
         self._yaml_loader = yaml_loader
 
@@ -403,6 +417,7 @@ def sanitize_base_asset_name(name: str) -> str | None:
 @final
 class WellKnownAssetMetadataSource(AssetMetadataSource):
     """Represents metadata for an `Asset` already known to the library"""
+
     def __init__(
         self, dirs: AssetDirectoryAccessor, metadata_loader: FileAssetMetadataLoader
     ) -> None:
@@ -432,6 +447,7 @@ class WellKnownAssetMetadataSource(AssetMetadataSource):
 @final
 class FileAssetMetadataSource(AssetMetadataSource):
     """Represents `Asset` metadata from a single source file"""
+
     def __init__(
         self, path: Path, metadata_loader: FileAssetMetadataLoader, not_exist_ok: bool
     ) -> None:
@@ -455,6 +471,7 @@ class FileAssetMetadataSource(AssetMetadataSource):
 @final
 class PackageAssetMetadataSource(AssetMetadataSource):
     """Represents `Asset` metadata from a Python namespace package"""
+
     def __init__(
         self, package: str, metadata_loader: PackageAssetMetadataLoader
     ) -> None:
@@ -472,6 +489,7 @@ class PackageAssetMetadataSource(AssetMetadataSource):
 @final
 class InMemoryAssetMetadataSource(AssetMetadataSource):
     """Represents metadata from an `Asset` in memory"""
+
     def __init__(self, name: str, entries: Sequence[dict[str, object]]) -> None:
         self._name = name
         self._entries = entries

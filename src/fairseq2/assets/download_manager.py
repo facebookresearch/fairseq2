@@ -38,6 +38,7 @@ downloading assets, such as models, tokenizers, and datasets, from
 a remote repository.
 """
 
+
 def get_asset_download_manager() -> AssetDownloadManager:
     return get_dependency_resolver().resolve(AssetDownloadManager)
 
@@ -126,6 +127,7 @@ class AssetDownloadManager(ABC):
 class AssetDownloadError(Exception):
     """Raised when an `Asset` is unable to be downloaded due to
     non-existence or a network error"""
+
     def __init__(self, asset_name: str, asset_kind: str, message: str) -> None:
         super().__init__(message)
 

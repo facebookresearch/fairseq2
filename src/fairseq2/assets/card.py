@@ -25,6 +25,7 @@ datasets, models, and tokenizers. They contain the information needed
 to load and/or pull a given asset.
 """
 
+
 @final
 class AssetCard:
     """Holds information about an asset."""
@@ -41,7 +42,7 @@ class AssetCard:
         Retrieves a field from an asset card
 
         :param name: The field in the asset card to retrieve.
-        
+
         :raises AssetCardError: if the field does not exist.
 
         :returns: the asset card field
@@ -162,6 +163,7 @@ class AssetCardField:
 
 class AssetCardError(Exception):
     """Raised when an `AssetCard` of a given name cannot be found"""
+
     def __init__(self, name: str, message: str) -> None:
         super().__init__(message)
 
@@ -170,8 +172,10 @@ class AssetCardError(Exception):
 
 class AssetConfigLoader(ABC):
     """Represents a loader for `AssetCard` configuration files"""
+
     @abstractmethod
     def load(self, card: AssetCard, base_config: object, config_key: str) -> object: ...
+
     """
     Loads an asset from an `AssetCard`
     
@@ -186,6 +190,7 @@ class AssetConfigLoader(ABC):
         or if a directive cannot be processed.
     """
 
+    
 @final
 class StandardAssetConfigLoader(AssetConfigLoader):
     def __init__(

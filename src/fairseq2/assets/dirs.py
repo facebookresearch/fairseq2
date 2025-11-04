@@ -21,11 +21,13 @@ from fairseq2.utils.env import Environment, EnvironmentVariableError
 `AssetDirectoryAccessor` ``objects`` offer an abstraction to handle access to directories where `Asset` types are stored
 """
 
+
 class AssetDirectoryAccessor(ABC):
     """
     Represents a way to access system, user, or cache directories as a `Path`
     on the local system
     """
+
     @abstractmethod
     def maybe_get_system_dir(self) -> Path | None: ...
 
@@ -39,7 +41,7 @@ class AssetDirectoryAccessor(ABC):
 @final
 class StandardAssetDirectoryAccessor(AssetDirectoryAccessor):
     """Represents a standard way to access an asset directory via a `FileSystem`"""
-    
+
     def __init__(self, env: Environment, file_system: FileSystem) -> None:
         self._env = env
         self._file_system = file_system

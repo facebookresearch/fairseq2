@@ -22,15 +22,17 @@ An `AssetStore` offers a convenient way to load asset cards from named
 providers in the local environment.
 """
 
+
 def get_asset_store() -> AssetStore:
     return get_dependency_resolver().resolve(AssetStore)
 
 
 class AssetStore(ABC):
     """Represents a way to load asset cards"""
-    
+
     @abstractmethod
     def retrieve_card(self, name: str) -> AssetCard: ...
+
     """
     Retrieve the card with the name ``str``
     
@@ -40,23 +42,26 @@ class AssetStore(ABC):
 
     @abstractmethod
     def maybe_retrieve_card(self, name: str) -> AssetCard | None: ...
+
     """Attempt to retrieve the card if it exists"""
-        
+
     @abstractmethod
     def find_cards(self, field: str, value: object) -> Iterator[AssetCard]: ...
+
     """
     Retrieve multiple cards from an `AssetCard` iterable
 
     The cards returned have specified value in the designated field
     """
-    
+
     @property
     @abstractmethod
     def asset_names(self) -> Set[str]: ...
 
+
 class AssetNotFoundError(Exception):
     """Raised when an asset cannot be found under the name provided."""
-    
+
     def __init__(self, name: str) -> None:
         super().__init__(f"{name} asset is not found.")
 
