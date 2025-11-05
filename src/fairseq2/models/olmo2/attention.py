@@ -10,9 +10,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+import torch
 from torch import Tensor
 
 from fairseq2.gang import Gangs
+from fairseq2.models.olmo2.rope import OLMO2RotaryEmbedding, apply_rotary_pos_emb
 from fairseq2.models.transformer import StandardMultiheadAttention
 from fairseq2.models.transformer.attention_bias import AttentionBiasCache
 from fairseq2.models.transformer.sdpa.base import SDPA
@@ -29,12 +31,14 @@ from fairseq2.device import Device
 
 
 class OLMO2MultiheadAttention(StandardMultiheadAttention):
-    """OLMO2 Multi-head Attention with Q/K normalization applied before reshaping.
-    
-    This class extends StandardMultiheadAttention to apply Q/K normalization on
-    the full projected dimensions (before splitting into heads), which is how
-    OLMO2 implements Q/K norm in the HuggingFace implementation.
+    """OLMO2 Multi-head Attention with Q/K normalization and HuggingFace-style RoPE.
+
+    This class extends StandardMultiheadAttention to:
+    1. Apply Q/K normalization on the full projected dimensions (before splitting into heads)
+    2. Apply RoPE in the HuggingFace style (using rotate_half) instead of complex numbers
     """
+
+    rope_module: OLMO2RotaryEmbedding | None
 
     def __init__(
         self,
@@ -51,7 +55,7 @@ class OLMO2MultiheadAttention(StandardMultiheadAttention):
         qkv_proj_init_fn: Callable[[Linear], None] | None = None,
         q_norm: LayerNorm | None = None,
         k_norm: LayerNorm | None = None,
-        pos_encoder: PositionEncoder | None = None,
+        rope_module: OLMO2RotaryEmbedding | None = None,
         output_proj: Projection | None = None,
         output_proj_init_fn: Callable[[Linear], None] | None = None,
         bias: bool = True,
@@ -62,9 +66,10 @@ class OLMO2MultiheadAttention(StandardMultiheadAttention):
         dtype: DataType | None = None,
     ) -> None:
         """Initialize OLMO2 Multi-head Attention.
-        
-        All parameters are passed through to StandardMultiheadAttention.
-        The only difference is in how Q/K norm is applied during forward pass.
+
+        Args:
+            rope_module: adapted from the HuggingFace-style RoPE module for applying rotary position embeddings.
+            All other parameters are passed through to StandardMultiheadAttention.
         """
         super().__init__(
             model_dim=model_dim,
@@ -79,7 +84,7 @@ class OLMO2MultiheadAttention(StandardMultiheadAttention):
             qkv_proj_init_fn=qkv_proj_init_fn,
             q_norm=q_norm,
             k_norm=k_norm,
-            pos_encoder=pos_encoder,
+            pos_encoder=None,  # We don't use pos_encoder, use rope_module instead
             output_proj=output_proj,
             output_proj_init_fn=output_proj_init_fn,
             bias=bias,
@@ -90,59 +95,77 @@ class OLMO2MultiheadAttention(StandardMultiheadAttention):
             dtype=dtype,
         )
 
-    def _project_q(
+        self.rope_module = rope_module
+
+    def forward(
         self,
         seqs: Tensor,
         seqs_layout: BatchLayout,
-        state_bag: IncrementalStateBag | None = None,
-    ) -> Tensor:
-        """Project queries with Q normalization applied before reshaping.
-        
-        This overrides the parent method to apply Q norm on the full
-        projected dimension before splitting into heads.
-        """
-        # (N, S, M) -> (N, S, K_proj)
-        q = self.q_proj(seqs)
-
-        # Apply Q norm BEFORE reshaping (on full projected dimension)
-        if self.q_norm is not None:
-            q = self.q_norm(q)
-
-        # (N, S, K_proj) -> (N, S, H, K_h)
-        q = q.unflatten(-1, (-1, self.head_dim))
-
-        if self.pos_encoder is not None:
-            q = self.pos_encoder(q, seqs_layout, state_bag=state_bag)
-
-        return q
-
-    def _project_kv(
-        self,
         keys: Tensor,
         keys_layout: BatchLayout,
         values: Tensor,
+        bias_cache: AttentionBiasCache,
+        *,
         state_bag: IncrementalStateBag | None = None,
-    ) -> tuple[Tensor, Tensor]:
-        """Project keys and values with K normalization applied before reshaping.
-        
-        This overrides the parent method to apply K norm on the full
-        projected dimension before splitting into heads.
-        """
-        # (N, S, K) -> (N, S, K_proj)
-        k = self.k_proj(keys)
-        # (N, S, V) -> (N, S, V_proj)
-        v = self.v_proj(values)
+    ) -> Tensor:
+        """Forward pass with HuggingFace-style RoPE application.
 
-        # Apply K norm BEFORE reshaping (on full projected dimension)
+        This overrides the parent forward to apply RoPE in the HuggingFace style
+        (using rotate_half) instead of the complex number approach.
+        """
+        # Project Q, K, V with normalization
+        # Q: (N, S, K_proj) -> norm -> (N, S, H, K_h)
+        q = self.q_proj(seqs)
+        if self.q_norm is not None:
+            q = self.q_norm(q)
+        q = q.unflatten(-1, (-1, self.head_dim))
+
+        # K, V: (N, S, K_proj) -> norm -> (N, S, H, K_h)
+        k = self.k_proj(keys)
+        v = self.v_proj(values)
         if self.k_norm is not None:
             k = self.k_norm(k)
-
-        # (N, S, K_proj) -> (N, S, H, K_h)
         k = k.unflatten(-1, (-1, self.head_dim))
-        # (N, S, V_proj) -> (N, S, H, V_h)
         v = v.unflatten(-1, (-1, self.head_dim))
 
-        if self.pos_encoder is not None:
-            k = self.pos_encoder(k, keys_layout, state_bag=state_bag)
+        # Apply RoPE using HuggingFace style
+        if self.rope_module is not None:
+            batch_size, seq_len = seqs.shape[:2]
 
-        return k, v
+            # Create position IDs: (B, S)
+            position_ids = torch.arange(
+                seq_len, device=seqs.device, dtype=torch.long
+            ).unsqueeze(0).expand(batch_size, -1)
+
+            # Get cos/sin embeddings: (B, S, D)
+            cos, sin = self.rope_module(q, position_ids)
+
+            # Transpose Q, K to (B, H, S, D) for RoPE application
+            q = q.transpose(1, 2)  # (B, S, H, D) -> (B, H, S, D)
+            k = k.transpose(1, 2)  # (B, S, H, D) -> (B, H, S, D)
+
+            # Apply RoPE
+            q, k = apply_rotary_pos_emb(q, k, cos, sin)
+
+            # Transpose back to (B, S, H, D) for SDPA
+            q = q.transpose(1, 2)  # (B, H, S, D) -> (B, S, H, D)
+            k = k.transpose(1, 2)  # (B, H, S, D) -> (B, S, H, D)
+
+        # Apply SDPA
+        # q, k, v are all in (B, S, H, D) format
+        # SDPA expects: (q, seqs_layout, k, keys_layout, v, bias_cache)
+        needs_weights = len(self._attn_weight_hooks) > 0
+
+        attns, attn_weights = self.sdpa(
+            q, seqs_layout, k, keys_layout, v, bias_cache, needs_weights=needs_weights
+        )
+
+        if attn_weights is not None:
+            for hook in self._attn_weight_hooks.values():
+                hook(self, attns, attn_weights)
+
+        # (N, S, H, V_h) -> (N, S, V_proj)
+        attns = attns.flatten(-2, -1)
+
+        # Output projection: (N, S, V_proj) -> (N, S, M)
+        return self.output_proj(attns)
