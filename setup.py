@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from setuptools import find_namespace_packages, setup
 
-version = "0.7.0.dev0"
+version = "0.7.0"
 
 # If this is a local development install, allow nightly fairseq2n builds to
 # take precedence.
@@ -50,6 +50,7 @@ setup(
     zip_safe=False,
     python_requires=">=3.10",
     install_requires=[
+        "clusterscope~=0.0.31",
         "editdistance~=0.8",
         "fairseq2n" + fairseq2n_version_spec,
         "huggingface_hub~=0.32",

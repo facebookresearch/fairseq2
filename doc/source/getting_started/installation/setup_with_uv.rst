@@ -88,7 +88,7 @@ Add this ``pyproject.toml`` configuration to your project:
         version = "0.1.0"
         requires-python = ">=3.10"
         dependencies = [
-            "clusterscope>=0.0.6",
+            "clusterscope>=0.0.31",
             "pip>=25.2",
             "tensorboard~=2.16",
             "vllm>=0.10.0",

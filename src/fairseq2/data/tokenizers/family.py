@@ -160,7 +160,10 @@ class StandardTokenizerFamily(TokenizerFamily):
 
             raise AssetCardError(name, msg) from ex
         except TokenizerModelError as ex:
-            msg = f"Tokenizer model of the {name} asset card cannot be loaded."
+            msg = f"Tokenizer model of the {name} asset card is erroneous."
+
+            if uri.scheme != "file":
+                msg = f"{msg} Make sure that it is downloaded correctly and, if not, clean your asset cache directory at {path.parent}."
 
             raise AssetCardError(name, msg) from ex
         except FileNotFoundError as ex:
