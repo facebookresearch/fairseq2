@@ -68,6 +68,13 @@ from fairseq2.models.nllb import (
     create_nllb_model,
     register_nllb_configs,
 )
+from fairseq2.models.olmo2 import (
+    OLMO2_FAMILY,
+    OLMO2Config,
+    convert_olmo2_state_dict,
+    create_olmo2_model,
+    register_olmo2_configs,
+)
 from fairseq2.models.qwen import (
     QWEN_FAMILY,
     QwenConfig,
@@ -307,6 +314,21 @@ def _register_model_families(container: DependencyContainer) -> None:
     )
 
     register_nllb_configs(container)
+
+    # OLMo2
+    register_model_family(
+        container,
+        OLMO2_FAMILY,
+        kls=TransformerLM,
+        config_kls=OLMO2Config,
+        factory=create_olmo2_model,
+        state_dict_converter=convert_olmo2_state_dict,
+        compiler=compile_transformer_lm,
+        fsdp_applier=apply_fsdp_to_transformer_lm,
+        layerwise_ac_applier=apply_ac_to_transformer_lm,
+    )
+
+    register_olmo2_configs(container)
 
     # Qwen
     register_model_family(
