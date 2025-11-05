@@ -4,6 +4,16 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+"""
+A `Recipe` represents a runnable workflow that helps orchestrate actions
+regularly performed with models, such as training, evaluation, or generation.
+This module provides `Recipe` implementations that help support the complete
+machine learning lifecycle, including setup, cleanup, inference, and logging,
+and unifies execution logic into one standardized, cohesive process. The
+`Recipe` module also includes command-line interface (CLI) APIs for running
+workflows directly from the command line.
+"""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -39,6 +49,10 @@ BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
 
 @final
 class RecipeContext:
+    """
+    Represents the underlying framework of a machine learning workflow
+    """
+    
     def __init__(self, resolver: DependencyResolver) -> None:
         self._resolver = resolver
 
@@ -67,6 +81,7 @@ class RecipeContext:
         return self._resolver.resolve(RecipeModel)
 
     def get_reference_model(self, section_name: str) -> RecipeModel:
+        """Todo"""
         return self._resolver.resolve(RecipeModel, key=section_name)
 
     @property
@@ -74,6 +89,7 @@ class RecipeContext:
         return self.get_dataset("dataset")
 
     def get_dataset(self, section_name: str) -> RecipeDataset:
+        """Todo"""
         return self._resolver.resolve(RecipeDataset, key=section_name)
 
     @property
@@ -81,6 +97,7 @@ class RecipeContext:
         return self.get_tokenizer("tokenizer")
 
     def get_tokenizer(self, section_name: str) -> RecipeTokenizer:
+        """Todo"""
         return self._resolver.resolve(RecipeTokenizer, key=section_name)
 
     @property
@@ -96,6 +113,7 @@ class RecipeContext:
         return self._resolver
 
     def bootstrap_model(self, section_name: str) -> RecipeModel:
+        """Todo"""
         section = _get_config_section(
             self._resolver, section_name, ReferenceModelSection
         )
@@ -111,6 +129,14 @@ class RecipeContext:
         valid_units: Sequence[EvalUnit[BatchT]] | None = None,
         valid_data_readers: Sequence[DataReader[BatchT]] | None = None,
     ) -> Trainer:
+        """
+        Initiates the components needed for a training loop
+
+        ..code:: python
+           :caption: Creating a trainer object with validator and data readers
+           # Create a trainer for 
+        """
+        
         validator_factory = self._resolver.resolve(_RecipeValidatorFactory)
 
         validator = validator_factory.create(valid_units, valid_data_readers)

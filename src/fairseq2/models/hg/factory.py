@@ -28,6 +28,7 @@ The factory supports:
 from __future__ import annotations
 
 import importlib
+import urllib
 from pathlib import Path
 from typing import Any, Dict, Type
 
@@ -263,11 +264,15 @@ def _load_special_model(
     # Prepare kwargs for from_pretrained
     load_kwargs = _prepare_load_kwargs(config)
 
+    # Needed for Qwen Omni 2.5 in transformers v2.51.1
+    load_kwargs.pop("safe_serialization")
+
     # Import and load the model class
     model_class_name = model_info["model_class"]
     try:
         model_class = _import_class_from_transformers(model_class_name)
         model = model_class.from_pretrained(**load_kwargs)
+        
     except Exception as ex:
         raise HuggingFaceModelError(
             name,
@@ -299,7 +304,7 @@ def _load_auto_model(name: str, config: HuggingFaceModelConfig, hf_config: Any) 
 
     # Determine which AutoModel class to use
     auto_model_class = _get_auto_model_class(config, hf_config)
-
+    
     try:
         model = auto_model_class.from_pretrained(**load_kwargs)
     except Exception as ex:
@@ -351,6 +356,7 @@ def _prepare_load_kwargs(config: HuggingFaceModelConfig) -> Dict[str, Any]:
     model_path = _get_model_path(config)
     kwargs["pretrained_model_name_or_path"] = model_path
     kwargs["use_safetensors"] = True
+    kwargs["safe_serialization"] = True
 
     # Set dtype
     _set_dtype_kwargs(config, kwargs)
