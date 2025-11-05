@@ -13,11 +13,11 @@ import torch.nn as nn
 from torch import Tensor
 
 from fairseq2.gang import Gangs, maybe_get_current_gangs
-
-from fairseq2.models.llama import LLaMAFactory
-from fairseq2.models.llama.factory import _init_truncated_normal
 from fairseq2.models.olmo2.attention import OLMO2MultiheadAttention
 from fairseq2.models.olmo2.config import OLMO2Config
+from fairseq2.models.olmo2.decoder_layer import OLMO2TransformerLMDecoderLayer
+from fairseq2.models.olmo2.normalization import OLMO2RMSNorm
+from fairseq2.models.olmo2.rope import OLMO2RotaryEmbedding
 
 from fairseq2.models.transformer import (
     CausalAttentionBias,
@@ -26,12 +26,10 @@ from fairseq2.models.transformer import (
     MultiheadAttention,
     TransformerEmbeddingFrontend,
     TransformerFrontend,
-    TransformerNormOrder,
     create_default_sdpa,
 )
 from fairseq2.models.transformer_lm import (
     StandardTransformerLMDecoder,
-    StandardTransformerLMDecoderLayer,
     TransformerLM,
     TransformerLMDecoder,
     TransformerLMDecoderLayer,
@@ -43,14 +41,12 @@ from fairseq2.nn import (
     Linear,
     PositionEncoder,
     Projection,
-    RMSNorm,
     RotaryEncoder,
     ShardedEmbedding,
     StandardEmbedding,
     TiedProjection,
     VocabShardedEmbedding,
 )
-from fairseq2.utils.tensor import to_tensor
 
 
 def create_olmo2_model(config: OLMO2Config) -> TransformerLM:
@@ -60,53 +56,137 @@ def create_olmo2_model(config: OLMO2Config) -> TransformerLM:
     return OLMO2Factory(config, gangs).create_model()
 
 
-class OLMO2Factory(LLaMAFactory):
+class OLMO2Factory:
     """Factory for creating OLMO2 models.
 
-    OLMO2 is based on LLaMA architecture with:
-    - RMSNorm with learnable weight (rms_norm_eps)
-    - Q/K Norm in attention layers
-    - Post-Norm architecture
-    - Use MHA instead of GQA. Only 32B model use GQA
-
-    Most components are directly reused from LLaMAFactory.
+    OLMO2 is based on LLaMA architecture with the following differences:
+    - Olmo2RMSNorm: multiply weight, then convert back to input dtype
+    - Add Q/K Norm in attention layers.
+    - Use Olmo2 Post-Norm in decoder layer: Attention/FFN -> Norm -> Add Residual
+    - Use MHA instead of GQA. OLMO2-32B model use GQA.
+    - Use a HuggingFace-style RoPE module for OLMO2 with rotate_half
     """
 
-    _config: OLMO2Config
-
     def __init__(self, config: OLMO2Config, gangs: Gangs | None = None) -> None:
-        super().__init__(config, gangs)
         self._config = config
+        self._gangs = gangs
 
-    def create_layer_norm(self, dim: int | None = None) -> LayerNorm:
-        """Create RMSNorm with learnable weight.
+    def create_model(self) -> TransformerLM:
+        config = self._config
 
-        OLMO2 uses RMSNorm with learnable weight, unlike OLMO which uses
-        parameter-less LayerNorm.
+        embed = self.create_embedding()
 
-        OLMO2 RMS norm is identical to Llama RMS norm in HF, except for
-        # - Weight and hidden states are multiplied before converting back to the input dtype, rather than after.
-        not sure if the order will make any difference
+        decoder_frontend = self.create_decoder_frontend(embed)
+
+        decoder = self.create_decoder()
+
+        final_proj = self.create_final_projection(embed)
+
+        return TransformerLM(
+            config.model_dim,
+            decoder_frontend,
+            decoder,
+            final_proj,
+            config.pad_idx,
+            config.max_seq_len,
+        )
+
+    def create_embedding(self) -> Embedding:
+        config = self._config
+
+        init_std = config.init_std
+
+        def init_embed(embed: StandardEmbedding) -> None:
+            embed_dim = embed.weight.shape[1]
+
+            std = init_std or (embed_dim**-0.5)
+
+            _init_truncated_normal(embed.weight, bias=None, std=std)
+
+        embed = StandardEmbedding(
+            config.vocab_size, config.model_dim, config.pad_idx, init_fn=init_embed
+        )
+
+        gangs = self._gangs
+
+        if gangs is not None and gangs.tp.size > 1:
+            if not config.shard_embed_dim:
+                return VocabShardedEmbedding.from_embedding(embed, gangs.tp)
+
+            return ShardedEmbedding.from_embedding(embed, gangs.tp)
+
+        return embed
+
+    def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
+        config = self._config
+
+        return TransformerEmbeddingFrontend(
+            config.model_dim,
+            embed,
+            pos_encoder=None,
+            no_scale=True,
+            dropout_p=config.dropout_p,
+        )
+
+    def create_decoder(self) -> TransformerLMDecoder:
+        config = self._config
+
+        rope_module = self.create_rope_module()
+
+        layers = []
+
+        for idx in range(config.num_layers):
+            layer = self.create_decoder_layer(idx, rope_module)
+
+            layers.append(layer)
+
+        layer_norm = self.create_layer_norm()
+
+        return StandardTransformerLMDecoder(layers, layer_norm)
+
+    def create_rope_module(self) -> OLMO2RotaryEmbedding:
+        """Create HuggingFace-style RoPE module for OLMO2."""
+        config = self._config
+
+        return OLMO2RotaryEmbedding(config)
+
+    def create_decoder_layer(
+        self, layer_idx: int, rope_module: OLMO2RotaryEmbedding
+    ) -> TransformerLMDecoderLayer:
+        """Create decoder layer with OLMO2-specific Post-Norm architecture.
+
+        OLMO2 uses a unique Post-Norm ordering:
+        Attention/FFN -> Norm -> Add Residual
+
+        This differs from standard Post-Norm which does:
+        Attention/FFN -> Add Residual -> Norm
         """
         config = self._config
 
-        # diffs the RMS norm and QK norm
-        if dim is None:
-            dim = config.model_dim
+        self_attn = self.create_self_attention(layer_idx, rope_module)
 
-        return RMSNorm(
-            dim,
-            bias=False,
-            eps=config.rms_norm_eps,
-            elementwise_affine=True,
+        self_attn_layer_norm = self.create_layer_norm()
+
+        ffn = self.create_ffn(layer_idx)
+
+        ffn_layer_norm = self.create_layer_norm()
+
+        return OLMO2TransformerLMDecoderLayer(
+            self_attn,
+            self_attn_layer_norm,
+            ffn,
+            ffn_layer_norm,
+            dropout_p=config.dropout_p,
         )
 
     def create_self_attention(
-        self, layer_idx: int, pos_encoder: PositionEncoder
+        self, layer_idx: int, rope_module: OLMO2RotaryEmbedding
     ) -> MultiheadAttention:
-        """Create self-attention layer with Q/K Norm.
+        """Create self-attention layer with Q/K Norm and HuggingFace-style RoPE.
 
-        Compared to LLaMA, OLMO2 adds Q/K Norm after Q and K projections.
+        Compared to LLaMA,
+        1) OLMO2 adds Q/K Norm after Q and K projections.
+        2) Uses HuggingFace-style RoPE (rotate_half) and keep dtypes of cos and sin.
         """
         config = self._config
 
@@ -121,7 +201,6 @@ class OLMO2Factory(LLaMAFactory):
             std = init_std or (input_dim**-0.5)
             _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
 
-        # Create Q/K Norm - normalize on full projected dimension (before splitting into heads)
         head_dim = config.model_dim // config.num_attn_heads
         q_norm = self.create_layer_norm(config.num_attn_heads * head_dim)
         k_norm = self.create_layer_norm(config.num_key_value_heads * head_dim)
@@ -132,7 +211,7 @@ class OLMO2Factory(LLaMAFactory):
             sdpa,
             num_key_value_heads=config.num_key_value_heads,
             qkv_proj_init_fn=init_projection,
-            pos_encoder=pos_encoder,
+            rope_module=rope_module,
             output_proj_init_fn=init_projection,
             bias=False,
             q_norm=q_norm,
@@ -140,30 +219,102 @@ class OLMO2Factory(LLaMAFactory):
             gangs=self._gangs,
         )
 
-    def create_decoder_layer(
-        self, layer_idx: int, pos_encoder: PositionEncoder
-    ) -> TransformerLMDecoderLayer:
-        """Create decoder layer with Post-Norm architecture.
+    def create_ffn(self, layer_idx: int) -> FeedForwardNetwork:
+        config = self._config
 
-        OLMO2 uses Post-Norm instead of Pre-Norm. The norm is applied after
-        attention/FFN operations rather than before.
+        init_std = config.init_std
+
+        std_scale_factor = self.get_std_scale_factor(layer_idx)
+
+        def init_projection(proj: Linear) -> None:
+            input_dim = proj.weight.shape[1]
+
+            std = init_std or (input_dim**-0.5)
+
+            _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
+
+        ffn_inner_dim = int(config.ffn_inner_dim * config.ffn_inner_dim_multiplier)
+
+        return GLUFeedForwardNetwork(
+            config.model_dim,
+            ffn_inner_dim,
+            bias=False,
+            inner_dim_scale=config.ffn_inner_dim_scale,
+            inner_dim_to_multiple=config.ffn_inner_dim_multiple_of,
+            proj_init_fn=init_projection,
+            gangs=self._gangs,
+        )
+
+    def create_final_projection(self, embed: Embedding) -> Projection:
+        config = self._config
+
+        if config.tied_embeddings:
+            if not isinstance(embed, StandardEmbedding):
+                raise TypeError(
+                    f"`embed` is expected to be of type `{StandardEmbedding}` when `config.tied_embeddings` is `True`, but is of type `{type(embed)}` instead."
+                )
+
+            return TiedProjection(embed.weight, bias=None)
+
+        init_std = config.init_std
+
+        def init_projection(proj: Linear) -> None:
+            input_dim = proj.weight.shape[1]
+
+            std = init_std or (input_dim**-0.5)
+
+            _init_truncated_normal(proj.weight, proj.bias, std=std)
+
+        final_proj = Linear(
+            config.model_dim, config.vocab_size, bias=False, init_fn=init_projection
+        )
+
+        gangs = self._gangs
+
+        if gangs is not None and gangs.tp.size > 1:
+            return ColumnShardedLinear.from_linear(final_proj, gangs.tp)
+
+        return final_proj
+
+    def create_layer_norm(self, dim: int | None = None) -> LayerNorm:
+        """Create OLMO2RMSNorm.
+        OLMO2 RMS norm differs from Llama RMS norm in the order of operations:
+        - Weight and hidden states are multiplied before converting back to the input dtype.
         """
         config = self._config
 
-        self_attn = self.create_self_attention(layer_idx, pos_encoder)
+        if dim is None:
+            dim = config.model_dim
 
-        # Post-Norm: norm is applied after attention/FFN
-        self_attn_layer_norm = self.create_layer_norm()
-
-        ffn = self.create_ffn(layer_idx)
-
-        ffn_layer_norm = self.create_layer_norm()
-
-        return StandardTransformerLMDecoderLayer(
-            self_attn,
-            self_attn_layer_norm,
-            ffn,
-            ffn_layer_norm,
-            norm_order=TransformerNormOrder.POST,  # Post-Norm architecture
-            dropout_p=config.dropout_p,
+        return OLMO2RMSNorm(
+            dim,
+            bias=False,
+            eps=config.rms_norm_eps,
+            elementwise_affine=True,
         )
+
+    def get_std_scale_factor(self, layer_idx: int) -> float:
+        config = self._config
+
+        match config.init_std_scale:
+            case "layer":
+                n = layer_idx
+            case "stack":
+                n = config.num_layers
+            case "none":
+                return 1.0
+            case _:
+                raise ValueError(
+                    f"`config.init_std_scale` must be 'none', 'layer', or 'stack', but is '{config.init_std_scale}' instead."
+                )
+
+        return (2 * (n + 1)) ** 0.5
+
+
+def _init_truncated_normal(
+    weight: Tensor, bias: Tensor | None, *, std: float = 1.0
+) -> None:
+    nn.init.trunc_normal_(weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
+
+    if bias is not None:
+        nn.init.zeros_(bias)
