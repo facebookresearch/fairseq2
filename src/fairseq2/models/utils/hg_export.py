@@ -13,7 +13,9 @@ from typing import Protocol, final, runtime_checkable
 
 import huggingface_hub
 import torch
+import transformers
 from torch import Tensor
+from transformers import PretrainedConfig
 
 from fairseq2 import init_fairseq2
 from fairseq2.assets import AssetCardError, AssetMetadataError, AssetStore
@@ -23,35 +25,20 @@ from fairseq2.composition import (
     register_file_assets,
 )
 from fairseq2.device import CPU
-from fairseq2.error import raise_operational_system_error
+from fairseq2.error import OperationalError, raise_operational_system_error
 from fairseq2.file_system import FileSystem
 from fairseq2.gang import create_fake_gangs
 from fairseq2.logging import log
 from fairseq2.model_checkpoint import ModelCheckpointError
 from fairseq2.models import ModelFamily, ModelNotKnownError, get_model_family
+from fairseq2.models.family import HuggingFaceExport
 from fairseq2.runtime.dependency import DependencyContainer
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.rich import configure_rich_logging
 
-try:
-    import transformers  # type: ignore[import-not-found]
-except ImportError:
-    _has_transformers = False
-else:
-    _has_transformers = True
-
-from fairseq2.error import OperationalError
-from fairseq2.models.family import HuggingFaceExport
-
 
 def save_hugging_face_model(save_dir: Path, export: HuggingFaceExport) -> None:
-    if not _has_transformers:
-        raise OperationalError(
-            "Hugging Face Transformers is not found. Use `pip install transformers`."
-        )
-
-    from transformers import PretrainedConfig  # type: ignore[attr-defined]
 
     try:
         config_kls = getattr(transformers, export.config_kls_name)

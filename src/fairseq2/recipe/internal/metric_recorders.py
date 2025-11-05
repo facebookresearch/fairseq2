@@ -8,23 +8,15 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from importlib.util import find_spec
 from pathlib import Path
 from typing import Any, Protocol, final, runtime_checkable
 
+import wandb
 from typing_extensions import override
-
-try:
-    import wandb  # type: ignore[import-not-found]
-except ImportError:
-    _has_wandb = False
-else:
-    _has_wandb = True
 
 from fairseq2.error import raise_operational_system_error
 from fairseq2.file_system import FileMode, FileSystem
 from fairseq2.gang import Gangs
-from fairseq2.logging import log
 from fairseq2.metrics.recorders import (
     NOOP_METRIC_RECORDER,
     CompositeMetricRecorder,
@@ -67,12 +59,6 @@ class _MaybeTensorBoardRecorderFactory:
         if not tb_config.enabled:
             return None
 
-        spec = find_spec("torch.utils.tensorboard")
-        if spec is None:
-            log.warning("tensorboard is not found. Use `pip install tensorboard`.")
-
-            return None
-
         return self._factory()
 
 
@@ -88,11 +74,6 @@ class _MaybeWandbRecorderFactory:
         wandb_config = self._section.metric_recorders.wandb
 
         if not wandb_config.enabled:
-            return None
-
-        if not _has_wandb:
-            log.warning("wandb is not found. Use `pip install wandb`.")
-
             return None
 
         return self._factory()
