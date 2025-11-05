@@ -646,7 +646,7 @@ def update_grpo_batch_metrics(
 
 
 @torch.inference_mode()
-def update_grpo_loss(metric_bag: MetricBag, batch: PromptBatch, loss: Tensor) -> None:
+def update_grpo_loss(metric_bag: MetricBag, batch: PromptBatch, loss: Tensor, tis_imp_ratio: Tensor) -> None:
     """Update the GRPO loss metric.
 
     :param batch:
@@ -657,6 +657,10 @@ def update_grpo_loss(metric_bag: MetricBag, batch: PromptBatch, loss: Tensor) ->
     metric_bag.get(Mean, "grpo_loss").update(
         loss / batch.batch_size, weight=batch.batch_size
     )
+
+    metric_bag.get(Mean, "tis_imp_ratio").update(tis_imp_ratio)
+
+
 
 
 def compute_reference_logps(

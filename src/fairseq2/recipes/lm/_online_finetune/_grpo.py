@@ -24,6 +24,7 @@ from fairseq2.gang import Gang, Gangs
 from fairseq2.logging import log
 from fairseq2.metrics import MetricBag
 from fairseq2.nn._batch_layout import BatchLayout
+from transformers import AutoTokenizer
 from fairseq2.nn.data_parallel._fsdp import (
     fsdp_summon_full_parameters as fsdp_summon_full_parameters,
 )
@@ -72,6 +73,74 @@ class GRPOBatch:
     prompt_lengths: list[int]
     rewards: torch.Tensor
 
+def clip_outputs_at_think_token(rollouts, tokenizer, think_tokens, answer_len=64):
+    """
+    Clip token_ids and logprobs at the </think> token sequence start,
+    and recompute the text from clipped tokens.
+
+    Args:
+        rollouts: List of rollout objects
+        tokenizer: Tokenizer instance
+        think_tokens: List of token IDs for </think>
+        answer_len: Number of tokens to keep after </think>
+
+    Returns:
+        List of modified rollout objects
+    """
+    ret = []
+    for rollout in rollouts:
+        clipped_outputs = []
+
+        for output in rollout.outputs:
+            # Find the position where </think> tokens start
+            think_token_len = len(think_tokens)
+            clip_index = None
+
+            # Search for the think tokens sequence in token_ids
+            for i in range(len(output.token_ids) - think_token_len + 1):
+                if output.token_ids[i:i + think_token_len] == think_tokens:
+                    clip_index = i + answer_len
+                    break
+
+            if clip_index is not None:
+                # Clip token_ids and logprobs
+                clipped_token_ids = output.token_ids[:clip_index]
+                clipped_logprobs = output.logprobs[:clip_index]
+
+                # Recompute text from clipped tokens
+                clipped_text = tokenizer.decode(clipped_token_ids)
+
+                # Recalculate cumulative_logprob from clipped logprobs
+                cumulative_logprob = 0.0
+                for logprob_dict in clipped_logprobs:
+                    # Get the first token's logprob (the selected token)
+                    first_token_id = list(logprob_dict.keys())[0]
+                    cumulative_logprob += logprob_dict[first_token_id].logprob
+
+                # Create new CompletionOutput with clipped data
+                clipped_output = type(output)(
+                    index=output.index,
+                    text=clipped_text,
+                    token_ids=clipped_token_ids,
+                    cumulative_logprob=cumulative_logprob,
+                    logprobs=clipped_logprobs,
+                    finish_reason=output.finish_reason,
+                    stop_reason=output.stop_reason
+                )
+                clipped_outputs.append(clipped_output)
+            else:
+                # If </think> not found, keep original output
+                clipped_outputs.append(output)
+
+        # *** FIX: Create new rollout object with clipped outputs ***
+        clipped_rollout = type(rollout)(
+            outputs=clipped_outputs,
+            # Copy other attributes from original rollout
+            **{k: v for k, v in vars(rollout).items() if k != 'outputs'}
+        )
+        ret.append(clipped_rollout)
+
+    return ret
 
 def prepare_grpo_batch(
     prompt_batch: PromptBatch,
@@ -130,6 +199,7 @@ def prepare_grpo_batch(
     )
 
     return grpo_batch
+
 
 
 @final
@@ -231,6 +301,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         # returning dummy loss since trainer expects it
         return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
 
+
     @override
     def __call__(
         self, prompt_batch: PromptBatch, metric_bag: MetricBag
@@ -267,6 +338,34 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 dp_gang=self._gangs.dp,
                 vllm_model=self._vllm_model,
             )
+
+
+
+            # if self._vllm_model is not None:
+            #     tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
+            #     think_tokens = tokenizer.encode("</think>", add_special_tokens=False)
+            #     rollouts = clip_outputs_at_think_token(rollouts, tokenizer, think_tokens, 64)
+            #     prompt_batch.meta_info['suffix'] = [
+            #         tokenizer.decode(tokenizer.encode(text, add_special_tokens=False)[:64])
+            #         for text in prompt_batch.meta_info.get('suffix')
+            #     ]
+            #     prompt_batch.meta_info['suffix_ids'] = [
+            #         tokenizer.encode(text, add_special_tokens=False)[:64]
+            #         for text in prompt_batch.meta_info.get('suffix')
+            #     ]
+
+            # if self._gangs.root.rank == 0:
+            #     breakpoint()
+            # self._gangs.root.barrier()
+
+            # ref_logps = compute_reference_logps(
+            #     self._gangs,
+            #     self._reference_model,
+            #     prompt_rollout_seqs,
+            #     prompt_rollout_layout,
+            #     grpo_batch.prompt_lengths,
+            # )
+
             if self._config.loss_config.log_rollouts:
                 log_rollouts(prompt_batch, rollouts, "Train")
 
@@ -344,13 +443,13 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         else:
             ref_logps = None
 
-        _grpo_objective, total_tokens = self._compute_grpo_objective(
+        _grpo_objective, total_tokens, tis_imp_ratio = self._compute_grpo_objective(
             model_logps, vllm_logps, ref_logps, grpo_batch.rewards, grpo_target_batch
         )
 
         grpo_loss = -_grpo_objective + max_entropy_regularizer
 
-        update_grpo_loss(metric_bag, prompt_batch, grpo_loss)
+        update_grpo_loss(metric_bag, prompt_batch, grpo_loss, tis_imp_ratio)
 
         rollouts_lengths = []
         for prompt_rollouts in reward_output["tokens"]:
@@ -455,7 +554,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         # self._gangs.root.barrier()
 
-        return per_seq_loss.sum(), total_tokens
+        return per_seq_loss.sum(), total_tokens, tis_imp_ratio
 
     @override
     def set_step_nr(self, step_nr: int) -> None:

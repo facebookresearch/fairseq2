@@ -78,6 +78,7 @@ def _register_metric_descriptors(context: RuntimeContext) -> None:
     register("orpo_loss",          "ORPO Loss",                            0, format_as_float)
     register("simpo_loss",         "SimPO Loss",                           0, format_as_float)
     register("grpo_loss",          "GRPO Loss",                            0, format_as_float)
+    register("tis_imp_ratio",      "Truncted Importance Sampling Ratio",   0, format_as_float)
     register("avg_reward",         "Reward",                               1, format_as_float)
     register("std_reward",         "StdDev Reward",                        1, format_as_float)
     register("avg_reward_len_norm","Length Normalized Reward",             1, format_as_float)
