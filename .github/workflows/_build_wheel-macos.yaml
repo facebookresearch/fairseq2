@@ -125,7 +125,7 @@ jobs:
       - name: Install fairseq2
         run: |
           whl=$(ls ~/artifacts/build/wheelhouse/*.whl)
-          
+
           pip install --no-cache-dir\
             "fairseq2@file://$whl" "fairseq2[arrow,hg]@file://$whl"
       - name: Run native tests

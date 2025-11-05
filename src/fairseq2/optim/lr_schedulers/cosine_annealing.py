@@ -21,7 +21,7 @@ from fairseq2.optim.lr_schedulers.lr_scheduler import (
 
 @final
 class CosineAnnealingLR(AbstractLRScheduler):
-    """Represents the learning rate schedule described in
+    """Represents the cosine annealing learning rate schedule described in
     :cite:t:`https://doi.org/10.48550/arxiv.1608.03983`.
 
     **During warmup:**
@@ -43,13 +43,14 @@ class CosineAnnealingLR(AbstractLRScheduler):
     of starting with a large learning rate that is relatively rapidly decreased
     to a minimum value before being increased rapidly again.
 
-    Please refer to the paper to learn more about the details.
+    Refer to the paper to learn more about the details.
 
     In addition to the original schedule, this implementation also supports a
     warmup phase where the learning rate is linearly increased for the first
     :math:`T_{warmup}` training steps to the base learning rate.
 
     .. note::
+
         This scheduler is not chainable.
     """
 
@@ -66,33 +67,27 @@ class CosineAnnealingLR(AbstractLRScheduler):
         last_epoch: int = -1,
     ) -> None:
         """
-        :param optimizer:
-            The optimizer to associate.
-        :param cycle_len:
-            The number of steps within the first cycle.
-        :param num_warmup_steps:
-            The number of warmup steps.
-        :param cycle_mul:
-            The factor to grow the length of each cycle.
-        :param lr_mul:
-            The factor to scale the base and final learning rate at the end of
-            each cycle.
-        :param start_lr:
-            The initial warmup learning rate of all parameter groups, or of each
-            parameter group respectively.
-        :param final_lr:
-            The final learning rate of all parameter groups, or of each
-            parameter group respectively, at the end of the first cycle.
-        :param last_epoch:
-            The index of the last epoch.
+        :param optimizer: The optimizer to associate.
+        :param cycle_len: The number of steps within the first cycle.
+        :param num_warmup_steps: The number of warmup steps.
+        :param cycle_mul: The factor to grow the length of each cycle.
+        :param lr_mul: The factor to scale the base and final learning rate at
+            the end of each cycle.
+        :param start_lr: The initial warmup learning rate of all parameter
+            groups or each group respectively.
+        :param final_lr: The final learning rate of all parameter groups or
+            each group respectively at the end of the first cycle.
+        :param last_epoch: The index of the last epoch.
         """
-        self._cycle_len = cycle_len
-        self._cycle_mul = cycle_mul
-        self._num_warmup_steps = num_warmup_steps
-        self._lr_mul = lr_mul
+        start_lrs = get_per_param_group(optimizer, "start_lr", start_lr)
+        final_lrs = get_per_param_group(optimizer, "final_lr", final_lr)
 
-        self._start_lrs = get_per_param_group(optimizer, "start_lr", start_lr)
-        self._final_lrs = get_per_param_group(optimizer, "final_lr", final_lr)
+        self.cycle_len = cycle_len
+        self.cycle_mul = cycle_mul
+        self.num_warmup_steps = num_warmup_steps
+        self.lr_mul = lr_mul
+        self.start_lrs = start_lrs
+        self.final_lrs = final_lrs
 
         super().__init__(optimizer, last_epoch)
 
@@ -101,18 +96,18 @@ class CosineAnnealingLR(AbstractLRScheduler):
         base_lrs = self.base_lrs
 
         # Linearly increase the learning rate to its base value during warmup.
-        if self.last_epoch < self._num_warmup_steps:
-            c = self.last_epoch / self._num_warmup_steps
+        if self.last_epoch < self.num_warmup_steps:
+            c = self.last_epoch / self.num_warmup_steps
 
-            return [s + (b - s) * c for b, s in zip(base_lrs, self._start_lrs)]
+            return [s + (b - s) * c for b, s in zip(base_lrs, self.start_lrs)]
 
-        curr_step = self.last_epoch - self._num_warmup_steps
+        curr_step = self.last_epoch - self.num_warmup_steps
 
         # When each cycle has equal length, the computation is straightforward.
-        if self._cycle_mul == 1.0:
-            cycle_nr = curr_step // self._cycle_len
+        if self.cycle_mul == 1.0:
+            cycle_nr = curr_step // self.cycle_len
 
-            cycle_len = self._cycle_len
+            cycle_len = self.cycle_len
 
             # The position of the step within the cycle.
             cycle_pos = curr_step - (cycle_nr * cycle_len)
@@ -121,31 +116,31 @@ class CosineAnnealingLR(AbstractLRScheduler):
         # a geometric series to find out the number, length, and offset of the
         # current cycle.
         else:
-            mul = self._cycle_mul
+            mul = self.cycle_mul
 
             # Solve the equation \sum_{i=0}^{n} len(cycle_i) + x = step for n.
-            cycle_nr = int(math.log(1 - curr_step / self._cycle_len * (1 - mul), mul))
+            cycle_nr = int(math.log(1 - curr_step / self.cycle_len * (1 - mul), mul))
 
-            cycle_len = int(mul**cycle_nr * self._cycle_len)
+            cycle_len = int(mul**cycle_nr * self.cycle_len)
 
             # Compute the sum of the lengths of the first `cycle_nr` cycles
             # (i.e. geometric series) which corresponds to the beginning offset
             # of the current cycle.
-            cycle_offset = int((1 - mul**cycle_nr) / (1 - mul) * self._cycle_len)
+            cycle_offset = int((1 - mul**cycle_nr) / (1 - mul) * self.cycle_len)
 
             # The position of the step within the cycle.
             cycle_pos = curr_step - cycle_offset
 
-        lr_mul = self._lr_mul**cycle_nr
+        lr_mul = self.lr_mul**cycle_nr
 
         c = math.cos(math.pi * cycle_pos / cycle_len)
 
-        min_lrs, max_lrs = self._final_lrs, base_lrs
+        min_lrs, max_lrs = self.final_lrs, base_lrs
 
-        return [self._cycle_lr(mn, mx, lr_mul, c) for mn, mx in zip(min_lrs, max_lrs)]
+        def cycle_lr(min_lr: float, max_lr: float) -> float:
+            min_lr *= lr_mul
+            max_lr *= lr_mul
 
-    def _cycle_lr(self, min_lr: float, max_lr: float, lr_mul: float, c: float) -> float:
-        min_lr *= lr_mul
-        max_lr *= lr_mul
+            return min_lr + 0.5 * (max_lr - min_lr) * (1 + c)
 
-        return min_lr + 0.5 * (max_lr - min_lr) * (1 + c)
+        return [cycle_lr(mn, mx) for mn, mx in zip(min_lrs, max_lrs)]

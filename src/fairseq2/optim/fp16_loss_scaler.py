@@ -149,19 +149,21 @@ class StandardFloat16LossScaler(Float16LossScaler):
             heuristically.
         :param min_scale: Minimum scale.
         """
-        sharded = gangs.sdp.size > 1
+        # Means either FSDP or non-data parallelism. In both cases, we have to
+        # use `ShardedGradScaler` to ensure that grad scales are synced.
+        sharded = gangs.root.size != gangs.rdp.size
 
         grad_scaler: GradScaler
 
         if sharded:
-            pg = gangs.dp.as_process_group()
+            root_pg = gangs.root.as_process_group()
 
             grad_scaler = ShardedGradScaler(
                 init_scale=init_scale,
                 growth_factor=scale_factor,
                 backoff_factor=1 / scale_factor,
                 growth_interval=scale_window,
-                process_group=pg,
+                process_group=root_pg,
             )
         else:
             with warnings.catch_warnings():

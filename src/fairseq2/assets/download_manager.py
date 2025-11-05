@@ -24,12 +24,17 @@ from zipfile import BadZipFile, ZipFile
 
 from huggingface_hub import snapshot_download
 from huggingface_hub.errors import HfHubHTTPError
-from tqdm import tqdm  # type: ignore[import]
 from typing_extensions import override
 
 from fairseq2.error import NotSupportedError
 from fairseq2.logging import log
+from fairseq2.runtime.dependency import get_dependency_resolver
+from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.uri import Uri
+
+
+def get_asset_download_manager() -> AssetDownloadManager:
+    return get_dependency_resolver().resolve(AssetDownloadManager)
 
 
 class AssetDownloadManager(ABC):
@@ -43,16 +48,19 @@ class AssetDownloadManager(ABC):
         progress: bool = True,
     ) -> Path:
         """
-        Downloads the checkpoint at ``uri`` to the asset cache directory.
+        Downloads the model checkpoint at ``uri`` to the asset cache directory.
 
-        :param uri: The URI to download from.
-        :param model_name: The name of the associated model.
-        :param force: If ``True``, downloads the checkpoint even if it is
-            already in cache.
-        :param progress: If ``True``, displays a progress bar to stderr.
+        Returns the path to the downloaded model checkpoint.
 
-        :returns:
-            The path to the downloaded checkpoint.
+        If ``force`` is ``True``, the model checkpoint will be downloaded even
+        if it is already in cache.
+
+        ``progress`` is deprecated and will be removed in v0.13. Use
+        ``FAIRSEQ2_NO_PROGRESS=1`` environment variable or ``no_progress``
+        parameter of :func:`init_fairseq` to disable progress bars.
+
+        :raises AssetDownloadError: If the download operation fails due to a
+            network or server error.
         """
 
     @abstractmethod
@@ -67,13 +75,17 @@ class AssetDownloadManager(ABC):
         """
         Downloads the tokenizer at ``uri`` to the asset cache directory.
 
-        :param uri: The URI to download from.
-        :param tokenizer_name: The name of the tokenizer.
-        :param force: If ``True``, downloads the tokenizer even if it is already
-            in cache.
-        :param progress: If ``True``, displays a progress bar to stderr.
+        Returns the path to the downloaded tokenizer.
 
-        :returns: The path to the downloaded tokenizer.
+        If ``force`` is ``True``, the tokenizer will be downloaded even if it is
+        already in cache.
+
+        ``progress`` is deprecated and will be removed in v0.13. Use
+        ``FAIRSEQ2_NO_PROGRESS=1`` environment variable or ``no_progress``
+        parameter of :func:`init_fairseq` to disable progress bars.
+
+        :raises AssetDownloadError: If the download operation fails due to a
+            network or server error.
         """
 
     @abstractmethod
@@ -88,13 +100,17 @@ class AssetDownloadManager(ABC):
         """
         Downloads the dataset at ``uri`` to the asset cache directory.
 
-        :param uri: The URI to download from.
-        :param data_name: The name of the dataset.
-        :param force: If ``True``, downloads the dataset even if it is already
-            in cache.
-        :param progress: If ``True``, displays a progress bar to stderr.
+        Returns the path to the downloaded dataset.
 
-        :returns: The path to the downloaded dataset.
+        If ``force`` is ``True``, the dataset will be downloaded even if it is
+        already in cache.
+
+        ``progress`` is deprecated and will be removed in v0.13. Use
+        ``FAIRSEQ2_NO_PROGRESS=1`` environment variable or ``no_progress``
+        parameter of :func:`init_fairseq` to disable progress bars.
+
+        :raises AssetDownloadError: If the download operation fails due to a
+            network or server error.
         """
 
     @property
@@ -341,8 +357,9 @@ class HuggingFaceHub(AssetDownloadManager):
 class StandardAssetDownloadManager(AssetDownloadManager):
     _SCHEMES: Final = {"http", "https"}
 
-    def __init__(self, cache_dir: Path) -> None:
+    def __init__(self, cache_dir: Path, progress_reporter: ProgressReporter) -> None:
         self._cache_dir = cache_dir
+        self._progress_reporter = progress_reporter
 
     @override
     def download_model(
@@ -355,7 +372,9 @@ class StandardAssetDownloadManager(AssetDownloadManager):
     ) -> Path:
         kind = "model"
 
-        op = _AssetDownloadOp(self._cache_dir, uri, model_name, kind, force, progress)
+        op = _AssetDownloadOp(
+            self._cache_dir, uri, model_name, kind, force, self._progress_reporter
+        )
 
         return op.run()
 
@@ -371,7 +390,7 @@ class StandardAssetDownloadManager(AssetDownloadManager):
         kind = "tokenizer"
 
         op = _AssetDownloadOp(
-            self._cache_dir, uri, tokenizer_name, kind, force, progress
+            self._cache_dir, uri, tokenizer_name, kind, force, self._progress_reporter
         )
 
         return op.run()
@@ -387,7 +406,9 @@ class StandardAssetDownloadManager(AssetDownloadManager):
     ) -> Path:
         kind = "dataset"
 
-        op = _AssetDownloadOp(self._cache_dir, uri, dataset_name, kind, force, progress)
+        op = _AssetDownloadOp(
+            self._cache_dir, uri, dataset_name, kind, force, self._progress_reporter
+        )
 
         return op.run()
 
@@ -398,15 +419,6 @@ class StandardAssetDownloadManager(AssetDownloadManager):
 
 
 class _AssetDownloadOp:
-    _cache_dir: Path
-    _uri: str
-    _uri_params: dict[str, str]
-    _asset_dir: Path | None
-    _asset_name: str
-    _asset_kind: str
-    _force: bool
-    _progress: bool
-
     def __init__(
         self,
         cache_dir: Path,
@@ -414,16 +426,16 @@ class _AssetDownloadOp:
         asset_name: str,
         kind: str,
         force: bool,
-        progress: bool,
+        progress_reporter: ProgressReporter,
     ) -> None:
         self._cache_dir = cache_dir
         self._uri = str(uri)
-        self._uri_params = {}
-        self._asset_dir = None
+        self._uri_params: dict[str, str] = {}
+        self._asset_dir: Path | None = None
         self._asset_name = asset_name
         self._asset_kind = kind
         self._force = force
-        self._progress = progress
+        self._progress_reporter = progress_reporter
 
     def run(self) -> Path:
         self._process_uri()
@@ -588,15 +600,11 @@ class _AssetDownloadOp:
 
             num_bytes_read = 0
 
-            progress_bar = cleanup_stack.enter_context(
-                tqdm(
-                    total=size,
-                    disable=not self._progress,
-                    unit="B",
-                    unit_scale=True,
-                    unit_divisor=1024,
-                )
-            )
+            cleanup_stack.enter_context(self._progress_reporter)
+
+            task = self._progress_reporter.create_task("download", total=size)
+
+            cleanup_stack.enter_context(task)
 
             while True:
                 try:
@@ -623,7 +631,7 @@ class _AssetDownloadOp:
 
                 fp.write(buffer)
 
-                progress_bar.update(buffer_len)
+                task.step(buffer_len)
 
             if size is not None and num_bytes_read < size:
                 msg = f"The server sent {num_bytes_read:,} bytes which is less than the expected size of {size:,} bytes."

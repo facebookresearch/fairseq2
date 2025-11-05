@@ -41,7 +41,7 @@ from fairseq2.optim.fp16_loss_scaler import (
     Float16LossScaler,
     Float16LossScaleResult,
 )
-from fairseq2.optim.lr_schedulers import LRScheduler, get_effective_lr
+from fairseq2.optim.lr_schedulers import LRScheduler
 from fairseq2.profilers import Profiler
 from fairseq2.recipe.error import MinimumLossScaleReachedError
 from fairseq2.recipe.model import RecipeModel
@@ -309,6 +309,8 @@ class Trainer(Task):
                 "`publish_metrics_every_n_data_epochs` must be greater than or equal to 1."
             )
 
+        last_lrs = [0.0] * len(optimizer.param_groups)
+
         self._state = _TrainerState.NOT_STARTED
         self._step_nr = 0
         self._data_epoch_nr = 1
@@ -364,7 +366,7 @@ class Trainer(Task):
         self._batches: list[Any] | None = None
         self._stop_requested = False
         self._num_batches_read = 0
-        self._last_lr = 0.0
+        self._last_lrs = last_lrs
 
         self._metric_bag.add("grad_norm", Mean())
 
@@ -655,7 +657,7 @@ class Trainer(Task):
 
             return _TrainerState.GRAD_OVERFLOW
 
-        self._last_lr = get_effective_lr(self._lr_scheduler)
+        self._last_lrs = self._lr_scheduler.get_last_lr()
 
         self._lr_scheduler.step()
 
@@ -881,7 +883,12 @@ class Trainer(Task):
 
             self._unit.process_metric_values(values)
 
-            values["lr"] = self._last_lr
+            # If the optimizer has a single parameter group, report the learning
+            # rate as a scalar.
+            if len(self._last_lrs) == 1:
+                values["lr"] = self._last_lrs[0]
+            else:
+                values["lr"] = self._last_lrs
 
             values["data_epoch"] = self._data_epoch_nr
 

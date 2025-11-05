@@ -278,13 +278,13 @@ class TestLRSchedulers:
     def test_myle_raises_error_if_number_of_start_lrs_is_wrong(self) -> None:
         with pytest.raises(
             ValueError,
-            match=r"^The length of `start_lr` must be equal to the number of parameter groups \(2\), but is 1 instead\.$",
+            match=r"^The length of `start_lr` must match the number of parameter groups \(2\), but is 1 instead\.$",
         ):
             MyleLR(self.opt, num_warmup_steps=10, start_lr=[0])
 
         with pytest.raises(
             ValueError,
-            match=r"^The length of `start_lr` must be equal to the number of parameter groups \(2\), but is 3 instead\.$",
+            match=r"^The length of `start_lr` must match the number of parameter groups \(2\), but is 3 instead\.$",
         ):
             MyleLR(self.opt, num_warmup_steps=10, start_lr=(0, 2, 3))
 

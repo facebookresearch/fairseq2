@@ -110,11 +110,6 @@ class ModelCheckpointNotFoundError(Exception):
         self.path = path
 
 
-class ModelParallelismNotSupportedError(Exception):
-    def __init__(self) -> None:
-        super().__init__("Model does not support model parallelism.")
-
-
 class ModelTypeNotValidError(Exception):
     def __init__(self, kls: type[Module], expected_kls: type[Module]) -> None:
         super().__init__(

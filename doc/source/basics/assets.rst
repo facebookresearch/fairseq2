@@ -277,7 +277,7 @@ Asset Store Configuration
 The Asset Store System
 ~~~~~~~~~~~~~~~~~~~~~~
 
-fairseq2 uses a multi-layered asset store system that searches for assets in the following order:
+fairseq2 uses a multi-layered asset store system that searches for asset **definitions** in the following order:
 
 1. **User Assets** (``@user`` suffix): Personal assets for the current user
 2. **Environment-Specific Assets**: Assets for the detected environment
@@ -285,7 +285,7 @@ fairseq2 uses a multi-layered asset store system that searches for assets in the
 
 **Asset Search Paths:**
 
-fairseq2 looks for asset cards in these locations (in order):
+fairseq2 looks for **asset cards** in these locations (in order):
 
 .. list-table::
    :header-rows: 1
@@ -504,6 +504,6 @@ Troubleshooting
 See Also
 --------
 
-- :doc:`Models </reference/api/models/index>` - Model-specific asset management
-- :doc:`Datasets </reference/api/datasets/index>` - Dataset-specific asset management
-- :doc:`Data Tokenizers </reference/api/data/tokenizers/index>` - Tokenizer asset management
+- :doc:`Models </reference/fairseq2.models>` - Model-specific asset management
+- :doc:`Datasets </reference/fairseq2.datasets>` - Dataset-specific asset management
+- :doc:`Data Tokenizers </reference/fairseq2.data.tokenizers>` - Tokenizer asset management

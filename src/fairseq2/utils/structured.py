@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import traceback
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence, Set
 from dataclasses import MISSING, fields, is_dataclass
@@ -123,7 +124,7 @@ class StandardValueConverter(ValueConverter):
         if structurer is None:
             s = ", ".join(str(t) for t in self._structurers.keys())
 
-            raise StructureError(
+            raise ValueError(
                 f"`target_type` must represent a type expression consisting of supported types, but is `{target_type}` instead. Supported types are {s}"
             )
 
@@ -131,7 +132,7 @@ class StandardValueConverter(ValueConverter):
             return structurer(origin_type, type_args, obj)
         except StructureError as ex:
             raise StructureError(
-                f"`obj` cannot be structured to `{target_type}`."
+                f"Value cannot be structured to `{target_type}`."
             ) from ex
 
     def _structure_primitive(
@@ -156,7 +157,7 @@ class StandardValueConverter(ValueConverter):
             return obj
 
         raise StructureError(
-            f"`obj` must be of type `{kls}`, but is of type `{type(obj)}` instead."
+            f"Value must be of type `{kls}`, but is of type `{type(obj)}` instead."
         )
 
     def _structure_dataclass(
@@ -165,7 +166,7 @@ class StandardValueConverter(ValueConverter):
         kls = cast(type[DataClass], origin_type)
 
         if kls is DataClass:
-            raise StructureError(
+            raise ValueError(
                 f"`type` must be a concrete dataclass type, but is `{DataClass}` instead."
             )
 
@@ -178,7 +179,7 @@ class StandardValueConverter(ValueConverter):
             return self._create_dataclass(kls, values)
 
         raise StructureError(
-            f"`obj` must be of type `{kls}` or `{Mapping}`, but is of type `{type(obj)}` instead."
+            f"Value must be of type `{kls}` or `{Mapping}`, but is of type `{type(obj)}` instead."
         )
 
     def _create_dataclass(
@@ -218,7 +219,7 @@ class StandardValueConverter(ValueConverter):
             extra_keys = ", ".join(sorted(values.keys()))
 
             raise StructureError(
-                f"`obj` must contain only keys corresponding to the fields of `{kls}`, but it contains extra keys {extra_keys}."
+                f"Value must contain only keys corresponding to the fields of `{kls}`, but it contains extra keys {extra_keys}."
             )
 
         try:
@@ -233,7 +234,7 @@ class StandardValueConverter(ValueConverter):
     ) -> dict[object, object]:
         if isinstance(obj, Mapping):
             if len(type_args) != 2:
-                raise StructureError(
+                raise ValueError(
                     f"`target_type` must have a key-value type annotation for `{origin_type}`."
                 )
 
@@ -257,7 +258,7 @@ class StandardValueConverter(ValueConverter):
             return output
 
         raise StructureError(
-            f"`obj` must be of type `{Mapping}`, but is of type `{type(obj)}` instead."
+            f"Value must be of type `{Mapping}`, but is of type `{type(obj)}` instead."
         )
 
     def _structure_dtype(
@@ -274,11 +275,11 @@ class StandardValueConverter(ValueConverter):
                 return dtype
 
             raise StructureError(
-                f"`obj` must be a `torch.dtype` identifier, but is '{obj}' instead."
+                f"Value must be a `torch.dtype` identifier, but is {obj} instead."
             )
 
         raise StructureError(
-            f"`obj` must be of type `{DataType}` or `{str}`, but is of type `{type(obj)}` instead."
+            f"Value must be of type `{DataType}` or `{str}`, but is of type `{type(obj)}` instead."
         )
 
     def _structure_device(
@@ -294,7 +295,7 @@ class StandardValueConverter(ValueConverter):
                 raise StructureError(str(ex)) from None
 
         raise StructureError(
-            f"`obj` must be of type `{Device}` or `{str}`, but is of type `{type(obj)}` instead."
+            f"Value must be of type `{Device}` or `{str}`, but is of type `{type(obj)}` instead."
         )
 
     def _structure_enum(
@@ -314,11 +315,11 @@ class StandardValueConverter(ValueConverter):
             values = ", ".join(e.name for e in kls)
 
             raise StructureError(
-                f"`obj` must be a supported enumeration value, but is {obj} instead. Supported values are {values}."
+                f"Value must be a supported enumeration value, but is {obj} instead. Supported values are {values}."
             )
 
         raise StructureError(
-            f"`obj` must be of type `{kls}` or `{str}`, but is of type `{type(obj)}` instead."
+            f"Value must be of type `{kls}` or `{str}`, but is of type `{type(obj)}` instead."
         )
 
     def _structure_list(
@@ -326,7 +327,7 @@ class StandardValueConverter(ValueConverter):
     ) -> list[object]:
         if isinstance(obj, Sequence):
             if len(type_args) != 1:
-                raise StructureError(
+                raise ValueError(
                     f"`target_type` must have an element type expression for `{origin_type}`."
                 )
 
@@ -337,7 +338,7 @@ class StandardValueConverter(ValueConverter):
                     elem = self.structure(elem, type_args[0])
                 except StructureError as ex:
                     raise StructureError(
-                        f"Element at index {idx} cannot be structured."
+                        f"Element {elem} at index {idx} cannot be structured as {type_args[0]}."
                     ) from ex
 
                 output.append(elem)
@@ -345,7 +346,7 @@ class StandardValueConverter(ValueConverter):
             return output
 
         raise StructureError(
-            f"`obj` must be of type `{Sequence}`, but is of type `{type(obj)}` instead."
+            f"Value must be of type `{Sequence}`, but is of type `{type(obj)}` instead."
         )
 
     def _structure_literal(
@@ -358,11 +359,11 @@ class StandardValueConverter(ValueConverter):
             values = ", ".join(str(t) for t in type_args)
 
             raise StructureError(
-                f"`obj` must be a supported literal value, but is {obj} instead. Supported values are {values}."
+                f"Value must be a supported literal value, but is {obj} instead. Supported values are {values}."
             )
 
         raise StructureError(
-            f"`obj` must be of type `{str}`, but is of type `{type(obj)}` instead."
+            f"Value must be of type `{str}`, but is of type `{type(obj)}` instead."
         )
 
     def _structure_path(
@@ -375,7 +376,7 @@ class StandardValueConverter(ValueConverter):
             return Path(obj)
 
         raise StructureError(
-            f"`obj` must be of type `{Path}` or `{str}`, but is of type `{type(obj)}` instead."
+            f"Value must be of type `{Path}` or `{str}`, but is of type `{type(obj)}` instead."
         )
 
     def _structure_set(
@@ -383,7 +384,7 @@ class StandardValueConverter(ValueConverter):
     ) -> set[object]:
         if isinstance(obj, set):
             if len(type_args) != 1:
-                raise StructureError(
+                raise ValueError(
                     f"`target_type` must have an element type expression for `{origin_type}`."
                 )
 
@@ -396,7 +397,7 @@ class StandardValueConverter(ValueConverter):
 
         if isinstance(obj, Sequence):
             if len(type_args) != 1:
-                raise StructureError(
+                raise ValueError(
                     f"`target_type` must have an element type expression for `{origin_type}`."
                 )
 
@@ -416,13 +417,13 @@ class StandardValueConverter(ValueConverter):
 
             if len(output) != len(tmp):
                 raise StructureError(
-                    f"All elements of `obj` must be unique to be treated as a `{set}`."
+                    f"All elements in the sequence must be unique to be treated as a `{set}`."
                 )
 
             return output
 
         raise StructureError(
-            f"`obj` must be of type `{set}` or `{Sequence}`, but is of type `{type(obj)}` instead."
+            f"Value must be of type `{set}` or `{Sequence}`, but is of type `{type(obj)}` instead."
         )
 
     def _structure_tuple(
@@ -432,7 +433,7 @@ class StandardValueConverter(ValueConverter):
             num_args = len(type_args)
 
             if num_args == 0:
-                raise StructureError(
+                raise ValueError(
                     f"`target_type` must have an element type expression for `{origin_type}`."
                 )
 
@@ -443,7 +444,7 @@ class StandardValueConverter(ValueConverter):
 
             if len(obj) != num_args:  # heterogeneous
                 raise StructureError(
-                    f"`obj` must be have {num_args} element(s), but it has {len(obj)} element(s)."
+                    f"Value must be have {num_args} element(s), but has {len(obj)} element(s) instead."
                 )
 
             output = []
@@ -461,7 +462,7 @@ class StandardValueConverter(ValueConverter):
             return tuple(output)
 
         raise StructureError(
-            f"`obj` must be of type `{tuple}` or `{Sequence}`, but is of type `{type(obj)}` instead."
+            f"Value must be of type `{tuple}` or `{Sequence}`, but is of type `{type(obj)}` instead."
         )
 
     def _structure_union(
@@ -472,18 +473,32 @@ class StandardValueConverter(ValueConverter):
         if is_optional and obj is None:
             return obj
 
+        errors = []
+
         for target_type in type_args:
             try:
                 return self.structure(obj, target_type)
-            except StructureError:
+            except StructureError as ex:
                 if is_optional:
                     raise
 
-                continue
+                errors.append(ex)
+
+        traces = []
+
+        # TODO: Consider using an ExceptionGroup after Python 3.10.
+        for error in errors:
+            trace = traceback.format_exception(error)
+
+            traces.append("\n".join(trace))
+
+        e = "\n************************************************\n\n".join(traces)
 
         s = ", ".join(str(t) for t in type_args)
 
-        raise StructureError(f"`obj` must be parseable as one of union elements {s}.")
+        raise StructureError(
+            f"Value must be parseable as one of union elements {s}, but is {obj} instead.\n\n{e}"
+        )
 
     @override
     def unstructure(self, obj: object) -> object:
@@ -509,13 +524,13 @@ class StandardValueConverter(ValueConverter):
             s = ", ".join(str(t) for t in self._unstructurers.keys())
 
             raise StructureError(
-                f"`obj` must be of one of the supported types, but is of type `{type(obj)}` instead. Supported types are {s}."
+                f"Value must be of one of the supported types, but is of type `{type(obj)}` instead. Supported types are {s}."
             )
 
         try:
             return unstructurer(obj)
         except StructureError as ex:
-            raise StructureError("`obj` cannot be unstructured.") from ex
+            raise StructureError("Value cannot be unstructured.") from ex
 
     def _unstructure_identity(self, obj: object) -> object:
         return obj

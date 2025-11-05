@@ -25,11 +25,7 @@ from fairseq2.models import (
 )
 from fairseq2.nn.utils.module import broadcast_module, remove_parametrizations
 from fairseq2.recipe.config import ReferenceModelSection
-from fairseq2.recipe.error import (
-    ErrorContext,
-    ModelCheckpointNotFoundError,
-    ModelParallelismNotSupportedError,
-)
+from fairseq2.recipe.error import ErrorContext, ModelCheckpointNotFoundError
 from fairseq2.recipe.internal.asset_config import _AssetConfigOverrider
 from fairseq2.recipe.internal.compile import _compile_model
 from fairseq2.recipe.internal.log import _LogHelper
@@ -128,10 +124,6 @@ class _StandardEvalModelBootstrapper(_EvalModelBootstrapper):
 
         gangs = self._gangs
 
-        if gangs.root.size != gangs.dp.size:
-            if not family.supports_model_parallelism:
-                raise ModelParallelismNotSupportedError()
-
         # Load the model.
         if section_name == "model":
             log.info("Loading {} model on data parallel rank 0.", name)
@@ -189,7 +181,7 @@ class _StandardEvalModelBootstrapper(_EvalModelBootstrapper):
         else:
             config = family.maybe_get_arch_config(arch)
             if config is None:
-                raise ModelArchitectureNotKnownError(arch) from None
+                raise ModelArchitectureNotKnownError(arch, family_name) from None
 
         if section.config_overrides is not None:
             config = self._asset_config_overrider.apply_overrides(
@@ -197,10 +189,6 @@ class _StandardEvalModelBootstrapper(_EvalModelBootstrapper):
             )
 
         gangs = self._gangs
-
-        if gangs.root.size != gangs.dp.size:
-            if not family.supports_model_parallelism:
-                raise ModelParallelismNotSupportedError()
 
         # Load the model.
         if section_name == "model":

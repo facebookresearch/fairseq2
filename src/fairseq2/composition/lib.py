@@ -56,7 +56,12 @@ from fairseq2.model_checkpoint import (
 )
 from fairseq2.models.hub import GlobalModelLoader
 from fairseq2.models.llama import LLaMACheckpointLoader
-from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
+from fairseq2.models.llama4.sharder import MoESharder
+from fairseq2.runtime.dependency import (
+    DependencyContainer,
+    DependencyResolver,
+    wire_object,
+)
 from fairseq2.sharder import (
     EmbeddingSharder,
     LinearSharder,
@@ -71,8 +76,12 @@ from fairseq2.utils.config import (
     StandardConfigProcessor,
 )
 from fairseq2.utils.env import Environment, StandardEnvironment
-from fairseq2.utils.progress import ProgressReporter
-from fairseq2.utils.rich import RichProgressReporter, get_error_console
+from fairseq2.utils.progress import NOOP_PROGRESS_REPORTER, ProgressReporter
+from fairseq2.utils.rich import (
+    RichProgressReporter,
+    create_rich_download_progress_columns,
+    get_error_console,
+)
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.structured import StandardValueConverter, ValueConverter
 from fairseq2.utils.threading import StandardThreadPool, ThreadPool
@@ -86,7 +95,9 @@ from fairseq2.utils.yaml import (
 from fairseq2.world_info import WorldInfo
 
 
-def _register_library(container: DependencyContainer) -> None:
+def _register_library(
+    container: DependencyContainer, *, no_progress: bool | None = None
+) -> None:
     # Environment Variables
     env = StandardEnvironment()
 
@@ -96,6 +107,33 @@ def _register_library(container: DependencyContainer) -> None:
     error_console = get_error_console()
 
     container.register_instance(Console, error_console)
+
+    # Progress Reporters
+    if no_progress is None:
+        no_progress = env.has("FAIRSEQ2_NO_PROGRESS")
+
+    if no_progress:
+        container.register_instance(ProgressReporter, NOOP_PROGRESS_REPORTER)
+
+        container.register_instance(
+            ProgressReporter, NOOP_PROGRESS_REPORTER, key="download_reporter"
+        )
+    else:
+        container.register_type(ProgressReporter, RichProgressReporter, singleton=True)
+
+        def create_download_progress_reporter(
+            resolver: DependencyResolver,
+        ) -> ProgressReporter:
+            columns = create_rich_download_progress_columns()
+
+            return wire_object(resolver, RichProgressReporter, columns=columns)
+
+        container.register(
+            ProgressReporter,
+            create_download_progress_reporter,
+            key="download_reporter",
+            singleton=True,
+        )
 
     # WorldInfo
     def create_world_info(resolver: DependencyResolver) -> WorldInfo:
@@ -144,7 +182,6 @@ def _register_library(container: DependencyContainer) -> None:
     container.register_type(ModelMetadataLoader, StandardModelMetadataLoader)
     container.register_type(ModelSharder, StandardModelSharder, singleton=True)
     container.register_type(ObjectValidator, StandardObjectValidator, singleton=True)
-    container.register_type(ProgressReporter, RichProgressReporter, singleton=True)
     container.register_type(SafetensorsLoader, HuggingFaceSafetensorsLoader)
     container.register_type(SentencePieceModelLoader, StandardSentencePieceModelLoader, singleton=True)
     container.register_type(TensorDumper, TorchTensorDumper, singleton=True)
@@ -157,6 +194,7 @@ def _register_library(container: DependencyContainer) -> None:
 
     container.collection.register_type(ModuleSharder, EmbeddingSharder)
     container.collection.register_type(ModuleSharder, LinearSharder)
+    container.collection.register_type(ModuleSharder, MoESharder)
 
     container.collection.register_type(ModelCheckpointLoader, BasicModelCheckpointLoader)
     container.collection.register_type(ModelCheckpointLoader, NativeModelCheckpointLoader)

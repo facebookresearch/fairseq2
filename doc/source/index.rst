@@ -15,45 +15,82 @@ other content generation tasks.
 
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Latest News
+    :maxdepth: 1
+    :caption: Latest News
 
-   news/whats_new_v0_5
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Getting Started
-
-   getting_started/installation/index
+    news/whats_new_v0_5
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Basics
+    :maxdepth: 1
+    :caption: Getting Started
 
-   basics/design_philosophy
-   basics/assets
-   basics/building_recipes
-   basics/runtime_extension
+    getting_started/installation/index
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Tutorials
+    :maxdepth: 1
+    :caption: Basics
 
-   tutorials/add_model
-   tutorials/pudb
-
-.. toctree::
-   :maxdepth: 1
-   :caption: FAQ
-
-   faq/contributing
+    basics/design_philosophy
+    basics/assets
+    basics/building_recipes
+    basics/runtime_extension
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Reference
+    :maxdepth: 1
+    :caption: Guides
 
-   reference/api/index
-   reference/bibliography
+    guides/add_model
+    guides/pudb
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Concepts
+
+    concepts/assets
+    Gangs <concepts/gang>
+
+.. toctree::
+    :maxdepth: 1
+    :caption: API Reference
+
+    reference/assets
+    reference/checkpoint
+    reference/fairseq2.data
+    reference/fairseq2.data.tokenizers
+    reference/fairseq2.data.tokenizers.hub
+    reference/fairseq2.datasets
+    reference/fairseq2.datasets.hub
+    reference/fairseq2.device
+    reference/fairseq2.gang
+    reference/fairseq2.model_checkpoint
+    reference/fairseq2.models
+    reference/fairseq2.models.hub
+    reference/fairseq2.models.llama
+    reference/fairseq2.models.qwen
+    reference/fairseq2.recipe.composition
+    reference/fairseq2.recipe.optim
+    reference/fairseq2.utils.validation
+    reference/fairseq2.nn.rst
+    reference/fairseq2.nn.batch_layout
+    reference/fairseq2.nn.data_parallel
+    reference/fairseq2.nn.embedding
+    reference/fairseq2.nn.incremental_state
+    reference/fairseq2.nn.normalization
+    reference/fairseq2.nn.position_encoder
+    reference/fairseq2.nn.projection
+    reference/fairseq2.nn.residual
+    reference/fairseq2.nn.utils
+    reference/logging
+    reference/metrics
+    reference/optim
+    reference/recipe
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Other
+
+    other/contributing
+    other/bibliography
 
 
 Indices and tables

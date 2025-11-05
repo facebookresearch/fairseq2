@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
+from fairseq2.gang import Gangs, maybe_get_current_gangs
 from fairseq2.models.llama.config import LLaMAConfig, LLaMARoPEScaleConfig
 from fairseq2.models.transformer import (
     CausalAttentionBias,
@@ -32,6 +33,7 @@ from fairseq2.models.transformer_lm import (
     TransformerLMDecoderLayer,
 )
 from fairseq2.nn import (
+    ColumnShardedLinear,
     Embedding,
     LayerNorm,
     Linear,
@@ -39,19 +41,24 @@ from fairseq2.nn import (
     Projection,
     RMSNorm,
     RotaryEncoder,
+    ShardedEmbedding,
     StandardEmbedding,
     TiedProjection,
+    VocabShardedEmbedding,
 )
 from fairseq2.utils.tensor import to_tensor
 
 
 def create_llama_model(config: LLaMAConfig) -> TransformerLM:
-    return LLaMAFactory(config).create_model()
+    gangs = maybe_get_current_gangs()
+
+    return LLaMAFactory(config, gangs).create_model()
 
 
 class LLaMAFactory:
-    def __init__(self, config: LLaMAConfig) -> None:
+    def __init__(self, config: LLaMAConfig, gangs: Gangs | None = None) -> None:
         self._config = config
+        self._gangs = gangs
 
     def create_model(self) -> TransformerLM:
         config = self._config
@@ -85,9 +92,19 @@ class LLaMAFactory:
 
             _init_truncated_normal(embed.weight, bias=None, std=std)
 
-        return StandardEmbedding(
+        embed = StandardEmbedding(
             config.vocab_size, config.model_dim, config.pad_idx, init_fn=init_embed
         )
+
+        gangs = self._gangs
+
+        if gangs is not None and gangs.tp.size > 1:
+            if not config.shard_embed_dim:
+                return VocabShardedEmbedding.from_embedding(embed, gangs.tp)
+
+            return ShardedEmbedding.from_embedding(embed, gangs.tp)
+
+        return embed
 
     def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
         config = self._config
@@ -189,6 +206,7 @@ class LLaMAFactory:
             pos_encoder=pos_encoder,
             output_proj_init_fn=init_projection,
             bias=False,
+            gangs=self._gangs,
         )
 
     def create_ffn(self, layer_idx: int) -> FeedForwardNetwork:
@@ -214,6 +232,7 @@ class LLaMAFactory:
             inner_dim_scale=config.ffn_inner_dim_scale,
             inner_dim_to_multiple=config.ffn_inner_dim_multiple_of,
             proj_init_fn=init_projection,
+            gangs=self._gangs,
         )
 
     def create_final_projection(self, embed: Embedding) -> Projection:
@@ -236,9 +255,16 @@ class LLaMAFactory:
 
             _init_truncated_normal(proj.weight, proj.bias, std=std)
 
-        return Linear(
+        final_proj = Linear(
             config.model_dim, config.vocab_size, bias=False, init_fn=init_projection
         )
+
+        gangs = self._gangs
+
+        if gangs is not None and gangs.tp.size > 1:
+            return ColumnShardedLinear.from_linear(final_proj, gangs.tp)
+
+        return final_proj
 
     def create_layer_norm(self) -> LayerNorm:
         config = self._config

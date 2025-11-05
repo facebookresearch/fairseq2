@@ -4,16 +4,28 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+"""
+A :class:`Gang` represents a set of processes that can perform collective
+operations such as all-reduce, broadcast, and other distributed primitives.
+
+This module provides :class:`Gang` implementations that supports both real
+distributed environments (using PyTorch's distributed backend) and simulated
+environments for testing and single-process scenarios.
+
+See :doc:`/concepts/gang` for more information.
+"""
+
 from __future__ import annotations
 
 import os
+import threading
 import warnings
 from abc import abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import Enum
-from typing import Any, NoReturn, final
+from typing import Any, NoReturn, cast, final
 
 import torch
 import torch.distributed as dist
@@ -38,87 +50,170 @@ class Gang(Closable):
 
     @abstractmethod
     def create_gang(self, ranks: Sequence[int]) -> Gang | None:
-        """Creates a new gang.
+        """
+        Creates a new sub-gang with the specified process ranks.
 
-        :param ranks:
-            The ranks of processes that will be part of the new gang.
+        The ranks must be unique and within the range [0, gang.size).
+
+        Returns ``None`` if the current process is not included in ``ranks``.
+
+        :raises ValueError: If ``ranks`` contains duplicates, or has one or more
+            out of range values.
+
+        :raises GangError: If the collective operation fails due to an unexpected
+            error such as a network communication failure.
+
+        .. code:: python
+            :caption: Creating a sub-gang with specific processes
+
+            # Create a gang with ranks 0, 2, 4 from an 8-process gang
+            sub_gang = root_gang.create_gang([0, 2, 4])
+            if sub_gang is not None:
+                # Current process is part of the new gang
+                print(f"New gang rank: {sub_gang.rank}, size: {sub_gang.size}")
         """
 
     @abstractmethod
     def as_process_group(self) -> ProcessGroup:
-        """Return this gang as a process group."""
+        """
+        Returns this gang as a PyTorch ProcessGroup that can be used with
+        PyTorch's distributed operations and collective communication functions.
+
+        :raises NotSupportedError: If the gang implementation does not support
+            conversion to a ProcessGroup (e.g. :class:`FakeGang`).
+        """
 
     @abstractmethod
     def barrier(self) -> None:
-        """Synchronize all processes."""
+        """
+        Synchronizes all processes in the gang.
+
+        This is a collective operation that blocks until all processes in the
+        gang reach this synchronization point. Used for ensuring a consistent
+        state across all processes before proceeding.
+
+        :raises GangError: If the collective operation fails due to an unexpected
+            error such as a network communication failure.
+        """
 
     @abstractmethod
     def all_reduce(self, tensor: Tensor, op: ReduceOperation) -> None:
-        """Reduce ``tensor`` across all processes.
+        """
+        Reduces ``tensor`` across all processes using the specified operation.
 
-        :param tensor:
-            The input and output tensor of the operation.
-        :param op:
-            The element-wise reduce operation.
+        All-reduce combines tensors from all processes using the specified
+        operation and distributes the result to all processes. The input tensor
+        is modified in-place to contain the reduction result.
+
+        :raises GangError: If the collective operation fails due to an unexpected
+            error such as a network communication failure.
+
+        .. code:: python
+            :caption: Computing sum across all processes
+
+            import torch
+            from fairseq2.gang import ReduceOperation
+
+            # Each process has a different tensor
+            tensor = torch.tensor([gang.rank], dtype=torch.float32)
+
+            # Sum across all processes
+            gang.all_reduce(tensor, ReduceOperation.SUM)
+
+            # Now tensor contains the sum of all ranks
+            print(f"Sum of all ranks: {tensor.item()}")
         """
 
     @abstractmethod
     def all_gather(self, output_tensor: Tensor, input_tensor: Tensor) -> None:
-        """Gather tensors from all processes and put them in ``output_tensor``.
+        """
+        Gathers tensors from all processes and puts them in ``output_tensor``.
 
-        :param output_tensor:
-            The output tensor to accomodate tensors from all processes.
-        :param input_tensor:
-            The tensor to be gathered from this process.
+        All-gather collects input tensors from all processes, concatenates them
+        along a new first dimension in rank order and writes to the output
+        tensor. The output tensor must have shape ``[gang.size, *input_tensor.shape]``
+        and be contiguous in memory.
+
+        :raises GangError: If the collective operation fails due to an unexpected
+            error such as a network communication failure.
+
+        .. code:: python
+            :caption: Gathering tensors from all processes
+
+            import torch
+
+            # Each process contributes a tensor with its rank
+            input_tensor = torch.tensor([gang.rank * 10], dtype=torch.float32)
+
+            # Prepare output tensor for all gathered tensors
+            output_tensor = torch.empty([gang.size, 1], dtype=torch.float32)
+
+            # Gather from all processes
+            gang.all_gather(output_tensor, input_tensor)
+
+            # output_tensor now contains [0, 10, 20, ...] for ranks 0,1,2,...
         """
 
     @abstractmethod
     def all_gather_to_list(
         self, output_tensors: list[Tensor], input_tensor: Tensor
     ) -> None:
-        """Gather tensors from all processes and put them in ``output_tensors``.
+        """
+        Gathers tensors from all processes and puts them in ``output_tensors``.
 
-        :param output_tensors:
-            The tensor list to accomodate tensors from all processes.
-        :param input_tensor:
-            The tensor to be gathered from this process.
+        Similar to :meth:`all_gather`, but stores the gathered tensors in a list
+        instead of concatenating them into a single tensor. ``output_tensors``
+        must be a pre-allocated list with length equal to ``gang.size``.
+
+        :raises GangError: If the collective operation fails due to an unexpected
+            error such as a network communication failure.
         """
 
     @abstractmethod
     def broadcast(self, tensor: Tensor, source_rank: int = 0) -> None:
-        """Broadcast ``tensor`` from ``source_rank`` to all processes.
+        """
+        Broadcasts ``tensor`` from the specified rank to all processes.
 
-        :param tensor:
-            The tensor to be sent from ``source_rank``.
-        :param source_rank:
-            The rank of the process from which to broadcast ``tensor``.
+        Broadcast copies the tensor from the source process to all other
+        processes. The tensor is modified in-place on non-source processes to
+        contain the broadcasted data.
+
+        ``source_rank`` must be in range [0, gang.size).
+
+        :raises ValueError: If ``source_rank`` is out of valid range.
+
+        :raises GangError: If the collective operation fails due to an unexpected
+            error such as a network communication failure.
         """
 
     @abstractmethod
     def broadcast_objects(self, objects: list[object], source_rank: int = 0) -> None:
-        """Broadcast picklable ``objects`` from ``source_rank`` to all processes.
+        """
+        Broadcasts picklable ``objects`` from the specified rank to all processes.
 
-        :param objects:
-            The list of picklable objects to broadcast. Each process must
-            provide lists of equal sizes.
-        :param source_rank:
-            The rank of the process from which to broadcast ``objects``.
+        Similar to :meth:`broadcast`, but copies arbitrary Python objects that
+        can be pickled. The objects are modified in-place on non-source processes.
+        Each process must provide lists of equal sizes.
+
+        ``source_rank`` must be in range [0, gang.size).
+
+        :raises ValueError: If ``source_rank`` is out of valid range.
+
+        :raises GangError: If the collective operation fails due to an unexpected
+            error such as a network communication failure.
         """
 
     @property
     @abstractmethod
-    def rank(self) -> int:
-        """The rank of this process in the gang."""
+    def rank(self) -> int: ...
 
     @property
     @abstractmethod
-    def size(self) -> int:
-        """The number of processes that are part of the gang."""
+    def size(self) -> int: ...
 
     @property
     @abstractmethod
-    def device(self) -> Device:
-        """The associated device."""
+    def device(self) -> Device: ...
 
     @property
     @abstractmethod
@@ -126,7 +221,10 @@ class Gang(Closable):
 
 
 class ReduceOperation(Enum):
-    """Specifies a reduce operation."""
+    """
+    Defines the standard reduction operations that can be performed across
+    processes during collective communication operations like all-reduce.
+    """
 
     SUM = 1
     MEAN = 2
@@ -136,16 +234,41 @@ class ReduceOperation(Enum):
 
 
 class GangError(Exception):
-    pass
+    """Raised when a collective communication error occurs."""
 
 
 def raise_operational_gang_error(cause: GangError) -> NoReturn:
+    """
+    Raises an :class:`OperationalError` caused by a collective communication error.
+    """
     raise OperationalError("A collective communication error occurred.") from cause
 
 
 @final
 class FakeGang(Gang):
-    """Represents a non-distributed gang for local use."""
+    """
+    Represents a non-distributed gang for local use.
+
+    This implementation simulates gang operations without actual distributed
+    communication, making it useful for testing, debugging, and single-process
+    execution. All collective operations are no-ops.
+
+    .. code:: python
+        :caption: Simulating a collective operation
+
+        import torch
+
+        from fairseq2.gang import FakeGang
+
+        device = torch.device("cpu")
+
+        gang = FakeGang(device, rank=0, size=8)
+
+        tensor = torch.tensor([gang.rank], dtype=torch.float32)
+
+        # Simulates as if a real all-reduce operation is performed on the gang.
+        gang.all_reduce(tensor, ReduceOperation.SUM)
+    """
 
     def __init__(self, device: Device, *, rank: int = 0, size: int = 1) -> None:
         if size <= 0:
@@ -165,7 +288,7 @@ class FakeGang(Gang):
 
     @override
     def close(self) -> None:
-        pass
+        """No-op"""
 
     @override
     def create_gang(self, ranks: Sequence[int]) -> FakeGang | None:
@@ -267,9 +390,15 @@ class FakeGang(Gang):
 
 @final
 class ProcessGroupGang(Gang):
-    """Represents a gang that wraps a process group."""
+    """
+    Represents a gang that wraps a PyTorch ProcessGroup.
+
+    This is a distributed gang implementation that uses PyTorch's distributed
+    backend for actual inter-process communication.
+    """
 
     def __init__(self, _pg: ProcessGroup, _device: Device) -> None:
+        """:meta private:"""
         self._pg = _pg
         self._device = _device
 
@@ -282,14 +411,26 @@ class ProcessGroupGang(Gang):
         high_priority: bool = False,
     ) -> ProcessGroupGang:
         """
-        Initializes the root process group and wraps it as a gang.
+        Initializes the default process group and wraps it as a gang.
 
-        :param device: The device for which to initialize the gang. For CUDA
-            devices, NCCL; for CPU, Gloo will be used.
-        :param timeout: The timeout for collective operations. If ``None``, the
-            default timeout value (15 minutes) will be used.
-        :param high_priority: If ``True``, the underlying collective operations
-            will be performed on high priority channels (e.g. CUDA streams).
+        For CUDA devices, NCCL; for CPU devices, Gloo backend will be used.
+
+        ``timeout`` specifies the timeout for collective operations. If ``None``,
+        the default timeout (15 minutes) will be used.
+
+        If ``high_priority`` is ``True``, the underlying collective operations
+        will be performed on high-priority channels (e.g. CUDA streams) if
+        supported by the underlying backend.
+
+        :raises ValueError: If ``device`` is not of type ``cpu`` or ``cuda``.
+
+        :raises NotSupportedError: If ``torch.distributed`` is not available.
+
+        :raises InvalidOperationError: If the root process group is already
+            initialized.
+
+        :raises GangError: If the underlying process group fails to initialize
+            due to an unexpected error such as a network communication failure.
         """
         if log.is_enabled_for_debug():
             os.environ["TORCH_DISTRIBUTED_DEBUG"] = "INFO"
@@ -327,10 +468,14 @@ class ProcessGroupGang(Gang):
         pg_options = None
 
         if device.type == "cuda":
+            # Eager process group initialization requires device index to be set.
+            if device.index is None:
+                device = Device("cuda", index=0)
+
             # Forces eager NCCL initialization.
             kwargs["device_id"] = device
 
-            # If enabled, uses high priority CUDA streams for NCCL.
+            # If enabled, uses high-priority CUDA streams for NCCL.
             if high_priority:
                 # Not available unless PyTorch is built with NCCL.
                 from torch.distributed import ProcessGroupNCCL
@@ -359,6 +504,7 @@ class ProcessGroupGang(Gang):
 
     @override
     def close(self) -> None:
+        """Destroys the underlying ProcessGroup."""
         dist.destroy_process_group(self._pg)
 
     @override
@@ -498,18 +644,41 @@ def _check_ranks(ranks: Sequence[int], gang_size: int) -> None:
 
 
 @dataclass(kw_only=True, frozen=True)
-class Gangs:
+class Gangs(Closable):
+    """
+    Holds parallel gangs used in distributed configurations.
+
+    Each gang is used for a different parallelism strategy such as data, tensor,
+    or pipeline parallelism.
+
+    Check out :func:`create_parallel_gangs` and :func:`create_fsdp_gangs` to see
+    how to initialize a ``Gangs`` instance.
+    """
+
     root: Gang
-    """The root gang."""
+    """The root gang containing all processes."""
 
     dp: Gang
     """The data parallel gang."""
 
     rdp: Gang
-    """The inter-node data parallel gang (i.e. replicated)."""
+    """
+    The replicated data parallel gang (i.e. inter-node for HSDP).
+
+    This is a sub-gang of :attr:`dp` used for replicated data parallelism. In
+    PyTorch, this gang is used by DDP as well as by FSDP for inter-node
+    communication when hybrid sharding is enabled.
+    """
 
     sdp: Gang
-    """The intra-node data parallel gang (i.e. sharded)."""
+    """
+    The sharded data parallel gang (i.e. intra-node for HSDP).
+
+    This is a sub-gang of :attr:`dp` used for sharded data parallelism. In
+    PyTorch, this gang is used by FSDP. If hybrid sharding is enabled, it will
+    be used only for intra-node communication, while inter-node communication
+    will be handled by :attr:`rdp`.
+    """
 
     tp: Gang
     """The tensor parallel gang."""
@@ -524,28 +693,71 @@ class Gangs:
                     "Coordinator process of the root gang (i.e. `root.rank == 0`) must be rank 0 in all parallel gangs."
                 )
 
+    def __enter__(self) -> None:
+        _thread_local.current_gangs.append(self)
+
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+        _thread_local.current_gangs.pop()
+
     def close(self) -> None:
+        """Destroys all gangs."""
         self.root.close()
 
 
-def create_fake_gangs(device: Device) -> Gangs:
-    gang = FakeGang(device=device)
+_thread_local = threading.local()
 
-    return Gangs(root=gang, dp=gang, rdp=gang, sdp=gang, tp=gang, pp=gang)
+# Holds the stack of current thread-local gangs.
+_thread_local.current_gangs = []
+
+
+def maybe_get_current_gangs() -> Gangs | None:
+    """
+    Returns the current gangs to use for collective operations.
+
+    By default, this function returns ``None``. The current gangs of the calling
+    thread can be set by using :class:`Gangs` as a context manager:
+
+    .. code::
+
+        from fairseq2.gang import Gangs
+
+        gangs = Gangs(...)
+
+        with gangs:
+            current_gangs = maybe_get_current_gangs()
+
+            assert current_gangs is gangs
+
+        current_gangs = maybe_get_current_gangs()
+
+        assert current_gangs is None
+
+    Within fairseq2, this function is used by model factories to retrieve the
+    current gangs and shard the constructed models accordingly. The current gangs
+    are set internally by fairseq2 before calling the factories.
+
+    Note that the return value of this function is thread specific. Individual
+    threads may have their own set of current gangs.
+    """
+    if _thread_local.current_gangs:
+        return cast(Gangs, _thread_local.current_gangs[-1])
+
+    return None
 
 
 def create_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     """
-    Sets up gangs to be used for data and model parallelism.
+    Creates gangs to be used for data and model parallelism.
 
-    For instance; if we have 8 devices denoted by g0 to g7 and 2 devices are
-    used for tensor parallelism, this function will make 4 tensor parallel
-    gangs and 2 data parallel gangs as:
+    For instance, if there are 8 devices denoted by d0 to d7 and 2 devices are
+    used for tensor parallelism (i.e. ``tp_size`` is 2), this function will
+    create 4 tensor parallel gangs and 2 data parallel gangs by splitting
+    ``root_gang`` as:
 
-        4 tensor parallel gangs:
-            [g0, g1], [g2, g3], [g4, g5], [g6, g7]
-        2 data parallel gangs:
-            [g0, g2, g4, g6], [g1, g3, g5, g7]
+    4 tensor parallel gangs:
+        [d0, d1], [d2, d3], [d4, d5], [d6, d7]
+    2 data parallel gangs:
+        [d0, d2, d4, d6], [d1, d3, d5, d7]
 
     For efficiency, the caller should make sure adjacent ranks are on the same
     host. For example, if there are two hosts with a total of 16 GPUs, ranks 0
@@ -558,9 +770,6 @@ def create_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
         later. See `here`__ for more information.
 
     .. __: https://dev-discuss.pytorch.org/t/rfc-c10d-a-new-pytorch-api-split-group-to-create-a-process-group-through-ncclcommsplit/2233
-
-    :param root_gang: The gang whose topology will be used to make the new gangs.
-    :param tp_size: The size of tensor parallel gangs.
     """
     if tp_size < 1:
         raise ValueError(
@@ -665,18 +874,41 @@ def create_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
 
 def create_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
     """
-    Sets up gangs to be used for sharded data parallelism.
+    Creates gangs to be used for hybrid or fully sharded data parallelism.
 
-    For instance; if we have 8 devices denoted by g0 to g7 and ``intra_node_size``
-    is 4, this function will make 2 intra-node gangs and 4 inter-node gangs:
+    If ``intra_node_size`` is ``None``, :attr:`Gangs.sdp` (sharded data gang)
+    will be set to the same gang as :attr:`Gangs.dp` and :attr:`Gangs.rdp`
+    (replicated data gang) will be set to a fake gang of size 1. This topology
+    represents a fully sharded data parallel strategy.
 
-        2 intra-node gangs of size 4:
-            [g0, g1, g2, g3], [g4, g5, g6, g7]
-        4 inter-node gangs of size 2:
-            [g0, g4], [g1, g5], [g2, g6], [g3, g7]
+    An integer ``intra_node_size`` indicates hybrid sharded data parallelism.
+    For instance, if there are 8 devices denoted by d0 to d7 and 4 devices are
+    used for intra-node parallelism (i.e. ``intra_node_size`` is 4), this
+    function will create 2 intra-node gangs and 4 inter-node gangs by splitting
+    ``gangs.dp`` as:
+
+    2 intra-node gangs of size 4:
+        [d0, d1, d2, d3], [d4, d5, d6, d7]
+    4 inter-node gangs of size 2:
+        [d0, d4], [d1, d5], [d2, d6], [d3, d7]
 
     For efficiency, the caller should make sure adjacent ranks are on the same
     host.
+
+    At the end of the call, ``gangs.rdp`` (replicated data gang) will point to
+    the inter-node gang and ``gangs.sdp`` (sharded data gang) will point to the
+    intra-node gang.
+
+    Returns the same :class:`Gangs` instance passed to ``gangs`` with its
+    :attr:`Gangs.rdp` and :attr:`Gangs.sdp` attributes set accordingly.
+
+    .. note::
+
+        If ``root_gang`` is a PyTorch ``ProcessGroup`` with NCCL backend, this
+        function uses the experimental ``split_group`` API in PyTorch 2.5 and
+        later. See `here`__ for more information.
+
+    .. __: https://dev-discuss.pytorch.org/t/rfc-c10d-a-new-pytorch-api-split-group-to-create-a-process-group-through-ncclcommsplit/2233
     """
     if intra_node_size is None:
         fake_gang = FakeGang(gangs.root.device)
@@ -789,8 +1021,57 @@ def create_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs
     )
 
 
+def create_fake_gangs(device: Device) -> Gangs:
+    """
+    Creates a set of fake gangs for single-process scenarios.
+
+    This is a helper function where every :class:`FakeGang` is initialized with
+    rank 0 and world size 1. For more complex simulated/testing environments,
+    :class:`FakeGang` instances can be individually constructed per parallelism
+    strategy and passed to a :class:`Gangs` object.
+
+    .. code:: python
+        :caption: Creating fake gangs for testing
+
+        import torch
+
+        from fairseq2.gang import create_fake_gangs
+
+        device = torch.device("cpu")
+
+        gangs = create_fake_gangs(device)
+
+        tensor = torch.tensor([gang.rank], dtype=torch.float32)
+
+        # Simulates as if a real all-reduce operation is performed on the data
+        # parallel gang.
+        gangs.dp.all_reduce(tensor, ReduceOperation.SUM)
+    """
+    gang = FakeGang(device=device)
+
+    return Gangs(root=gang, dp=gang, rdp=gang, sdp=gang, tp=gang, pp=gang)
+
+
 def broadcast_flag(gang: Gang, flag: bool, source_rank: int = 0) -> bool:
-    """Broadcasts ``flag`` to  all processes in ``gang`` from ``source_rank``."""
+    """
+    Broadcasts a boolean flag to all processes in ``gang`` from the specified
+    rank.
+
+    Returns the broadcasted boolean value on all processes.
+
+    .. code:: python
+        :caption: Broadcasting a flag across processes
+
+        # Only rank 0 sets the flag
+        should_continue = gang.rank == 0 and some_condition()
+
+        # Broadcast the decision to all processes
+        should_continue = broadcast_flag(gang, should_continue, source_rank=0)
+
+        if should_continue:
+            # All processes execute this together
+            continue_processing()
+    """
     flag_pt = to_tensor(flag, device=gang.device)
 
     gang.broadcast(flag_pt, source_rank)
@@ -799,7 +1080,23 @@ def broadcast_flag(gang: Gang, flag: bool, source_rank: int = 0) -> bool:
 
 
 def all_sum(gang: Gang, value: float | int) -> Tensor:
-    """Sums ``value`` over all processes in ``gang``."""
+    """
+    Sums a scalar value over all processes in ``gang``.
+
+    Returns a tensor containing the sum of all process values.
+
+    .. code:: python
+        :caption: Computing total loss across processes
+
+        # Each process computes its local loss
+        local_loss = compute_loss(batch)
+
+        # Sum losses across all processes
+        total_loss = all_sum(gang, local_loss)
+
+        # Now `total_loss` contains the sum from all processes
+        average_loss = total_loss / gang.size
+    """
     value_pt = to_tensor(value, device=gang.device)
 
     gang.all_reduce(value_pt, ReduceOperation.SUM)

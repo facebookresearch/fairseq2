@@ -4,6 +4,39 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+"""
+As of v0.6, ``fairseq2.sharder`` module will be deprecated and will be removed
+from our codebase in v0.12, which we expect to release in approximately six
+months.
+
+Based on our recent work on sequence parallelism and MoE, one thing that has
+become clear is that the declarative approach offered by the ``ModelSharder``
+API -originally designed to support tensor parallelism- is insufficient for
+representing more complex parallelism strategies. In v0.6, we changed our
+approach: we now expect parallelism strategies to be applied within model
+factories. This gives model authors full control over how parallelism is applied
+to their models. Migrating to this new approach is straightforward for existing
+models. ``StandardMultiheadAttention``, ``GLUFeedForwardNetwork``, and
+``StandardFeedForwardNetwork`` modules -which were previously pattern-matched in
+``ModelSharder`` for tensor parallelism- are now "sharding-aware". This means
+they accept an optional ``Gangs`` parameter and, if provided and applicable (i.e.
+gangs.tp.size > 1), will shard their parameters for tensor parallelism. If you
+have any custom modules with a registered ``ModuleSharder``, you should follow
+the same pattern and remove their ``ModuleSharder`` from your codebase.
+
+For reference, you can check out the Qwen model implementation.
+
+Also note that these "sharding-aware" modules implement a new ``Sharded``
+interface that exposes a single ``get_shard_dims()`` method. This interface is
+now leveraged when loading model checkpoints to perform on-the-fly parameter
+resharding, which was previously done based on the provided ``shard_specs``
+parameter.
+
+Once your model factory has been migrated to handle parallelism as described
+above, the ``shard_spec`` argument to ``register_model_family`` as well as
+your ``get_xyz_model_shard_spec`` must be removed before fairseq2 v0.12.
+"""
+
 from __future__ import annotations
 
 import re
@@ -24,12 +57,17 @@ from fairseq2.nn import (
     StandardEmbedding,
     VocabShardedEmbedding,
 )
+from fairseq2.utils.warn import _warn_deprecated
 
 
 @dataclass
 class ShardSpec:
     dim: int
+    """The sharded dimension."""
+
     region_boundary: bool = False
+    """Whether the sharded dimension is at the boundary between
+    two model parallel regions. Allows to avoid unnecessary communication."""
 
 
 class ModuleSharder(ABC):
@@ -114,6 +152,10 @@ class StandardModelSharder(ModelSharder):
     def shard(
         self, model: Module, gangs: Gangs, specs: Mapping[str, ShardSpec]
     ) -> None:
+        _warn_deprecated(
+            "`fairseq2.sharder` module is deprecated and will be removed in fairseq2 0.12."
+        )
+
         if gangs.tp.size == 1:
             return
 

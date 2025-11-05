@@ -136,7 +136,7 @@ setup(
         "install_cmake": install_cmake,
     },
     name="fairseq2n",
-    version="0.6.0.dev0",
+    version="0.7.0",
     description="FAIR Sequence Modeling Toolkit (Native)",
     long_description="https://github.com/facebookresearch/fairseq2",
     long_description_content_type="text/plain",
@@ -150,17 +150,16 @@ setup(
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     package_data={"fairseq2n": ["py.typed", "*.pyi"]},
     zip_safe=False,
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     install_requires=[
         # We use the tbb package as a fallback in case the system does not
         # provide Intel oneTBB.

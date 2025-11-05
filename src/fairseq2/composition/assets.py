@@ -41,6 +41,7 @@ from fairseq2.runtime.dependency import (
     DependencyResolver,
     wire_object,
 )
+from fairseq2.utils.progress import ProgressReporter
 
 
 def register_file_assets(
@@ -134,7 +135,14 @@ def _register_asset(container: DependencyContainer) -> None:
 
         cache_dir = dirs.get_cache_dir()
 
-        return wire_object(resolver, StandardAssetDownloadManager, cache_dir=cache_dir)
+        progress_reporter = resolver.resolve(ProgressReporter, key="download_reporter")
+
+        return wire_object(
+            resolver,
+            StandardAssetDownloadManager,
+            cache_dir=cache_dir,
+            progress_reporter=progress_reporter,
+        )
 
     container.collection.register(
         AssetDownloadManager, create_standard_asset_download_manager

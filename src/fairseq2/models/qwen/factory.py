@@ -9,6 +9,7 @@ from __future__ import annotations
 import torch.nn as nn
 from torch import Tensor
 
+from fairseq2.gang import Gangs, maybe_get_current_gangs
 from fairseq2.models.qwen.config import QwenConfig
 from fairseq2.models.transformer import (
     CausalAttentionBias,
@@ -29,12 +30,14 @@ from fairseq2.models.transformer_lm import (
     TransformerLMDecoderLayer,
 )
 from fairseq2.nn import (
+    ColumnShardedLinear,
     Embedding,
     LayerNorm,
     Linear,
     PositionEncoder,
     Projection,
     RMSNorm,
+    ShardedEmbedding,
     StandardEmbedding,
     TiedProjection,
 )
@@ -42,12 +45,15 @@ from fairseq2.nn.position_encoder import ReferenceRotaryEncoder
 
 
 def create_qwen_model(config: QwenConfig) -> TransformerLM:
-    return QwenFactory(config).create_model()
+    gangs = maybe_get_current_gangs()
+
+    return QwenFactory(config, gangs).create_model()
 
 
 class QwenFactory:
-    def __init__(self, config: QwenConfig) -> None:
+    def __init__(self, config: QwenConfig, gangs: Gangs | None = None) -> None:
         self._config = config
+        self._gangs = gangs
 
     def create_model(self) -> TransformerLM:
         config = self._config
@@ -81,9 +87,16 @@ class QwenFactory:
 
             _init_truncated_normal(embed.weight, bias=None, std=std)
 
-        return StandardEmbedding(
+        embed = StandardEmbedding(
             config.vocab_size, config.model_dim, init_fn=init_embed
         )
+
+        gangs = self._gangs
+
+        if gangs is not None and gangs.tp.size > 1:
+            return ShardedEmbedding.from_embedding(embed, gangs.tp)
+
+        return embed
 
     def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
         config = self._config
@@ -192,6 +205,7 @@ class QwenFactory:
             pos_encoder=pos_encoder,
             output_proj_init_fn=init_projection,
             output_proj_bias=False,
+            gangs=self._gangs,
         )
 
     def create_ffn(self, layer_idx: int) -> FeedForwardNetwork:
@@ -212,6 +226,7 @@ class QwenFactory:
             bias=False,
             inner_dim_scale=1.0,
             proj_init_fn=init_projection,
+            gangs=self._gangs,
         )
 
     def create_final_projection(self, embed: Embedding) -> Projection:
@@ -232,9 +247,16 @@ class QwenFactory:
 
             _init_truncated_normal(proj.weight, proj.bias, std=std)
 
-        return Linear(
+        final_proj = Linear(
             config.model_dim, config.vocab_size, bias=False, init_fn=init_projection
         )
+
+        gangs = self._gangs
+
+        if gangs is not None and gangs.tp.size > 1:
+            return ColumnShardedLinear.from_linear(final_proj, gangs.tp)
+
+        return final_proj
 
     def create_layer_norm(self, dim: int | None = None) -> LayerNorm:
         config = self._config

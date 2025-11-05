@@ -34,6 +34,7 @@ from fairseq2.recipe.config import (
     TriStageLRConfig,
 )
 from fairseq2.recipe.error import LRSchedulerNotKnownError
+from fairseq2.recipe.optim import maybe_raise_param_group_length_error
 from fairseq2.utils.validation import ValidationError
 
 
@@ -62,20 +63,7 @@ class _CosineAnnealingLRFactory:
         self._optimizer = optimizer
         self._regime_section = regime_section
 
-    def create(self, config: CosineAnnealingLRConfig) -> LRScheduler:
-        optimizer = self._optimizer
-
-        # TODO: fix!
-        if len(optimizer.param_groups) > 1:
-            raise ValueError(
-                "`optimizer` must not have more than one optimizer parameter group."
-            )
-
-        try:
-            lr: float = optimizer.param_groups[0]["lr"]
-        except KeyError:
-            raise ValueError("`optimizer` must have a learning rate.") from None
-
+    def create(self, config: CosineAnnealingLRConfig) -> CosineAnnealingLR:
         if config.cycle_len is None:
             num_steps = self._regime_section.num_steps
             if num_steps is None:
@@ -87,23 +75,64 @@ class _CosineAnnealingLRFactory:
         else:
             cycle_len = config.cycle_len
 
-        if config.final_lr is not None and config.final_lr_scale is not None:
-            raise InternalError(
-                "`config.final_lr` and `config.final_lr_scale` are both specified."
+        optimizer = self._optimizer
+
+        lrs = []
+
+        for idx, param_group in enumerate(optimizer.param_groups):
+            try:
+                lr: float = param_group["lr"]
+            except KeyError:
+                raise InternalError(
+                    f"`optimizer.param_groups[{idx}]` does not have a learning rate."
+                ) from None
+
+            lrs.append(lr)
+
+        num_param_groups = len(optimizer.param_groups)
+
+        start_lrs = config.start_lr
+
+        if isinstance(start_lrs, float):
+            start_lrs = [start_lrs] * num_param_groups
+        else:
+            maybe_raise_param_group_length_error(
+                "start_lr", start_lrs, num_param_groups
             )
 
         if config.final_lr is not None:
-            final_lr = config.final_lr
+            if config.final_lr_scale is not None:
+                raise InternalError(
+                    "`config.final_lr` and `config.final_lr_scale` are both specified."
+                )
+
+            final_lrs = config.final_lr
+
+            if isinstance(final_lrs, float):
+                final_lrs = [final_lrs] * num_param_groups
+            else:
+                maybe_raise_param_group_length_error(
+                    "final_lr", final_lrs, num_param_groups
+                )
         else:
-            if config.final_lr_scale is None:
+            final_lr_scales = config.final_lr_scale
+            if final_lr_scales is None:
                 raise InternalError(
                     "`config.final_lr` and `config.final_lr_scale` are both `None`."
                 )
 
-            final_lr = lr * config.final_lr_scale
+            if isinstance(final_lr_scales, float):
+                final_lr_scales = [final_lr_scales] * num_param_groups
+            else:
+                maybe_raise_param_group_length_error(
+                    "final_lr_scale", final_lr_scales, num_param_groups
+                )
 
-        if final_lr > lr:
-            log.warning("The final learning rate ({}) is greater than the optimizer learning rate ({}). This means the learning rate will increase over the course of the training.", final_lr, lr)  # fmt: skip
+            final_lrs = [lr * scale for lr, scale in zip(lrs, final_lr_scales)]
+
+        for idx, (lr, final_lr) in enumerate(zip(lrs, final_lrs)):
+            if final_lr > lr:
+                log.warning("The final learning rate ({}) of optimizer parameter group {} is greater than the learning rate ({}). This means the learning rate will increase over the course of the training.", final_lr, idx, lr)  # fmt: skip
 
         return CosineAnnealingLR(
             optimizer,
@@ -111,8 +140,8 @@ class _CosineAnnealingLRFactory:
             config.num_warmup_steps,
             cycle_mul=config.cycle_mul,
             lr_mul=config.lr_mul,
-            start_lr=config.start_lr,
-            final_lr=final_lr,
+            start_lr=start_lrs,
+            final_lr=final_lrs,
         )
 
 
@@ -121,10 +150,19 @@ class _MyleLRFactory:
     def __init__(self, optimizer: Optimizer) -> None:
         self._optimizer = optimizer
 
-    def create(self, config: MyleLRConfig) -> LRScheduler:
-        return MyleLR(
-            self._optimizer, config.num_warmup_steps, start_lr=config.start_lr
-        )
+    def create(self, config: MyleLRConfig) -> MyleLR:
+        num_param_groups = len(self._optimizer.param_groups)
+
+        start_lrs = config.start_lr
+
+        if isinstance(start_lrs, float):
+            start_lrs = [start_lrs] * num_param_groups
+        else:
+            maybe_raise_param_group_length_error(
+                "start_lr", start_lrs, num_param_groups
+            )
+
+        return MyleLR(self._optimizer, config.num_warmup_steps, start_lr=start_lrs)
 
 
 @final
@@ -132,7 +170,7 @@ class _NoamLRFactory:
     def __init__(self, optimizer: Optimizer) -> None:
         self._optimizer = optimizer
 
-    def create(self, config: NoamLRConfig) -> LRScheduler:
+    def create(self, config: NoamLRConfig) -> NoamLR:
         return NoamLR(self._optimizer, config.num_warmup_steps)
 
 
@@ -142,11 +180,36 @@ class _PolynomialDecayLRFactory:
         self._optimizer = optimizer
         self._regime_section = regime_section
 
-    def create(self, config: PolynomialDecayLRConfig) -> LRScheduler:
+    def create(self, config: PolynomialDecayLRConfig) -> PolynomialDecayLR:
         num_steps = self._regime_section.num_steps
         if num_steps is None:
             raise ValidationError(
                 f"`regime.num_steps` must be specified when `lr_scheduler` is '{POLYNOMIAL_DECAY_LR}'."
+            )
+
+        if config.num_warmup_steps >= num_steps:
+            raise ValidationError(
+                f"`num_warmup_steps` must be less than `regime.warmup_steps` ({num_steps}), but is {config.num_warmup_steps} instead.", field="lr_scheduler.config"  # fmt: skip
+            )
+
+        num_param_groups = len(self._optimizer.param_groups)
+
+        start_lrs = config.start_lr
+
+        if isinstance(start_lrs, float):
+            start_lrs = [start_lrs] * num_param_groups
+        else:
+            maybe_raise_param_group_length_error(
+                "start_lr", start_lrs, num_param_groups
+            )
+
+        final_lrs = config.final_lr
+
+        if isinstance(final_lrs, float):
+            final_lrs = [final_lrs] * num_param_groups
+        else:
+            maybe_raise_param_group_length_error(
+                "final_lr", final_lrs, num_param_groups
             )
 
         return PolynomialDecayLR(
@@ -154,8 +217,8 @@ class _PolynomialDecayLRFactory:
             num_steps,
             config.num_warmup_steps,
             power=config.power,
-            start_lr=config.start_lr,
-            final_lr=config.final_lr,
+            start_lr=start_lrs,
+            final_lr=final_lrs,
         )
 
 
@@ -165,17 +228,37 @@ class _TriStageLRFactory:
         self._optimizer = optimizer
         self._regime_section = regime_section
 
-    def create(self, config: TriStageLRConfig) -> LRScheduler:
+    def create(self, config: TriStageLRConfig) -> TriStageLR:
         num_steps = self._regime_section.num_steps
         if num_steps is None:
             raise ValidationError(
                 f"`regime.num_steps` must be specified when `lr_scheduler` is '{TRI_STAGE_LR}'."
             )
 
+        num_param_groups = len(self._optimizer.param_groups)
+
+        start_lr_scales = config.start_lr_scale
+
+        if isinstance(start_lr_scales, float):
+            start_lr_scales = [start_lr_scales] * num_param_groups
+        else:
+            maybe_raise_param_group_length_error(
+                "start_lr_scale", start_lr_scales, num_param_groups
+            )
+
+        final_lr_scales = config.final_lr_scale
+
+        if isinstance(final_lr_scales, float):
+            final_lr_scales = [final_lr_scales] * num_param_groups
+        else:
+            maybe_raise_param_group_length_error(
+                "final_lr_scale", final_lr_scales, num_param_groups
+            )
+
         return TriStageLR(
             self._optimizer,
             num_steps,
             config.stage_ratio,
-            start_lr_scale=config.start_lr_scale,
-            final_lr_scale=config.final_lr_scale,
+            start_lr_scale=start_lr_scales,
+            final_lr_scale=final_lr_scales,
         )

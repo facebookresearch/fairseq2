@@ -10,7 +10,6 @@ pyarrow-stubs~=10.0
 pytest~=8.4
 pytest-asyncio~=1.0
 shellcheck-py~=0.9
-types-tqdm~=4.67.0
 types-editdistance~=0.6
 types-psutil~=5.9
 types-setuptools~=75.8

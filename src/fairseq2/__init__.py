@@ -14,15 +14,22 @@ import fairseq2.runtime.dependency
 from fairseq2.error import InvalidOperationError
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 
-__version__ = "0.6.0.dev0"
+__version__ = "0.7.0"
 
 
 _in_call: bool = False
 
 
 def init_fairseq2(
-    *, extras: Callable[[DependencyContainer], None] | None = None
+    *,
+    extras: Callable[[DependencyContainer], None] | None = None,
+    no_progress: bool | None = None,
 ) -> DependencyResolver:
+    """
+    If ``no_progress`` is ``True``, all progress bars will be disabled. If
+    ``None``, ``FAIRSEQ2_NO_PROGRESS`` environment variable will be checked
+    instead and progress bars will be disabled if it exists.
+    """
     from fairseq2.composition import _register_library
 
     global _in_call
@@ -38,7 +45,7 @@ def init_fairseq2(
     container = DependencyContainer()
 
     try:
-        _register_library(container)
+        _register_library(container, no_progress=no_progress)
 
         if extras is not None:
             extras(container)

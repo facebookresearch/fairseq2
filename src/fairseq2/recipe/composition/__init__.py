@@ -4,8 +4,15 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+"""
+The documentation for this module is work in progress.
+"""
+
 from __future__ import annotations
 
+from fairseq2.recipe.composition.assets import (
+    register_recipe_assets as register_recipe_assets,
+)
 from fairseq2.recipe.composition.config import (
     register_config_section as register_config_section,
 )
