@@ -20,7 +20,7 @@ class OLMO2Config(LLaMAConfig):
     """Holds the configuration of a OLMO2 model.
 
     The default values correspond to the allenai/OLMo-2-0425-1B model base architecture as described in
-    :cite:t:`https://arxiv.org/abs/2501.00656`.
+    :cite:`https://arxiv.org/abs/2501.00656`.
     :https://huggingface.co/allenai/OLMo-2-0425-1B
     """
 
@@ -28,7 +28,7 @@ class OLMO2Config(LLaMAConfig):
     """The dimensionality of the model."""
 
     max_seq_len: int = 4096
-    """The maximum sequence length == max_position_embeddings in HF."""
+    """The maximum sequence length."""
 
     vocab_size: int = 100_352
     """The size of the vocabulary."""
@@ -165,5 +165,20 @@ def register_olmo2_configs(container: DependencyContainer) -> None:
         config.num_layers = 32
         config.num_attn_heads = 32
         config.num_key_value_heads = 32
+
+        return config
+
+    @arch("13b")
+    def olmo_2_13b() -> OLMO2Config:
+        """OLMO2 13B model configuration."""
+        config = OLMO2Config()
+
+        # Override only the model size parameters that differ from 1B
+        config.model_dim = 5120
+        config.ffn_inner_dim = 13824
+
+        config.num_layers = 40
+        config.num_attn_heads = 40
+        config.num_key_value_heads = 40
 
         return config
