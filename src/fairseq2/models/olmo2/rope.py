@@ -89,6 +89,16 @@ class OLMO2RotaryEmbedding(nn.Module):
         self.register_buffer("inv_freq", inv_freq, persistent=False)
         self.original_inv_freq = inv_freq
 
+    def reset_non_persistent_buffers(self) -> None:
+        """Reset non-persistent buffers. Called after loading from checkpoint."""
+        # Recompute inv_freq on the current device
+        device = next(self.buffers()).device if list(self.buffers()) else None
+        inv_freq, self.attention_scaling = self.compute_default_rope_parameters(
+            self.config, device
+        )
+        self.inv_freq.copy_(inv_freq)
+        self.original_inv_freq = inv_freq
+
     @staticmethod
     def compute_default_rope_parameters(
         config: OLMO2Config,
