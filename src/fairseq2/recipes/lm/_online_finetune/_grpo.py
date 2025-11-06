@@ -158,6 +158,9 @@ def prepare_grpo_batch(
         zip(reward_output["rewards"], reward_output["tokens"])
     ):
         prompt = prompt_batch.prompts[i_batch]
+        # if gangs.root.rank == 0:
+        #     breakpoint()
+        # gangs.root.barrier()
         rollout_tokens = [
             torch.tensor(prompt + list(c), device=gangs.dp.device)
             for c in i_batch_tokens[rollout_start_end[0] : rollout_start_end[1]]
@@ -188,6 +191,9 @@ def prepare_grpo_batch(
     rewards_normalized = rewards_normalized[
         :, rollout_start_end[0] : rollout_start_end[1]
     ]
+    # if gangs.root.rank == 0:
+    #     breakpoint()
+    # gangs.root.barrier()
     prompt_rollout_batch = collate_with_target_mask(
         prompt_rollouts, prompt_lens, device=gangs.dp.device
     )
@@ -340,31 +346,56 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             )
 
 
+            if self._config.reward.name == "ppl":
 
-            # if self._vllm_model is not None:
-            #     tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
-            #     think_tokens = tokenizer.encode("</think>", add_special_tokens=False)
-            #     rollouts = clip_outputs_at_think_token(rollouts, tokenizer, think_tokens, 64)
-            #     prompt_batch.meta_info['suffix'] = [
-            #         tokenizer.decode(tokenizer.encode(text, add_special_tokens=False)[:64])
-            #         for text in prompt_batch.meta_info.get('suffix')
-            #     ]
-            #     prompt_batch.meta_info['suffix_ids'] = [
-            #         tokenizer.encode(text, add_special_tokens=False)[:64]
-            #         for text in prompt_batch.meta_info.get('suffix')
-            #     ]
+                if self._vllm_model is not None:
 
-            # if self._gangs.root.rank == 0:
-            #     breakpoint()
-            # self._gangs.root.barrier()
+                    tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
+                    # think_tokens = tokenizer.encode("</think>", add_special_tokens=False)
+                    # rollouts = clip_outputs_at_think_token(rollouts, tokenizer, think_tokens, 64)
+                    prompt_batch.meta_info['suffix'] = [
+                        tokenizer.decode(tokenizer.encode(text, add_special_tokens=False)[:64])
+                        for text in prompt_batch.meta_info.get('suffix')
+                    ]
 
-            # ref_logps = compute_reference_logps(
-            #     self._gangs,
-            #     self._reference_model,
-            #     prompt_rollout_seqs,
-            #     prompt_rollout_layout,
-            #     grpo_batch.prompt_lengths,
-            # )
+                    prompt_batch.meta_info['suffix_ids'] = [
+                        tokenizer.encode(text, add_special_tokens=False)[:64]
+                        for text in prompt_batch.meta_info.get('suffix')
+                    ]
+
+                    thought_and_suffix = [rollouts[0].outputs[i].token_ids+prompt_batch.meta_info['suffix_ids'][0] for i in range(len(rollouts[0].outputs))]
+
+                    grpo_batch: GRPOBatch
+                    reward_dict = {"rewards": [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]], "tokens": [thought_and_suffix]}
+                    grpo_batch = prepare_grpo_batch(
+                        prompt_batch=prompt_batch,
+                        reward_output=reward_dict,
+                        gangs=self._gangs,
+                        rollout_start_end=(0,1),
+                        adv_std_normalization=False,
+                    )
+
+                    (
+                        prompt_rollout_seqs,
+                        prompt_rollout_layout,
+                    ) = grpo_batch.prompt_rollouts.as_input()
+
+                    if self._gangs.root.rank == 0:
+                        breakpoint()
+                    self._gangs.root.barrier()
+
+                    # suffix = prompt_batch.meta_info.get('suffix')[0]
+                    # prompt_batch.meta_info['suffix_ids'] = [tokenizer.encode(suffix, add_special_tokens=False)[:64]]
+
+
+
+                ref_logps = compute_reference_logps(
+                    self._gangs,
+                    self._reference_model,
+                    prompt_rollout_seqs,
+                    prompt_rollout_layout,
+                    grpo_batch.prompt_lengths,
+                )
 
             if self._config.loss_config.log_rollouts:
                 log_rollouts(prompt_batch, rollouts, "Train")

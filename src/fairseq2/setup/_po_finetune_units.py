@@ -16,6 +16,7 @@ from fairseq2.recipes.lm import (  # GroupDpoFinetuneUnitHandler,
     GeneralVerifierExtractorHandler,
     GenerativePairwiseVerifierHandler,
     GenerativePointwiseVerifierHandler,
+    PplHandler,
     GrpoFinetuneUnitHandler,
     GSM8kVerifierHandler,
     J1PairwiseScoreExtractorHandler,
@@ -98,6 +99,10 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
 
     # GenerativePointwiseVerifier
     handler = GenerativePointwiseVerifierHandler()
+    registry.register(handler.name, handler)
+
+    # PplVerifier
+    handler = PplHandler()
     registry.register(handler.name, handler)
 
     # GenerativePairwiseVerifier
