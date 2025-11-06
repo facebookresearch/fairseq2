@@ -37,6 +37,7 @@ from fairseq2.error import NotSupportedError, OperationalError
 from fairseq2.logging import log
 from fairseq2.models.hg.config import HuggingFaceModelConfig
 from fairseq2.utils.uri import Uri
+from fairseq2.gang import Gangs, Gang, GangError, maybe_get_current_gangs
 
 try:
     from transformers import (
@@ -158,7 +159,9 @@ def create_hg_model(
     :raises: HuggingFaceModelError: If model loading fails
     :raises: NotSupportedError: If transformers library is not available
     """
-    return HgFactory(config).create_model()
+    gangs = maybe_get_current_gangs()
+    
+    return HgFactory(config, gangs).create_model()
 
 
 class HgFactory:
@@ -173,9 +176,10 @@ class HgFactory:
         config: The HuggingFace model configuration
     """
 
-    def __init__(self, config: HuggingFaceModelConfig) -> None:
+    def __init__(self, config: HuggingFaceModelConfig, gangs: Gangs) -> None:
         """Initialize the factory with configuration."""
         self._config = config
+        self._gangs = gangs
 
     def create_model(self) -> Any:
         """Create the model according to the configuration.
@@ -188,6 +192,7 @@ class HgFactory:
             HuggingFaceModelError: If model loading fails
         """
         config = self._config
+        gangs = self._gangs
 
         log.info(f"Creating HuggingFace model: {config.hf_name}")
 
@@ -213,9 +218,9 @@ class HgFactory:
             model_info = _get_model_info(config_class_name, config)
 
             if model_info:
-                return _load_special_model(name, config, model_info)
+                return _load_special_model(name, config, model_info, gangs)
             else:
-                return _load_auto_model(name, config, hf_config)
+                return _load_auto_model(name, config, hf_config, gangs)
 
         except Exception as ex:
             if "not found" in str(ex).lower() or "404" in str(ex):
@@ -255,7 +260,7 @@ def _get_model_info(
 
 
 def _load_special_model(
-    name: str, config: HuggingFaceModelConfig, model_info: Dict[str, str]
+    name: str, config: HuggingFaceModelConfig, model_info: Dict[str, str], gangs: Gang | None = None
 ) -> Any:
     """Load a model using special/custom classes."""
 
@@ -278,6 +283,17 @@ def _load_special_model(
             name,
             f"Failed to load model using custom class '{model_class_name}': {str(ex)}",
         ) from ex
+
+    # Shard the model according to available gangs
+    try:
+        gang = gangs.root.create_gang(list(range(gangs.tp.size)))
+        gang.broadcast_objects([model], source_rank=0)
+
+    except ValueError as e:
+        print(f"Source rank out of range: {e}")
+
+    except GangError as e:
+        print(f"Gang error: {e}")
 
     # Load tokenizer/processor
     if "processor_class" in model_info:
