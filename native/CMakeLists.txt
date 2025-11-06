@@ -6,7 +6,7 @@
 
 cmake_minimum_required(VERSION 3.21.0)
 
-project(fairseq2n VERSION 0.7.0 LANGUAGES C CXX)
+project(fairseq2n VERSION 0.8.0 LANGUAGES C CXX)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY VALUE RelWithDebInfo)
