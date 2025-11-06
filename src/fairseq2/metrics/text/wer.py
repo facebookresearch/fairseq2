@@ -77,9 +77,12 @@ class WerMetric(Metric[tuple[Tensor, Tensor]]):
 
         ref_seq_lens = ref_seqs_layout.seq_lens
         hyp_seq_lens = hyp_seqs_layout.seq_lens
+        # editdistance requires lists
+        ref_seqs_list = ref_seqs.cpu().tolist()
+        hyp_seqs_list = ref_seqs.cpu().tolist()
 
         for ref, ref_seq, ref_seq_len, hyp, hyp_seq, hyp_seq_len in zip(
-            refs, ref_seqs, ref_seq_lens, hyps, hyp_seqs, hyp_seq_lens
+            refs, ref_seqs_list, ref_seq_lens, hyps, hyp_seqs_list, hyp_seq_lens
         ):
             ref_words = ref.split()
             hyp_words = hyp.split()
