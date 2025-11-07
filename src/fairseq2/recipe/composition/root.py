@@ -52,11 +52,6 @@ from fairseq2.recipe.internal.assets import (
     _ExtraModelMetadataSource,
 )
 from fairseq2.recipe.internal.cluster import _ClusterPreparer
-from fairseq2.recipe.internal.config_preparer import (
-    _RecipeConfigPreparer,
-    _RecipeConfigStructurer,
-    _StandardRecipeConfigStructurer,
-)
 from fairseq2.recipe.internal.gang import (
     _FSDPGangsFactory,
     _GangsFactory,
@@ -271,8 +266,6 @@ def _register_recipe_common(container: DependencyContainer) -> None:
     container.register_type(_LogHelper, _StandardLogHelper)
     container.register_type(_OutputDirectoryCreator)
     container.register_type(_RecipeConfigDumper)
-    container.register_type(_RecipeConfigPreparer)
-    container.register_type(_RecipeConfigStructurer, _StandardRecipeConfigStructurer)
     container.register_type(_GangsFactory)
     container.register_type(_SweepTagGenerator, _StandardSweepTagGenerator)
     container.register_type(_TaskRunner)

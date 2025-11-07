@@ -91,8 +91,11 @@ from fairseq2.recipe.error import (
     TorchCompileNotSupportedError,
     WandbInitializationError,
 )
-from fairseq2.recipe.internal.config import _RecipeConfigHolder
-from fairseq2.recipe.internal.config_preparer import _RecipeConfigPreparer
+from fairseq2.recipe.internal.config import (
+    _RecipeConfigHolder,
+    _RecipeConfigStructurer,
+    _StandardRecipeConfigStructurer,
+)
 from fairseq2.recipe.internal.output_dir import _OutputDirectoryCreator
 from fairseq2.recipe.run import _run_recipe, _swap_default_resolver
 from fairseq2.recipe.task import TaskStopException
@@ -111,7 +114,7 @@ from fairseq2.utils.config import (
 from fairseq2.utils.env import EnvironmentVariableError
 from fairseq2.utils.rich import configure_rich_logging
 from fairseq2.utils.structured import StructureError, ValueConverter
-from fairseq2.utils.validation import ValidationError
+from fairseq2.utils.validation import ObjectValidator, ValidationError
 from fairseq2.utils.warn import enable_deprecation_warnings
 from fairseq2.utils.yaml import YamlDumper, YamlError, YamlLoader
 
@@ -204,21 +207,22 @@ def _register_main(
     config_kls = recipe.config_kls
 
     # Recipe Configuration
-    def get_config(resolver: DependencyResolver) -> object:
+    def get_config(resolver: DependencyResolver) -> _RecipeConfigHolder:
         config_loader = resolver.resolve(_RecipeConfigLoader)
 
-        unstructured_config = config_loader.load(
-            config_kls, args.config_file, args.config_overrides
-        )
+        config = config_loader.load(config_kls, args.config_file, args.config_overrides)
 
-        config_preparer = resolver.resolve(_RecipeConfigPreparer)
+        validator = resolver.resolve(ObjectValidator)
 
-        return config_preparer.prepare(config_kls, unstructured_config)
+        validator.validate(config)
+
+        return _RecipeConfigHolder(config)
 
     container.register(_RecipeConfigHolder, get_config)
 
     container.register_type(_RecipeConfigLoader)
     container.register_type(_RecipeConfigPrinter)
+    container.register_type(_RecipeConfigStructurer, _StandardRecipeConfigStructurer)
 
     # Recipe Output Directory
     def get_output_dir(resolver: DependencyResolver) -> Path:
@@ -381,12 +385,14 @@ class _RecipeConfigLoader:
         value_converter: ValueConverter,
         config_merger: ConfigMerger,
         config_processor: ConfigProcessor,
+        config_structurer: _RecipeConfigStructurer,
     ) -> None:
         self._file_system = file_system
         self._yaml_loader = yaml_loader
         self._value_converter = value_converter
         self._config_merger = config_merger
         self._config_processor = config_processor
+        self._config_structurer = config_structurer
 
     def load(
         self,
@@ -438,7 +444,12 @@ class _RecipeConfigLoader:
                         "Config overrides cannot be applied to the recipe configuration."
                     ) from ex
 
-        return unstructured_config
+        try:
+            return self._config_structurer.structure(config_kls, unstructured_config)
+        except StructureError as ex:
+            raise RecipeConfigParseError(
+                "Recipe configuration cannot be structured."
+            ) from ex
 
     def _load_file(self, config_file: Path, unstructured_config: object) -> object:
         try:

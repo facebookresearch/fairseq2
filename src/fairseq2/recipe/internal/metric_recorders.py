@@ -22,7 +22,6 @@ from fairseq2.metrics.recorders import (
     CompositeMetricRecorder,
     MetricRecorder,
     TensorBoardRecorder,
-    WandbClient,
     WandbRecorder,
 )
 from fairseq2.recipe.config import CommonSection
@@ -80,6 +79,11 @@ class _MaybeWandbRecorderFactory:
         return self._factory()
 
 
+class _WandbClient:
+    def __init__(self, run: Any) -> None:
+        self.run = run
+
+
 @final
 class _WandbClientFactory:
     def __init__(
@@ -98,7 +102,7 @@ class _WandbClientFactory:
         self._initializer = initializer
         self._run_id_manager = run_id_manager
 
-    def create(self) -> WandbClient:
+    def create(self) -> _WandbClient:
         unstructured_config = self._value_converter.unstructure(
             self._config_holder.config
         )
@@ -125,7 +129,7 @@ class _WandbClientFactory:
         except (RuntimeError, ValueError) as ex:
             raise WandbInitializationError() from ex
 
-        return WandbClient(run)
+        return _WandbClient(run)
 
 
 @runtime_checkable

@@ -6,11 +6,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TypeVar
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, fields
+from typing import TypeVar, final
 
-from fairseq2.recipe.config import ConfigSectionNotFoundError
+from typing_extensions import override
+
+from fairseq2.recipe.component import ComponentManager
+from fairseq2.recipe.config import ConfigSectionNotFoundError, SupportsStructure
 from fairseq2.runtime.dependency import DependencyResolver
+from fairseq2.typing import is_dataclass_instance
+from fairseq2.utils.structured import StructureError, ValueConverter
 
 SectionT = TypeVar("SectionT")
 
@@ -36,3 +42,75 @@ def _get_config_section(
         )
 
     return section
+
+
+class _RecipeConfigStructurer(ABC):
+    @abstractmethod
+    def structure(
+        self, config_kls: type[object], unstructured_config: object
+    ) -> object: ...
+
+
+@final
+class _StandardRecipeConfigStructurer(_RecipeConfigStructurer):
+    def __init__(
+        self,
+        component_manager: ComponentManager,
+        value_converter: ValueConverter,
+        resolver: DependencyResolver,
+    ) -> None:
+        self._component_manager = component_manager
+        self._value_converter = value_converter
+        self._resolver = resolver
+
+    @override
+    def structure(
+        self, config_kls: type[object], unstructured_config: object
+    ) -> object:
+        config = self._value_converter.structure(unstructured_config, config_kls)
+
+        self._structure_sections(config)
+
+        return config
+
+    def _structure_sections(self, obj: object) -> None:
+        if isinstance(obj, SupportsStructure):
+            obj.structure(self._resolver)
+
+        if isinstance(obj, list):
+            for idx, e in enumerate(obj):
+                try:
+                    self._structure_sections(e)
+                except StructureError as ex:
+                    raise StructureError(
+                        f"Element at index {idx} cannot be structured."
+                    ) from ex
+
+            return
+
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                try:
+                    self._structure_sections(k)
+                except StructureError as ex:
+                    raise StructureError(f"{k} key cannot be structured.") from ex
+
+                try:
+                    self._structure_sections(v)
+                except StructureError as ex:
+                    raise StructureError(
+                        f"Value of the {k} key cannot be structured."
+                    ) from ex
+
+            return
+
+        if is_dataclass_instance(obj):
+            for f in fields(obj):
+                v = getattr(obj, f.name)
+
+                try:
+                    self._structure_sections(v)
+                except StructureError as ex:
+                    raise StructureError(
+                        f"`{f.name}` field cannot be structured."
+                    ) from ex

@@ -23,7 +23,6 @@ from fairseq2.metrics.recorders import (
     MetricDescriptorRegistry,
     MetricRecorder,
     TensorBoardRecorder,
-    WandbClient,
     WandbRecorder,
 )
 from fairseq2.recipe.internal.metric_recorders import (
@@ -33,6 +32,7 @@ from fairseq2.recipe.internal.metric_recorders import (
     _MaybeWandbRecorderFactory,
     _MetricRecorderFactory,
     _StandardWandbRunIdManager,
+    _WandbClient,
     _WandbClientFactory,
     _WandbIdGenerator,
     _WandbInitializer,
@@ -89,12 +89,12 @@ def _register_metric_recorders(container: DependencyContainer) -> None:
     container.register_type(WandbRecorder)
 
     # Weights & Biases Client
-    def get_wandb_client(resolver: DependencyResolver) -> WandbClient:
+    def get_wandb_client(resolver: DependencyResolver) -> _WandbClient:
         client_factory = resolver.resolve(_WandbClientFactory)
 
         return client_factory.create()
 
-    container.register(WandbClient, get_wandb_client)
+    container.register(_WandbClient, get_wandb_client)
 
     container.register_type(_WandbClientFactory)
 

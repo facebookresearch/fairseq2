@@ -19,7 +19,6 @@ from fairseq2.error import raise_operational_system_error
 from fairseq2.recipe.base import EvalRecipe, GenerationRecipe, Recipe, TrainRecipe
 from fairseq2.recipe.internal.cluster import _ClusterPreparer
 from fairseq2.recipe.internal.config import _RecipeConfigHolder
-from fairseq2.recipe.internal.config_preparer import _RecipeConfigPreparer
 from fairseq2.recipe.internal.log import _LogHelper
 from fairseq2.recipe.internal.logging import _DistributedLogConfigurer
 from fairseq2.recipe.internal.output_dir import _OutputDirectoryCreator
@@ -29,6 +28,7 @@ from fairseq2.recipe.task import Task
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 from fairseq2.utils.rich import configure_rich_logging
 from fairseq2.utils.structured import ValueConverter
+from fairseq2.utils.validation import ObjectValidator
 from fairseq2.utils.warn import enable_deprecation_warnings
 from fairseq2.utils.yaml import YamlDumper
 from fairseq2.world_info import WorldInfo
@@ -154,10 +154,12 @@ def _register_run(
         )
 
     # Recipe Configuration
-    def get_config(resolver: DependencyResolver) -> object:
-        config_preparer = resolver.resolve(_RecipeConfigPreparer)
+    def get_config(resolver: DependencyResolver) -> _RecipeConfigHolder:
+        validator = resolver.resolve(ObjectValidator)
 
-        return config_preparer.prepare(config_kls, config)
+        validator.validate(config)
+
+        return _RecipeConfigHolder(config)
 
     container.register(_RecipeConfigHolder, get_config)
 
