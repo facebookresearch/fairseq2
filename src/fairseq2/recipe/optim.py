@@ -22,7 +22,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, fields
 
 from torch import Tensor
-from torch.nn import Parameter
+from torch.nn import Module, Parameter
 
 from fairseq2.logging import log
 from fairseq2.recipe.config import ParameterGroupConfig, default
@@ -31,7 +31,7 @@ from fairseq2.utils.validation import ValidationError
 
 
 def prepare_parameter_groups(
-    model: RecipeModel, group_configs: Sequence[ParameterGroupConfig]
+    model: Module | RecipeModel, group_configs: Sequence[ParameterGroupConfig]
 ) -> Iterable[Tensor] | Iterable[dict[str, object]]:
     """
     Prepares the parameter groups to pass to an optimizer based on the specified
@@ -58,7 +58,7 @@ def prepare_parameter_groups(
 
         from torch.optim import Optimizer
 
-        from fairseq2.recipe import RecipeModel, TrainRecipe
+        from fairseq2.recipe import TrainRecipe
         from fairseq2.recipe.component import register_component
         from fairseq2.recipe.config import Default, ParameterGroupConfig, default
         from fairseq2.recipe.optim import prepare_parameter_groups
@@ -96,7 +96,7 @@ def prepare_parameter_groups(
         def create_my_optimizer(
             resolver: DependencyResolver, config: MyOptimizerConfig
         ) -> MyOptimizer:
-            model = resolver.resolve(RecipeModel)
+            model = resolver.resolve(Module)
 
             # Converts group configurations to an iterable of parameter groups
             # that can be passed to an optimizer.
@@ -118,10 +118,13 @@ def prepare_parameter_groups(
 
             ...
     """
+    if isinstance(model, RecipeModel):
+        model = model.module
+
     # If we don't have any parameter group configurations, take the shortcut and
     # return the entire parameter list of the model as a single group.
     if not group_configs:
-        return model.module.parameters()
+        return model.parameters()
 
     groups = []
 
@@ -152,7 +155,7 @@ def prepare_parameter_groups(
 
     groups.append(group)
 
-    for name, param in model.module.named_parameters():
+    for name, param in model.named_parameters():
         for group in groups:
             if any(name == p or re.match(p, name) for p in group.name_patterns):
                 group.params.append(param)

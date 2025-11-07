@@ -22,16 +22,16 @@ from fairseq2.metrics.recorders import (
     CompositeMetricRecorder,
     MetricRecorder,
     TensorBoardRecorder,
-    WandbClient,
     WandbRecorder,
 )
-from fairseq2.recipe.config import CommonSection, RecipeConfig
+from fairseq2.recipe.config import CommonSection
 from fairseq2.recipe.error import WandbInitializationError
+from fairseq2.recipe.internal.config import _RecipeConfigHolder
 from fairseq2.utils.structured import ValueConverter
 
 
 @final
-class _RecipeMetricRecorderFactory:
+class _MetricRecorderFactory:
     def __init__(
         self, gangs: Gangs, default_factory: Callable[[], CompositeMetricRecorder]
     ) -> None:
@@ -79,28 +79,33 @@ class _MaybeWandbRecorderFactory:
         return self._factory()
 
 
+class _WandbClient:
+    def __init__(self, run: Any) -> None:
+        self.run = run
+
+
 @final
-class _RecipeWandbClientFactory:
+class _WandbClientFactory:
     def __init__(
         self,
         section: CommonSection,
         output_dir: Path,
-        config: RecipeConfig,
+        config_holder: _RecipeConfigHolder,
         value_converter: ValueConverter,
         initializer: _WandbInitializer,
         run_id_manager: _WandbRunIdManager,
     ) -> None:
         self._section = section
         self._output_dir = output_dir
-        self._config = config
+        self._config_holder = config_holder
         self._value_converter = value_converter
         self._initializer = initializer
         self._run_id_manager = run_id_manager
 
-    def create(self) -> WandbClient:
-        untyped_config = self._config.as_(object)
-
-        unstructured_config = self._value_converter.unstructure(untyped_config)
+    def create(self) -> _WandbClient:
+        unstructured_config = self._value_converter.unstructure(
+            self._config_holder.config
+        )
 
         if not isinstance(unstructured_config, dict):
             unstructured_config = None
@@ -124,7 +129,7 @@ class _RecipeWandbClientFactory:
         except (RuntimeError, ValueError) as ex:
             raise WandbInitializationError() from ex
 
-        return WandbClient(run)
+        return _WandbClient(run)
 
 
 @runtime_checkable

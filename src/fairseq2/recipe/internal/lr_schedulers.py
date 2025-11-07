@@ -39,7 +39,7 @@ from fairseq2.utils.validation import ValidationError
 
 
 @final
-class _RecipeLRSchedulerFactory:
+class _LRSchedulerFactory:
     def __init__(
         self, section: LRSchedulerSection, component_manager: ComponentManager
     ) -> None:

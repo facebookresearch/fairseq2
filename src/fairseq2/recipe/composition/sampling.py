@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from torch.nn import Module
+
 from fairseq2.generation import Seq2SeqGenerator, SequenceGenerator
 from fairseq2.generation.sampling import Sampler, TopKSampler, TopPSampler
 from fairseq2.recipe.component import register_component
@@ -21,7 +23,11 @@ from fairseq2.recipe.internal.sampling import (
     _SamplingSeq2SeqGeneratorFactory,
     _SamplingSequenceGeneratorFactory,
 )
-from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
+from fairseq2.runtime.dependency import (
+    DependencyContainer,
+    DependencyResolver,
+    wire_object,
+)
 
 
 def _register_sampling(container: DependencyContainer) -> None:
@@ -29,9 +35,9 @@ def _register_sampling(container: DependencyContainer) -> None:
     def create_seq_generator(
         resolver: DependencyResolver, config: SamplingConfig
     ) -> SequenceGenerator:
-        gen_factory = resolver.resolve(_SamplingSequenceGeneratorFactory)
+        generator_factory = resolver.resolve(_SamplingSequenceGeneratorFactory)
 
-        return gen_factory.create(config)
+        return generator_factory.create(config)
 
     register_component(
         container,
@@ -41,15 +47,22 @@ def _register_sampling(container: DependencyContainer) -> None:
         factory=create_seq_generator,
     )
 
-    container.register_type(_SamplingSequenceGeneratorFactory)
+    def create_seq_generator_factory(
+        resolver: DependencyResolver,
+    ) -> _SamplingSequenceGeneratorFactory:
+        model = resolver.resolve(Module, key="model")
+
+        return wire_object(resolver, _SamplingSequenceGeneratorFactory, model=model)
+
+    container.register(_SamplingSequenceGeneratorFactory, create_seq_generator_factory)
 
     # Seq2Seq
     def create_seq2seq_generator(
         resolver: DependencyResolver, config: SamplingConfig
     ) -> Seq2SeqGenerator:
-        gen_factory = resolver.resolve(_SamplingSeq2SeqGeneratorFactory)
+        generator_factory = resolver.resolve(_SamplingSeq2SeqGeneratorFactory)
 
-        return gen_factory.create(config)
+        return generator_factory.create(config)
 
     register_component(
         container,
@@ -59,7 +72,16 @@ def _register_sampling(container: DependencyContainer) -> None:
         factory=create_seq2seq_generator,
     )
 
-    container.register_type(_SamplingSeq2SeqGeneratorFactory)
+    def create_seq2seq_generator_factory(
+        resolver: DependencyResolver,
+    ) -> _SamplingSeq2SeqGeneratorFactory:
+        model = resolver.resolve(Module, key="model")
+
+        return wire_object(resolver, _SamplingSeq2SeqGeneratorFactory, model=model)
+
+    container.register(
+        _SamplingSeq2SeqGeneratorFactory, create_seq2seq_generator_factory
+    )
 
     # Top-P
     def create_top_p_sampler(

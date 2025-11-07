@@ -44,7 +44,11 @@ from fairseq2.logging import log
 from fairseq2.model_checkpoint import ModelCheckpointError
 from fairseq2.models import ModelNotKnownError, load_model
 from fairseq2.models.clm import CausalLM
-from fairseq2.recipe.error import GangTopologyError, ModelTypeNotValidError
+from fairseq2.recipe.error import (
+    GangTopologyError,
+    ModelTypeNotValidError,
+    raise_model_type_not_valid_error,
+)
 from fairseq2.utils.argparse import parse_dtype
 from fairseq2.utils.rich import configure_rich_logging, get_console
 from fairseq2.utils.rng import RngBag
@@ -251,7 +255,7 @@ def _run(args: Namespace) -> None:
     log.info("{}", model)
 
     if not isinstance(model, CausalLM):
-        raise ModelTypeNotValidError(type(model), CausalLM)
+        raise raise_model_type_not_valid_error(model, CausalLM)
 
     log.info("Loading {} tokenizer.", card.name)
 

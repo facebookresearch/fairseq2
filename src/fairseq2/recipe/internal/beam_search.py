@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import final
 
+from torch.nn import Module
+
 from fairseq2.data.tokenizers import Tokenizer
 from fairseq2.generation import Seq2SeqGenerator, SequenceGenerator
 from fairseq2.generation.beam_search import (
@@ -19,15 +21,17 @@ from fairseq2.models.clm import CausalLM
 from fairseq2.models.seq2seq import Seq2SeqModel
 from fairseq2.recipe.component import ComponentManager, ComponentNotKnownError
 from fairseq2.recipe.config import BeamSearchConfig
-from fairseq2.recipe.error import BeamSearchAlgorithmNotKnownError
-from fairseq2.recipe.model import RecipeModel
+from fairseq2.recipe.error import (
+    BeamSearchAlgorithmNotKnownError,
+    raise_model_type_not_valid_error,
+)
 
 
 @final
 class _BeamSearchSequenceGeneratorFactory:
     def __init__(
         self,
-        model: RecipeModel,
+        model: Module,
         tokenizer: Tokenizer,
         component_manager: ComponentManager,
     ) -> None:
@@ -43,11 +47,8 @@ class _BeamSearchSequenceGeneratorFactory:
         except ComponentNotKnownError:
             raise BeamSearchAlgorithmNotKnownError(config.algo.name) from None
 
-        module = self._model.base_module
-        if not isinstance(module, CausalLM):
-            raise TypeError(
-                f"`model.base_module` is expected to be of type `{CausalLM}`, but is of type `{type(module)}` instead."
-            )
+        if not isinstance(self._model, CausalLM):
+            raise_model_type_not_valid_error(self._model, CausalLM)
 
         max_gen_len = config.max_gen_len
 
@@ -55,7 +56,7 @@ class _BeamSearchSequenceGeneratorFactory:
             max_gen_len = max_gen_len[1]
 
         return BeamSearchSequenceGenerator(
-            module,
+            self._model,
             self._tokenizer.vocab_info,
             algo,
             beam_size=config.beam_size,
@@ -76,7 +77,7 @@ class _BeamSearchSequenceGeneratorFactory:
 class _BeamSearchSeq2SeqGeneratorFactory:
     def __init__(
         self,
-        model: RecipeModel,
+        model: Module,
         tokenizer: Tokenizer,
         component_manager: ComponentManager,
     ) -> None:
@@ -92,11 +93,8 @@ class _BeamSearchSeq2SeqGeneratorFactory:
         except ComponentNotKnownError:
             raise BeamSearchAlgorithmNotKnownError(config.algo.name) from None
 
-        module = self._model.base_module
-        if not isinstance(module, Seq2SeqModel):
-            raise TypeError(
-                f"`model.base_module` is expected to be of type `{Seq2SeqModel}`, but is of type `{type(module)}` instead."
-            )
+        if not isinstance(self._model, Seq2SeqModel):
+            raise_model_type_not_valid_error(self._model, Seq2SeqModel)
 
         max_gen_len = config.max_gen_len
 
@@ -104,7 +102,7 @@ class _BeamSearchSeq2SeqGeneratorFactory:
             max_gen_len = (0.0, max_gen_len)
 
         return BeamSearchSeq2SeqGenerator(
-            module,
+            self._model,
             self._tokenizer.vocab_info,
             algo,
             beam_size=config.beam_size,

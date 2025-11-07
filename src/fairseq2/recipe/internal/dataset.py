@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import final
 
 from fairseq2.assets import AssetStore
@@ -19,11 +20,16 @@ from fairseq2.error import InternalError
 from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
 from fairseq2.logging import log
 from fairseq2.recipe.config import DatasetSection
-from fairseq2.recipe.dataset import RecipeDataset
-from fairseq2.recipe.error import ErrorContext
 from fairseq2.recipe.internal.asset_config import _AssetConfigOverrider
 from fairseq2.recipe.internal.log import _LogHelper
 from fairseq2.runtime.lookup import Lookup
+
+
+@dataclass
+class _DatasetHolder:
+    dataset: object
+    family: DatasetFamily
+    config: object
 
 
 @final
@@ -42,26 +48,21 @@ class _RecipeDatasetOpener:
         self._gangs = gangs
         self._log_helper = log_helper
 
-    def open(self, section_name: str, section: DatasetSection) -> RecipeDataset:
-        try:
-            if section.name is not None:
-                if section.family is not None:
-                    log.warning("`{0}.family` will be ignored since `{0}.name` is specified.", section_name)  # fmt: skip
-
-                return self._open_dataset(section_name, section)
-
+    def open(self, section_name: str, section: DatasetSection) -> _DatasetHolder:
+        if section.name is not None:
             if section.family is not None:
-                return self._open_custom_dataset(section_name, section)
-        except Exception as ex:
-            ErrorContext.set_config_section_name(ex, section_name)
+                log.warning("`{0}.family` will be ignored since `{0}.name` is specified.", section_name)  # fmt: skip
 
-            raise
+            return self._open_dataset(section_name, section)
+
+        if section.family is not None:
+            return self._open_custom_dataset(section_name, section)
 
         raise InternalError("`section.name` and `section.family` are both `None`.")
 
     def _open_dataset(
         self, section_name: str, section: DatasetSection
-    ) -> RecipeDataset:
+    ) -> _DatasetHolder:
         name = section.name
         if name is None:
             raise InternalError("`section.name` is `None`.")
@@ -87,7 +88,7 @@ class _RecipeDatasetOpener:
         if config is not None:
             self._log_helper.log_config("Dataset Config", config)
 
-        inner_dataset = family.open_dataset(card, config)
+        dataset = family.open_dataset(card, config)
 
         try:
             self._gangs.root.barrier()
@@ -96,11 +97,11 @@ class _RecipeDatasetOpener:
 
         log.info("Dataset loaded.")
 
-        return RecipeDataset(inner_dataset, config, family)
+        return _DatasetHolder(dataset, family, config)
 
     def _open_custom_dataset(
         self, section_name: str, section: DatasetSection
-    ) -> RecipeDataset:
+    ) -> _DatasetHolder:
         family_name = section.family
         if family_name is None:
             raise InternalError("`section.family` is `None`.")
@@ -129,7 +130,7 @@ class _RecipeDatasetOpener:
         if config is not None:
             self._log_helper.log_config("Dataset Config", config)
 
-        inner_dataset = family.open_custom_dataset(config)
+        dataset = family.open_custom_dataset(config)
 
         try:
             self._gangs.root.barrier()
@@ -138,4 +139,4 @@ class _RecipeDatasetOpener:
 
         log.info("Dataset loaded.")
 
-        return RecipeDataset(inner_dataset, config, family)
+        return _DatasetHolder(dataset, family, config)

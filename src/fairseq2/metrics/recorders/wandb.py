@@ -17,23 +17,16 @@ from fairseq2.metrics.recorders.descriptor import MetricDescriptorRegistry
 from fairseq2.metrics.recorders.recorder import MetricRecorder
 
 
-class WandbClient:
-    def __init__(self, run: Any) -> None:
-        self.run = run
-
-
 @final
 class WandbRecorder(MetricRecorder):
     """Records metric values to Weights & Biases."""
 
-    def __init__(
-        self, client: WandbClient, metric_descriptors: MetricDescriptorRegistry
-    ) -> None:
+    def __init__(self, run: Any, metric_descriptors: MetricDescriptorRegistry) -> None:
         """
         In order to use W&B, run `wandb login` from the command line and enter
         the API key when prompted.
         """
-        self._run = client.run
+        self._run = run
         self._metric_descriptors = metric_descriptors
 
     @override

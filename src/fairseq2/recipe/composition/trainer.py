@@ -12,12 +12,12 @@ from fairseq2.checkpoint import CheckpointHGExporter, OutOfProcCheckpointHGExpor
 from fairseq2.metrics.recorders import MetricDescriptor
 from fairseq2.optim.fp16_loss_scaler import Float16LossScaler
 from fairseq2.recipe.internal.trainer import (
+    _CheckpointHGExporterFactory,
+    _Float16LossScalerFactory,
+    _GarbageCollectorFactory,
     _MaybeScoreMetricDescriptorProvider,
-    _RecipeCheckpointHGExporterFactory,
-    _RecipeFloat16LossScalerFactory,
-    _RecipeGarbageCollectorFactory,
-    _RecipeTrainerFactory,
-    _RecipeValidatorFactory,
+    _TrainerFactory,
+    _ValidatorFactory,
 )
 from fairseq2.recipe.trainer import Trainer
 from fairseq2.recipe.validator import StandardValidator
@@ -31,50 +31,44 @@ from fairseq2.utils.gc import GarbageCollector
 
 def _register_trainer_factory(container: DependencyContainer) -> None:
     # Trainer
-    def create_trainer_factory(resolver: DependencyResolver) -> _RecipeTrainerFactory:
+    def get_trainer_factory(resolver: DependencyResolver) -> _TrainerFactory:
         def create_trainer(**kwargs: Any) -> Trainer:
             return wire_object(resolver, Trainer, **kwargs)
 
-        return wire_object(
-            resolver, _RecipeTrainerFactory, inner_factory=create_trainer
-        )
+        return wire_object(resolver, _TrainerFactory, activator=create_trainer)
 
-    container.register(_RecipeTrainerFactory, create_trainer_factory)
+    container.register(_TrainerFactory, get_trainer_factory)
 
     # Validator
-    def create_validator_factory(
-        resolver: DependencyResolver,
-    ) -> _RecipeValidatorFactory:
+    def get_validator_factory(resolver: DependencyResolver) -> _ValidatorFactory:
         def create_validator(**kwargs: Any) -> StandardValidator:
             return wire_object(resolver, StandardValidator, **kwargs)
 
-        return wire_object(
-            resolver, _RecipeValidatorFactory, standard_factory=create_validator
-        )
+        return wire_object(resolver, _ValidatorFactory, activator=create_validator)
 
-    container.register(_RecipeValidatorFactory, create_validator_factory)
+    container.register(_ValidatorFactory, get_validator_factory)
 
     # Loss Scaler
-    def create_fp16_loss_scaler(resolver: DependencyResolver) -> Float16LossScaler:
-        scaler_factory = resolver.resolve(_RecipeFloat16LossScalerFactory)
+    def get_fp16_loss_scaler(resolver: DependencyResolver) -> Float16LossScaler:
+        scaler_factory = resolver.resolve(_Float16LossScalerFactory)
 
         return scaler_factory.create()
 
-    container.register(Float16LossScaler, create_fp16_loss_scaler)
+    container.register(Float16LossScaler, get_fp16_loss_scaler)
 
-    container.register_type(_RecipeFloat16LossScalerFactory)
+    container.register_type(_Float16LossScalerFactory)
 
     # Hugging Face
-    def create_checkpoint_hg_exporter(
+    def get_checkpoint_hg_exporter(
         resolver: DependencyResolver,
     ) -> CheckpointHGExporter:
-        exporter_factory = resolver.resolve(_RecipeCheckpointHGExporterFactory)
+        exporter_factory = resolver.resolve(_CheckpointHGExporterFactory)
 
         return exporter_factory.create()
 
-    container.register(CheckpointHGExporter, create_checkpoint_hg_exporter)
+    container.register(CheckpointHGExporter, get_checkpoint_hg_exporter)
 
-    container.register_type(_RecipeCheckpointHGExporterFactory)
+    container.register_type(_CheckpointHGExporterFactory)
 
     container.register_type(OutOfProcCheckpointHGExporter)
 
@@ -90,12 +84,12 @@ def _register_trainer_factory(container: DependencyContainer) -> None:
 
     container.register_type(_MaybeScoreMetricDescriptorProvider)
 
-    # GarbageCollector
-    def create_gc(resolver: DependencyResolver) -> GarbageCollector:
-        gc_factory = resolver.resolve(_RecipeGarbageCollectorFactory)
+    # Garbage Collector
+    def get_gc(resolver: DependencyResolver) -> GarbageCollector:
+        gc_factory = resolver.resolve(_GarbageCollectorFactory)
 
         return gc_factory.create()
 
-    container.register(GarbageCollector, create_gc)
+    container.register(GarbageCollector, get_gc)
 
-    container.register_type(_RecipeGarbageCollectorFactory)
+    container.register_type(_GarbageCollectorFactory)
