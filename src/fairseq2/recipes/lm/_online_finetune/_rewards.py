@@ -1247,3 +1247,8 @@ class PplDerivedVerifier(VLLMOutputReward):
             )
 
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
+
+    def prepare_preference_batch(
+        self, prompt_batch: PromptBatch, rollouts
+    ) -> PreferenceBatch:
+        pass
