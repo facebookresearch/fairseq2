@@ -161,6 +161,7 @@ setup(
     zip_safe=False,
     python_requires=">=3.10",
     install_requires=[
+        "numpy~=2.2",
         # We use the tbb package as a fallback in case the system does not
         # provide Intel oneTBB.
         "tbb>=2021.8;platform_machine=='x86_64'",
