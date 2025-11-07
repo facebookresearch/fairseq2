@@ -64,7 +64,7 @@ class EvalUnit(ABC, Generic[BatchT_contra]):
 
     @property
     def model(self) -> RecipeModel:
-        _warn_deprecated("`EvalUnit.model` is deprecated and will be removed in v0.13.")
+        _warn_deprecated("`EvalUnit.model` is deprecated and will be removed in v0.14.")
 
         raise NotImplementedError()
 

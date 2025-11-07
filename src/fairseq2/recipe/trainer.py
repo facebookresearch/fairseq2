@@ -92,7 +92,7 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
     @property
     def model(self) -> RecipeModel:
         _warn_deprecated(
-            "`TrainUnit.model` is deprecated and will be removed in v0.13."
+            "`TrainUnit.model` is deprecated and will be removed in v0.14."
         )
 
         raise NotImplementedError()

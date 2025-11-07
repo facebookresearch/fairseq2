@@ -41,8 +41,6 @@ from fairseq2.recipe.composition.seq_generator import _register_seq_generators
 from fairseq2.recipe.composition.tokenizer import _register_tokenizers
 from fairseq2.recipe.composition.train_model import _register_train_model
 from fairseq2.recipe.composition.trainer import _register_trainer_factory
-from fairseq2.recipe.evaluator import Evaluator
-from fairseq2.recipe.generator import Generator
 from fairseq2.recipe.internal.asset_config import (
     _AssetConfigOverrider,
     _StandardAssetConfigOverrider,
@@ -70,7 +68,6 @@ from fairseq2.recipe.internal.task import _TaskRunner
 from fairseq2.recipe.internal.torch import _TorchConfigurer
 from fairseq2.recipe.run import _RecipeConfigDumper
 from fairseq2.recipe.task import Task
-from fairseq2.recipe.trainer import Trainer
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 from fairseq2.utils.stopwatch import Stopwatch
 
@@ -87,7 +84,7 @@ def _register_train_recipe(container: DependencyContainer, recipe: TrainRecipe) 
     _register_train_model(container)
 
     # Trainer
-    def get_trainer(resolver: DependencyResolver) -> Trainer:
+    def get_trainer(resolver: DependencyResolver) -> Task:
         context = RecipeContext(resolver)
 
         try:
@@ -154,7 +151,7 @@ def _register_eval_recipe(container: DependencyContainer, recipe: EvalRecipe) ->
 
     # Evaluator
     @torch.inference_mode()
-    def get_evaluator(resolver: DependencyResolver) -> Evaluator:
+    def get_evaluator(resolver: DependencyResolver) -> Task:
         context = RecipeContext(resolver)
 
         try:
@@ -208,7 +205,7 @@ def _register_generation_recipe(
 
     # Generator
     @torch.inference_mode()
-    def get_generator(resolver: DependencyResolver) -> Generator:
+    def get_generator(resolver: DependencyResolver) -> Task:
         context = RecipeContext(resolver)
 
         try:

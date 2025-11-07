@@ -17,11 +17,12 @@ from torch.nn import Module
 from fairseq2.assets import AssetStore
 from fairseq2.data.tokenizers import Tokenizer
 from fairseq2.datasets import DataReader
-from fairseq2.device import SupportsDeviceTransfer
+from fairseq2.device import Device, SupportsDeviceTransfer
 from fairseq2.error import InvalidOperationError
 from fairseq2.file_system import FileSystem
 from fairseq2.gang import Gangs
 from fairseq2.generation import Seq2SeqGenerator, SequenceGenerator
+from fairseq2.metrics.recorders import MetricRecorder
 from fairseq2.recipe.config import RecipeConfig, ReferenceModelSection
 from fairseq2.recipe.dataset import RecipeDataset
 from fairseq2.recipe.error import (
@@ -40,9 +41,11 @@ from fairseq2.recipe.internal.reference_model import _ReferenceModelBootstrapper
 from fairseq2.recipe.internal.tokenizer import _TokenizerHolder
 from fairseq2.recipe.internal.trainer import _TrainerFactory, _ValidatorFactory
 from fairseq2.recipe.model import RecipeModel, _StandardRecipeModel
+from fairseq2.recipe.task import Task
 from fairseq2.recipe.tokenizer import RecipeTokenizer
 from fairseq2.recipe.trainer import Trainer, TrainUnit
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
+from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.warn import _warn_deprecated
 
 BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
@@ -84,6 +87,10 @@ class RecipeContext:
         return self._resolver.resolve(Path)
 
     @property
+    def progress_reporter(self) -> ProgressReporter:
+        return self._resolver.resolve(ProgressReporter)
+
+    @property
     def file_system(self) -> FileSystem:
         return self._resolver.resolve(FileSystem)
 
@@ -92,8 +99,16 @@ class RecipeContext:
         return self._resolver.resolve(AssetStore)
 
     @property
+    def device(self) -> Device:
+        return self._resolver.resolve(Device)
+
+    @property
     def gangs(self) -> Gangs:
         return self._resolver.resolve(Gangs)
+
+    @property
+    def metric_recorder(self) -> MetricRecorder:
+        return self._resolver.resolve(MetricRecorder)
 
     def get_model(self, section_name: str = "model") -> Module:
         return self._resolver.resolve(Module, key=section_name)
@@ -200,7 +215,7 @@ class RecipeContext:
     def config(self) -> RecipeConfig:
         """:meta private:"""
         _warn_deprecated(
-            "`RecipeContext.config` is deprecated and will be removed in v0.13. Use `RecipeContext.get_config()` or `RecipeContext.get_config_as()` instead."
+            "`RecipeContext.config` is deprecated and will be removed in v0.14. Use `RecipeContext.get_config()` or `RecipeContext.get_config_as()` instead."
         )
 
         config_holder = self._resolver.resolve(_RecipeConfigHolder)
@@ -211,7 +226,7 @@ class RecipeContext:
     def model(self) -> RecipeModel:
         """:meta private:"""
         _warn_deprecated(
-            "`RecipeContext.model` is deprecated and will be removed in v0.13. Use `RecipeContext.get_model()`, `RecipeContext.get_model_as()`, or `RecipeContext.get_data_parallel_model()` instead."
+            "`RecipeContext.model` is deprecated and will be removed in v0.14. Use `RecipeContext.get_model()`, `RecipeContext.get_model_as()`, or `RecipeContext.get_data_parallel_model()` instead."
         )
 
         model_holder = self._resolver.resolve(_ModelHolder)
@@ -222,7 +237,7 @@ class RecipeContext:
     def get_reference_model(self, section_name: str) -> RecipeModel:
         """:meta private:"""
         _warn_deprecated(
-            "`RecipeContext.get_reference_model()` is deprecated and will be removed in v0.13. Use `RecipeContext.get_model()` or `RecipeContext.get_model_as()` instead."
+            "`RecipeContext.get_reference_model()` is deprecated and will be removed in v0.14. Use `RecipeContext.get_model()` or `RecipeContext.get_model_as()` instead."
         )
 
         model_holder = self._resolver.resolve(_ModelHolder, key=section_name)
@@ -231,7 +246,7 @@ class RecipeContext:
 
     def bootstrap_model(self, section_name: str) -> RecipeModel:
         _warn_deprecated(
-            "`RecipeContext.bootstrap_model()` is deprecated and will be removed in v0.13. Use `RecipeContext.bootstrap_reference_model()` or `RecipeContext.bootstrap_reference_model_as()` instead."
+            "`RecipeContext.bootstrap_model()` is deprecated and will be removed in v0.14. Use `RecipeContext.bootstrap_reference_model()` or `RecipeContext.bootstrap_reference_model_as()` instead."
         )
 
         section = _get_config_section(
@@ -248,7 +263,7 @@ class RecipeContext:
     def default_dataset(self) -> RecipeDataset:
         """:meta private:"""
         _warn_deprecated(
-            "`RecipeContext.default_dataset` is deprecated and will be removed in v0.13. Use `RecipeContext.get_dataset()` or `RecipeContext.get_dataset_as()` instead."
+            "`RecipeContext.default_dataset` is deprecated and will be removed in v0.14. Use `RecipeContext.get_dataset()` or `RecipeContext.get_dataset_as()` instead."
         )
 
         dataset_holder = self._resolver.resolve(_DatasetHolder, key="dataset")
@@ -261,7 +276,7 @@ class RecipeContext:
     def default_tokenizer(self) -> RecipeTokenizer:
         """:meta private:"""
         _warn_deprecated(
-            "`RecipeContext.default_tokenizer` is deprecated and will be removed in v0.13. Use `RecipeContext.get_tokenizer()` or `RecipeContext.get_tokenizer_as()` instead."
+            "`RecipeContext.default_tokenizer` is deprecated and will be removed in v0.14. Use `RecipeContext.get_tokenizer()` or `RecipeContext.get_tokenizer_as()` instead."
         )
 
         tokenizer_holder = self._resolver.resolve(_TokenizerHolder, key="tokenizer")
@@ -274,7 +289,7 @@ class RecipeContext:
     def default_seq_generator(self) -> SequenceGenerator:
         """:meta private:"""
         _warn_deprecated(
-            "`RecipeContext.default_seq_generator` is deprecated and will be removed in v0.13. Use `RecipeContext.get_seq_generator()` instead."
+            "`RecipeContext.default_seq_generator` is deprecated and will be removed in v0.14. Use `RecipeContext.get_seq_generator()` instead."
         )
 
         return self._resolver.resolve(SequenceGenerator)
@@ -283,7 +298,7 @@ class RecipeContext:
     def default_seq2seq_generator(self) -> Seq2SeqGenerator:
         """:meta private:"""
         _warn_deprecated(
-            "`RecipeContext.default_seq2seq_generator` is deprecated and will be removed in v0.13. Use `RecipeContext.get_seq2seq_generator()` instead."
+            "`RecipeContext.default_seq2seq_generator` is deprecated and will be removed in v0.14. Use `RecipeContext.get_seq2seq_generator()` instead."
         )
 
         return self._resolver.resolve(Seq2SeqGenerator)
@@ -334,7 +349,7 @@ class Recipe(ABC):
 
 class TrainRecipe(Recipe):
     @abstractmethod
-    def create_trainer(self, context: RecipeContext) -> Trainer: ...
+    def create_trainer(self, context: RecipeContext) -> Task: ...
 
     def has_static_autograd_graph(self, context: RecipeContext) -> bool:
         return True
@@ -342,9 +357,9 @@ class TrainRecipe(Recipe):
 
 class EvalRecipe(Recipe):
     @abstractmethod
-    def create_evaluator(self, context: RecipeContext) -> Evaluator: ...
+    def create_evaluator(self, context: RecipeContext) -> Task: ...
 
 
 class GenerationRecipe(Recipe):
     @abstractmethod
-    def create_generator(self, context: RecipeContext) -> Generator: ...
+    def create_generator(self, context: RecipeContext) -> Task: ...

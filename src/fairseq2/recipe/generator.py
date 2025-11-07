@@ -58,7 +58,7 @@ class GeneratorUnit(ABC, Generic[BatchT_contra]):
     @property
     def model(self) -> RecipeModel:
         _warn_deprecated(
-            "`GeneratorUnit.model` is deprecated and will be removed in v0.13."
+            "`GeneratorUnit.model` is deprecated and will be removed in v0.14."
         )
 
         raise NotImplementedError()
