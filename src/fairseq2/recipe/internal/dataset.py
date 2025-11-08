@@ -75,18 +75,16 @@ class _RecipeDatasetOpener:
 
         config = family.get_dataset_config(card)
 
-        if section.config_overrides is not None:
-            config = self._asset_config_overrider.apply_overrides(
-                section_name, config, section.config_overrides
-            )
+        config = self._asset_config_overrider.apply_overrides(
+            section_name, config, section.config_overrides
+        )
 
         if section_name == "dataset":
             log.info("Opening {} dataset.", name)
         else:
             log.info("Opening {} dataset specified in `{}` section.", name, section_name)  # fmt: skip
 
-        if config is not None:
-            self._log_helper.log_config("Dataset Config", config)
+        self._log_helper.log_config("Dataset Config", config)
 
         dataset = family.open_dataset(card, config)
 
@@ -117,18 +115,16 @@ class _RecipeDatasetOpener:
                 f"Default configuration of the {family_name} dataset family cannot be constructed."
             ) from ex
 
-        if section.config_overrides is not None:
-            config = self._asset_config_overrider.apply_overrides(
-                section_name, config, section.config_overrides
-            )
+        config = self._asset_config_overrider.apply_overrides(
+            section_name, config, section.config_overrides
+        )
 
         if section_name == "dataset":
             log.info("Opening dataset.")
         else:
             log.info("Opening dataset specified in `{} section.", section_name)
 
-        if config is not None:
-            self._log_helper.log_config("Dataset Config", config)
+        self._log_helper.log_config("Dataset Config", config)
 
         dataset = family.open_custom_dataset(config)
 

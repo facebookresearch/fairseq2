@@ -83,18 +83,16 @@ class _RecipeTokenizerLoader:
 
         config = family.get_tokenizer_config(card)
 
-        if section.config_overrides is not None:
-            config = self._asset_config_overrider.apply_overrides(
-                section_name, config, section.config_overrides
-            )
+        config = self._asset_config_overrider.apply_overrides(
+            section_name, config, section.config_overrides
+        )
 
         if section_name == "tokenizer":
             log.info("Loading {} tokenizer.", name)
         else:
             log.info("Loading {} tokenizer specified in `{}` section.", name, section_name)  # fmt: skip
 
-        if config is not None:
-            self._log_helper.log_config("Tokenizer Config", config)
+        self._log_helper.log_config("Tokenizer Config", config)
 
         tokenizer = family.load_tokenizer(card, config, progress=True)
 
@@ -131,18 +129,16 @@ class _RecipeTokenizerLoader:
                 f"Default configuration of the {family_name} tokenizer family cannot be constructed."
             ) from ex
 
-        if section.config_overrides is not None:
-            config = self._asset_config_overrider.apply_overrides(
-                section_name, config, section.config_overrides
-            )
+        config = self._asset_config_overrider.apply_overrides(
+            section_name, config, section.config_overrides
+        )
 
         if section_name == "tokenizer":
             log.info("Loading tokenizer.")
         else:
             log.info("Loading tokenizer specified in `{}` section.", section_name)
 
-        if config is not None:
-            self._log_helper.log_config("Tokenizer Config", config)
+        self._log_helper.log_config("Tokenizer Config", config)
 
         try:
             tokenizer = family.load_custom_tokenizer(path, config)

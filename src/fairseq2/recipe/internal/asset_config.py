@@ -21,7 +21,7 @@ from fairseq2.utils.validation import ObjectValidator, ValidationError
 class _AssetConfigOverrider(ABC):
     @abstractmethod
     def apply_overrides(
-        self, section_name: str, config: object, unstructured_overrides: object
+        self, section_name: str, config: object, unstructured_overrides: object | None
     ) -> object: ...
 
 
@@ -41,7 +41,7 @@ class _StandardAssetConfigOverrider(_AssetConfigOverrider):
 
     @override
     def apply_overrides(
-        self, section_name: str, config: object, unstructured_overrides: object
+        self, section_name: str, config: object, unstructured_overrides: object | None
     ) -> object:
         if unstructured_overrides is None:
             return config

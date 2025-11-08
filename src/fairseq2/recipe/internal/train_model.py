@@ -121,10 +121,9 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
 
         config = family.get_model_config(card)
 
-        if self._section.config_overrides is not None:
-            config = self._asset_config_overrider.apply_overrides(
-                "model", config, self._section.config_overrides
-            )
+        config = self._asset_config_overrider.apply_overrides(
+            "model", config, self._section.config_overrides
+        )
 
         gangs = self._gangs
 
@@ -138,8 +137,7 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
         if has_checkpoint:
             log.info("Initializing checkpoint model.")
 
-            if config is not None:
-                self._log_helper.log_config("Model Config", config)
+            self._log_helper.log_config("Model Config", config)
 
             model = family.create_new_model(
                 config, gangs, dtype, meta=family.supports_meta
@@ -155,8 +153,7 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
         else:
             log.info("Loading {} model on data parallel rank 0.", name)
 
-            if config is not None:
-                self._log_helper.log_config("Model Config", config)
+            self._log_helper.log_config("Model Config", config)
 
             if gangs.dp.rank == 0:
                 model = family.load_model(
@@ -208,10 +205,9 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
             if config is None:
                 raise ModelArchitectureNotKnownError(arch, family_name) from None
 
-        if self._section.config_overrides is not None:
-            config = self._asset_config_overrider.apply_overrides(
-                "model", config, self._section.config_overrides
-            )
+        config = self._asset_config_overrider.apply_overrides(
+            "model", config, self._section.config_overrides
+        )
 
         gangs = self._gangs
 
@@ -225,8 +221,7 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
         if has_checkpoint:
             log.info("Initializing checkpoint model.")
 
-            if config is not None:
-                self._log_helper.log_config("Model Config", config)
+            self._log_helper.log_config("Model Config", config)
 
             model = family.create_new_model(
                 config, gangs, dtype, meta=family.supports_meta
@@ -242,8 +237,7 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
         else:
             log.info("Loading model on data parallel rank 0.")
 
-            if config is not None:
-                self._log_helper.log_config("Model Config", config)
+            self._log_helper.log_config("Model Config", config)
 
             if gangs.dp.rank == 0:
                 try:
@@ -302,10 +296,9 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
             if config is None:
                 raise ModelArchitectureNotKnownError(arch, family_name) from None
 
-        if self._section.config_overrides is not None:
-            config = self._asset_config_overrider.apply_overrides(
-                "model", config, self._section.config_overrides
-            )
+        config = self._asset_config_overrider.apply_overrides(
+            "model", config, self._section.config_overrides
+        )
 
         gangs = self._gangs
 
@@ -319,8 +312,7 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
         if has_checkpoint:
             log.info("Initializing checkpoint model.")
 
-            if config is not None:
-                self._log_helper.log_config("Model Config", config)
+            self._log_helper.log_config("Model Config", config)
 
             model = family.create_new_model(
                 config, gangs, dtype, meta=family.supports_meta
@@ -339,8 +331,7 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
             else:
                 log.info("Initializing model on data parallel rank 0.")
 
-            if config is not None:
-                self._log_helper.log_config("Model Config", config)
+            self._log_helper.log_config("Model Config", config)
 
             if gangs.dp.rank == 0:
                 meta = False

@@ -73,7 +73,7 @@ model_family: llama
 checkpoint: "https://ai.meta.com/llama/;gated=true"
 tokenizer: "https://ai.meta.com/llama/;gated=true"
 tokenizer_family: llama
-tokenizer_config_override:
+tokenizer_config_overrides:
   impl: hg
 
 # legacy
@@ -83,7 +83,7 @@ use_v2_tokenizer: true
 
 name: llama3_instruct
 base: llama3
-tokenizer_config_override:
+tokenizer_config_overrides:
   use_eot: true  # instruct tokenizer to use EOT instead of EOS
 
 ---
@@ -206,5 +206,5 @@ model_arch: llama4_scout_17b_16e
 
 name: llama4_scout_17b_16e_instruct
 base: llama4_scout_17b_16e
-tokenizer_config_override:
+tokenizer_config_overrides:
   use_eot: true  # instruct tokenizer to use EOT instead of EOS
