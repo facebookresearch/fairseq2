@@ -16,6 +16,7 @@ import torch
 import fairseq2.runtime.dependency
 from fairseq2.composition import _register_library
 from fairseq2.error import raise_operational_system_error
+from fairseq2.logging import configure_logging
 from fairseq2.recipe.base import Recipe
 from fairseq2.recipe.internal.cluster import _ClusterPreparer
 from fairseq2.recipe.internal.config import _is_train_config, _RecipeConfigHolder
@@ -26,7 +27,6 @@ from fairseq2.recipe.internal.task import _TaskRunner
 from fairseq2.recipe.internal.torch import _TorchConfigurer
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 from fairseq2.task import Task
-from fairseq2.utils.rich import configure_rich_logging
 from fairseq2.utils.structured import ValueConverter
 from fairseq2.utils.validation import ObjectValidator
 from fairseq2.utils.warn import _warn_deprecated, enable_deprecation_warnings
@@ -73,7 +73,14 @@ def generate(recipe: Recipe, config: object, output_dir: Path) -> None:
 #
 
 
-def run(recipe: Recipe, config: object, output_dir: Path) -> None:
+def run(
+    recipe: Recipe,
+    config: object,
+    output_dir: Path,
+    *,
+    no_rich: bool = False,
+    no_progress: bool | None = None,
+) -> None:
     from fairseq2.recipe.composition import (
         _register_inference_recipe,
         _register_train_recipe,
@@ -81,7 +88,7 @@ def run(recipe: Recipe, config: object, output_dir: Path) -> None:
 
     enable_deprecation_warnings()
 
-    configure_rich_logging()
+    configure_logging(no_rich=no_rich)
 
     is_train_recipe = _is_train_config(recipe.config_kls)
 
@@ -89,7 +96,7 @@ def run(recipe: Recipe, config: object, output_dir: Path) -> None:
 
     with _swap_default_resolver(container):
         with torch.inference_mode(mode=not is_train_recipe):
-            _register_library(container)
+            _register_library(container, no_progress=True if no_rich else no_progress)
 
             if is_train_recipe:
                 _register_train_recipe(container, recipe)

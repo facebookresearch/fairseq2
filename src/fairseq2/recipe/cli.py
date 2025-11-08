@@ -7,13 +7,7 @@
 from __future__ import annotations
 
 import sys
-from argparse import (
-    OPTIONAL,
-    ArgumentError,
-    ArgumentParser,
-    BooleanOptionalAction,
-    Namespace,
-)
+from argparse import OPTIONAL, ArgumentError, ArgumentParser, Namespace
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
@@ -51,7 +45,7 @@ from fairseq2.error import (
 )
 from fairseq2.file_system import FileSystem
 from fairseq2.generation import SequenceGenerationError
-from fairseq2.logging import log
+from fairseq2.logging import configure_logging, log
 from fairseq2.model_checkpoint import ModelCheckpointError
 from fairseq2.models import (
     ModelArchitectureNotKnownError,
@@ -110,7 +104,6 @@ from fairseq2.utils.config import (
     ReplacePathDirective,
 )
 from fairseq2.utils.env import EnvironmentVariableError
-from fairseq2.utils.rich import configure_rich_logging
 from fairseq2.utils.structured import StructureError, ValueConverter
 from fairseq2.utils.validation import ObjectValidator, ValidationError
 from fairseq2.utils.warn import _warn_deprecated, enable_deprecation_warnings
@@ -162,20 +155,20 @@ def main(recipe: Recipe) -> None:
         _register_train_recipe,
     )
 
+    args = _parse_args()
+
     enable_deprecation_warnings()
 
-    configure_rich_logging()
+    configure_logging(no_rich=args.no_rich)
 
     is_train_recipe = _is_train_config(recipe.config_kls)
 
-    args = _parse_args()
-
     container = DependencyContainer()
 
-    with _handle_errors(container, args.exit_on_error):
+    with _handle_errors(container, args.no_exit_on_error):
         with _swap_default_resolver(container):
             with torch.inference_mode(mode=not is_train_recipe):
-                _register_library(container)
+                _register_library(container, no_progress=True if args.no_rich else None)
 
                 if is_train_recipe:
                     _register_train_recipe(container, recipe)
@@ -262,10 +255,17 @@ def _parse_args() -> Namespace:
     )
 
     parser.add_argument(
-        "--exit-on-error",
-        default=True,
-        action=BooleanOptionalAction,
-        help="whether to gracefully exit in case of an error",
+        "--no-rich",
+        default=False,
+        action="store_true",
+        help="whether to disable rich text output for logging",
+    )
+
+    parser.add_argument(
+        "--no-exit-on-error",
+        default=False,
+        action="store_true",
+        help="whether to propagate unhandled errors",
     )
 
     output_dir_action = parser.add_argument(
@@ -286,12 +286,14 @@ def _parse_args() -> Namespace:
 
 
 @contextmanager
-def _handle_errors(resolver: DependencyResolver, exit_on_error: bool) -> Iterator[None]:
+def _handle_errors(
+    resolver: DependencyResolver, no_exit_on_error: bool
+) -> Iterator[None]:
     def maybe_exit(status: int) -> NoReturn:
-        if exit_on_error:
-            sys.exit(status)
+        if no_exit_on_error:
+            raise
 
-        raise
+        sys.exit(status)
 
     try:
         yield
@@ -329,12 +331,12 @@ def _handle_errors(resolver: DependencyResolver, exit_on_error: bool) -> Iterato
 
         maybe_exit(1)
     except KeyboardInterrupt:
-        if exit_on_error:
-            signal(SIGINT, SIG_DFL)
+        if no_exit_on_error:
+            raise
 
-            raise_signal(SIGINT)
+        signal(SIGINT, SIG_DFL)
 
-        raise
+        raise_signal(SIGINT)
     except Exception as ex:
         handler: ExceptionHandler[Any] | None
 
