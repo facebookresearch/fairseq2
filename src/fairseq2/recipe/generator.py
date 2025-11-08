@@ -12,6 +12,7 @@ from contextlib import nullcontext
 from typing import Any, Generic, TypeVar, final
 
 import torch
+from torch.nn import Module
 from torch.profiler import record_function
 from typing_extensions import override
 
@@ -32,6 +33,7 @@ from fairseq2.utils.device_stat import DeviceStatTracker
 from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.stopwatch import Stopwatch
+from fairseq2.utils.warn import _warn_deprecated
 
 BatchT_contra = TypeVar(
     "BatchT_contra", bound=SupportsDeviceTransfer, contravariant=True
@@ -54,8 +56,12 @@ class GeneratorUnit(ABC, Generic[BatchT_contra]):
         pass
 
     @property
-    @abstractmethod
-    def model(self) -> RecipeModel: ...
+    def model(self) -> RecipeModel:
+        _warn_deprecated(
+            "`GeneratorUnit.model` is deprecated and will be removed in v0.14."
+        )
+
+        raise NotImplementedError()
 
 
 BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
@@ -68,6 +74,7 @@ class Generator(Task):
     def __init__(
         self,
         *,
+        model: Module,
         unit: GeneratorUnit[BatchT],
         data_reader: DataReader[BatchT],
         gangs: Gangs,
@@ -89,6 +96,8 @@ class Generator(Task):
         :param seed: The random number generator seed.
         """
         self._step_nr = 0
+
+        self._model = model
 
         self._unit = unit
 
@@ -146,7 +155,7 @@ class Generator(Task):
         self._gangs.close()
 
     def _do_run(self) -> None:
-        self._unit.model.module.eval()
+        self._model.eval()
 
         progress_task = self._progress_reporter.create_task("generate", total=None)
 

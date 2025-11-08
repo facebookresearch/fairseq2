@@ -7,23 +7,39 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, fields
-from typing import TypeVar, final
+from dataclasses import dataclass, fields, is_dataclass
+from typing import TypeVar, final, get_type_hints
 
 from typing_extensions import override
 
 from fairseq2.recipe.component import ComponentManager
-from fairseq2.recipe.config import ConfigSectionNotFoundError, SupportsStructure
+from fairseq2.recipe.config import (
+    ConfigSectionNotFoundError,
+    ModelSection,
+    SupportsStructure,
+)
 from fairseq2.runtime.dependency import DependencyResolver
 from fairseq2.typing import is_dataclass_instance
 from fairseq2.utils.structured import StructureError, ValueConverter
 
-SectionT = TypeVar("SectionT")
+
+def _is_train_config(config_kls: type[object]) -> bool:
+    if is_dataclass(config_kls):
+        type_hints = get_type_hints(config_kls)
+
+        model_section_kls = type_hints.get("model")
+        if model_section_kls is not None:
+            return issubclass(model_section_kls, ModelSection)
+
+    return False
 
 
 @dataclass
 class _RecipeConfigHolder:
     config: object
+
+
+SectionT = TypeVar("SectionT")
 
 
 def _get_config_section(

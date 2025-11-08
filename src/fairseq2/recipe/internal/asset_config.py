@@ -41,9 +41,9 @@ class _StandardAssetConfigOverrider(_AssetConfigOverrider):
 
     @override
     def apply_overrides(
-        self, section_name: str, config: object, config_overrides: object
+        self, section_name: str, config: object, unstructured_overrides: object
     ) -> object:
-        if config_overrides is None:
+        if unstructured_overrides is None:
             return config
 
         # TODO(balioglu): unescape _set_ and _del_ in config_overrides
@@ -54,7 +54,7 @@ class _StandardAssetConfigOverrider(_AssetConfigOverrider):
 
         try:
             unstructured_config = self._config_merger.merge(
-                unstructured_config, config_overrides
+                unstructured_config, unstructured_overrides
             )
         except (ValueError, TypeError) as ex:
             raise RecipeConfigParseError(

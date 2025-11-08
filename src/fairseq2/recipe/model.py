@@ -17,9 +17,13 @@ from fairseq2.models import ModelFamily
 from fairseq2.nn.data_parallel import get_data_parallel_facade
 from fairseq2.recipe.internal.model import _ModelHolder
 from fairseq2.typing import ContextManager, Stateful
+from fairseq2.utils.warn import _warn_deprecated
 
 
 class RecipeModel(ABC, Stateful):
+    def __init__(self) -> None:
+        _warn_deprecated("`RecipeModel` is deprecated and will be removed in v0.14.")
+
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         return self.module(*args, **kwargs)
 
@@ -62,6 +66,8 @@ class RecipeModel(ABC, Stateful):
 @final
 class _StandardRecipeModel(RecipeModel):
     def __init__(self, model_holder: _ModelHolder) -> None:
+        super().__init__()
+
         dp_facade = get_data_parallel_facade(model_holder.dp_model)
 
         self._model_holder = model_holder

@@ -16,6 +16,7 @@ import torch
 import torch.distributed
 from torch import Tensor
 from torch.cuda import OutOfMemoryError
+from torch.nn import Module
 from torch.optim import Optimizer
 from torch.profiler import record_function
 from typing_extensions import override
@@ -35,6 +36,7 @@ from fairseq2.logging import log
 from fairseq2.metrics import Mean, MetricBag, sync_and_compute_metrics
 from fairseq2.metrics.common import extend_batch_metric_values
 from fairseq2.metrics.recorders import MetricRecorder
+from fairseq2.nn.data_parallel import get_data_parallel_facade
 from fairseq2.nn.utils.grad import check_grad_norms, normalize_grads
 from fairseq2.optim.fp16_loss_scaler import (
     NOOP_FP16_LOSS_SCALER,
@@ -53,6 +55,7 @@ from fairseq2.utils.gc import GarbageCollector
 from fairseq2.utils.progress import ProgressReporter, ProgressTask
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.stopwatch import Stopwatch
+from fairseq2.utils.warn import _warn_deprecated
 
 BatchT_contra = TypeVar(
     "BatchT_contra", bound=SupportsDeviceTransfer, contravariant=True
@@ -87,8 +90,12 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
         pass
 
     @property
-    @abstractmethod
-    def model(self) -> RecipeModel: ...
+    def model(self) -> RecipeModel:
+        _warn_deprecated(
+            "`TrainUnit.model` is deprecated and will be removed in v0.14."
+        )
+
+        raise NotImplementedError()
 
 
 BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
@@ -101,6 +108,7 @@ class Trainer(Task):
     def __init__(
         self,
         *,
+        model: Module,
         unit: TrainUnit[BatchT],
         data_reader: DataReader[BatchT],
         gangs: Gangs,
@@ -206,6 +214,8 @@ class Trainer(Task):
         :param seed:
             The random number generator seed.
         """
+        model_dp_facade = get_data_parallel_facade(model)
+
         if max_num_steps is not None:
             if max_num_steps <= 0:
                 raise ValueError("`max_num_steps` must be greater than or equal to 1.")
@@ -314,6 +324,8 @@ class Trainer(Task):
         self._state = _TrainerState.NOT_STARTED
         self._step_nr = 0
         self._data_epoch_nr = 1
+        self._model = model
+        self._model_dp_facade = model_dp_facade
         self._unit = unit
         self._data_reader = data_reader
         self._gangs = gangs
@@ -419,7 +431,7 @@ class Trainer(Task):
 
         log.info("Restoring model state.")
 
-        self._checkpoint_manager.load_model_state(step_nr, self._unit.model)
+        self._checkpoint_manager.load_model_state(step_nr, self._model_dp_facade)
 
         log.info("Model state restored.")
 
@@ -452,7 +464,7 @@ class Trainer(Task):
         return _TrainerState.DATA_LOAD
 
     def _do_run(self) -> None:
-        self._unit.model.module.train()
+        self._model.train()
 
         progress_task = self._progress_reporter.create_task(
             "train", total=self._max_num_steps, completed=self._step_nr
@@ -631,13 +643,13 @@ class Trainer(Task):
             # batches have varying sizes and we cannot normalize the loss before
             # the backward pass.
             if num_targets > 0:
-                normalize_grads(self._unit.model.module, gangs.dp, num_targets)
+                normalize_grads(self._model, gangs.dp, num_targets)
 
             self._fp16_loss_scaler.unscale_grads_(self._optimizer)
 
             # Clip the gradients.
             with record_function(f"step_{step_nr}_grad_norm"):
-                grad_norm = self._unit.model.clip_grad_norm(self._max_grad_norm)
+                grad_norm = self._model_dp_facade.clip_grad_norm(self._max_grad_norm)
 
                 if self._grad_check:
                     check_grad_norms(grad_norm, gangs.dp, step_nr)
@@ -673,7 +685,7 @@ class Trainer(Task):
     def _maybe_no_sync(self, batch_nr: int, num_batches: int) -> ContextManager[None]:
         if self._no_sync_grad_accumulation:
             if batch_nr < num_batches - 1:
-                return self._unit.model.no_sync()
+                return self._model_dp_facade.no_sync()
 
         return nullcontext()
 
@@ -797,7 +809,7 @@ class Trainer(Task):
         if save_model_only:
             self._checkpoint_manager.save_model_only(
                 step_nr,
-                self._unit.model,
+                self._model_dp_facade,
                 ready_callback=on_checkpoint_ready,
                 saved_callback=self._on_checkpoint_saved,
                 blocking=blocking,
@@ -808,7 +820,7 @@ class Trainer(Task):
             self._checkpoint_manager.save_checkpoint(
                 step_nr,
                 trainer,
-                self._unit.model,
+                self._model_dp_facade,
                 self._optimizer,
                 self._data_reader,
                 ready_callback=on_checkpoint_ready,
@@ -973,7 +985,9 @@ class Trainer(Task):
         else:
             log.info("Starting validation after step {}.", self._step_nr)
 
-        with self._unit.model.summon_full_parameters():
+        self._model.eval()
+
+        with self._model_dp_facade.summon_full_parameters():
             score = self._validator.run(self._step_nr)
 
         if score is not None:
@@ -982,7 +996,7 @@ class Trainer(Task):
 
         self._validator.reset()
 
-        self._unit.model.module.train()
+        self._model.train()
 
         # Try to avoid CUDA memory fragmentation after validation.
         if self._gangs.root.device.type == "cuda":

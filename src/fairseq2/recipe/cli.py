@@ -59,15 +59,11 @@ from fairseq2.models import (
     ModelNotKnownError,
 )
 from fairseq2.nn.utils.grad import InconsistentGradNormError
-from fairseq2.recipe.base import (
-    EvalRecipe,
-    GenerationRecipe,
-    Recipe,
-    TrainRecipe,
-)
+from fairseq2.recipe.base import Recipe
 from fairseq2.recipe.component import ComponentNotKnownError
 from fairseq2.recipe.error import (
     BeamSearchAlgorithmNotKnownError,
+    DatasetTypeNotValidError,
     DeviceTypeNotSupportedError,
     FSDPNotSupportedError,
     GangTopologyError,
@@ -87,11 +83,13 @@ from fairseq2.recipe.error import (
     SequenceGeneratorNotKnownError,
     SplitNotKnownError,
     TokenizerModelNotFoundError,
+    TokenizerTypeNotValidError,
     TorchCompileError,
     TorchCompileNotSupportedError,
     WandbInitializationError,
 )
 from fairseq2.recipe.internal.config import (
+    _is_train_config,
     _RecipeConfigHolder,
     _RecipeConfigStructurer,
     _StandardRecipeConfigStructurer,
@@ -115,90 +113,78 @@ from fairseq2.utils.env import EnvironmentVariableError
 from fairseq2.utils.rich import configure_rich_logging
 from fairseq2.utils.structured import StructureError, ValueConverter
 from fairseq2.utils.validation import ObjectValidator, ValidationError
-from fairseq2.utils.warn import enable_deprecation_warnings
+from fairseq2.utils.warn import _warn_deprecated, enable_deprecation_warnings
 from fairseq2.utils.yaml import YamlDumper, YamlError, YamlLoader
 
+#
+# DEPRECATED - BEGIN
+#
 
-def train_main(recipe: TrainRecipe) -> None:
-    from fairseq2.recipe.composition import _register_train_recipe
+
+def train_main(recipe: Recipe) -> None:
+    enable_deprecation_warnings()
+
+    _warn_deprecated(
+        "`train_main()` is deprecated and will be removed in v0.14. Use `main()` instead."
+    )
+
+    main(recipe)
+
+
+def eval_main(recipe: Recipe) -> None:
+    enable_deprecation_warnings()
+
+    _warn_deprecated(
+        "`eval_main()` is deprecated and will be removed in v0.14. Use `main()` instead."
+    )
+
+    main(recipe)
+
+
+def generate_main(recipe: Recipe) -> None:
+    enable_deprecation_warnings()
+
+    _warn_deprecated(
+        "`generate_main()` is deprecated and will be removed in v0.14. Use `main()` instead."
+    )
+
+    main(recipe)
+
+
+#
+# DEPRECATED - END
+#
+
+
+def main(recipe: Recipe) -> None:
+    from fairseq2.recipe.composition import (
+        _register_inference_recipe,
+        _register_train_recipe,
+    )
 
     enable_deprecation_warnings()
 
-    args = _parse_args()
-
     configure_rich_logging()
+
+    is_train_recipe = _is_train_config(recipe.config_kls)
+
+    args = _parse_args()
 
     container = DependencyContainer()
 
     with _handle_errors(container, args.exit_on_error):
         with _swap_default_resolver(container):
-            _register_library(container)
+            with torch.inference_mode(mode=not is_train_recipe):
+                _register_library(container)
 
-            _register_train_recipe(container, recipe)
+                if is_train_recipe:
+                    _register_train_recipe(container, recipe)
+                else:
+                    _register_inference_recipe(container, recipe)
 
-            _register_main(container, args, recipe)
+                _register_main(container, args, recipe)
 
-            _main(container, args)
-
-
-@torch.inference_mode()
-def eval_main(recipe: EvalRecipe) -> None:
-    from fairseq2.recipe.composition import _register_eval_recipe
-
-    enable_deprecation_warnings()
-
-    args = _parse_args()
-
-    configure_rich_logging()
-
-    container = DependencyContainer()
-
-    with _handle_errors(container, args.exit_on_error):
-        with _swap_default_resolver(container):
-            _register_library(container)
-
-            _register_eval_recipe(container, recipe)
-
-            _register_main(container, args, recipe)
-
-            _main(container, args)
-
-
-@torch.inference_mode()
-def generate_main(recipe: GenerationRecipe) -> None:
-    from fairseq2.recipe.composition import _register_generation_recipe
-
-    enable_deprecation_warnings()
-
-    args = _parse_args()
-
-    configure_rich_logging()
-
-    container = DependencyContainer()
-
-    with _handle_errors(container, args.exit_on_error):
-        with _swap_default_resolver(container):
-            _register_library(container)
-
-            _register_generation_recipe(container, recipe)
-
-            _register_main(container, args, recipe)
-
-            _main(container, args)
-
-
-def _main(resolver: DependencyResolver, args: Namespace) -> None:
-    if args.dump_config:
-        printer = resolver.resolve(_RecipeConfigPrinter)
-
-        printer.print(sys.stdout)
-
-        return
-
-    if not args.output_dir:
-        raise InternalError("`args.output_dir` is `None`.")
-
-    _run_recipe(resolver)
+                _main(container, args)
 
 
 def _register_main(
@@ -234,6 +220,20 @@ def _register_main(
 
     # CLI Errors
     _register_cli_errors(container)
+
+
+def _main(resolver: DependencyResolver, args: Namespace) -> None:
+    if args.dump_config:
+        printer = resolver.resolve(_RecipeConfigPrinter)
+
+        printer.print(sys.stdout)
+
+        return
+
+    if not args.output_dir:
+        raise InternalError("`args.output_dir` is `None`.")
+
+    _run_recipe(resolver)
 
 
 def _parse_args() -> Namespace:
@@ -520,6 +520,7 @@ def _register_cli_errors(container: DependencyContainer) -> None:
     register(DatasetError, _handle_dataset_error)
     register(DatasetFamilyNotKnownError, _handle_dataset_family_not_known_error)
     register(DatasetNotKnownError, _handle_dataset_not_known_error)
+    register(DatasetTypeNotValidError, _handle_dataset_type_not_valid_error)
     register(DeviceTypeNotSupportedError, _handle_device_type_not_supported_error)
     register(EnvironmentVariableError, _handle_env_variable_error)
     register(FSDPNotSupportedError, _handle_fsdp_not_supported_error)
@@ -548,6 +549,7 @@ def _register_cli_errors(container: DependencyContainer) -> None:
     register(TokenizerModelError, _handle_tokenizer_model_error)
     register(TokenizerModelNotFoundError, _handle_tokenizer_model_not_found_error)
     register(TokenizerNotKnownError, _handle_tokenizer_not_known_error)
+    register(TokenizerTypeNotValidError, _handle_tokenizer_type_not_valid_error)
     register(TorchCompileError, _handle_torch_compile_error)
     register(TorchCompileNotSupportedError, _handle_torch_compile_not_supported_error)
     register(WandbInitializationError, _handle_wandb_init_error)
@@ -640,6 +642,15 @@ def _handle_dataset_error(ex: DatasetError) -> int:
     log.exception("Failed to open the dataset. See logged stack trace for details.")
 
     return 1
+
+
+def _handle_dataset_type_not_valid_error(ex: DatasetTypeNotValidError) -> int:
+    if ex.section_name == "dataset":
+        log.error("Dataset must be of type `{}`, but is of type `{}` instead.", ex.valid_kls.__name__, ex.kls.__name__)
+    else:
+        log.error("Dataset specified in `{}` section must be of type `{}`, but is of type `{}` instead.", ex.section_name, ex.valid_kls.__name__, ex.kls.__name__)
+
+    return 2
 
 
 def _handle_device_type_not_supported_error(ex: DeviceTypeNotSupportedError) -> int:
@@ -816,6 +827,15 @@ def _handle_tokenizer_model_not_found_error(ex: TokenizerModelNotFoundError) -> 
 
 def _handle_tokenizer_not_known_error(ex: TokenizerNotKnownError) -> int:
     log.error("{} is not a known tokenizer. To see the list of available tokenizers run: `python -m fairseq2.assets list --kind tokenizer`.", ex.name)
+
+    return 2
+
+
+def _handle_tokenizer_type_not_valid_error(ex: TokenizerTypeNotValidError) -> int:
+    if ex.section_name == "tokenizer":
+        log.error("Tokenizer must be of type `{}`, but is of type `{}` instead.", ex.valid_kls.__name__, ex.kls.__name__)
+    else:
+        log.error("Tokenizer specified in `{}` section must be of type `{}`, but is of type `{}` instead.", ex.section_name, ex.valid_kls.__name__, ex.kls.__name__)
 
     return 2
 

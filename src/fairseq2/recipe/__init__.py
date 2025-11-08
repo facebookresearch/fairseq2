@@ -14,6 +14,7 @@ from fairseq2.recipe.base import TrainRecipe as TrainRecipe
 from fairseq2.recipe.cli import ExceptionHandler as ExceptionHandler
 from fairseq2.recipe.cli import eval_main as eval_main
 from fairseq2.recipe.cli import generate_main as generate_main
+from fairseq2.recipe.cli import main as main
 from fairseq2.recipe.cli import register_cli_error as register_cli_error
 from fairseq2.recipe.cli import train_main as train_main
 from fairseq2.recipe.dataset import RecipeDataset as RecipeDataset
@@ -24,6 +25,7 @@ from fairseq2.recipe.generator import GeneratorUnit as GeneratorUnit
 from fairseq2.recipe.model import RecipeModel as RecipeModel
 from fairseq2.recipe.run import evaluate as evaluate
 from fairseq2.recipe.run import generate as generate
+from fairseq2.recipe.run import run as run
 from fairseq2.recipe.run import train as train
 from fairseq2.recipe.tokenizer import RecipeTokenizer as RecipeTokenizer
 from fairseq2.recipe.trainer import Trainer as Trainer

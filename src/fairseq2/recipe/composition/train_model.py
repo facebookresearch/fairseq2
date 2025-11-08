@@ -13,7 +13,7 @@ from typing_extensions import override
 
 from fairseq2.error import raise_operational_system_error
 from fairseq2.gang import GangError, raise_operational_gang_error
-from fairseq2.recipe.base import RecipeContext, TrainRecipe
+from fairseq2.recipe.base import Recipe, RecipeContext
 from fairseq2.recipe.internal.model import _ModelHolder
 from fairseq2.recipe.internal.train_model import (
     _DelegatingTrainModelPreparer,
@@ -69,7 +69,7 @@ def _register_train_model(container: DependencyContainer) -> None:
 
 @final
 class _UserTrainModelPreparer(_TrainModelPreparer):
-    def __init__(self, recipe: TrainRecipe, resolver: DependencyResolver) -> None:
+    def __init__(self, recipe: Recipe, resolver: DependencyResolver) -> None:
         self._recipe = recipe
         self._resolver = resolver
 
@@ -77,13 +77,18 @@ class _UserTrainModelPreparer(_TrainModelPreparer):
     def prepare(self, model_holder: _ModelHolder) -> None:
         context = RecipeContext(self._resolver)
 
-        model: RecipeModel = _StandardRecipeModel(model_holder)
-
         try:
+            model_holder.model = self._recipe.setup_model(
+                context, model_holder.model, model_holder.newly_initialized
+            )
+
+            # TODO: Deprecated, remove in v0.13
+            model: RecipeModel = _StandardRecipeModel(model_holder)
+
             model = self._recipe.prepare_model(context, model)
+
+            model_holder.model = model.module
         except OSError as ex:
             raise_operational_system_error(ex)
         except GangError as ex:
             raise_operational_gang_error(ex)
-
-        model_holder.model = model.base_module

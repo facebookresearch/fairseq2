@@ -75,18 +75,34 @@ class _UserReferenceModelPreparer(_ReferenceModelPreparer):
     ) -> None:
         context = RecipeContext(self._resolver)
 
-        model: RecipeModel = _StandardRecipeModel(model_holder)
+        model: RecipeModel
 
         try:
             if section_name == "model":
+                model_holder.model = self._recipe.setup_model(
+                    context, model_holder.model, newly_initialized=False
+                )
+
+                # TODO: Deprecated, remove in v0.13
+                model = _StandardRecipeModel(model_holder)
+
                 model = self._recipe.prepare_model(context, model)
+
+                model_holder.model = model.module
             else:
+                model_holder.model = self._recipe.setup_reference_model(
+                    context, model_holder.model, section_name
+                )
+
+                # TODO: Deprecated, remove in v0.13
+                model = _StandardRecipeModel(model_holder)
+
                 model = self._recipe.prepare_reference_model(
                     context, model, section_name, section
                 )
+
+                model_holder.model = model.module
         except OSError as ex:
             raise_operational_system_error(ex)
         except GangError as ex:
             raise_operational_gang_error(ex)
-
-        model_holder.model = model.base_module

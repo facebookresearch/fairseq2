@@ -58,7 +58,7 @@ def prepare_parameter_groups(
 
         from torch.optim import Optimizer
 
-        from fairseq2.recipe import TrainRecipe
+        from fairseq2.recipe import Recipe
         from fairseq2.recipe.component import register_component
         from fairseq2.recipe.config import Default, ParameterGroupConfig, default
         from fairseq2.recipe.optim import prepare_parameter_groups
@@ -106,7 +106,7 @@ def prepare_parameter_groups(
             return MyOptimizer(parameters, config.lr, config.betas)
 
 
-        class MyTrainRecipe(TrainRecipe):
+        class MyTrainRecipe(Recipe):
             def register(self, container: DependencyContainer) -> None:
                 register_component(
                     container,

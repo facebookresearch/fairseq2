@@ -12,6 +12,7 @@ from pathlib import Path
 from torch.nn import Module
 from typing_extensions import NoReturn
 
+from fairseq2.data.tokenizers import Tokenizer
 from fairseq2.device import Device
 
 
@@ -28,6 +29,19 @@ class BeamSearchAlgorithmNotKnownError(Exception):
         super().__init__(f"'{name}' is not a known beam search algorithm.")
 
         self.name = name
+
+
+class DatasetTypeNotValidError(Exception):
+    def __init__(
+        self, kls: type[object], valid_kls: type[object], section_name: str
+    ) -> None:
+        super().__init__(
+            f"Dataset must be of type `{valid_kls}`, but is of type `{kls}` instead."
+        )
+
+        self.kls = kls
+        self.valid_kls = valid_kls
+        self.section_name = section_name
 
 
 class DeviceTypeNotSupportedError(Exception):
@@ -166,6 +180,19 @@ class TokenizerModelNotFoundError(Exception):
         super().__init__(f"{path} does not point to a tokenizer model.")
 
         self.path = path
+
+
+class TokenizerTypeNotValidError(Exception):
+    def __init__(
+        self, kls: type[Tokenizer], valid_kls: type[Tokenizer], section_name: str
+    ) -> None:
+        super().__init__(
+            f"Tokenizer must be of type `{valid_kls}`, but is of type `{kls}` instead."
+        )
+
+        self.kls = kls
+        self.valid_kls = valid_kls
+        self.section_name = section_name
 
 
 class TorchCompileError(Exception):
