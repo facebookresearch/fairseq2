@@ -61,8 +61,8 @@ from fairseq2.recipe.internal.sweep_tag import (
 from fairseq2.recipe.internal.task import _TaskRunner
 from fairseq2.recipe.internal.torch import _TorchConfigurer
 from fairseq2.recipe.run import _RecipeConfigDumper
-from fairseq2.recipe.task import Task
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
+from fairseq2.task import Task
 from fairseq2.utils.stopwatch import Stopwatch
 
 

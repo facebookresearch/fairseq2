@@ -24,8 +24,8 @@ from fairseq2.recipe.internal.logging import _DistributedLogConfigurer
 from fairseq2.recipe.internal.output_dir import _OutputDirectoryCreator
 from fairseq2.recipe.internal.task import _TaskRunner
 from fairseq2.recipe.internal.torch import _TorchConfigurer
-from fairseq2.recipe.task import Task
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
+from fairseq2.task import Task
 from fairseq2.utils.rich import configure_rich_logging
 from fairseq2.utils.structured import ValueConverter
 from fairseq2.utils.validation import ObjectValidator

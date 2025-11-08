@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fairseq2.recipe.evaluator import Evaluator
+from fairseq2.evaluator import Evaluator
 from fairseq2.recipe.internal.evaluator import _EvaluatorFactory
 from fairseq2.runtime.dependency import (
     DependencyContainer,
