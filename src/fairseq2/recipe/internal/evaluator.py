@@ -10,8 +10,8 @@ from collections.abc import Sequence
 from typing import Any, Protocol, final
 
 from fairseq2.datasets import DataReader
+from fairseq2.evaluator import BatchT, Evaluator, EvalUnit
 from fairseq2.recipe.config import CommonSection, EvaluatorSection
-from fairseq2.recipe.evaluator import BatchT, Evaluator, EvalUnit
 
 
 class _EvaluatorActivator(Protocol):

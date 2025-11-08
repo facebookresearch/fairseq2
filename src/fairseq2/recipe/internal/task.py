@@ -13,7 +13,7 @@ from typing import final
 from fairseq2.error import raise_operational_system_error
 from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
 from fairseq2.logging import log
-from fairseq2.recipe.task import Task, TaskStopException
+from fairseq2.task import Task, TaskStopException
 from fairseq2.utils.stopwatch import Stopwatch
 
 

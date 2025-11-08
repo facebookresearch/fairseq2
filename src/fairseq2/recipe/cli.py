@@ -96,12 +96,12 @@ from fairseq2.recipe.internal.config import (
 )
 from fairseq2.recipe.internal.output_dir import _OutputDirectoryCreator
 from fairseq2.recipe.run import _run_recipe, _swap_default_resolver
-from fairseq2.recipe.task import TaskStopException
 from fairseq2.runtime.dependency import (
     DependencyContainer,
     DependencyNotFoundError,
     DependencyResolver,
 )
+from fairseq2.task import TaskStopException
 from fairseq2.utils.argparse import ConfigAction
 from fairseq2.utils.config import (
     ConfigDirectiveError,

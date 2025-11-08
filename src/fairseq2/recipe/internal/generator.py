@@ -9,8 +9,8 @@ from __future__ import annotations
 from typing import Any, Protocol, final
 
 from fairseq2.datasets import DataReader
+from fairseq2.generator import BatchT, Generator, GeneratorUnit
 from fairseq2.recipe.config import CommonSection, GeneratorSection
-from fairseq2.recipe.generator import BatchT, Generator, GeneratorUnit
 
 
 class _GeneratorActivator(Protocol):

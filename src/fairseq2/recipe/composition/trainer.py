@@ -19,14 +19,14 @@ from fairseq2.recipe.internal.trainer import (
     _TrainerFactory,
     _ValidatorFactory,
 )
-from fairseq2.recipe.trainer import Trainer
-from fairseq2.recipe.validator import StandardValidator
 from fairseq2.runtime.dependency import (
     DependencyContainer,
     DependencyResolver,
     wire_object,
 )
+from fairseq2.trainer import Trainer
 from fairseq2.utils.gc import GarbageCollector
+from fairseq2.validator import StandardValidator
 
 
 def _register_trainer_factory(container: DependencyContainer) -> None:

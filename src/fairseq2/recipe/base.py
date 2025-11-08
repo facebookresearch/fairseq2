@@ -20,9 +20,11 @@ from fairseq2.data.tokenizers import Tokenizer
 from fairseq2.datasets import DataReader
 from fairseq2.device import Device, SupportsDeviceTransfer
 from fairseq2.error import InvalidOperationError
+from fairseq2.evaluator import Evaluator, EvalUnit
 from fairseq2.file_system import FileSystem
 from fairseq2.gang import Gangs
 from fairseq2.generation import Seq2SeqGenerator, SequenceGenerator
+from fairseq2.generator import Generator, GeneratorUnit
 from fairseq2.metrics.recorders import MetricRecorder
 from fairseq2.recipe.config import RecipeConfig, ReferenceModelSection
 from fairseq2.recipe.dataset import RecipeDataset
@@ -31,8 +33,6 @@ from fairseq2.recipe.error import (
     ModelTypeNotValidError,
     TokenizerTypeNotValidError,
 )
-from fairseq2.recipe.evaluator import Evaluator, EvalUnit
-from fairseq2.recipe.generator import Generator, GeneratorUnit
 from fairseq2.recipe.internal.config import _get_config_section, _RecipeConfigHolder
 from fairseq2.recipe.internal.dataset import _DatasetHolder
 from fairseq2.recipe.internal.evaluator import _EvaluatorFactory
@@ -42,10 +42,10 @@ from fairseq2.recipe.internal.reference_model import _ReferenceModelBootstrapper
 from fairseq2.recipe.internal.tokenizer import _TokenizerHolder
 from fairseq2.recipe.internal.trainer import _TrainerFactory, _ValidatorFactory
 from fairseq2.recipe.model import RecipeModel, _StandardRecipeModel
-from fairseq2.recipe.task import Task
 from fairseq2.recipe.tokenizer import RecipeTokenizer
-from fairseq2.recipe.trainer import Trainer, TrainUnit
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
+from fairseq2.task import Task
+from fairseq2.trainer import Trainer, TrainUnit
 from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.warn import _warn_deprecated
 

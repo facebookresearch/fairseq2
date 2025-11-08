@@ -18,6 +18,8 @@ from fairseq2.checkpoint import (
     OutOfProcCheckpointHGExporter,
 )
 from fairseq2.datasets import DataReader
+from fairseq2.early_stopper import NOOP_EARLY_STOPPER
+from fairseq2.evaluator import EvalUnit
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
 from fairseq2.metrics.recorders import (
@@ -42,15 +44,14 @@ from fairseq2.recipe.error import (
     ManualGradScalingNotSupportedError,
     MetricNotKnownError,
 )
-from fairseq2.recipe.evaluator import EvalUnit
 from fairseq2.recipe.internal.model import _ModelHolder
-from fairseq2.recipe.trainer import BatchT, Trainer, TrainUnit
-from fairseq2.recipe.validator import NOOP_VALIDATOR, StandardValidator, Validator
+from fairseq2.trainer import BatchT, Trainer, TrainUnit
 from fairseq2.utils.gc import (
     NOOP_GARBAGE_COLLECTOR,
     GarbageCollector,
     StandardGarbageCollector,
 )
+from fairseq2.validator import NOOP_VALIDATOR, StandardValidator, Validator
 
 
 class _TrainerActivator(Protocol):
@@ -116,6 +117,7 @@ class _TrainerFactory:
             validate_every_n_steps=regime_section.validate_every_n_steps,
             validate_after_n_data_epochs=regime_section.validate_after_n_data_epochs,
             validate_every_n_data_epochs=regime_section.validate_every_n_data_epochs,
+            early_stopper=NOOP_EARLY_STOPPER,
             checkpoint_after_n_steps=regime_section.checkpoint_after_n_steps,
             checkpoint_every_n_steps=regime_section.checkpoint_every_n_steps,
             checkpoint_after_n_data_epochs=regime_section.checkpoint_after_n_data_epochs,
