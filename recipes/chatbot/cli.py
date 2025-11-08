@@ -40,7 +40,7 @@ from fairseq2.gang import (
     raise_operational_gang_error,
 )
 from fairseq2.generation.sampling import SamplingSequenceGenerator, TopPSampler
-from fairseq2.logging import log
+from fairseq2.logging import configure_logging, log
 from fairseq2.model_checkpoint import ModelCheckpointError
 from fairseq2.models import ModelNotKnownError, load_model
 from fairseq2.models.clm import CausalLM
@@ -50,7 +50,7 @@ from fairseq2.recipe.error import (
     raise_model_type_not_valid_error,
 )
 from fairseq2.utils.argparse import parse_dtype
-from fairseq2.utils.rich import configure_rich_logging, get_console
+from fairseq2.utils.rich import get_console
 from fairseq2.utils.rng import RngBag
 from fairseq2.world_info import get_world_info
 
@@ -64,7 +64,7 @@ from .program import Program, ProgramView
 def _main() -> None:
     args = _parse_args()
 
-    configure_rich_logging()
+    configure_logging()
 
     try:
         _run(args)

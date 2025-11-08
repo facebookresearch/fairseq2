@@ -7,12 +7,10 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from logging import INFO, Formatter, NullHandler, getLogger
 from typing import Any, final
 
 from rich import get_console as get_rich_console
 from rich.console import Console
-from rich.logging import RichHandler
 from rich.progress import (
     BarColumn,
     DownloadColumn,
@@ -28,9 +26,7 @@ from rich.progress import (
 from rich.text import Text
 from typing_extensions import Self, override
 
-from fairseq2.utils.env import StandardEnvironment, get_rank
 from fairseq2.utils.progress import ProgressReporter, ProgressTask
-from fairseq2.world_info import WorldInfo
 
 _console: Console | None = None
 
@@ -71,25 +67,12 @@ def set_error_console(console: Console) -> None:
 @final
 class RichProgressReporter(ProgressReporter):
     def __init__(
-        self,
-        console: Console,
-        world_info: WorldInfo,
-        columns: Sequence[ProgressColumn] | None = None,
+        self, console: Console, columns: Sequence[ProgressColumn] | None = None
     ) -> None:
-        disable = world_info.rank != 0
-
         if columns is None:
-            columns = [
-                TextColumn("{task.description}:", style="progress.description"),
-                BarColumn(),
-                BasicMofNCompleteColumn(),
-                TaskProgressColumn(),
-                TimeRemainingColumn(),
-            ]
+            columns = _create_rich_progress_columns()
 
-        self._progress = Progress(
-            *columns, transient=True, console=console, disable=disable
-        )
+        self._progress = Progress(*columns, transient=True, console=console)
 
     @override
     def create_task(
@@ -145,7 +128,17 @@ class BasicMofNCompleteColumn(ProgressColumn):
         return Text(s, style="progress.download")
 
 
-def create_rich_download_progress_columns() -> list[ProgressColumn | str]:
+def _create_rich_progress_columns() -> list[ProgressColumn]:
+    return [
+        TextColumn("{task.description}:", style="progress.description"),
+        BarColumn(),
+        BasicMofNCompleteColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+    ]
+
+
+def _create_rich_download_progress_columns() -> list[ProgressColumn]:
     return [
         TextColumn("{task.description}:", style="progress.description"),
         TextColumn("{task.percentage:>4.0f}%", style="progress.percentage"),
@@ -154,34 +147,3 @@ def create_rich_download_progress_columns() -> list[ProgressColumn | str]:
         TransferSpeedColumn(),
         TimeRemainingColumn(),
     ]
-
-
-def configure_rich_logging() -> None:
-    logger = getLogger("fairseq2")
-
-    for handler in logger.handlers[:]:
-        logger.removeHandler(handler)
-
-        handler.close()
-
-    env = StandardEnvironment()
-
-    rank = get_rank(env)
-    if rank is None or rank == 0:
-        console = get_error_console()
-
-        handler = RichHandler(console=console, show_path=False, keywords=[])
-
-        console_formatter = Formatter(
-            fmt="%(name)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-        )
-
-        handler.setFormatter(console_formatter)
-    else:
-        handler = NullHandler()
-
-    logger.addHandler(handler)
-
-    logger.setLevel(INFO)
-
-    logger.propagate = False
