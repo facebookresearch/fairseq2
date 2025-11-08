@@ -6,10 +6,12 @@
 
 from __future__ import annotations
 
+import random
 import warnings
 from pathlib import Path
 from typing import final
 
+import numpy as np
 import torch
 
 from fairseq2.device import Device
@@ -68,7 +70,13 @@ class _TorchConfigurer:
         )
 
     def _set_seed(self) -> None:
-        self._rng_bag.manual_seed(self._section.seed)
+        seed = self._section.seed
+
+        random.seed(seed)
+
+        np.random.seed(seed)
+
+        self._rng_bag.manual_seed(seed)
 
         log.info("Random number generator seed set to {}.", self._section.seed)
 
