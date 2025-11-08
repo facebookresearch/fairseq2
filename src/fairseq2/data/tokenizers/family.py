@@ -50,6 +50,14 @@ class TokenizerFamily(ABC):
     def config_kls(self) -> type[object]: ...
 
 
+class TokenizerGatedError(Exception):
+    def __init__(self, name: str, url: str | None) -> None:
+        super().__init__(f"{name} is a gated tokenizer.")
+
+        self.name = name
+        self.url = url
+
+
 class TokenizerModelError(Exception):
     def __init__(self, path: Path, message: str) -> None:
         super().__init__(message)
@@ -141,14 +149,24 @@ class StandardTokenizerFamily(TokenizerFamily):
     ) -> Tokenizer:
         name = card.name
 
-        uri = card.field("tokenizer").as_uri()
+        tokenizer_field = card.maybe_get_field("tokenizer")
+        if tokenizer_field is None:
+            url_field = card.maybe_get_field("url")
+            if url_field is not None:
+                url = url_field.as_(str)
+            else:
+                url = None
 
-        if uri.scheme not in self._asset_download_manager.supported_schemes:
-            msg = f"tokenizer URI scheme of the {name} asset card is expected to be a supported scheme, but is {uri.scheme} instead."
+            raise TokenizerGatedError(name, url)
+
+        tokenizer_uri = tokenizer_field.as_uri()
+
+        if tokenizer_uri.scheme not in self._asset_download_manager.supported_schemes:
+            msg = f"tokenizer URI scheme of the {name} asset card is expected to be a supported scheme, but is {tokenizer_uri.scheme} instead."
 
             raise AssetCardError(name, msg)
 
-        path = self._asset_download_manager.download_tokenizer(uri, name)
+        path = self._asset_download_manager.download_tokenizer(tokenizer_uri, name)
 
         # Load the configuration.
         if config is None:
@@ -164,12 +182,12 @@ class StandardTokenizerFamily(TokenizerFamily):
         except TokenizerModelError as ex:
             msg = f"Tokenizer model of the {name} asset card is erroneous."
 
-            if uri.scheme != "file":
+            if tokenizer_uri.scheme != "file":
                 msg = f"{msg} Make sure that it is downloaded correctly and, if not, clean your asset cache directory at {path.parent}."
 
             raise AssetCardError(name, msg) from ex
         except FileNotFoundError as ex:
-            if uri.scheme != "file":
+            if tokenizer_uri.scheme != "file":
                 raise_operational_system_error(ex)
 
             msg = f"{path} pointed to by the tokenizer field of the {name} asset card is not found."
