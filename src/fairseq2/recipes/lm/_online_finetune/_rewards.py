@@ -1141,6 +1141,17 @@ class PplDerivedVerifier(VLLMOutputReward):
             log.info("-" * 6 + "all rewards in example" + "-" * 6)
             log.info(ex_rewards)
 
+    def _maybe_log_vllm_policy_outputs(self, vllm_outputs) -> None:
+        if log.is_enabled_for_debug():
+            log.debug("prompt token ids:")
+            for i, vllm_output in enumerate(vllm_outputs):
+                log.debug(f"prompt_token_id {i} = {vllm_output.prompt_token_ids}")
+                for j, output in enumerate(vllm_output.outputs):
+                    log.debug(f"output text {i}.{j} = {output.text}")
+                    log.debug(f"output token_ids {i}.{j} = {output.token_ids}")
+                    log.debug(f"output finish_reason {i}.{j} = {output.finish_reason}")
+                    log.debug(f"output stop_reason {i}.{j} = {output.stop_reason}")
+
     @override
     def process_rollouts(
         self,
@@ -1163,7 +1174,7 @@ class PplDerivedVerifier(VLLMOutputReward):
             self.reason_end_wrap_key, len(prompt_batch.prompts) * [None]
         )
 
-        log.debug(f"{vllm_outputs=}")
+        self._maybe_log_vllm_policy_outputs(vllm_outputs)
         log.debug(f"{completion_batch=}")
 
         for prefix, vllm_output, completion, reason_start_wrap, reason_end_wrap in zip(
@@ -1207,7 +1218,7 @@ class PplDerivedVerifier(VLLMOutputReward):
 
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
-        log.debug(f"{vllm_inputs=}")
+        log.debug(f"rm {vllm_inputs=}")
         log.debug(f"{all_input_tok_lens=}")
 
         rm_sampling_params = {
