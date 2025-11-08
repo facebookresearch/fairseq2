@@ -69,13 +69,10 @@ class RecipeContext:
     def resolver(self) -> DependencyResolver:
         return self._resolver
 
-    def get_config(self) -> object:
+    def get_config_as(self, kls: type[ConfigT]) -> ConfigT:
         config_holder = self._resolver.resolve(_RecipeConfigHolder)
 
-        return config_holder.config
-
-    def get_config_as(self, kls: type[ConfigT]) -> ConfigT:
-        config = self.get_config()
+        config = config_holder.config
         if not isinstance(config, kls):
             raise TypeError(
                 f"Recipe configuration is expected to be of type `{kls}`, but is of type `{type(config)}` instead."
@@ -171,12 +168,6 @@ class RecipeContext:
 
         return tokenizer
 
-    def get_seq_generator(self) -> SequenceGenerator:
-        return self._resolver.resolve(SequenceGenerator)
-
-    def get_seq2seq_generator(self) -> Seq2SeqGenerator:
-        return self._resolver.resolve(Seq2SeqGenerator)
-
     def create_trainer(
         self,
         unit: TrainUnit[BatchT],
@@ -216,7 +207,7 @@ class RecipeContext:
     def config(self) -> RecipeConfig:
         """:meta private:"""
         _warn_deprecated(
-            "`RecipeContext.config` is deprecated and will be removed in v0.14. Use `RecipeContext.get_config()` or `RecipeContext.get_config_as()` instead."
+            "`RecipeContext.config` is deprecated and will be removed in v0.14. Use `RecipeContext.get_config_as()` instead."
         )
 
         config_holder = self._resolver.resolve(_RecipeConfigHolder)
