@@ -26,6 +26,7 @@ from fairseq2.recipe.config import CommonSection
 from fairseq2.utils.env import Environment
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.threading import get_num_threads
+from fairseq2.utils.version import torch_greater_or_equal
 from fairseq2.world_info import WorldInfo
 
 
@@ -125,11 +126,16 @@ class _TorchConfigurer:
 
         torch_config = self._section.torch
 
-        # Matrix Multiplication
-        torch.backends.cuda.matmul.allow_tf32 = torch_config.allow_tf32
+        if torch_greater_or_equal(2, 9):
+            precision = "tf32" if torch_config.allow_tf32 else "ieee"
 
-        # Convolution
-        torch.backends.cudnn.allow_tf32 = torch_config.allow_tf32
+            torch.backends.fp32_precision = precision  # type: ignore[attr-defined]
+        else:
+            # Matrix Multiplication
+            torch.backends.cuda.matmul.allow_tf32 = torch_config.allow_tf32
+
+            # Convolution
+            torch.backends.cudnn.allow_tf32 = torch_config.allow_tf32
 
         # Reduced Precision GEMM
         torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = (
