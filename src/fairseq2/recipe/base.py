@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import TypeVar, final
 
 from torch.nn import Module
+from typing_extensions import override
 
 from fairseq2.assets import AssetStore
 from fairseq2.data.tokenizers import Tokenizer
@@ -312,6 +313,9 @@ class Recipe(ABC):
     def register(self, container: DependencyContainer) -> None:
         pass
 
+    @abstractmethod
+    def create_task(self, context: RecipeContext) -> Task: ...
+
     def setup_model(
         self, context: RecipeContext, model: Module, newly_initialized: bool
     ) -> Module:
@@ -325,6 +329,9 @@ class Recipe(ABC):
     @property
     @abstractmethod
     def config_kls(self) -> type[object]: ...
+
+    def has_static_autograd_graph(self, context: RecipeContext) -> bool:
+        return True
 
     #
     # DEPRECATED - BEGIN
@@ -347,19 +354,53 @@ class Recipe(ABC):
     #
 
 
-class TrainRecipe(Recipe):
-    @abstractmethod
-    def create_trainer(self, context: RecipeContext) -> Task: ...
+#
+# DEPRECATED - BEGIN
+#
 
-    def has_static_autograd_graph(self, context: RecipeContext) -> bool:
-        return True
+
+class TrainRecipe(Recipe):
+    def __init__(self) -> None:
+        _warn_deprecated(
+            "`TrainRecipe` is deprecated and will be removed in v0.14. Use `Recipe` instead."
+        )
+
+    @override
+    def create_task(self, context: RecipeContext) -> Task:
+        return self.create_trainer(context)
+
+    @abstractmethod
+    def create_trainer(self, context: RecipeContext) -> Trainer: ...
 
 
 class EvalRecipe(Recipe):
+    def __init__(self) -> None:
+        _warn_deprecated(
+            "`EvalRecipe` is deprecated and will be removed in v0.14. Use `Recipe` instead."
+        )
+
+    @override
+    def create_task(self, context: RecipeContext) -> Task:
+        return self.create_evaluator(context)
+
     @abstractmethod
-    def create_evaluator(self, context: RecipeContext) -> Task: ...
+    def create_evaluator(self, context: RecipeContext) -> Evaluator: ...
 
 
 class GenerationRecipe(Recipe):
+    def __init__(self) -> None:
+        _warn_deprecated(
+            "`GenerationRecipe` is deprecated and will be removed in v0.14. Use `Recipe` instead."
+        )
+
+    @override
+    def create_task(self, context: RecipeContext) -> Task:
+        return self.create_generator(context)
+
     @abstractmethod
-    def create_generator(self, context: RecipeContext) -> Task: ...
+    def create_generator(self, context: RecipeContext) -> Generator: ...
+
+
+#
+# DEPRECATED - END
+#

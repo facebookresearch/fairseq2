@@ -13,13 +13,7 @@ from fairseq2.assets import AssetMetadataSource
 from fairseq2.checkpoint import CheckpointManager, StandardCheckpointManager
 from fairseq2.error import raise_operational_system_error
 from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
-from fairseq2.recipe.base import (
-    EvalRecipe,
-    GenerationRecipe,
-    Recipe,
-    RecipeContext,
-    TrainRecipe,
-)
+from fairseq2.recipe.base import Recipe, RecipeContext
 from fairseq2.recipe.component import ComponentManager, _StandardComponentManager
 from fairseq2.recipe.composition.beam_search import _register_beam_search
 from fairseq2.recipe.composition.config import _register_config_sections
@@ -72,29 +66,27 @@ from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 from fairseq2.utils.stopwatch import Stopwatch
 
 
-def _register_train_recipe(container: DependencyContainer, recipe: TrainRecipe) -> None:
+def _register_train_recipe(container: DependencyContainer, recipe: Recipe) -> None:
     _register_recipe_common(container)
 
     # Recipe
     container.register_instance(Recipe, recipe)
 
-    container.register_instance(TrainRecipe, recipe)
-
     # Model
     _register_train_model(container)
 
-    # Trainer
-    def get_trainer(resolver: DependencyResolver) -> Task:
+    # Task
+    def get_task(resolver: DependencyResolver) -> Task:
         context = RecipeContext(resolver)
 
         try:
-            return recipe.create_trainer(context)
+            return recipe.create_task(context)
         except OSError as ex:
             raise_operational_system_error(ex)
         except GangError as ex:
             raise_operational_gang_error(ex)
 
-    container.register(Task, get_trainer)
+    container.register(Task, get_task)
 
     # Gangs
     def get_gangs(resolver: DependencyResolver) -> Gangs:
@@ -129,7 +121,7 @@ def _register_train_recipe(container: DependencyContainer, recipe: TrainRecipe) 
     recipe.register(container)
 
 
-def _register_eval_recipe(container: DependencyContainer, recipe: EvalRecipe) -> None:
+def _register_inference_recipe(container: DependencyContainer, recipe: Recipe) -> None:
     _register_recipe_common(container)
 
     # Recipe
@@ -149,73 +141,19 @@ def _register_eval_recipe(container: DependencyContainer, recipe: EvalRecipe) ->
 
     container.register(Module, get_model, singleton=True)
 
-    # Evaluator
+    # Task
     @torch.inference_mode()
-    def get_evaluator(resolver: DependencyResolver) -> Task:
+    def get_task(resolver: DependencyResolver) -> Task:
         context = RecipeContext(resolver)
 
         try:
-            return recipe.create_evaluator(context)
+            return recipe.create_task(context)
         except OSError as ex:
             raise_operational_system_error(ex)
         except GangError as ex:
             raise_operational_gang_error(ex)
 
-    container.register(Task, get_evaluator)
-
-    # Gangs
-    def get_gangs(resolver: DependencyResolver) -> Gangs:
-        gangs_factory = resolver.resolve(_GangsFactory)
-
-        gangs = gangs_factory.create()
-
-        _warmup_gangs(gangs)
-
-        _log_ranks(gangs)
-
-        return gangs
-
-    container.register(Gangs, get_gangs, singleton=True)
-
-    # Custom Objects
-    recipe.register(container)
-
-
-def _register_generation_recipe(
-    container: DependencyContainer, recipe: GenerationRecipe
-) -> None:
-    _register_recipe_common(container)
-
-    # Recipe
-    container.register_instance(Recipe, recipe)
-
-    # Model
-    register_reference_model(container, "model")
-
-    # Default Model
-    def get_model_holder(resolver: DependencyResolver) -> _ModelHolder:
-        return resolver.resolve(_ModelHolder, key="model")
-
-    container.register(_ModelHolder, get_model_holder, singleton=True)
-
-    def get_model(resolver: DependencyResolver) -> Module:
-        return resolver.resolve(Module, key="model")
-
-    container.register(Module, get_model, singleton=True)
-
-    # Generator
-    @torch.inference_mode()
-    def get_generator(resolver: DependencyResolver) -> Task:
-        context = RecipeContext(resolver)
-
-        try:
-            return recipe.create_generator(context)
-        except OSError as ex:
-            raise_operational_system_error(ex)
-        except GangError as ex:
-            raise_operational_gang_error(ex)
-
-    container.register(Task, get_generator)
+    container.register(Task, get_task)
 
     # Gangs
     def get_gangs(resolver: DependencyResolver) -> Gangs:

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from fairseq2.nn.ddp import to_ddp
 from fairseq2.nn.fsdp import to_fsdp
-from fairseq2.recipe.base import RecipeContext, TrainRecipe
+from fairseq2.recipe.base import Recipe, RecipeContext
 from fairseq2.recipe.internal.data_parallel import (
     _DataParallelModelWrapper,
     _DDPFactory,
@@ -30,7 +30,7 @@ def _register_data_parallel_wrappers(container: DependencyContainer) -> None:
 
     # DDP
     def get_ddp_wrapper(resolver: DependencyResolver) -> _DataParallelModelWrapper:
-        train_recipe = resolver.resolve(TrainRecipe)
+        train_recipe = resolver.resolve(Recipe)
 
         context = RecipeContext(resolver)
 
