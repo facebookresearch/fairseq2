@@ -11,7 +11,8 @@ model_config_overrides:
   target_vocab_size: 5000
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_asr_transformer_s.pt"
 restrict: false
-tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_asr_vocab_unigram5000.zip;path=spm_unigram_5000.model"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_asr_vocab_unigram5000.zip"
+tokenizer_path: "spm_unigram_5000.model"
 tokenizer_family: s2t_transformer
 tokenizer_config_overrides:
   task: transcription
@@ -27,7 +28,8 @@ model_config_overrides:
   target_vocab_size: 5000
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_es_asr_transformer_s.pt"
 restrict: false
-tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_es_asr_vocab_unigram5000.zip;path=spm_unigram_5000.model"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_es_asr_vocab_unigram5000.zip"
+tokenizer_path: "spm_unigram_5000.model"
 tokenizer_family: s2t_transformer
 tokenizer_config_overrides:
   task: transcription
@@ -41,7 +43,8 @@ model_family: s2t_transformer
 model_arch: medium
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_joint_asr_transformer_m.pt"
 restrict: false
-tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_joint_asr_vocab_unigram10000.zip;path=spm_unigram_10000.model"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_joint_asr_vocab_unigram10000.zip"
+tokenizer_path: "spm_unigram_10000.model"
 tokenizer_family: s2t_transformer
 tokenizer_config_overrides:
   task: transcription
@@ -57,7 +60,8 @@ model_config_overrides:
   target_vocab_size: 8000
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_st_transformer_s.pt"
 restrict: false
-tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_st_vocab_unigram8000.zip;path=spm_unigram_8000.model"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_st_vocab_unigram8000.zip"
+tokenizer_path: "spm_unigram_8000.model"
 tokenizer_family: s2t_transformer
 tokenizer_config_overrides:
   task: translation
@@ -71,7 +75,8 @@ model_family: s2t_transformer
 model_arch: medium
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_multilingual_st_transformer_m.pt"
 restrict: false
-tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_multilingual_st_vocab_unigram10000.zip;path=spm_unigram_10000.model"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_multilingual_st_vocab_unigram10000.zip"
+tokenizer_path: "spm_unigram_10000.model"
 tokenizer_family: s2t_transformer
 tokenizer_config_overrides:
   task: translation

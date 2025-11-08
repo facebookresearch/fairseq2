@@ -149,24 +149,42 @@ class StandardTokenizerFamily(TokenizerFamily):
     ) -> Tokenizer:
         name = card.name
 
-        tokenizer_field = card.maybe_get_field("tokenizer")
-        if tokenizer_field is None:
-            url_field = card.maybe_get_field("url")
-            if url_field is not None:
-                url = url_field.as_(str)
+        uri_field = card.maybe_get_field("tokenizer")
+        if uri_field is None:
+            uri_field = card.maybe_get_field("url")
+            if uri_field is not None:
+                url = uri_field.as_(str)
             else:
                 url = None
 
             raise TokenizerGatedError(name, url)
 
-        tokenizer_uri = tokenizer_field.as_uri()
+        uri = uri_field.as_uri()
 
-        if tokenizer_uri.scheme not in self._asset_download_manager.supported_schemes:
-            msg = f"tokenizer URI scheme of the {name} asset card is expected to be a supported scheme, but is {tokenizer_uri.scheme} instead."
+        if uri.scheme not in self._asset_download_manager.supported_schemes:
+            msg = f"tokenizer URI scheme of the {name} asset card is expected to be a supported scheme, but is {uri.scheme} instead."
 
             raise AssetCardError(name, msg)
 
-        path = self._asset_download_manager.download_tokenizer(tokenizer_uri, name)
+        download_path = self._asset_download_manager.download_tokenizer(uri, name)
+
+        sub_path_field = card.maybe_get_field("tokenizer_path")
+        if sub_path_field is not None:
+            sub_pathname = sub_path_field.as_(str)
+
+            path = download_path.joinpath(sub_pathname)
+
+            try:
+                path = self._file_system.resolve(path)
+            except OSError as ex:
+                raise_operational_system_error(ex)
+
+            if not path.is_relative_to(download_path):
+                msg = f"tokenizer_path field of the {name} asset card points to a path that is not relative to the download directory."
+
+                raise AssetCardError(name, msg)
+        else:
+            path = download_path
 
         # Load the configuration.
         if config is None:
@@ -182,12 +200,12 @@ class StandardTokenizerFamily(TokenizerFamily):
         except TokenizerModelError as ex:
             msg = f"Tokenizer model of the {name} asset card is erroneous."
 
-            if tokenizer_uri.scheme != "file":
-                msg = f"{msg} Make sure that it is downloaded correctly and, if not, clean your asset cache directory at {path.parent}."
+            if uri.scheme != "file":
+                msg = f"{msg} Make sure that it is downloaded correctly and, if not, delete your cached version at {path}."
 
             raise AssetCardError(name, msg) from ex
         except FileNotFoundError as ex:
-            if tokenizer_uri.scheme != "file":
+            if uri.scheme != "file":
                 raise_operational_system_error(ex)
 
             msg = f"{path} pointed to by the tokenizer field of the {name} asset card is not found."

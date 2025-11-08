@@ -351,24 +351,42 @@ class StandardModelFamily(ModelFamily):
     ) -> Module:
         name = card.name
 
-        checkpoint_field = card.maybe_get_field("checkpoint")
-        if checkpoint_field is None:
-            url_field = card.maybe_get_field("url")
-            if url_field is not None:
-                url = url_field.as_(str)
+        uri_field = card.maybe_get_field("checkpoint")
+        if uri_field is None:
+            uri_field = card.maybe_get_field("url")
+            if uri_field is not None:
+                url = uri_field.as_(str)
             else:
                 url = None
 
             raise ModelGatedError(name, url)
 
-        checkpoint_uri = checkpoint_field.as_uri()
+        uri = uri_field.as_uri()
 
-        if checkpoint_uri.scheme not in self._asset_download_manager.supported_schemes:
-            msg = f"checkpoint URI scheme of the {name} asset card is expected to be a supported scheme, but is {checkpoint_uri.scheme} instead."
+        if uri.scheme not in self._asset_download_manager.supported_schemes:
+            msg = f"checkpoint URI scheme of the {name} asset card is expected to be a supported scheme, but is {uri.scheme} instead."
 
             raise AssetCardError(name, msg)
 
-        path = self._asset_download_manager.download_model(checkpoint_uri, name)
+        download_path = self._asset_download_manager.download_model(uri, name)
+
+        sub_path_field = card.maybe_get_field("checkpoint_path")
+        if sub_path_field is not None:
+            sub_pathname = sub_path_field.as_(str)
+
+            path = download_path.joinpath(sub_pathname)
+
+            try:
+                path = self._file_system.resolve(path)
+            except OSError as ex:
+                raise_operational_system_error(ex)
+
+            if not path.is_relative_to(download_path):
+                msg = f"checkpoint_path field of the {name} asset card points to a path that is not relative to the download directory."
+
+                raise AssetCardError(name, msg)
+        else:
+            path = download_path
 
         # Handle legacy paths with format specifiers.
         if "shard_idx" in path.name:
@@ -394,12 +412,12 @@ class StandardModelFamily(ModelFamily):
         except ModelCheckpointError as ex:
             msg = f"Model checkpoint of the {name} asset card is erroneous."
 
-            if checkpoint_uri.scheme != "file":
-                msg = f"{msg} Make sure that it is downloaded correctly and, if not, clean your asset cache directory at {path.parent}."
+            if uri.scheme != "file":
+                msg = f"{msg} Make sure that it is downloaded correctly and, if not, delete your cached version at {path}."
 
             raise AssetCardError(name, msg) from ex
         except FileNotFoundError as ex:
-            if checkpoint_uri.scheme != "file":
+            if uri.scheme != "file":
                 raise_operational_system_error(ex)
 
             msg = f"{path} pointed to by the checkpoint field of the {name} asset card is not found."

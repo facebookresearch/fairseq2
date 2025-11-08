@@ -9,7 +9,8 @@ model_family: s2t_conformer
 model_arch: medium
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/conformer/covost2/en_de/abs_asr_pt_avg_last_10_checkpoint.pt"
 restrict: false
-tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/covost2_en_de_st_vocab_char.zip;path=spm_char.model"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/covost2_en_de_st_vocab_char.zip"
+tokenizer_path: "spm_char.model"
 tokenizer_family: s2t_transformer
 tokenizer_config_overrides:
   task: translation
@@ -25,7 +26,8 @@ model_config_overrides:
   use_relative_pos: true
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/conformer/covost2/en_de/rel_pos_asr_pt_avg_last_10_checkpoint.pt"
 restrict: false
-tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/covost2_en_de_st_vocab_char.zip;path=spm_char.model"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/covost2_en_de_st_vocab_char.zip"
+tokenizer_path: "spm_char.model"
 tokenizer_family: s2t_transformer
 tokenizer_config_overrides:
   task: translation
