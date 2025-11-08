@@ -28,6 +28,7 @@ from fairseq2.cluster import ClusterNotDetectedError, ClusterNotKnownError
 from fairseq2.composition import ExtensionError, _register_library
 from fairseq2.data.tokenizers import (
     TokenizerFamilyNotKnownError,
+    TokenizerGatedError,
     TokenizerModelError,
     TokenizerNotKnownError,
 )
@@ -50,6 +51,7 @@ from fairseq2.model_checkpoint import ModelCheckpointError
 from fairseq2.models import (
     ModelArchitectureNotKnownError,
     ModelFamilyNotKnownError,
+    ModelGatedError,
     ModelNotKnownError,
 )
 from fairseq2.nn.utils.grad import InconsistentGradNormError
@@ -540,6 +542,7 @@ def _register_cli_errors(container: DependencyContainer) -> None:
     register(ModelCheckpointError, _handle_model_checkpoint_error)
     register(ModelCheckpointNotFoundError, _handle_model_checkpoint_not_found_error)
     register(ModelFamilyNotKnownError, _handle_model_family_not_known_error)
+    register(ModelGatedError, _handle_model_gated_error)
     register(ModelNotKnownError, _handle_model_not_known_error)
     register(ModelTypeNotValidError, _handle_model_type_not_valid_error)
     register(OptimizerNotKnownError, _handle_optimizer_not_known_error)
@@ -548,6 +551,7 @@ def _register_cli_errors(container: DependencyContainer) -> None:
     register(SequenceGeneratorNotKnownError, _handle_seq_generator_not_known_error)
     register(SplitNotKnownError, _handle_split_not_known_error)
     register(TokenizerFamilyNotKnownError, _handle_tokenizer_family_not_known_error)
+    register(TokenizerGatedError, _handle_tokenizer_gated_error)
     register(TokenizerModelError, _handle_tokenizer_model_error)
     register(TokenizerModelNotFoundError, _handle_tokenizer_model_not_found_error)
     register(TokenizerNotKnownError, _handle_tokenizer_not_known_error)
@@ -762,6 +766,15 @@ def _handle_model_family_not_known_error(ex: ModelFamilyNotKnownError) -> int:
     return 2
 
 
+def _handle_model_gated_error(ex: ModelGatedError) -> int:
+    if ex.url:
+        log.error("{} is a gated model. See {} for more information.", ex.name, ex.url)
+    else:
+        log.error("{} is a gated model.", ex.name)
+
+    return 2
+
+
 def _handle_model_not_known_error(ex: ModelNotKnownError) -> int:
     log.error("{} is not a known model. To see the list of available models run: `python -m fairseq2.assets list --kind model`.", ex.name)
 
@@ -811,6 +824,15 @@ def _handle_split_not_known_error(ex: SplitNotKnownError) -> int:
 
 def _handle_tokenizer_family_not_known_error(ex: TokenizerFamilyNotKnownError) -> int:
     log.error("{} is not a known tokenizer family.", ex.name)
+
+    return 2
+
+
+def _handle_tokenizer_gated_error(ex: TokenizerGatedError) -> int:
+    if ex.url:
+        log.error("{} is a gated tokenizer. See {} for more information.", ex.name, ex.url)
+    else:
+        log.error("{} is a gated tokenizer.", ex.name)
 
     return 2
 

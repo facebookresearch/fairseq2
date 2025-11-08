@@ -157,6 +157,14 @@ class ModelFamily(ABC):
     def supports_hugging_face(self) -> bool: ...
 
 
+class ModelGatedError(Exception):
+    def __init__(self, name: str, url: str | None) -> None:
+        super().__init__(f"{name} is a gated model.")
+
+        self.name = name
+        self.url = url
+
+
 def get_model_family(card: AssetCard, families: Lookup[ModelFamily]) -> ModelFamily:
     family_name = card.field("model_family").as_(str)
 
@@ -343,14 +351,24 @@ class StandardModelFamily(ModelFamily):
     ) -> Module:
         name = card.name
 
-        uri = card.field("checkpoint").as_uri()
+        checkpoint_field = card.maybe_get_field("checkpoint")
+        if checkpoint_field is None:
+            url_field = card.maybe_get_field("url")
+            if url_field is not None:
+                url = url_field.as_(str)
+            else:
+                url = None
 
-        if uri.scheme not in self._asset_download_manager.supported_schemes:
-            msg = f"checkpoint URI scheme of the {name} asset card is expected to be a supported scheme, but is {uri.scheme} instead."
+            raise ModelGatedError(name, url)
+
+        checkpoint_uri = checkpoint_field.as_uri()
+
+        if checkpoint_uri.scheme not in self._asset_download_manager.supported_schemes:
+            msg = f"checkpoint URI scheme of the {name} asset card is expected to be a supported scheme, but is {checkpoint_uri.scheme} instead."
 
             raise AssetCardError(name, msg)
 
-        path = self._asset_download_manager.download_model(uri, name)
+        path = self._asset_download_manager.download_model(checkpoint_uri, name)
 
         # Handle legacy paths with format specifiers.
         if "shard_idx" in path.name:
@@ -376,12 +394,12 @@ class StandardModelFamily(ModelFamily):
         except ModelCheckpointError as ex:
             msg = f"Model checkpoint of the {name} asset card is erroneous."
 
-            if uri.scheme != "file":
+            if checkpoint_uri.scheme != "file":
                 msg = f"{msg} Make sure that it is downloaded correctly and, if not, clean your asset cache directory at {path.parent}."
 
             raise AssetCardError(name, msg) from ex
         except FileNotFoundError as ex:
-            if uri.scheme != "file":
+            if checkpoint_uri.scheme != "file":
                 raise_operational_system_error(ex)
 
             msg = f"{path} pointed to by the checkpoint field of the {name} asset card is not found."
