@@ -11,7 +11,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Any, Protocol, TypeVar, final
+from typing import Any, Final, Protocol, TypeVar, final
 
 import torch
 from torch import Tensor
@@ -44,6 +44,7 @@ from fairseq2.nn.utils.module import reset_non_persistent_buffers, to_empty
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.sharder import ModelSharder, ShardSpec, ShardSpecError
 from fairseq2.utils.progress import ProgressReporter
+from fairseq2.utils.validation import ObjectValidator, ValidationError
 from fairseq2.utils.warn import _warn_deprecated
 
 
@@ -217,6 +218,12 @@ ModelConfigT = TypeVar("ModelConfigT")
 
 @final
 class StandardModelFamily(ModelFamily):
+    _CONFIG_KEYS: Final = (
+        "model_config_overrides",
+        "model_config_override",
+        "model_config",
+    )
+
     def __init__(
         self,
         name: str,
@@ -224,6 +231,7 @@ class StandardModelFamily(ModelFamily):
         configs: Lookup[ModelConfigT],
         factory: ModelFactory[ModelConfigT, ModelT],
         file_system: FileSystem,
+        validator: ObjectValidator,
         asset_download_manager: AssetDownloadManager,
         asset_config_loader: AssetConfigLoader,
         checkpoint_loader: ModelCheckpointLoader,
@@ -248,6 +256,7 @@ class StandardModelFamily(ModelFamily):
         self._configs: Lookup[object] = configs
         self._factory: ModelFactory[Any, Module] = factory
         self._file_system = file_system
+        self._validator = validator
         self._asset_download_manager = asset_download_manager
         self._asset_config_loader = asset_config_loader
         self._checkpoint_loader = checkpoint_loader
@@ -296,14 +305,18 @@ class StandardModelFamily(ModelFamily):
 
                 raise AssetCardError(name, msg) from None
 
-        # legacy
-        base_config = self._asset_config_loader.load(
-            card, base_config, config_key="model_config"
-        )
+        for key in self._CONFIG_KEYS:
+            config = self._asset_config_loader.load(card, base_config, config_key=key)
 
-        base_config = self._asset_config_loader.load(
-            card, base_config, config_key="model_config_override"
-        )
+            if config is not base_config:
+                try:
+                    self._validator.validate(config)
+                except ValidationError as ex:
+                    msg = f"{key} field of the {name} asset card is not a valid {self._name} model configuration."
+
+                    raise AssetCardError(name, msg) from ex
+
+                return config
 
         return base_config
 
@@ -346,15 +359,11 @@ class StandardModelFamily(ModelFamily):
         # Load the configuration.
         if config is None:
             config = self.get_model_config(card)
-
-            has_custom_config = False
         else:
             if not isinstance(config, self._configs.kls):
                 raise TypeError(
                     f"`config` must be of type `{self._configs.kls}`, but is of type `{type(config)}` instead."
                 )
-
-            has_custom_config = True
 
         restrict_field = card.maybe_get_field("restrict")
         if restrict_field is not None:
@@ -364,13 +373,6 @@ class StandardModelFamily(ModelFamily):
 
         try:
             return self._do_load_model(path, config, gangs, dtype, mmap, restrict)
-        except ValueError as ex:
-            if has_custom_config:
-                raise
-
-            msg = f"model_config field of the {name} asset card is not a valid {self._name} model configuration."
-
-            raise AssetCardError(name, msg) from ex
         except ModelCheckpointError as ex:
             msg = f"Model checkpoint of the {name} asset card is erroneous."
 

@@ -111,10 +111,9 @@ class _StandardReferenceModelBootstrapper(_ReferenceModelBootstrapper):
 
         config = family.get_model_config(card)
 
-        if section.config_overrides is not None:
-            config = self._asset_config_overrider.apply_overrides(
-                section_name, config, section.config_overrides
-            )
+        config = self._asset_config_overrider.apply_overrides(
+            section_name, config, section.config_overrides
+        )
 
         gangs = self._gangs
 
@@ -124,8 +123,7 @@ class _StandardReferenceModelBootstrapper(_ReferenceModelBootstrapper):
         else:
             log.info("Loading {} model specified in `{}` section on data parallel rank 0.", name, section_name)  # fmt: skip
 
-        if config is not None:
-            self._log_helper.log_config("Model Config", config)
+        self._log_helper.log_config("Model Config", config)
 
         if gangs.dp.rank == 0:
             model = family.load_model(
@@ -177,10 +175,9 @@ class _StandardReferenceModelBootstrapper(_ReferenceModelBootstrapper):
             if config is None:
                 raise ModelArchitectureNotKnownError(arch, family_name) from None
 
-        if section.config_overrides is not None:
-            config = self._asset_config_overrider.apply_overrides(
-                section_name, config, section.config_overrides
-            )
+        config = self._asset_config_overrider.apply_overrides(
+            section_name, config, section.config_overrides
+        )
 
         gangs = self._gangs
 
@@ -190,8 +187,7 @@ class _StandardReferenceModelBootstrapper(_ReferenceModelBootstrapper):
         else:
             log.info("Loading model specified in `{}` section on data parallel rank 0.", section_name)  # fmt: skip
 
-        if config is not None:
-            self._log_helper.log_config("Model Config", config)
+        self._log_helper.log_config("Model Config", config)
 
         if gangs.dp.rank == 0:
             try:

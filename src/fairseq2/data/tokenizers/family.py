@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Protocol, TypeVar, final
+from typing import Any, Final, Protocol, TypeVar, final
 
 from typing_extensions import override
 
@@ -22,6 +22,7 @@ from fairseq2.data.tokenizers.tokenizer import Tokenizer
 from fairseq2.error import InternalError, raise_operational_system_error
 from fairseq2.file_system import FileSystem
 from fairseq2.runtime.lookup import Lookup
+from fairseq2.utils.validation import ObjectValidator, ValidationError
 
 
 class TokenizerFamily(ABC):
@@ -84,6 +85,12 @@ TokenizerConfigT = TypeVar("TokenizerConfigT")
 
 @final
 class StandardTokenizerFamily(TokenizerFamily):
+    _CONFIG_KEYS: Final = (
+        "tokenizer_config_overrides",
+        "tokenizer_config_override",
+        "tokenizer_config",
+    )
+
     def __init__(
         self,
         name: str,
@@ -91,6 +98,7 @@ class StandardTokenizerFamily(TokenizerFamily):
         config_kls: type[TokenizerConfigT],
         loader: TokenizerLoader[TokenizerConfigT],
         file_system: FileSystem,
+        validator: ObjectValidator,
         asset_download_manager: AssetDownloadManager,
         asset_config_loader: AssetConfigLoader,
     ) -> None:
@@ -99,6 +107,7 @@ class StandardTokenizerFamily(TokenizerFamily):
         self._config_kls: type[object] = config_kls
         self._loader: TokenizerLoader[Any] = loader
         self._file_system = file_system
+        self._validator = validator
         self._asset_download_manager = asset_download_manager
         self._asset_config_loader = asset_config_loader
 
@@ -111,14 +120,18 @@ class StandardTokenizerFamily(TokenizerFamily):
                 f"Default configuration of the {self._name} tokenizer family cannot be constructed."
             ) from ex
 
-        # legacy
-        base_config = self._asset_config_loader.load(
-            card, base_config, config_key="tokenizer_config"
-        )
+        for key in self._CONFIG_KEYS:
+            config = self._asset_config_loader.load(card, base_config, config_key=key)
 
-        base_config = self._asset_config_loader.load(
-            card, base_config, config_key="tokenizer_config_override"
-        )
+            if config is not base_config:
+                try:
+                    self._validator.validate(config)
+                except ValidationError as ex:
+                    msg = f"{key} field of the {card.name} asset card is not a valid {self._name} tokenizer configuration."
+
+                    raise AssetCardError(card.name, msg) from ex
+
+                return config
 
         return base_config
 
@@ -140,25 +153,14 @@ class StandardTokenizerFamily(TokenizerFamily):
         # Load the configuration.
         if config is None:
             config = self.get_tokenizer_config(card)
-
-            has_custom_config = False
         else:
             if not isinstance(config, self._config_kls):
                 raise TypeError(
                     f"`config` must be of type `{self._config_kls}`, but is of type `{type(config)}` instead."
                 )
 
-            has_custom_config = True
-
         try:
             return self._loader(path, config)
-        except ValueError as ex:
-            if has_custom_config:
-                raise
-
-            msg = f"tokenizer_config field of the {name} asset card is not a valid {self._name} tokenizer configuration."
-
-            raise AssetCardError(name, msg) from ex
         except TokenizerModelError as ex:
             msg = f"Tokenizer model of the {name} asset card is erroneous."
 
