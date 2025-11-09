@@ -349,6 +349,14 @@ class StandardModelFamily(ModelFamily):
         mmap: bool,
         progress: bool,
     ) -> Module:
+        if config is None:
+            config = self.get_model_config(card)
+        else:
+            if not isinstance(config, self._configs.kls):
+                raise TypeError(
+                    f"`config` must be of type `{self._configs.kls}`, but is of type `{type(config)}` instead."
+                )
+
         name = card.name
 
         uri_field = card.maybe_get_field("checkpoint")
@@ -368,7 +376,7 @@ class StandardModelFamily(ModelFamily):
 
             raise AssetCardError(name, msg)
 
-        download_path = self._asset_download_manager.download_model(uri, name)
+        download_path = self._asset_download_manager.download_model(uri)
 
         sub_path_field = card.maybe_get_field("checkpoint_path")
         if sub_path_field is not None:
@@ -391,15 +399,6 @@ class StandardModelFamily(ModelFamily):
         # Handle legacy paths with format specifiers.
         if "shard_idx" in path.name:
             path = path.parent
-
-        # Load the configuration.
-        if config is None:
-            config = self.get_model_config(card)
-        else:
-            if not isinstance(config, self._configs.kls):
-                raise TypeError(
-                    f"`config` must be of type `{self._configs.kls}`, but is of type `{type(config)}` instead."
-                )
 
         restrict_field = card.maybe_get_field("restrict")
         if restrict_field is not None:

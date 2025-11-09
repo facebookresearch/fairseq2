@@ -128,6 +128,8 @@ class StandardTokenizerFamily(TokenizerFamily):
                 f"Default configuration of the {self._name} tokenizer family cannot be constructed."
             ) from ex
 
+        name = card.name
+
         for key in self._CONFIG_KEYS:
             config = self._asset_config_loader.load(card, base_config, config_key=key)
 
@@ -135,9 +137,9 @@ class StandardTokenizerFamily(TokenizerFamily):
                 try:
                     self._validator.validate(config)
                 except ValidationError as ex:
-                    msg = f"{key} field of the {card.name} asset card is not a valid {self._name} tokenizer configuration."
+                    msg = f"{key} field of the {name} asset card is not a valid {self._name} tokenizer configuration."
 
-                    raise AssetCardError(card.name, msg) from ex
+                    raise AssetCardError(name, msg) from ex
 
                 return config
 
@@ -147,6 +149,14 @@ class StandardTokenizerFamily(TokenizerFamily):
     def load_tokenizer(
         self, card: AssetCard, config: object | None, progress: bool
     ) -> Tokenizer:
+        if config is None:
+            config = self.get_tokenizer_config(card)
+        else:
+            if not isinstance(config, self._config_kls):
+                raise TypeError(
+                    f"`config` must be of type `{self._config_kls}`, but is of type `{type(config)}` instead."
+                )
+
         name = card.name
 
         uri_field = card.maybe_get_field("tokenizer")
@@ -166,7 +176,7 @@ class StandardTokenizerFamily(TokenizerFamily):
 
             raise AssetCardError(name, msg)
 
-        download_path = self._asset_download_manager.download_tokenizer(uri, name)
+        download_path = self._asset_download_manager.download_tokenizer(uri)
 
         sub_path_field = card.maybe_get_field("tokenizer_path")
         if sub_path_field is not None:
@@ -185,15 +195,6 @@ class StandardTokenizerFamily(TokenizerFamily):
                 raise AssetCardError(name, msg)
         else:
             path = download_path
-
-        # Load the configuration.
-        if config is None:
-            config = self.get_tokenizer_config(card)
-        else:
-            if not isinstance(config, self._config_kls):
-                raise TypeError(
-                    f"`config` must be of type `{self._config_kls}`, but is of type `{type(config)}` instead."
-                )
 
         try:
             return self._loader(path, config)
