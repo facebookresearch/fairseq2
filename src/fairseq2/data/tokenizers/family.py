@@ -21,6 +21,7 @@ from fairseq2.assets import (
 from fairseq2.data.tokenizers.tokenizer import Tokenizer
 from fairseq2.error import InternalError, raise_operational_system_error
 from fairseq2.file_system import FileSystem
+from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.utils.validation import ObjectValidator, ValidationError
 
@@ -31,11 +32,13 @@ class TokenizerFamily(ABC):
 
     @abstractmethod
     def load_tokenizer(
-        self, card: AssetCard, config: object | None, progress: bool
+        self, card: AssetCard, gangs: Gangs, config: object | None
     ) -> Tokenizer: ...
 
     @abstractmethod
-    def load_custom_tokenizer(self, path: Path, config: object) -> Tokenizer: ...
+    def load_custom_tokenizer(
+        self, path: Path, config: object, gangs: Gangs
+    ) -> Tokenizer: ...
 
     @property
     @abstractmethod
@@ -147,7 +150,7 @@ class StandardTokenizerFamily(TokenizerFamily):
 
     @override
     def load_tokenizer(
-        self, card: AssetCard, config: object | None, progress: bool
+        self, card: AssetCard, gangs: Gangs, config: object | None
     ) -> Tokenizer:
         if config is None:
             config = self.get_tokenizer_config(card)
@@ -176,7 +179,19 @@ class StandardTokenizerFamily(TokenizerFamily):
 
             raise AssetCardError(name, msg)
 
-        download_path = self._asset_download_manager.download_tokenizer(uri)
+        try:
+            if gangs.root.rank == 0:
+                download_path = self._asset_download_manager.download_tokenizer(uri)
+
+                gangs.root.barrier()
+            else:
+                gangs.root.barrier()
+
+                download_path = self._asset_download_manager.download_tokenizer(
+                    uri, local_only=True
+                )
+        except GangError as ex:
+            raise_operational_gang_error(ex)
 
         sub_path_field = card.maybe_get_field("tokenizer_path")
         if sub_path_field is not None:
@@ -215,14 +230,26 @@ class StandardTokenizerFamily(TokenizerFamily):
         except OSError as ex:
             raise_operational_system_error(ex)
 
+        try:
+            gangs.root.barrier()
+        except GangError as ex:
+            raise_operational_gang_error(ex)
+
     @override
-    def load_custom_tokenizer(self, path: Path, config: object) -> Tokenizer:
+    def load_custom_tokenizer(
+        self, path: Path, config: object, gangs: Gangs
+    ) -> Tokenizer:
         if not isinstance(config, self._config_kls):
             raise TypeError(
                 f"`config` must be of type `{self._config_kls}`, but is of type `{type(config)}` instead."
             )
 
         return self._loader(path, config)
+
+        try:
+            gangs.root.barrier()
+        except GangError as ex:
+            raise_operational_gang_error(ex)
 
     @property
     @override

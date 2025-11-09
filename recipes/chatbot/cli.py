@@ -268,7 +268,7 @@ def _run(args: Namespace) -> None:
 
     log.info("Loading {} tokenizer.", card.name)
 
-    tokenizer = load_tokenizer(card, progress=True)
+    tokenizer = load_tokenizer(card, gangs=gangs, progress=True)
 
     log.info("Tokenizer loaded.")
 

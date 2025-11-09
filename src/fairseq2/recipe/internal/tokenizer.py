@@ -19,7 +19,7 @@ from fairseq2.data.tokenizers import (
     resolve_tokenizer_reference,
 )
 from fairseq2.error import InternalError, raise_operational_system_error
-from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
+from fairseq2.gang import Gangs
 from fairseq2.logging import log
 from fairseq2.recipe.config import TokenizerSection
 from fairseq2.recipe.error import TokenizerModelNotFoundError
@@ -94,12 +94,7 @@ class _RecipeTokenizerLoader:
 
         self._log_helper.log_config("Tokenizer Config", config)
 
-        tokenizer = family.load_tokenizer(card, config, progress=True)
-
-        try:
-            self._gangs.root.barrier()
-        except GangError as ex:
-            raise_operational_gang_error(ex)
+        tokenizer = family.load_tokenizer(card, self._gangs, config)
 
         log.info("Tokenizer loaded.")
 
@@ -141,16 +136,11 @@ class _RecipeTokenizerLoader:
         self._log_helper.log_config("Tokenizer Config", config)
 
         try:
-            tokenizer = family.load_custom_tokenizer(path, config)
+            tokenizer = family.load_custom_tokenizer(path, config, self._gangs)
         except FileNotFoundError as ex:
             raise TokenizerModelNotFoundError(path) from ex
         except OSError as ex:
             raise_operational_system_error(ex)
-
-        try:
-            self._gangs.root.barrier()
-        except GangError as ex:
-            raise_operational_gang_error(ex)
 
         log.info("Tokenizer loaded.")
 
