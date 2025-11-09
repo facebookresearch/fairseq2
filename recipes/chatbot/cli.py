@@ -18,6 +18,7 @@ from typing_extensions import override
 
 from fairseq2.assets import (
     AssetCardError,
+    AssetDownloadError,
     AssetMetadataError,
     AssetNotFoundError,
     get_asset_store,
@@ -42,7 +43,7 @@ from fairseq2.gang import (
 from fairseq2.generation.sampling import SamplingSequenceGenerator, TopPSampler
 from fairseq2.logging import configure_logging, log
 from fairseq2.model_checkpoint import ModelCheckpointError
-from fairseq2.models import ModelNotKnownError, load_model
+from fairseq2.models import ModelGatedError, ModelNotKnownError, load_model
 from fairseq2.models.clm import CausalLM
 from fairseq2.recipe.error import (
     GangTopologyError,
@@ -92,6 +93,10 @@ def _main() -> None:
         log.error("Model must be a text-only causal language model.")  # fmt: skip
 
         sys.exit(2)
+    except ModelGatedError as ex:
+        log.error("{} is a gated model.", ex.name)  # fmt: skip
+
+        sys.exit(2)
     except ChatbotNotSupportedError as ex:
         log.error("{} model does not have a chatbot.", ex.model_name)  # fmt: skip
 
@@ -102,6 +107,10 @@ def _main() -> None:
         sys.exit(1)
     except AssetCardError as ex:
         log.exception("{} asset card is erroneous. See logged stack trace for details.", ex.name)  # fmt: skip
+
+        sys.exit(1)
+    except AssetDownloadError as ex:
+        log.exception("Failed to download {}.", ex.uri)
 
         sys.exit(1)
     except ModelCheckpointError as ex:
