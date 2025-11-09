@@ -568,7 +568,7 @@ def _handle_asset_card_error(ex: AssetCardError) -> int:
 
 
 def _handle_asset_download_error(ex: AssetDownloadError) -> int:
-    log.exception("Failed to download {} {}. See logged stack trace for details.", ex.asset_name, ex.asset_kind)
+    log.exception("Failed to download {}. See logged stack trace for details.", ex.uri)
 
     return 1
 

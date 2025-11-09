@@ -105,6 +105,8 @@ class StandardDatasetFamily(DatasetFamily):
                 f"Default configuration of the {self._name} dataset family cannot be constructed."
             ) from ex
 
+        name = card.name
+
         for key in self._CONFIG_KEYS:
             config = self._asset_config_loader.load(card, base_config, config_key=key)
 
@@ -112,9 +114,9 @@ class StandardDatasetFamily(DatasetFamily):
                 try:
                     self._validator.validate(config)
                 except ValidationError as ex:
-                    msg = f"{key} field of the {card.name} asset card is not a valid {self._name} dataset configuration."
+                    msg = f"{key} field of the {name} asset card is not a valid {self._name} dataset configuration."
 
-                    raise AssetCardError(card.name, msg) from ex
+                    raise AssetCardError(name, msg) from ex
 
                 return config
 
@@ -122,9 +124,6 @@ class StandardDatasetFamily(DatasetFamily):
 
     @override
     def open_dataset(self, card: AssetCard, config: object | None) -> object:
-        name = card.name
-
-        # Load the configuration.
         if config is None:
             config = self.get_dataset_config(card)
         else:
@@ -132,6 +131,8 @@ class StandardDatasetFamily(DatasetFamily):
                 raise TypeError(
                     f"`config` must be of type `{self._config_kls}`, but is of type `{type(config)}` instead."
                 )
+
+        name = card.name
 
         try:
             return self._opener(config)
