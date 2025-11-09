@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Sequence, Set
-from contextlib import ExitStack
+from collections.abc import Generator, Sequence, Set
+from contextlib import ExitStack, contextmanager
 from hashlib import sha1
 from pathlib import Path
 from tarfile import TarFile, is_tarfile
@@ -21,11 +21,12 @@ from urllib.request import Request, urlopen
 from zipfile import BadZipFile, ZipFile
 
 from huggingface_hub import snapshot_download
+from huggingface_hub.constants import HF_HUB_CACHE
 from huggingface_hub.errors import HfHubHTTPError
 from typing_extensions import NoReturn, override
 
-from fairseq2.error import NotSupportedError
-from fairseq2.file_system import FileSystem
+from fairseq2.error import InternalError, NotSupportedError
+from fairseq2.file_system import FileSystem, _flush_nfs_lookup_cache
 from fairseq2.runtime.dependency import get_dependency_resolver
 from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.uri import Uri
@@ -44,6 +45,7 @@ class AssetDownloadManager(ABC):
         model_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
         """
@@ -54,6 +56,10 @@ class AssetDownloadManager(ABC):
 
         If ``force`` is ``True``, the model checkpoint will be downloaded even
         if it is already in cache.
+
+        If ``local_only`` is ``True``, the cached path of the model checkpoint
+        will be returned. If not cached, an :class:`AssetDownloadError` will be
+        raised.
 
         ``model_name`` is deprecated and will be removed in v0.13.
 
@@ -72,6 +78,7 @@ class AssetDownloadManager(ABC):
         tokenizer_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
         """
@@ -82,6 +89,9 @@ class AssetDownloadManager(ABC):
 
         If ``force`` is ``True``, the tokenizer will be downloaded even if it is
         already in cache.
+
+        If ``local_only`` is ``True``, the cached path of the tokenizer will be
+        returned. If not cached, an :class:`AssetDownloadError` will be raised.
 
         ``tokenizer_name`` is deprecated and will be removed in v0.13.
 
@@ -100,6 +110,7 @@ class AssetDownloadManager(ABC):
         dataset_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
         """
@@ -109,6 +120,9 @@ class AssetDownloadManager(ABC):
 
         If ``force`` is ``True``, the dataset will be downloaded even if it is
         already in cache.
+
+        If ``local_only`` is ``True``, the cached path of the dataset will be
+        returned. If not cached, an :class:`AssetDownloadError` will be raised.
 
         ``dataset_name`` is deprecated and will be removed in v0.13.
 
@@ -162,6 +176,7 @@ class DelegatingAssetDownloadManager(AssetDownloadManager):
         model_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
         if model_name:
@@ -171,7 +186,7 @@ class DelegatingAssetDownloadManager(AssetDownloadManager):
 
         manager = self._get_download_manager(uri)
 
-        return manager.download_model(uri, model_name, force=force, progress=progress)
+        return manager.download_model(uri, "", force=force, local_only=local_only)
 
     @override
     def download_tokenizer(
@@ -180,6 +195,7 @@ class DelegatingAssetDownloadManager(AssetDownloadManager):
         tokenizer_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
         if tokenizer_name:
@@ -189,9 +205,7 @@ class DelegatingAssetDownloadManager(AssetDownloadManager):
 
         manager = self._get_download_manager(uri)
 
-        return manager.download_tokenizer(
-            uri, tokenizer_name, force=force, progress=progress
-        )
+        return manager.download_tokenizer(uri, "", force=force, local_only=local_only)
 
     @override
     def download_dataset(
@@ -200,6 +214,7 @@ class DelegatingAssetDownloadManager(AssetDownloadManager):
         dataset_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
         if dataset_name:
@@ -209,9 +224,7 @@ class DelegatingAssetDownloadManager(AssetDownloadManager):
 
         manager = self._get_download_manager(uri)
 
-        return manager.download_dataset(
-            uri, dataset_name, force=force, progress=progress
-        )
+        return manager.download_dataset(uri, "", force=force, local_only=local_only)
 
     def _get_download_manager(self, uri: Uri) -> AssetDownloadManager:
         manager = self._scheme_to_manager.get(uri.scheme)
@@ -239,6 +252,7 @@ class LocalAssetDownloadManager(AssetDownloadManager):
         model_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
         return self._to_path(uri)
@@ -250,6 +264,7 @@ class LocalAssetDownloadManager(AssetDownloadManager):
         tokenizer_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
         return self._to_path(uri)
@@ -261,6 +276,7 @@ class LocalAssetDownloadManager(AssetDownloadManager):
         dataset_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
         return self._to_path(uri)
@@ -294,19 +310,17 @@ class HuggingFaceHub(AssetDownloadManager):
         model_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
-        repo_id = self._get_repo_id(uri)
-
-        try:
+        with self._handle_download(uri) as repo_id:
             path = snapshot_download(
                 repo_id=repo_id,
                 repo_type="model",
                 allow_patterns="*.safetensors",
                 force_download=force,
+                local_files_only=local_only,
             )
-        except HfHubHTTPError as ex:
-            self._raise_download_error(uri, ex)
 
         return Path(path)
 
@@ -317,19 +331,17 @@ class HuggingFaceHub(AssetDownloadManager):
         tokenizer_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
-        repo_id = self._get_repo_id(uri)
-
-        try:
+        with self._handle_download(uri) as repo_id:
             path = snapshot_download(
                 repo_id=repo_id,
                 repo_type="model",
                 allow_patterns="tokenizer*.json",
                 force_download=force,
+                local_files_only=local_only,
             )
-        except HfHubHTTPError as ex:
-            self._raise_download_error(uri, ex)
 
         return Path(path)
 
@@ -340,22 +352,40 @@ class HuggingFaceHub(AssetDownloadManager):
         dataset_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
-        repo_id = self._get_repo_id(uri)
-
-        try:
+        with self._handle_download(uri) as repo_id:
             path = snapshot_download(
-                repo_id=repo_id, repo_type="dataset", force_download=force
+                repo_id=repo_id,
+                repo_type="dataset",
+                force_download=force,
+                local_files_only=local_only,
             )
-        except HfHubHTTPError as ex:
-            self._raise_download_error(uri, ex)
 
         return Path(path)
 
+    @contextmanager
+    def _handle_download(self, uri: Uri) -> Generator[str, None, None]:
+        repo_id = self._get_repo_id(uri)
+
+        try:
+            cache_dir = Path(HF_HUB_CACHE)
+        except ValueError:
+            raise InternalError(f"{HF_HUB_CACHE} is not a valid directory.")
+
+        _flush_nfs_lookup_cache(cache_dir)
+
+        try:
+            yield repo_id
+        except HfHubHTTPError as ex:
+            self._raise_download_error(uri, ex)
+
+        _flush_nfs_lookup_cache(cache_dir)
+
     @staticmethod
     def _raise_download_error(uri: Uri, cause: Exception) -> NoReturn:
-        reason = "Hugging Face Hub returned an HTTP error."
+        reason = "Hugging Face Hub returned an error."
 
         raise AssetDownloadError(uri, reason) from cause
 
@@ -399,9 +429,10 @@ class StandardAssetDownloadManager(AssetDownloadManager):
         model_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
-        return self._download_asset(uri, force)
+        return self._download_asset(uri, force, local_only)
 
     @override
     def download_tokenizer(
@@ -410,9 +441,10 @@ class StandardAssetDownloadManager(AssetDownloadManager):
         tokenizer_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
-        return self._download_asset(uri, force)
+        return self._download_asset(uri, force, local_only)
 
     @override
     def download_dataset(
@@ -421,11 +453,12 @@ class StandardAssetDownloadManager(AssetDownloadManager):
         dataset_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
-        return self._download_asset(uri, force)
+        return self._download_asset(uri, force, local_only)
 
-    def _download_asset(self, uri: Uri, force: bool) -> Path:
+    def _download_asset(self, uri: Uri, force: bool, local_only: bool) -> Path:
         if uri.scheme not in self._SCHEMES:
             raise NotSupportedError(
                 f"`uri.scheme` must be a supported URI scheme, but is {uri.scheme} instead."
@@ -435,6 +468,7 @@ class StandardAssetDownloadManager(AssetDownloadManager):
             self._cache_dir,
             uri,
             force,
+            local_only,
             self._file_system,
             self._progress_reporter,
             self._download_progress_reporter,
@@ -455,6 +489,7 @@ class _AssetDownloadOperation:
         cache_dir: Path,
         uri: Uri,
         force: bool,
+        local_only: bool,
         file_system: FileSystem,
         progress_reporter: ProgressReporter,
         download_progress_reporter: ProgressReporter,
@@ -467,6 +502,7 @@ class _AssetDownloadOperation:
         self._uri = uri
         self._asset_dir = asset_dir
         self._force = force
+        self._local_only = local_only
         self._file_system = file_system
         self._progress_reporter = progress_reporter
         self._download_progress_reporter = download_progress_reporter
@@ -478,17 +514,24 @@ class _AssetDownloadOperation:
         return h[:24]
 
     def run(self) -> Path:
+        _flush_nfs_lookup_cache(self._asset_dir)
+
         try:
-            if self._force:
-                self._clean_cached_asset()
+            if not self._local_only:
+                if self._force:
+                    self._clean_cached_asset()
 
-            self._download_asset()
+                self._download_asset()
 
-            self._ensure_asset_extracted()
+                self._ensure_asset_extracted()
 
-            return self._retrieve_asset_path()
+            path = self._retrieve_asset_path()
         except OSError as ex:
             self._raise_download_error("A system error occurred.", ex)
+
+        _flush_nfs_lookup_cache(self._asset_dir)
+
+        return path
 
     def _clean_cached_asset(self) -> None:
         asset_dir = self._asset_dir
@@ -708,7 +751,12 @@ class _AssetDownloadOperation:
         asset_dir = self._asset_dir
 
         if not self._file_system.exists(asset_dir):
-            self._raise_download_error(f"{asset_dir} asset directory is not found.")
+            if self._local_only:
+                reason = "Asset is not cached, but `local_only` is `True`."
+            else:
+                reason = f"{asset_dir} asset directory is not found."
+
+            self._raise_download_error(reason)
 
         it = asset_dir.iterdir()
 

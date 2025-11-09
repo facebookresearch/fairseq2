@@ -11,7 +11,6 @@ from collections.abc import Callable
 from concurrent.futures import Future
 from copy import deepcopy
 from dataclasses import dataclass
-from os import scandir
 from pathlib import Path
 from pickle import PickleError
 from typing import Any, Protocol, final
@@ -28,7 +27,7 @@ from fairseq2.error import (
     StateDictError,
     raise_operational_system_error,
 )
-from fairseq2.file_system import FileMode, FileSystem
+from fairseq2.file_system import FileMode, FileSystem, _flush_nfs_lookup_cache
 from fairseq2.gang import GangError, Gangs, all_sum, raise_operational_gang_error
 from fairseq2.io import (
     TensorDataNotValidError,
@@ -500,7 +499,7 @@ class StandardCheckpointManager(CheckpointManager):
         gangs = self._gangs
 
         if gangs.root.rank == 0:
-            self._flush_nfs_lookup_cache()
+            _flush_nfs_lookup_cache(self._checkpoint_dir)
 
         try:
             gangs.root.barrier()
@@ -508,31 +507,7 @@ class StandardCheckpointManager(CheckpointManager):
             raise_operational_gang_error(ex)
 
         if gangs.root.rank != 0:
-            self._flush_nfs_lookup_cache()
-
-    def _flush_nfs_lookup_cache(self) -> None:
-        path = self._checkpoint_dir
-
-        # Use the `opendir`/`readdir`/`closedir` trick to drop all cached NFS
-        # LOOKUP results.
-        while path != path.parent:
-            try:
-                it = scandir(path)
-            except FileNotFoundError:
-                path = path.parent
-
-                continue
-            except OSError:
-                break
-
-            try:
-                next(it)
-            except StopIteration:
-                pass
-            finally:
-                it.close()
-
-            break
+            _flush_nfs_lookup_cache(self._checkpoint_dir)
 
     @override
     def save_score(self, step_nr: int, score: float) -> None:
