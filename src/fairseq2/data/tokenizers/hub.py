@@ -96,7 +96,7 @@ class TokenizerHub(Generic[TokenizerT, TokenizerConfigT]):
         return cast(TokenizerT, tokenizer)
 
     def load_custom_tokenizer(
-        self, path: Path, config: TokenizerConfigT, gangs: Gangs | None = None
+        self, path: Path, config: TokenizerConfigT, *, gangs: Gangs | None = None
     ) -> TokenizerT:
         if gangs is None:
             gangs = create_fake_gangs(CPU)
