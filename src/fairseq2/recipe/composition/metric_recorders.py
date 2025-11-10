@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from wandb import Run as WandbRun
+
 from fairseq2.metrics import (
     format_as_byte_size,
     format_as_float,
@@ -32,10 +34,9 @@ from fairseq2.recipe.internal.metric_recorders import (
     _MaybeWandbRecorderFactory,
     _MetricRecorderFactory,
     _StandardWandbRunIdManager,
-    _WandbClient,
-    _WandbClientFactory,
     _WandbIdGenerator,
     _WandbInitializer,
+    _WandbRunFactory,
     _WandbRunIdManager,
 )
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
@@ -89,14 +90,14 @@ def _register_metric_recorders(container: DependencyContainer) -> None:
     container.register_type(WandbRecorder)
 
     # Weights & Biases Client
-    def get_wandb_client(resolver: DependencyResolver) -> _WandbClient:
-        client_factory = resolver.resolve(_WandbClientFactory)
+    def get_wandb_run(resolver: DependencyResolver) -> WandbRun:
+        run_factory = resolver.resolve(_WandbRunFactory)
 
-        return client_factory.create()
+        return run_factory.create()
 
-    container.register(_WandbClient, get_wandb_client)
+    container.register(WandbRun, get_wandb_run)
 
-    container.register_type(_WandbClientFactory)
+    container.register_type(_WandbRunFactory)
 
     container.register_instance(_WandbInitializer, _init_wandb)
 
