@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from fairseq2.recipe.config import (
     ADAMW_OPTIMIZER,
@@ -27,7 +26,7 @@ from fairseq2.recipe.config import (
     TrainerSection,
 )
 
-from .dataset import LM_TRAIN_DATASET, LMTrainDatasetConfig
+from .dataset import LM_TRAIN_DATASET
 
 
 @dataclass(kw_only=True)
@@ -42,14 +41,7 @@ class LMTrainConfig:
     )
 
     dataset: LMTrainDatasetSection = field(
-        default_factory=lambda: LMTrainDatasetSection(
-            family=LM_TRAIN_DATASET,
-            config_overrides=LMTrainDatasetConfig(
-                path=Path(
-                    "/checkpoint/seamless_fs2/shared/datasets/shuffled/dclm_baseline_1.0"
-                )
-            ),
-        )
+        default_factory=lambda: LMTrainDatasetSection(family=LM_TRAIN_DATASET),
     )
 
     tokenizer: TokenizerSection = field(

@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import TypeVar, final
 
 from fairseq2.datasets import DatasetFamily
-from fairseq2.utils.warn import _warn_deprecated
 
 DatasetT = TypeVar("DatasetT")
 
@@ -19,8 +18,6 @@ class RecipeDataset:
     def __init__(
         self, inner_dataset: object, config: object, family: DatasetFamily
     ) -> None:
-        _warn_deprecated("`RecipeDataset` is deprecated and will be removed in v0.14.")
-
         self._inner_dataset = inner_dataset
         self._config = config
         self._family = family

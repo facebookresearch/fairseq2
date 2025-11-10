@@ -40,7 +40,7 @@ from fairseq2.recipe.generator import Generator, GeneratorUnit
 from fairseq2.recipe.model import RecipeModel
 from fairseq2.runtime.dependency import DependencyContainer
 
-from ..common import check_vocab_info
+from ..common import check_model_vocabulary
 from .dataset import (
     TEXT_GEN_DATASET_FAMILY,
     TextGenDataset,
@@ -101,7 +101,7 @@ class TextGenRecipe(GenerationRecipe):
 
     @override
     def create_generator(self, context: RecipeContext) -> Generator:
-        check_vocab_info(context)
+        check_model_vocabulary(context)
 
         config = context.config.as_(TextGenConfig)
 
