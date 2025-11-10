@@ -219,6 +219,19 @@ class _StandardLogHelper(_LogHelper):
         log.info("{}: {}", title, pretty_repr(unstructured_config, max_width=88))
 
 
+def _log_ranks(gangs: Gangs) -> None:
+    s = (
+        f"World: {gangs.root.rank}/{gangs.root.size} | "
+        f"Data: {gangs.dp.rank}/{gangs.dp.size} | "
+        f"Data (Replicated): {gangs.rdp.rank}/{gangs.rdp.size} | "
+        f"Data (Sharded): {gangs.sdp.rank}/{gangs.sdp.size} | "
+        f"Tensor: {gangs.tp.rank}/{gangs.tp.size} | "
+        f"Pipeline: {gangs.pp.rank}/{gangs.pp.size}"
+    )
+
+    log.info("Process Ranks - {}", s)
+
+
 def _log_model(model: Module, gangs: Gangs) -> None:
     if not log.is_enabled_for_info():
         return
