@@ -220,7 +220,7 @@ class _HuggingFaceExportCommand:
         model_config = family.get_model_config(card)
 
         model = family.load_model(
-            card, gangs, torch.float32, model_config, mmap=False, progress=True
+            card, gangs, torch.float32, model_config, load_rank0_only=True, mmap=False
         )
 
         state_dict = model.state_dict()

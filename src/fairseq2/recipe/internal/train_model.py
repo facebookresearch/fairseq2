@@ -140,14 +140,8 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
             self._log_helper.log_config("Model Config", config)
 
             model = family.create_new_model(
-                config, gangs, dtype, meta=family.supports_meta
+                config, gangs, dtype, meta=family.supports_meta, init_rank0_only=True
             )
-
-            if not family.supports_meta:
-                try:
-                    gangs.root.barrier()
-                except GangError as ex:
-                    raise_operational_gang_error(ex)
 
             log.info("Model initialized.")
         else:
@@ -155,19 +149,14 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
 
             self._log_helper.log_config("Model Config", config)
 
-            if gangs.dp.rank == 0:
-                model = family.load_model(
-                    card, gangs, dtype, config, self._section.mmap, progress=True
-                )
-            else:
-                model = family.create_new_model(
-                    config, gangs, dtype, meta=family.supports_meta
-                )
-
-            try:
-                gangs.root.barrier()
-            except GangError as ex:
-                raise_operational_gang_error(ex)
+            model = family.load_model(
+                card,
+                gangs,
+                dtype,
+                config,
+                load_rank0_only=True,
+                mmap=self._section.mmap,
+            )
 
             log.info("Model loaded.")
 
@@ -224,14 +213,8 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
             self._log_helper.log_config("Model Config", config)
 
             model = family.create_new_model(
-                config, gangs, dtype, meta=family.supports_meta
+                config, gangs, dtype, meta=family.supports_meta, init_rank0_only=True
             )
-
-            if not family.supports_meta:
-                try:
-                    gangs.root.barrier()
-                except GangError as ex:
-                    raise_operational_gang_error(ex)
 
             log.info("Model initialized.")
         else:
@@ -239,30 +222,20 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
 
             self._log_helper.log_config("Model Config", config)
 
-            if gangs.dp.rank == 0:
-                try:
-                    model = family.load_custom_model(
-                        path,
-                        config,
-                        gangs,
-                        dtype,
-                        self._section.mmap,
-                        restrict=None,
-                        progress=True,
-                    )
-                except FileNotFoundError as ex:
-                    raise ModelCheckpointNotFoundError(path) from ex
-                except OSError as ex:
-                    raise_operational_system_error(ex)
-            else:
-                model = family.create_new_model(
-                    config, gangs, dtype, meta=family.supports_meta
-                )
-
             try:
-                gangs.root.barrier()
-            except GangError as ex:
-                raise_operational_gang_error(ex)
+                model = family.load_custom_model(
+                    path,
+                    config,
+                    gangs,
+                    dtype,
+                    load_rank0_only=True,
+                    mmap=self._section.mmap,
+                    restrict=None,
+                )
+            except FileNotFoundError as ex:
+                raise ModelCheckpointNotFoundError(path) from ex
+            except OSError as ex:
+                raise_operational_system_error(ex)
 
             log.info("Model loaded on data parallel rank 0.")
 
@@ -315,14 +288,8 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
             self._log_helper.log_config("Model Config", config)
 
             model = family.create_new_model(
-                config, gangs, dtype, meta=family.supports_meta
+                config, gangs, dtype, meta=family.supports_meta, init_rank0_only=True
             )
-
-            if not family.supports_meta:
-                try:
-                    gangs.root.barrier()
-                except GangError as ex:
-                    raise_operational_gang_error(ex)
 
             log.info("Model initialized.")
         else:
@@ -333,17 +300,9 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
 
             self._log_helper.log_config("Model Config", config)
 
-            if gangs.dp.rank == 0:
-                meta = False
-            else:
-                meta = family.supports_meta
-
-            model = family.create_new_model(config, gangs, dtype, meta)
-
-            try:
-                gangs.root.barrier()
-            except GangError as ex:
-                raise_operational_gang_error(ex)
+            model = family.create_new_model(
+                config, gangs, dtype, meta=False, init_rank0_only=True
+            )
 
             log.info("Model initialized.")
 
