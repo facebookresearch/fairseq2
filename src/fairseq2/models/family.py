@@ -32,7 +32,7 @@ from fairseq2.error import (
     raise_operational_system_error,
 )
 from fairseq2.file_system import FileSystem, raise_if_not_exists
-from fairseq2.gang import Gangs
+from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
 from fairseq2.model_checkpoint import ModelCheckpointError, ModelCheckpointLoader
 from fairseq2.models.utils.checkpoint import (
     ModelCheckpointMismatchError,
@@ -40,10 +40,15 @@ from fairseq2.models.utils.checkpoint import (
 )
 from fairseq2.nn import get_shard_dims
 from fairseq2.nn.fsdp import FSDPWrapper, load_with_sdp_gang
-from fairseq2.nn.utils.module import reset_non_persistent_buffers, to_empty
+from fairseq2.nn.utils.module import (
+    broadcast_module,
+    reset_non_persistent_buffers,
+    to_empty,
+)
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.sharder import ModelSharder, ShardSpec, ShardSpecError
 from fairseq2.utils.progress import ProgressReporter
+from fairseq2.utils.uri import Uri
 from fairseq2.utils.validation import ObjectValidator, ValidationError
 from fairseq2.utils.warn import _warn_deprecated
 
@@ -68,7 +73,12 @@ class ModelFamily(ABC):
 
     @abstractmethod
     def create_new_model(
-        self, config: object, gangs: Gangs, dtype: DataType, meta: bool
+        self,
+        config: object,
+        gangs: Gangs,
+        dtype: DataType,
+        meta: bool,
+        init_rank0_only: bool,
     ) -> Module: ...
 
     @abstractmethod
@@ -78,8 +88,8 @@ class ModelFamily(ABC):
         gangs: Gangs,
         dtype: DataType,
         config: object | None,
+        load_rank0_only: bool,
         mmap: bool,
-        progress: bool,
     ) -> Module: ...
 
     @abstractmethod
@@ -89,9 +99,9 @@ class ModelFamily(ABC):
         config: object,
         gangs: Gangs,
         dtype: DataType,
+        load_rank0_only: bool,
         mmap: bool,
         restrict: bool | None,
-        progress: bool,
     ) -> Module: ...
 
     @abstractmethod
@@ -330,14 +340,45 @@ class StandardModelFamily(ModelFamily):
 
     @override
     def create_new_model(
-        self, config: object, gangs: Gangs, dtype: DataType, meta: bool
+        self,
+        config: object,
+        gangs: Gangs,
+        dtype: DataType,
+        meta: bool,
+        init_rank0_only: bool,
     ) -> Module:
         if not isinstance(config, self._configs.kls):
             raise TypeError(
                 f"`config` must be of type `{self._configs.kls}`, but is of type `{type(config)}` instead."
             )
 
-        return self._do_create_model(config, gangs, dtype, meta)
+        if meta and not self._supports_meta:
+            raise NotSupportedError(
+                f"{self._name} model family does not support meta device initialization."
+            )
+
+        if gangs.dp.rank == 0:
+            model = self._do_create_model(config, gangs, dtype, meta)
+        else:
+            model = self._do_create_model(config, gangs, dtype, self._supports_meta)
+
+        if meta:
+            return model
+
+        try:
+            gangs.root.barrier()
+
+            if not init_rank0_only and self._supports_meta:
+                broadcast_module(model, gangs.dp)
+
+                if gangs.dp.rank != 0:
+                    reset_non_persistent_buffers(model)
+
+                gangs.root.barrier()
+        except GangError as ex:
+            raise_operational_gang_error(ex)
+
+        return model
 
     @override
     def load_model(
@@ -346,8 +387,8 @@ class StandardModelFamily(ModelFamily):
         gangs: Gangs,
         dtype: DataType,
         config: object | None,
+        load_rank0_only: bool,
         mmap: bool,
-        progress: bool,
     ) -> Module:
         if config is None:
             config = self.get_model_config(card)
@@ -376,25 +417,25 @@ class StandardModelFamily(ModelFamily):
 
             raise AssetCardError(name, msg)
 
-        download_path = self._asset_download_manager.download_model(uri)
+        cached_path = self._download_model(uri, gangs)
 
         sub_path_field = card.maybe_get_field("checkpoint_path")
         if sub_path_field is not None:
             sub_pathname = sub_path_field.as_(str)
 
-            path = download_path.joinpath(sub_pathname)
+            path = cached_path.joinpath(sub_pathname)
 
             try:
                 path = self._file_system.resolve(path)
             except OSError as ex:
                 raise_operational_system_error(ex)
 
-            if not path.is_relative_to(download_path):
+            if not path.is_relative_to(cached_path):
                 msg = f"checkpoint_path field of the {name} asset card points to a path that is not relative to the download directory."
 
                 raise AssetCardError(name, msg)
         else:
-            path = download_path
+            path = cached_path
 
         # Handle legacy paths with format specifiers.
         if "shard_idx" in path.name:
@@ -407,7 +448,9 @@ class StandardModelFamily(ModelFamily):
             restrict = self._restrict
 
         try:
-            return self._do_load_model(path, config, gangs, dtype, mmap, restrict)
+            return self._do_load_model(
+                path, config, gangs, dtype, load_rank0_only, mmap, restrict
+            )
         except ModelCheckpointError as ex:
             msg = f"Model checkpoint of the {name} asset card is erroneous."
 
@@ -432,16 +475,18 @@ class StandardModelFamily(ModelFamily):
         config: object,
         gangs: Gangs,
         dtype: DataType,
+        load_rank0_only: bool,
         mmap: bool,
         restrict: bool | None,
-        progress: bool,
     ) -> Module:
         if not isinstance(config, self._configs.kls):
             raise TypeError(
                 f"`config` must be of type `{self._configs.kls}`, but is of type `{type(config)}` instead."
             )
 
-        return self._do_load_model(path, config, gangs, dtype, mmap, restrict)
+        return self._do_load_model(
+            path, config, gangs, dtype, load_rank0_only, mmap, restrict
+        )
 
     def _do_load_model(
         self,
@@ -449,6 +494,7 @@ class StandardModelFamily(ModelFamily):
         config: object,
         gangs: Gangs,
         dtype: DataType,
+        load_rank0_only: bool,
         mmap: bool,
         restrict: bool | None,
     ) -> Module:
@@ -456,33 +502,59 @@ class StandardModelFamily(ModelFamily):
 
         model = self._do_create_model(config, gangs, dtype, self._supports_meta)
 
-        if self._supports_meta:
-            # The parameters of the model will be overwritten by the checkpoint,
-            # so there is no need to redundantly initialize them.
-            to_empty(model, device=gangs.root.device)
+        if gangs.dp.rank == 0:
+            if self._supports_meta:
+                # The parameters of the model will be overwritten by the checkpoint,
+                # so there is no need to redundantly initialize them.
+                to_empty(model, device=gangs.root.device)
 
-        if self._shard_specs is None:
-            shard_dims = get_shard_dims(model)
-        else:
-            shard_dims = None
+            if self._shard_specs is None:
+                shard_dims = get_shard_dims(model)
+            else:
+                shard_dims = None
 
-        checkpoint = self._do_iter_checkpoint(
-            path, config, shard_dims, gangs, mmap, restrict
-        )
+            checkpoint = self._do_iter_checkpoint(
+                path, config, shard_dims, gangs, mmap, restrict
+            )
 
-        try:
-            set_model_state(model, checkpoint, self._progress_reporter)
-        except ModelCheckpointMismatchError as ex:
-            msg = f"Checkpoint at {path} is not compatible with the {self._name} model."
+            try:
+                set_model_state(model, checkpoint, self._progress_reporter)
+            except ModelCheckpointMismatchError as ex:
+                msg = f"Checkpoint at {path} is not compatible with the {self._name} model."
 
-            raise ModelCheckpointError(path, msg) from ex
+                raise ModelCheckpointError(path, msg) from ex
 
-        if self._supports_meta:
-            # Non-persistent buffers are not included in the checkpoint, so we
-            # have to explicitly initialize them.
-            reset_non_persistent_buffers(model)
+            if self._supports_meta:
+                # Non-persistent buffers are not included in the checkpoint, so we
+                # have to explicitly initialize them.
+                reset_non_persistent_buffers(model)
+
+        gangs.root.barrier()
+
+        if not load_rank0_only:
+            broadcast_module(model, gangs.dp)
+
+            if self._supports_meta:
+                if gangs.dp.rank != 0:
+                    reset_non_persistent_buffers(model)
+
+                gangs.root.barrier()
 
         return model
+
+    def _download_model(self, uri: Uri, gangs: Gangs) -> Path:
+        if uri.scheme == "file":
+            return uri.to_path()
+
+        try:
+            if gangs.root.rank == 0:
+                self._asset_download_manager.download_model(uri)
+
+            gangs.root.barrier()
+
+            return self._asset_download_manager.download_model(uri, local_only=True)
+        except GangError as ex:
+            raise_operational_gang_error(ex)
 
     @override
     def iter_checkpoint(
@@ -560,15 +632,7 @@ class StandardModelFamily(ModelFamily):
     def _do_create_model(
         self, config: object, gangs: Gangs, dtype: DataType, meta: bool
     ) -> Module:
-        if meta:
-            if not self._supports_meta:
-                raise NotSupportedError(
-                    f"{self._name} model family does not support meta device initialization."
-                )
-
-            device = META_DEVICE
-        else:
-            device = gangs.root.device
+        device = META_DEVICE if meta else gangs.root.device
 
         try:
             with device, gangs:
