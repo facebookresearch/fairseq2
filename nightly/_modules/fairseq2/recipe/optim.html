@@ -329,7 +329,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">fields</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Parameter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span><span class="p">,</span> <span class="n">Parameter</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">log</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipe.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParameterGroupConfig</span><span class="p">,</span> <span class="n">default</span>
@@ -340,7 +340,7 @@
 <div class="viewcode-block" id="prepare_parameter_groups">
 <a class="viewcode-back" href="../../../reference/fairseq2.recipe.optim.html#fairseq2.recipe.optim.prepare_parameter_groups">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">prepare_parameter_groups</span><span class="p">(</span>
-    <span class="n">model</span><span class="p">:</span> <span class="n">RecipeModel</span><span class="p">,</span> <span class="n">group_configs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ParameterGroupConfig</span><span class="p">]</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Module</span> <span class="o">|</span> <span class="n">RecipeModel</span><span class="p">,</span> <span class="n">group_configs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ParameterGroupConfig</span><span class="p">]</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">|</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Prepares the parameter groups to pass to an optimizer based on the specified</span>
@@ -367,7 +367,7 @@
 
 <span class="sd">        from torch.optim import Optimizer</span>
 
-<span class="sd">        from fairseq2.recipe import RecipeModel, TrainRecipe</span>
+<span class="sd">        from fairseq2.recipe import Recipe</span>
 <span class="sd">        from fairseq2.recipe.component import register_component</span>
 <span class="sd">        from fairseq2.recipe.config import Default, ParameterGroupConfig, default</span>
 <span class="sd">        from fairseq2.recipe.optim import prepare_parameter_groups</span>
@@ -405,7 +405,7 @@
 <span class="sd">        def create_my_optimizer(</span>
 <span class="sd">            resolver: DependencyResolver, config: MyOptimizerConfig</span>
 <span class="sd">        ) -&gt; MyOptimizer:</span>
-<span class="sd">            model = resolver.resolve(RecipeModel)</span>
+<span class="sd">            model = resolver.resolve(Module)</span>
 
 <span class="sd">            # Converts group configurations to an iterable of parameter groups</span>
 <span class="sd">            # that can be passed to an optimizer.</span>
@@ -415,7 +415,7 @@
 <span class="sd">            return MyOptimizer(parameters, config.lr, config.betas)</span>
 
 
-<span class="sd">        class MyTrainRecipe(TrainRecipe):</span>
+<span class="sd">        class MyTrainRecipe(Recipe):</span>
 <span class="sd">            def register(self, container: DependencyContainer) -&gt; None:</span>
 <span class="sd">                register_component(</span>
 <span class="sd">                    container,</span>
@@ -427,10 +427,13 @@
 
 <span class="sd">            ...</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">RecipeModel</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">module</span>
+
     <span class="c1"># If we don&#39;t have any parameter group configurations, take the shortcut and</span>
     <span class="c1"># return the entire parameter list of the model as a single group.</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">group_configs</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">parameters</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">()</span>
 
     <span class="n">groups</span> <span class="o">=</span> <span class="p">[]</span>
 
@@ -461,7 +464,7 @@
 
     <span class="n">groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
 
-    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
         <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">name</span> <span class="o">==</span> <span class="n">p</span> <span class="ow">or</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">group</span><span class="o">.</span><span class="n">name_patterns</span><span class="p">):</span>
                 <span class="n">group</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">param</span><span class="p">)</span>
@@ -576,7 +579,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=a133ad0e"></script>
+</div><script src="../../../_static/documentation_options.js?v=3fa34866"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
