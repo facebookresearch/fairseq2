@@ -13,6 +13,7 @@ from typing import Any, Protocol, final, runtime_checkable
 
 import wandb
 from typing_extensions import override
+from wandb import Run as WandbRun
 
 from fairseq2.error import raise_operational_system_error
 from fairseq2.file_system import FileMode, FileSystem
@@ -79,13 +80,8 @@ class _MaybeWandbRecorderFactory:
         return self._factory()
 
 
-class _WandbClient:
-    def __init__(self, run: Any) -> None:
-        self.run = run
-
-
 @final
-class _WandbClientFactory:
+class _WandbRunFactory:
     def __init__(
         self,
         section: CommonSection,
@@ -102,7 +98,7 @@ class _WandbClientFactory:
         self._initializer = initializer
         self._run_id_manager = run_id_manager
 
-    def create(self) -> _WandbClient:
+    def create(self) -> WandbRun:
         unstructured_config = self._value_converter.unstructure(
             self._config_holder.config
         )
@@ -115,7 +111,7 @@ class _WandbClientFactory:
         wandb_config = self._section.metric_recorders.wandb
 
         try:
-            run = self._initializer(
+            return self._initializer(
                 entity=wandb_config.entity,
                 project=wandb_config.project,
                 dir=self._output_dir,
@@ -129,15 +125,13 @@ class _WandbClientFactory:
         except (RuntimeError, ValueError) as ex:
             raise WandbInitializationError() from ex
 
-        return _WandbClient(run)
-
 
 @runtime_checkable
 class _WandbInitializer(Protocol):
-    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
+    def __call__(self, *args: Any, **kwargs: Any) -> WandbRun: ...
 
 
-def _init_wandb(*args: Any, **kwargs: Any) -> Any:
+def _init_wandb(*args: Any, **kwargs: Any) -> WandbRun:
     return wandb.init(*args, **kwargs)
 
 
