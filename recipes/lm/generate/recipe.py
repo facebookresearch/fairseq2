@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from typing import TextIO, final
+from typing import TextIO
 
 from typing_extensions import override
 
@@ -38,7 +38,6 @@ from .dataset import (
 )
 
 
-@final
 class LMGenerateRecipe(Recipe):
     @override
     def register(self, container: DependencyContainer) -> None:
@@ -97,7 +96,6 @@ class LMGenerateRecipe(Recipe):
         return LMGenerateConfig
 
 
-@final
 class LMGenerateUnit(GeneratorUnit[SequenceBatch]):
     def __init__(
         self,

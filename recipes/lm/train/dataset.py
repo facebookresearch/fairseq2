@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Final, final
+from typing import Any, Final
 
 from torch import Tensor
 
@@ -31,7 +31,6 @@ npc = 10
 LM_TRAIN_DATASET: Final = "lm_train"
 
 
-@final
 class LMTrainDataset:
     def __init__(self, sources: list[LMTrainDataSource]) -> None:
         self._sources = sources

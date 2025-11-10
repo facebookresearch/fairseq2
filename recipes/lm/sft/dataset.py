@@ -7,10 +7,9 @@
 from __future__ import annotations
 
 import json
-from collections.abc import MutableMapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Final, cast, final
+from typing import Any, Final, TypeAlias, cast
 
 import torch
 
@@ -18,7 +17,6 @@ from fairseq2.assets import get_asset_download_manager
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
-    DataPipelineBuilder,
     SequenceData,
     create_bucket_sizes,
 )
@@ -27,19 +25,30 @@ from fairseq2.data.text import read_text
 from fairseq2.data.tokenizers import Tokenizer
 from fairseq2.data.tokenizers.hg import HuggingFaceTokenEncoder
 from fairseq2.datasets import DataPipelineReader, SequenceBatch, SyncMode
-from fairseq2.error import NotSupportedError
+from fairseq2.error import NotSupportedError, raise_operational_system_error
 from fairseq2.gang import Gangs
 from fairseq2.utils.uri import Uri
 
-from .utils import (
-    Batching,
-    DatasetLoadError,
-    LengthBatching,
-    StaticBatching,
-    load_files_and_weights,
-)
+LM_SFT_DATASET: Final = "lm_sft"
 
-LM_SFT_PADDED_DATASET: Final = "lm_sft_padded"
+
+@dataclass
+class StaticBatching:
+    """Specifies batching where each batch has the same number of examples."""
+
+    batch_size: int
+    """The number of examples in each batch."""
+
+
+@dataclass
+class LengthBatching:
+    """Specifies batching where each batch has a maximum number of elements."""
+
+    max_num_elements: int
+    """The maximum number of elements (e.g. tokens) in each batch."""
+
+
+Batching: TypeAlias = StaticBatching | LengthBatching
 
 
 @dataclass(kw_only=True)
@@ -100,9 +109,6 @@ class DataReadOptions:
     seed: int = 2
     """The seed to initialize the random number generators used internally."""
 
-    extras: MutableMapping[str, object] = field(default_factory=dict)
-    """The reader-specific extra options."""
-
     sample: bool = False
     """
     If ``True``, instruction sources (e.g. JSONL files) will be sampled in
@@ -118,39 +124,47 @@ class DataReadOptions:
     chat_mode: bool = False
 
 
-@final
 class LMSFTDataset:
-    _name: str
-    _splits: dict[str, tuple[Sequence[Path], Sequence[float]]]
+    def __init__(self, sources: dict[str, list[LMSFTDataSource]]) -> None:
+        self._sources = sources
 
-    def __init__(
-        self, name: str, splits: dict[str, tuple[Sequence[Path], Sequence[float]]]
-    ) -> None:
-        """
-        :param files:
-            The instruction files.
-        :param weights:
-            The weight of each file in ``files``.
-        """
-        self._name = name
+    def _create_path_reader(
+        self, path: str, split: str | None, gangs: Gangs, shuffle_window: int, seed: int
+    ) -> DataPipeline:
+        download_manager = get_asset_download_manager()
 
-        for split, (files, weights) in splits.items():
-            if len(files) != len(weights):
-                raise ValueError(
-                    f"The lengths of the file and weight lists of the '{split}' split must match, but they are {len(files)} and {len(weights)} instead."
-                )
+        uri = Uri.maybe_parse(path)
+        if uri:
+            local_path = download_manager.download_dataset(uri)
+        else:
+            local_path = Path(path)
 
-        self._splits = splits
+        if split:
+            local_path = local_path.joinpath(split)
 
-    def _read_jsonl(self, path: Path, tokenizer: Tokenizer) -> DataPipelineBuilder:
-        lines = []
+        if not local_path.is_dir():
+            files = [local_path]
+        else:
+            try:
+                files = [f for f in local_path.glob("**/*.jsonl") if not f.is_dir()]
+            except OSError as ex:
+                raise_operational_system_error(ex)
 
-        # TODO(balioglu): Do in C++.
-        with path.open(encoding="utf-8") as fp:
-            for line in fp:
-                lines.append(line)
+            files.sort()
 
-        return read_sequence(lines).map(json.loads)
+        builder = read_sequence(files)
+
+        def read_file(file: Path) -> DataPipeline:
+            return read_text(file).map(json.loads).and_return()
+
+        builder.yield_from(read_file)
+
+        if shuffle_window != 1:
+            builder.shuffle(shuffle_window, seed=seed)
+
+        builder.shard(gangs.dp.rank, gangs.dp.size, allow_uneven=True)
+
+        return builder.and_return()
 
     def create_reader(
         self,
@@ -161,34 +175,31 @@ class LMSFTDataset:
         max_seq_len: int,
         options: DataReadOptions | None = None,
     ) -> DataPipelineReader[SequenceBatch]:
-
-        files_weights = self._splits.get(split)
-        if files_weights is None:
-            raise ValueError(f"files_weights for split '{split}' is None")
-        files, weights = files_weights
-
         if options is None:
             options = DataReadOptions()
 
+        sources = self._sources[split]
+
         seed = options.seed
 
-        builder = read_sequence(files)
+        pipelines = []
 
-        def read_file(file: Path) -> DataPipeline:
-            return read_text(file).map(json.loads, num_parallel_calls=1).and_return()
+        weights = []
 
-        builder.yield_from(read_file)
+        for source in sources:
+            pipeline = self._create_path_reader(
+                source.path, source.split, gangs, options.example_shuffle_window, seed
+            )
 
-        # Shuffle files. Must be consistent across all processes.
-        if options.example_shuffle_window != 1:
-            builder.shuffle(options.example_shuffle_window, seed=seed)
+            seed += 1
 
-        seed += 1
+            pipelines.append(pipeline)
 
-        # Shard.
-        builder.shard(gangs.dp.rank, gangs.dp.size, allow_uneven=True)
+            weights.append(source.weight)
 
         seed += gangs.dp.rank
+
+        builder = DataPipeline.sample(pipelines, weights, seed)
 
         if options.chat_mode is True:
             # not passing any encoding modes here, because we use apply_chat_template here
@@ -330,39 +341,16 @@ class LMSFTDataset:
 
 
 @dataclass
+class LMSFTDataSource:
+    path: str
+    split: str | None = None
+    weight: float = 1.0
+
+
+@dataclass
 class LMSFTDatasetConfig:
-    path: str | None = None
+    sources: dict[str, list[LMSFTDataSource]] = field(default_factory=dict)
 
 
 def open_lm_sft_dataset(config: LMSFTDatasetConfig) -> LMSFTDataset:
-    name = "default"  # FIXME
-    splits: dict[str, tuple[Sequence[Path], Sequence[float]]] = {}
-
-    if config.path is None:
-        raise ValueError("config.path cannot be None")
-
-    uri = Uri.maybe_parse(config.path)
-    if uri:
-        path = get_asset_download_manager().download_dataset(uri, config.path)
-    else:
-        path = Path(config.path)
-
-    if path.is_dir():
-        try:
-            child_dirs = [p for p in path.iterdir() if p.is_dir()]
-        except OSError as ex:
-            raise DatasetLoadError(
-                name, f"The files under the '{path}' directory of the '{name}' dataset cannot be retrieved. See the nested exception for details."  # fmt: skip
-            ) from ex
-
-        for child_dir in child_dirs:
-            files, weights = load_files_and_weights(name, child_dir)
-
-            splits[child_dir.name] = (files, weights)
-
-    if not splits:
-        files, weights = load_files_and_weights(name, path)
-
-        splits["default"] = (files, weights)
-
-    return LMSFTDataset(name, splits)
+    return LMSFTDataset(config.sources)

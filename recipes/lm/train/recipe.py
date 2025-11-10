@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import cast, final
+from typing import cast
 
 from torch import Tensor
 from torch.nn import Module
@@ -37,7 +37,6 @@ from .dataset import (
 )
 
 
-@final
 class LMTrainRecipe(Recipe):
     @override
     def register(self, container: DependencyContainer) -> None:
@@ -69,6 +68,7 @@ class LMTrainRecipe(Recipe):
             max_seq_len=config.dataset.max_seq_len,
             max_num_tokens=config.dataset.max_num_tokens,
             num_accumulate=config.trainer.grad_accumulation.num_batches,
+            seed=config.common.seed,
             prefetch=config.dataset.prefetch,
             sync_ranks=config.dataset.sync_ranks,
         )
@@ -81,7 +81,6 @@ class LMTrainRecipe(Recipe):
         return LMTrainConfig
 
 
-@final
 class LMTrainUnit(TrainUnit[SequenceBatch]):
     def __init__(self, model: Module) -> None:
         self._model = model
