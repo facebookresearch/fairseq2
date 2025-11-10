@@ -23,10 +23,10 @@ from fairseq2.recipe.config import (
     TokenizerSection,
     TorchConfig,
     TrainerSection,
-    ActivationCheckpointingConfig
+    ActivationCheckpointingConfig,
 )
 
-from .dataset import LM_DPO_DATASET, LMDPODatasetConfig, LMDPODataSource
+from .dataset import LM_DPO_DATASET
 
 
 @dataclass(kw_only=True)
@@ -34,26 +34,21 @@ class LMDPOConfig:
     model: ModelSection = field(
         default_factory=lambda: ModelSection(name="llama3_1_8b_instruct")
     )
-    
+
     tokenizer: TokenizerSection = field(
         default_factory=lambda: TokenizerSection(name="llama3_instruct")
     )
-    
-    
 
     dataset: LMDPODatasetSection = field(
-        default_factory=lambda: LMDPODatasetSection(
-            family=LM_DPO_DATASET,
-            batch_size=16,
-            config_overrides=LMDPODatasetConfig(path="hg://facebook/fairseq2-lm-gsm8k"),
-        )
+        default_factory=lambda: LMDPODatasetSection(family=LM_DPO_DATASET),
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
 
     trainer: TrainerSection = field(
         default_factory=lambda: TrainerSection(
-            data_parallelism="fsdp", max_grad_norm=1.0,
+            data_parallelism="fsdp",
+            max_grad_norm=1.0,
             activation_checkpointing=ActivationCheckpointingConfig(mode="layerwise"),
         )
     )
@@ -90,10 +85,6 @@ class LMDPOConfig:
         default_factory=lambda: CommonSection(
             torch=TorchConfig(default_sdpa="torch_math")
         )
-    )
-    
-    dataset: LMDPODatasetSection = field(
-        default_factory=lambda: LMDPODatasetSection(family=LM_DPO_DATASET),
     )
 
 
