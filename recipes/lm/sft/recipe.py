@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
-from typing import final
+from typing import cast
 
 from torch import Tensor
+from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.composition import register_dataset_family
@@ -20,46 +21,51 @@ from fairseq2.metrics.common import (
     update_nll_loss_metric,
     update_seq_batch_metrics,
 )
-from fairseq2.recipe.base import RecipeContext, TrainRecipe
+from fairseq2.models.clm import CausalLM
+from fairseq2.recipe.base import Recipe, RecipeContext
 from fairseq2.recipe.evaluator import EvalUnit
-from fairseq2.recipe.model import RecipeModel
-from fairseq2.recipe.trainer import Trainer, TrainUnit
+from fairseq2.recipe.trainer import TrainUnit
 from fairseq2.runtime.dependency import DependencyContainer
+from fairseq2.task import Task
 
+from ..common import check_model_vocabulary
 from .config import LMSFTConfig
 from .dataset import (
-    LM_SFT_PADDED_DATASET,
+    LM_SFT_DATASET,
+    Batching,
     DataReadOptions,
+    LengthBatching,
     LMSFTDataset,
     LMSFTDatasetConfig,
+    StaticBatching,
     open_lm_sft_dataset,
 )
-from .utils import Batching, LengthBatching, StaticBatching
 
 
-@final
-class LMSFTRecipe(TrainRecipe):
+class LMSFTRecipe(Recipe):
     @override
     def register(self, container: DependencyContainer) -> None:
         register_dataset_family(
             container,
-            LM_SFT_PADDED_DATASET,
+            LM_SFT_DATASET,
             LMSFTDataset,
             LMSFTDatasetConfig,
             opener=open_lm_sft_dataset,
         )
 
     @override
-    def create_trainer(self, context: RecipeContext) -> Trainer:
-        config = context.config.as_(LMSFTConfig)
+    def create_task(self, context: RecipeContext) -> Task:
+        config = context.get_config_as(LMSFTConfig)
 
-        unit = LMSFTUnit(context.model)
+        check_model_vocabulary(context)
 
-        dataset = context.default_dataset.as_(LMSFTDataset)
+        dp_model = context.get_data_parallel_model()
 
-        seed = config.common.seed
+        unit = LMSFTUnit(dp_model)
 
-        seed += 1
+        dataset = context.get_dataset_as(LMSFTDataset)
+
+        tokenizer = context.get_tokenizer()
 
         batching: Batching
         if config.dataset.batch_size is not None:
@@ -76,29 +82,30 @@ class LMSFTRecipe(TrainRecipe):
             source_encode_mode=config.dataset.source_encode_mode,
             target_encode_mode=config.dataset.target_encode_mode,
             chat_mode=config.dataset.chat_mode,
-            seed=seed,
-            extras=config.dataset.extras,
+            seed=config.common.seed,
         )
 
         data_reader = dataset.create_reader(
-            config.dataset.train_split,
-            context.default_tokenizer,
-            context.gangs,
+            split="train",
+            tokenizer=tokenizer,
+            gangs=context.gangs,
             min_seq_len=config.dataset.min_seq_len,
             max_seq_len=config.dataset.max_seq_len,
             options=read_options,
         )
 
-        # Initialize the validation unit.
-        if config.dataset.valid_split is not None:
+        valid_units = []
 
-            valid_unit = SFTLossEvalUnit(context.model)
+        valid_data_readers = []
+
+        if config.dataset.valid_split is not None:
+            valid_unit = LMLossEvalUnit(dp_model)
 
             max_num_tokens = (
                 config.dataset.max_num_valid_tokens or config.dataset.max_num_tokens
             )
 
-            valid_batching: Batching = LengthBatching(max_num_tokens)
+            valid_batching = LengthBatching(max_num_tokens)
 
             read_options = DataReadOptions(
                 batching=valid_batching,
@@ -106,32 +113,23 @@ class LMSFTRecipe(TrainRecipe):
                 source_encode_mode=config.dataset.source_encode_mode,
                 target_encode_mode=config.dataset.target_encode_mode,
                 chat_mode=config.dataset.chat_mode,
-                seed=seed,
-                extras=config.dataset.extras,
             )
 
             valid_data_reader = dataset.create_reader(
-                config.dataset.train_split,
-                context.default_tokenizer,
-                context.gangs,
+                split=config.dataset.valid_split,
+                tokenizer=tokenizer,
+                gangs=context.gangs,
                 min_seq_len=config.dataset.min_seq_len,
                 max_seq_len=config.dataset.max_seq_len,
                 options=read_options,
             )
 
-            valid_units = [valid_unit]
-            valid_data_readers = [valid_data_reader]
-        else:
-            valid_units = []
-            valid_data_readers = []
+            valid_units.append(valid_unit)
 
-        seed += 1
+            valid_data_readers.append(valid_data_reader)
 
         return context.create_trainer(
-            unit=unit,
-            data_reader=data_reader,
-            valid_units=valid_units,
-            valid_data_readers=valid_data_readers,
+            unit, data_reader, valid_units, valid_data_readers
         )
 
     @property
@@ -140,25 +138,27 @@ class LMSFTRecipe(TrainRecipe):
         return LMSFTConfig
 
 
-@final
 class LMSFTUnit(TrainUnit[SequenceBatch]):
-    def __init__(self, model: RecipeModel) -> None:
+    def __init__(self, model: Module) -> None:
         self._model = model
 
     @override
     def prepare_metric_bag(self, metric_bag: MetricBag) -> None:
         add_nll_loss_metric(metric_bag)
+
         add_seq_batch_metrics(metric_bag)
 
     @override
     def process_batch(
         self, batch: SequenceBatch, metric_bag: MetricBag
     ) -> tuple[Tensor, int]:
+        model = cast(CausalLM, self._model)
+
         input_batch, target_batch = batch.as_auto_regressive()
 
         seqs, seqs_layout = input_batch.as_input()
 
-        nll_loss = self._model.module(
+        nll_loss = model(
             seqs,
             seqs_layout,
             targets=target_batch.seqs,
@@ -173,31 +173,26 @@ class LMSFTUnit(TrainUnit[SequenceBatch]):
 
         return nll_loss, target_batch.num_target_elements
 
-    @property
-    @override
-    def model(self) -> RecipeModel:
-        return self._model
 
-
-@final
-class SFTLossEvalUnit(EvalUnit[SequenceBatch]):
-    def __init__(self, model: RecipeModel) -> None:
+class LMLossEvalUnit(EvalUnit[SequenceBatch]):
+    def __init__(self, model: Module) -> None:
         self._model = model
 
     @override
     def prepare_metric_bag(self, metric_bag: MetricBag) -> None:
         add_nll_loss_metric(metric_bag)
+
         add_seq_batch_metrics(metric_bag)
 
     @override
     def process_batch(self, batch: SequenceBatch, metric_bag: MetricBag) -> None:
+        model = cast(CausalLM, self._model)
+
         input_batch, target_batch = batch.as_auto_regressive()
 
         seqs, seqs_layout = input_batch.as_input()
 
-        # breakpoint()
-
-        nll_loss = self._model.module(
+        nll_loss = model(
             seqs,
             seqs_layout,
             targets=target_batch.seqs,
@@ -211,8 +206,3 @@ class SFTLossEvalUnit(EvalUnit[SequenceBatch]):
         update_seq_batch_metrics(metric_bag, target_batch)
 
         return None
-
-    @property
-    @override
-    def model(self) -> RecipeModel:
-        return self._model

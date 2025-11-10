@@ -10,7 +10,7 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Final, cast, final
+from typing import Any, Final, cast
 
 from fairseq2.data.data_pipeline import (
     Collater,
@@ -30,7 +30,6 @@ LM_GENERATE_DATASET_FAMILY: Final = "lm_generate"
 
 
 # TODO: Work in progress!
-@final
 class LMGenerateDataset:
     def __init__(self, files: Sequence[Path]) -> None:
         self._files = [f.expanduser().resolve() for f in files]
