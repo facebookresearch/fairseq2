@@ -168,6 +168,12 @@ class RecipeContext:
 
         return tokenizer
 
+    def get_seq_generator(self) -> SequenceGenerator:
+        return self._resolver.resolve(SequenceGenerator)
+
+    def get_seq2seq_generator(self) -> Seq2SeqGenerator:
+        return self._resolver.resolve(Seq2SeqGenerator)
+
     def create_trainer(
         self,
         unit: TrainUnit[BatchT],
