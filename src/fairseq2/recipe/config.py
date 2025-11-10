@@ -33,7 +33,6 @@ from fairseq2.recipe.error import (
 from fairseq2.runtime.dependency import DependencyResolver
 from fairseq2.utils.structured import StructureError
 from fairseq2.utils.validation import Validatable, ValidationResult
-from fairseq2.utils.warn import _warn_deprecated
 
 ConfigT = TypeVar("ConfigT")
 
@@ -41,8 +40,6 @@ ConfigT = TypeVar("ConfigT")
 @final
 class RecipeConfig:
     def __init__(self, inner_config: object) -> None:
-        _warn_deprecated("`RecipeConfig` is deprecated and will be removed in v0.14.")
-
         self._inner_config = inner_config
 
     def as_(self, kls: type[ConfigT]) -> ConfigT:
