@@ -23,6 +23,7 @@ from fairseq2.error import InternalError, raise_operational_system_error
 from fairseq2.file_system import FileSystem
 from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
 from fairseq2.runtime.lookup import Lookup
+from fairseq2.utils.uri import Uri
 from fairseq2.utils.validation import ObjectValidator, ValidationError
 
 
@@ -179,40 +180,29 @@ class StandardTokenizerFamily(TokenizerFamily):
 
             raise AssetCardError(name, msg)
 
-        try:
-            if gangs.root.rank == 0:
-                download_path = self._asset_download_manager.download_tokenizer(uri)
-
-                gangs.root.barrier()
-            else:
-                gangs.root.barrier()
-
-                download_path = self._asset_download_manager.download_tokenizer(
-                    uri, local_only=True
-                )
-        except GangError as ex:
-            raise_operational_gang_error(ex)
+        cached_path = self._download_tokenizer(uri, gangs)
 
         sub_path_field = card.maybe_get_field("tokenizer_path")
         if sub_path_field is not None:
             sub_pathname = sub_path_field.as_(str)
 
-            path = download_path.joinpath(sub_pathname)
+            path = cached_path.joinpath(sub_pathname)
 
             try:
                 path = self._file_system.resolve(path)
             except OSError as ex:
                 raise_operational_system_error(ex)
 
-            if not path.is_relative_to(download_path):
+            if not path.is_relative_to(cached_path):
                 msg = f"tokenizer_path field of the {name} asset card points to a path that is not relative to the download directory."
 
                 raise AssetCardError(name, msg)
         else:
-            path = download_path
+            path = cached_path
 
         try:
-            return self._loader(path, config)
+            with gangs:
+                tokenizer = self._loader(path, config)
         except TokenizerModelError as ex:
             msg = f"Tokenizer model of the {name} asset card is erroneous."
 
@@ -235,6 +225,8 @@ class StandardTokenizerFamily(TokenizerFamily):
         except GangError as ex:
             raise_operational_gang_error(ex)
 
+        return tokenizer
+
     @override
     def load_custom_tokenizer(
         self, path: Path, config: object, gangs: Gangs
@@ -244,10 +236,27 @@ class StandardTokenizerFamily(TokenizerFamily):
                 f"`config` must be of type `{self._config_kls}`, but is of type `{type(config)}` instead."
             )
 
-        return self._loader(path, config)
+        with gangs:
+            tokenizer = self._loader(path, config)
 
         try:
             gangs.root.barrier()
+        except GangError as ex:
+            raise_operational_gang_error(ex)
+
+        return tokenizer
+
+    def _download_tokenizer(self, uri: Uri, gangs: Gangs) -> Path:
+        if uri.scheme == "file":
+            return uri.to_path()
+
+        try:
+            if gangs.root.rank == 0:
+                self._asset_download_manager.download_tokenizer(uri)
+
+            gangs.root.barrier()
+
+            return self._asset_download_manager.download_tokenizer(uri, local_only=True)
         except GangError as ex:
             raise_operational_gang_error(ex)
 
