@@ -47,10 +47,9 @@ from fairseq2.recipe.internal.cluster import _ClusterPreparer
 from fairseq2.recipe.internal.gang import (
     _FSDPGangsFactory,
     _GangsFactory,
-    _log_ranks,
     _warmup_gangs,
 )
-from fairseq2.recipe.internal.log import _LogHelper, _StandardLogHelper
+from fairseq2.recipe.internal.log import _log_ranks, _LogHelper, _StandardLogHelper
 from fairseq2.recipe.internal.logging import _DistributedLogConfigurer
 from fairseq2.recipe.internal.model import _ModelHolder
 from fairseq2.recipe.internal.output_dir import _OutputDirectoryCreator
