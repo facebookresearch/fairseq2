@@ -26,12 +26,12 @@ from fairseq2.gang import Gangs
 # TODO: FIX, INFER
 npc = 10
 
-TEXT_GEN_DATASET_FAMILY: Final = "text_generation"
+LM_GENERATE_DATASET_FAMILY: Final = "lm_generate"
 
 
 # TODO: Work in progress!
 @final
-class TextGenDataset:
+class LMGenerateDataset:
     def __init__(self, files: Sequence[Path]) -> None:
         self._files = [f.expanduser().resolve() for f in files]
 
@@ -108,9 +108,9 @@ class TextGenDataset:
 
 
 @dataclass
-class TextGenDatasetConfig:
+class LMGenerateDatasetConfig:
     paths: list[Path] = field(default_factory=list)
 
 
-def open_text_gen_dataset(config: TextGenDatasetConfig) -> TextGenDataset:
-    return TextGenDataset(config.paths)
+def open_lm_generate_dataset(config: LMGenerateDatasetConfig) -> LMGenerateDataset:
+    return LMGenerateDataset(config.paths)
