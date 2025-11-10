@@ -25,51 +25,45 @@ from fairseq2.models import (
 )
 from fairseq2.nn.utils.module import broadcast_module, remove_parametrizations
 from fairseq2.recipe.config import ReferenceModelSection
-from fairseq2.recipe.error import ErrorContext, ModelCheckpointNotFoundError
+from fairseq2.recipe.error import ModelCheckpointNotFoundError
 from fairseq2.recipe.internal.asset_config import _AssetConfigOverrider
 from fairseq2.recipe.internal.compile import _compile_model
-from fairseq2.recipe.internal.log import _LogHelper
-from fairseq2.recipe.internal.model import _log_model
-from fairseq2.recipe.model import RecipeModel, _StandardRecipeModel
+from fairseq2.recipe.internal.log import _log_model, _LogHelper
+from fairseq2.recipe.internal.model import _ModelHolder
 from fairseq2.runtime.lookup import Lookup
 
 
 @final
-class _EvalModelLoader:
+class _ReferenceModelLoader:
     def __init__(
         self,
-        bootstrapper: _EvalModelBootstrapper,
-        preparer: _EvalModelPreparer,
+        bootstrapper: _ReferenceModelBootstrapper,
+        preparer: _ReferenceModelPreparer,
         gangs: Gangs,
     ) -> None:
         self._bootstrapper = bootstrapper
         self._preparer = preparer
         self._gangs = gangs
 
-    def load(self, section_name: str, section: ReferenceModelSection) -> RecipeModel:
-        try:
-            model = self._bootstrapper.bootstrap(section_name, section)
+    def load(self, section_name: str, section: ReferenceModelSection) -> _ModelHolder:
+        model_holder = self._bootstrapper.bootstrap(section_name, section)
 
-            model = self._preparer.prepare(model, section_name, section)
-        except Exception as ex:
-            ErrorContext.set_config_section_name(ex, section_name)
+        self._preparer.prepare(model_holder, section_name, section)
 
-            raise
+        _log_model(model_holder.model, self._gangs)
 
-        _log_model(model, self._gangs)
-
-        return model
+        return model_holder
 
 
-class _EvalModelBootstrapper(ABC):
+class _ReferenceModelBootstrapper(ABC):
     @abstractmethod
     def bootstrap(
         self, section_name: str, section: ReferenceModelSection
-    ) -> RecipeModel: ...
+    ) -> _ModelHolder: ...
 
 
 @final
-class _StandardEvalModelBootstrapper(_EvalModelBootstrapper):
+class _StandardReferenceModelBootstrapper(_ReferenceModelBootstrapper):
     def __init__(
         self,
         families: Lookup[ModelFamily],
@@ -87,7 +81,7 @@ class _StandardEvalModelBootstrapper(_EvalModelBootstrapper):
     @override
     def bootstrap(
         self, section_name: str, section: ReferenceModelSection
-    ) -> RecipeModel:
+    ) -> _ModelHolder:
         if section.path is not None:
             if section.name is not None:
                 log.warning("Both `{0}.name` and `{0}.path` are specified. `{0}.path` takes precedence.", section_name)  # fmt: skip
@@ -104,7 +98,7 @@ class _StandardEvalModelBootstrapper(_EvalModelBootstrapper):
 
     def _load_model(
         self, section_name: str, section: ReferenceModelSection
-    ) -> RecipeModel:
+    ) -> _ModelHolder:
         name = section.name
         if name is None:
             raise InternalError("`section.name` is `None`.")
@@ -117,10 +111,9 @@ class _StandardEvalModelBootstrapper(_EvalModelBootstrapper):
 
         config = family.get_model_config(card)
 
-        if section.config_overrides is not None:
-            config = self._asset_config_overrider.apply_overrides(
-                section_name, config, section.config_overrides
-            )
+        config = self._asset_config_overrider.apply_overrides(
+            section_name, config, section.config_overrides
+        )
 
         gangs = self._gangs
 
@@ -130,34 +123,23 @@ class _StandardEvalModelBootstrapper(_EvalModelBootstrapper):
         else:
             log.info("Loading {} model specified in `{}` section on data parallel rank 0.", name, section_name)  # fmt: skip
 
-        if config is not None:
-            self._log_helper.log_config("Model Config", config)
+        self._log_helper.log_config("Model Config", config)
 
-        if gangs.dp.rank == 0:
-            module = family.load_model(
-                card, gangs, section.dtype, config, section.mmap, progress=True
-            )
-        else:
-            module = family.create_new_model(
-                config, gangs, section.dtype, meta=family.supports_meta
-            )
-
-        try:
-            gangs.root.barrier()
-        except GangError as ex:
-            raise_operational_gang_error(ex)
+        model = family.load_model(
+            card, gangs, section.dtype, config, load_rank0_only=True, mmap=section.mmap
+        )
 
         log.info("Model loaded on data parallel rank 0.")
 
-        module.requires_grad_(False)
+        model.requires_grad_(False)
 
-        module.eval()
+        model.eval()
 
-        return _StandardRecipeModel(module, config, family)
+        return _ModelHolder(model, family, config)
 
     def _load_custom_model(
         self, section_name: str, section: ReferenceModelSection
-    ) -> RecipeModel:
+    ) -> _ModelHolder:
         path = section.path
         if path is None:
             raise InternalError("`section.path` is `None`.")
@@ -183,10 +165,9 @@ class _StandardEvalModelBootstrapper(_EvalModelBootstrapper):
             if config is None:
                 raise ModelArchitectureNotKnownError(arch, family_name) from None
 
-        if section.config_overrides is not None:
-            config = self._asset_config_overrider.apply_overrides(
-                section_name, config, section.config_overrides
-            )
+        config = self._asset_config_overrider.apply_overrides(
+            section_name, config, section.config_overrides
+        )
 
         gangs = self._gangs
 
@@ -196,28 +177,22 @@ class _StandardEvalModelBootstrapper(_EvalModelBootstrapper):
         else:
             log.info("Loading model specified in `{}` section on data parallel rank 0.", section_name)  # fmt: skip
 
-        if config is not None:
-            self._log_helper.log_config("Model Config", config)
+        self._log_helper.log_config("Model Config", config)
 
-        if gangs.dp.rank == 0:
-            try:
-                module = family.load_custom_model(
-                    path,
-                    config,
-                    gangs,
-                    section.dtype,
-                    section.mmap,
-                    restrict=None,
-                    progress=True,
-                )
-            except FileNotFoundError as ex:
-                raise ModelCheckpointNotFoundError(path) from ex
-            except OSError as ex:
-                raise_operational_system_error(ex)
-        else:
-            module = family.create_new_model(
-                config, gangs, section.dtype, meta=family.supports_meta
+        try:
+            model = family.load_custom_model(
+                path,
+                config,
+                gangs,
+                section.dtype,
+                load_rank0_only=True,
+                mmap=section.mmap,
+                restrict=None,
             )
+        except FileNotFoundError as ex:
+            raise ModelCheckpointNotFoundError(path) from ex
+        except OSError as ex:
+            raise_operational_system_error(ex)
 
         try:
             gangs.root.barrier()
@@ -226,57 +201,62 @@ class _StandardEvalModelBootstrapper(_EvalModelBootstrapper):
 
         log.info("Model loaded on data parallel rank 0.")
 
-        module.requires_grad_(False)
+        model.requires_grad_(False)
 
-        module.eval()
+        model.eval()
 
-        return _StandardRecipeModel(module, config, family)
+        return _ModelHolder(model, family, config)
 
 
-class _EvalModelPreparer(ABC):
+class _ReferenceModelPreparer(ABC):
     @abstractmethod
     def prepare(
-        self, model: RecipeModel, section_name: str, section: ReferenceModelSection
-    ) -> RecipeModel: ...
+        self,
+        model: _ModelHolder,
+        section_name: str,
+        section: ReferenceModelSection,
+    ) -> None: ...
 
 
 @final
-class _DelegatingEvalModelPreparer(_EvalModelPreparer):
-    def __init__(self, preparers: Iterable[_EvalModelPreparer]) -> None:
+class _DelegatingReferenceModelPreparer(_ReferenceModelPreparer):
+    def __init__(self, preparers: Iterable[_ReferenceModelPreparer]) -> None:
         self._preparers = preparers
 
     @override
     def prepare(
-        self, model: RecipeModel, section_name: str, section: ReferenceModelSection
-    ) -> RecipeModel:
+        self,
+        model_holder: _ModelHolder,
+        section_name: str,
+        section: ReferenceModelSection,
+    ) -> None:
         for preparer in self._preparers:
-            model = preparer.prepare(model, section_name, section)
-
-        return model
+            preparer.prepare(model_holder, section_name, section)
 
 
 @final
-class _StandardEvalModelPreparer(_EvalModelPreparer):
+class _LastReferenceModelPreparer(_ReferenceModelPreparer):
     def __init__(self, gangs: Gangs) -> None:
         self._gangs = gangs
 
     @override
     def prepare(
-        self, model: RecipeModel, section_name: str, section: ReferenceModelSection
-    ) -> RecipeModel:
+        self,
+        model_holder: _ModelHolder,
+        section_name: str,
+        section: ReferenceModelSection,
+    ) -> None:
         if self._gangs.dp.size > 1:
             log.info("Broadcasting model to all processes.")
 
             try:
-                broadcast_module(model.module, self._gangs.dp)
+                broadcast_module(model_holder.model, self._gangs.dp)
             except GangError as ex:
                 raise_operational_gang_error(ex)
 
             log.info("Model broadcasted.")
 
-        remove_parametrizations(model.module)
+        remove_parametrizations(model_holder.model)
 
         if section.compile:
-            _compile_model(model, section.compile_options)
-
-        return model
+            _compile_model(model_holder, section_name, section.compile_options)

@@ -19,14 +19,14 @@ from fairseq2.assets.metadata_provider import AssetMetadataError
 from fairseq2.assets.store import AssetNotFoundError, AssetStore, get_asset_store
 from fairseq2.composition import ExtensionError
 from fairseq2.error import InternalError, OperationalError
-from fairseq2.logging import log
-from fairseq2.utils.rich import configure_rich_logging, get_console
+from fairseq2.logging import configure_logging, log
+from fairseq2.utils.rich import get_console
 
 
 def _main() -> None:
     args = _parse_args()
 
-    configure_rich_logging()
+    configure_logging()
 
     try:
         args.command(args)

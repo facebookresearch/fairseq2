@@ -111,7 +111,6 @@ To use huggingface chat wrappers, set `chat_mode=True` in your config.
 - `recipe.py`: Core recipe implementation with training logic
 - `config.py`: Configuration classes and default settings
 - `dataset.py`: Dataset loading and processing logic
-- `utils.py`: Utility functions for data handling
 - `configs/`: Pre-configured YAML files for common setups
 
 

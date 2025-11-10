@@ -14,7 +14,9 @@ from fairseq2.assets import AssetCard, AssetCardError, AssetNotFoundError, Asset
 from fairseq2.data.tokenizers.family import TokenizerFamily
 from fairseq2.data.tokenizers.ref import resolve_tokenizer_reference
 from fairseq2.data.tokenizers.tokenizer import Tokenizer
+from fairseq2.device import CPU
 from fairseq2.error import InternalError
+from fairseq2.gang import Gangs, create_fake_gangs
 from fairseq2.runtime.dependency import get_dependency_resolver
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.utils.warn import _warn_progress_deprecated
@@ -61,10 +63,14 @@ class TokenizerHub(Generic[TokenizerT, TokenizerConfigT]):
         self,
         card: AssetCard | str,
         *,
+        gangs: Gangs | None = None,
         config: TokenizerConfigT | None = None,
         progress: bool | None = None,
     ) -> TokenizerT:
         _warn_progress_deprecated(progress)
+
+        if gangs is None:
+            gangs = create_fake_gangs(CPU)
 
         if isinstance(card, str):
             name = card
@@ -85,12 +91,17 @@ class TokenizerHub(Generic[TokenizerT, TokenizerConfigT]):
 
             raise AssetCardError(name, msg)
 
-        tokenizer = self._family.load_tokenizer(card, config, progress=True)
+        tokenizer = self._family.load_tokenizer(card, gangs, config)
 
         return cast(TokenizerT, tokenizer)
 
-    def load_custom_tokenizer(self, path: Path, config: TokenizerConfigT) -> TokenizerT:
-        tokenizer = self._family.load_custom_tokenizer(path, config)
+    def load_custom_tokenizer(
+        self, path: Path, config: TokenizerConfigT, *, gangs: Gangs | None = None
+    ) -> TokenizerT:
+        if gangs is None:
+            gangs = create_fake_gangs(CPU)
+
+        tokenizer = self._family.load_custom_tokenizer(path, config, gangs)
 
         return cast(TokenizerT, tokenizer)
 
@@ -146,13 +157,19 @@ class TokenizerFamilyNotKnownError(Exception):
 
 
 def load_tokenizer(
-    card: AssetCard | str, *, config: object | None = None, progress: bool | None = None
+    card: AssetCard | str,
+    *,
+    gangs: Gangs | None = None,
+    config: object | None = None,
+    progress: bool | None = None,
 ) -> Tokenizer:
+    _warn_progress_deprecated(progress)
+
     resolver = get_dependency_resolver()
 
     global_loader = resolver.resolve(GlobalTokenizerLoader)
 
-    return global_loader.load(card, config, progress)
+    return global_loader.load(card, gangs, config)
 
 
 @final
@@ -164,9 +181,10 @@ class GlobalTokenizerLoader:
         self._families = families
 
     def load(
-        self, card: AssetCard | str, config: object | None, progress: bool | None
+        self, card: AssetCard | str, gangs: Gangs | None, config: object | None
     ) -> Tokenizer:
-        _warn_progress_deprecated(progress)
+        if gangs is None:
+            gangs = create_fake_gangs(CPU)
 
         if isinstance(card, str):
             name = card
@@ -188,4 +206,4 @@ class GlobalTokenizerLoader:
 
             raise AssetCardError(name, msg)
 
-        return family.load_tokenizer(card, config, progress=True)
+        return family.load_tokenizer(card, gangs, config)

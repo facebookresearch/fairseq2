@@ -18,6 +18,8 @@ from fairseq2.checkpoint import (
     OutOfProcCheckpointHGExporter,
 )
 from fairseq2.datasets import DataReader
+from fairseq2.early_stopper import NOOP_EARLY_STOPPER
+from fairseq2.evaluator import EvalUnit
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
 from fairseq2.metrics.recorders import (
@@ -42,36 +44,35 @@ from fairseq2.recipe.error import (
     ManualGradScalingNotSupportedError,
     MetricNotKnownError,
 )
-from fairseq2.recipe.evaluator import EvalUnit
-from fairseq2.recipe.model import RecipeModel
-from fairseq2.recipe.trainer import BatchT, Trainer, TrainUnit
-from fairseq2.recipe.validator import NOOP_VALIDATOR, StandardValidator, Validator
+from fairseq2.recipe.internal.model import _ModelHolder
+from fairseq2.trainer import BatchT, Trainer, TrainUnit
 from fairseq2.utils.gc import (
     NOOP_GARBAGE_COLLECTOR,
     GarbageCollector,
     StandardGarbageCollector,
 )
+from fairseq2.validator import NOOP_VALIDATOR, StandardValidator, Validator
 
 
-class _TrainerFactory(Protocol):
+class _TrainerActivator(Protocol):
     def __call__(self, **kwargs: Any) -> Trainer: ...
 
 
 @final
-class _RecipeTrainerFactory:
+class _TrainerFactory:
     def __init__(
         self,
         section: TrainerSection,
         regime_section: RegimeSection,
         common_section: CommonSection,
         gangs: Gangs,
-        inner_factory: _TrainerFactory,
+        activator: _TrainerActivator,
     ) -> None:
         self._section = section
         self._regime_section = regime_section
         self._common_section = common_section
         self._gangs = gangs
-        self._inner_factory = inner_factory
+        self._activator = activator
 
     def create(
         self,
@@ -98,7 +99,7 @@ class _RecipeTrainerFactory:
 
         seed = self._common_section.seed + 3
 
-        return self._inner_factory(
+        return self._activator(
             unit=unit,
             data_reader=data_reader,
             amp=amp,
@@ -116,6 +117,7 @@ class _RecipeTrainerFactory:
             validate_every_n_steps=regime_section.validate_every_n_steps,
             validate_after_n_data_epochs=regime_section.validate_after_n_data_epochs,
             validate_every_n_data_epochs=regime_section.validate_every_n_data_epochs,
+            early_stopper=NOOP_EARLY_STOPPER,
             checkpoint_after_n_steps=regime_section.checkpoint_after_n_steps,
             checkpoint_every_n_steps=regime_section.checkpoint_every_n_steps,
             checkpoint_after_n_data_epochs=regime_section.checkpoint_after_n_data_epochs,
@@ -131,23 +133,23 @@ class _RecipeTrainerFactory:
         )
 
 
-class _StandardValidatorFactory(Protocol):
+class _StandardValidatorActivator(Protocol):
     def __call__(self, **kwargs: Any) -> StandardValidator: ...
 
 
 @final
-class _RecipeValidatorFactory:
+class _ValidatorFactory:
     def __init__(
         self,
         section: TrainerSection,
         common_section: CommonSection,
         gangs: Gangs,
-        standard_factory: _StandardValidatorFactory,
+        activator: _StandardValidatorActivator,
     ) -> None:
         self._section = section
         self._common_section = common_section
         self._gangs = gangs
-        self._standard_factory = standard_factory
+        self._activator = activator
 
     def create(
         self,
@@ -172,7 +174,7 @@ class _RecipeValidatorFactory:
             else:
                 amp = mp_config.mode == "auto"
 
-            return self._standard_factory(
+            return self._activator(
                 units=valid_units,
                 data_readers=valid_data_readers,
                 amp=amp,
@@ -184,7 +186,7 @@ class _RecipeValidatorFactory:
 
 
 @final
-class _RecipeFloat16LossScalerFactory:
+class _Float16LossScalerFactory:
     def __init__(
         self,
         section: TrainerSection,
@@ -229,22 +231,22 @@ class _RecipeFloat16LossScalerFactory:
 
 
 @final
-class _RecipeCheckpointHGExporterFactory:
+class _CheckpointHGExporterFactory:
     def __init__(
         self,
         section: RegimeSection,
-        model: RecipeModel,
+        model_holder: _ModelHolder,
         default_factory: Callable[[], OutOfProcCheckpointHGExporter],
     ) -> None:
         self._section = section
-        self._model = model
+        self._model_holder = model_holder
         self._default_factory = default_factory
 
     def create(self) -> CheckpointHGExporter:
         if not self._section.export_hugging_face:
             return NOOP_CHECKPOINT_HG_EXPORTER
 
-        if not self._model.family.supports_hugging_face:
+        if not self._model_holder.family.supports_hugging_face:
             raise HuggingFaceNotSupportedError()
 
         return self._default_factory()
@@ -271,7 +273,7 @@ class _MaybeScoreMetricDescriptorProvider:
 
 
 @final
-class _RecipeGarbageCollectorFactory:
+class _GarbageCollectorFactory:
     def __init__(self, section: TrainerSection) -> None:
         self._section = section
 

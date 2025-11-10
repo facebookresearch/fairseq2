@@ -13,6 +13,7 @@ from typing import Any, Protocol, final, runtime_checkable
 
 import wandb
 from typing_extensions import override
+from wandb import Run as WandbRun
 
 from fairseq2.error import raise_operational_system_error
 from fairseq2.file_system import FileMode, FileSystem
@@ -22,16 +23,16 @@ from fairseq2.metrics.recorders import (
     CompositeMetricRecorder,
     MetricRecorder,
     TensorBoardRecorder,
-    WandbClient,
     WandbRecorder,
 )
-from fairseq2.recipe.config import CommonSection, RecipeConfig
+from fairseq2.recipe.config import CommonSection
 from fairseq2.recipe.error import WandbInitializationError
+from fairseq2.recipe.internal.config import _RecipeConfigHolder
 from fairseq2.utils.structured import ValueConverter
 
 
 @final
-class _RecipeMetricRecorderFactory:
+class _MetricRecorderFactory:
     def __init__(
         self, gangs: Gangs, default_factory: Callable[[], CompositeMetricRecorder]
     ) -> None:
@@ -80,27 +81,27 @@ class _MaybeWandbRecorderFactory:
 
 
 @final
-class _RecipeWandbClientFactory:
+class _WandbRunFactory:
     def __init__(
         self,
         section: CommonSection,
         output_dir: Path,
-        config: RecipeConfig,
+        config_holder: _RecipeConfigHolder,
         value_converter: ValueConverter,
         initializer: _WandbInitializer,
         run_id_manager: _WandbRunIdManager,
     ) -> None:
         self._section = section
         self._output_dir = output_dir
-        self._config = config
+        self._config_holder = config_holder
         self._value_converter = value_converter
         self._initializer = initializer
         self._run_id_manager = run_id_manager
 
-    def create(self) -> WandbClient:
-        untyped_config = self._config.as_(object)
-
-        unstructured_config = self._value_converter.unstructure(untyped_config)
+    def create(self) -> WandbRun:
+        unstructured_config = self._value_converter.unstructure(
+            self._config_holder.config
+        )
 
         if not isinstance(unstructured_config, dict):
             unstructured_config = None
@@ -110,7 +111,7 @@ class _RecipeWandbClientFactory:
         wandb_config = self._section.metric_recorders.wandb
 
         try:
-            run = self._initializer(
+            return self._initializer(
                 entity=wandb_config.entity,
                 project=wandb_config.project,
                 dir=self._output_dir,
@@ -124,15 +125,13 @@ class _RecipeWandbClientFactory:
         except (RuntimeError, ValueError) as ex:
             raise WandbInitializationError() from ex
 
-        return WandbClient(run)
-
 
 @runtime_checkable
 class _WandbInitializer(Protocol):
-    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
+    def __call__(self, *args: Any, **kwargs: Any) -> WandbRun: ...
 
 
-def _init_wandb(*args: Any, **kwargs: Any) -> Any:
+def _init_wandb(*args: Any, **kwargs: Any) -> WandbRun:
     return wandb.init(*args, **kwargs)
 
 

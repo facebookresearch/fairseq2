@@ -11,9 +11,19 @@ from dataclasses import dataclass
 from itertools import chain
 from typing import Any
 
+from torch.nn import Linear, Module
+
 from fairseq2.recipe.config import Default, ParameterGroupConfig, default
 from fairseq2.recipe.optim import prepare_parameter_groups
-from tests.unit.recipe.helpers import create_foo_model
+
+
+class FooModel(Module):
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.proj1 = Linear(10, 10, bias=True)
+        self.proj2 = Linear(10, 10, bias=True)
+        self.proj3 = Linear(10, 10, bias=True)
 
 
 @dataclass(kw_only=True)
@@ -27,7 +37,7 @@ class TestPrepareParameterGroups:
     def test_works(self, caplog: Any) -> None:
         caplog.set_level(logging.INFO, logger="fairseq2")
 
-        model = create_foo_model()
+        model = FooModel()
 
         configs = [
             FooParamGroupConfig(params=r"proj1\..*", lr=0.1),
@@ -48,9 +58,9 @@ class TestPrepareParameterGroups:
         assert len(parameters[1]) == 3
         assert len(parameters[2]) == 1
 
-        assert parameters[0]["params"] == list(model.module.proj1.parameters())  # type: ignore[union-attr]
-        assert parameters[1]["params"] == list(model.module.proj2.parameters())  # type: ignore[union-attr]
-        assert parameters[2]["params"] == list(model.module.proj3.parameters())  # type: ignore[union-attr]
+        assert parameters[0]["params"] == list(model.proj1.parameters())  # type: ignore[union-attr]
+        assert parameters[1]["params"] == list(model.proj2.parameters())  # type: ignore[union-attr]
+        assert parameters[2]["params"] == list(model.proj3.parameters())  # type: ignore[union-attr]
 
         assert parameters[0]["lr"] == 0.1
         assert parameters[1]["lr"] == 0.2
@@ -75,18 +85,18 @@ class TestPrepareParameterGroups:
     def test_works_when_no_groups_specified(self, caplog: Any) -> None:
         caplog.set_level(logging.INFO, logger="fairseq2")
 
-        model = create_foo_model()
+        model = FooModel()
 
         parameters = prepare_parameter_groups(model, [])
 
-        assert list(parameters) == list(model.module.parameters())
+        assert list(parameters) == list(model.parameters())
 
         assert len(caplog.records) == 0
 
     def test_works_when_groups_are_exhaustive(self, caplog: Any) -> None:
         caplog.set_level(logging.INFO, logger="fairseq2")
 
-        model = create_foo_model()
+        model = FooModel()
 
         configs = [
             FooParamGroupConfig(params=r"proj1\..*", lr=0.1),
@@ -104,11 +114,11 @@ class TestPrepareParameterGroups:
         assert len(parameters[1]) == 3
 
         p = chain(
-            model.module.proj2.parameters(),  # type: ignore[union-attr]
-            model.module.proj3.parameters(),  # type: ignore[union-attr]
+            model.proj2.parameters(),  # type: ignore[union-attr]
+            model.proj3.parameters(),  # type: ignore[union-attr]
         )
 
-        assert parameters[0]["params"] == list(model.module.proj1.parameters())  # type: ignore[union-attr]
+        assert parameters[0]["params"] == list(model.proj1.parameters())  # type: ignore[union-attr]
         assert parameters[1]["params"] == list(p)
 
         assert parameters[0]["lr"] == 0.1
@@ -129,7 +139,7 @@ class TestPrepareParameterGroups:
     def test_warns_when_group_has_no_match(self, caplog: Any) -> None:
         caplog.set_level(logging.INFO, logger="fairseq2")
 
-        model = create_foo_model()
+        model = FooModel()
 
         configs = [
             FooParamGroupConfig(params=r"proj1\..*", lr=0.1),
@@ -149,11 +159,11 @@ class TestPrepareParameterGroups:
         assert len(parameters[2]) == 1
 
         p = chain(
-            model.module.proj2.parameters(),  # type: ignore[union-attr]
-            model.module.proj3.parameters(),  # type: ignore[union-attr]
+            model.proj2.parameters(),  # type: ignore[union-attr]
+            model.proj3.parameters(),  # type: ignore[union-attr]
         )
 
-        assert parameters[0]["params"] == list(model.module.proj1.parameters())  # type: ignore[union-attr]
+        assert parameters[0]["params"] == list(model.proj1.parameters())  # type: ignore[union-attr]
         assert parameters[1]["params"] == list()
         assert parameters[2]["params"] == list(p)
 

@@ -10,25 +10,25 @@ from collections.abc import Sequence
 from typing import Any, Protocol, final
 
 from fairseq2.datasets import DataReader
+from fairseq2.evaluator import BatchT, Evaluator, EvalUnit
 from fairseq2.recipe.config import CommonSection, EvaluatorSection
-from fairseq2.recipe.evaluator import BatchT, Evaluator, EvalUnit
 
 
-class _EvaluatorFactory(Protocol):
+class _EvaluatorActivator(Protocol):
     def __call__(self, **kwargs: Any) -> Evaluator: ...
 
 
 @final
-class _RecipeEvaluatorFactory:
+class _EvaluatorFactory:
     def __init__(
         self,
         section: EvaluatorSection,
         common_section: CommonSection,
-        inner_factory: _EvaluatorFactory,
+        activator: _EvaluatorActivator,
     ) -> None:
         self._section = section
         self._common_section = common_section
-        self._inner_factory = inner_factory
+        self._activator = activator
 
     def create(
         self,
@@ -39,7 +39,7 @@ class _RecipeEvaluatorFactory:
 
         section = self._section
 
-        return self._inner_factory(
+        return self._activator(
             units=units,
             data_readers=data_readers,
             amp=section.amp,

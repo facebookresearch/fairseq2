@@ -135,13 +135,18 @@ def _register_asset(container: DependencyContainer) -> None:
 
         cache_dir = dirs.get_cache_dir()
 
-        progress_reporter = resolver.resolve(ProgressReporter, key="download_reporter")
+        progress_reporter = resolver.resolve(ProgressReporter)
+
+        download_progress_reporter = resolver.resolve(
+            ProgressReporter, key="download_reporter"
+        )
 
         return wire_object(
             resolver,
             StandardAssetDownloadManager,
             cache_dir=cache_dir,
             progress_reporter=progress_reporter,
+            download_progress_reporter=download_progress_reporter,
         )
 
     container.collection.register(

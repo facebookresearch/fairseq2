@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import pytest
+from torch.nn import Linear, Module
 
 from fairseq2.recipe.config import (
     AdafactorConfig,
@@ -15,7 +16,15 @@ from fairseq2.recipe.config import (
     AdamWGroupConfig,
 )
 from fairseq2.recipe.internal.optim import _AdafactorFactory, _AdamWFactory
-from tests.unit.recipe.helpers import create_foo_model
+
+
+class FooModel(Module):
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.proj1 = Linear(10, 10, bias=True)
+        self.proj2 = Linear(10, 10, bias=True)
+        self.proj3 = Linear(10, 10, bias=True)
 
 
 class TestAdamWFactory:
@@ -31,7 +40,7 @@ class TestAdamWFactory:
     def test_create_works(
         self, impl: str, foreach: bool | None, fused: bool | None
     ) -> None:
-        model = create_foo_model()
+        model = FooModel()
 
         config = AdamWConfig(
             lr=0.05,
@@ -63,7 +72,7 @@ class TestAdamWFactory:
         assert optimizer.param_groups[0]["fused"] == fused
 
     def test_create_works_with_groups(self) -> None:
-        model = create_foo_model()
+        model = FooModel()
 
         group_config1 = AdamWGroupConfig(params=r"proj1\..*", lr=0.03, weight_decay=2.0)
         group_config2 = AdamWGroupConfig(params=r"proj2\..*", lr=0.06, eps=1.0)
@@ -123,7 +132,7 @@ class TestAdamWFactory:
 
 class TestAdafactorFactory:
     def test_create_works(self) -> None:
-        model = create_foo_model()
+        model = FooModel()
 
         config = AdafactorConfig(
             lr=0.05,
@@ -150,7 +159,7 @@ class TestAdafactorFactory:
         assert optimizer.param_groups[0]["maximize"] == config.maximize
 
     def test_create_works_with_groups(self) -> None:
-        model = create_foo_model()
+        model = FooModel()
 
         group_config1 = AdafactorGroupConfig(params=r"proj1\..*", lr=0.03, d=2.0)
         group_config2 = AdafactorGroupConfig(

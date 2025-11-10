@@ -27,10 +27,10 @@ from fairseq2.recipe.config import (
 )
 from fairseq2.recipe.internal.lr_schedulers import (
     _CosineAnnealingLRFactory,
+    _LRSchedulerFactory,
     _MyleLRFactory,
     _NoamLRFactory,
     _PolynomialDecayLRFactory,
-    _RecipeLRSchedulerFactory,
     _TriStageLRFactory,
 )
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
@@ -38,14 +38,14 @@ from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 
 def _register_lr_schedulers(container: DependencyContainer) -> None:
     # LRScheduler
-    def create_lr_scheduler(resolver: DependencyResolver) -> LRScheduler:
-        lr_factory = resolver.resolve(_RecipeLRSchedulerFactory)
+    def get_lr_scheduler(resolver: DependencyResolver) -> LRScheduler:
+        lr_factory = resolver.resolve(_LRSchedulerFactory)
 
         return lr_factory.create()
 
-    container.register(LRScheduler, create_lr_scheduler, singleton=True)
+    container.register(LRScheduler, get_lr_scheduler, singleton=True)
 
-    container.register_type(_RecipeLRSchedulerFactory)
+    container.register_type(_LRSchedulerFactory)
 
     # Passthrough
     def create_passthrough_lr(

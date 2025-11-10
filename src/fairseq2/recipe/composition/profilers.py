@@ -15,11 +15,11 @@ def _register_profilers(container: DependencyContainer) -> None:
     container.register_type(Profiler, CompositeProfiler)
 
     # Torch Profiler or None
-    def maybe_create_torch_profiler(resolver: DependencyResolver) -> Profiler | None:
+    def maybe_get_torch_profiler(resolver: DependencyResolver) -> Profiler | None:
         profiler_factory = resolver.resolve(_MaybeTorchProfilerFactory)
 
         return profiler_factory.maybe_create()
 
-    container.collection.register(Profiler, maybe_create_torch_profiler, singleton=True)
+    container.collection.register(Profiler, maybe_get_torch_profiler, singleton=True)
 
     container.register_type(_MaybeTorchProfilerFactory)

@@ -26,5 +26,4 @@ from fairseq2.metrics.recorders.recorder import MetricRecorder as MetricRecorder
 from fairseq2.metrics.recorders.tensorboard import (
     TensorBoardRecorder as TensorBoardRecorder,
 )
-from fairseq2.metrics.recorders.wandb import WandbClient as WandbClient
 from fairseq2.metrics.recorders.wandb import WandbRecorder as WandbRecorder

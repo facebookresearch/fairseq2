@@ -13,6 +13,7 @@ from fairseq2.models.family import ModelCompiler as ModelCompiler
 from fairseq2.models.family import ModelFactory as ModelFactory
 from fairseq2.models.family import ModelFamily as ModelFamily
 from fairseq2.models.family import ModelFSDPApplier as ModelFSDPApplier
+from fairseq2.models.family import ModelGatedError as ModelGatedError
 from fairseq2.models.family import ModelStateDictConverter as ModelStateDictConverter
 from fairseq2.models.family import ShardSpecsProvider as ShardSpecsProvider
 from fairseq2.models.family import StandardModelFamily as StandardModelFamily

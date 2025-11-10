@@ -8,29 +8,29 @@ from __future__ import annotations
 
 from fairseq2.generation import Seq2SeqGenerator, SequenceGenerator
 from fairseq2.recipe.internal.seq_generator import (
-    _RecipeSeq2SeqGeneratorFactory,
-    _RecipeSequenceGeneratorFactory,
+    _Seq2SeqGeneratorFactory,
+    _SequenceGeneratorFactory,
 )
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 
 
 def _register_seq_generators(container: DependencyContainer) -> None:
     # SequenceGenerator
-    def create_seq_generator(resolver: DependencyResolver) -> SequenceGenerator:
-        gen_factory = resolver.resolve(_RecipeSequenceGeneratorFactory)
+    def get_seq_generator(resolver: DependencyResolver) -> SequenceGenerator:
+        generator_factory = resolver.resolve(_SequenceGeneratorFactory)
 
-        return gen_factory.create()
+        return generator_factory.create()
 
-    container.register(SequenceGenerator, create_seq_generator, singleton=True)
+    container.register(SequenceGenerator, get_seq_generator, singleton=True)
 
-    container.register_type(_RecipeSequenceGeneratorFactory)
+    container.register_type(_SequenceGeneratorFactory)
 
     # Seq2SeqGenerator
-    def create_seq2seq_generator(resolver: DependencyResolver) -> Seq2SeqGenerator:
-        gen_factory = resolver.resolve(_RecipeSeq2SeqGeneratorFactory)
+    def get_seq2seq_generator(resolver: DependencyResolver) -> Seq2SeqGenerator:
+        generator_factory = resolver.resolve(_Seq2SeqGeneratorFactory)
 
-        return gen_factory.create()
+        return generator_factory.create()
 
-    container.register(Seq2SeqGenerator, create_seq2seq_generator, singleton=True)
+    container.register(Seq2SeqGenerator, get_seq2seq_generator, singleton=True)
 
-    container.register_type(_RecipeSeq2SeqGeneratorFactory)
+    container.register_type(_Seq2SeqGeneratorFactory)

@@ -17,14 +17,11 @@ from fairseq2.recipe.composition.config import (
     register_config_section as register_config_section,
 )
 from fairseq2.recipe.composition.dataset import register_dataset as register_dataset
-from fairseq2.recipe.composition.eval_model import (
+from fairseq2.recipe.composition.reference_model import (
     register_reference_model as register_reference_model,
 )
 from fairseq2.recipe.composition.root import (
-    _register_eval_recipe as _register_eval_recipe,
-)
-from fairseq2.recipe.composition.root import (
-    _register_generation_recipe as _register_generation_recipe,
+    _register_inference_recipe as _register_inference_recipe,
 )
 from fairseq2.recipe.composition.root import (
     _register_train_recipe as _register_train_recipe,

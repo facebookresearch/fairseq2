@@ -28,14 +28,13 @@ from fairseq2.device import CPU
 from fairseq2.error import OperationalError, raise_operational_system_error
 from fairseq2.file_system import FileSystem
 from fairseq2.gang import create_fake_gangs
-from fairseq2.logging import log
+from fairseq2.logging import configure_logging, log
 from fairseq2.model_checkpoint import ModelCheckpointError
 from fairseq2.models import ModelFamily, ModelNotKnownError, get_model_family
 from fairseq2.models.family import HuggingFaceExport
 from fairseq2.runtime.dependency import DependencyContainer
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.utils.progress import ProgressReporter
-from fairseq2.utils.rich import configure_rich_logging
 
 
 def save_hugging_face_model(save_dir: Path, export: HuggingFaceExport) -> None:
@@ -84,7 +83,7 @@ def save_hugging_face_model(save_dir: Path, export: HuggingFaceExport) -> None:
 def _main() -> None:
     args = _parse_args()
 
-    configure_rich_logging()
+    configure_logging()
 
     try:
         _run(args)
@@ -221,7 +220,7 @@ class _HuggingFaceExportCommand:
         model_config = family.get_model_config(card)
 
         model = family.load_model(
-            card, gangs, torch.float32, model_config, mmap=False, progress=True
+            card, gangs, torch.float32, model_config, load_rank0_only=True, mmap=False
         )
 
         state_dict = model.state_dict()

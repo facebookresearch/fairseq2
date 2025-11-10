@@ -75,11 +75,11 @@ from fairseq2.utils.config import (
     StandardConfigMerger,
     StandardConfigProcessor,
 )
-from fairseq2.utils.env import Environment, StandardEnvironment
+from fairseq2.utils.env import Environment, StandardEnvironment, get_rank
 from fairseq2.utils.progress import NOOP_PROGRESS_REPORTER, ProgressReporter
 from fairseq2.utils.rich import (
     RichProgressReporter,
-    create_rich_download_progress_columns,
+    _create_rich_download_progress_columns,
     get_error_console,
 )
 from fairseq2.utils.rng import RngBag
@@ -112,6 +112,11 @@ def _register_library(
     if no_progress is None:
         no_progress = env.has("FAIRSEQ2_NO_PROGRESS")
 
+    if not no_progress:
+        rank = get_rank(env)
+        if rank is not None and rank != 0:
+            no_progress = True
+
     if no_progress:
         container.register_instance(ProgressReporter, NOOP_PROGRESS_REPORTER)
 
@@ -124,7 +129,7 @@ def _register_library(
         def create_download_progress_reporter(
             resolver: DependencyResolver,
         ) -> ProgressReporter:
-            columns = create_rich_download_progress_columns()
+            columns = _create_rich_download_progress_columns()
 
             return wire_object(resolver, RichProgressReporter, columns=columns)
 

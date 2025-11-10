@@ -37,10 +37,10 @@ def register_recipe_assets(
     .. code:: python
 
         from fairseq2.runtime.dependency import DependencyContainer
-        from fairseq2.recipe import TrainRecipe
+        from fairseq2.recipe import Recipe
         from fairseq2.recipe.composition import register_recipe_assets
 
-        class MyRecipe(TrainRecipe):
+        class MyRecipe(Recipe):
             def register(self, container: DependencyContainer) -> None:
                 register_recipe_assets(container, "configs/assets")
 
