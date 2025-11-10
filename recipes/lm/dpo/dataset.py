@@ -39,7 +39,7 @@ from .utils import (
     load_files_and_weights,
 )
 
-LM_POFT_DATASET: Final = "lm_poft"
+LM_DPO_DATASET: Final = "lm_dpo"
 
 
 @dataclass(kw_only=True)
