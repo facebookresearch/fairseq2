@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from concurrent.futures import Future
 from pathlib import Path
-from typing import Any, Final, final
+from typing import Final, final
 
 from typing_extensions import override
 
@@ -95,16 +95,24 @@ class OutOfProcCheckpointHGExporter(CheckpointHGExporter):
         def do_export() -> None:
             export_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}/hg")
 
+            args: list[str] = ["python", "-m", "fairseq2.models.utils.hg_export", "--no-rich", "--checkpoint-dir", str(self._checkpoint_dir), f"checkpoint_step_{step_nr}", str(export_dir)]  # fmt: skip
+
+            run_file = export_dir.with_suffix(".run")
+
+            fp = self._file_system.open_text(run_file, mode=FileMode.WRITE)
+            with fp:
+                command_line = " ".join(args)
+
+                fp.write(command_line)
+
             stdout_file = export_dir.with_suffix(".stdout")
             stderr_file = export_dir.with_suffix(".stderr")
 
-            stdout = self._file_system.open_text(stdout_file, mode=FileMode.WRITE)
-            stderr = self._file_system.open_text(stderr_file, mode=FileMode.WRITE)
+            stdout_fp = self._file_system.open_text(stdout_file, mode=FileMode.WRITE)
+            stderr_fp = self._file_system.open_text(stderr_file, mode=FileMode.WRITE)
 
-            args: Any = ["python", "-m", "fairseq2.models.utils.hg_export", "--no-rich", "--checkpoint-dir", self._checkpoint_dir, f"checkpoint_step_{step_nr}", export_dir]  # fmt: skip
-
-            with stdout, stderr:
-                result = subprocess.run(args, stdout=stdout, stderr=stderr)
+            with stdout_fp, stderr_fp:
+                result = subprocess.run(args, stdout=stdout_fp, stderr=stderr_fp)
 
             if result.returncode != 0:
                 log.warning("Hugging Face export operation of step {} failed. See operation output at {}.", step_nr, stderr_file)  # fmt: skip

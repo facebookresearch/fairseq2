@@ -664,7 +664,7 @@ class StandardCheckpointManager(CheckpointManager):
                 try:
                     if keep_model:
                         for path in self._file_system.glob(step_dir, pattern="*"):
-                            if path.name == "model" or path.name == "hg":
+                            if path.stem in ("model", "hg", "hook"):
                                 continue
 
                             if self._file_system.is_dir(path):
