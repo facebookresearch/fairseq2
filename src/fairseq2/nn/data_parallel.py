@@ -15,7 +15,7 @@ from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
-from fairseq2.error import InvalidOperationError
+from fairseq2.error import InternalError
 from fairseq2.nn.ddp import DDPModule
 from fairseq2.nn.fsdp import (
     FSDP1Module,
@@ -169,13 +169,7 @@ _FACADE_KEY: Final = "__fs2_dp_facade__"
 def set_data_parallel_facade(module: Module, facade: DataParallelFacade) -> None:
     """
     Associates ``facade`` with the specified module.
-
-    :raises InvalidOperationError: if the module has already a facade associated
-        with it.
     """
-    if hasattr(module, _FACADE_KEY):
-        raise InvalidOperationError("`module` has already data parallelism.")
-
     setattr(module, _FACADE_KEY, facade)
 
 
@@ -191,17 +185,20 @@ def get_data_parallel_facade(module: Module) -> DataParallelFacade:
     will return a no-op implementation.
     """
     facade = getattr(module, _FACADE_KEY, None)
-    if facade is None:
-        match module:
-            case DDPModule():
-                facade = _DDPFacade(module)
-            case FSDP1Module():
-                facade = _FSDP1Facade(module)
-            case FSDP2Module():
-                facade = _FSDP2Facade(module)
-            case _:
-                facade = _NoopDataParallelFacade(module)
 
-        setattr(module, _FACADE_KEY, facade)
+    if facade is not None:
+        if not isinstance(facade, DataParallelFacade):
+            raise InternalError(f"{_FACADE_KEY} is of type `{type(facade)}`.")
 
-    return facade
+        return facade
+
+    if isinstance(module, DDPModule):
+        return _DDPFacade(module)
+
+    if isinstance(module, FSDP1Module):
+        return _FSDP1Facade(module)
+
+    if isinstance(module, FSDP2Module):
+        return _FSDP2Facade(module)
+
+    return _NoopDataParallelFacade(module)
