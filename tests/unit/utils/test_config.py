@@ -10,7 +10,8 @@ from collections.abc import Mapping
 
 import pytest
 
-from fairseq2.utils.config import StandardConfigMerger
+from fairseq2.utils.config import ReplaceEnvDirective, StandardConfigMerger
+from tests.unit.helper import FooEnvironment
 
 
 def test_config_merge_works() -> None:
@@ -136,3 +137,15 @@ def test_config_merge_raises_error_when_type_is_invalid() -> None:
         TypeError, match=rf"^Each key under foo1\.foo2\._set_ at `overrides` must be of type `{str}`, but the key at index 0 is of type `{int}` instead\.$"  # fmt: skip
     ):
         merger.merge(target, source)
+
+
+def test_replace_env_directive_works() -> None:
+    env = FooEnvironment({"FOO1": "f001", "FOO2": "f002"})
+
+    directive = ReplaceEnvDirective(env)
+
+    output = directive.execute(
+        "abc ${env:FOO1} xyz ${env:FOO2} ijk ${env:FOO3:f003} ${env:FOO4}", None
+    )
+
+    assert output == "abc f001 xyz f002 ijk f003 "

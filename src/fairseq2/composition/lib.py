@@ -70,8 +70,10 @@ from fairseq2.sharder import (
     StandardModelSharder,
 )
 from fairseq2.utils.config import (
+    ConfigDirective,
     ConfigMerger,
     ConfigProcessor,
+    ReplaceEnvDirective,
     StandardConfigMerger,
     StandardConfigProcessor,
 )
@@ -126,7 +128,7 @@ def _register_library(
     else:
         container.register_type(ProgressReporter, RichProgressReporter, singleton=True)
 
-        def create_download_progress_reporter(
+        def get_download_progress_reporter(
             resolver: DependencyResolver,
         ) -> ProgressReporter:
             columns = _create_rich_download_progress_columns()
@@ -135,48 +137,48 @@ def _register_library(
 
         container.register(
             ProgressReporter,
-            create_download_progress_reporter,
+            get_download_progress_reporter,
             key="download_reporter",
             singleton=True,
         )
 
     # WorldInfo
-    def create_world_info(resolver: DependencyResolver) -> WorldInfo:
+    def get_world_info(resolver: DependencyResolver) -> WorldInfo:
         env = resolver.resolve(Environment)
 
         return WorldInfo.from_env(env)
 
-    container.register(WorldInfo, create_world_info, singleton=True)
+    container.register(WorldInfo, get_world_info, singleton=True)
 
     # Device
-    def create_default_device(resolver: DependencyResolver) -> Device:
+    def get_default_device(resolver: DependencyResolver) -> Device:
         device_detector = resolver.resolve(DefaultDeviceDetector)
 
         return device_detector.detect()
 
-    container.register(Device, create_default_device, singleton=True)
+    container.register(Device, get_default_device, singleton=True)
 
     # ThreadPool
-    def create_default_thread_pool(resolver: DependencyResolver) -> ThreadPool:
+    def get_default_thread_pool(resolver: DependencyResolver) -> ThreadPool:
         world_info = resolver.resolve(WorldInfo)
 
         return StandardThreadPool.create_default(world_info.local_size)
 
-    container.register(ThreadPool, create_default_thread_pool, singleton=True)
+    container.register(ThreadPool, get_default_thread_pool, singleton=True)
 
     # RngBag
-    def create_default_rng_bag(resolver: DependencyResolver) -> RngBag:
+    def get_default_rng_bag(resolver: DependencyResolver) -> RngBag:
         device = resolver.resolve(Device)
 
         return RngBag.from_device_defaults(CPU, device)
 
-    container.register(RngBag, create_default_rng_bag, singleton=True)
+    container.register(RngBag, get_default_rng_bag, singleton=True)
 
     # fmt: off
     container.register_type(AssetConfigLoader, StandardAssetConfigLoader)
     container.register_type(ClusterResolver, StandardClusterResolver)
     container.register_type(ConfigMerger, StandardConfigMerger)
-    container.register_type(ConfigProcessor, StandardConfigProcessor)
+    container.register_type(ConfigProcessor, StandardConfigProcessor, singleton=True)
     container.register_type(CudaContext, StandardCudaContext)
     container.register_type(DefaultDeviceDetector)
     container.register_type(FileSystem, LocalFileSystem, singleton=True)
@@ -205,6 +207,8 @@ def _register_library(
     container.collection.register_type(ModelCheckpointLoader, NativeModelCheckpointLoader)
     container.collection.register_type(ModelCheckpointLoader, SafetensorsCheckpointLoader)
     container.collection.register_type(ModelCheckpointLoader, LLaMACheckpointLoader)
+
+    container.collection.register_type(ConfigDirective, ReplaceEnvDirective)
     # fmt: on
 
     _register_asset(container)
