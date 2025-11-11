@@ -11,12 +11,13 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from concurrent.futures import Future
 from pathlib import Path
-from subprocess import DEVNULL, CalledProcessError
 from typing import Any, Final, final
 
 from typing_extensions import override
 
-from fairseq2.error import InvalidOperationError, OperationalError
+from fairseq2.error import InvalidOperationError
+from fairseq2.file_system import FileMode, FileSystem
+from fairseq2.logging import log
 from fairseq2.utils.threading import ThreadPool
 
 
@@ -65,8 +66,13 @@ NOOP_CHECKPOINT_HG_EXPORTER: Final = _NoopCheckpointHGExporter()
 
 @final
 class OutOfProcCheckpointHGExporter(CheckpointHGExporter):
-    def __init__(self, output_dir: Path, thread_pool: ThreadPool) -> None:
-        self._checkpoint_dir = output_dir.joinpath("checkpoints")
+    def __init__(
+        self, output_dir: Path, file_system: FileSystem, thread_pool: ThreadPool
+    ) -> None:
+        checkpoint_dir = output_dir.joinpath("checkpoints")
+
+        self._checkpoint_dir = checkpoint_dir
+        self._file_system = file_system
         self._thread_pool = thread_pool
         self._export_op: Future[None] | None = None
 
@@ -89,16 +95,20 @@ class OutOfProcCheckpointHGExporter(CheckpointHGExporter):
         def do_export() -> None:
             export_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}/hg")
 
-            args: Any = ["python", "-m", "fairseq2.models.utils.hg_export", "--checkpoint-dir", self._checkpoint_dir, f"checkpoint_step_{step_nr}", export_dir]  # fmt: skip
+            stdout_file = export_dir.with_suffix(".stdout")
+            stderr_file = export_dir.with_suffix(".stderr")
 
-            try:
-                subprocess.run(args, stdout=DEVNULL, stderr=DEVNULL, check=True)
-            except CalledProcessError as ex:
-                raise OperationalError(
-                    f"Background process failed while exporting the Hugging Face model of step {step_nr}."
-                ) from ex
+            stdout = self._file_system.open_text(stdout_file, mode=FileMode.WRITE)
+            stderr = self._file_system.open_text(stderr_file, mode=FileMode.WRITE)
 
-            if exported_callback is not None:
+            args: Any = ["python", "-m", "fairseq2.models.utils.hg_export", "--no-rich", "--checkpoint-dir", self._checkpoint_dir, f"checkpoint_step_{step_nr}", export_dir]  # fmt: skip
+
+            with stdout, stderr:
+                result = subprocess.run(args, stdout=stdout, stderr=stderr)
+
+            if result.returncode != 0:
+                log.warning("Hugging Face export operation of step {} failed. See operation output at {}.", step_nr, stderr_file)  # fmt: skip
+            elif exported_callback is not None:
                 exported_callback(step_nr)
 
         if blocking:

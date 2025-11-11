@@ -83,7 +83,7 @@ def save_hugging_face_model(save_dir: Path, export: HuggingFaceExport) -> None:
 def _main() -> None:
     args = _parse_args()
 
-    configure_logging()
+    configure_logging(no_rich=args.no_rich)
 
     try:
         _run(args)
@@ -138,6 +138,13 @@ def _parse_args() -> Namespace:
         "--checkpoint-dir",
         type=Path,
         help="fairseq2 checkpoint directory",
+    )
+
+    parser.add_argument(
+        "--no-rich",
+        default=False,
+        action="store_true",
+        help="whether to disable rich text output for logging",
     )
 
     parser.add_argument(
