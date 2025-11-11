@@ -39,7 +39,7 @@ from fairseq2.error import NotSupportedError, OperationalError
 from fairseq2.logging import log
 from fairseq2.models.hg.config import HuggingFaceModelConfig
 from fairseq2.utils.uri import Uri
-from fairseq2.gang import Gangs, Gang, GangError, maybe_get_current_gangs
+from fairseq2.gang import Gangs, FakeGang, Gang, GangError, maybe_get_current_gangs
 
 try:
     from transformers import (
@@ -286,7 +286,7 @@ def _replace_layer(
     else:
         setattr(obj, last, value)
 
-def _shard_qwen_omni_model(model:Qwen2_5OmniForConditionalGeneration, gangs:Gangs) -> Qwen2_5OmniForConditionalGeneration:
+def _shard_qwen_omni_model(model:Qwen2_5OmniForConditionalGeneration) -> Qwen2_5OmniForConditionalGeneration:
     """
     Shard a QwenOmni HuggingFace checkpoint to provided gangs, replacing
     layers with fairseq2 compatible linear layers
@@ -297,6 +297,9 @@ def _shard_qwen_omni_model(model:Qwen2_5OmniForConditionalGeneration, gangs:Gang
 
     :returns: The sharded model with replaced layers
     """
+
+    gangs = model.gangs
+    
     qkv_pattern_c = re.compile('[.]q_|[.]k_|[.]v_|_[qkv]$|[.][qkv]$')
     out_pattern_c = re.compile('out|[.]o_|_o$|[.]o$|[.]proj$')
     col_ffn_pattern_c = re.compile('ff.*[02]|fc[1]|mlp.*[01]|[.]gate_|[.]down_')
@@ -313,13 +316,13 @@ def _shard_qwen_omni_model(model:Qwen2_5OmniForConditionalGeneration, gangs:Gang
             state_dict = module.state_dict()
             fs_proj.load_state_dict(state_dict)
             if qkv_pattern_c.search(name):
-                sharded_proj = ColumnShardedLinear.from_linear(fs_proj, gang=gangs))
+                sharded_proj = ColumnShardedLinear.from_linear(fs_proj, gang=gangs)
             elif out_pattern_c.search(name):
-                sharded_proj = RowShardedLinear.from_linear(fs_proj, gang=gangs))
+                sharded_proj = RowShardedLinear.from_linear(fs_proj, gang=gangs)
             elif col_ffn_pattern_c.search(name):
-                sharded_proj = ColumnShardedLinear.from_linear(fs_proj, gang=gang))
+                sharded_proj = ColumnShardedLinear.from_linear(fs_proj, gang=gang)
             elif row_ffn_pattern_c.search(name):
-                sharded_proj = RowShardedLinear.from_linear(fs_proj, gang=gangs))
+                sharded_proj = RowShardedLinear.from_linear(fs_proj, gang=gangs)
             else:
                 continue
 
@@ -355,9 +358,10 @@ def _load_special_model(
         ) from ex
 
     # Shard the model according to available gangs
-    if gangs.tp_size > 1:
+    if not isinstance(gangs.root, FakeGang) and gangs.tp_size > 1:
         try:
-            model = _shard_qwen_omni_model(model, gangs)
+            print(f"Sharding model with {gangs.tp_size} gangs...")
+            model = _shard_qwen_omni_model(model)
             print("Model successfully sharded!")
         except Exception as e:
             print(f"Error sharding the model. Is special model type supported? (Qwen2.5-Omni) {e}")
