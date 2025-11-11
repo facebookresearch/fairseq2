@@ -29,7 +29,7 @@ from fairseq2.error import NotSupportedError, raise_operational_system_error
 from fairseq2.gang import Gangs
 from fairseq2.utils.uri import Uri
 
-from ..common import DataReadOptions
+from ..common import DataReadOptions, LengthBatching, StaticBatching
 
 LM_SFT_DATASET: Final = "lm_sft"
 
