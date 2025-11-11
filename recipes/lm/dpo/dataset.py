@@ -14,7 +14,9 @@ from typing import Any, Final, TypeAlias, cast
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import get_asset_download_manager
+# from fairseq2.assets.download_manager import get_asset_download_manager
+from fairseq2.assets.download_manager import AssetDownloadManager
+from fairseq2.runtime.dependency import get_dependency_resolver
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
@@ -98,7 +100,8 @@ class LMDPODataset:
     def _create_path_reader(
         self, path: str, split: str | None, gangs: Gangs, shuffle_window: int, seed: int
     ) -> DataPipeline:
-        download_manager = get_asset_download_manager()
+        # download_manager = get_asset_download_manager()
+        download_manager = get_dependency_resolver().resolve(AssetDownloadManager)
 
         uri = Uri.maybe_parse(path)
         if uri:
