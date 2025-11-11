@@ -98,7 +98,7 @@ class LMDPODataset:
         self._sources = sources
 
     def _create_path_reader(
-        self, path: str, split: str | None, gangs: Gangs, shuffle_window: int, seed: int
+        self, path: str, gangs: Gangs, shuffle_window: int, seed: int
     ) -> DataPipeline:
         # download_manager = get_asset_download_manager()
         download_manager = get_dependency_resolver().resolve(AssetDownloadManager)
@@ -108,9 +108,6 @@ class LMDPODataset:
             local_path = download_manager.download_dataset(uri)
         else:
             local_path = Path(path)
-
-        if split:
-            local_path = local_path.joinpath(split)
 
         if not local_path.is_dir():
             files = [local_path]
@@ -138,7 +135,6 @@ class LMDPODataset:
 
     def create_reader(
         self,
-        split: str,
         tokenizer: Tokenizer,
         gangs: Gangs,
         min_seq_len: int,
@@ -148,17 +144,15 @@ class LMDPODataset:
         if options is None:
             options = LMDPODataReadOptions()
 
-        sources = self._sources[split]
-
         seed = options.seed
 
         pipelines = []
 
         weights = []
 
-        for source in sources:
+        for source in self._sources:
             pipeline = self._create_path_reader(
-                source.path, source.split, gangs, options.example_shuffle_window, seed
+                source.path, gangs, options.example_shuffle_window, seed
             )
 
             seed += 1
