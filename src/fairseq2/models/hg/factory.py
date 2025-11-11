@@ -32,6 +32,8 @@ import urllib
 from pathlib import Path
 from typing import Any, Dict, Type
 
+from tqdm.auto import tqdm
+
 from fairseq2.assets import HuggingFaceHub
 from fairseq2.error import NotSupportedError, OperationalError
 from fairseq2.logging import log
@@ -258,6 +260,74 @@ def _get_model_info(
 
     return None
 
+def _replace_layer(
+        obj:object, path:str, value:object
+) -> None:
+    """Replace a potentially indexed, nested object atrribute
+    by parsing an object path string
+
+    :param obj: The object to be modified, e.g. model (`QwenModel`)
+
+    :param path: The path of the attribute to be modified, e.g. ``model.thinker.fc2``
+
+    :param value: The object to substitute, e.g. a `RowShardedLinear` layer
+    """
+    parts = path.split('.')
+    for i, part in enumerate(parts[:-1]):
+        # If the part is an integer, treat as index
+        if part.isdigit():
+            obj = obj[int(part)]
+        else:
+            obj = getattr(obj, part)
+    # Handle trailing indices if present
+    last = parts[-1]
+    if last.isdigit():
+        obj[int(last)] = value
+    else:
+        setattr(obj, last, value)
+
+def _shard_qwen_omni_model(model:Qwen2_5OmniForConditionalGeneration, gangs:Gangs) -> Qwen2_5OmniForConditionalGeneration:
+    """
+    Shard a QwenOmni HuggingFace checkpoint to provided gangs, replacing
+    layers with fairseq2 compatible linear layers
+
+    :param model: The model to shard
+    
+    :param gangs: The gangs to use when sharding
+
+    :returns: The sharded model with replaced layers
+    """
+    qkv_pattern_c = re.compile('[.]q_|[.]k_|[.]v_|_[qkv]$|[.][qkv]$')
+    out_pattern_c = re.compile('out|[.]o_|_o$|[.]o$|[.]proj$')
+    col_ffn_pattern_c = re.compile('ff.*[02]|fc[1]|mlp.*[01]|[.]gate_|[.]down_')
+    row_ffn_pattern_c = re.compile('ff.*[13]|up_|fc2|mlp.*[2]')
+
+    fs_model = copy.deepcopy(model)
+
+    progress_bar = tqdm(len(model.modules))
+    
+    for name, module in model.named_modules():
+        if isinstance(module, torch.nn.Linear):
+            output_dim, input_dim, bias, dtype = module.out_features, module.in_features, module.bias is not None, module.weight.dtype
+            fs_proj = Linear(input_dim=input_dim, output_dim=output_dim, bias=bias, dtype=dtype)
+            state_dict = module.state_dict()
+            fs_proj.load_state_dict(state_dict)
+            if qkv_pattern_c.search(name):
+                sharded_proj = ColumnShardedLinear.from_linear(fs_proj, gang=gangs))
+            elif out_pattern_c.search(name):
+                sharded_proj = RowShardedLinear.from_linear(fs_proj, gang=gangs))
+            elif col_ffn_pattern_c.search(name):
+                sharded_proj = ColumnShardedLinear.from_linear(fs_proj, gang=gang))
+            elif row_ffn_pattern_c.search(name):
+                sharded_proj = RowShardedLinear.from_linear(fs_proj, gang=gangs))
+            else:
+                continue
+
+            replace_layer(fs_model, name, sharded_proj)
+
+        progress_bar.update(1)
+
+    return fs_model
 
 def _load_special_model(
     name: str, config: HuggingFaceModelConfig, model_info: Dict[str, str], gangs: Gang | None = None
@@ -285,15 +355,12 @@ def _load_special_model(
         ) from ex
 
     # Shard the model according to available gangs
-    try:
-        gang = gangs.root.create_gang(list(range(gangs.tp.size)))
-        gang.broadcast_objects([model], source_rank=0)
-
-    except ValueError as e:
-        print(f"Source rank out of range: {e}")
-
-    except GangError as e:
-        print(f"Gang error: {e}")
+    if gangs.tp_size > 1:
+        try:
+            model = _shard_qwen_omni_model(model, gangs)
+            print("Model successfully sharded!")
+        except Exception as e:
+            print(f"Error sharding the model. Is special model type supported? (Qwen2.5-Omni) {e}")
 
     # Load tokenizer/processor
     if "processor_class" in model_info:

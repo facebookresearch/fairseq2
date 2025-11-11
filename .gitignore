@@ -5,6 +5,15 @@ build/
 core
 core.*
 
+# Testing files and cleanup scripts
+doc/rebuild.sh
+src/all_layers.txt
+src/equiv_fs2.py
+src/github_private_tests/
+src/qwen_omni_arch.txt
+src/replace_mha.py
+src/hg_load_test.py
+
 # Byte-Compiled Modules
 __pycache__/
 
