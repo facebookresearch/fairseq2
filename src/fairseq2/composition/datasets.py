@@ -49,7 +49,7 @@ def register_dataset_family(
     elif opener is None:
         raise ValueError("`opener` or `advanced_opener` must be specified.")
 
-    def create_family(resolver: DependencyResolver) -> DatasetFamily:
+    def get_family(resolver: DependencyResolver) -> DatasetFamily:
         nonlocal opener
 
         if advanced_opener is not None:
@@ -70,7 +70,7 @@ def register_dataset_family(
             opener=opener,
         )
 
-    container.register(DatasetFamily, create_family, key=name)
+    container.register(DatasetFamily, get_family, key=name)
 
 
 def _register_dataset_families(container: DependencyContainer) -> None:

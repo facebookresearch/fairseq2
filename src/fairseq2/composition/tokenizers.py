@@ -84,7 +84,7 @@ def register_tokenizer_family(
     elif loader is None:
         raise ValueError("`loader` or `advanced_loader` must be specified.")
 
-    def create_family(resolver: DependencyResolver) -> TokenizerFamily:
+    def get_family(resolver: DependencyResolver) -> TokenizerFamily:
         nonlocal loader
 
         if advanced_loader is not None:
@@ -105,7 +105,7 @@ def register_tokenizer_family(
             loader=loader,
         )
 
-    container.register(TokenizerFamily, create_family, key=name)
+    container.register(TokenizerFamily, get_family, key=name)
 
 
 def _register_tokenizer_families(container: DependencyContainer) -> None:

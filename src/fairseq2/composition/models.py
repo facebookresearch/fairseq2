@@ -176,7 +176,7 @@ def register_model_family(
     elif factory is None:
         raise ValueError("`factory` or `advanced_factory` must be specified.")
 
-    def create_family(resolver: DependencyResolver) -> ModelFamily:
+    def get_family(resolver: DependencyResolver) -> ModelFamily:
         nonlocal factory
 
         if advanced_factory is not None:
@@ -207,7 +207,7 @@ def register_model_family(
             hg_exporter=hg_exporter,
         )
 
-    container.register(ModelFamily, create_family, key=name)
+    container.register(ModelFamily, get_family, key=name)
 
 
 def _register_model_families(container: DependencyContainer) -> None:

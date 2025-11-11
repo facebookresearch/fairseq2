@@ -47,46 +47,46 @@ from fairseq2.utils.progress import ProgressReporter
 def register_file_assets(
     container: DependencyContainer, path: Path, *, not_exist_ok: bool = False
 ) -> None:
-    def create_source(resolver: DependencyResolver) -> AssetMetadataSource:
+    def get_source(resolver: DependencyResolver) -> AssetMetadataSource:
         return wire_object(
             resolver, FileAssetMetadataSource, path=path, not_exist_ok=not_exist_ok
         )
 
-    container.collection.register(AssetMetadataSource, create_source)
+    container.collection.register(AssetMetadataSource, get_source)
 
 
 def register_package_assets(container: DependencyContainer, package: str) -> None:
-    def create_source(resolver: DependencyResolver) -> AssetMetadataSource:
+    def get_source(resolver: DependencyResolver) -> AssetMetadataSource:
         return wire_object(resolver, PackageAssetMetadataSource, package=package)
 
-    container.collection.register(AssetMetadataSource, create_source)
+    container.collection.register(AssetMetadataSource, get_source)
 
 
 def register_in_memory_assets(
     container: DependencyContainer, source: str, entries: Sequence[dict[str, object]]
 ) -> None:
-    def create_source(resolver: DependencyResolver) -> AssetMetadataSource:
+    def get_source(resolver: DependencyResolver) -> AssetMetadataSource:
         return wire_object(
             resolver, InMemoryAssetMetadataSource, name=source, entries=entries
         )
 
-    container.collection.register(AssetMetadataSource, create_source)
+    container.collection.register(AssetMetadataSource, get_source)
 
 
 def register_checkpoint_models(
     container: DependencyContainer, checkpoint_dir: Path
 ) -> None:
-    def create_source(resolver: DependencyResolver) -> AssetMetadataSource:
+    def get_source(resolver: DependencyResolver) -> AssetMetadataSource:
         return wire_object(resolver, ModelMetadataSource, checkpoint_dir=checkpoint_dir)
 
-    container.collection.register(AssetMetadataSource, create_source)
+    container.collection.register(AssetMetadataSource, get_source)
 
 
 def _register_asset(container: DependencyContainer) -> None:
     container.register_type(AssetDirectoryAccessor, StandardAssetDirectoryAccessor)
 
     # Store
-    def create_asset_store(resolver: DependencyResolver) -> AssetStore:
+    def get_asset_store(resolver: DependencyResolver) -> AssetStore:
         sources = resolver.collection.resolve(AssetMetadataSource)
 
         def load_providers() -> Iterator[AssetMetadataProvider]:
@@ -104,7 +104,7 @@ def _register_asset(container: DependencyContainer) -> None:
             default_env=env,
         )
 
-    container.register(AssetStore, create_asset_store, singleton=True)
+    container.register(AssetStore, get_asset_store, singleton=True)
 
     container.register_type(AssetEnvironmentDetector)
 
@@ -128,7 +128,7 @@ def _register_asset(container: DependencyContainer) -> None:
     container.collection.register_type(AssetDownloadManager, LocalAssetDownloadManager)
     container.collection.register_type(AssetDownloadManager, HuggingFaceHub)
 
-    def create_standard_asset_download_manager(
+    def get_standard_asset_download_manager(
         resolver: DependencyResolver,
     ) -> AssetDownloadManager:
         dirs = resolver.resolve(AssetDirectoryAccessor)
@@ -150,5 +150,5 @@ def _register_asset(container: DependencyContainer) -> None:
         )
 
     container.collection.register(
-        AssetDownloadManager, create_standard_asset_download_manager
+        AssetDownloadManager, get_standard_asset_download_manager
     )
