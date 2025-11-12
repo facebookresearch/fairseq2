@@ -6,7 +6,9 @@
 
 from __future__ import annotations
 
+import shlex
 import subprocess
+import sys
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from concurrent.futures import Future
@@ -95,13 +97,13 @@ class OutOfProcCheckpointHGExporter(CheckpointHGExporter):
         def do_export() -> None:
             export_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}/hg")
 
-            args: list[str] = ["python", "-m", "fairseq2.models.utils.hg_export", "--no-rich", "--checkpoint-dir", str(self._checkpoint_dir), f"checkpoint_step_{step_nr}", str(export_dir)]  # fmt: skip
+            args: list[str] = [sys.executable, "-m", "fairseq2.models.utils.hg_export", "--no-rich", "--checkpoint-dir", str(self._checkpoint_dir), f"checkpoint_step_{step_nr}", str(export_dir)]  # fmt: skip
 
             run_file = export_dir.with_suffix(".run")
 
             fp = self._file_system.open_text(run_file, mode=FileMode.WRITE)
             with fp:
-                command_line = " ".join(args)
+                command_line = shlex.join(args)
 
                 fp.write(command_line)
 
@@ -112,7 +114,9 @@ class OutOfProcCheckpointHGExporter(CheckpointHGExporter):
             stderr_fp = self._file_system.open_text(stderr_file, mode=FileMode.WRITE)
 
             with stdout_fp, stderr_fp:
-                result = subprocess.run(args, stdout=stdout_fp, stderr=stderr_fp)
+                result = subprocess.run(
+                    args, stdout=stdout_fp, stderr=stderr_fp, env={}
+                )
 
             if result.returncode != 0:
                 log.warning("Hugging Face export operation of step {} failed. See operation output at {}.", step_nr, stderr_file)  # fmt: skip
