@@ -142,6 +142,78 @@ def clip_outputs_at_think_token(rollouts, tokenizer, think_tokens, answer_len=64
 
     return ret
 
+
+def clip_outputs_after_think_token(rollouts, tokenizer, think_tokens, num_tokens):
+    """
+    Clip token_ids and logprobs to keep only num_tokens after the </think> token sequence ends,
+    and recompute the text from clipped tokens.
+
+    Args:
+        rollouts: List of rollout objects
+        tokenizer: Tokenizer instance
+        think_tokens: List of token IDs for </think>
+        num_tokens: Number of tokens to keep after </think> token sequence ends
+
+    Returns:
+        List of modified rollout objects
+    """
+    ret = []
+    for rollout in rollouts:
+        clipped_outputs = []
+
+        for output in rollout.outputs:
+            # Find the position where </think> tokens start
+            think_token_len = len(think_tokens)
+            clip_index = None
+
+            # Search for the think tokens sequence in token_ids
+            for i in range(len(output.token_ids) - think_token_len + 1):
+                if output.token_ids[i:i + think_token_len] == think_tokens:
+                    # Clip to include everything up to and including </think> plus num_tokens after
+                    clip_index = i + think_token_len + num_tokens
+                    break
+
+            if clip_index is not None:
+                # Clip token_ids and logprobs
+                clipped_token_ids = output.token_ids[:clip_index]
+                clipped_logprobs = output.logprobs[:clip_index]
+
+                # Recompute text from clipped tokens
+                clipped_text = tokenizer.decode(clipped_token_ids)
+
+                # Recalculate cumulative_logprob from clipped logprobs
+                cumulative_logprob = 0.0
+                for logprob_dict in clipped_logprobs:
+                    # Get the first token's logprob (the selected token)
+                    first_token_id = list(logprob_dict.keys())[0]
+                    cumulative_logprob += logprob_dict[first_token_id].logprob
+
+                # Create new CompletionOutput with clipped data
+                clipped_output = type(output)(
+                    index=output.index,
+                    text=clipped_text,
+                    token_ids=clipped_token_ids,
+                    cumulative_logprob=cumulative_logprob,
+                    logprobs=clipped_logprobs,
+                    finish_reason=output.finish_reason,
+                    stop_reason=output.stop_reason
+                )
+                clipped_outputs.append(clipped_output)
+            else:
+                # If </think> not found, keep original output
+                clipped_outputs.append(output)
+
+        # Create new rollout object with clipped outputs
+        clipped_rollout = type(rollout)(
+            outputs=clipped_outputs,
+            # Copy other attributes from original rollout
+            **{k: v for k, v in vars(rollout).items() if k != 'outputs'}
+        )
+        ret.append(clipped_rollout)
+
+    return ret
+
+
 def prepare_grpo_batch(
     prompt_batch: PromptBatch,
     reward_output: dict,
@@ -345,7 +417,24 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 vllm_model=self._vllm_model,
             )
 
+            if self._config.clip_rollout_after_think is not None:
+                tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
+                clip_length = self._config.clip_rollout_after_think
+                prompt_batch.meta_info['suffix'] = [
+                    tokenizer.decode(tokenizer.encode(text, add_special_tokens=False)[:clip_length])
+                    for text in prompt_batch.meta_info.get('suffix')
+                ]
+                prompt_batch.meta_info['suffix_ids'] = [
+                    tokenizer.encode(text, add_special_tokens=False)[:clip_length]
+                    for text in prompt_batch.meta_info.get('suffix')
+                ]
+                think_tokens = tokenizer.encode("</think>", add_special_tokens=False)
+                rollouts = clip_outputs_after_think_token(rollouts, tokenizer, think_tokens, clip_length)
 
+
+
+            # NOTE: ppl reward path is incompatible with clip_rollout_after_think
+            # because it creates new sequences (thought+suffix) that don't have matching VLLM logprobs
             if self._config.reward.name == "ppl":
 
                 if self._vllm_model is not None:
@@ -437,8 +526,19 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             self._config.loss_config.forward_group_size
         )
         vllm_logps = get_vllm_logprobs(
-            rollouts, self._gangs, rollout_start_end=rollout_window
+            rollouts, model_logps, self._gangs, rollout_start_end=rollout_window
         ).to(model_logps.device)
+        
+        # Debug logging
+        if self._gangs.dp.rank == 0:
+            log.info(f"Reward name: {self._config.reward.name}")
+            log.info(f"model_logps shape: {model_logps.shape}")
+            log.info(f"vllm_logps shape: {vllm_logps.shape}")
+            # Check rollout tokens vs reward_output tokens
+            if len(rollouts) > 0 and len(rollouts[0].outputs) > 0:
+                log.info(f"Rollout token count (first output): {len(rollouts[0].outputs[0].token_ids)}")
+            if "tokens" in reward_output and len(reward_output["tokens"]) > 0 and len(reward_output["tokens"][0]) > 0:
+                log.info(f"Reward output token count (first): {len(reward_output['tokens'][0][0])}")
 
         if vllm_logps.size(0) != model_logps.size(0):
             raise RuntimeError(
@@ -549,6 +649,12 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         ).exp() * advantages[:, :, None]
 
         if self._config.loss_config.tis_imp_ratio_cap > 0:
+            # Debug: Log shapes before computing tis_imp_ratio
+            if model_logps.shape != vllm_logps.shape:
+                log.error(f"Shape mismatch! model_logps: {model_logps.shape}, vllm_logps: {vllm_logps.shape}")
+                log.error(f"Reward name: {self._config.reward.name}, clip_rollout_after_think: {self._config.clip_rollout_after_think}")
+                # Also log info about rollouts and reward_output
+                log.error(f"batch_size: {batch_size}, num_rollouts: {num_rollouts}")
             tis_imp_ratio = torch.exp(model_logps - vllm_logps)
             tis_imp_ratio = torch.clamp(
                 tis_imp_ratio, max=self._config.loss_config.tis_imp_ratio_cap
@@ -669,6 +775,8 @@ class GrpoFinetuneConfig:
     """Configuration for the reward function that evaluates generated rollouts."""
 
     vllm_sync: VllmSyncSection = field(default_factory=lambda: VllmSyncSection())
+
+    clip_rollout_after_think : int | None = None
 
 
 @final

@@ -361,6 +361,7 @@ def combine_prompts_responses_for_scoring(
 
 def get_vllm_logprobs(
     vllm_outputs: List[RequestOutput],
+    model_logps: Tensor,
     gangs,
     rollout_start_end: tuple[int, int] | None = None,
 ):
@@ -404,7 +405,10 @@ def get_vllm_logprobs(
     padded = torch.zeros(len(sequences), max_len)
     for i, t in enumerate(sequences):
         padded[i, : t.size(0)] = t
-
+    
+    # clip outputs to be same size as model_logps
+    if padded.size() != model_logps.size():
+        padded = padded[:, : model_logps.size(1)]
     return padded
 
 
