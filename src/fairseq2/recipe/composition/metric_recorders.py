@@ -95,7 +95,7 @@ def _register_metric_recorders(container: DependencyContainer) -> None:
 
         return run_factory.create()
 
-    container.register(WandbRun, get_wandb_run)
+    container.register(WandbRun, get_wandb_run, singleton=True)
 
     container.register_type(_WandbRunFactory)
 

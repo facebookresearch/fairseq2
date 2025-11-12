@@ -28,6 +28,7 @@ from fairseq2.metrics.recorders import (
 from fairseq2.recipe.config import CommonSection
 from fairseq2.recipe.error import WandbInitializationError
 from fairseq2.recipe.internal.config import _RecipeConfigHolder
+from fairseq2.utils.env import Environment
 from fairseq2.utils.structured import ValueConverter
 
 
@@ -86,6 +87,7 @@ class _WandbRunFactory:
         self,
         section: CommonSection,
         output_dir: Path,
+        env: Environment,
         config_holder: _RecipeConfigHolder,
         value_converter: ValueConverter,
         initializer: _WandbInitializer,
@@ -93,12 +95,45 @@ class _WandbRunFactory:
     ) -> None:
         self._section = section
         self._output_dir = output_dir
+        self._env = env
         self._config_holder = config_holder
         self._value_converter = value_converter
         self._initializer = initializer
         self._run_id_manager = run_id_manager
 
     def create(self) -> WandbRun:
+        wandb_config = self._section.metric_recorders.wandb
+
+        if self._env.has("WANDB_ENTITY"):
+            entity = None
+        else:
+            entity = wandb_config.entity
+
+        if self._env.has("WANDB_PROJECT"):
+            project = None
+        else:
+            project = wandb_config.project
+
+        if self._env.has("WANDB_RUN_ID"):
+            run_id = None
+        else:
+            run_id = self._run_id_manager.get_id()
+
+        if self._env.has("WANDB_NAME"):
+            run_name = None
+        else:
+            run_name = wandb_config.run_name
+
+        if self._env.has("WANDB_RUN_GROUP"):
+            run_group = None
+        else:
+            run_group = wandb_config.group
+
+        if self._env.has("WANDB_JOB_TYPE"):
+            job_type = None
+        else:
+            job_type = wandb_config.job_type
+
         unstructured_config = self._value_converter.unstructure(
             self._config_holder.config
         )
@@ -106,20 +141,16 @@ class _WandbRunFactory:
         if not isinstance(unstructured_config, dict):
             unstructured_config = None
 
-        id_ = self._run_id_manager.get_id()
-
-        wandb_config = self._section.metric_recorders.wandb
-
         try:
             return self._initializer(
-                entity=wandb_config.entity,
-                project=wandb_config.project,
+                entity=entity,
+                project=project,
                 dir=self._output_dir,
-                id=id_,
-                name=wandb_config.run_name,
+                id=run_id,
+                name=run_name,
                 config=unstructured_config,
-                group=wandb_config.group,
-                job_type=wandb_config.job_type,
+                group=run_group,
+                job_type=job_type,
                 resume=wandb_config.resume_mode,
             )
         except (RuntimeError, ValueError) as ex:
