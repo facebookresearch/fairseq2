@@ -12,6 +12,7 @@ import sys
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from concurrent.futures import Future
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Final, final
 
@@ -107,19 +108,22 @@ class OutOfProcCheckpointHGExporter(CheckpointHGExporter):
 
                 fp.write(command_line)
 
-            stdout_file = export_dir.with_suffix(".stdout")
-            stderr_file = export_dir.with_suffix(".stderr")
+            out_file = export_dir.with_suffix(".stdout")
+            err_file = export_dir.with_suffix(".stderr")
 
-            stdout_fp = self._file_system.open_text(stdout_file, mode=FileMode.WRITE)
-            stderr_fp = self._file_system.open_text(stderr_file, mode=FileMode.WRITE)
-
-            with stdout_fp, stderr_fp:
-                result = subprocess.run(
-                    args, stdout=stdout_fp, stderr=stderr_fp, env={}
+            with ExitStack() as exit_stack:
+                out_fp = exit_stack.enter_context(
+                    self._file_system.open_text(out_file, mode=FileMode.WRITE)
                 )
 
+                err_fp = exit_stack.enter_context(
+                    self._file_system.open_text(err_file, mode=FileMode.WRITE)
+                )
+
+                result = subprocess.run(args, stdout=out_fp, stderr=err_fp, env={})
+
             if result.returncode != 0:
-                log.warning("Hugging Face export operation of step {} failed. See operation output at {}.", step_nr, stderr_file)  # fmt: skip
+                log.warning("Hugging Face export operation of step {} failed. See operation output at {}.", step_nr, err_file)  # fmt: skip
             elif exported_callback is not None:
                 exported_callback(step_nr)
 

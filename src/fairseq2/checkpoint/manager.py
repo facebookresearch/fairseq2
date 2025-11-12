@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from collections import OrderedDict
 from collections.abc import Callable
 from concurrent.futures import Future
 from copy import deepcopy
@@ -18,6 +19,7 @@ from typing import Any, Protocol, final
 import torch
 from torch import Tensor
 from torch.overrides import TorchFunctionMode
+from torch.utils.hooks import RemovableHandle
 from typing_extensions import override
 
 from fairseq2.device import CPU
@@ -82,6 +84,9 @@ class CheckpointManager(Closable):
     def save_score(self, step_nr: int, score: float) -> None: ...
 
     @abstractmethod
+    def register_save_hook(self, hook: CheckpointSaveHook) -> RemovableHandle: ...
+
+    @abstractmethod
     def load_trainer_state(self, step_nr: int, trainer: Stateful) -> None: ...
 
     @abstractmethod
@@ -125,6 +130,10 @@ class CheckpointReadyCallback(Protocol):
 
 class CheckpointSavedCallback(Protocol):
     def __call__(self, step_nr: int, blocking: bool) -> None: ...
+
+
+class CheckpointSaveHook(Protocol):
+    def __call__(self, step_nr: int, checkpoint_dir: Path) -> None: ...
 
 
 class CheckpointStateNotValidError(Exception):
@@ -172,6 +181,7 @@ class StandardCheckpointManager(CheckpointManager):
         self._thread_pool = thread_pool
         self._save_op: Future[Callable[[], None]] | None = None
         self._step_nr: int | None = None
+        self._save_hooks: dict[int, CheckpointSaveHook] = OrderedDict()
 
     @override
     def save_checkpoint(
@@ -418,6 +428,9 @@ class StandardCheckpointManager(CheckpointManager):
                 if saved_callback is not None:
                     saved_callback(step_nr, blocking)
 
+                for hook in self._save_hooks.values():
+                    hook(step_nr, self._checkpoint_dir)
+
             return commit
 
         if blocking:
@@ -539,6 +552,14 @@ class StandardCheckpointManager(CheckpointManager):
             gangs.root.barrier()
         except GangError as ex:
             raise_operational_gang_error(ex)
+
+    @override
+    def register_save_hook(self, hook: CheckpointSaveHook) -> RemovableHandle:
+        handle = RemovableHandle(self._save_hooks)
+
+        self._save_hooks[handle.id] = hook
+
+        return handle
 
     @override
     def load_trainer_state(self, step_nr: int, trainer: Stateful) -> None:
