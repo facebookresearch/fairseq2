@@ -115,9 +115,6 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
 from fairseq2.recipes.lm._online_finetune._rewards import (
     GenerativePointwiseVerifierHandler as GenerativePointwiseVerifierHandler,
 )
-from fairseq2.recipes.lm._online_finetune._rewards import (
-    PplHandler as PplHandler,
-)
 from fairseq2.recipes.lm._online_finetune._rewards import GSM8kVerifier as GSM8kVerifier
 from fairseq2.recipes.lm._online_finetune._rewards import (
     GSM8kVerifierHandler as GSM8kVerifierHandler,

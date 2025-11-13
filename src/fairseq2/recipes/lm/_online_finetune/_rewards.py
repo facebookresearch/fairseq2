@@ -479,23 +479,6 @@ class AtheneVerifier(VLLMOutputReward):
         return batch, is_bad_batch, reward_output
 
 
-class PplHandler(VLLMOutputRewardHandler):
-    def __init__(self):
-        pass
-
-    @override
-    def create(self, reward_model, reward_name, reward_config, gangs, context):
-        pass
-
-    @property
-    @override
-    def name(self):
-        return "ppl"
-
-    @property
-    @override
-    def config_kls(self):
-        return None
 
 class GenerativePointwiseVerifierHandler(VLLMOutputRewardHandler):
     def __init__(self):
