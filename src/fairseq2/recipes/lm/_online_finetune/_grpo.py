@@ -313,6 +313,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._vllm_model = vllm_model
         self._gangs = gangs
         self._reward = reward
+        self._tokenizer = AutoTokenizer.from_pretrained("/checkpoint/ram/jacklanchantin/pretrained-llms/Qwen3-8B-Base/")
         self._rollout_bag = StatefulRolloutBag(
             max_bag_steps=int(
                 config.loss_config.group_size / config.loss_config.forward_group_size
@@ -418,21 +419,21 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             )
 
             if self._config.clip_rollout_after_think is not None:
-                if self._gangs.dp.rank == 0:
-                    tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
-                self._gangs.dp.barrier()
+                # if self._gangs.dp.rank == 0:
+                #     tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
+                # self._gangs.dp.barrier()
                 
                 clip_length = self._config.clip_rollout_after_think
                 prompt_batch.meta_info['suffix'] = [
-                    tokenizer.decode(tokenizer.encode(text, add_special_tokens=False)[:clip_length])
+                    self._tokenizer.decode(self._tokenizer.encode(text, add_special_tokens=False)[:clip_length])
                     for text in prompt_batch.meta_info.get('suffix')
                 ]
                 prompt_batch.meta_info['suffix_ids'] = [
-                    tokenizer.encode(text, add_special_tokens=False)[:clip_length]
+                    self._tokenizer.encode(text, add_special_tokens=False)[:clip_length]
                     for text in prompt_batch.meta_info.get('suffix')
                 ]
-                think_tokens = tokenizer.encode("</think>", add_special_tokens=False)
-                rollouts = clip_outputs_after_think_token(rollouts, tokenizer, think_tokens, clip_length)
+                think_tokens = self._tokenizer.encode("</think>", add_special_tokens=False)
+                rollouts = clip_outputs_after_think_token(rollouts, self._tokenizer, think_tokens, clip_length)
 
 
             # if self._config.reward.name == "ppl":
@@ -803,7 +804,7 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             if vllm_model.sampling_params.n < config.loss_config.group_size:
                 log.info("Setting model sampling n to GRPO group size")
                 vllm_model.sampling_params.n = config.loss_config.group_size
-
+    
         vllm_reward_model = vllm_actors.get(config.vllm_reward_model_actor_name, None)
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         reward_name = config.reward.name
