@@ -411,7 +411,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 self._config.vllm_sync.sync_ref_model_every_n_steps,
             )
 
-            tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
             rollouts = generate_rollouts(
                 prompt_batch.prompts,
                 dp_gang=self._gangs.dp,
@@ -419,6 +418,10 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             )
 
             if self._config.clip_rollout_after_think is not None:
+                if self._gangs.dp.rank == 0:
+                    tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
+                self._gangs.dp.barrier()
+                
                 clip_length = self._config.clip_rollout_after_think
                 prompt_batch.meta_info['suffix'] = [
                     tokenizer.decode(tokenizer.encode(text, add_special_tokens=False)[:clip_length])
