@@ -319,6 +319,8 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             )
         )
 
+        self._tokenizer = AutoTokenizer.from_pretrained("/checkpoint/ram/jacklanchantin/pretrained-llms/Qwen3-8B-Base/") # FIXME can't hardcode
+
         self._display_name = "GRPO"
 
     @property
@@ -421,20 +423,19 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 
                 #     tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
                 # self._gangs.dp.barrier()
-                tokenizer = AutoTokenizer.from_pretrained("/checkpoint/ram/jacklanchantin/pretrained-llms/Qwen3-8B-Base/")
+                
                 
                 clip_length = self._config.clip_rollout_after_think
                 prompt_batch.meta_info['suffix'] = [
-                    tokenizer.decode(tokenizer.encode(text, add_special_tokens=False)[:clip_length])
+                    self._tokenizer.decode(self._tokenizer.encode(text, add_special_tokens=False)[:clip_length])
                     for text in prompt_batch.meta_info.get('suffix')
                 ]
                 prompt_batch.meta_info['suffix_ids'] = [
-                    tokenizer.encode(text, add_special_tokens=False)[:clip_length]
+                    self._tokenizer.encode(text, add_special_tokens=False)[:clip_length]
                     for text in prompt_batch.meta_info.get('suffix')
                 ]
-                think_tokens = tokenizer.encode("</think>", add_special_tokens=False)
-                rollouts = clip_outputs_after_think_token(rollouts, tokenizer, think_tokens, clip_length)
-
+                think_tokens = self._tokenizer.encode("</think>", add_special_tokens=False)
+                rollouts = clip_outputs_after_think_token(rollouts, self._tokenizer, think_tokens, clip_length)
             if self._config.loss_config.log_rollouts:
                 log_rollouts(prompt_batch, rollouts, "Train")
 
