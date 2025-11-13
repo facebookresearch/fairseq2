@@ -334,6 +334,8 @@ class SelfAugmentingExtractor(JudgmentExtractor):
             score = float(match.group(1))
         else:
             score = 0.0
+
+        log.info(f"Judge Score = {score}")
         return score
 
     @override
