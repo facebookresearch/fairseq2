@@ -23,12 +23,7 @@ from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
 
 from fairseq2.context import RuntimeContext
 from fairseq2.data import CollateOptionsOverride, Collater, SequenceData
-from fairseq2.datasets import (
-    LengthBatching,
-    SequenceBatch,
-    StaticBatching,
-    SyncMode,
-)
+from fairseq2.datasets import LengthBatching, SequenceBatch, StaticBatching, SyncMode
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gang, Gangs
@@ -44,10 +39,7 @@ from fairseq2.nn.utils.module import freeze_parameters
 from fairseq2.recipes import Model, TrainUnit
 from fairseq2.recipes.common import setup_reference_model
 from fairseq2.recipes.common._distributed import broadcast_model
-from fairseq2.recipes.config import (
-    ReferenceModelSection,
-    TrainerSection,
-)
+from fairseq2.recipes.config import ReferenceModelSection, TrainerSection
 from fairseq2.recipes.lm._instruction_finetune import update_nll_loss
 from fairseq2.recipes.lm._online_finetune._common import (
     VllmSyncSection,
@@ -62,6 +54,11 @@ from fairseq2.recipes.lm._online_finetune._common import (
     update_avg_rollout_length,
     update_batch_metrics,
     update_dpo_loss,
+    update_grpo_batch_metrics,
+    compute_reference_logps,
+    collate_with_target_mask,
+    update_avg_loss_zeroer,
+    strip_think_tokens,
     update_logit_entropy,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
@@ -142,12 +139,16 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     ) -> tuple[Tensor, int]:
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
-            policy_sampling_params.n = 1
             for (
                 k,
                 v,
             ) in self._config.loss_config.validation_vllm_sampling_params.items():
                 policy_sampling_params.__setattr__(k, v)
+
+            # For a pairwise RM, need to sample at least two rollouts
+            policy_sampling_params.n = (
+                2 if self._reward.reward_name == "generative_pairwise_verifier" else 1
+            )
         else:
             policy_sampling_params = None
         rollouts = generate_rollouts(
@@ -158,6 +159,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )
         if self._config.loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Valid")
+
+        rollouts = strip_think_tokens(rollouts)
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
 
@@ -203,6 +206,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )
         if self._config.loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Train")
+
+        rollouts = strip_think_tokens(rollouts)
 
         batch: PreferenceBatch
         batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
@@ -465,6 +470,24 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             gangs=gangs,
             context=self._context,
         )
+
+
+        # TODO: decide converter as part of the model handler
+        if "llama" in model.name:
+            from fairseq2.models.llama._hg import _convert_parameter
+
+            model._convert_parameter = _convert_parameter
+        else:
+            from fairseq2.models.qwen._hg import _convert_parameter
+
+            model._convert_parameter = _convert_parameter
+
+        # sync models here before we start training
+        if config.vllm_sync.sync_model_every_n_steps > 0:
+            maybe_sync_model(gangs, model, vllm_model, -1, -1, force_sync=True)
+        if config.vllm_sync.sync_ref_model_every_n_steps > 0:
+            maybe_sync_model(gangs, model, reference_model, -1, -1, force_sync=True)
+
 
         return OnlineDpoFinetuneUnit(
             model, reference_model, vllm_model, vllm_actors, reward, gangs, config

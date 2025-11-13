@@ -79,6 +79,8 @@ def _register_metric_descriptors(context: RuntimeContext) -> None:
     register("simpo_loss",         "SimPO Loss",                           0, format_as_float)
     register("grpo_loss",          "GRPO Loss",                            0, format_as_float)
     register("avg_reward",         "Reward",                               1, format_as_float)
+    register("avg_second_reward",  "Second Reward",                        1, format_as_float)
+    register("reward_matches",     "Reward Matches",                       1, format_as_float)
     register("std_reward",         "StdDev Reward",                        1, format_as_float)
     register("avg_reward_len_norm","Length Normalized Reward",             1, format_as_float)
     register("chosen_logps",       "Chosen Sequence Log Probabilities",   50, format_as_float)
