@@ -411,6 +411,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 self._config.vllm_sync.sync_ref_model_every_n_steps,
             )
 
+            tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
             rollouts = generate_rollouts(
                 prompt_batch.prompts,
                 dp_gang=self._gangs.dp,
@@ -418,7 +419,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             )
 
             if self._config.clip_rollout_after_think is not None:
-                tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
                 clip_length = self._config.clip_rollout_after_think
                 prompt_batch.meta_info['suffix'] = [
                     tokenizer.decode(tokenizer.encode(text, add_special_tokens=False)[:clip_length])
@@ -432,59 +432,45 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 rollouts = clip_outputs_after_think_token(rollouts, tokenizer, think_tokens, clip_length)
 
 
-
-            # NOTE: ppl reward path is incompatible with clip_rollout_after_think
-            # because it creates new sequences (thought+suffix) that don't have matching VLLM logprobs
-            if self._config.reward.name == "ppl":
-
-                if self._vllm_model is not None:
-
-                    tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
-                    # think_tokens = tokenizer.encode("</think>", add_special_tokens=False)
-                    # rollouts = clip_outputs_at_think_token(rollouts, tokenizer, think_tokens, 64)
-                    prompt_batch.meta_info['suffix'] = [
-                        tokenizer.decode(tokenizer.encode(text, add_special_tokens=False)[:64])
-                        for text in prompt_batch.meta_info.get('suffix')
-                    ]
-
-                    prompt_batch.meta_info['suffix_ids'] = [
-                        tokenizer.encode(text, add_special_tokens=False)[:64]
-                        for text in prompt_batch.meta_info.get('suffix')
-                    ]
-
-                    thought_and_suffix = [rollouts[0].outputs[i].token_ids+prompt_batch.meta_info['suffix_ids'][0] for i in range(len(rollouts[0].outputs))]
-
-                    grpo_batch: GRPOBatch
-                    reward_dict = {"rewards": [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]], "tokens": [thought_and_suffix]}
-                    grpo_batch = prepare_grpo_batch(
-                        prompt_batch=prompt_batch,
-                        reward_output=reward_dict,
-                        gangs=self._gangs,
-                        rollout_start_end=(0,1),
-                        adv_std_normalization=False,
-                    )
-
-                    (
-                        prompt_rollout_seqs,
-                        prompt_rollout_layout,
-                    ) = grpo_batch.prompt_rollouts.as_input()
-
-                    if self._gangs.root.rank == 0:
-                        breakpoint()
-                    self._gangs.root.barrier()
-
-                    # suffix = prompt_batch.meta_info.get('suffix')[0]
-                    # prompt_batch.meta_info['suffix_ids'] = [tokenizer.encode(suffix, add_special_tokens=False)[:64]]
-
-
-
-                ref_logps = compute_reference_logps(
-                    self._gangs,
-                    self._reference_model,
-                    prompt_rollout_seqs,
-                    prompt_rollout_layout,
-                    grpo_batch.prompt_lengths,
-                )
+            # if self._config.reward.name == "ppl":
+            #     if self._vllm_model is not None:
+            #         tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
+            #         # think_tokens = tokenizer.encode("</think>", add_special_tokens=False)
+            #         # rollouts = clip_outputs_at_think_token(rollouts, tokenizer, think_tokens, 64)
+            #         prompt_batch.meta_info['suffix'] = [
+            #             tokenizer.decode(tokenizer.encode(text, add_special_tokens=False)[:64])
+            #             for text in prompt_batch.meta_info.get('suffix')
+            #         ]
+            #         prompt_batch.meta_info['suffix_ids'] = [
+            #             tokenizer.encode(text, add_special_tokens=False)[:64]
+            #             for text in prompt_batch.meta_info.get('suffix')
+            #         ]
+            #         thought_and_suffix = [rollouts[0].outputs[i].token_ids+prompt_batch.meta_info['suffix_ids'][0] for i in range(len(rollouts[0].outputs))]
+            #         grpo_batch: GRPOBatch
+            #         reward_dict = {"rewards": [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]], "tokens": [thought_and_suffix]}
+            #         grpo_batch = prepare_grpo_batch(
+            #             prompt_batch=prompt_batch,
+            #             reward_output=reward_dict,
+            #             gangs=self._gangs,
+            #             rollout_start_end=(0,1),
+            #             adv_std_normalization=False,
+            #         )
+            #         (
+            #             prompt_rollout_seqs,
+            #             prompt_rollout_layout,
+            #         ) = grpo_batch.prompt_rollouts.as_input()
+            #         if self._gangs.root.rank == 0:
+            #             breakpoint()
+            #         self._gangs.root.barrier()
+            #         # suffix = prompt_batch.meta_info.get('suffix')[0]
+            #         # prompt_batch.meta_info['suffix_ids'] = [tokenizer.encode(suffix, add_special_tokens=False)[:64]]
+            #         ref_logps = compute_reference_logps(
+            #             self._gangs,
+            #             self._reference_model,
+            #             prompt_rollout_seqs,
+            #             prompt_rollout_layout,
+            #             grpo_batch.prompt_lengths,
+            #         )
 
             if self._config.loss_config.log_rollouts:
                 log_rollouts(prompt_batch, rollouts, "Train")
