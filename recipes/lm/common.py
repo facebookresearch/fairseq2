@@ -8,7 +8,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import TypeAlias
-from fairseq2.datasets import SyncMode
+from fairseq2.datasets import SyncMode, SequenceBatch
+
+
+import torch
+from torch import Tensor
 
 from fairseq2.logging import log
 from fairseq2.models.clm import CausalLM
@@ -52,6 +56,17 @@ def _maybe_get_embed(model: CausalLM) -> Embedding | None:
         return None
 
     return embed
+
+
+def _gather_lprobs_avg(logits: Tensor, target: SequenceBatch) -> tuple[Tensor, Tensor]:
+    assert target.target_mask is not None
+    logprobs = torch.log_softmax(logits, dim=-1)
+    per_token_logps = torch.gather(logprobs, -1, target.seqs.unsqueeze(-1)).squeeze(-1)
+    total_logps = (per_token_logps * target.target_mask).sum(dim=-1)  # [Batch, 1]
+    assert target.target_mask is not None
+    average_logps = total_logps / target.target_mask.sum(-1)
+
+    return total_logps, average_logps
 
 
 @dataclass
