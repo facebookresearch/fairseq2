@@ -20,6 +20,7 @@ from fairseq2.recipe.config import (
     ModelSection,
     OptimizerSection,
     RegimeSection,
+    ReferenceModelSection,
     TokenizerSection,
     TorchConfig,
     TrainerSection,
@@ -86,6 +87,26 @@ class LMDPOConfig:
             torch=TorchConfig(default_sdpa="torch_math")
         )
     )
+
+    # Loss configuration
+    reference_model: ReferenceModelSection | None = field(
+        default_factory=lambda: ReferenceModelSection(name="llama3_1_8b_instruct")
+    )
+    """
+    The reference model. If ``None``, the recipe expects to get reference
+    log-probabilities for chosen and rejected targets as float values in the
+    data example (fields `reference_score_rejected` and  `reference_score_chosen`).
+    """
+
+    beta: float = 0.1
+    """The coefficient of regularization towards the reference model."""
+
+    nll_scale: float = 0.0
+    """The coefficient of NLL loss added to the DPO loss."""
+
+    length_normalization: bool = False
+    """Use length normalized DPO, which uses the average log probability of a sequence as the implicit reward."""
+
 
 
 @dataclass(kw_only=True)
