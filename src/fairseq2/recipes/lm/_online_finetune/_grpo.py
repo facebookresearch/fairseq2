@@ -313,7 +313,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._vllm_model = vllm_model
         self._gangs = gangs
         self._reward = reward
-        self._tokenizer = AutoTokenizer.from_pretrained("/checkpoint/ram/jacklanchantin/pretrained-llms/Qwen3-8B-Base/")
         self._rollout_bag = StatefulRolloutBag(
             max_bag_steps=int(
                 config.loss_config.group_size / config.loss_config.forward_group_size
@@ -419,62 +418,22 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             )
 
             if self._config.clip_rollout_after_think is not None:
-                # if self._gangs.dp.rank == 0:
+                
                 #     tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
                 # self._gangs.dp.barrier()
+                tokenizer = AutoTokenizer.from_pretrained("/checkpoint/ram/jacklanchantin/pretrained-llms/Qwen3-8B-Base/")
                 
                 clip_length = self._config.clip_rollout_after_think
                 prompt_batch.meta_info['suffix'] = [
-                    self._tokenizer.decode(self._tokenizer.encode(text, add_special_tokens=False)[:clip_length])
+                    tokenizer.decode(tokenizer.encode(text, add_special_tokens=False)[:clip_length])
                     for text in prompt_batch.meta_info.get('suffix')
                 ]
                 prompt_batch.meta_info['suffix_ids'] = [
-                    self._tokenizer.encode(text, add_special_tokens=False)[:clip_length]
+                    tokenizer.encode(text, add_special_tokens=False)[:clip_length]
                     for text in prompt_batch.meta_info.get('suffix')
                 ]
-                think_tokens = self._tokenizer.encode("</think>", add_special_tokens=False)
-                rollouts = clip_outputs_after_think_token(rollouts, self._tokenizer, think_tokens, clip_length)
-
-
-            # if self._config.reward.name == "ppl":
-            #     if self._vllm_model is not None:
-            #         tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
-            #         # think_tokens = tokenizer.encode("</think>", add_special_tokens=False)
-            #         # rollouts = clip_outputs_at_think_token(rollouts, tokenizer, think_tokens, 64)
-            #         prompt_batch.meta_info['suffix'] = [
-            #             tokenizer.decode(tokenizer.encode(text, add_special_tokens=False)[:64])
-            #             for text in prompt_batch.meta_info.get('suffix')
-            #         ]
-            #         prompt_batch.meta_info['suffix_ids'] = [
-            #             tokenizer.encode(text, add_special_tokens=False)[:64]
-            #             for text in prompt_batch.meta_info.get('suffix')
-            #         ]
-            #         thought_and_suffix = [rollouts[0].outputs[i].token_ids+prompt_batch.meta_info['suffix_ids'][0] for i in range(len(rollouts[0].outputs))]
-            #         grpo_batch: GRPOBatch
-            #         reward_dict = {"rewards": [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]], "tokens": [thought_and_suffix]}
-            #         grpo_batch = prepare_grpo_batch(
-            #             prompt_batch=prompt_batch,
-            #             reward_output=reward_dict,
-            #             gangs=self._gangs,
-            #             rollout_start_end=(0,1),
-            #             adv_std_normalization=False,
-            #         )
-            #         (
-            #             prompt_rollout_seqs,
-            #             prompt_rollout_layout,
-            #         ) = grpo_batch.prompt_rollouts.as_input()
-            #         if self._gangs.root.rank == 0:
-            #             breakpoint()
-            #         self._gangs.root.barrier()
-            #         # suffix = prompt_batch.meta_info.get('suffix')[0]
-            #         # prompt_batch.meta_info['suffix_ids'] = [tokenizer.encode(suffix, add_special_tokens=False)[:64]]
-            #         ref_logps = compute_reference_logps(
-            #             self._gangs,
-            #             self._reference_model,
-            #             prompt_rollout_seqs,
-            #             prompt_rollout_layout,
-            #             grpo_batch.prompt_lengths,
-            #         )
+                think_tokens = tokenizer.encode("</think>", add_special_tokens=False)
+                rollouts = clip_outputs_after_think_token(rollouts, tokenizer, think_tokens, clip_length)
 
             if self._config.loss_config.log_rollouts:
                 log_rollouts(prompt_batch, rollouts, "Train")
