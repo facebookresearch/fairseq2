@@ -599,11 +599,23 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
             
             for rollout_text in batch_text[i]:
                 per_rollout_reward = batch_rewards[rollout_idx]
+                
+                # Split rollout_text into think and gen_suffix based on </think> token
+                think_tag = "</think>"
+                if think_tag in rollout_text:
+                    think_end_idx = rollout_text.find(think_tag) + len(think_tag)
+                    gen_think = rollout_text[:think_end_idx]
+                    gen_suffix = rollout_text[think_end_idx:]
+                else:
+                    think = ""
+                    gen_suffix = rollout_text
+                
                 log.info("======================================================")
-                log.info(f"Prompt text = {prompt_text}")
-                log.info(f"Reference answer = {i_reference_answer}")
-                log.info(f"Rollout text = {rollout_text}")
-                log.info(f"Per-rollout reward = {per_rollout_reward}")
+                log.info(f"Prefix = {prompt_text}")
+                log.info(f"Gold Suffix = {i_reference_answer}")
+                log.info(f"Think = {gen_think}")
+                log.info(f"Generated Suffix = {gen_suffix}")
+                log.info(f"Score = {per_rollout_reward}")
                 rollout_idx += 1
 
         # reshape batch_rewards to [Batch, Rollouts]
