@@ -1261,6 +1261,13 @@ class PplDerivedVerifier(VLLMOutputReward):
 
         batch_rewards = self.aggregate(curr_rewards)
         log.info(f"{batch_rewards=}")
+        # buckets lists the upper bound and score for each bucket. in this case, it's -inf ~ 0 => 0. 0 ~ inf => 1.0
+        buckets = [[0, 0], [float("inf"), 1.0]]
+        batch_rewards = [
+            next(bucket[1] for bucket in buckets if bucket[0] >= reward)
+            for reward in batch_rewards
+        ]
+        log.info(f"transformed {batch_rewards=}")
 
         # reshape batch_rewards to [Batch, Rollouts]
         B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
