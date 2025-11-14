@@ -1025,22 +1025,47 @@ class PplDerivedVerifier(VLLMOutputReward):
         reason_end_wrap: Optional[str] = None,
     ):
         # no reasoning augmented.
+        prefix_text = self.tokenizer.decode(prefix_tokens, add_special_token=False)
         if reason is None or not self.wrap_think_tags:
-            prefix_text = self.tokenizer.decode(prefix_tokens, add_special_token=False)
             prefix_text = (
                 prefix_text.removesuffix(" <think>").removesuffix("<think>")
                 if reason_start_wrap is None
                 else prefix_text.removesuffix(reason_start_wrap)
             )
-            prefix_tokens = self.tokenizer.encode(prefix_text, add_special_tokens=False)
-        n_prefix_tokens = len(prefix_tokens)
+        if reason is None:
+            reason_text = None
+        else:
+            reason_end_wrap = reason_end_wrap or "</think>"
+            reason_text: str = reason_fmt.format(
+                reason=reason,
+                reason_end_wrap=reason_end_wrap if self.wrap_think_tags else "",
+            )
+        completion_text: str = completion_fmt.format(completion=completion)
+
+        # add whitespace if no whitespace between prefix and following text.
+        text_after_prefix: str = (
+            reason_text
+            if ((reason_text is not None) and len(reason_text) > 0)
+            else completion_text
+        )
+        if not (prefix_text[-1].isspace() or text_after_prefix[0].isspace()):
+            prefix_text += " "
+
+        # add whitespace to reason if needed
+        if reason_text and (
+            not (reason_text[-1].isspace() or completion_text[0].isspace())
+        ):
+            reason_text += " "
+
+        prefix_tokens = self.tokenizer.encode(prefix_text, add_special_tokens=False)
+        n_prefix_tokens: int = len(prefix_tokens)
         n_prefix_truncate = (
             n_prefix_tokens
             if n_prefix_truncate is None
             else min(n_prefix_truncate, n_prefix_tokens)
         )
         completion_tokens = self.tokenizer.encode(
-            completion_fmt.format(completion=completion), add_special_tokens=False
+            completion_text, add_special_tokens=False
         )
         if reason is None:
             text_tokens = prefix_tokens + completion_tokens
@@ -1048,14 +1073,7 @@ class PplDerivedVerifier(VLLMOutputReward):
             # prefix + groundtruth at masked positions -> future tokens
             n_input_tokens_all = n_prefix_tokens + self.n_reason_mask
         else:
-            reason_end_wrap = reason_end_wrap or "</think>"
-            reason_tokens = self.tokenizer.encode(
-                reason_fmt.format(
-                    reason=reason,
-                    reason_end_wrap=reason_end_wrap if self.wrap_think_tags else "",
-                ),
-                add_special_tokens=False,
-            )
+            reason_tokens = self.tokenizer.encode(reason_text, add_special_tokens=False)
             text_tokens = (
                 prefix_tokens + reason_tokens + completion_tokens[self.n_reason_mask :]
             )
