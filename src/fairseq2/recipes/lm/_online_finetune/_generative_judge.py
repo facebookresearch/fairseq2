@@ -318,7 +318,7 @@ class SelfAugmentingExtractor(JudgmentExtractor):
 
         content = self.prompt().format(ground_truth=reference_answer, generation=rollout_text)
 
-        log.info(f"Judge prompt = {content}")
+        # log.info(f"Judge prompt = {content}")
         wrapped_text = [{"role": "user", "content": content}]
         chat_str = tokenizer.apply_chat_template(
             wrapped_text, tokenize=False, add_generation_prompt=True

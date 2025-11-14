@@ -386,6 +386,10 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     def __call__(
         self, prompt_batch: PromptBatch, metric_bag: MetricBag
     ) -> tuple[Tensor, int]:
+        
+        # if self._gangs.root.rank == 0:
+        #     breakpoint()
+        # self._gangs.root.barrier()
 
         if not self.model.module.training:
             # we are in valid mode, only compute reward and return
@@ -418,13 +422,12 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 dp_gang=self._gangs.dp,
                 vllm_model=self._vllm_model,
             )
-
+            # if self._gangs.root.rank == 0:
+            #     breakpoint()
+            # self._gangs.root.barrier()
             if self._config.clip_rollout_after_think is not None:
-                
                 #     tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
                 # self._gangs.dp.barrier()
-                
-                
                 clip_length = self._config.clip_rollout_after_think
                 prompt_batch.meta_info['suffix'] = [
                     self._tokenizer.decode(self._tokenizer.encode(text, add_special_tokens=False)[:clip_length])

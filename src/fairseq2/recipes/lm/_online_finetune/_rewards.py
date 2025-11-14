@@ -6,12 +6,15 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
 import torch
+
+log = logging.getLogger(__name__)
 from transformers import AutoTokenizer
 from typing_extensions import override
 from vllm import LLM, CompletionOutput, RequestOutput, SamplingParams
@@ -586,6 +589,22 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
                 for judgment in per_rollout_judgments.outputs
             ]
             batch_rewards.append(self.judgment_extractor.aggregate(per_rollout_rewards))
+
+        # Log prompt_text, i_reference_answer, rollout_text, and per_rollout_reward together
+        rollout_idx = 0
+        for i, (prompt_text, i_reference_answer) in enumerate(zip(text_prompts, reference_answers)):
+            # Decode prompt_text if it's a tensor
+            if isinstance(prompt_text, torch.Tensor):
+                prompt_text = self.tokenizer.decode(prompt_text, skip_special_tokens=False)
+            
+            for rollout_text in batch_text[i]:
+                per_rollout_reward = batch_rewards[rollout_idx]
+                log.info("======================================================")
+                log.info(f"Prompt text = {prompt_text}")
+                log.info(f"Reference answer = {i_reference_answer}")
+                log.info(f"Rollout text = {rollout_text}")
+                log.info(f"Per-rollout reward = {per_rollout_reward}")
+                rollout_idx += 1
 
         # reshape batch_rewards to [Batch, Rollouts]
         B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
