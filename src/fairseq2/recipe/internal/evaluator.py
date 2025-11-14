@@ -6,16 +6,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Any, Protocol, final
+from collections.abc import Callable, Sequence
+from typing import final
 
 from fairseq2.datasets import DataReader
 from fairseq2.evaluator import BatchT, Evaluator, EvalUnit
 from fairseq2.recipe.config import CommonSection, EvaluatorSection
-
-
-class _EvaluatorActivator(Protocol):
-    def __call__(self, **kwargs: Any) -> Evaluator: ...
 
 
 @final
@@ -24,11 +20,11 @@ class _EvaluatorFactory:
         self,
         section: EvaluatorSection,
         common_section: CommonSection,
-        activator: _EvaluatorActivator,
+        base_factory: Callable[..., Evaluator],
     ) -> None:
         self._section = section
         self._common_section = common_section
-        self._activator = activator
+        self._base_factory = base_factory
 
     def create(
         self,
@@ -39,7 +35,7 @@ class _EvaluatorFactory:
 
         section = self._section
 
-        return self._activator(
+        return self._base_factory(
             units=units,
             data_readers=data_readers,
             amp=section.amp,

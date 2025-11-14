@@ -6,15 +6,12 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, final
+from collections.abc import Callable
+from typing import final
 
 from fairseq2.datasets import DataReader
 from fairseq2.generator import BatchT, Generator, GeneratorUnit
 from fairseq2.recipe.config import CommonSection, GeneratorSection
-
-
-class _GeneratorActivator(Protocol):
-    def __call__(self, **kwargs: Any) -> Generator: ...
 
 
 @final
@@ -23,11 +20,11 @@ class _GeneratorFactory:
         self,
         section: GeneratorSection,
         common_section: CommonSection,
-        activator: _GeneratorActivator,
+        base_factory: Callable[..., Generator],
     ) -> None:
         self._section = section
         self._common_section = common_section
-        self._activator = activator
+        self._base_factory = base_factory
 
     def create(
         self, unit: GeneratorUnit[BatchT], data_reader: DataReader[BatchT]
@@ -36,7 +33,7 @@ class _GeneratorFactory:
 
         section = self._section
 
-        return self._activator(
+        return self._base_factory(
             unit=unit,
             data_reader=data_reader,
             amp=section.amp,

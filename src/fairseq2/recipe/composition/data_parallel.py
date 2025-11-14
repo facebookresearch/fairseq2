@@ -11,10 +11,8 @@ from fairseq2.nn.fsdp import to_fsdp
 from fairseq2.recipe.base import Recipe, RecipeContext
 from fairseq2.recipe.internal.data_parallel import (
     _DataParallelModelWrapper,
-    _DDPFactory,
     _DDPModelWrapper,
     _DelegatingDPModelWrapper,
-    _FSDPFactory,
     _FSDPModelWrapper,
 )
 from fairseq2.runtime.dependency import (
@@ -29,20 +27,21 @@ def _register_data_parallel_wrappers(container: DependencyContainer) -> None:
     container.register_type(_DataParallelModelWrapper, _DelegatingDPModelWrapper)
 
     # DDP
-    def get_ddp_wrapper(resolver: DependencyResolver) -> _DataParallelModelWrapper:
+    def create_ddp_wrapper(resolver: DependencyResolver) -> _DataParallelModelWrapper:
         train_recipe = resolver.resolve(Recipe)
 
         context = RecipeContext(resolver)
 
         static_graph = train_recipe.has_static_autograd_graph(context)
 
-        return wire_object(resolver, _DDPModelWrapper, static_graph=static_graph)
+        return wire_object(
+            resolver, _DDPModelWrapper, ddp_factory=to_ddp, static_graph=static_graph
+        )
 
-    container.register(_DataParallelModelWrapper, get_ddp_wrapper, key="ddp")
-
-    container.register_instance(_DDPFactory, to_ddp)  # type: ignore[arg-type]
+    container.register(_DataParallelModelWrapper, create_ddp_wrapper, key="ddp")
 
     # FSDP
-    container.register_type(_DataParallelModelWrapper, _FSDPModelWrapper, key="fsdp")
+    def create_fsdp_wrapper(resolver: DependencyResolver) -> _FSDPModelWrapper:
+        return wire_object(resolver, _FSDPModelWrapper, fsdp_factory=to_fsdp)
 
-    container.register_instance(_FSDPFactory, to_fsdp)  # type: ignore[arg-type]
+    container.register(_DataParallelModelWrapper, create_fsdp_wrapper, key="fsdp")

@@ -9,18 +9,17 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol, final, runtime_checkable
+from typing import final
 
-import wandb
 from typing_extensions import override
 from wandb import Run as WandbRun
+from wandb.errors import UsageError as WandbUsageError
 
 from fairseq2.error import raise_operational_system_error
 from fairseq2.file_system import FileMode, FileSystem
 from fairseq2.gang import Gangs
 from fairseq2.metrics.recorders import (
     NOOP_METRIC_RECORDER,
-    CompositeMetricRecorder,
     MetricRecorder,
     TensorBoardRecorder,
     WandbRecorder,
@@ -35,7 +34,7 @@ from fairseq2.utils.structured import ValueConverter
 @final
 class _MetricRecorderFactory:
     def __init__(
-        self, gangs: Gangs, default_factory: Callable[[], CompositeMetricRecorder]
+        self, gangs: Gangs, default_factory: Callable[[], MetricRecorder]
     ) -> None:
         self._gangs = gangs
         self._default_factory = default_factory
@@ -82,7 +81,7 @@ class _MaybeWandbRecorderFactory:
 
 
 @final
-class _WandbRunFactory:
+class _MaybeWandbRunFactory:
     def __init__(
         self,
         section: CommonSection,
@@ -90,7 +89,7 @@ class _WandbRunFactory:
         env: Environment,
         config_holder: _RecipeConfigHolder,
         value_converter: ValueConverter,
-        initializer: _WandbInitializer,
+        initializer: Callable[..., WandbRun],
         run_id_manager: _WandbRunIdManager,
     ) -> None:
         self._section = section
@@ -101,8 +100,10 @@ class _WandbRunFactory:
         self._initializer = initializer
         self._run_id_manager = run_id_manager
 
-    def create(self) -> WandbRun:
+    def maybe_create(self) -> WandbRun | None:
         wandb_config = self._section.metric_recorders.wandb
+        if not wandb_config.enabled:
+            return None
 
         if self._env.has("WANDB_ENTITY"):
             entity = None
@@ -153,17 +154,8 @@ class _WandbRunFactory:
                 job_type=job_type,
                 resume=wandb_config.resume_mode,
             )
-        except (RuntimeError, ValueError) as ex:
+        except (RuntimeError, ValueError, WandbUsageError) as ex:
             raise WandbInitializationError() from ex
-
-
-@runtime_checkable
-class _WandbInitializer(Protocol):
-    def __call__(self, *args: Any, **kwargs: Any) -> WandbRun: ...
-
-
-def _init_wandb(*args: Any, **kwargs: Any) -> WandbRun:
-    return wandb.init(*args, **kwargs)
 
 
 class _WandbRunIdManager(ABC):
@@ -177,7 +169,7 @@ class _StandardWandbRunIdManager(_WandbRunIdManager):
         self,
         section: CommonSection,
         file_system: FileSystem,
-        id_generator: _WandbIdGenerator,
+        id_generator: Callable[[], str],
         save_dir: Path,
     ) -> None:
         self._section = section
@@ -226,12 +218,3 @@ class _StandardWandbRunIdManager(_WandbRunIdManager):
                 fp.close()
 
         return run_id
-
-
-@runtime_checkable
-class _WandbIdGenerator(Protocol):
-    def __call__(self) -> str: ...
-
-
-def _generate_wandb_id() -> str:
-    return wandb.util.generate_id()

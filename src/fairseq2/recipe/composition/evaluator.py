@@ -18,10 +18,10 @@ from fairseq2.runtime.dependency import (
 
 
 def _register_evaluator_factory(container: DependencyContainer) -> None:
-    def get_evaluator_factory(resolver: DependencyResolver) -> _EvaluatorFactory:
+    def create_evaluator_factory(resolver: DependencyResolver) -> _EvaluatorFactory:
         def create_evaluator(**kwargs: Any) -> Evaluator:
             return wire_object(resolver, Evaluator, **kwargs)
 
-        return wire_object(resolver, _EvaluatorFactory, activator=create_evaluator)
+        return wire_object(resolver, _EvaluatorFactory, base_factory=create_evaluator)
 
-    container.register(_EvaluatorFactory, get_evaluator_factory)
+    container.register(_EvaluatorFactory, create_evaluator_factory)

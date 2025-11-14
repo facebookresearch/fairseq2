@@ -202,7 +202,6 @@ def _register_main(
     container.register(_RecipeConfigHolder, get_config)
 
     container.register_type(_RecipeConfigLoader)
-    container.register_type(_RecipeConfigPrinter)
     container.register_type(_RecipeConfigStructurer, _StandardRecipeConfigStructurer)
 
     # Recipe Output Directory
@@ -212,6 +211,8 @@ def _register_main(
         return dir_creator.create(args.output_dir)
 
     container.register(Path, get_output_dir)
+
+    container.register_type(_RecipeConfigPrinter)
 
     # CLI Errors
     _register_cli_errors(container)

@@ -7,16 +7,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Protocol, Sequence, final
+from typing import Sequence, final
 
 import torch
 from torch.optim import Optimizer
 
-from fairseq2.checkpoint import (
-    NOOP_CHECKPOINT_HG_EXPORTER,
-    CheckpointHGExporter,
-    OutOfProcCheckpointHGExporter,
-)
+from fairseq2.checkpoint import NOOP_CHECKPOINT_HG_EXPORTER, CheckpointHGExporter
 from fairseq2.datasets import DataReader
 from fairseq2.early_stopper import NOOP_EARLY_STOPPER
 from fairseq2.evaluator import EvalUnit
@@ -54,10 +50,6 @@ from fairseq2.utils.gc import (
 from fairseq2.validator import NOOP_VALIDATOR, StandardValidator, Validator
 
 
-class _TrainerActivator(Protocol):
-    def __call__(self, **kwargs: Any) -> Trainer: ...
-
-
 @final
 class _TrainerFactory:
     def __init__(
@@ -66,13 +58,13 @@ class _TrainerFactory:
         regime_section: RegimeSection,
         common_section: CommonSection,
         gangs: Gangs,
-        activator: _TrainerActivator,
+        base_factory: Callable[..., Trainer],
     ) -> None:
         self._section = section
         self._regime_section = regime_section
         self._common_section = common_section
         self._gangs = gangs
-        self._activator = activator
+        self._base_factory = base_factory
 
     def create(
         self,
@@ -99,7 +91,7 @@ class _TrainerFactory:
 
         seed = self._common_section.seed + 3
 
-        return self._activator(
+        return self._base_factory(
             unit=unit,
             data_reader=data_reader,
             amp=amp,
@@ -133,10 +125,6 @@ class _TrainerFactory:
         )
 
 
-class _StandardValidatorActivator(Protocol):
-    def __call__(self, **kwargs: Any) -> StandardValidator: ...
-
-
 @final
 class _ValidatorFactory:
     def __init__(
@@ -144,12 +132,12 @@ class _ValidatorFactory:
         section: TrainerSection,
         common_section: CommonSection,
         gangs: Gangs,
-        activator: _StandardValidatorActivator,
+        standard_factory: Callable[..., StandardValidator],
     ) -> None:
         self._section = section
         self._common_section = common_section
         self._gangs = gangs
-        self._activator = activator
+        self._standard_factory = standard_factory
 
     def create(
         self,
@@ -174,7 +162,7 @@ class _ValidatorFactory:
             else:
                 amp = mp_config.mode == "auto"
 
-            return self._activator(
+            return self._standard_factory(
                 units=valid_units,
                 data_readers=valid_data_readers,
                 amp=amp,
@@ -236,7 +224,7 @@ class _CheckpointHGExporterFactory:
         self,
         section: RegimeSection,
         model_holder: _ModelHolder,
-        default_factory: Callable[[], OutOfProcCheckpointHGExporter],
+        default_factory: Callable[[], CheckpointHGExporter],
     ) -> None:
         self._section = section
         self._model_holder = model_holder
@@ -253,7 +241,7 @@ class _CheckpointHGExporterFactory:
 
 
 @final
-class _MaybeScoreMetricDescriptorProvider:
+class _MaybeScoreMetricProvider:
     def __init__(
         self, section: RegimeSection, metric_descriptors: MetricDescriptorRegistry
     ) -> None:

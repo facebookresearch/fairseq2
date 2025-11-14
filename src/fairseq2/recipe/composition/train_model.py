@@ -31,12 +31,12 @@ from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 
 def _register_train_model(container: DependencyContainer) -> None:
     # Model
-    def get_model_holder(resolver: DependencyResolver) -> _ModelHolder:
+    def create_or_load_model(resolver: DependencyResolver) -> _ModelHolder:
         model_provider = resolver.resolve(_TrainModelProvider)
 
         return model_provider.get()
 
-    container.register(_ModelHolder, get_model_holder, key="model", singleton=True)
+    container.register(_ModelHolder, create_or_load_model, key="model", singleton=True)
 
     def get_model(resolver: DependencyResolver) -> Module:
         model_holder = resolver.resolve(_ModelHolder)
@@ -46,10 +46,10 @@ def _register_train_model(container: DependencyContainer) -> None:
     container.register(Module, get_model, key="model", singleton=True)
 
     # Default Model
-    def get_dp_model_holder(resolver: DependencyResolver) -> _ModelHolder:
+    def get_model_holder(resolver: DependencyResolver) -> _ModelHolder:
         return resolver.resolve(_ModelHolder, key="model")
 
-    container.register(_ModelHolder, get_dp_model_holder, singleton=True)
+    container.register(_ModelHolder, get_model_holder, singleton=True)
 
     def get_dp_model(resolver: DependencyResolver) -> Module:
         model_holder = resolver.resolve(_ModelHolder, key="model")
@@ -58,10 +58,10 @@ def _register_train_model(container: DependencyContainer) -> None:
 
     container.register(Module, get_dp_model, singleton=True)
 
-    container.register_type(_TrainModelProvider)
     container.register_type(_TrainModelBootstrapper, _StandardTrainModelBootstrapper)
     container.register_type(_TrainModelMetadataSaver, _StandardTrainModelMetadataSaver)
     container.register_type(_TrainModelPreparer, _DelegatingTrainModelPreparer)
+    container.register_type(_TrainModelProvider)
 
     container.collection.register_type(_TrainModelPreparer, _UserTrainModelPreparer)
     container.collection.register_type(_TrainModelPreparer, _LastTrainModelPreparer)

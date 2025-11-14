@@ -33,7 +33,7 @@ class _DatasetHolder:
 
 
 @final
-class _RecipeDatasetOpener:
+class _DatasetOpener:
     def __init__(
         self,
         families: Lookup[DatasetFamily],

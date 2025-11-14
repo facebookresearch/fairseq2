@@ -16,21 +16,21 @@ from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 
 def _register_seq_generators(container: DependencyContainer) -> None:
     # SequenceGenerator
-    def get_seq_generator(resolver: DependencyResolver) -> SequenceGenerator:
+    def create_seq_generator(resolver: DependencyResolver) -> SequenceGenerator:
         generator_factory = resolver.resolve(_SequenceGeneratorFactory)
 
         return generator_factory.create()
 
-    container.register(SequenceGenerator, get_seq_generator, singleton=True)
+    container.register(SequenceGenerator, create_seq_generator, singleton=True)
 
     container.register_type(_SequenceGeneratorFactory)
 
     # Seq2SeqGenerator
-    def get_seq2seq_generator(resolver: DependencyResolver) -> Seq2SeqGenerator:
+    def create_seq2seq_generator(resolver: DependencyResolver) -> Seq2SeqGenerator:
         generator_factory = resolver.resolve(_Seq2SeqGeneratorFactory)
 
         return generator_factory.create()
 
-    container.register(Seq2SeqGenerator, get_seq2seq_generator, singleton=True)
+    container.register(Seq2SeqGenerator, create_seq2seq_generator, singleton=True)
 
     container.register_type(_Seq2SeqGeneratorFactory)
