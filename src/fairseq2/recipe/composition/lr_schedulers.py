@@ -38,12 +38,12 @@ from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 
 def _register_lr_schedulers(container: DependencyContainer) -> None:
     # LRScheduler
-    def get_lr_scheduler(resolver: DependencyResolver) -> LRScheduler:
+    def create_lr_scheduler(resolver: DependencyResolver) -> LRScheduler:
         lr_factory = resolver.resolve(_LRSchedulerFactory)
 
         return lr_factory.create()
 
-    container.register(LRScheduler, get_lr_scheduler, singleton=True)
+    container.register(LRScheduler, create_lr_scheduler, singleton=True)
 
     container.register_type(_LRSchedulerFactory)
 

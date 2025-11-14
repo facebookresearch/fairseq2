@@ -9,22 +9,22 @@ from __future__ import annotations
 from fairseq2.data.tokenizers import Tokenizer
 from fairseq2.recipe.composition.config import register_config_section
 from fairseq2.recipe.config import TokenizerSection
-from fairseq2.recipe.internal.tokenizer import _RecipeTokenizerLoader, _TokenizerHolder
+from fairseq2.recipe.internal.tokenizer import _TokenizerHolder, _TokenizerLoader
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 
 
 def register_tokenizer(container: DependencyContainer, section_name: str) -> None:
     register_config_section(container, section_name, TokenizerSection, keyed=True)
 
-    def get_tokenizer_holder(resolver: DependencyResolver) -> _TokenizerHolder:
+    def load_tokenizer(resolver: DependencyResolver) -> _TokenizerHolder:
         section = resolver.resolve(TokenizerSection, key=section_name)
 
-        tokenizer_loader = resolver.resolve(_RecipeTokenizerLoader)
+        tokenizer_loader = resolver.resolve(_TokenizerLoader)
 
         return tokenizer_loader.load(section_name, section)
 
     container.register(
-        _TokenizerHolder, get_tokenizer_holder, key=section_name, singleton=True
+        _TokenizerHolder, load_tokenizer, key=section_name, singleton=True
     )
 
     def get_tokenizer(resolver: DependencyResolver) -> Tokenizer:
@@ -35,10 +35,10 @@ def register_tokenizer(container: DependencyContainer, section_name: str) -> Non
     container.register(Tokenizer, get_tokenizer, key=section_name, singleton=True)
 
 
-def _register_tokenizers(container: DependencyContainer) -> None:
-    container.register_type(_RecipeTokenizerLoader)
-
+def _register_default_tokenizer(container: DependencyContainer) -> None:
     register_tokenizer(container, section_name="tokenizer")
+
+    container.register_type(_TokenizerLoader)
 
     # Default Tokenizer
     def get_tokenizer_holder(resolver: DependencyResolver) -> _TokenizerHolder:

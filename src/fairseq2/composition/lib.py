@@ -128,7 +128,7 @@ def _register_library(
     else:
         container.register_type(ProgressReporter, RichProgressReporter, singleton=True)
 
-        def get_download_progress_reporter(
+        def create_download_progress_reporter(
             resolver: DependencyResolver,
         ) -> ProgressReporter:
             columns = _create_rich_download_progress_columns()
@@ -137,7 +137,7 @@ def _register_library(
 
         container.register(
             ProgressReporter,
-            get_download_progress_reporter,
+            create_download_progress_reporter,
             key="download_reporter",
             singleton=True,
         )
@@ -151,30 +151,29 @@ def _register_library(
     container.register(WorldInfo, get_world_info, singleton=True)
 
     # Device
-    def get_default_device(resolver: DependencyResolver) -> Device:
+    def detect_default_device(resolver: DependencyResolver) -> Device:
         device_detector = resolver.resolve(DefaultDeviceDetector)
 
         return device_detector.detect()
 
-    container.register(Device, get_default_device, singleton=True)
+    container.register(Device, detect_default_device, singleton=True)
 
     # ThreadPool
-    def get_default_thread_pool(resolver: DependencyResolver) -> ThreadPool:
+    def create_thread_pool(resolver: DependencyResolver) -> ThreadPool:
         world_info = resolver.resolve(WorldInfo)
 
         return StandardThreadPool.create_default(world_info.local_size)
 
-    container.register(ThreadPool, get_default_thread_pool, singleton=True)
+    container.register(ThreadPool, create_thread_pool, singleton=True)
 
     # RngBag
-    def get_default_rng_bag(resolver: DependencyResolver) -> RngBag:
+    def create_rng_bag(resolver: DependencyResolver) -> RngBag:
         device = resolver.resolve(Device)
 
         return RngBag.from_device_defaults(CPU, device)
 
-    container.register(RngBag, get_default_rng_bag, singleton=True)
+    container.register(RngBag, create_rng_bag, singleton=True)
 
-    # fmt: off
     container.register_type(AssetConfigLoader, StandardAssetConfigLoader)
     container.register_type(ClusterResolver, StandardClusterResolver)
     container.register_type(ConfigMerger, StandardConfigMerger)
@@ -184,13 +183,17 @@ def _register_library(
     container.register_type(FileSystem, LocalFileSystem, singleton=True)
     container.register_type(GlobalModelLoader, singleton=True)
     container.register_type(GlobalTokenizerLoader, singleton=True)
-    container.register_type(ModelCheckpointLoader, DelegatingModelCheckpointLoader, singleton=True)
+    container.register_type(
+        ModelCheckpointLoader, DelegatingModelCheckpointLoader, singleton=True
+    )
     container.register_type(ModelMetadataDumper, StandardModelMetadataDumper)
     container.register_type(ModelMetadataLoader, StandardModelMetadataLoader)
     container.register_type(ModelSharder, StandardModelSharder, singleton=True)
     container.register_type(ObjectValidator, StandardObjectValidator, singleton=True)
     container.register_type(SafetensorsLoader, HuggingFaceSafetensorsLoader)
-    container.register_type(SentencePieceModelLoader, StandardSentencePieceModelLoader, singleton=True)
+    container.register_type(
+        SentencePieceModelLoader, StandardSentencePieceModelLoader, singleton=True
+    )
     container.register_type(TensorDumper, TorchTensorDumper, singleton=True)
     container.register_type(TensorLoader, TorchTensorLoader, singleton=True)
     container.register_type(ValueConverter, StandardValueConverter, singleton=True)
@@ -203,13 +206,18 @@ def _register_library(
     container.collection.register_type(ModuleSharder, LinearSharder)
     container.collection.register_type(ModuleSharder, MoESharder)
 
-    container.collection.register_type(ModelCheckpointLoader, BasicModelCheckpointLoader)
-    container.collection.register_type(ModelCheckpointLoader, NativeModelCheckpointLoader)
-    container.collection.register_type(ModelCheckpointLoader, SafetensorsCheckpointLoader)
+    container.collection.register_type(
+        ModelCheckpointLoader, BasicModelCheckpointLoader
+    )
+    container.collection.register_type(
+        ModelCheckpointLoader, NativeModelCheckpointLoader
+    )
+    container.collection.register_type(
+        ModelCheckpointLoader, SafetensorsCheckpointLoader
+    )
     container.collection.register_type(ModelCheckpointLoader, LLaMACheckpointLoader)
 
     container.collection.register_type(ConfigDirective, ReplaceEnvDirective)
-    # fmt: on
 
     _register_asset(container)
 

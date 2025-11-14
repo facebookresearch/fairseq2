@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Literal, Protocol, final, runtime_checkable
+from typing import Literal, Protocol, final
 
 from torch.nn import Module
 from torch.nn.parallel import DistributedDataParallel as DDPModule
@@ -65,7 +65,6 @@ class _DelegatingDPModelWrapper(_DataParallelModelWrapper):
         return wrapper.wrap(model_holder)
 
 
-@runtime_checkable
 class _DDPFactory(Protocol):
     def __call__(
         self, module: Module, gangs: Gangs, *, find_unused_parameters: bool
@@ -102,7 +101,6 @@ class _DDPModelWrapper(_DataParallelModelWrapper):
         return dp_model
 
 
-@runtime_checkable
 class _FSDPFactory(Protocol):
     def __call__(
         self,

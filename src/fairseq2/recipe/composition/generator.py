@@ -18,10 +18,10 @@ from fairseq2.runtime.dependency import (
 
 
 def _register_generator_factory(container: DependencyContainer) -> None:
-    def get_generator_factory(resolver: DependencyResolver) -> _GeneratorFactory:
+    def create_generator_factory(resolver: DependencyResolver) -> _GeneratorFactory:
         def create_generator(**kwargs: Any) -> Generator:
             return wire_object(resolver, Generator, **kwargs)
 
-        return wire_object(resolver, _GeneratorFactory, activator=create_generator)
+        return wire_object(resolver, _GeneratorFactory, base_factory=create_generator)
 
-    container.register(_GeneratorFactory, get_generator_factory)
+    container.register(_GeneratorFactory, create_generator_factory)

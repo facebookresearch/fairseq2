@@ -32,14 +32,14 @@ from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 def register_reference_model(container: DependencyContainer, section_name: str) -> None:
     register_config_section(container, section_name, ReferenceModelSection)
 
-    def get_model_holder(resolver: DependencyResolver) -> _ModelHolder:
+    def load_model(resolver: DependencyResolver) -> _ModelHolder:
         section = resolver.resolve(ReferenceModelSection, key=section_name)
 
         model_loader = resolver.resolve(_ReferenceModelLoader)
 
         return model_loader.load(section_name, section)
 
-    container.register(_ModelHolder, get_model_holder, key=section_name, singleton=True)
+    container.register(_ModelHolder, load_model, key=section_name, singleton=True)
 
     def get_model(resolver: DependencyResolver) -> Module:
         model_holder = resolver.resolve(_ModelHolder, key=section_name)
@@ -49,15 +49,34 @@ def register_reference_model(container: DependencyContainer, section_name: str) 
     container.register(Module, get_model, key=section_name, singleton=True)
 
 
-def _register_reference_model_loader(container: DependencyContainer) -> None:
-    # fmt: off
-    container.register_type(_ReferenceModelLoader)
-    container.register_type(_ReferenceModelBootstrapper, _StandardReferenceModelBootstrapper)
-    container.register_type(_ReferenceModelPreparer, _DelegatingReferenceModelPreparer)
+def _register_inference_model(container: DependencyContainer) -> None:
+    register_reference_model(container, "model")
 
-    container.collection.register_type(_ReferenceModelPreparer, _UserReferenceModelPreparer)
-    container.collection.register_type(_ReferenceModelPreparer, _LastReferenceModelPreparer)
-    # fmt: on
+    # Default Model
+    def get_model_holder(resolver: DependencyResolver) -> _ModelHolder:
+        return resolver.resolve(_ModelHolder, key="model")
+
+    container.register(_ModelHolder, get_model_holder, singleton=True)
+
+    def get_model(resolver: DependencyResolver) -> Module:
+        return resolver.resolve(Module, key="model")
+
+    container.register(Module, get_model, singleton=True)
+
+
+def _register_reference_model_loader(container: DependencyContainer) -> None:
+    container.register_type(_ReferenceModelLoader)
+    container.register_type(_ReferenceModelPreparer, _DelegatingReferenceModelPreparer)
+    container.register_type(
+        _ReferenceModelBootstrapper, _StandardReferenceModelBootstrapper
+    )
+
+    container.collection.register_type(
+        _ReferenceModelPreparer, _UserReferenceModelPreparer
+    )
+    container.collection.register_type(
+        _ReferenceModelPreparer, _LastReferenceModelPreparer
+    )
 
 
 @final

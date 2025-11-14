@@ -36,7 +36,7 @@ class _TokenizerHolder:
 
 
 @final
-class _RecipeTokenizerLoader:
+class _TokenizerLoader:
     def __init__(
         self,
         families: Lookup[TokenizerFamily],

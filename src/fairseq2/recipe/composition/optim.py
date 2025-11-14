@@ -25,12 +25,12 @@ from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 
 def _register_optim(container: DependencyContainer) -> None:
     # Optimizer
-    def get_optimizer(resolver: DependencyResolver) -> Optimizer:
+    def create_optimizer(resolver: DependencyResolver) -> Optimizer:
         optimizer_factory = resolver.resolve(_OptimizerFactory)
 
         return optimizer_factory.create()
 
-    container.register(Optimizer, get_optimizer, singleton=True)
+    container.register(Optimizer, create_optimizer, singleton=True)
 
     container.register_type(_OptimizerFactory)
 
