@@ -76,7 +76,7 @@ class DataPipelineReader(DataReader[BatchT]):
 
     def __init__(
         self,
-        pipeline: DataPipeline,
+        pipeline: DataPipeline | torch.utils.data.DataLoader,
         gangs: Gangs,
         *,
         num_accumulate: int = 1,
@@ -152,10 +152,15 @@ class DataPipelineReader(DataReader[BatchT]):
     def reset(self) -> None:
         self._eod = False
 
-        self._pipeline.reset()
+        if isinstance(self._pipeline, torch.utils.data.DataLoader):
+            self._pipeline_iter = iter(self._pipeline)
+        else:
+            self._pipeline.reset()
 
     @override
     def state_dict(self) -> dict[str, object]:
+        if isinstance(self._pipeline, torch.utils.data.DataLoader):
+            raise NotImplementedError("Need to implement saving stateful sampler for torch DataLoader")
         return self._pipeline.state_dict(strict=self._strict_state)
 
     @override

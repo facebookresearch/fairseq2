@@ -27,6 +27,7 @@ from fairseq2.models.hg import (
     HuggingFaceModelConfig,
     create_hg_model,
     register_hg_configs,
+    apply_fsdp_to_hg_transformer_lm,
 )
 from fairseq2.models.jepa import (
     JEPA_FAMILY,
@@ -400,6 +401,8 @@ def _register_model_families(container: DependencyContainer) -> None:
         HG_FAMILY,
         kls=hg_kls,
         config_kls=HuggingFaceModelConfig,
+        fsdp_applier=apply_fsdp_to_hg_transformer_lm,
+        # layerwise_ac_applier=apply_ac_to_hg_transformer_lm,  # TODO: not implemented yet
         factory=create_hg_model,
         supports_meta=False,  # HF models don't support meta device initialization
     )
