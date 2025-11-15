@@ -78,3 +78,4 @@ from fairseq2.models.hg.hub import get_hg_tokenizer_hub as get_hg_tokenizer_hub
 from fairseq2.models.hg.tokenizer import HgTokenizer as HgTokenizer
 from fairseq2.models.hg.tokenizer import HgTokenizerConfig as HgTokenizerConfig
 from fairseq2.models.hg.tokenizer import load_hg_tokenizer as load_hg_tokenizer
+from fairseq2.models.hg.fsdp import apply_fsdp_to_hg_transformer_lm as apply_fsdp_to_hg_transformer_lm
