@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
-from collections.abc import Iterator, Iterable
+from collections.abc import Iterable, Iterator
 from typing import final, overload
 
 from typing_extensions import override
