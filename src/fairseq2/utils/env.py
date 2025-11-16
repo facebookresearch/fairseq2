@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Iterator, Iterable
 from typing import final, overload
 
 from typing_extensions import override
 
 
-class Environment(ABC):
+class Environment(ABC, Iterable[tuple[str, str]]):
     @abstractmethod
     def get(self, name: str) -> str: ...
 
@@ -34,6 +35,9 @@ class Environment(ABC):
 
     @abstractmethod
     def to_dict(self) -> dict[str, str]: ...
+
+    @abstractmethod
+    def __iter__(self) -> Iterator[tuple[str, str]]: ...
 
 
 @final
@@ -63,6 +67,10 @@ class StandardEnvironment(Environment):
     @override
     def to_dict(self) -> dict[str, str]:
         return dict(os.environ)
+
+    @override
+    def __iter__(self) -> Iterator[tuple[str, str]]:
+        return iter(os.environ.items())
 
 
 class EnvironmentVariableError(Exception):

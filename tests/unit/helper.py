@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import final, overload
 
 from typing_extensions import override
@@ -43,3 +44,7 @@ class FooEnvironment(Environment):
     @override
     def to_dict(self) -> dict[str, str]:
         return dict(self._data)
+
+    @override
+    def __iter__(self) -> Iterator[tuple[str, str]]:
+        return iter(self._data.items())
