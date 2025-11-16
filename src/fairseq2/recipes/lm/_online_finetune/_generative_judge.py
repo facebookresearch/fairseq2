@@ -72,23 +72,23 @@ Below are the user's question and the two responses:
 """
 
 SELF_AUGMENTING_PROMPT = """
-You are given a ground truth text, and a generated text from an AI assistant. Your task is to act as an impartial judge and evaluate how well the response matches the ground truth text. It doesn't have to match word for word, but it should be very similar.
+You are given a ground truth text, and a generated text from an AI assistant. Your task is to act as an impartial judge and evaluate how well the response matches the ground truth text. It doesn't have to match word for word, but it should be VERY similar.
 
 Think carefully about how to assess how well the generated text matches the ground truth. Your reasoning should include your evaluation criteria.
 
-Finally, assign the assistant's generation a binary score, either 0 or 1. A 0 indicates that the generated text does not match the ground truth text, and a 1 indicates that it matches well.
+Finally, assign the assistant's generation a binary score, either 0 or 1. A 0 indicates that the generated text does not match the ground truth text, and a 1 indicates that it matches very closely.
 
 Format your score as \\boxed{{SCORE}} where SCORE is either 0 or 1.
 
 Below are the ground truth text and the assistant's Generation:
 
-[Start of Ground Truth Text]
+[Start of ground truth text]
 {ground_truth}
-[End of Ground Truth Text]
+[End of ground truth text]
 
-[Start of Assistant's Generation]
+[Start of AI assistant's generation]
 {generation}
-[End of Assistant's Generation]
+[End of AI assistant's generation]
 """
 
 

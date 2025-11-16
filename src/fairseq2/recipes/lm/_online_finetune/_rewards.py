@@ -607,14 +607,14 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
                     gen_think = rollout_text[:think_end_idx]
                     gen_suffix = rollout_text[think_end_idx:]
                 else:
-                    think = ""
+                    gen_think = ""
                     gen_suffix = rollout_text
                 
-                log.info("======================================================")
+                log.info("====================================================")
                 log.info(f"Prefix = {prompt_text}")
-                log.info(f"Gold Suffix = {i_reference_answer}")
                 log.info(f"Think = {gen_think}")
-                log.info(f"Generated Suffix = {gen_suffix}")
+                log.info(f"[Gold Suffix Start]\n{i_reference_answer}\n[Gold Suffix End]")
+                log.info(f"[Gen Suffix Start]\n{gen_suffix}\n[Gen Suffix End]")
                 log.info(f"Score = {per_rollout_reward}")
                 rollout_idx += 1
 
