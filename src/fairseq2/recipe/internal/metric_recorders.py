@@ -105,35 +105,7 @@ class _MaybeWandbRunFactory:
         if not wandb_config.enabled:
             return None
 
-        if self._env.has("WANDB_ENTITY"):
-            entity = None
-        else:
-            entity = wandb_config.entity
-
-        if self._env.has("WANDB_PROJECT"):
-            project = None
-        else:
-            project = wandb_config.project
-
-        if self._env.has("WANDB_RUN_ID"):
-            run_id = None
-        else:
-            run_id = self._run_id_manager.get_id()
-
-        if self._env.has("WANDB_NAME"):
-            run_name = None
-        else:
-            run_name = wandb_config.run_name
-
-        if self._env.has("WANDB_RUN_GROUP"):
-            run_group = None
-        else:
-            run_group = wandb_config.group
-
-        if self._env.has("WANDB_JOB_TYPE"):
-            job_type = None
-        else:
-            job_type = wandb_config.job_type
+        run_id = self._run_id_manager.get_id()
 
         unstructured_config = self._value_converter.unstructure(
             self._config_holder.config
@@ -144,14 +116,14 @@ class _MaybeWandbRunFactory:
 
         try:
             return self._initializer(
-                entity=entity,
-                project=project,
+                entity=wandb_config.entity,
+                project=wandb_config.project,
                 dir=self._output_dir,
                 id=run_id,
-                name=run_name,
+                name=wandb_config.run_name,
                 config=unstructured_config,
-                group=run_group,
-                job_type=job_type,
+                group=wandb_config.group,
+                job_type=wandb_config.job_type,
                 resume=wandb_config.resume_mode,
             )
         except (RuntimeError, ValueError, WandbUsageError) as ex:
@@ -168,11 +140,13 @@ class _StandardWandbRunIdManager(_WandbRunIdManager):
     def __init__(
         self,
         section: CommonSection,
+        env: Environment,
         file_system: FileSystem,
         id_generator: Callable[[], str],
         save_dir: Path,
     ) -> None:
         self._section = section
+        self._env = env
         self._file_system = file_system
         self._id_generator = id_generator
         self._save_dir = save_dir
@@ -182,7 +156,11 @@ class _StandardWandbRunIdManager(_WandbRunIdManager):
         run_id = self._section.metric_recorders.wandb.run_id
 
         if run_id is None:
-            return self._id_generator()
+            run_id = self._env.maybe_get("WANDB_RUN_ID")
+            if run_id is None:
+                run_id = self._id_generator()
+
+            return run_id
 
         if run_id != "persistent":
             return run_id
