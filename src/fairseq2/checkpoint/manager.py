@@ -24,7 +24,6 @@ from typing_extensions import override
 
 from fairseq2.device import CPU
 from fairseq2.error import (
-    InternalError,
     OperationalError,
     StateDictError,
     raise_operational_system_error,
@@ -173,14 +172,15 @@ class StandardCheckpointManager(CheckpointManager):
         tensor_dumper: TensorDumper,
         thread_pool: ThreadPool,
     ) -> None:
-        self._checkpoint_dir = output_dir.joinpath("checkpoints")
+        checkpoint_dir = output_dir.joinpath("checkpoints")
+
+        self._checkpoint_dir = checkpoint_dir
         self._gangs = gangs
         self._file_system = file_system
         self._tensor_loader = tensor_loader
         self._tensor_dumper = tensor_dumper
         self._thread_pool = thread_pool
         self._save_op: Future[Callable[[], None]] | None = None
-        self._step_nr: int | None = None
         self._save_hooks: dict[int, CheckpointSaveHook] = OrderedDict()
 
     @override
@@ -241,11 +241,6 @@ class StandardCheckpointManager(CheckpointManager):
         if self._save_op is None:
             return None
 
-        if self._step_nr is None:
-            raise InternalError(
-                "An asynchronous save operation is in progress, but `step_nr` is `None`."
-            )
-
         gangs = self._gangs
 
         if blocking:
@@ -257,21 +252,19 @@ class StandardCheckpointManager(CheckpointManager):
                 raise_operational_gang_error(ex)
         else:
             try:
-                if self._save_op.running():
-                    num_completed = all_sum(gangs.root, 0)
+                if self._save_op.done():
+                    num_done = all_sum(gangs.root, 1)
                 else:
-                    num_completed = all_sum(gangs.root, 1)
+                    num_done = all_sum(gangs.root, 0)
             except GangError as ex:
                 raise_operational_gang_error(ex)
 
-            if num_completed != gangs.root.size:
+            if num_done != gangs.root.size:
                 return False
 
             committer = self._save_op.result()
 
         self._save_op = None
-
-        self._step_nr = None
 
         committer()
 
@@ -438,13 +431,9 @@ class StandardCheckpointManager(CheckpointManager):
 
             committer()
         else:
-            self._step_nr = step_nr
-
             try:
                 self._save_op = self._thread_pool.queue(save)
             except RuntimeError as ex:
-                self._step_nr = None
-
                 raise OperationalError("A thread pool queue operation failed.") from ex
 
     def _copy_state_dict_to_host(

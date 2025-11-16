@@ -116,7 +116,7 @@ class Trainer(Task):
         validator: Validator,
         early_stopper: EarlyStopper,
         checkpoint_manager: CheckpointManager,
-        checkpoint_hg_exporter: CheckpointHGExporter,
+        hg_exporter: CheckpointHGExporter,
         metric_recorder: MetricRecorder,
         garbage_collector: GarbageCollector,
         profiler: Profiler,
@@ -293,7 +293,7 @@ class Trainer(Task):
         self._checkpoint_after_n_data_epochs = checkpoint_after_n_data_epochs
         self._checkpoint_every_n_data_epochs = checkpoint_every_n_data_epochs
         self._save_model_only = save_model_only
-        self._checkpoint_hg_exporter = checkpoint_hg_exporter
+        self._hg_exporter = hg_exporter
         self._keep_last_n_checkpoints = keep_last_n_checkpoints
         self._keep_best_n_checkpoints = keep_best_n_checkpoints
         self._keep_checkpoint_every_n_steps = keep_checkpoint_every_n_steps
@@ -493,6 +493,8 @@ class Trainer(Task):
 
     def _run_step(self, progress_task: ProgressTask) -> _TrainerState:
         self._checkpoint_manager.maybe_complete_save_operation()
+
+        self._hg_exporter.maybe_complete_operation()
 
         detect_anomaly = torch.autograd.set_detect_anomaly(  # type: ignore[attr-defined]
             self._anomaly_detection, check_nan=True
@@ -695,6 +697,8 @@ class Trainer(Task):
             self._validate()
 
             self._maybe_complete_checkpoint_save_operation()
+
+            self._maybe_complete_hg_export_operation()
         else:
             self._maybe_save_checkpoint(blocking=True)
 
@@ -710,6 +714,8 @@ class Trainer(Task):
             self._save_checkpoint(blocking=True)
         else:
             self._maybe_complete_checkpoint_save_operation()
+
+            self._maybe_complete_hg_export_operation()
 
         return _TrainerState.STOPPED
 
@@ -769,37 +775,38 @@ class Trainer(Task):
     def _on_checkpoint_saved(self, step_nr: int, blocking: bool) -> None:
         log.info("Checkpoint at step {} saved.", step_nr)
 
-        gangs = self._gangs
-
-        hg_exporter = self._checkpoint_hg_exporter
-
-        if hg_exporter is not NOOP_CHECKPOINT_HG_EXPORTER:
-            if gangs.root.rank == 0:
-                if hg_exporter.is_exporting:
-                    log.info("Waiting for the current Hugging Face model export operation to complete before continuing.")  # fmt: skip
-
-                hg_exporter.complete_pending()
-
-            gangs.root.barrier()
+        self._maybe_complete_hg_export_operation()
 
         self._delete_stale_checkpoints()
 
         if self._save_model_only == "all_but_last":
             self._delete_previous_non_model_checkpoints()
 
-        if hg_exporter is not NOOP_CHECKPOINT_HG_EXPORTER:
-            if gangs.root.rank == 0:
-                if blocking:
-                    log.info("Exporting Hugging Face model of step {}.", step_nr)  # fmt: skip
-                else:
-                    log.info("Asynchronously exporting Hugging Face model of step {}.", step_nr)  # fmt: skip
+        self._maybe_export_hg(step_nr, blocking)
 
-                def on_exported(step_nr: int) -> None:
-                    log.info("Hugging Face model of step {} exported.", step_nr)
+    def _maybe_complete_hg_export_operation(self) -> None:
+        if not self._hg_exporter.is_exporting:
+            return
 
-                hg_exporter.export(
-                    step_nr, exported_callback=on_exported, blocking=blocking
-                )
+        log.info("Waiting for the current Hugging Face model export operation to complete before continuing.")  # fmt: skip
+
+        self._hg_exporter.maybe_complete_operation(blocking=True)
+
+    def _maybe_export_hg(self, step_nr: int, blocking: bool) -> None:
+        if self._hg_exporter is NOOP_CHECKPOINT_HG_EXPORTER:
+            return
+
+        if blocking:
+            log.info("Exporting Hugging Face model of step {}.", step_nr)  # fmt: skip
+        else:
+            log.info("Asynchronously exporting Hugging Face model of step {}.", step_nr)  # fmt: skip
+
+        def on_exported(step_nr: int) -> None:
+            log.info("Hugging Face model of step {} exported.", step_nr)
+
+        self._hg_exporter.export(
+            step_nr, exported_callback=on_exported, blocking=blocking
+        )
 
     def _maybe_publish_metrics(self) -> None:
         should_publish = self._should_publish_metrics()

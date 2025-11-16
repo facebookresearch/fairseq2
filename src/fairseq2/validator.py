@@ -16,7 +16,7 @@ from torch import Tensor
 from torch.profiler import record_function
 from typing_extensions import override
 
-from fairseq2.checkpoint import CheckpointManager
+from fairseq2.checkpoint import CheckpointHGExporter, CheckpointManager
 from fairseq2.data_type import DataType
 from fairseq2.datasets import DataReader
 from fairseq2.device import CPU, SupportsDeviceTransfer
@@ -77,6 +77,7 @@ class StandardValidator(Validator):
         amp_dtype: DataType,
         score_metric_descriptor: MetricDescriptor,
         checkpoint_manager: CheckpointManager,
+        hg_exporter: CheckpointHGExporter,
         metric_recorder: MetricRecorder,
         profiler: Profiler,
         device_stat_tracker: DeviceStatTracker,
@@ -101,6 +102,7 @@ class StandardValidator(Validator):
         self._amp_dtype = amp_dtype
         self._score_metric_descriptor = score_metric_descriptor
         self._checkpoint_manager = checkpoint_manager
+        self._hg_exporter = hg_exporter
         self._rng_bag = rng_bag
         self._metric_recorder = metric_recorder
         self._profiler = profiler
@@ -186,6 +188,8 @@ class StandardValidator(Validator):
 
             while not eod:
                 self._checkpoint_manager.maybe_complete_save_operation()
+
+                self._hg_exporter.maybe_complete_operation()
 
                 batches = self._read_next_batches(unit, data_reader)
                 if batches is None:
