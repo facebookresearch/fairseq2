@@ -139,8 +139,8 @@ use_im_end: true
 name: qwen3_8b_base
 model_family: qwen
 model_arch: qwen3_8b
-checkpoint: "hg://qwen/qwen3-8b-base"
-tokenizer: "hg://qwen/qwen3-8b-base"
+checkpoint: "/checkpoint/data/jacklanchantin/pretrained-llms/Qwen3-8B-Base/"
+tokenizer: "/checkpoint/data/jacklanchantin/pretrained-llms/Qwen3-8B-Base/"
 tokenizer_family: qwen
 
 ---

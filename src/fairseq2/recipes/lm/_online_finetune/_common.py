@@ -361,6 +361,7 @@ def combine_prompts_responses_for_scoring(
 
 def get_vllm_logprobs(
     vllm_outputs: List[RequestOutput],
+    model_logps: Tensor,
     gangs,
     rollout_start_end: tuple[int, int] | None = None,
 ):
@@ -404,7 +405,10 @@ def get_vllm_logprobs(
     padded = torch.zeros(len(sequences), max_len)
     for i, t in enumerate(sequences):
         padded[i, : t.size(0)] = t
-
+    
+    # clip outputs to be same size as model_logps
+    if padded.size() != model_logps.size():
+        padded = padded[:, : model_logps.size(1)]
     return padded
 
 
@@ -457,6 +461,46 @@ def get_rollout_lengths(rollouts: List[SequenceData]):
             token_ids_len = len(token_ids)
             rollout_lengths.append(token_ids_len)
     return rollout_lengths
+
+
+def get_think_rollout_lengths(rollouts: List[SequenceData]):
+    """Get the lengths of tokens before the </think> tag in rollouts.
+
+    This function calculates the approximate number of tokens generated before
+    the </think> closing tag in each rollout. It uses a proportional approximation
+    based on character positions to estimate token counts.
+
+    Args:
+        rollouts: List of SequenceData containing rollout outputs
+
+    Returns:
+        List of token lengths before </think> tag for rollouts that contain the tag
+    """
+    think_rollout_lengths = []
+    think_tag = "</think>"
+
+    for rollout in rollouts:
+        for sample in rollout.outputs:
+            rollout_text = sample.text
+            if think_tag in rollout_text:
+                # Find the position of </think> in the text
+                think_end_pos = rollout_text.find(think_tag) + len(think_tag)
+                # Count tokens up to and including </think>
+                # We need to find how many tokens correspond to the text before </think>
+                # Since we have token_ids, we'll approximate by finding the proportion
+                text_before_think = rollout_text[:think_end_pos]
+                total_text = rollout_text
+                total_tokens = len(sample.token_ids)
+                # Approximate token count proportionally (rough estimate)
+                # A better approach would be to tokenize text_before_think, but we use approximation
+                think_token_length = (
+                    int((len(text_before_think) / len(total_text)) * total_tokens)
+                    if len(total_text) > 0
+                    else 0
+                )
+                think_rollout_lengths.append(think_token_length)
+
+    return think_rollout_lengths
 
 
 class StatefulRolloutBag:
@@ -560,6 +604,13 @@ def update_avg_rollout_length(metric_bag: MetricBag, avg_rollout_length):
 
 
 @torch.inference_mode()
+def update_avg_think_rollout_length(metric_bag: MetricBag, avg_think_rollout_length):
+    metric_bag.get(Mean, "avg_think_rollout_length").update(
+        avg_think_rollout_length, weight=1
+    )
+
+
+@torch.inference_mode()
 def update_avg_reward_len_norm(metric_bag: MetricBag, avg_reward_len_norm):
     metric_bag.get(Mean, "avg_reward_len_norm").update(avg_reward_len_norm, weight=1)
 
@@ -599,7 +650,7 @@ def update_grpo_batch_metrics(
 
 
 @torch.inference_mode()
-def update_grpo_loss(metric_bag: MetricBag, batch: PromptBatch, loss: Tensor) -> None:
+def update_grpo_loss(metric_bag: MetricBag, batch: PromptBatch, loss: Tensor, tis_imp_ratio: Tensor) -> None:
     """Update the GRPO loss metric.
 
     :param batch:
@@ -610,6 +661,10 @@ def update_grpo_loss(metric_bag: MetricBag, batch: PromptBatch, loss: Tensor) ->
     metric_bag.get(Mean, "grpo_loss").update(
         loss / batch.batch_size, weight=batch.batch_size
     )
+
+    metric_bag.get(Mean, "tis_imp_ratio").update(tis_imp_ratio)
+
+
 
 
 def compute_reference_logps(
