@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import shlex
-import subprocess
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -21,6 +20,7 @@ from typing_extensions import override
 from fairseq2.error import InvalidOperationError
 from fairseq2.file_system import FileMode, FileSystem
 from fairseq2.logging import log
+from fairseq2.utils.process import ProcessRunner
 from fairseq2.utils.threading import ThreadPool
 
 
@@ -70,12 +70,17 @@ NOOP_CHECKPOINT_HG_EXPORTER: Final = _NoopCheckpointHGExporter()
 @final
 class OutOfProcCheckpointHGExporter(CheckpointHGExporter):
     def __init__(
-        self, output_dir: Path, file_system: FileSystem, thread_pool: ThreadPool
+        self,
+        output_dir: Path,
+        file_system: FileSystem,
+        process_runner: ProcessRunner,
+        thread_pool: ThreadPool,
     ) -> None:
         checkpoint_dir = output_dir.joinpath("checkpoints")
 
         self._checkpoint_dir = checkpoint_dir
         self._file_system = file_system
+        self._process_runner = process_runner
         self._thread_pool = thread_pool
         self._export_op: Future[None] | None = None
 
@@ -120,7 +125,9 @@ class OutOfProcCheckpointHGExporter(CheckpointHGExporter):
                     self._file_system.open_text(err_file, mode=FileMode.WRITE)
                 )
 
-                result = subprocess.run(args, stdout=out_fp, stderr=err_fp, env={})
+                result = self._process_runner.run_text(
+                    args, stdout=out_fp, stderr=err_fp, env={}
+                )
 
             if result.returncode != 0:
                 log.warning("Hugging Face export operation of step {} failed. See operation output at {}.", step_nr, err_file)  # fmt: skip

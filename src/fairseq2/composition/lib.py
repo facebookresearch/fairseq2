@@ -78,6 +78,7 @@ from fairseq2.utils.config import (
     StandardConfigProcessor,
 )
 from fairseq2.utils.env import Environment, StandardEnvironment, get_rank
+from fairseq2.utils.process import ProcessRunner, StandardProcessRunner
 from fairseq2.utils.progress import NOOP_PROGRESS_REPORTER, ProgressReporter
 from fairseq2.utils.rich import (
     RichProgressReporter,
@@ -190,6 +191,7 @@ def _register_library(
     container.register_type(ModelMetadataLoader, StandardModelMetadataLoader)
     container.register_type(ModelSharder, StandardModelSharder, singleton=True)
     container.register_type(ObjectValidator, StandardObjectValidator, singleton=True)
+    container.register_type(ProcessRunner, StandardProcessRunner)
     container.register_type(SafetensorsLoader, HuggingFaceSafetensorsLoader)
     container.register_type(
         SentencePieceModelLoader, StandardSentencePieceModelLoader, singleton=True
