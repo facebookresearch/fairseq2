@@ -9,7 +9,7 @@ from __future__ import annotations
 import weakref
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
-from typing import Final, cast, final
+from typing import Final, final
 
 from torch import Tensor
 from torch.nn import Module
