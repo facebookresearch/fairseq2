@@ -230,7 +230,7 @@ class GenericPromptDataset(PromptDataset):
         # copy original prompt text in the example to use it in the reward models etc.
         # user must specify f"{src_key}_text" in keep jsonl keys arg to keep pass it to batch
         def copy_prompt_text(example: dict[str, Any]) -> dict[str, Any]:
-            example[f"{src_key}_text"] = example[f"{src_key}"]
+            example["raw_prompt"] = example[f"{src_key}"]
             return example
 
         builder.map(copy_prompt_text, num_parallel_calls=npc)
