@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-import math
-
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -17,8 +15,6 @@ from fairseq2.models.olmo2.attention import OLMO2MultiheadAttention
 from fairseq2.models.olmo2.config import OLMO2Config
 from fairseq2.models.olmo2.decoder_layer import OLMO2TransformerLMDecoderLayer
 from fairseq2.models.olmo2.normalization import OLMO2RMSNorm
-from fairseq2.models.olmo2.rope import OLMO2RotaryEmbedding
-
 from fairseq2.models.transformer import (
     CausalAttentionBias,
     FeedForwardNetwork,
@@ -41,12 +37,12 @@ from fairseq2.nn import (
     Linear,
     PositionEncoder,
     Projection,
-    RotaryEncoder,
     ShardedEmbedding,
     StandardEmbedding,
     TiedProjection,
     VocabShardedEmbedding,
 )
+from fairseq2.nn.position_encoder import ReferenceRotaryEncoder
 
 
 def create_olmo2_model(config: OLMO2Config) -> TransformerLM:
@@ -131,12 +127,12 @@ class OLMO2Factory:
     def create_decoder(self) -> TransformerLMDecoder:
         config = self._config
 
-        rope_module = self.create_rope_module()
+        rope_encoder = self.create_rope_encoder()
 
         layers = []
 
         for idx in range(config.num_layers):
-            layer = self.create_decoder_layer(idx, rope_module)
+            layer = self.create_decoder_layer(idx, rope_encoder)
 
             layers.append(layer)
 
@@ -144,14 +140,20 @@ class OLMO2Factory:
 
         return StandardTransformerLMDecoder(layers, layer_norm)
 
-    def create_rope_module(self) -> OLMO2RotaryEmbedding:
-        """Create HuggingFace-style RoPE module for OLMO2."""
+    def create_rope_encoder(self) -> PositionEncoder:
+        """Create rotary encoder for OLMO2."""
         config = self._config
 
-        return OLMO2RotaryEmbedding(config)
+        head_dim = config.model_dim // config.num_attn_heads
+
+        return ReferenceRotaryEncoder(
+            head_dim,
+            config.max_seq_len,
+            theta=config.rope_theta,
+        )
 
     def create_decoder_layer(
-        self, layer_idx: int, rope_module: OLMO2RotaryEmbedding
+        self, layer_idx: int, rope_encoder: PositionEncoder
     ) -> TransformerLMDecoderLayer:
         """Create decoder layer with OLMO2-specific Post-Norm architecture.
 
@@ -163,7 +165,7 @@ class OLMO2Factory:
         """
         config = self._config
 
-        self_attn = self.create_self_attention(layer_idx, rope_module)
+        self_attn = self.create_self_attention(layer_idx, rope_encoder)
 
         self_attn_layer_norm = self.create_layer_norm()
 
@@ -180,7 +182,7 @@ class OLMO2Factory:
         )
 
     def create_self_attention(
-        self, layer_idx: int, rope_module: OLMO2RotaryEmbedding
+        self, layer_idx: int, rope_encoder: PositionEncoder
     ) -> MultiheadAttention:
         """Create self-attention layer with Q/K Norm and HuggingFace-style RoPE.
 
@@ -211,7 +213,7 @@ class OLMO2Factory:
             sdpa,
             num_key_value_heads=config.num_key_value_heads,
             qkv_proj_init_fn=init_projection,
-            rope_module=rope_module,
+            rope_encoder=rope_encoder,
             output_proj_init_fn=init_projection,
             bias=False,
             q_norm=q_norm,

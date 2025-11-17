@@ -10,11 +10,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-import torch
 from torch import Tensor
 
 from fairseq2.gang import Gangs
-from fairseq2.models.olmo2.rope import OLMO2RotaryEmbedding, apply_rotary_pos_emb
 from fairseq2.models.transformer import StandardMultiheadAttention
 from fairseq2.models.transformer.attention_bias import AttentionBiasCache
 from fairseq2.models.transformer.sdpa.base import SDPA
@@ -31,14 +29,9 @@ from fairseq2.device import Device
 
 
 class OLMO2MultiheadAttention(StandardMultiheadAttention):
-    """OLMO2 Multi-head Attention with Q/K normalization and HuggingFace-style RoPE.
+    """OLMO2 Multi-head Attention with Q/K normalization and reference rotary encoding."""
 
-    This class extends StandardMultiheadAttention to:
-    1. Apply Q/K normalization on the full projected dimensions (before splitting into heads)
-    2. Apply RoPE in the HuggingFace style (using rotate_half) instead of complex numbers
-    """
-
-    rope_module: OLMO2RotaryEmbedding | None
+    rope_encoder: PositionEncoder | None
 
     def __init__(
         self,
@@ -55,7 +48,7 @@ class OLMO2MultiheadAttention(StandardMultiheadAttention):
         qkv_proj_init_fn: Callable[[Linear], None] | None = None,
         q_norm: LayerNorm | None = None,
         k_norm: LayerNorm | None = None,
-        rope_module: OLMO2RotaryEmbedding | None = None,
+        rope_encoder: PositionEncoder | None = None,
         output_proj: Projection | None = None,
         output_proj_init_fn: Callable[[Linear], None] | None = None,
         bias: bool = True,
@@ -68,7 +61,7 @@ class OLMO2MultiheadAttention(StandardMultiheadAttention):
         """Initialize OLMO2 Multi-head Attention.
 
         Args:
-            rope_module: adapted from the HuggingFace-style RoPE module for applying rotary position embeddings.
+            rope_encoder: rotary encoder applied to queries and keys after projection.
             All other parameters are passed through to StandardMultiheadAttention.
         """
         super().__init__(
@@ -84,7 +77,7 @@ class OLMO2MultiheadAttention(StandardMultiheadAttention):
             qkv_proj_init_fn=qkv_proj_init_fn,
             q_norm=q_norm,
             k_norm=k_norm,
-            pos_encoder=None,  # We don't use pos_encoder, use rope_module instead
+            pos_encoder=None,  
             output_proj=output_proj,
             output_proj_init_fn=output_proj_init_fn,
             bias=bias,
@@ -95,7 +88,7 @@ class OLMO2MultiheadAttention(StandardMultiheadAttention):
             dtype=dtype,
         )
 
-        self.rope_module = rope_module
+        self.rope_encoder = rope_encoder
 
     def forward(
         self,
@@ -108,11 +101,7 @@ class OLMO2MultiheadAttention(StandardMultiheadAttention):
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
-        """Forward pass with HuggingFace-style RoPE application.
-
-        This overrides the parent forward to apply RoPE in the HuggingFace style
-        (using rotate_half) instead of the complex number approach.
-        """
+        """Forward pass with OLMO2 rotary encoding semantics."""
         # Project Q, K, V with normalization
         # Q: (N, S, K_proj) -> norm -> (N, S, H, K_h)
         q = self.q_proj(seqs)
@@ -128,28 +117,11 @@ class OLMO2MultiheadAttention(StandardMultiheadAttention):
         k = k.unflatten(-1, (-1, self.head_dim))
         v = v.unflatten(-1, (-1, self.head_dim))
 
-        # Apply RoPE using HuggingFace style
-        if self.rope_module is not None:
-            batch_size, seq_len = seqs.shape[:2]
-
-            # Create position IDs: (B, S)
-            position_ids = torch.arange(
-                seq_len, device=seqs.device, dtype=torch.long
-            ).unsqueeze(0).expand(batch_size, -1)
-
-            # Get cos/sin embeddings: (B, S, D)
-            cos, sin = self.rope_module(q, position_ids)
-
-            # Transpose Q, K to (B, H, S, D) for RoPE application
-            q = q.transpose(1, 2)  # (B, S, H, D) -> (B, H, S, D)
-            k = k.transpose(1, 2)  # (B, S, H, D) -> (B, H, S, D)
-
-            # Apply RoPE
-            q, k = apply_rotary_pos_emb(q, k, cos, sin)
-
-            # Transpose back to (B, S, H, D) for SDPA
-            q = q.transpose(1, 2)  # (B, H, S, D) -> (B, S, H, D)
-            k = k.transpose(1, 2)  # (B, H, S, D) -> (B, S, H, D)
+        # Apply rotary encoding via the shared encoder.
+        rope_encoder = self.rope_encoder
+        if rope_encoder is not None:
+            q = rope_encoder(q, seqs_layout, state_bag=state_bag)
+            k = rope_encoder(k, keys_layout, state_bag=state_bag)
 
         # Apply SDPA
         # q, k, v are all in (B, S, H, D) format
