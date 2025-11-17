@@ -557,7 +557,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         if vllm_outputs is None:
             vllm_outputs = [None] * len(prompt_batch.prompts)
 
-        text_prompts = prompt_batch.meta_info.get(self.prompt_key)
+        text_prompts = prompt_batch.meta_info.get(f"{self.src_key}_text")
         reference_answers = prompt_batch.meta_info.get(self.answer_key)
         for i, (i_batch_request_output, prompt_text) in enumerate(
             zip(vllm_outputs, text_prompts)
@@ -593,10 +593,6 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         # Log prompt_text, i_reference_answer, rollout_text, and per_rollout_reward together
         rollout_idx = 0
         for i, (prompt_text, i_reference_answer) in enumerate(zip(text_prompts, reference_answers)):
-            # Decode prompt_text if it's a tensor
-            if isinstance(prompt_text, torch.Tensor):
-                prompt_text = self.tokenizer.decode(prompt_text, skip_special_tokens=False)
-            
             for rollout_text in batch_text[i]:
                 per_rollout_reward = batch_rewards[rollout_idx]
                 

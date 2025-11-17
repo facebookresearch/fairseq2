@@ -189,7 +189,7 @@ class Trainer(Recipe):
         device_stat_tracker: DeviceStatTracker,
         wall_watch: Stopwatch,
         progress_reporter: ProgressReporter,
-        fp16_loss_scale: tuple[float, float] = (65536, 0.0001),
+        fp16_loss_scale: tuple[float, float] = (32000, 0.0001),
         no_sync_grad_accumulation: bool = False,
         max_grad_norm: float | None = None,
         grad_check: bool = False,
