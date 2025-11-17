@@ -1,12 +1,12 @@
 POINTWISE_J1_PROMPT = """
-You are given a user question and a response from an AI assistant. Your task is to act as an impartial judge and evaluate how well the response fulfills the user's instructions. You will be shown multiple responses to the same prompt, but only one at a time. Evaluate each response independently. 
+You are given a user question and a response from an AI assistant. Your task is to act as an impartial judge and evaluate how well the response fulfills the user's instructions. You will be shown multiple responses to the same prompt, but only one at a time. Evaluate each response independently.
 
-Think carefully about how to assess the quality of the response, and enclose your reasoning within <think> and </think> tags. Your reasoning should include your evaluation criteria, a clear understanding of what an ideal response would look like for this particular question, and a concrete example of such an ideal or reference answer if possible. Then compare the assistant's response to your ideal or reference answer, explaining how it aligns with or deviates from your expectations. Be specific and avoid vague or overly general judgments. Remain as objective as possible. 
+Think carefully about how to assess the quality of the response, and enclose your reasoning within <think> and </think> tags. Your reasoning should include your evaluation criteria, a clear understanding of what an ideal response would look like for this particular question, and a concrete example of such an ideal or reference answer if possible. Then compare the assistant's response to your ideal or reference answer, explaining how it aligns with or deviates from your expectations. Be specific and avoid vague or overly general judgments. Remain as objective as possible.
 
 Finally, assign the assistant's response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision. A higher score should indicate a higher-quality response. Enclose the score within <score> and </score> tags.
 
-Format your output like this: 
-<think> your_thinking_process </think> 
+Format your output like this:
+<think> your_thinking_process </think>
 <score> your_score </score>
 
 Below are the user's question and the assistant's response:
@@ -69,6 +69,26 @@ Below are the user's question and the two responses:
 [The Start of Assistant B's Answer]
 {response_B}
 [The End of Assistant B's Answer]
+"""
+
+SELF_AUGMENTING_PROMPT = """
+You are given a ground truth text, and a generated text from an AI assistant. Your task is to act as an impartial judge and evaluate how well the response matches the ground truth text. It doesn't have to match word for word, but it should be VERY similar.
+
+Think carefully about how to assess how well the generated text matches the ground truth. Your reasoning should include your evaluation criteria.
+
+Finally, assign the assistant's generation a binary score, either 0 or 1. A 0 indicates that the generated text does not match the ground truth text, and a 1 indicates that it matches very closely.
+
+Format your score as \\boxed{{SCORE}} where SCORE is either 0 or 1.
+
+Below are the ground truth text and the assistant's Generation:
+
+[Start of ground truth text]
+{ground_truth}
+[End of ground truth text]
+
+[Start of AI assistant's generation]
+{generation}
+[End of AI assistant's generation]
 """
 
 
@@ -248,6 +268,82 @@ class GeneralVerifierExtractor(JudgmentExtractor):
         return round(avg_score / len(judgments), 4)
 
 
+class SelfAugmentingExtractorHandler(JudgmentExtractorHandler):
+    def __init__(self):
+        pass
+
+    @override
+    def create(self):
+        return SelfAugmentingExtractor()
+
+    @property
+    @override
+    def name(self):
+        return "self_augmenting_extractor"
+
+    @property
+    @override
+    def config_kls(self):
+        return None
+
+
+class SelfAugmentingExtractor(JudgmentExtractor):
+    def __init__(
+        self,
+    ):
+        pass
+
+    @override
+    def prompt(self):
+        return SELF_AUGMENTING_PROMPT
+
+
+    def remove_think_tags(self, rollout_text):
+        tag = "</think>"
+        count = rollout_text.count(tag)
+        if count == 1:
+            # Find the position after the tag and return everything after it
+            index = rollout_text.find(tag) + len(tag)
+            return rollout_text[index:]
+        else:
+            return "" # set rollout to empty string if it doesn't contain thought or has multiple
+
+    @override
+    def format_prompt(self, tokenizer, prompt_text, rollout_text, reference_answer, dp_gangs):
+        # if dp_gangs.rank == 0
+        #     breakpoint()
+        # dp_gangs.root.barrier()
+
+        rollout_text = self.remove_think_tags(rollout_text)
+
+        content = self.prompt().format(ground_truth=reference_answer, generation=rollout_text)
+
+        # log.info(f"Judge prompt = {content}")
+        wrapped_text = [{"role": "user", "content": content}]
+        chat_str = tokenizer.apply_chat_template(
+            wrapped_text, tokenize=False, add_generation_prompt=True
+        )
+        return chat_str
+
+    @override
+    def extract(self, generation):
+        # pattern = r'\\boxed\{(-?\d+)\}'
+        pattern = r'\\boxed\{([01])\}'
+        match = re.search(pattern, generation)
+        if match:
+            score = float(match.group(1))
+        else:
+            score = 0.0
+        return score
+
+    @override
+    def aggregate(self, judgments):
+        avg_score = 0.0
+        for score in judgments:
+            avg_score += score
+
+        return round(avg_score / len(judgments), 4)
+
 class J1PointwiseExtractorHandler(JudgmentExtractorHandler):
     def __init__(self):
         pass
@@ -268,7 +364,9 @@ class J1PointwiseExtractorHandler(JudgmentExtractorHandler):
 
 
 class J1PointwiseExtractor(JudgmentExtractor):
-    def __init__(self):
+    def __init__(
+        self,
+    ):
         pass
 
     @override

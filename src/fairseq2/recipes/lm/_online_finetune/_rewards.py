@@ -6,12 +6,15 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
 import torch
+
+log = logging.getLogger(__name__)
 from transformers import AutoTokenizer
 from typing_extensions import override
 from vllm import LLM, CompletionOutput, RequestOutput, SamplingParams
@@ -209,27 +212,26 @@ class MathVerifyVerifier(VLLMOutputReward):
         self.prompt_key = prompt_key
         self.reward_name = reward_name
 
-        label_normalizer = NormalizationConfig(
-            basic_latex=True,
-            units=True,
-            malformed_operators=True,
-            nits=True,
-            boxed="none",
-            equations=False,
-        )
         self.verify_func = math_metric(
             gold_extraction_target=(
-                LatexExtractionConfig(normalization_config=label_normalizer),
+                ExprExtractionConfig(),
+                LatexExtractionConfig(boxed_match_priority=0),
             ),
-            pred_extraction_target=(LatexExtractionConfig(boxed_match_priority=0),),
+            pred_extraction_target=(
+                ExprExtractionConfig(),
+                LatexExtractionConfig(boxed_match_priority=0),
+            ),
             aggregation_function=max,
             precision=6,
         )
 
     def verify_answer(self, completion: str, answer: str):
         # here we add extra $$ to label so that LatexExtractor works as expected
-        if not answer.startswith("$"):
-            answer = f"${answer}$"
+        # if answer doesn't contain \\boxed, we add it
+        # if not answer.startswith("$"):
+        if "\\boxed" not in answer:
+            # answer = f"${answer}$"
+            answer = "\\boxed{" + answer + "}"
         try:
             with _mute_output():
                 grade, extracted_answers = self.verify_func([answer], [completion])
@@ -480,6 +482,7 @@ class AtheneVerifier(VLLMOutputReward):
         return batch, is_bad_batch, reward_output
 
 
+
 class GenerativePointwiseVerifierHandler(VLLMOutputRewardHandler):
     def __init__(self):
         pass
@@ -554,7 +557,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         if vllm_outputs is None:
             vllm_outputs = [None] * len(prompt_batch.prompts)
 
-        text_prompts = prompt_batch.meta_info.get(self.prompt_key)
+        text_prompts = prompt_batch.meta_info.get(f"{self.src_key}_text")
         reference_answers = prompt_batch.meta_info.get(self.answer_key)
         for i, (i_batch_request_output, prompt_text) in enumerate(
             zip(vllm_outputs, text_prompts)
@@ -566,7 +569,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
             for rollout_output in i_batch_request_output.outputs:
                 rollout_text = rollout_output.text
                 vllm_input = self.judgment_extractor.format_prompt(
-                    prompt_text, rollout_text, i_reference_answer
+                    self.tokenizer, prompt_text, rollout_text, i_reference_answer, self._gangs.dp
                 )
                 vllm_inputs.append(vllm_input)
                 rollouts_text.append(rollout_output.text)
@@ -586,6 +589,30 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
                 for judgment in per_rollout_judgments.outputs
             ]
             batch_rewards.append(self.judgment_extractor.aggregate(per_rollout_rewards))
+
+        # Log prompt_text, i_reference_answer, rollout_text, and per_rollout_reward together
+        rollout_idx = 0
+        for i, (prompt_text, i_reference_answer) in enumerate(zip(text_prompts, reference_answers)):
+            for rollout_text in batch_text[i]:
+                per_rollout_reward = batch_rewards[rollout_idx]
+                
+                # Split rollout_text into think and gen_suffix based on </think> token
+                think_tag = "</think>"
+                if think_tag in rollout_text:
+                    think_end_idx = rollout_text.find(think_tag) + len(think_tag)
+                    gen_think = rollout_text[:think_end_idx]
+                    gen_suffix = rollout_text[think_end_idx:]
+                else:
+                    gen_think = ""
+                    gen_suffix = rollout_text
+                
+                log.info("====================================================")
+                log.info(f"Prefix = {prompt_text}")
+                log.info(f"Think = {gen_think}")
+                log.info(f"[Gold Suffix Start]\n{i_reference_answer}\n[Gold Suffix End]")
+                log.info(f"[Gen Suffix Start]\n{gen_suffix}\n[Gen Suffix End]")
+                log.info(f"Score = {per_rollout_reward}")
+                rollout_idx += 1
 
         # reshape batch_rewards to [Batch, Rollouts]
         B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
