@@ -204,6 +204,8 @@ class OLMO2Factory:
             _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
 
         head_dim = config.model_dim // config.num_attn_heads
+        # OLMO2 uses Q/K norm on the full projection dimension (num_heads * head_dim)
+        # This differs from Qwen which uses norm on just head_dim
         q_norm = self.create_layer_norm(config.num_attn_heads * head_dim)
         k_norm = self.create_layer_norm(config.num_key_value_heads * head_dim)
 
@@ -213,11 +215,11 @@ class OLMO2Factory:
             sdpa,
             num_key_value_heads=config.num_key_value_heads,
             qkv_proj_init_fn=init_projection,
-            rope_encoder=rope_encoder,
-            output_proj_init_fn=init_projection,
-            bias=False,
             q_norm=q_norm,
             k_norm=k_norm,
+            pos_encoder=rope_encoder,
+            output_proj_init_fn=init_projection,
+            bias=False,
             gangs=self._gangs,
         )
 
@@ -298,6 +300,7 @@ class OLMO2Factory:
     def get_std_scale_factor(self, layer_idx: int) -> float:
         config = self._config
 
+        n: int
         match config.init_std_scale:
             case "layer":
                 n = layer_idx
@@ -310,7 +313,7 @@ class OLMO2Factory:
                     f"`config.init_std_scale` must be 'none', 'layer', or 'stack', but is '{config.init_std_scale}' instead."
                 )
 
-        return (2 * (n + 1)) ** 0.5
+        return float((2 * (n + 1)) ** 0.5)
 
 
 def _init_truncated_normal(
