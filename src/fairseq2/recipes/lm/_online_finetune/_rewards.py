@@ -556,7 +556,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         if vllm_outputs is None:
             vllm_outputs = [None] * len(prompt_batch.prompts)
 
-        text_prompts = prompt_batch.meta_info.get(self.prompt_key)
+        text_prompts = prompt_batch.meta_info.get("raw_prompt_text")
         reference_answers = prompt_batch.meta_info.get(self.answer_key)
         for i, (i_batch_request_output, prompt_text) in enumerate(
             zip(vllm_outputs, text_prompts)

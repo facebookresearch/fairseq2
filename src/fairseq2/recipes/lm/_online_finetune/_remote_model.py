@@ -21,6 +21,7 @@ from vllm import LLM, SamplingParams
 from vllm.engine.arg_utils import PoolerConfig
 from vllm.inputs import TokensPrompt, TextPrompt
 from vllm.utils import get_ip, get_open_port
+
 # from vllm.worker.worker import Worker
 
 from fairseq2.context import RuntimeContext
@@ -207,6 +208,8 @@ def maybe_sync_model(
     sync_every_n_steps: int,
     force_sync: bool = False,
 ):
+    if remote_model is None:
+        return
     if gangs.dp.rank == 0:
         _should_sync = should_sync(
             sync_every_n_steps, trainer_step_nr, remote_model.last_sync_step, force_sync
