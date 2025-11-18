@@ -20,8 +20,6 @@ from fairseq2.models.olmo2.hub import get_olmo2_model_hub as get_olmo2_model_hub
 from fairseq2.models.olmo2.interop import (
     convert_olmo2_state_dict as convert_olmo2_state_dict,
 )
-from fairseq2.models.olmo2.tokenizer import (
-    OlmoTokenizer as OlmoTokenizer,
-    OlmoTokenizerConfig as OlmoTokenizerConfig,
-    load_olmo_tokenizer as load_olmo_tokenizer,
-)
+from fairseq2.models.olmo2.tokenizer import OlmoTokenizer as OlmoTokenizer
+from fairseq2.models.olmo2.tokenizer import OlmoTokenizerConfig as OlmoTokenizerConfig
+from fairseq2.models.olmo2.tokenizer import load_olmo_tokenizer as load_olmo_tokenizer

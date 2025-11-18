@@ -13,7 +13,6 @@ from torch import Tensor
 from fairseq2.models.olmo2.config import OLMO2Config
 from fairseq2.models.utils.checkpoint import convert_state_dict
 
-
 _HG_KEY_MAP: Final = {
     # fmt: off
     r"^model\.layers\.([0-9]+)\.self_attn\.q_proj\.":                r"decoder.layers.\1.self_attn.q_proj.",

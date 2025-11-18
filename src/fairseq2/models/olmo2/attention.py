@@ -21,6 +21,8 @@ from typing import Any
 from torch import Tensor
 from typing_extensions import override
 
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.gang import Gangs
 from fairseq2.models.transformer import StandardMultiheadAttention
 from fairseq2.models.transformer.sdpa.base import SDPA
@@ -32,8 +34,6 @@ from fairseq2.nn import (
     PositionEncoder,
     Projection,
 )
-from fairseq2.data_type import DataType
-from fairseq2.device import Device
 
 
 class OLMO2MultiheadAttention(StandardMultiheadAttention):  # type: ignore[misc]
