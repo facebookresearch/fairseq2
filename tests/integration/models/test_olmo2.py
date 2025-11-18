@@ -57,8 +57,8 @@ def test_consistency(fs2_model, fs2_tokenizer, hf_model, hf_tokenizer):
 
     for text in test_texts:
         # fairseq2 pipeline
-        fs2_encoder = fs2_tokenizer.create_encoder(device=Device("cuda"))
-        fs2_token_ids = fs2_encoder(text)
+        fs2_encoder = fs2_tokenizer.create_encoder(mode="prompt", device=Device("cuda"))
+        fs2_token_ids = fs2_encoder(text).unsqueeze(0)
 
         # HuggingFace pipeline
         hf_inputs = hf_tokenizer(text, return_tensors="pt", padding=False)
