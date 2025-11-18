@@ -12,22 +12,22 @@ tokenizer_family: olmo2
 
 ---
 
-name: olmo2-0425-1B
+name: olmo2-0425-1b
 base: olmo2
-model_arch: 1b
+model_arch: olmo2-0425-1b
 
 ---
 
-name: olmo2-1124-7B
+name: olmo2-1124-7b
 base: olmo2
-model_arch: 7b
+model_arch: olmo2-1124-7b
 checkpoint: "hg://allenai/OLMo-2-1124-7B"
 tokenizer: "hg://allenai/OLMo-2-1124-7B"
 
 ---
 
-name: olmo2-1124-13B
+name: olmo2-1124-13b
 base: olmo2
-model_arch: 13b
+model_arch: olmo2-1124-13b
 checkpoint: "hg://allenai/OLMo-2-1124-13B"
 tokenizer: "hg://allenai/OLMo-2-1124-13B"

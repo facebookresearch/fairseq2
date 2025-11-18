@@ -147,15 +147,15 @@ def register_olmo2_configs(container: DependencyContainer) -> None:
     """Register OLMO2 model configurations."""
     arch = ConfigRegistrar(container, OLMO2Config)
 
-    @arch("1b")
-    def olmo_2_1b() -> OLMO2Config:
-        """OLMO2 1B model configuration."""
+    @arch("olmo2-0425-1b")
+    def olmo_2_0425_1b() -> OLMO2Config:
+        """OLMO2 0425 1B model configuration."""
         # All parameters are already defaults in OLMO2Config
         return OLMO2Config()
 
-    @arch("7b")
-    def olmo_2_7b() -> OLMO2Config:
-        """OLMO2 7B model configuration."""
+    @arch("olmo2-1124-7b")
+    def olmo_2_1124_7b() -> OLMO2Config:
+        """OLMO2 1124 7B model configuration."""
         config = OLMO2Config()
 
         # Override only the model size parameters that differ from 1B
@@ -168,9 +168,9 @@ def register_olmo2_configs(container: DependencyContainer) -> None:
 
         return config
 
-    @arch("13b")
-    def olmo_2_13b() -> OLMO2Config:
-        """OLMO2 13B model configuration."""
+    @arch("olmo2-1124-13b")
+    def olmo_2_1124_13b() -> OLMO2Config:
+        """OLMO2 1124 13B model configuration."""
         config = OLMO2Config()
 
         # Override only the model size parameters that differ from 1B
