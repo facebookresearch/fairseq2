@@ -482,7 +482,6 @@ class AtheneVerifier(VLLMOutputReward):
         return batch, is_bad_batch, reward_output
 
 
-
 class GenerativePointwiseVerifierHandler(VLLMOutputRewardHandler):
     def __init__(self):
         pass
@@ -557,7 +556,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         if vllm_outputs is None:
             vllm_outputs = [None] * len(prompt_batch.prompts)
 
-        text_prompts = prompt_batch.meta_info.get(f"{self.src_key}_text")
+        text_prompts = prompt_batch.meta_info.get(self.prompt_key)
         reference_answers = prompt_batch.meta_info.get(self.answer_key)
         for i, (i_batch_request_output, prompt_text) in enumerate(
             zip(vllm_outputs, text_prompts)
@@ -569,7 +568,11 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
             for rollout_output in i_batch_request_output.outputs:
                 rollout_text = rollout_output.text
                 vllm_input = self.judgment_extractor.format_prompt(
-                    self.tokenizer, prompt_text, rollout_text, i_reference_answer, self._gangs.dp
+                    self.tokenizer,
+                    prompt_text,
+                    rollout_text,
+                    i_reference_answer,
+                    self._gangs.dp,
                 )
                 vllm_inputs.append(vllm_input)
                 rollouts_text.append(rollout_output.text)
@@ -592,10 +595,12 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
 
         # Log prompt_text, i_reference_answer, rollout_text, and per_rollout_reward together
         rollout_idx = 0
-        for i, (prompt_text, i_reference_answer) in enumerate(zip(text_prompts, reference_answers)):
+        for i, (prompt_text, i_reference_answer) in enumerate(
+            zip(text_prompts, reference_answers)
+        ):
             for rollout_text in batch_text[i]:
                 per_rollout_reward = batch_rewards[rollout_idx]
-                
+
                 # Split rollout_text into think and gen_suffix based on </think> token
                 think_tag = "</think>"
                 if think_tag in rollout_text:
@@ -605,12 +610,13 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
                 else:
                     gen_think = ""
                     gen_suffix = rollout_text
-                
+
                 log.info("====================================================")
-                log.info(f"Prefix = {prompt_text}")
-                log.info(f"Think = {gen_think}")
-                log.info(f"[Gold Suffix Start]\n{i_reference_answer}\n[Gold Suffix End]")
-                log.info(f"[Gen Suffix Start]\n{gen_suffix}\n[Gen Suffix End]")
+                # log.info(f"Prefix = {prompt_text}")
+                log.info(f"[Think Start]\n{gen_think}\n[Think End]")
+                log.info(
+                    f"[Gold Suffix Start]\n{i_reference_answer}\n[Gold Suffix End]\n\n[Gen Suffix Start]\n{gen_suffix}\n[Gen Suffix End]"
+                )
                 log.info(f"Score = {per_rollout_reward}")
                 rollout_idx += 1
 

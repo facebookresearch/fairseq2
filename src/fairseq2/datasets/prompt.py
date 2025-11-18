@@ -232,8 +232,13 @@ class GenericPromptDataset(PromptDataset):
         def copy_prompt_text(example: dict[str, Any]) -> dict[str, Any]:
             example[f"{src_key}_text"] = example[f"{src_key}"]
             return example
+        
+        def copy_prompt_raw_text(example: dict[str, Any]) -> dict[str, Any]:
+            example[f"raw_prompt_text"] = example[f"{src_key}"]
+            return example
 
         builder.map(copy_prompt_text, num_parallel_calls=npc)
+        builder.map(copy_prompt_raw_text, num_parallel_calls=npc)
 
         # Encode source and target texts.
         source_encoder = tokenizer.create_encoder(mode=options.source_encode_mode)

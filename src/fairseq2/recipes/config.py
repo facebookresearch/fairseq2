@@ -165,7 +165,7 @@ class TrainerSection:
     max_grad_norm: float | None = None
     """The maximum gradient norm. If ``None``, no clipping will be applied."""
 
-    fp16_loss_scale: tuple[float, float] = (32000, 0.0001)
+    fp16_loss_scale: tuple[float, float] = (16, 0.0001)
     """The initial and minimum loss scale for fp16 training."""
 
     gc_every_n_steps: int | None = None
