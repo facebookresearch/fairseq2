@@ -28,7 +28,6 @@ def hf_model() -> transformers.AutoModelForCausalLM:
     model = transformers.AutoModelForCausalLM.from_pretrained(
         "allenai/OLMo-2-0425-1B",
         dtype=torch.float32,
-        device_map="cuda",
     )
     model.eval()
     return model
@@ -42,7 +41,7 @@ def hf_tokenizer() -> transformers.AutoTokenizer:
 @pytest.fixture(scope="module")
 def fs2_model() -> TransformerLM:
     hub = get_olmo2_model_hub()
-    model = hub.load_model(MODEL_NAME, device=Device("cuda"), dtype=torch.float32)
+    model = hub.load_model(MODEL_NAME, device=Device("cpu"), dtype=torch.float32)
     model.eval()
     return model
 
@@ -67,12 +66,12 @@ def test_consistency(
 
     for text in test_texts:
         # fairseq2 pipeline
-        fs2_encoder = fs2_tokenizer.create_encoder(mode="prompt", device=Device("cuda"))
+        fs2_encoder = fs2_tokenizer.create_encoder(mode="prompt", device=Device("cpu"))
         fs2_token_ids = fs2_encoder(text).unsqueeze(0)
 
         # HuggingFace pipeline
         hf_inputs = hf_tokenizer(text, return_tensors="pt", padding=False)
-        hf_token_ids = hf_inputs["input_ids"].cuda()
+        hf_token_ids = hf_inputs["input_ids"]
 
         with torch.no_grad():
             fs2_logits = fs2_model(fs2_token_ids, BatchLayout.of(fs2_token_ids)).float()
