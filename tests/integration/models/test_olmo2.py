@@ -9,12 +9,13 @@ import torch
 
 transformers = pytest.importorskip("transformers")
 
+from fairseq2.data.tokenizers import load_tokenizer
 from fairseq2.device import Device
 from fairseq2.models.olmo2 import get_olmo2_model_hub
 from fairseq2.nn import BatchLayout
 
 
-MODEL_NAME = "olmo2-0425-1B"
+MODEL_NAME = "olmo2-0425-1b"
 
 
 @pytest.fixture(scope="module")
@@ -41,7 +42,13 @@ def fs2_model():
     return model
 
 
-def test_consistency(hf_model, fs2_model, hf_tokenizer):
+@pytest.fixture(scope="module")
+def fs2_tokenizer():
+    return load_tokenizer(MODEL_NAME)
+
+
+def test_consistency(fs2_model, fs2_tokenizer, hf_model, hf_tokenizer):
+    """Test end-to-end inference using fairseq2's tokenizer and model."""
     test_texts = [
         "The capital of Germany is",
         "Once upon a time",
@@ -49,12 +56,17 @@ def test_consistency(hf_model, fs2_model, hf_tokenizer):
     ]
 
     for text in test_texts:
+        # fairseq2 pipeline
+        fs2_encoder = fs2_tokenizer.create_encoder(device=Device("cuda"))
+        fs2_token_ids = fs2_encoder(text)
+
+        # HuggingFace pipeline
         hf_inputs = hf_tokenizer(text, return_tensors="pt", padding=False)
-        input_ids = hf_inputs["input_ids"].cuda()
+        hf_token_ids = hf_inputs["input_ids"].cuda()
 
         with torch.no_grad():
-            hf_logits = hf_model(input_ids=input_ids).logits.float()
-            fs2_logits = fs2_model(input_ids, BatchLayout.of(input_ids)).float()
+            fs2_logits = fs2_model(fs2_token_ids, BatchLayout.of(fs2_token_ids)).float()
+            hf_logits = hf_model(input_ids=hf_token_ids).logits.float()
 
         assert torch.allclose(fs2_logits, hf_logits, atol=1e-4, rtol=1e-5), \
             f"Logits mismatch for '{text}'"
