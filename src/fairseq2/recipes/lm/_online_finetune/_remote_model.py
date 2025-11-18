@@ -21,7 +21,6 @@ from vllm import LLM, SamplingParams
 from vllm.engine.arg_utils import PoolerConfig
 from vllm.inputs import TokensPrompt, TextPrompt
 from vllm.utils import get_ip, get_open_port
-from vllm.worker.worker import Worker
 
 from fairseq2.context import RuntimeContext
 from fairseq2.gang import Gangs
