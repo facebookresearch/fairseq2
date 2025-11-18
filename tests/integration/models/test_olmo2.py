@@ -4,14 +4,20 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import TYPE_CHECKING
+
 import pytest
 import torch
 
 transformers = pytest.importorskip("transformers")
 
-from fairseq2.data.tokenizers import load_tokenizer
+if TYPE_CHECKING:
+    import transformers
+
+from fairseq2.data.tokenizers import Tokenizer, load_tokenizer
 from fairseq2.device import Device
 from fairseq2.models.olmo2 import get_olmo2_model_hub
+from fairseq2.models.transformer_lm import TransformerLM
 from fairseq2.nn import BatchLayout
 
 
@@ -19,7 +25,7 @@ MODEL_NAME = "olmo2-0425-1b"
 
 
 @pytest.fixture(scope="module")
-def hf_model():
+def hf_model() -> transformers.AutoModelForCausalLM:
     model = transformers.AutoModelForCausalLM.from_pretrained(
         "allenai/OLMo-2-0425-1B",
         dtype=torch.float32,
@@ -30,12 +36,12 @@ def hf_model():
 
 
 @pytest.fixture(scope="module")
-def hf_tokenizer():
+def hf_tokenizer() -> transformers.AutoTokenizer:
     return transformers.AutoTokenizer.from_pretrained("allenai/OLMo-2-0425-1B")
 
 
 @pytest.fixture(scope="module")
-def fs2_model():
+def fs2_model() -> TransformerLM:
     hub = get_olmo2_model_hub()
     model = hub.load_model(MODEL_NAME, device=Device("cuda"), dtype=torch.float32)
     model.eval()
@@ -43,11 +49,11 @@ def fs2_model():
 
 
 @pytest.fixture(scope="module")
-def fs2_tokenizer():
+def fs2_tokenizer() -> Tokenizer:
     return load_tokenizer(MODEL_NAME)
 
 
-def test_consistency(fs2_model, fs2_tokenizer, hf_model, hf_tokenizer):
+def test_consistency(fs2_model: TransformerLM, fs2_tokenizer: Tokenizer, hf_model: transformers.AutoModelForCausalLM, hf_tokenizer: transformers.AutoTokenizer) -> None:
     """Test end-to-end inference using fairseq2's tokenizer and model."""
     test_texts = [
         "The capital of Germany is",

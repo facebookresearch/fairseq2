@@ -6,22 +6,23 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Final, Literal
 
-from fairseq2.models.llama import LLaMAConfig
 from fairseq2.runtime.config_registry import ConfigRegistrar
 from fairseq2.runtime.dependency import DependencyContainer
 
 OLMO2_FAMILY: Final = "olmo2"
 
-@dataclass(kw_only=True)
-class OLMO2Config(LLaMAConfig):
-    """Holds the configuration of a OLMO2 model.
 
-    The default values correspond to the allenai/OLMo-2-0425-1B model base architecture as described in
-    :cite:`https://arxiv.org/abs/2501.00656`.
-    :https://huggingface.co/allenai/OLMo-2-0425-1B
+@dataclass(kw_only=True)
+class OLMO2Config:
+    """OLMO2 Transformer language model configuration.
+
+    Based on LLaMA architecture with the following key differences:
+    1. Uses post-normalization (LayerNorm after attention/FFN) instead of pre-normalization
+    2. Applies Q/K normalization in attention layers
+    3. Custom RMSNorm operation order (weight application before dtype casting)
     """
 
     model_dim: int = 2048
@@ -30,8 +31,8 @@ class OLMO2Config(LLaMAConfig):
     max_seq_len: int = 4096
     """The maximum sequence length."""
 
-    vocab_size: int = 100_352
-    """The size of the vocabulary."""
+    vocab_size: int = 100352
+    """The vocabulary size."""
 
     pad_idx: int = 100_277
     """The index of the PAD token in the vocabulary."""
@@ -46,10 +47,10 @@ class OLMO2Config(LLaMAConfig):
     """If ``True``, ties the embedding table and the output projection layer."""
 
     num_layers: int = 16
-    """The number of decoder layers."""
+    """The number of Transformer decoder layers."""
 
     num_attn_heads: int = 16
-    """The number of attention heads in decoder layers."""
+    """The number of attention heads."""
 
     num_key_value_heads: int = 16
     """The number of key/value heads for Grouped Query Attention.
@@ -89,18 +90,8 @@ class OLMO2Config(LLaMAConfig):
     use_scaled_rope: bool = False
     """If ``True``, scales Rotary encoder frequencies to the resolver length."""
 
-    rope_scale: bool | None = None
-    # OlmoRoPEScaleConfig = field(
-    #    default_factory=lambda: OlmoRoPEScaleConfig()
-    #)
-    """
-    If not ``None``, specifies scaling parameters for the Rotary position
-    encoder, aiming to increase the resolver length.
-    """
-
     dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""
-
 
     #TODO check the init_std == initializer_range?
     init_std: float | None = None
@@ -119,7 +110,7 @@ class OLMO2Config(LLaMAConfig):
     """
 
     #TODO check if it is used in olmo
-    # shard_embed_dim: bool = False
+    shard_embed_dim: bool = False
     """If ``True``, shards the embedding dimension for tensor parallelism."""
 
 
@@ -158,10 +149,8 @@ def register_olmo2_configs(container: DependencyContainer) -> None:
         """OLMO2 1124 7B model configuration."""
         config = OLMO2Config()
 
-        # Override only the model size parameters that differ from 1B
         config.model_dim = 4096
         config.ffn_inner_dim = 11008
-
         config.num_layers = 32
         config.num_attn_heads = 32
         config.num_key_value_heads = 32
@@ -173,10 +162,8 @@ def register_olmo2_configs(container: DependencyContainer) -> None:
         """OLMO2 1124 13B model configuration."""
         config = OLMO2Config()
 
-        # Override only the model size parameters that differ from 1B
         config.model_dim = 5120
         config.ffn_inner_dim = 13824
-
         config.num_layers = 40
         config.num_attn_heads = 40
         config.num_key_value_heads = 40
