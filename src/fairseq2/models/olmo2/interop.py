@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from typing import Final, cast
 
-from torch import Tensor
-
 from fairseq2.models.olmo2.config import OLMO2Config
 from fairseq2.models.utils.checkpoint import convert_state_dict
 
