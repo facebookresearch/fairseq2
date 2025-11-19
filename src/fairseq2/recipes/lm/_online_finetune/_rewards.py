@@ -7,32 +7,35 @@
 from __future__ import annotations
 
 import logging
+import math
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 import torch
-
-log = logging.getLogger(__name__)
-from transformers import AutoTokenizer
-from typing_extensions import override
-from vllm import LLM, CompletionOutput, RequestOutput, SamplingParams
-
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gangs
+from fairseq2.logging import log as fs2_log
 from fairseq2.recipes.lm._online_finetune._common import (
     _mute_output,
     collate_with_target_mask,
     generate_rewards,
     generate_rewards_generative,
+    generate_rollouts,
     prepare_preference_batch_random_pair,
 )
 from fairseq2.recipes.lm._online_finetune._generative_judge import (
     JudgmentExtractorHandler,
 )
+from transformers import AutoTokenizer
+from typing_extensions import override
+from vllm import CompletionOutput, LLM, RequestOutput, SamplingParams
+
+log = logging.getLogger(__name__)
+# fs2_log._logger.setLevel(logging.DEBUG)
 
 
 @dataclass(kw_only=True)
@@ -41,6 +44,7 @@ class RewardModelConfig:
     prompt_key: str = "prompt"
     tokenizer: str | None = None
     judgment_extractor: str | None = None
+    additional_fields: Dict[str, Any] | None = None
 
 
 @dataclass(kw_only=True)
@@ -865,7 +869,6 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
         for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
             zip(reward_output["rewards"], reward_output["tokens"])
         ):
-
             chosen_rollout_position = i_batch_rewards.index(max(i_batch_rewards))
             rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards))
 
@@ -927,3 +930,391 @@ class GenerativePairwiseVerifier(VLLMOutputReward):
         )
 
         return batch, is_bad_batch, reward_output
+
+
+class PplDerivedVerifierHandler(VLLMOutputRewardHandler):
+    def __init__(self):
+        pass
+
+    @override
+    def create(
+        self,
+        reward_model: Any,
+        reward_name: str,
+        reward_config: object,
+        gangs: Gangs,
+        context,
+    ) -> VLLMOutputReward:
+        assert (
+            reward_config.tokenizer is not None
+        ), "Ppl Drived Verifier requires a tokenizer"
+
+        return PplDerivedVerifier(
+            gangs,
+            context,
+            reward_model,
+            reward_name,
+            # judgment_extractor=reward_config.judgment_extractor,
+            prompt_key=reward_config.prompt_key,
+            answer_key=reward_config.answer_key,
+            tokenizer=reward_config.tokenizer,
+            reward_type=reward_config.additional_fields.get("reward_type"),
+            completion_window=reward_config.additional_fields.get(
+                "completion_window", 100
+            ),
+            n_reason_mask=reward_config.additional_fields.get("n_reason_mask", 0),
+            wrap_think_tags=reward_config.additional_fields.get(
+                "wrap_think_tags", True
+            ),
+        )
+
+    @property
+    @override
+    def name(self) -> str:
+        return "ppl_derived_verifier"
+
+    @property
+    @override
+    def config_kls(self):
+        return None
+
+
+class PplDerivedVerifier(VLLMOutputReward):
+    def __init__(
+        self,
+        gangs,
+        context,
+        reward_model,
+        reward_name,
+        prompt_key,
+        answer_key,
+        tokenizer,
+        reward_type,
+        completion_window,
+        n_reason_mask,
+        wrap_think_tags,
+        reason_start_wrap_key="reason_start_wrap",
+        reason_end_wrap_key="reason_end_wrap",
+    ):
+        self.prompt_key = prompt_key
+        self.answer_key = answer_key
+        self._gangs = gangs
+        self._context = context
+        self.reward_model = reward_model
+        self.reward_name = reward_name
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
+        self.reward_type = reward_type
+        self.apply_diff_reward = "diff" in self.reward_type
+        self.completion_window = completion_window
+        self.n_reason_mask = n_reason_mask
+        self.reason_start_wrap_key = reason_start_wrap_key
+        self.reason_end_wrap_key = reason_end_wrap_key
+        self.wrap_think_tags = wrap_think_tags
+        self.enable_human_friendly_log = False
+
+    def _preprocess_reward_input(
+        self,
+        prefix: List[int] | str,
+        reason: Optional[str],
+        completion: str,
+        n_prefix_truncate: Optional[int] = None,
+        completion_window: int = 100,
+        # if this is not None, we mask n_reason_mask tokens where we generate
+        # the rollouts and compute reward on future tokens after them. i.e.
+        # changing from next token reasoning -> future token reasoning
+        completion_fmt: str = "{completion}",
+        reason_fmt: str = "{reason}{reason_end_wrap}",
+        reason_start_wrap: Optional[str] = None,
+        reason_end_wrap: Optional[str] = None,
+    ):
+        # no reasoning augmented.
+        prefix_text: str = (
+            prefix
+            if isinstance(prefix, str)
+            else self.tokenizer.decode(prefix, add_special_token=False)
+        )
+        if reason is None or not self.wrap_think_tags:
+            prefix_text = (
+                prefix_text.removesuffix(" <think>").removesuffix("<think>")
+                if reason_start_wrap is None
+                else prefix_text.removesuffix(reason_start_wrap)
+            )
+        if reason is None:
+            reason_text = None
+        else:
+            reason_end_wrap = reason_end_wrap or "</think>"
+            reason_text: str = reason_fmt.format(
+                reason=reason,
+                reason_end_wrap=reason_end_wrap if self.wrap_think_tags else "",
+            )
+        completion_text: str = completion_fmt.format(completion=completion)
+
+        # add whitespace if no whitespace between prefix and following text.
+        text_after_prefix: str = (
+            reason_text
+            if ((reason_text is not None) and len(reason_text) > 0)
+            else completion_text
+        )
+        if not (prefix_text[-1].isspace() or text_after_prefix[0].isspace()):
+            prefix_text += " "
+
+        # add whitespace to reason if needed
+        if reason_text and (
+            not (reason_text[-1].isspace() or completion_text[0].isspace())
+        ):
+            reason_text += " "
+
+        prefix_tokens = self.tokenizer.encode(prefix_text, add_special_tokens=False)
+        n_prefix_tokens: int = len(prefix_tokens)
+        n_prefix_truncate = (
+            n_prefix_tokens
+            if n_prefix_truncate is None
+            else min(n_prefix_truncate, n_prefix_tokens)
+        )
+        completion_tokens = self.tokenizer.encode(
+            completion_text, add_special_tokens=False
+        )
+        if reason is None:
+            text_tokens = prefix_tokens + completion_tokens
+            n_input_tokens = n_prefix_truncate + self.n_reason_mask
+            # prefix + groundtruth at masked positions -> future tokens
+            n_input_tokens_all = n_prefix_tokens + self.n_reason_mask
+        else:
+            reason_tokens = self.tokenizer.encode(reason_text, add_special_tokens=False)
+            text_tokens = (
+                prefix_tokens + reason_tokens + completion_tokens[self.n_reason_mask :]
+            )
+            n_input_tokens = n_prefix_truncate + len(reason_tokens)
+            n_input_tokens_all = n_prefix_tokens + len(reason_tokens)
+
+        text_tokens = text_tokens[
+            n_input_tokens_all - n_input_tokens : n_input_tokens_all + completion_window
+        ]
+        return text_tokens, n_input_tokens
+
+    def extract_reward(self, prompt_logprobs: List[Any], prompt_len: int) -> float:
+        completion_logprobs = prompt_logprobs[prompt_len:]
+        completion_logprobs_vals = [
+            list(d.values())[0].logprob for d in completion_logprobs
+        ]  # TODO: douable check we skip the first None
+        mean_logp = sum(completion_logprobs_vals) / len(completion_logprobs_vals)
+        if self.reward_type.startswith("logp"):
+            return mean_logp
+        elif self.reward_type.startswith("ppl"):
+            return -math.exp(-mean_logp)
+        else:
+            raise NotImplementedError
+
+    def aggregate(self, rewards):
+        if self.apply_diff_reward:
+            if self.reward_type.endswith("diff"):
+                return [
+                    reward - rewards[0] for reward in rewards[1:]
+                ]  # NOTE: order is without reasoning augmentation, with reasoning augmentation -ppl
+            elif self.reward_type.endswith("diff_percent"):
+                return [
+                    (reward - rewards[0]) / (-rewards[0]) * 100
+                    for reward in rewards[1:]
+                ]
+            else:
+                raise NotImplementedError
+        else:
+            return rewards  # reason augmented case: -ppl as reward
+
+    def _log_human_friendly(
+        self,
+        B,
+        tokenizer,
+        rm_vllm_inputs,  # flatten
+        all_input_tok_lens,  # flatten
+        rewards,  # flatten
+        rm_rollouts,  # flatten
+    ):
+        assert (
+            len(rm_vllm_inputs) == len(all_input_tok_lens)
+            and len(all_input_tok_lens) == len(rewards)
+            and len(rewards) == len(rm_rollouts)
+        )
+        N = len(rm_vllm_inputs)
+        ex_n = N // B
+        # group into a 2d list with the first dim equals B
+        rm_vllm_inputs_batch = [
+            rm_vllm_inputs[i * ex_n : (i + 1) * ex_n] for i in range(B)
+        ]
+        input_tok_lens_batch = [
+            all_input_tok_lens[i * ex_n : (i + 1) * ex_n] for i in range(B)
+        ]
+        rewards_batch = [rewards[i * ex_n : (i + 1) * ex_n] for i in range(B)]
+        rm_rollouts_batch = [rm_rollouts[i * ex_n : (i + 1) * ex_n] for i in range(B)]
+
+        for example_i, (
+            ex_rm_vllm_inputs,
+            ex_input_tok_lens,
+            ex_rewards,
+            ex_rm_rollouts,
+        ) in enumerate(
+            zip(
+                rm_vllm_inputs_batch,
+                input_tok_lens_batch,
+                rewards_batch,
+                rm_rollouts_batch,
+            )
+        ):
+            fs2_log.info("=" * 6 + f"example {example_i} summary" + "=" * 6)
+            for i, (tokens, prefix_len, rm_rollout, reward) in enumerate(
+                zip(ex_rm_vllm_inputs, ex_input_tok_lens, ex_rm_rollouts, ex_rewards)
+            ):  # individual rollouts
+                fs2_log.info("-" * 6 + f"prefix {i}" + "-" * 6)
+                fs2_log.info(
+                    tokenizer.decode(tokens[:prefix_len], skip_special_tokens=True)
+                    + "^"
+                )
+                if self.n_reason_mask > 0 and i == 0:
+                    fs2_log.info("-" * 6 + f"masked tokens groundtruth {i}" + "-" * 6)
+                    fs2_log.info(
+                        tokenizer.decode(
+                            tokens[prefix_len - self.n_reason_mask : prefix_len],
+                            skip_special_tokens=True,
+                        )
+                    )
+                fs2_log.info("-" * 6 + f"completion window {i}" + "-" * 6)
+                fs2_log.info(
+                    "$"
+                    + tokenizer.decode(tokens[prefix_len:], skip_special_tokens=True)
+                )
+                completion_logprobs = rm_rollout.prompt_logprobs[prefix_len:]
+                completion_logprobs_vals: List[float] = [
+                    list(d.values())[0].logprob for d in completion_logprobs
+                ]
+                fs2_log.info("-" * 6 + f"completion logprobs {i}" + "-" * 6)
+                fs2_log.info(str(completion_logprobs_vals))
+                completion_logprobs = [list(d.values())[0] for d in completion_logprobs]
+                fs2_log.info("-" * 6 + f"completion token logprobs {i}" + "-" * 6)
+                fs2_log.info(str(completion_logprobs))
+                fs2_log.info("-" * 6 + f"reward {i}" + "-" * 6)
+                fs2_log.info(reward)
+            fs2_log.info("-" * 6 + "all rewards in example" + "-" * 6)
+            fs2_log.info(ex_rewards)
+
+    def _maybe_log_vllm_policy_outputs(self, vllm_outputs) -> None:
+        if fs2_log.is_enabled_for_debug():
+            fs2_log.debug("prompt token ids:")
+            for i, vllm_output in enumerate(vllm_outputs):
+                fs2_log.debug(f"prompt_token_id {i} = {vllm_output.prompt_token_ids}")
+                for j, output in enumerate(vllm_output.outputs):
+                    fs2_log.debug(f"output text {i}.{j} = {output.text}")
+                    fs2_log.debug(f"output token_ids {i}.{j} = {output.token_ids}")
+                    fs2_log.debug(f"output finish_reason {i}.{j} = {output.finish_reason}")
+                    fs2_log.debug(f"output stop_reason {i}.{j} = {output.stop_reason}")
+
+    @override
+    def process_rollouts(
+        self,
+        vllm_outputs: list[RequestOutput],
+        prompt_batch: PromptBatch,
+    ):
+        all_input_tok_lens = []
+        vllm_inputs = []
+        batch_text = []
+        batch_tokens = []
+
+        if vllm_outputs is None:
+            vllm_outputs = [None] * len(prompt_batch.prompts)
+
+        prefix_batch = prompt_batch.meta_info.get(self.prompt_key)
+        completion_batch = prompt_batch.meta_info.get(self.answer_key)
+        reason_start_wrap_batch = prompt_batch.meta_info.get(
+            self.reason_start_wrap_key, len(prompt_batch.prompts) * [None]
+        )
+        reason_end_wrap_batch = prompt_batch.meta_info.get(
+            self.reason_end_wrap_key, len(prompt_batch.prompts) * [None]
+        )
+
+        self._maybe_log_vllm_policy_outputs(vllm_outputs)
+        fs2_log.debug(f"{completion_batch=}")
+
+        for prefix, vllm_output, completion, reason_start_wrap, reason_end_wrap in zip(
+            prefix_batch,
+            vllm_outputs,
+            completion_batch,
+            reason_start_wrap_batch,
+            reason_end_wrap_batch,
+        ):
+            rollouts_text = []
+            rollouts_tokens = []
+
+            # case where no reasoning is augmented
+            if self.apply_diff_reward:
+                text_tokens, n_input_tokens = self._preprocess_reward_input(
+                    prefix,
+                    None,
+                    completion,
+                    completion_window=self.completion_window,
+                    reason_start_wrap=reason_start_wrap,
+                    reason_end_wrap=reason_end_wrap,
+                )
+                # fs2_log.debug(f"{text_tokens=}, {n_input_tokens=}")
+                all_input_tok_lens.append(n_input_tokens)
+                vllm_inputs.append(text_tokens)
+
+            for rollout_output in vllm_output.outputs:  # reasoning in rollouts
+                text_tokens, n_input_tokens = self._preprocess_reward_input(
+                    prefix,
+                    rollout_output.text,
+                    completion,
+                    completion_window=self.completion_window,
+                    reason_start_wrap=reason_start_wrap,
+                    reason_end_wrap=reason_end_wrap,
+                )
+                # fs2_log.debug(f"{text_tokens=}, {n_input_tokens=}")
+                all_input_tok_lens.append(n_input_tokens)
+                vllm_inputs.append(text_tokens)
+                rollouts_text.append(rollout_output.text)
+                rollouts_tokens.append(rollout_output.token_ids)
+
+            batch_text.append(rollouts_text)
+            batch_tokens.append(rollouts_tokens)
+        fs2_log.debug(f"rm {vllm_inputs=}")
+        fs2_log.debug(f"{all_input_tok_lens=}")
+
+        rm_sampling_params = {
+            "n": 1,
+            "max_tokens": 1,
+            "prompt_logprobs": 0,
+            "detokenize": self.enable_human_friendly_log,
+        }
+        rollouts = generate_rollouts(
+            vllm_inputs,
+            dp_gang=self._gangs.dp,
+            vllm_model=self.reward_model,
+            sampling_params=SamplingParams(**rm_sampling_params),
+        )
+
+        curr_rewards = [
+            self.extract_reward(rollout.prompt_logprobs, prompt_len=input_len)
+            for rollout, input_len in zip(rollouts, all_input_tok_lens)
+        ]
+        fs2_log.info(f"{curr_rewards=}")
+
+        batch_rewards = self.aggregate(curr_rewards)
+        fs2_log.info(f"{batch_rewards=}")
+
+        # reshape batch_rewards to [Batch, Rollouts]
+        B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
+        batch_rewards = [batch_rewards[i * R : (i + 1) * R] for i in range(B)]
+        if self.enable_human_friendly_log:
+            self._log_human_friendly(
+                B,
+                self.tokenizer,
+                vllm_inputs,
+                all_input_tok_lens,
+                curr_rewards,
+                rollouts,
+            )
+
+        return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
+
+    def prepare_preference_batch(
+        self, prompt_batch: PromptBatch, rollouts
+    ) -> PreferenceBatch:
+        pass
