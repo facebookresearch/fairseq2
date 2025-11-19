@@ -9,21 +9,29 @@
 from __future__ import annotations
 
 from typing import Optional
-from torch.nn import Module
 
+from torch.nn import Module
 from transformers import PreTrainedModel
+
 from fairseq2.nn.fsdp import FSDPWrapper
 
 
-def get_auto_wrap_policy(model, wrapper: FSDPWrapper, transformer_cls_names_to_wrap: Optional[list[str]] = None) -> list[str]:
+def get_transformer_cls_names_to_wrap(
+    model,
+    transformer_cls_names_to_wrap: Optional[list[str]] = None,
+) -> list[str]:
     no_split_modules = getattr(model, "_no_split_modules", None)
-    default_transformer_cls_names_to_wrap = list(no_split_modules) if no_split_modules is not None else []
+    default_transformer_cls_names_to_wrap = (
+        list(no_split_modules) if no_split_modules is not None else []
+    )
     if transformer_cls_names_to_wrap is None:
         transformer_cls_names_to_wrap = default_transformer_cls_names_to_wrap
     return transformer_cls_names_to_wrap
 
 
-def replace_layers(model, transformer_cls_to_wrap: set[str], wrapper: FSDPWrapper) -> None:
+def replace_layers(
+    model, transformer_cls_to_wrap: set[str], wrapper: FSDPWrapper
+) -> None:
     for name, module in model.named_children():
         if len(list(module.children())) > 0:
             replace_layers(module, transformer_cls_to_wrap, wrapper)
@@ -34,11 +42,11 @@ def replace_layers(model, transformer_cls_to_wrap: set[str], wrapper: FSDPWrappe
 def apply_fsdp_to_hg_transformer_lm(
     model: PreTrainedModel, granularity: str, wrapper: FSDPWrapper
 ) -> Module:
-    transformer_cls_names_to_wrap = get_auto_wrap_policy(
+    transformer_cls_names_to_wrap = get_transformer_cls_names_to_wrap(
         model,
-        wrapper,
-        # TODO: make this configurable!
-        transformer_cls_names_to_wrap=["Qwen2_5OmniDecoderLayer", "Qwen2_5OmniVisionBlock", "Qwen2_5OmniAudioEncoderLayer"]
+        # NOTE: to override this, need to register and override this
+        # apply_fsdp in the new model family
+        transformer_cls_names_to_wrap=None,
     )
     replace_layers(model, set(transformer_cls_names_to_wrap), wrapper)
     return model
