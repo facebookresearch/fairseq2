@@ -73,6 +73,7 @@ class GRPOBatch:
     prompt_lengths: list[int]
     rewards: torch.Tensor
 
+
 def clip_outputs_at_think_token(rollouts, tokenizer, think_tokens, answer_len=64):
     """
     Clip token_ids and logprobs at the </think> token sequence start,
@@ -98,7 +99,7 @@ def clip_outputs_at_think_token(rollouts, tokenizer, think_tokens, answer_len=64
 
             # Search for the think tokens sequence in token_ids
             for i in range(len(output.token_ids) - think_token_len + 1):
-                if output.token_ids[i:i + think_token_len] == think_tokens:
+                if output.token_ids[i : i + think_token_len] == think_tokens:
                     clip_index = i + answer_len
                     break
 
@@ -125,7 +126,7 @@ def clip_outputs_at_think_token(rollouts, tokenizer, think_tokens, answer_len=64
                     cumulative_logprob=cumulative_logprob,
                     logprobs=clipped_logprobs,
                     finish_reason=output.finish_reason,
-                    stop_reason=output.stop_reason
+                    stop_reason=output.stop_reason,
                 )
                 clipped_outputs.append(clipped_output)
             else:
@@ -136,7 +137,7 @@ def clip_outputs_at_think_token(rollouts, tokenizer, think_tokens, answer_len=64
         clipped_rollout = type(rollout)(
             outputs=clipped_outputs,
             # Copy other attributes from original rollout
-            **{k: v for k, v in vars(rollout).items() if k != 'outputs'}
+            **{k: v for k, v in vars(rollout).items() if k != "outputs"},
         )
         ret.append(clipped_rollout)
 
@@ -168,7 +169,7 @@ def clip_outputs_after_think_token(rollouts, tokenizer, think_tokens, num_tokens
 
             # Search for the think tokens sequence in token_ids
             for i in range(len(output.token_ids) - think_token_len + 1):
-                if output.token_ids[i:i + think_token_len] == think_tokens:
+                if output.token_ids[i : i + think_token_len] == think_tokens:
                     # Clip to include everything up to and including </think> plus num_tokens after
                     clip_index = i + think_token_len + num_tokens
                     break
@@ -196,7 +197,7 @@ def clip_outputs_after_think_token(rollouts, tokenizer, think_tokens, num_tokens
                     cumulative_logprob=cumulative_logprob,
                     logprobs=clipped_logprobs,
                     finish_reason=output.finish_reason,
-                    stop_reason=output.stop_reason
+                    stop_reason=output.stop_reason,
                 )
                 clipped_outputs.append(clipped_output)
             else:
@@ -207,7 +208,7 @@ def clip_outputs_after_think_token(rollouts, tokenizer, think_tokens, num_tokens
         clipped_rollout = type(rollout)(
             outputs=clipped_outputs,
             # Copy other attributes from original rollout
-            **{k: v for k, v in vars(rollout).items() if k != 'outputs'}
+            **{k: v for k, v in vars(rollout).items() if k != "outputs"},
         )
         ret.append(clipped_rollout)
 
@@ -279,7 +280,6 @@ def prepare_grpo_batch(
     return grpo_batch
 
 
-
 @final
 class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     """Represents the language model DPO-finetuning unit with online generations. Paper: https://arxiv.org/abs/2305.18290."""
@@ -318,8 +318,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 config.loss_config.group_size / config.loss_config.forward_group_size
             )
         )
-
-        self._tokenizer = AutoTokenizer.from_pretrained("/checkpoint/ram/jacklanchantin/pretrained-llms/Qwen3-8B-Base/") # FIXME can't hardcode
 
         self._display_name = "GRPO"
 
@@ -381,12 +379,11 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         # returning dummy loss since trainer expects it
         return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
 
-
     @override
     def __call__(
         self, prompt_batch: PromptBatch, metric_bag: MetricBag
     ) -> tuple[Tensor, int]:
-        
+
         # if self._gangs.root.rank == 0:
         #     breakpoint()
         # self._gangs.root.barrier()
@@ -426,19 +423,30 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             #     breakpoint()
             # self._gangs.root.barrier()
             if self._config.clip_rollout_after_think is not None:
+                self._tokenizer = AutoTokenizer.from_pretrained(
+                    "/checkpoint/ram/jacklanchantin/pretrained-llms/Qwen3-8B-Base/"
+                )  # FIXME can't hardcode
                 #     tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
                 # self._gangs.dp.barrier()
                 clip_length = self._config.clip_rollout_after_think
-                prompt_batch.meta_info['suffix'] = [
-                    self._tokenizer.decode(self._tokenizer.encode(text, add_special_tokens=False)[:clip_length])
-                    for text in prompt_batch.meta_info.get('suffix')
+                prompt_batch.meta_info["suffix"] = [
+                    self._tokenizer.decode(
+                        self._tokenizer.encode(text, add_special_tokens=False)[
+                            :clip_length
+                        ]
+                    )
+                    for text in prompt_batch.meta_info.get("suffix")
                 ]
-                prompt_batch.meta_info['suffix_ids'] = [
+                prompt_batch.meta_info["suffix_ids"] = [
                     self._tokenizer.encode(text, add_special_tokens=False)[:clip_length]
-                    for text in prompt_batch.meta_info.get('suffix')
+                    for text in prompt_batch.meta_info.get("suffix")
                 ]
-                think_tokens = self._tokenizer.encode("</think>", add_special_tokens=False)
-                rollouts = clip_outputs_after_think_token(rollouts, self._tokenizer, think_tokens, clip_length)
+                think_tokens = self._tokenizer.encode(
+                    "</think>", add_special_tokens=False
+                )
+                rollouts = clip_outputs_after_think_token(
+                    rollouts, self._tokenizer, think_tokens, clip_length
+                )
             if self._config.loss_config.log_rollouts:
                 log_rollouts(prompt_batch, rollouts, "Train")
 
@@ -481,7 +489,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         vllm_logps = get_vllm_logprobs(
             rollouts, model_logps, self._gangs, rollout_start_end=rollout_window
         ).to(model_logps.device)
-        
+
         # Debug logging
         if self._gangs.dp.rank == 0:
             log.info(f"Reward name: {self._config.reward.name}")
@@ -489,9 +497,17 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             log.info(f"vllm_logps shape: {vllm_logps.shape}")
             # Check rollout tokens vs reward_output tokens
             if len(rollouts) > 0 and len(rollouts[0].outputs) > 0:
-                log.info(f"Rollout token count (first output): {len(rollouts[0].outputs[0].token_ids)}")
-            if "tokens" in reward_output and len(reward_output["tokens"]) > 0 and len(reward_output["tokens"][0]) > 0:
-                log.info(f"Reward output token count (first): {len(reward_output['tokens'][0][0])}")
+                log.info(
+                    f"Rollout token count (first output): {len(rollouts[0].outputs[0].token_ids)}"
+                )
+            if (
+                "tokens" in reward_output
+                and len(reward_output["tokens"]) > 0
+                and len(reward_output["tokens"][0]) > 0
+            ):
+                log.info(
+                    f"Reward output token count (first): {len(reward_output['tokens'][0][0])}"
+                )
 
         if vllm_logps.size(0) != model_logps.size(0):
             raise RuntimeError(
@@ -604,8 +620,12 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         if self._config.loss_config.tis_imp_ratio_cap > 0:
             # Debug: Log shapes before computing tis_imp_ratio
             if model_logps.shape != vllm_logps.shape:
-                log.error(f"Shape mismatch! model_logps: {model_logps.shape}, vllm_logps: {vllm_logps.shape}")
-                log.error(f"Reward name: {self._config.reward.name}, clip_rollout_after_think: {self._config.clip_rollout_after_think}")
+                log.error(
+                    f"Shape mismatch! model_logps: {model_logps.shape}, vllm_logps: {vllm_logps.shape}"
+                )
+                log.error(
+                    f"Reward name: {self._config.reward.name}, clip_rollout_after_think: {self._config.clip_rollout_after_think}"
+                )
                 # Also log info about rollouts and reward_output
                 log.error(f"batch_size: {batch_size}, num_rollouts: {num_rollouts}")
             tis_imp_ratio = torch.exp(model_logps - vllm_logps)
@@ -729,7 +749,7 @@ class GrpoFinetuneConfig:
 
     vllm_sync: VllmSyncSection = field(default_factory=lambda: VllmSyncSection())
 
-    clip_rollout_after_think : int | None = None
+    clip_rollout_after_think: int | None = None
 
 
 @final
@@ -767,7 +787,7 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             if vllm_model.sampling_params.n < config.loss_config.group_size:
                 log.info("Setting model sampling n to GRPO group size")
                 vllm_model.sampling_params.n = config.loss_config.group_size
-    
+
         vllm_reward_model = vllm_actors.get(config.vllm_reward_model_actor_name, None)
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         reward_name = config.reward.name
