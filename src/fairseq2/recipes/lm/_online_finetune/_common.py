@@ -129,7 +129,7 @@ def generate_rollouts(
             flat_request_list.extend(rank_prompts)
 
         rollouts = vllm_model.rollout_from_model(
-            flat_request_list, sampling_params=sampling_params
+            prompt_list=flat_request_list, sampling_params=sampling_params
         )
 
         rollouts_to_scatter = []
