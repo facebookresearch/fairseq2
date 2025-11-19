@@ -15,7 +15,7 @@ from transformers import PreTrainedModel
 from fairseq2.nn.fsdp import FSDPWrapper
 
 
-def get_auto_wrap_policy(model, wrapper, transformer_cls_names_to_wrap: Optional[list[str]] = None):
+def get_auto_wrap_policy(model, wrapper: FSDPWrapper, transformer_cls_names_to_wrap: Optional[list[str]] = None) -> list[str]:
     no_split_modules = getattr(model, "_no_split_modules", None)
     default_transformer_cls_names_to_wrap = list(no_split_modules) if no_split_modules is not None else []
     if transformer_cls_names_to_wrap is None:
@@ -23,7 +23,7 @@ def get_auto_wrap_policy(model, wrapper, transformer_cls_names_to_wrap: Optional
     return transformer_cls_names_to_wrap
 
 
-def replace_layers(model, transformer_cls_to_wrap, wrapper):
+def replace_layers(model, transformer_cls_to_wrap: set[str], wrapper: FSDPWrapper) -> None:
     for name, module in model.named_children():
         if len(list(module.children())) > 0:
             replace_layers(module, transformer_cls_to_wrap, wrapper)
