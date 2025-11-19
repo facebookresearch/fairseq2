@@ -21,9 +21,6 @@ from vllm import LLM, SamplingParams
 from vllm.engine.arg_utils import PoolerConfig
 from vllm.inputs import TokensPrompt, TextPrompt
 from vllm.utils import get_ip, get_open_port
-
-# from vllm.worker.worker import Worker
-
 from fairseq2.context import RuntimeContext
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
@@ -208,12 +205,17 @@ def maybe_sync_model(
     sync_every_n_steps: int,
     force_sync: bool = False,
 ):
-    if remote_model is None:
-        return
+
     if gangs.dp.rank == 0:
-        _should_sync = should_sync(
-            sync_every_n_steps, trainer_step_nr, remote_model.last_sync_step, force_sync
-        )
+        if remote_model is None:
+            _should_sync = False
+        else:
+            _should_sync = should_sync(
+                sync_every_n_steps,
+                trainer_step_nr,
+                remote_model.last_sync_step,
+                force_sync,
+            )
         broadcast_list = [_should_sync]
     else:
         broadcast_list = [None]
@@ -225,7 +227,7 @@ def maybe_sync_model(
 
     if _should_sync:
         with model.summon_full_parameters():
-            if gangs.dp.rank == 0:
+            if gangs.dp.rank == 0 and remote_model is not None:
                 remote_model.sync_weights_with_vllm(
                     model=model,
                     trainer_step_nr=trainer_step_nr,
