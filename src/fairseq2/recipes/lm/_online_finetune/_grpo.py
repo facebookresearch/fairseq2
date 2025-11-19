@@ -319,6 +319,11 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             )
         )
 
+        if self._config.rollout_tokenizer is not None:
+            self._rollout_tokenizer = AutoTokenizer.from_pretrained(
+                self._config.rollout_tokenizer
+            )
+
         self._display_name = "GRPO"
 
     @property
@@ -423,29 +428,27 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             #     breakpoint()
             # self._gangs.root.barrier()
             if self._config.clip_rollout_after_think is not None:
-                self._tokenizer = AutoTokenizer.from_pretrained(
-                    "/checkpoint/ram/jacklanchantin/pretrained-llms/Qwen3-8B-Base/"
-                )  # FIXME can't hardcode
-                #     tokenizer = AutoTokenizer.from_pretrained(self._vllm_model._vllm_engine_args.tokenizer)
-                # self._gangs.dp.barrier()
+
                 clip_length = self._config.clip_rollout_after_think
                 prompt_batch.meta_info["suffix"] = [
-                    self._tokenizer.decode(
-                        self._tokenizer.encode(text, add_special_tokens=False)[
+                    self._rollout_tokenizer.decode(
+                        self._rollout_tokenizer.encode(text, add_special_tokens=False)[
                             :clip_length
                         ]
                     )
                     for text in prompt_batch.meta_info.get("suffix")
                 ]
                 prompt_batch.meta_info["suffix_ids"] = [
-                    self._tokenizer.encode(text, add_special_tokens=False)[:clip_length]
+                    self._rollout_tokenizer.encode(text, add_special_tokens=False)[
+                        :clip_length
+                    ]
                     for text in prompt_batch.meta_info.get("suffix")
                 ]
-                think_tokens = self._tokenizer.encode(
+                think_tokens = self._rollout_tokenizer.encode(
                     "</think>", add_special_tokens=False
                 )
                 rollouts = clip_outputs_after_think_token(
-                    rollouts, self._tokenizer, think_tokens, clip_length
+                    rollouts, self._rollout_tokenizer, think_tokens, clip_length
                 )
             if self._config.loss_config.log_rollouts:
                 log_rollouts(prompt_batch, rollouts, "Train")
@@ -750,6 +753,8 @@ class GrpoFinetuneConfig:
     vllm_sync: VllmSyncSection = field(default_factory=lambda: VllmSyncSection())
 
     clip_rollout_after_think: int | None = None
+
+    rollout_tokenizer: str | None = None
 
 
 @final
