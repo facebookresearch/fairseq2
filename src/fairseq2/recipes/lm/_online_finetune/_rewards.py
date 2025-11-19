@@ -1288,7 +1288,6 @@ class PplDerivedVerifier(VLLMOutputReward):
             dp_gang=self._gangs.dp,
             vllm_model=self.reward_model,
             sampling_params=SamplingParams(**rm_sampling_params),
-            string_input=False,
         )
 
         curr_rewards = [
