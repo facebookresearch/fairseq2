@@ -768,8 +768,8 @@ def _handle_model_family_not_known_error(ex: ModelFamilyNotKnownError) -> int:
 
 
 def _handle_model_gated_error(ex: ModelGatedError) -> int:
-    if ex.url:
-        log.error("{} is a gated model. See {} for more information.", ex.name, ex.url)
+    if ex.info_url:
+        log.error("{} is a gated model. See {} for more information.", ex.name, ex.info_url)
     else:
         log.error("{} is a gated model.", ex.name)
 
@@ -830,8 +830,8 @@ def _handle_tokenizer_family_not_known_error(ex: TokenizerFamilyNotKnownError) -
 
 
 def _handle_tokenizer_gated_error(ex: TokenizerGatedError) -> int:
-    if ex.url:
-        log.error("{} is a gated tokenizer. See {} for more information.", ex.name, ex.url)
+    if ex.info_url:
+        log.error("{} is a gated tokenizer. See {} for more information.", ex.name, ex.info_url)
     else:
         log.error("{} is a gated tokenizer.", ex.name)
 

@@ -10,7 +10,7 @@ from collections.abc import Iterator
 from typing import Generic, TypeVar, cast, final
 
 from fairseq2.assets import AssetCard, AssetCardError, AssetNotFoundError, AssetStore
-from fairseq2.datasets.family import DatasetFamily
+from fairseq2.datasets.family import DatasetFamily, DatasetFamilyNotKnownError
 from fairseq2.error import InternalError
 from fairseq2.runtime.dependency import get_dependency_resolver
 
@@ -116,12 +116,5 @@ class DatasetHubAccessor(Generic[DatasetT, DatasetConfigT]):
 class DatasetNotKnownError(Exception):
     def __init__(self, name: str) -> None:
         super().__init__(f"{name} is not a known dataset.")
-
-        self.name = name
-
-
-class DatasetFamilyNotKnownError(Exception):
-    def __init__(self, name: str) -> None:
-        super().__init__(f"{name} is not a know dataset family.")
 
         self.name = name

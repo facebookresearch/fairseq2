@@ -15,6 +15,7 @@ from typing_extensions import override
 from fairseq2.assets import (
     AssetCard,
     AssetCardError,
+    AssetCardNotValidError,
     AssetConfigLoader,
     AssetDownloadManager,
 )
@@ -22,6 +23,7 @@ from fairseq2.data.tokenizers.tokenizer import Tokenizer
 from fairseq2.error import InternalError, raise_operational_system_error
 from fairseq2.file_system import FileSystem
 from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
+from fairseq2.runtime.dependency import DependencyLookup, get_dependency_resolver
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.utils.uri import Uri
 from fairseq2.utils.validation import ObjectValidator, ValidationError
@@ -55,11 +57,13 @@ class TokenizerFamily(ABC):
 
 
 class TokenizerGatedError(Exception):
-    def __init__(self, name: str, url: str | None) -> None:
-        super().__init__(f"{name} is a gated tokenizer.")
+    def __init__(self, name: str, info_url: str | None) -> None:
+        super().__init__(
+            f"{name} is a gated tokenizer and cannot be loaded. See {info_url} for details."
+        )
 
         self.name = name
-        self.url = url
+        self.info_url = info_url
 
 
 class TokenizerModelError(Exception):
@@ -69,18 +73,67 @@ class TokenizerModelError(Exception):
         self.path = path
 
 
-def get_tokenizer_family(
+def get_tokenizer_family(card: AssetCard) -> TokenizerFamily:
+    """
+    Returns the :class:`TokenizerFamily` for the tokenizer in the specified card.
+
+    :raises AssetCardError: The card is erroneous and cannot be read.
+
+    :raises AssetCardNotValidError: The card is missing a tokenizer definition
+        (i.e.  `tokenizer_family` field).
+
+    :raises TokenizerFamilyNotKnownError: The family of the tokenizer is not
+        known, meaning has no registered :class:`TokenizerFamily`.
+    """
+    family = maybe_get_tokenizer_family(card)
+    if family is None:
+        message = f"{card.name} asset card is missing a tokenizer definition (i.e. `tokenizer_family` field)."
+
+        raise AssetCardNotValidError(card.name, message)
+
+    return family
+
+
+def maybe_get_tokenizer_family(card: AssetCard) -> TokenizerFamily | None:
+    """
+    Returns the :class:`TokenizerFamily` for the tokenizer in the specified card,
+    if one is defined; otherwise, returns ``None``.
+
+    :raises AssetCardError: The card is erroneous and cannot be read.
+
+    :raises TokenizerFamilyNotKnownError: The family of the tokenizer is not
+        known, meaning has no registered :class:`TokenizerFamily`.
+    """
+    resolver = get_dependency_resolver()
+
+    families = DependencyLookup(resolver, TokenizerFamily)
+
+    return _maybe_get_tokenizer_family(card, families)
+
+
+def _maybe_get_tokenizer_family(
     card: AssetCard, families: Lookup[TokenizerFamily]
-) -> TokenizerFamily:
-    family_name = card.field("tokenizer_family").as_(str)
+) -> TokenizerFamily | None:
+    field = card.maybe_get_field("tokenizer_family")
+    if field is None:
+        return None
+
+    family_name = field.as_(str)
 
     family = families.maybe_get(family_name)
     if family is None:
-        msg = f"family field of the {card.name} asset card is expected to be a supported tokenizer family, but is {family_name} instead."
-
-        raise AssetCardError(card.name, msg)
+        raise TokenizerFamilyNotKnownError(family_name)
 
     return family
+
+
+class TokenizerFamilyNotKnownError(Exception):
+    """Raised when a requested tokenizer family is not registered."""
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"{name} is not a known tokenizer family.")
+
+        self.name = name
 
 
 TokenizerConfigT_contra = TypeVar("TokenizerConfigT_contra", contravariant=True)

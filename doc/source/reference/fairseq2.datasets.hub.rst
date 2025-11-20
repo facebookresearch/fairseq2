@@ -75,43 +75,6 @@ DatasetHubAccessor
             MyDatasetConfig      # concrete dataset config class
         )
 
-Exceptions
-----------
-
-DatasetNotKnownError
-~~~~~~~~~~~~~~~~~~~~
-
-.. autoexception:: DatasetNotKnownError
-    :show-inheritance:
-
-    Raised when attempting to open a dataset that is not registered in the asset store.
-
-    Example:
-
-    .. code-block:: python
-
-        try:
-            dataset = hub.open_dataset("non_existent_dataset")
-        except DatasetNotKnownError as e:
-            print(f"Dataset not found: {e.name}")
-
-DatasetFamilyNotKnownError
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoexception:: DatasetFamilyNotKnownError
-    :show-inheritance:
-
-    Raised when attempting to access a dataset family that is not registered in the system.
-
-    Example:
-
-    .. code-block:: python
-
-        try:
-            hub = DatasetHubAccessor("unknown_family", MyDataset, MyConfig)()
-        except DatasetFamilyNotKnownError as e:
-            print(f"Dataset family not found: {e.name}")
-
 See Also
 --------
 

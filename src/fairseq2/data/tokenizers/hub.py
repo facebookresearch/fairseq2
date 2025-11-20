@@ -11,7 +11,10 @@ from pathlib import Path
 from typing import Generic, TypeVar, cast, final
 
 from fairseq2.assets import AssetCard, AssetCardError, AssetNotFoundError, AssetStore
-from fairseq2.data.tokenizers.family import TokenizerFamily
+from fairseq2.data.tokenizers.family import (
+    TokenizerFamily,
+    TokenizerFamilyNotKnownError,
+)
 from fairseq2.data.tokenizers.ref import resolve_tokenizer_reference
 from fairseq2.data.tokenizers.tokenizer import Tokenizer
 from fairseq2.device import CPU
@@ -145,13 +148,6 @@ class TokenizerHubAccessor(Generic[TokenizerT, TokenizerConfigT]):
 class TokenizerNotKnownError(Exception):
     def __init__(self, name: str) -> None:
         super().__init__(f"{name} is not a known tokenizer.")
-
-        self.name = name
-
-
-class TokenizerFamilyNotKnownError(Exception):
-    def __init__(self, name: str) -> None:
-        super().__init__(f"{name} is not a known tokenizer family.")
 
         self.name = name
 
