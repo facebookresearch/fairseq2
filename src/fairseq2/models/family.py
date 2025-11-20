@@ -21,6 +21,7 @@ from typing_extensions import override
 from fairseq2.assets import (
     AssetCard,
     AssetCardError,
+    AssetCardNotValidError,
     AssetConfigLoader,
     AssetDownloadManager,
 )
@@ -45,6 +46,7 @@ from fairseq2.nn.utils.module import (
     reset_non_persistent_buffers,
     to_empty,
 )
+from fairseq2.runtime.dependency import DependencyLookup, get_dependency_resolver
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.sharder import ModelSharder, ShardSpec, ShardSpecError
 from fairseq2.utils.progress import ProgressReporter
@@ -168,23 +170,76 @@ class ModelFamily(ABC):
 
 
 class ModelGatedError(Exception):
-    def __init__(self, name: str, url: str | None) -> None:
-        super().__init__(f"{name} is a gated model.")
+    def __init__(self, name: str, info_url: str | None) -> None:
+        super().__init__(
+            f"{name} is a gated model and cannot be loaded. See {info_url} for details."
+        )
 
         self.name = name
-        self.url = url
+        self.info_url = info_url
 
 
-def get_model_family(card: AssetCard, families: Lookup[ModelFamily]) -> ModelFamily:
-    family_name = card.field("model_family").as_(str)
+def get_model_family(card: AssetCard) -> ModelFamily:
+    """
+    Returns the :class:`ModelFamily` for the model in the specified card.
+
+    :raises AssetCardError: The card is erroneous and cannot be read.
+
+    :raises AssetCardNotValidError: The card is missing a model definition (i.e.
+        `model_family` field).
+
+    :raises ModelFamilyNotKnownError: The family of the model is not known,
+        meaning has no registered :class:`ModelFamily`.
+    """
+    family = maybe_get_model_family(card)
+    if family is None:
+        message = f"{card.name} asset card is missing a model definition (i.e. `model_family` field)."
+
+        raise AssetCardNotValidError(card.name, message)
+
+    return family
+
+
+def maybe_get_model_family(card: AssetCard) -> ModelFamily | None:
+    """
+    Returns the :class:`ModelFamily` for the model in the specified card, if one
+    is defined; otherwise, returns ``None``.
+
+    :raises AssetCardError: The card is erroneous and cannot be read.
+
+    :raises ModelFamilyNotKnownError: The family of the model is not known,
+        meaning has no registered :class:`ModelFamily`.
+    """
+    resolver = get_dependency_resolver()
+
+    families = DependencyLookup(resolver, ModelFamily)
+
+    return _maybe_get_model_family(card, families)
+
+
+def _maybe_get_model_family(
+    card: AssetCard, families: Lookup[ModelFamily]
+) -> ModelFamily | None:
+    field = card.maybe_get_field("model_family")
+    if field is None:
+        return None
+
+    family_name = field.as_(str)
 
     family = families.maybe_get(family_name)
     if family is None:
-        msg = f"family field of the {card.name} asset card is expected to be a supported model family, but is {family_name} instead."
-
-        raise AssetCardError(card.name, msg)
+        raise ModelFamilyNotKnownError(family_name)
 
     return family
+
+
+class ModelFamilyNotKnownError(Exception):
+    """Raised when a requested model family is not registered."""
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"{name} is not a known model family.")
+
+        self.name = name
 
 
 ModelT_co = TypeVar("ModelT_co", bound=Module, covariant=True)

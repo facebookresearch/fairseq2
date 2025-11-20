@@ -108,25 +108,6 @@ load_tokenizer
 
         tokenizer = load_tokenizer("qwen3_0.6b")
 
-Exceptions
-----------
-
-TokenizerNotKnownError
-~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoexception:: TokenizerNotKnownError
-    :show-inheritance:
-
-    Raised when attempting to load a tokenizer that is not registered in the asset store.
-
-TokenizerFamilyNotKnownError
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoexception:: TokenizerFamilyNotKnownError
-    :show-inheritance:
-
-    Raised when attempting to access a tokenizer family that is not registered in the system.
-
 See Also
 --------
 

@@ -19,7 +19,7 @@ from fairseq2.data_type import DataType
 from fairseq2.device import CPU, Device, get_current_device
 from fairseq2.error import InternalError
 from fairseq2.gang import Gangs, create_fake_gangs
-from fairseq2.models.family import ModelFamily
+from fairseq2.models.family import ModelFamily, ModelFamilyNotKnownError
 from fairseq2.runtime.dependency import get_dependency_resolver
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.utils.warn import _warn_deprecated, _warn_progress_deprecated
@@ -606,15 +606,6 @@ class ModelNotKnownError(Exception):
 
     def __init__(self, name: str) -> None:
         super().__init__(f"{name} is not a known model.")
-
-        self.name = name
-
-
-class ModelFamilyNotKnownError(Exception):
-    """Raised when a requested model family is not registered."""
-
-    def __init__(self, name: str) -> None:
-        super().__init__(f"{name} is not a known model family.")
 
         self.name = name
 

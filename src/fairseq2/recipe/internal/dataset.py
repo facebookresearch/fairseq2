@@ -9,12 +9,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import final
 
-from fairseq2.assets import AssetStore
+from fairseq2.assets import AssetCardError, AssetStore
 from fairseq2.datasets import (
     DatasetFamily,
     DatasetFamilyNotKnownError,
     DatasetNotKnownError,
-    get_dataset_family,
+    _maybe_get_dataset_family,
 )
 from fairseq2.error import InternalError
 from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
@@ -71,7 +71,11 @@ class _DatasetOpener:
         if card is None:
             raise DatasetNotKnownError(name)
 
-        family = get_dataset_family(card, self._families)
+        family = _maybe_get_dataset_family(card, self._families)
+        if family is None:
+            msg = f"{card.name} asset card does not represent a dataset."
+
+            raise AssetCardError(card.name, msg)
 
         config = family.get_dataset_config(card)
 

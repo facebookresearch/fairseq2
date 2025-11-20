@@ -10,14 +10,20 @@ from fairseq2.data.tokenizers.family import (
     StandardTokenizerFamily as StandardTokenizerFamily,
 )
 from fairseq2.data.tokenizers.family import TokenizerFamily as TokenizerFamily
+from fairseq2.data.tokenizers.family import (
+    TokenizerFamilyNotKnownError as TokenizerFamilyNotKnownError,
+)
 from fairseq2.data.tokenizers.family import TokenizerGatedError as TokenizerGatedError
 from fairseq2.data.tokenizers.family import TokenizerLoader as TokenizerLoader
 from fairseq2.data.tokenizers.family import TokenizerModelError as TokenizerModelError
-from fairseq2.data.tokenizers.family import get_tokenizer_family as get_tokenizer_family
-from fairseq2.data.tokenizers.hub import GlobalTokenizerLoader as GlobalTokenizerLoader
-from fairseq2.data.tokenizers.hub import (
-    TokenizerFamilyNotKnownError as TokenizerFamilyNotKnownError,
+from fairseq2.data.tokenizers.family import (
+    _maybe_get_tokenizer_family as _maybe_get_tokenizer_family,
 )
+from fairseq2.data.tokenizers.family import get_tokenizer_family as get_tokenizer_family
+from fairseq2.data.tokenizers.family import (
+    maybe_get_tokenizer_family as maybe_get_tokenizer_family,
+)
+from fairseq2.data.tokenizers.hub import GlobalTokenizerLoader as GlobalTokenizerLoader
 from fairseq2.data.tokenizers.hub import TokenizerHub as TokenizerHub
 from fairseq2.data.tokenizers.hub import TokenizerHubAccessor as TokenizerHubAccessor
 from fairseq2.data.tokenizers.hub import (

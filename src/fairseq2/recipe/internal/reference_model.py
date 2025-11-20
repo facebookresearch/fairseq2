@@ -12,7 +12,7 @@ from typing import final
 
 from typing_extensions import override
 
-from fairseq2.assets import AssetStore
+from fairseq2.assets import AssetCardError, AssetStore
 from fairseq2.error import InternalError, raise_operational_system_error
 from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
 from fairseq2.logging import log
@@ -21,7 +21,7 @@ from fairseq2.models import (
     ModelFamily,
     ModelFamilyNotKnownError,
     ModelNotKnownError,
-    get_model_family,
+    _maybe_get_model_family,
 )
 from fairseq2.nn.utils.module import broadcast_module, remove_parametrizations
 from fairseq2.recipe.config import ReferenceModelSection
@@ -107,7 +107,11 @@ class _StandardReferenceModelBootstrapper(_ReferenceModelBootstrapper):
         if card is None:
             raise ModelNotKnownError(name)
 
-        family = get_model_family(card, self._families)
+        family = _maybe_get_model_family(card, self._families)
+        if family is None:
+            msg = f"{card.name} asset card does not represent a model."
+
+            raise AssetCardError(card.name, msg)
 
         config = family.get_model_config(card)
 

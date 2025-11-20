@@ -9,13 +9,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import final
 
-from fairseq2.assets import AssetStore
+from fairseq2.assets import AssetCardError, AssetStore
 from fairseq2.data.tokenizers import (
     Tokenizer,
     TokenizerFamily,
     TokenizerFamilyNotKnownError,
     TokenizerNotKnownError,
-    get_tokenizer_family,
+    _maybe_get_tokenizer_family,
     resolve_tokenizer_reference,
 )
 from fairseq2.error import InternalError, raise_operational_system_error
@@ -79,7 +79,11 @@ class _TokenizerLoader:
 
         card = resolve_tokenizer_reference(self._asset_store, card)
 
-        family = get_tokenizer_family(card, self._families)
+        family = _maybe_get_tokenizer_family(card, self._families)
+        if family is None:
+            msg = f"{card.name} asset card does not represent a tokenizer."
+
+            raise AssetCardError(card.name, msg)
 
         config = family.get_tokenizer_config(card)
 

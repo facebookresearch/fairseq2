@@ -11,8 +11,14 @@ from typing import Any, Final, Protocol, TypeVar, final
 
 from typing_extensions import override
 
-from fairseq2.assets import AssetCard, AssetCardError, AssetConfigLoader
+from fairseq2.assets import (
+    AssetCard,
+    AssetCardError,
+    AssetCardNotValidError,
+    AssetConfigLoader,
+)
 from fairseq2.error import InternalError, raise_operational_system_error
+from fairseq2.runtime.dependency import DependencyLookup, get_dependency_resolver
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.utils.validation import ObjectValidator, ValidationError
 
@@ -44,18 +50,67 @@ class DatasetError(Exception):
     pass
 
 
-def get_dataset_family(
+def get_dataset_family(card: AssetCard) -> DatasetFamily:
+    """
+    Returns the :class:`DatasetFamily` for the dataset in the specified card.
+
+    :raises AssetCardError: The card is erroneous and cannot be read.
+
+    :raises AssetCardNotValidError: The card is missing a dataset definition
+        (i.e.  `dataset_family` field).
+
+    :raises DatasetFamilyNotKnownError: The family of the dataset is not known,
+        meaning has no registered :class:`DatasetFamily`.
+    """
+    family = maybe_get_dataset_family(card)
+    if family is None:
+        message = f"{card.name} asset card is missing a dataset definition (i.e. `dataset_family` field)."
+
+        raise AssetCardNotValidError(card.name, message)
+
+    return family
+
+
+def maybe_get_dataset_family(card: AssetCard) -> DatasetFamily | None:
+    """
+    Returns the :class:`DatasetFamily` for the dataset in the specified card, if
+    one is defined; otherwise, returns ``None``.
+
+    :raises AssetCardError: The card is erroneous and cannot be read.
+
+    :raises DatasetFamilyNotKnownError: The family of the dataset is not known,
+        meaning has no registered :class:`DatasetFamily`.
+    """
+    resolver = get_dependency_resolver()
+
+    families = DependencyLookup(resolver, DatasetFamily)
+
+    return _maybe_get_dataset_family(card, families)
+
+
+def _maybe_get_dataset_family(
     card: AssetCard, families: Lookup[DatasetFamily]
-) -> DatasetFamily:
-    family_name = card.field("dataset_family").as_(str)
+) -> DatasetFamily | None:
+    field = card.maybe_get_field("dataset_family")
+    if field is None:
+        return None
+
+    family_name = field.as_(str)
 
     family = families.maybe_get(family_name)
     if family is None:
-        msg = f"family field of the {card.name} asset card is expected to be a supported dataset family, but is {family_name} instead."
-
-        raise AssetCardError(card.name, msg)
+        raise DatasetFamilyNotKnownError(family_name)
 
     return family
+
+
+class DatasetFamilyNotKnownError(Exception):
+    """Raised when a requested dataset family is not registered."""
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"{name} is not a known dataset family.")
+
+        self.name = name
 
 
 DatasetT_co = TypeVar("DatasetT_co", covariant=True)
