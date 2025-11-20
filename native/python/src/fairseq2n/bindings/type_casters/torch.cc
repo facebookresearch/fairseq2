@@ -18,9 +18,9 @@ using namespace fairseq2n::detail;
 struct THPVariable {
     PyObject_HEAD
     #if TORCH_VERSION_MAJOR < 2 || (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR < 10)
-    at::Tensor cdata;
-    #else
     const at::MaybeOwned<at::Tensor> cdata;
+    #else
+    at::Tensor cdata;
     #endif
 };
 
@@ -69,9 +69,9 @@ type_caster<at::Tensor>::load(handle src, bool)
 
     if (isinstance<at::Tensor>(ptr)) {
         #if TORCH_VERSION_MAJOR < 2 || (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR < 10)
-        value = reinterpret_cast<THPVariable *>(ptr)->cdata;
-        #else
         value = const *reinterpret_cast<THPVariable *>(ptr)->cdata;
+        #else
+	value = reinterpret_cast<THPVariable *>(ptr)->cdata;
         #endif
         return true;
     }
