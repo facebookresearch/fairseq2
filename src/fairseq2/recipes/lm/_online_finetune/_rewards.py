@@ -560,7 +560,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         if vllm_outputs is None:
             vllm_outputs = [None] * len(prompt_batch.prompts)
 
-        text_prompts = prompt_batch.meta_info.get("raw_prompt_text")
+        text_prompts = prompt_batch.meta_info.get(self.prompt_key)
         reference_answers = prompt_batch.meta_info.get(self.answer_key)
         for i, (i_batch_request_output, prompt_text) in enumerate(
             zip(vllm_outputs, text_prompts)
@@ -1204,7 +1204,9 @@ class PplDerivedVerifier(VLLMOutputReward):
                 for j, output in enumerate(vllm_output.outputs):
                     fs2_log.debug(f"output text {i}.{j} = {output.text}")
                     fs2_log.debug(f"output token_ids {i}.{j} = {output.token_ids}")
-                    fs2_log.debug(f"output finish_reason {i}.{j} = {output.finish_reason}")
+                    fs2_log.debug(
+                        f"output finish_reason {i}.{j} = {output.finish_reason}"
+                    )
                     fs2_log.debug(f"output stop_reason {i}.{j} = {output.stop_reason}")
 
     @override
@@ -1283,6 +1285,11 @@ class PplDerivedVerifier(VLLMOutputReward):
             "prompt_logprobs": 0,
             "detokenize": self.enable_human_friendly_log,
         }
+
+        # if self._gangs.root.rank == 0:
+        #     breakpoint()
+        # self._gangs.root.barrier()
+
         rollouts = generate_rollouts(
             vllm_inputs,
             dp_gang=self._gangs.dp,

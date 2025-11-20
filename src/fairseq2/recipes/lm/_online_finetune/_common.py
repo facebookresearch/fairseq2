@@ -405,7 +405,7 @@ def get_vllm_logprobs(
     padded = torch.zeros(len(sequences), max_len)
     for i, t in enumerate(sequences):
         padded[i, : t.size(0)] = t
-    
+
     # clip outputs to be same size as model_logps
     if padded.size() != model_logps.size():
         padded = padded[:, : model_logps.size(1)]
@@ -650,7 +650,9 @@ def update_grpo_batch_metrics(
 
 
 @torch.inference_mode()
-def update_grpo_loss(metric_bag: MetricBag, batch: PromptBatch, loss: Tensor, tis_imp_ratio: Tensor) -> None:
+def update_grpo_loss(
+    metric_bag: MetricBag, batch: PromptBatch, loss: Tensor, tis_imp_ratio: Tensor
+) -> None:
     """Update the GRPO loss metric.
 
     :param batch:
@@ -663,8 +665,6 @@ def update_grpo_loss(metric_bag: MetricBag, batch: PromptBatch, loss: Tensor, ti
     )
 
     metric_bag.get(Mean, "tis_imp_ratio").update(tis_imp_ratio)
-
-
 
 
 def compute_reference_logps(
