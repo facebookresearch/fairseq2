@@ -70,9 +70,9 @@ type_caster<at::Tensor>::load(handle src, bool)
     if (isinstance<at::Tensor>(ptr)) {
         #if TORCH_VERSION_MAJOR < 2 || (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR < 10)
         PyObject *THPVariable_Wrap(value = reinterpret_cast<THPVariable *>(ptr)->cdata);
-	#else
+        #else
         PyObject *THPVariable_Wrap(value = const *reinterpret_cast<THPVariable *>(ptr)->cdata);
-	#endif
+        #endif
         return true;
     }
 
