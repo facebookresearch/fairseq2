@@ -56,9 +56,10 @@ from fairseq2.utils.validation import ObjectValidator, ValidationError
 from fairseq2.utils.warn import _warn_deprecated
 
 
+# TODO: Will be deleted in v0.9
 @dataclass
 class HuggingFaceExport:
-    state_dict: Mapping[str, object]
+    state_dict: dict[str, object]
     config: Mapping[str, object]
     config_kls_name: str
     arch: str | Sequence[str]
@@ -128,11 +129,6 @@ class ModelFamily(ABC):
     @abstractmethod
     def apply_layerwise_ac(self, model: Module, every_nth_layer: int) -> Module: ...
 
-    @abstractmethod
-    def convert_to_hugging_face(
-        self, state_dict: dict[str, object], config: object
-    ) -> HuggingFaceExport: ...
-
     @property
     @abstractmethod
     def name(self) -> str: ...
@@ -164,10 +160,6 @@ class ModelFamily(ABC):
     @property
     @abstractmethod
     def supports_layerwise_ac(self) -> bool: ...
-
-    @property
-    @abstractmethod
-    def supports_hugging_face(self) -> bool: ...
 
 
 class ModelGatedError(Exception):
@@ -329,7 +321,6 @@ class StandardModelFamily(ModelFamily):
         compiler: ModelCompiler[ModelT] | None,
         fsdp_applier: ModelFSDPApplier[ModelT] | None,
         layerwise_ac_applier: LayerwiseACApplier[ModelT] | None,
-        hg_exporter: HuggingFaceExporter[ModelConfigT] | None,
         progress_reporter: ProgressReporter,
     ) -> None:
         if shard_specs is not None:
@@ -354,7 +345,6 @@ class StandardModelFamily(ModelFamily):
         self._compiler: ModelCompiler[Any] | None = compiler
         self._fsdp_applier: ModelFSDPApplier[Any] | None = fsdp_applier
         self._layerwise_ac_applier: LayerwiseACApplier[Any] | None = layerwise_ac_applier  # fmt: skip
-        self._hg_exporter: HuggingFaceExporter[Any] | None = hg_exporter
         self._progress_reporter = progress_reporter
 
     @override
@@ -769,22 +759,6 @@ class StandardModelFamily(ModelFamily):
 
         return self._layerwise_ac_applier(model, every_nth_layer)
 
-    @override
-    def convert_to_hugging_face(
-        self, state_dict: dict[str, object], config: object
-    ) -> HuggingFaceExport:
-        if self._hg_exporter is None:
-            raise NotSupportedError(
-                f"{self._name} model family does not support Hugging Face."
-            )
-
-        if not isinstance(config, self._configs.kls):
-            raise TypeError(
-                f"`config` must be of type `{self._configs.kls}`, but is of type `{type(config)}` instead."
-            )
-
-        return self._hg_exporter(state_dict, config)
-
     @property
     @override
     def name(self) -> str:
@@ -828,8 +802,3 @@ class StandardModelFamily(ModelFamily):
     @override
     def supports_layerwise_ac(self) -> bool:
         return self._layerwise_ac_applier is not None
-
-    @property
-    @override
-    def supports_hugging_face(self) -> bool:
-        return self._hg_exporter is not None

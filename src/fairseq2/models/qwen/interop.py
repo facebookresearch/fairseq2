@@ -6,11 +6,14 @@
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Final, final
 
-from fairseq2.models.family import HuggingFaceExport
+from typing_extensions import override
+
+from fairseq2.models.hg import HuggingFaceConfig, HuggingFaceConverter
 from fairseq2.models.qwen.config import QwenConfig
 from fairseq2.models.utils.checkpoint import convert_state_dict, create_reverse_key_map
+from fairseq2.utils.config import cast_config_type
 
 _HG_KEY_MAP: Final = {
     # fmt: off
@@ -44,37 +47,44 @@ def convert_qwen_state_dict(
     return state_dict
 
 
-def export_qwen(state_dict: dict[str, object], config: QwenConfig) -> HuggingFaceExport:
-    key_map = create_reverse_key_map(_HG_KEY_MAP)
+@final
+class _QwenHuggingFaceConverter(HuggingFaceConverter):
+    @override
+    def to_hg_config(self, config: object) -> HuggingFaceConfig:
+        config = cast_config_type(config, QwenConfig)
 
-    hg_state_dict = convert_state_dict(state_dict, key_map)
+        data: dict[str, object] = {
+            "hidden_size": config.model_dim,
+            "max_position_embeddings": config.max_seq_len,
+            "vocab_size": config.vocab_size,
+            "tie_word_embeddings": config.tied_embeddings,
+            "num_hidden_layers": config.num_layers,
+            "num_attention_heads": config.num_attn_heads,
+            "num_key_value_heads": config.num_key_value_heads,
+            "intermediate_size": config.ffn_inner_dim,
+            "rope_theta": config.rope_theta,
+        }
 
-    if config.tied_embeddings:
-        del hg_state_dict["lm_head.weight"]
+        if config.qkv_proj_bias:
+            return HuggingFaceConfig(
+                data, kls_name="Qwen2Config", arch="Qwen2ForCausalLM"
+            )
+        else:
+            return HuggingFaceConfig(
+                data, kls_name="Qwen3Config", arch="Qwen3ForCausalLM"
+            )
 
-    hg_config: dict[str, object] = {
-        "hidden_size": config.model_dim,
-        "max_position_embeddings": config.max_seq_len,
-        "vocab_size": config.vocab_size,
-        "tie_word_embeddings": config.tied_embeddings,
-        "num_hidden_layers": config.num_layers,
-        "num_attention_heads": config.num_attn_heads,
-        "num_key_value_heads": config.num_key_value_heads,
-        "intermediate_size": config.ffn_inner_dim,
-        "rope_theta": config.rope_theta,
-    }
+    @override
+    def to_hg_state_dict(
+        self, state_dict: dict[str, object], config: object
+    ) -> dict[str, object]:
+        config = cast_config_type(config, QwenConfig)
 
-    if config.qkv_proj_bias:
-        return HuggingFaceExport(
-            hg_state_dict,
-            hg_config,
-            config_kls_name="Qwen2Config",
-            arch="Qwen2ForCausalLM",
-        )
-    else:
-        return HuggingFaceExport(
-            hg_state_dict,
-            hg_config,
-            config_kls_name="Qwen3Config",
-            arch="Qwen3ForCausalLM",
-        )
+        key_map = create_reverse_key_map(_HG_KEY_MAP)
+
+        hg_state_dict = convert_state_dict(state_dict, key_map)
+
+        if config.tied_embeddings:
+            del hg_state_dict["lm_head.weight"]
+
+        return hg_state_dict

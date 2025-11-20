@@ -23,6 +23,7 @@ from fairseq2.metrics.recorders import (
     MetricDescriptor,
     MetricDescriptorRegistry,
 )
+from fairseq2.models.hg import HuggingFaceConverter
 from fairseq2.optim.fp16_loss_scaler import (
     NOOP_FP16_LOSS_SCALER,
     Float16LossScaler,
@@ -41,6 +42,7 @@ from fairseq2.recipe.error import (
     MetricNotKnownError,
 )
 from fairseq2.recipe.internal.model import _ModelHolder
+from fairseq2.runtime.lookup import Lookup
 from fairseq2.trainer import BatchT, Trainer, TrainUnit
 from fairseq2.utils.gc import (
     NOOP_GARBAGE_COLLECTOR,
@@ -225,16 +227,19 @@ class _CheckpointHGExporterFactory:
         section: RegimeSection,
         model_holder: _ModelHolder,
         default_factory: Callable[[], CheckpointHGExporter],
+        hg_converters: Lookup[HuggingFaceConverter],
     ) -> None:
         self._section = section
         self._model_holder = model_holder
         self._default_factory = default_factory
+        self._hg_converter = hg_converters
 
     def create(self) -> CheckpointHGExporter:
         if not self._section.export_hugging_face:
             return NOOP_CHECKPOINT_HG_EXPORTER
 
-        if not self._model_holder.family.supports_hugging_face:
+        hg_converter = self._hg_converter.maybe_get(self._model_holder.family.name)
+        if hg_converter is None:
             raise HuggingFaceNotSupportedError()
 
         return self._default_factory()
