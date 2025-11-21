@@ -19,9 +19,11 @@ from fairseq2.data.tokenizers.family import TokenizerModelError as TokenizerMode
 from fairseq2.data.tokenizers.family import (
     _maybe_get_tokenizer_family as _maybe_get_tokenizer_family,
 )
-from fairseq2.data.tokenizers.family import get_tokenizer_family as get_tokenizer_family
 from fairseq2.data.tokenizers.family import (
-    maybe_get_tokenizer_family as maybe_get_tokenizer_family,
+    get_tokenizer_family_name as get_tokenizer_family_name,
+)
+from fairseq2.data.tokenizers.family import (
+    maybe_get_tokenizer_family_name as maybe_get_tokenizer_family_name,
 )
 from fairseq2.data.tokenizers.hub import GlobalTokenizerLoader as GlobalTokenizerLoader
 from fairseq2.data.tokenizers.hub import TokenizerHub as TokenizerHub

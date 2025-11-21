@@ -16,6 +16,7 @@ from fairseq2.assets import (
     AssetCardError,
     AssetCardNotValidError,
     AssetConfigLoader,
+    AssetStore,
 )
 from fairseq2.error import InternalError, raise_operational_system_error
 from fairseq2.runtime.dependency import DependencyLookup, get_dependency_resolver
@@ -50,42 +51,54 @@ class DatasetError(Exception):
     pass
 
 
-def get_dataset_family(card: AssetCard) -> DatasetFamily:
+def get_dataset_family_name(card: AssetCard | str) -> str:
     """
-    Returns the :class:`DatasetFamily` for the dataset in the specified card.
+    Returns the family name of the dataset in the specified card.
 
     :raises AssetCardError: The card is erroneous and cannot be read.
+
+    :raises AssetCardNotFoundError: ``card`` is of type ``str`` and no card with
+        that name exists.
 
     :raises AssetCardNotValidError: The card is missing a dataset definition
-        (i.e.  `dataset_family` field).
-
-    :raises DatasetFamilyNotKnownError: The family of the dataset is not known,
-        meaning has no registered :class:`DatasetFamily`.
-    """
-    family = maybe_get_dataset_family(card)
-    if family is None:
-        message = f"{card.name} asset card is missing a dataset definition (i.e. `dataset_family` field)."
-
-        raise AssetCardNotValidError(card.name, message)
-
-    return family
-
-
-def maybe_get_dataset_family(card: AssetCard) -> DatasetFamily | None:
-    """
-    Returns the :class:`DatasetFamily` for the dataset in the specified card, if
-    one is defined; otherwise, returns ``None``.
-
-    :raises AssetCardError: The card is erroneous and cannot be read.
+        (i.e. `dataset_family` field).
 
     :raises DatasetFamilyNotKnownError: The family of the dataset is not known,
         meaning has no registered :class:`DatasetFamily`.
     """
     resolver = get_dependency_resolver()
 
+    if isinstance(card, str):
+        card = resolver.resolve(AssetStore).retrieve_card(card)
+
     families = DependencyLookup(resolver, DatasetFamily)
 
-    return _maybe_get_dataset_family(card, families)
+    family = _maybe_get_dataset_family(card, families)
+    if family is None:
+        message = f"{card.name} asset card is missing a dataset definition (i.e. `dataset_family` field)."
+
+        raise AssetCardNotValidError(card.name, message)
+
+    return family.name
+
+
+def maybe_get_dataset_family_name(card: AssetCard | str) -> str | None:
+    """
+    Returns the family name of the dataset in the specified card, if one is
+    defined; otherwise, returns ``None``.
+
+    :raises AssetCardError: The card is erroneous and cannot be read.
+
+    :raises AssetCardNotFoundError: ``card`` is of type ``str`` and no card with
+        that name exists.
+
+    :raises DatasetFamilyNotKnownError: The family of the dataset is not known,
+        meaning has no registered :class:`DatasetFamily`.
+    """
+    try:
+        return get_dataset_family_name(card)
+    except AssetCardNotValidError:
+        return None
 
 
 def _maybe_get_dataset_family(

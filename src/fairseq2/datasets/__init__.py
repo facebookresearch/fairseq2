@@ -22,9 +22,9 @@ from fairseq2.datasets.family import StandardDatasetFamily as StandardDatasetFam
 from fairseq2.datasets.family import (
     _maybe_get_dataset_family as _maybe_get_dataset_family,
 )
-from fairseq2.datasets.family import get_dataset_family as get_dataset_family
+from fairseq2.datasets.family import get_dataset_family_name as get_dataset_family_name
 from fairseq2.datasets.family import (
-    maybe_get_dataset_family as maybe_get_dataset_family,
+    maybe_get_dataset_family_name as maybe_get_dataset_family_name,
 )
 from fairseq2.datasets.hub import DatasetHub as DatasetHub
 from fairseq2.datasets.hub import DatasetHubAccessor as DatasetHubAccessor
