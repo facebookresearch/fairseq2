@@ -48,6 +48,7 @@ from fairseq2.recipe.internal.gang import (
     _GangsFactory,
     _warmup_gangs,
 )
+from fairseq2.recipe.internal.hook import _HookManager, _TrainHookManager
 from fairseq2.recipe.internal.log import _log_ranks, _LogHelper, _StandardLogHelper
 from fairseq2.recipe.internal.logging import _DistributedLogConfigurer
 from fairseq2.recipe.internal.output_dir import _OutputDirectoryCreator
@@ -58,7 +59,11 @@ from fairseq2.recipe.internal.sweep_tag import (
 from fairseq2.recipe.internal.task import _TaskRunner
 from fairseq2.recipe.internal.torch import _TorchConfigurer
 from fairseq2.recipe.run import _RecipeConfigDumper
-from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
+from fairseq2.runtime.dependency import (
+    DependencyContainer,
+    DependencyResolver,
+    wire_object,
+)
 from fairseq2.task import Task
 from fairseq2.utils.stopwatch import Stopwatch
 
@@ -106,6 +111,8 @@ def _register_train_recipe(container: DependencyContainer, recipe: Recipe) -> No
     container.register_type(
         CheckpointManager, StandardCheckpointManager, singleton=True
     )
+
+    container.register_type(_TrainHookManager, singleton=True)
 
     _register_data_parallel_wrappers(container)
     _register_lr_schedulers(container)
@@ -176,16 +183,27 @@ def _register_recipe_common(container: DependencyContainer) -> None:
     _register_sampling(container)
     _register_seq_generators(container)
 
+    def create_task_runner(resolver: DependencyResolver) -> _TaskRunner:
+        task_runner = wire_object(resolver, _TaskRunner)
+
+        hook_manager = resolver.resolve(_HookManager)
+
+        hook_manager.maybe_register_task_hooks(task_runner)
+
+        return task_runner
+
+    container.register(_TaskRunner, create_task_runner)
+
     container.register_type(_AssetConfigOverrider, _StandardAssetConfigOverrider)
     container.register_type(_ClusterPreparer)
     container.register_type(ComponentManager, _StandardComponentManager, singleton=True)
     container.register_type(_DistributedLogConfigurer)
     container.register_type(_GangsFactory)
+    container.register_type(_HookManager, singleton=True)
     container.register_type(_LogHelper, _StandardLogHelper)
     container.register_type(_OutputDirectoryCreator)
     container.register_type(_RecipeConfigDumper)
     container.register_type(_SweepTagGenerator, _StandardSweepTagGenerator)
-    container.register_type(_TaskRunner)
     container.register_type(_TorchConfigurer)
 
     container.collection.register_type(AssetMetadataSource, _ExtraAssetMetadataSource)
