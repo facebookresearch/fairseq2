@@ -230,6 +230,17 @@ class MathVerifyVerifier(VLLMOutputReward):
         )
 
     def verify_answer(self, completion: str, answer: str):
+        # Remove reasoning from completion before verification
+        # If both <think> and </think> exist, remove everything between them
+        # If only </think> exists, remove everything before and including it
+        if "<think>" in completion and "</think>" in completion:
+            start_idx = completion.find("<think>")
+            end_idx = completion.find("</think>") + len("</think>")
+            completion = completion[:start_idx] + completion[end_idx:]
+        elif "</think>" in completion:
+            end_idx = completion.find("</think>") + len("</think>")
+            completion = completion[end_idx:]
+
         # here we add extra $$ to label so that LatexExtractor works as expected
         # if answer doesn't contain \\boxed, we add it
         # if not answer.startswith("$"):
