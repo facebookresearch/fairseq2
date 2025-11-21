@@ -24,6 +24,7 @@ from fairseq2.assets import (
     AssetCardNotValidError,
     AssetConfigLoader,
     AssetDownloadManager,
+    AssetStore,
 )
 from fairseq2.data_type import DataType, default_dtype
 from fairseq2.device import META_DEVICE
@@ -179,11 +180,14 @@ class ModelGatedError(Exception):
         self.info_url = info_url
 
 
-def get_model_family(card: AssetCard) -> ModelFamily:
+def get_model_family_name(card: AssetCard | str) -> str:
     """
-    Returns the :class:`ModelFamily` for the model in the specified card.
+    Returns the family name of the model in the specified card.
 
     :raises AssetCardError: The card is erroneous and cannot be read.
+
+    :raises AssetCardNotFoundError: ``card`` is of type ``str`` and no card with
+        that name exists.
 
     :raises AssetCardNotValidError: The card is missing a model definition (i.e.
         `model_family` field).
@@ -191,30 +195,39 @@ def get_model_family(card: AssetCard) -> ModelFamily:
     :raises ModelFamilyNotKnownError: The family of the model is not known,
         meaning has no registered :class:`ModelFamily`.
     """
-    family = maybe_get_model_family(card)
+    resolver = get_dependency_resolver()
+
+    if isinstance(card, str):
+        card = resolver.resolve(AssetStore).retrieve_card(card)
+
+    families = DependencyLookup(resolver, ModelFamily)
+
+    family = _maybe_get_model_family(card, families)
     if family is None:
         message = f"{card.name} asset card is missing a model definition (i.e. `model_family` field)."
 
         raise AssetCardNotValidError(card.name, message)
 
-    return family
+    return family.name
 
 
-def maybe_get_model_family(card: AssetCard) -> ModelFamily | None:
+def maybe_get_model_family_name(card: AssetCard | str) -> str | None:
     """
-    Returns the :class:`ModelFamily` for the model in the specified card, if one
-    is defined; otherwise, returns ``None``.
+    Returns the family name of the model in the specified card, if one is
+    defined; otherwise, returns ``None``.
 
     :raises AssetCardError: The card is erroneous and cannot be read.
+
+    :raises AssetCardNotFoundError: ``card`` is of type ``str`` and no card with
+        that name exists.
 
     :raises ModelFamilyNotKnownError: The family of the model is not known,
         meaning has no registered :class:`ModelFamily`.
     """
-    resolver = get_dependency_resolver()
-
-    families = DependencyLookup(resolver, ModelFamily)
-
-    return _maybe_get_model_family(card, families)
+    try:
+        return get_model_family_name(card)
+    except AssetCardNotValidError:
+        return None
 
 
 def _maybe_get_model_family(
