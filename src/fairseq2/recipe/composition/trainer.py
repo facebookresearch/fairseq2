@@ -8,13 +8,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from fairseq2.checkpoint import CheckpointHGExporter, OutOfProcCheckpointHGExporter
+from fairseq2.checkpoint import HuggingFaceExporter, OutOfProcHuggingFaceExporter
 from fairseq2.metrics.recorders import MetricDescriptor
 from fairseq2.optim.fp16_loss_scaler import Float16LossScaler
 from fairseq2.recipe.internal.trainer import (
-    _CheckpointHGExporterFactory,
     _Float16LossScalerFactory,
     _GarbageCollectorFactory,
+    _HuggingFaceExporterFactory,
     _MaybeScoreMetricProvider,
     _TrainerFactory,
     _ValidatorFactory,
@@ -61,28 +61,24 @@ def _register_trainer_factory(container: DependencyContainer) -> None:
     container.register_type(_Float16LossScalerFactory)
 
     # Hugging Face Exporter
-    def create_checkpoint_hg_exporter(
+    def create_hg_exporter(resolver: DependencyResolver) -> HuggingFaceExporter:
+        hg_exporter_factory = resolver.resolve(_HuggingFaceExporterFactory)
+
+        return hg_exporter_factory.create()
+
+    container.register(HuggingFaceExporter, create_hg_exporter)
+
+    def create_hg_exporter_factory(
         resolver: DependencyResolver,
-    ) -> CheckpointHGExporter:
-        exporter_factory = resolver.resolve(_CheckpointHGExporterFactory)
-
-        return exporter_factory.create()
-
-    container.register(CheckpointHGExporter, create_checkpoint_hg_exporter)
-
-    def create_checkpoint_hg_exporter_factory(
-        resolver: DependencyResolver,
-    ) -> _CheckpointHGExporterFactory:
-        def create_exporter() -> CheckpointHGExporter:
-            return wire_object(resolver, OutOfProcCheckpointHGExporter)
+    ) -> _HuggingFaceExporterFactory:
+        def create_hg_exporter() -> HuggingFaceExporter:
+            return wire_object(resolver, OutOfProcHuggingFaceExporter)
 
         return wire_object(
-            resolver, _CheckpointHGExporterFactory, default_factory=create_exporter
+            resolver, _HuggingFaceExporterFactory, default_factory=create_hg_exporter
         )
 
-    container.register(
-        _CheckpointHGExporterFactory, create_checkpoint_hg_exporter_factory
-    )
+    container.register(_HuggingFaceExporterFactory, create_hg_exporter_factory)
 
     # Score Metric
     def maybe_get_score_metric(resolver: DependencyResolver) -> MetricDescriptor | None:

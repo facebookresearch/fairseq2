@@ -6,12 +6,14 @@
 
 from __future__ import annotations
 
+from fairseq2.checkpoint.hg import NOOP_HG_EXPORTER as NOOP_HG_EXPORTER
 from fairseq2.checkpoint.hg import (
-    NOOP_CHECKPOINT_HG_EXPORTER as NOOP_CHECKPOINT_HG_EXPORTER,
+    HuggingFaceExportCallbackArgs as HuggingFaceExportCallbackArgs,
 )
-from fairseq2.checkpoint.hg import CheckpointHGExporter as CheckpointHGExporter
+from fairseq2.checkpoint.hg import HuggingFaceExporter as HuggingFaceExporter
+from fairseq2.checkpoint.hg import HuggingFaceExportOptions as HuggingFaceExportOptions
 from fairseq2.checkpoint.hg import (
-    OutOfProcCheckpointHGExporter as OutOfProcCheckpointHGExporter,
+    OutOfProcHuggingFaceExporter as OutOfProcHuggingFaceExporter,
 )
 from fairseq2.checkpoint.manager import CheckpointError as CheckpointError
 from fairseq2.checkpoint.manager import CheckpointManager as CheckpointManager
