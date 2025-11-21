@@ -34,6 +34,23 @@ class LMSFTConfig:
         default_factory=lambda: ModelSection(name="llama3_2_1b")
     )
 
+    dataset: LMSFTDatasetSection = field(
+        default_factory=lambda: LMSFTDatasetSection(
+            family=LM_SFT_DATASET,
+            config_overrides=LMSFTDatasetConfig(
+                sources={
+                    "train": [
+                        LMSFTDataSource(
+                            path="hg://facebook/fairseq2-lm-gsm8k",
+                            split="sft_train",
+                            weight=1.0,
+                        ),
+                    ],
+                },
+            ),
+        )
+    )
+
     tokenizer: TokenizerSection = field(
         default_factory=lambda: TokenizerSection(name="llama3_2_1b")
     )
@@ -78,23 +95,6 @@ class LMSFTConfig:
     common: CommonSection = field(
         default_factory=lambda: CommonSection(
             torch=TorchConfig(default_sdpa="torch_math")
-        )
-    )
-
-    dataset: LMSFTDatasetSection = field(
-        default_factory=lambda: LMSFTDatasetSection(
-            family=LM_SFT_DATASET,
-            config_overrides=LMSFTDatasetConfig(
-                sources={
-                    "train": [
-                        LMSFTDataSource(
-                            path="hg://facebook/fairseq2-lm-gsm8k",
-                            split="sft_train",
-                            weight=1.0,
-                        ),
-                    ],
-                },
-            ),
         )
     )
 

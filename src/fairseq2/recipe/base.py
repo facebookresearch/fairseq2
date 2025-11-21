@@ -13,9 +13,11 @@ from pathlib import Path
 from typing import TypeVar, final
 
 from torch.nn import Module
+from torch.optim import Optimizer
 from typing_extensions import override
 
 from fairseq2.assets import AssetStore
+from fairseq2.checkpoint import CheckpointManager
 from fairseq2.data.tokenizers import Tokenizer
 from fairseq2.datasets import DataReader
 from fairseq2.device import Device, SupportsDeviceTransfer
@@ -26,6 +28,7 @@ from fairseq2.gang import Gangs
 from fairseq2.generation import Seq2SeqGenerator, SequenceGenerator
 from fairseq2.generator import Generator, GeneratorUnit
 from fairseq2.metrics.recorders import MetricRecorder
+from fairseq2.optim.lr_schedulers import LRScheduler
 from fairseq2.recipe.config import RecipeConfig, ReferenceModelSection
 from fairseq2.recipe.dataset import RecipeDataset
 from fairseq2.recipe.error import (
@@ -168,6 +171,15 @@ class RecipeContext:
             raise TokenizerTypeNotValidError(type(tokenizer), kls, section_name)
 
         return tokenizer
+
+    def get_checkpoint_manager(self) -> CheckpointManager:
+        return self._resolver.resolve(CheckpointManager)
+
+    def get_optimizer(self) -> Optimizer:
+        return self._resolver.resolve(Optimizer)
+
+    def get_lr_scheduler(self) -> LRScheduler:
+        return self._resolver.resolve(LRScheduler)
 
     def get_seq_generator(self) -> SequenceGenerator:
         return self._resolver.resolve(SequenceGenerator)
