@@ -30,9 +30,10 @@ from fairseq2.file_system import FileSystem
 from fairseq2.gang import create_fake_gangs
 from fairseq2.logging import configure_logging, log
 from fairseq2.model_checkpoint import ModelCheckpointError
-from fairseq2.models import ModelNotKnownError, get_model_family
+from fairseq2.models import ModelFamily, ModelNotKnownError, _maybe_get_model_family
 from fairseq2.models.family import HuggingFaceExport
 from fairseq2.runtime.dependency import DependencyContainer
+from fairseq2.runtime.lookup import Lookup
 from fairseq2.utils.progress import ProgressReporter
 
 
@@ -189,11 +190,13 @@ class _HuggingFaceSaver(Protocol):
 class _HuggingFaceExportCommand:
     def __init__(
         self,
+        families: Lookup[ModelFamily],
         asset_store: AssetStore,
         file_system: FileSystem,
         saver: _HuggingFaceSaver,
         progress_reporter: ProgressReporter,
     ) -> None:
+        self._families = families
         self._asset_store = asset_store
         self._file_system = file_system
         self._saver = saver
@@ -212,7 +215,11 @@ class _HuggingFaceExportCommand:
         if card is None:
             raise ModelNotKnownError(model_name)
 
-        family = get_model_family(card)
+        family = _maybe_get_model_family(card, self._families)
+        if family is None:
+            raise AssetCardError(
+                card.name, f"{card.name} asset card does not have a model definition."
+            )
 
         if not family.supports_hugging_face:
             raise HuggingFaceNotSupportedError(model_name)

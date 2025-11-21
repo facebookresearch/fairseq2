@@ -19,8 +19,10 @@ from fairseq2.models.family import ModelStateDictConverter as ModelStateDictConv
 from fairseq2.models.family import ShardSpecsProvider as ShardSpecsProvider
 from fairseq2.models.family import StandardModelFamily as StandardModelFamily
 from fairseq2.models.family import _maybe_get_model_family as _maybe_get_model_family
-from fairseq2.models.family import get_model_family as get_model_family
-from fairseq2.models.family import maybe_get_model_family as maybe_get_model_family
+from fairseq2.models.family import get_model_family_name as get_model_family_name
+from fairseq2.models.family import (
+    maybe_get_model_family_name as maybe_get_model_family_name,
+)
 from fairseq2.models.hub import GlobalModelLoader as GlobalModelLoader
 from fairseq2.models.hub import (
     ModelArchitectureNotKnownError as ModelArchitectureNotKnownError,
