@@ -584,7 +584,7 @@ class ModelHubAccessor(Generic[ModelT, ModelConfigT]):
 
         name = self._family_name
 
-        family = resolver.resolve_optional(ModelFamily, key=name)
+        family = resolver.maybe_resolve(ModelFamily, key=name)
         if family is None:
             raise ModelFamilyNotKnownError(name)
 

@@ -39,7 +39,7 @@ class DependencyResolver(ABC):
     def resolve(self, kls: type[T], *, key: Hashable | None = None) -> T: ...
 
     @abstractmethod
-    def resolve_optional(
+    def maybe_resolve(
         self, kls: type[T], *, key: Hashable | None = None
     ) -> T | None: ...
 
@@ -60,7 +60,7 @@ class DependencyCollectionResolver(ABC):
 
 
 class DependencyNotFoundError(Exception):
-    def __init__(self, kls: type, key: Hashable | None, msg: str) -> None:
+    def __init__(self, kls: type[object], key: Hashable | None, msg: str) -> None:
         super().__init__(msg)
 
         self.kls = kls
@@ -133,7 +133,7 @@ class DependencyContainer(DependencyResolver):
 
     def _do_register(
         self,
-        kls: type,
+        kls: type[object],
         key: Hashable | None,
         registration: _DependencyRegistration,
     ) -> None:
@@ -178,9 +178,7 @@ class DependencyContainer(DependencyResolver):
         return obj
 
     @override
-    def resolve_optional(
-        self, kls: type[T], *, key: Hashable | None = None
-    ) -> T | None:
+    def maybe_resolve(self, kls: type[T], *, key: Hashable | None = None) -> T | None:
         try:
             return self.resolve(kls, key=key)
         except DependencyNotFoundError as ex:
@@ -249,7 +247,7 @@ class DependencyCollectionContainer(DependencyCollectionResolver):
 
     def _do_register(
         self,
-        kls: type,
+        kls: type[object],
         key: Hashable | None,
         registration: _DependencyRegistration,
     ) -> None:
@@ -362,7 +360,7 @@ class DependencyLookup(Lookup[T]):
 
     @override
     def maybe_get(self, key: Hashable) -> T | None:
-        return self._resolver.resolve_optional(self._kls, key=key)
+        return self._resolver.maybe_resolve(self._kls, key=key)
 
     @override
     def iter_keys(self) -> Iterator[Hashable]:
@@ -396,7 +394,7 @@ def wire_object(resolver: DependencyResolver, wire_kls: type[T], /, **kwargs: An
 
 
 class AutoWireError(Exception):
-    def __init__(self, kls: type, reason: str) -> None:
+    def __init__(self, kls: type[object], reason: str) -> None:
         super().__init__(f"`{kls}` cannot be auto-wired. {reason}")
 
         self.kls = kls
@@ -404,7 +402,7 @@ class AutoWireError(Exception):
 
 
 def _create_wired_instance(
-    kls: type, resolver: DependencyResolver, custom_kwargs: dict[str, object]
+    kls: type[object], resolver: DependencyResolver, custom_kwargs: dict[str, object]
 ) -> object:
     def wire_error(reason: str) -> Exception:
         return AutoWireError(kls, reason)
@@ -573,7 +571,7 @@ def _create_wired_instance(
                 if element_kls is None:
                     continue
 
-                arg = resolver.resolve_optional(element_kls)
+                arg = resolver.maybe_resolve(element_kls)
             else:
                 param_kls = get_param_kls()
                 if param_kls is None:
@@ -582,7 +580,7 @@ def _create_wired_instance(
                 if param_kls is DependencyResolver:
                     arg = resolver
                 elif param.default != Parameter.empty:
-                    arg = resolver.resolve_optional(param_kls)
+                    arg = resolver.maybe_resolve(param_kls)
                     if arg is None:
                         arg = _NOT_SET
                 else:
