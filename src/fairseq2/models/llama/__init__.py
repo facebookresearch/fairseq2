@@ -21,12 +21,14 @@ from fairseq2.models.llama.factory import init_llama_rope_freqs as init_llama_ro
 from fairseq2.models.llama.hub import get_llama_model_hub as get_llama_model_hub
 from fairseq2.models.llama.hub import get_llama_tokenizer_hub as get_llama_tokenizer_hub
 from fairseq2.models.llama.interop import (
+    _LLaMAHuggingFaceConverter as _LLaMAHuggingFaceConverter,
+)
+from fairseq2.models.llama.interop import (
     convert_llama_state_dict as convert_llama_state_dict,
 )
 from fairseq2.models.llama.interop import (
     convert_to_ref_llama_state_dict as convert_to_ref_llama_state_dict,
 )
-from fairseq2.models.llama.interop import export_llama as export_llama
 from fairseq2.models.llama.sharder import get_llama_shard_specs as get_llama_shard_specs
 from fairseq2.models.llama.tokenizer import (
     LLaMAHuggingFaceTokenizer as LLaMAHuggingFaceTokenizer,

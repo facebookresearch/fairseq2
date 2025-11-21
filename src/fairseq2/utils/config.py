@@ -13,11 +13,22 @@ from copy import deepcopy
 from itertools import chain
 from pathlib import Path
 from re import Match
-from typing import final
+from typing import TypeVar, final
 
 from typing_extensions import override
 
 from fairseq2.utils.env import Environment
+
+ConfigT = TypeVar("ConfigT")
+
+
+def cast_config_type(config: object, expected_kls: type[ConfigT]) -> ConfigT:
+    if not isinstance(config, expected_kls):
+        raise TypeError(
+            f"`config` must be of type `{expected_kls}`, but is of type `{type(config)}` instead."
+        )
+
+    return config
 
 
 class ConfigMerger(ABC):

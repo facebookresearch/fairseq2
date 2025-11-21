@@ -4,21 +4,34 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+"""
+A command line program to convert fairseq2 models to their Hugging Face
+Transformers equivalents.
+
+.. code:: bash
+
+    python -m fairseq2.models.utils.hg_export <fairseq2_model_name> <hg_save_dir>
+
+
+See below for additional command line options.
+"""
+
 from __future__ import annotations
 
 import sys
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from typing import Protocol, final, runtime_checkable
+from typing import NoReturn, Protocol, final
 
-import huggingface_hub
 import torch
-import transformers
-from torch import Tensor
-from transformers import PretrainedConfig
 
 from fairseq2 import init_fairseq2
-from fairseq2.assets import AssetCardError, AssetMetadataError, AssetStore
+from fairseq2.assets import (
+    AssetCardError,
+    AssetDownloadError,
+    AssetMetadataError,
+    AssetStore,
+)
 from fairseq2.composition import (
     ExtensionError,
     register_checkpoint_models,
@@ -30,99 +43,68 @@ from fairseq2.file_system import FileSystem
 from fairseq2.gang import create_fake_gangs
 from fairseq2.logging import configure_logging, log
 from fairseq2.model_checkpoint import ModelCheckpointError
-from fairseq2.models import ModelFamily, ModelNotKnownError, _maybe_get_model_family
-from fairseq2.models.family import HuggingFaceExport
-from fairseq2.runtime.dependency import DependencyContainer
+from fairseq2.models import (
+    ModelFamily,
+    ModelFamilyNotKnownError,
+    ModelGatedError,
+    _maybe_get_model_family,
+)
+from fairseq2.models.hg import (
+    HuggingFaceConfig,
+    HuggingFaceConverter,
+    _LegacyHuggingFaceConverter,
+    save_hugging_face_model,
+)
+from fairseq2.runtime.dependency import (
+    DependencyContainer,
+    DependencyResolver,
+    wire_object,
+)
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.utils.progress import ProgressReporter
 
 
-def save_hugging_face_model(save_dir: Path, export: HuggingFaceExport) -> None:
-
+def main() -> int:
     try:
-        config_kls = getattr(transformers, export.config_kls_name)
-    except AttributeError:
-        raise TypeError(
-            f"`transformers.{export.config_kls_name}` is not a type."
-        ) from None
+        _run()
+    except CommandError as ex:
+        if ex.__cause__ is None:
+            log.error("{}", ex)
+        else:
+            log.exception("{} See logged stack trace for details.", ex)
 
-    if not issubclass(config_kls, PretrainedConfig):
-        raise TypeError(
-            f"`transformers.{export.config_kls_name}` is expected to be a subclass of `{PretrainedConfig}`."
-        )
+        return 2
+    except OperationalError as ex:
+        log.exception("{} See logged stack trace for details.", ex)
 
-    config = config_kls()
+        return 1
+    except Exception:
+        log.exception("Command failed due to an unexpected error. See logged stack trace for details and file a bug report to the corresponding author.")  # fmt: skip
 
-    for key, value in export.config.items():
-        if not hasattr(config, key):
-            raise ValueError(
-                f"`transformers.{export.config_kls_name}` does not have an attribute named '{key}'."
-            )
-
-        setattr(config, key, value)
-
-    arch = export.arch
-
-    setattr(config, "architectures", [arch] if isinstance(arch, str) else arch)
-
-    config.save_pretrained(save_dir)
-
-    state_dict = {}
-
-    for key, value in export.state_dict.items():
-        if not isinstance(value, Tensor):
-            raise TypeError(
-                f"All values in `export.state_dict` must be of type `{Tensor}`, but the value of {key} key is of type `{type(value)}` instead."
-            )
-
-        state_dict[key] = value
-
-    huggingface_hub.save_torch_state_dict(state_dict, save_dir)
+        return 1
+    else:
+        return 0
 
 
-def _main() -> None:
+def _run() -> None:
     args = _parse_args()
 
     configure_logging(no_rich=args.no_rich)
 
+    def extras(container: DependencyContainer) -> None:
+        _register_command(container, args)
+
     try:
-        _run(args)
-    except ExportDirectoryAlreadyExists as ex:
-        log.error("{} directory already exists.", ex.save_dir)  # fmt: skip
-
-        sys.exit(2)
-    except ModelNotKnownError as ex:
-        log.error("{} is not a known model.", ex.name)  # fmt: skip
-
-        sys.exit(2)
-    except HuggingFaceNotSupportedError as ex:
-        log.error("{} does not support exporting to Hugging Face.", ex.model_name)  # fmt: skip
-
-        sys.exit(2)
-    except AssetMetadataError as ex:
-        log.exception("Asset metadata in {} is erroneous. See logged stack trace for details.", ex.source)  # fmt: skip
-
-        sys.exit(1)
-    except AssetCardError as ex:
-        log.exception("{} asset card is erroneous. See logged stack trace for details.", ex.name)  # fmt: skip
-
-        sys.exit(1)
-    except ModelCheckpointError as ex:
-        log.exception("Model checkpoint at {} is erroneous. See logged stack trace for details.", ex.path)  # fmt: skip
-
-        sys.exit(1)
-    except OperationalError:
-        log.exception("Command failed due to an operational error. See logged stack trace for details.")  # fmt: skip
-
-        sys.exit(1)
+        resolver = init_fairseq2(extras=extras, no_progress=args.no_rich)
     except ExtensionError as ex:
-        log.exception("{} extension failed to initialize. See logged stack trace for details.", ex.entry_point)  # fmt: skip
+        raise CommandError(f"{ex.entry_point} extension failed to initialize.") from ex
 
-        sys.exit(1)
-    except Exception:
-        log.exception("Command failed due to an unexpected error. See logged stack trace for details and file a bug report to the corresponding author.")  # fmt: skip
+    try:
+        export_command = resolver.resolve(_HuggingFaceExportCommand)
+    except AssetMetadataError as ex:
+        raise CommandError(f"Asset metadata in {ex.source} is erroneous.") from ex
 
-        sys.exit(1)
+    export_command.run(args.model, args.save_dir)
 
 
 def _parse_args() -> Namespace:
@@ -162,77 +144,107 @@ def _parse_args() -> Namespace:
     return parser.parse_args()
 
 
-def _run(args: Namespace) -> None:
-    def register_command(container: DependencyContainer) -> None:
-        if args.extra_asset_path:
-            register_file_assets(container, args.extra_asset_path)
+def _register_command(container: DependencyContainer, args: Namespace) -> None:
+    if args.extra_asset_path:
+        register_file_assets(container, args.extra_asset_path)
 
-        if args.checkpoint_dir:
-            register_checkpoint_models(container, args.checkpoint_dir)
+    if args.checkpoint_dir:
+        register_checkpoint_models(container, args.checkpoint_dir)
 
-        container.register_type(_HuggingFaceExportCommand)
+    def create_command(resolver: DependencyResolver) -> _HuggingFaceExportCommand:
+        return wire_object(
+            resolver, _HuggingFaceExportCommand, hg_saver=save_hugging_face_model
+        )
 
-        container.register_instance(_HuggingFaceSaver, save_hugging_face_model)
-
-    resolver = init_fairseq2(extras=register_command)
-
-    command = resolver.resolve(_HuggingFaceExportCommand)
-
-    command.run(args.model, args.save_dir)
+    container.register(_HuggingFaceExportCommand, create_command)
 
 
-@runtime_checkable
 class _HuggingFaceSaver(Protocol):
-    def __call__(self, save_dir: Path, export: HuggingFaceExport) -> None: ...
+    def __call__(
+        self, save_dir: Path, state_dict: dict[str, object], config: HuggingFaceConfig
+    ) -> None: ...
 
 
 @final
 class _HuggingFaceExportCommand:
     def __init__(
         self,
-        families: Lookup[ModelFamily],
         asset_store: AssetStore,
+        families: Lookup[ModelFamily],
+        hg_converters: Lookup[HuggingFaceConverter],
         file_system: FileSystem,
-        saver: _HuggingFaceSaver,
+        hg_saver: _HuggingFaceSaver,
         progress_reporter: ProgressReporter,
     ) -> None:
-        self._families = families
         self._asset_store = asset_store
+        self._families = families
+        self._hg_converters = hg_converters
         self._file_system = file_system
-        self._saver = saver
+        self._hg_saver = hg_saver
         self._progress_reporter = progress_reporter
 
     def run(self, model_name: str, save_dir: Path) -> None:
-        try:
-            dir_exists = self._file_system.exists(save_dir)
-        except OSError as ex:
-            raise_operational_system_error(ex)
-
-        if dir_exists:
-            raise ExportDirectoryAlreadyExists(save_dir)
+        if self._file_system.exists(save_dir):
+            raise CommandError(f"{save_dir} directory already exists.")
 
         card = self._asset_store.maybe_retrieve_card(model_name)
         if card is None:
-            raise ModelNotKnownError(model_name)
+            raise CommandError(f"{model_name} is not a known model.")
 
-        family = _maybe_get_model_family(card, self._families)
+        def raise_card_error(ex: AssetCardError) -> NoReturn:
+            raise CommandError(
+                f"{ex.name} asset card is erroneous. Please file a bug report to its author."
+            ) from ex
+
+        try:
+            family = _maybe_get_model_family(card, self._families)
+        except AssetCardError as ex:
+            raise_card_error(ex)
+        except ModelFamilyNotKnownError as ex:
+            raise CommandError(
+                f"{ex.name} family of the {model_name} model is not known."
+            ) from None
+
         if family is None:
-            raise AssetCardError(
-                card.name, f"{card.name} asset card does not have a model definition."
+            raise CommandError(
+                f"{card.name} asset card does not contain a model definition."
             )
 
-        if not family.supports_hugging_face:
-            raise HuggingFaceNotSupportedError(model_name)
+        hg_converter = self._hg_converters.maybe_get(family.name)
+        if hg_converter is None:
+            raise CommandError(
+                f"{model_name} model does not support Hugging Face export."
+            )
 
         gangs = create_fake_gangs(CPU)
 
         log.info("Loading {} model.", model_name)
 
-        model_config = family.get_model_config(card)
+        try:
+            config = family.get_model_config(card)
+        except AssetCardError as ex:
+            raise_card_error(ex)
 
-        model = family.load_model(
-            card, gangs, torch.float32, model_config, load_rank0_only=True, mmap=False
-        )
+        try:
+            model = family.load_model(
+                card, gangs, torch.float32, config, load_rank0_only=True, mmap=False
+            )
+        except OSError as ex:
+            raise_operational_system_error(ex)
+        except AssetCardError as ex:
+            raise_card_error(ex)
+        except AssetDownloadError as ex:
+            raise OperationalError(
+                f"Download of the {model_name} model checkpoint failed."
+            ) from ex
+        except ModelCheckpointError as ex:
+            raise CommandError(
+                f"Checkpoint of the {model_name} model is erroneous."
+            ) from ex
+        except ModelGatedError as ex:
+            raise CommandError(
+                f"{model_name} model is gated and cannot be loaded. See {ex.info_url} for more information."
+            ) from None
 
         state_dict = model.state_dict()
 
@@ -240,7 +252,18 @@ class _HuggingFaceExportCommand:
 
         log.info("Exporting Hugging Face model.")
 
-        export = family.convert_to_hugging_face(state_dict, model_config)
+        if isinstance(hg_converter, _LegacyHuggingFaceConverter):
+            hg_export = hg_converter._exporter(state_dict, config)
+
+            hg_config = HuggingFaceConfig(
+                hg_export.config, hg_export.config_kls_name, hg_export.arch
+            )
+
+            hg_state_dict = hg_export.state_dict
+        else:
+            hg_config = hg_converter.to_hg_config(config)
+
+            hg_state_dict = hg_converter.to_hg_state_dict(state_dict, config)
 
         try:
             with self._file_system.tmp_directory(save_dir.parent) as tmp_dir:
@@ -252,7 +275,7 @@ class _HuggingFaceExportCommand:
                     )
 
                     with progress_task:
-                        self._saver(tmp_save_dir, export)
+                        self._hg_saver(tmp_save_dir, hg_state_dict, hg_config)
 
                 self._file_system.move(tmp_save_dir, save_dir)
         except OSError as ex:
@@ -261,19 +284,9 @@ class _HuggingFaceExportCommand:
         log.info("Hugging Face model exported to {}!", save_dir)
 
 
-class ExportDirectoryAlreadyExists(Exception):
-    def __init__(self, save_dir: Path) -> None:
-        super().__init__()
-
-        self.save_dir = save_dir
-
-
-class HuggingFaceNotSupportedError(Exception):
-    def __init__(self, model_name: str) -> None:
-        super().__init__()
-
-        self.model_name = model_name
+class CommandError(Exception):
+    pass
 
 
 if __name__ == "__main__":
-    _main()
+    sys.exit(main())
