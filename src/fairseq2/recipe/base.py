@@ -37,6 +37,7 @@ from fairseq2.recipe.internal.config import _get_config_section, _RecipeConfigHo
 from fairseq2.recipe.internal.dataset import _DatasetHolder
 from fairseq2.recipe.internal.evaluator import _EvaluatorFactory
 from fairseq2.recipe.internal.generator import _GeneratorFactory
+from fairseq2.recipe.internal.hook import _TrainHookManager
 from fairseq2.recipe.internal.model import _ModelHolder
 from fairseq2.recipe.internal.reference_model import _ReferenceModelBootstrapper
 from fairseq2.recipe.internal.tokenizer import _TokenizerHolder
@@ -187,7 +188,13 @@ class RecipeContext:
 
         trainer_factory = self._resolver.resolve(_TrainerFactory)
 
-        return trainer_factory.create(unit, data_reader, validator)
+        trainer = trainer_factory.create(unit, data_reader, validator)
+
+        hook_manager = self._resolver.resolve(_TrainHookManager)
+
+        hook_manager.maybe_register_trainer_hooks(trainer)
+
+        return trainer
 
     def create_evaluator(
         self,

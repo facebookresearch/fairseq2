@@ -6,9 +6,12 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from signal import SIGUSR1, signal
 from types import FrameType
-from typing import final
+from typing import Protocol, final
+
+from torch.utils.hooks import RemovableHandle
 
 from fairseq2.error import raise_operational_system_error
 from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
@@ -17,11 +20,16 @@ from fairseq2.task import Task, TaskStopException
 from fairseq2.utils.stopwatch import Stopwatch
 
 
+class _TaskStartHook(Protocol):
+    def __call__(self) -> None: ...
+
+
 @final
 class _TaskRunner:
     def __init__(self, gangs: Gangs, wall_watch: Stopwatch) -> None:
         self._gangs = gangs
         self._wall_watch = wall_watch
+        self._start_hooks: dict[int, _TaskStartHook] = OrderedDict()
 
     def run(self, task: Task) -> None:
         log.info("Running on {} process(es).", self._gangs.root.size)
@@ -33,6 +41,9 @@ class _TaskRunner:
             task.request_stop()
 
         original_signal_handler = signal(SIGUSR1, request_stop)
+
+        for hook in self._start_hooks.values():
+            hook()
 
         try:
             task.run()
@@ -69,3 +80,10 @@ class _TaskRunner:
             task.close()
 
             signal(SIGUSR1, original_signal_handler)
+
+    def register_start_hook(self, hook: _TaskStartHook) -> RemovableHandle:
+        handle = RemovableHandle(self._start_hooks)
+
+        self._start_hooks[handle.id] = hook
+
+        return handle
