@@ -1260,6 +1260,7 @@ class PplDerivedVerifier(VLLMOutputReward):
                 vllm_inputs.append(text_tokens)
 
             for rollout_output in vllm_output.outputs:  # reasoning in rollouts
+
                 text_tokens, n_input_tokens = self._preprocess_reward_input(
                     prefix,
                     rollout_output.text,

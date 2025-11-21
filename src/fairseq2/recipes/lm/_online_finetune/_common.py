@@ -426,10 +426,18 @@ def convert_vllm_output_to_ref_score(vllm_outputs: List[RequestOutput], gangs):
 
 def compute_token_level_entropy(logits: torch.Tensor, target_mask: torch.Tensor):
     """Calculate entropy from logits. Returns sum of entropies averages for each sequence."""
+    # Clamp logits to prevent numerical overflow in logsumexp
+    logits = torch.clamp(logits, min=-100, max=100)
+
     pd = torch.nn.functional.softmax(logits, dim=-1)
     entropy = torch.logsumexp(logits, dim=-1) - torch.sum(pd * logits, dim=-1)
     entropy_target_only = entropy * target_mask
-    entropy_per_seq = entropy_target_only.sum(dim=-1) / target_mask.sum(dim=-1)
+
+    # Compute target token counts and avoid division by zero
+    target_counts = target_mask.sum(dim=-1)
+    # Add small epsilon to avoid division by zero
+    target_counts = torch.clamp(target_counts, min=1e-8)
+    entropy_per_seq = entropy_target_only.sum(dim=-1) / target_counts
 
     return entropy_per_seq
 
