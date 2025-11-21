@@ -76,14 +76,15 @@ class GRPOBatch:
 
 def clip_outputs_after_think_token(rollouts, tokenizer, think_tokens, num_tokens):
     """
-    Clip token_ids and logprobs to keep only num_tokens after the </think> token sequence ends,
-    and recompute the text from clipped tokens.
+    Clip token_ids and logprobs to keep only num_tokens after the </think> token sequence ends.
+    If </think> is not found, clip to just the first num_tokens.
+    Recompute the text from clipped tokens.
 
     Args:
         rollouts: List of rollout objects
         tokenizer: Tokenizer instance
         think_tokens: List of token IDs for </think>
-        num_tokens: Number of tokens to keep after </think> token sequence ends
+        num_tokens: Number of tokens to keep after </think> token sequence ends (or from start if no </think>)
 
     Returns:
         List of modified rollout objects
@@ -104,35 +105,35 @@ def clip_outputs_after_think_token(rollouts, tokenizer, think_tokens, num_tokens
                     clip_index = i + think_token_len + num_tokens
                     break
 
-            if clip_index is not None:
-                # Clip token_ids and logprobs
-                clipped_token_ids = output.token_ids[:clip_index]
-                clipped_logprobs = output.logprobs[:clip_index]
+            # If </think> not found, clip to just the first num_tokens
+            if clip_index is None:
+                clip_index = num_tokens
 
-                # Recompute text from clipped tokens
-                clipped_text = tokenizer.decode(clipped_token_ids)
+            # Clip token_ids and logprobs
+            clipped_token_ids = output.token_ids[:clip_index]
+            clipped_logprobs = output.logprobs[:clip_index]
 
-                # Recalculate cumulative_logprob from clipped logprobs
-                cumulative_logprob = 0.0
-                for logprob_dict in clipped_logprobs:
-                    # Get the first token's logprob (the selected token)
-                    first_token_id = list(logprob_dict.keys())[0]
-                    cumulative_logprob += logprob_dict[first_token_id].logprob
+            # Recompute text from clipped tokens
+            clipped_text = tokenizer.decode(clipped_token_ids)
 
-                # Create new CompletionOutput with clipped data
-                clipped_output = type(output)(
-                    index=output.index,
-                    text=clipped_text,
-                    token_ids=clipped_token_ids,
-                    cumulative_logprob=cumulative_logprob,
-                    logprobs=clipped_logprobs,
-                    finish_reason=output.finish_reason,
-                    stop_reason=output.stop_reason,
-                )
-                clipped_outputs.append(clipped_output)
-            else:
-                # If </think> not found, keep original output
-                clipped_outputs.append(output)
+            # Recalculate cumulative_logprob from clipped logprobs
+            cumulative_logprob = 0.0
+            for logprob_dict in clipped_logprobs:
+                # Get the first token's logprob (the selected token)
+                first_token_id = list(logprob_dict.keys())[0]
+                cumulative_logprob += logprob_dict[first_token_id].logprob
+
+            # Create new CompletionOutput with clipped data
+            clipped_output = type(output)(
+                index=output.index,
+                text=clipped_text,
+                token_ids=clipped_token_ids,
+                cumulative_logprob=cumulative_logprob,
+                logprobs=clipped_logprobs,
+                finish_reason=output.finish_reason,
+                stop_reason=output.stop_reason,
+            )
+            clipped_outputs.append(clipped_output)
 
         # Create new rollout object with clipped outputs
         clipped_rollout = type(rollout)(

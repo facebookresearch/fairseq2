@@ -630,7 +630,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
                 # log.info(f"Prefix = {prompt_text}")
                 log.info(f"[Think Start]\n{gen_think}\n[Think End]")
                 log.info(
-                    f"[Gold Suffix Start]\n{i_reference_answer}\n[Gold Suffix End]\n\n[Gen Suffix Start]\n{gen_suffix}\n[Gen Suffix End]"
+                    f"\n[Gold Suffix Start]\n{i_reference_answer}\n[Gold Suffix End]\n\n[Gen Suffix Start]\n{gen_suffix}\n[Gen Suffix End]"
                 )
                 log.info(f"Score = {per_rollout_reward}")
                 rollout_idx += 1
