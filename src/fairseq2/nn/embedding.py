@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import TYPE_CHECKING, final
+from typing import TYPE_CHECKING, cast, final
 
 import torch
 import torch.nn as nn
@@ -18,11 +18,12 @@ from torch.nn.functional import embedding
 from typing_extensions import override
 
 from fairseq2.data_type import DataType
-from fairseq2.device import META_DEVICE, Device
-from fairseq2.gang import Gang
+from fairseq2.device import META_DEVICE, Device, get_current_device
+from fairseq2.gang import Gang, Gangs, create_fake_gangs
 from fairseq2.nn.sharded import Sharded
 from fairseq2.nn.utils.module import get_name_or_self, to_empty
 from fairseq2.ops.tensor_parallel import gather, reduce, reduce_on_backward
+from fairseq2.utils.warn import _warn_deprecated
 
 
 class Embedding(Module, ABC):
@@ -85,14 +86,7 @@ class StandardEmbedding(Embedding):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        if self.init_fn is not None:
-            self.init_fn(self)
-        else:
-            nn.init.normal_(self.weight)
-
-        if self.pad_idx is not None:
-            with torch.no_grad():
-                self.weight[self.pad_idx].fill_(0.0)
+        _init_embedding(self)
 
     @override
     def forward(self, x: Tensor) -> Tensor:
@@ -121,11 +115,34 @@ class VocabShardedEmbedding(Embedding, Sharded):
     """
 
     @staticmethod
-    def from_embedding(embed: StandardEmbedding, gang: Gang) -> VocabShardedEmbedding:
+    def from_embedding(
+        embed: StandardEmbedding,
+        gang: Gang | None = None,
+        *,
+        gangs: Gangs | None = None,
+    ) -> VocabShardedEmbedding:
         """
         Creates a :class:`VocabShardedEmbedding` by sharding ``embed`` over its
-        vocabulary dimension using ``gang``.
+        vocabulary dimension using ``gangs.tp``.
+
+        If ``gangs`` is ``None``, acts like a regular :class:`StandardEmbedding`
+        module.
         """
+        if gang is not None:
+            _warn_deprecated(
+                "`gang` parameter of `VocabShardedEmbedding.from_embedding` is deprecated and will be removed in v0.14. Please use the `gangs` parameter instead."
+            )
+
+            if gangs is not None:
+                raise ValueError(
+                    "`gang` and `gangs` cannot be provided at the same time."
+                )
+        else:
+            if gangs is None:
+                gangs = create_fake_gangs(embed.weight.device)
+
+            gang = gangs.tp
+
         device = embed.weight.device
 
         if device != gang.device and device.type != "meta":
@@ -134,49 +151,59 @@ class VocabShardedEmbedding(Embedding, Sharded):
             )
 
         sharded_embed = VocabShardedEmbedding(
-            gang,
             embed.num_embeddings,
             embed.embed_dim,
             embed.pad_idx,
+            gangs=gangs,
             init_fn=embed.init_fn,
             device=META_DEVICE,
             dtype=embed.weight.dtype,
+            _tp_gang=gang,
         )
 
         if device.type != "meta":
             to_empty(sharded_embed, device)
 
-        sharded_embed._copy_weight(embed)
+        sharded_embed._copy_from_embedding(embed)
 
         return sharded_embed
 
     def __init__(
         self,
-        gang: Gang,
         num_embeddings: int,
         embed_dim: int,
         pad_idx: int | None = None,
         *,
+        gangs: Gangs | None = None,
         init_fn: Callable[[StandardEmbedding], None] | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
+        _tp_gang: Gang | None = None,
     ) -> None:
         super().__init__(num_embeddings, embed_dim, pad_idx)
 
-        if num_embeddings % gang.size != 0:
+        if gangs is None:
+            gangs = create_fake_gangs()
+
+        tp_gang = gangs.tp if _tp_gang is None else _tp_gang
+
+        if num_embeddings % tp_gang.size != 0:
             raise ValueError(
-                f"`num_embeddings` must be a multiple of `gang.size` ({gang.size}), but is {num_embeddings} instead."
+                f"`num_embeddings` must be a multiple of `gangs.tp.size` ({tp_gang.size}), but is {num_embeddings} instead."
             )
 
-        self.gang = gang
+        self.tp_gang = tp_gang
 
-        self.sharded_num_embeddings = num_embeddings // gang.size
+        self.sharded = tp_gang.size > 1
+
+        self.sharded_num_embeddings = num_embeddings // tp_gang.size
 
         if device is None:
-            device = gang.device
-        elif device != gang.device and device.type != "meta":
+            device = get_current_device()
+
+        if device.type != "meta" and device != tp_gang.device:
             raise ValueError(
-                f"`device` must match `gang.device` or must be of type `meta`, but is `{device}` instead."
+                f"`device` must match `gangs.tp.device` or must be of type `meta`, but is `{device}` instead."
             )
 
         weight = torch.empty(
@@ -190,24 +217,30 @@ class VocabShardedEmbedding(Embedding, Sharded):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        embed = self._embedding_like(device=self.gang.device)
+        if self.sharded:
+            embed = self._embedding_like(device=self.tp_gang.device)
 
-        self._copy_weight(embed)
+            self._copy_from_embedding(embed)
+        else:
+            _init_embedding(self)
 
-    def _copy_weight(self, embed: StandardEmbedding) -> None:
+    def _copy_from_embedding(self, embed: StandardEmbedding) -> None:
         with torch.no_grad():
             weight_shards = embed.weight.split(self.sharded_num_embeddings, dim=0)
 
-            weight = weight_shards[self.gang.rank]
+            weight = weight_shards[self.tp_gang.rank]
 
             self.weight.copy_(weight, non_blocking=True)
 
     @override
     def forward(self, x: Tensor) -> Tensor:
+        if not self.sharded:
+            return embedding(x, self.weight, self.pad_idx)
+
         num_embeds = self.sharded_num_embeddings
 
         vocab_begin_idx, vocab_end_idx = (
-            self.gang.rank * num_embeds, (self.gang.rank + 1) * num_embeds  # fmt: skip
+            self.tp_gang.rank * num_embeds, (self.tp_gang.rank + 1) * num_embeds  # fmt: skip
         )
 
         if self.pad_idx is None:
@@ -233,7 +266,7 @@ class VocabShardedEmbedding(Embedding, Sharded):
         x = torch.where(mask, 0.0, x)
 
         # (N, S, E)
-        x = reduce(x, self.gang)
+        x = reduce(x, self.tp_gang)
 
         return x
 
@@ -241,10 +274,13 @@ class VocabShardedEmbedding(Embedding, Sharded):
         """Unshards this instance to a :class:`StandardEmbedding`."""
         embed = self._embedding_like(device=META_DEVICE)
 
-        to_empty(embed, device or self.gang.device)
+        to_empty(embed, device or self.tp_gang.device)
 
         with torch.no_grad():
-            weight = gather(self.weight, self.gang, dim=0)
+            if self.sharded:
+                weight = gather(self.weight, self.tp_gang, dim=0)
+            else:
+                weight = self.weight
 
             embed.weight.copy_(weight, non_blocking=True)
 
@@ -268,8 +304,8 @@ class VocabShardedEmbedding(Embedding, Sharded):
     def extra_repr(self) -> str:
         """:meta private:"""
         s = (
-            f"tp_rank={self.gang.rank}, "
-            f"tp_size={self.gang.size}, "
+            f"tp_rank={self.tp_gang.rank}, "
+            f"tp_size={self.tp_gang.size}, "
             f"num_embeddings={self.num_embeddings}, "
             f"sharded_num_embeddings={self.sharded_num_embeddings}, "
             f"embed_dim={self.embed_dim}"
@@ -293,11 +329,34 @@ class ShardedEmbedding(Embedding, Sharded):
     """
 
     @staticmethod
-    def from_embedding(embed: StandardEmbedding, gang: Gang) -> ShardedEmbedding:
+    def from_embedding(
+        embed: StandardEmbedding,
+        gang: Gang | None = None,
+        *,
+        gangs: Gangs | None = None,
+    ) -> ShardedEmbedding:
         """
         Creates a :class:`ShardedEmbedding` by sharding ``embed`` over its
-        embedding dimension using ``gang``.
+        embedding dimension using ``gangs.tp``.
+
+        If ``gangs`` is ``None``, acts like a regular :class:`StandardEmbedding`
+        module.
         """
+        if gang is not None:
+            _warn_deprecated(
+                "`gang` parameter of `VocabShardedEmbedding.from_embedding` is deprecated and will be removed in v0.14. Please use the `gangs` parameter instead."
+            )
+
+            if gangs is not None:
+                raise ValueError(
+                    "`gang` and `gangs` cannot be provided at the same time."
+                )
+        else:
+            if gangs is None:
+                gangs = create_fake_gangs(embed.weight.device)
+
+            gang = gangs.tp
+
         device = embed.weight.device
 
         if device != gang.device and device.type != "meta":
@@ -306,49 +365,59 @@ class ShardedEmbedding(Embedding, Sharded):
             )
 
         sharded_embed = ShardedEmbedding(
-            gang,
             embed.num_embeddings,
             embed.embed_dim,
             embed.pad_idx,
+            gangs=gangs,
             init_fn=embed.init_fn,
             device=META_DEVICE,
             dtype=embed.weight.dtype,
+            _tp_gang=gang,
         )
 
         if device.type != "meta":
             to_empty(sharded_embed, device)
 
-        sharded_embed._copy_weight(embed)
+        sharded_embed._copy_from_embedding(embed)
 
         return sharded_embed
 
     def __init__(
         self,
-        gang: Gang,
         num_embeddings: int,
         embed_dim: int,
         pad_idx: int | None = None,
         *,
+        gangs: Gangs | None = None,
         init_fn: Callable[[StandardEmbedding], None] | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
+        _tp_gang: Gang | None = None,
     ) -> None:
         super().__init__(num_embeddings, embed_dim, pad_idx)
 
-        if embed_dim % gang.size != 0:
+        if gangs is None:
+            gangs = create_fake_gangs()
+
+        tp_gang = gangs.tp if _tp_gang is None else _tp_gang
+
+        if embed_dim % tp_gang.size != 0:
             raise ValueError(
-                f"`embed_dim` must be a multiple of `gang.size` ({gang.size}), but is {embed_dim} instead."
+                f"`embed_dim` must be a multiple of `gangs.tp.size` ({tp_gang.size}), but is {embed_dim} instead."
             )
 
-        self.gang = gang
+        self.tp_gang = tp_gang
 
-        self.sharded_embed_dim = embed_dim // gang.size
+        self.sharded = tp_gang.size > 1
+
+        self.sharded_embed_dim = embed_dim // tp_gang.size
 
         if device is None:
-            device = gang.device
-        elif device != gang.device and device.type != "meta":
+            device = get_current_device()
+
+        if device.type != "meta" and device != tp_gang.device:
             raise ValueError(
-                f"`device` must match `gang.device` or must be of type `meta`, but is `{device}` instead."
+                f"`device` must match `gangs.tp.device` or must be of type `meta`, but is `{device}` instead."
             )
 
         weight = torch.empty(
@@ -362,25 +431,31 @@ class ShardedEmbedding(Embedding, Sharded):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        embed = self._embedding_like(self.gang.device)
+        if self.sharded:
+            embed = self._embedding_like(self.tp_gang.device)
 
-        self._copy_weight(embed)
+            self._copy_from_embedding(embed)
+        else:
+            _init_embedding(self)
 
-    def _copy_weight(self, embed: StandardEmbedding) -> None:
+    def _copy_from_embedding(self, embed: StandardEmbedding) -> None:
         with torch.no_grad():
             weight_shards = embed.weight.split(self.sharded_embed_dim, dim=1)
 
-            weight = weight_shards[self.gang.rank]
+            weight = weight_shards[self.tp_gang.rank]
 
             self.weight.copy_(weight, non_blocking=True)
 
     @override
     def forward(self, x: Tensor) -> Tensor:
-        x = reduce_on_backward(x, self.gang)
+        if not self.sharded:
+            return embedding(x, self.weight, self.pad_idx)
+
+        x = reduce_on_backward(x, self.tp_gang)
 
         x = embedding(x, self.weight, self.pad_idx)
 
-        x = gather(x, self.gang)
+        x = gather(x, self.tp_gang)
 
         return x
 
@@ -388,10 +463,13 @@ class ShardedEmbedding(Embedding, Sharded):
         """Unshards this instance to a :class:`StandardEmbedding`."""
         embed = self._embedding_like(device=META_DEVICE)
 
-        to_empty(embed, device or self.gang.device)
+        to_empty(embed, device or self.tp_gang.device)
 
         with torch.no_grad():
-            weight = gather(self.weight, self.gang, dim=1)
+            if self.sharded:
+                weight = gather(self.weight, self.tp_gang, dim=1)
+            else:
+                weight = self.weight
 
             embed.weight.copy_(weight, non_blocking=True)
 
@@ -415,8 +493,8 @@ class ShardedEmbedding(Embedding, Sharded):
     def extra_repr(self) -> str:
         """:meta private:"""
         s = (
-            f"tp_rank={self.gang.rank}, "
-            f"tp_size={self.gang.size}, "
+            f"tp_rank={self.tp_gang.rank}, "
+            f"tp_size={self.tp_gang.size}, "
             f"num_embeddings={self.num_embeddings}, "
             f"embed_dim={self.embed_dim}, "
             f"sharded_embed_dim={self.sharded_embed_dim}"
@@ -428,6 +506,19 @@ class ShardedEmbedding(Embedding, Sharded):
             s = f"{s}, init_fn={init_fn}"
 
         return s
+
+
+def _init_embedding(embed: Embedding) -> None:
+    m = cast(StandardEmbedding, embed)
+
+    if m.init_fn is not None:
+        m.init_fn(m)
+    else:
+        nn.init.normal_(m.weight)
+
+    if m.pad_idx is not None:
+        with torch.no_grad():
+            m.weight[m.pad_idx].fill_(0.0)
 
 
 def init_scaled_embedding(embed: StandardEmbedding) -> None:

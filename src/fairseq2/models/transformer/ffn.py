@@ -17,7 +17,7 @@ from typing_extensions import override
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.gang import Gangs
-from fairseq2.nn import ColumnShardedLinear, Linear, Projection, RowShardedLinear
+from fairseq2.nn import ColumnShardedLinear, Linear, RowShardedLinear
 
 
 class FeedForwardNetwork(Module, ABC):
@@ -50,10 +50,10 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         inner_dim: int,
         bias: bool,
         *,
+        gangs: Gangs | None = None,
         inner_activation: Module | None = None,
         inner_dropout_p: float = 0.0,
         proj_init_fn: Callable[[Linear], None] | None = None,
-        gangs: Gangs | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -79,20 +79,16 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         """
         super().__init__()
 
-        inner_proj = Linear(
-            model_dim, inner_dim, bias, init_fn=proj_init_fn, device=device, dtype=dtype
+        self.inner_proj = ColumnShardedLinear(
+            model_dim,
+            inner_dim,
+            bias,
+            gangs=gangs,
+            gather_output=False,
+            init_fn=proj_init_fn,
+            device=device,
+            dtype=dtype,
         )
-
-        self.inner_proj: Projection
-
-        if gangs is None or gangs.tp.size == 1:
-            self.inner_proj = inner_proj
-        else:
-            self.inner_proj = ColumnShardedLinear.from_linear(
-                inner_proj, gangs.tp, gather_output=False
-            )
-
-            del inner_proj
 
         if inner_activation is not None:
             self.inner_activation = inner_activation
@@ -108,20 +104,16 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
 
         self.register_module("inner_dropout", inner_dropout)
 
-        output_proj = Linear(
-            inner_dim, model_dim, bias, init_fn=proj_init_fn, device=device, dtype=dtype
+        self.output_proj = RowShardedLinear(
+            inner_dim,
+            model_dim,
+            bias,
+            gangs=gangs,
+            scatter_input=False,
+            init_fn=proj_init_fn,
+            device=device,
+            dtype=dtype,
         )
-
-        self.output_proj: Projection
-
-        if gangs is None or gangs.tp.size == 1:
-            self.output_proj = output_proj
-        else:
-            self.output_proj = RowShardedLinear.from_linear(
-                output_proj, gangs.tp, scatter_input=False
-            )
-
-            del output_proj
 
     @override
     def forward(self, seqs: Tensor) -> Tensor:
@@ -150,10 +142,10 @@ class DauphinFeedForwardNetwork(FeedForwardNetwork):
         inner_dim: int,
         bias: bool,
         *,
+        gangs: Gangs | None = None,
         inner_activation: Module | None = None,
         inner_dropout_p: float = 0.0,
         proj_init_fn: Callable[[Linear], None] | None = None,
-        gangs: Gangs | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -179,25 +171,16 @@ class DauphinFeedForwardNetwork(FeedForwardNetwork):
         """
         super().__init__()
 
-        inner_proj = Linear(
+        self.inner_proj = ColumnShardedLinear(
             model_dim,
             inner_dim * 2,
             bias,
+            gangs=gangs,
+            gather_output=False,
             init_fn=proj_init_fn,
             device=device,
             dtype=dtype,
         )
-
-        self.inner_proj: Projection
-
-        if gangs is None or gangs.tp.size == 1:
-            self.inner_proj = inner_proj
-        else:
-            self.inner_proj = ColumnShardedLinear.from_linear(
-                inner_proj, gangs.tp, gather_output=False
-            )
-
-            del inner_proj
 
         if inner_activation is not None:
             self.inner_activation = inner_activation
@@ -213,18 +196,16 @@ class DauphinFeedForwardNetwork(FeedForwardNetwork):
 
         self.register_module("inner_dropout", inner_dropout)
 
-        output_proj = Linear(inner_dim, model_dim, bias, device=device, dtype=dtype)
-
-        self.output_proj: Projection
-
-        if gangs is None or gangs.tp.size == 1:
-            self.output_proj = output_proj
-        else:
-            self.output_proj = RowShardedLinear.from_linear(
-                output_proj, gangs.tp, scatter_input=False
-            )
-
-            del output_proj
+        self.output_proj = RowShardedLinear(
+            inner_dim,
+            model_dim,
+            bias,
+            gangs=gangs,
+            scatter_input=False,
+            init_fn=proj_init_fn,
+            device=device,
+            dtype=dtype,
+        )
 
     @override
     def forward(self, seqs: Tensor) -> Tensor:
@@ -255,12 +236,12 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         inner_dim: int,
         bias: bool,
         *,
+        gangs: Gangs | None = None,
         gate_activation: Module | None = None,
         inner_dim_scale: float = 2 / 3,
         inner_dim_to_multiple: int = 1,
         inner_dropout_p: float = 0.0,
         proj_init_fn: Callable[[Linear], None] | None = None,
-        gangs: Gangs | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -301,50 +282,32 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
                 (inner_dim + inner_dim_to_multiple - 1) // inner_dim_to_multiple
             )
 
-        gate_proj = Linear(
+        self.gate_proj = ColumnShardedLinear(
             model_dim,
             inner_dim,
             bias,
+            gangs=gangs,
+            gather_output=False,
             init_fn=proj_init_fn,
             device=device,
             dtype=dtype,
         )
-
-        self.gate_proj: Projection
-
-        if gangs is None or gangs.tp.size == 1:
-            self.gate_proj = gate_proj
-        else:
-            self.gate_proj = ColumnShardedLinear.from_linear(
-                gate_proj, gangs.tp, gather_output=False
-            )
-
-            del gate_proj
 
         if gate_activation is not None:
             self.gate_activation = gate_activation
         else:
             self.gate_activation = SiLU()
 
-        inner_proj = Linear(
+        self.inner_proj = ColumnShardedLinear(
             model_dim,
             inner_dim,
             bias,
+            gangs=gangs,
+            gather_output=False,
             init_fn=proj_init_fn,
             device=device,
             dtype=dtype,
         )
-
-        self.inner_proj: Projection
-
-        if gangs is None or gangs.tp.size == 1:
-            self.inner_proj = inner_proj
-        else:
-            self.inner_proj = ColumnShardedLinear.from_linear(
-                inner_proj, gangs.tp, gather_output=False
-            )
-
-            del inner_proj
 
         if inner_dropout_p > 0.0:
             inner_dropout = Dropout(inner_dropout_p)
@@ -355,25 +318,16 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
 
         self.register_module("inner_dropout", inner_dropout)
 
-        output_proj = Linear(
+        self.output_proj = RowShardedLinear(
             inner_dim,
             model_dim,
             bias,
+            gangs=gangs,
+            scatter_input=False,
             init_fn=proj_init_fn,
             device=device,
             dtype=dtype,
         )
-
-        self.output_proj: Projection
-
-        if gangs is None or gangs.tp.size == 1:
-            self.output_proj = output_proj
-        else:
-            self.output_proj = RowShardedLinear.from_linear(
-                output_proj, gangs.tp, scatter_input=False
-            )
-
-            del output_proj
 
     @override
     def forward(self, seqs: Tensor) -> Tensor:

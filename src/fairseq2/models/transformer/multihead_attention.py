@@ -258,26 +258,32 @@ class StandardMultiheadAttention(MultiheadAttention):
         self.num_query_groups = num_heads // num_key_value_heads
 
         if q_proj is None and k_proj is None and v_proj is None:
-            q_proj = Linear(
+            self.q_proj: Projection = ColumnShardedLinear(
                 model_dim,
                 head_dim * num_heads,
                 bias,
+                gangs=gangs,
+                gather_output=False,
                 init_fn=qkv_proj_init_fn or init_qkv_projection,
                 device=device,
                 dtype=dtype,
             )
-            k_proj = Linear(
+            self.k_proj: Projection = ColumnShardedLinear(
                 kv_dim,
                 head_dim * num_key_value_heads,
                 bias,
+                gangs=gangs,
+                gather_output=False,
                 init_fn=qkv_proj_init_fn or init_qkv_projection,
                 device=device,
                 dtype=dtype,
             )
-            v_proj = Linear(
+            self.v_proj: Projection = ColumnShardedLinear(
                 kv_dim,
                 head_dim * num_key_value_heads,
                 bias,
+                gangs=gangs,
+                gather_output=False,
                 init_fn=qkv_proj_init_fn or init_qkv_projection,
                 device=device,
                 dtype=dtype,
@@ -316,41 +322,9 @@ class StandardMultiheadAttention(MultiheadAttention):
                     f"`v_proj.output_dim` must be a multiple of `num_key_value_heads` ({num_key_value_heads}), but is {v_proj.output_dim} instead."
                 )
 
-        self.q_proj: Projection
-        self.k_proj: Projection
-        self.v_proj: Projection
-
-        if gangs is None or gangs.tp.size == 1:
             self.q_proj = q_proj
             self.k_proj = k_proj
             self.v_proj = v_proj
-        else:
-            if isinstance(q_proj, Linear):
-                self.q_proj = ColumnShardedLinear.from_linear(
-                    q_proj, gangs.tp, gather_output=False
-                )
-            else:
-                self.q_proj = q_proj
-
-            del q_proj
-
-            if isinstance(k_proj, Linear):
-                self.k_proj = ColumnShardedLinear.from_linear(
-                    k_proj, gangs.tp, gather_output=False
-                )
-            else:
-                self.k_proj = k_proj
-
-            del k_proj
-
-            if isinstance(v_proj, Linear):
-                self.v_proj = ColumnShardedLinear.from_linear(
-                    v_proj, gangs.tp, gather_output=False
-                )
-            else:
-                self.v_proj = v_proj
-
-            del v_proj
 
         self.q_norm: LayerNorm | None
         self.k_norm: LayerNorm | None
@@ -380,10 +354,12 @@ class StandardMultiheadAttention(MultiheadAttention):
             if output_proj_bias is None:
                 output_proj_bias = bias
 
-            output_proj = Linear(
+            self.output_proj: Projection = RowShardedLinear(
                 v_dim,
                 model_dim,
                 output_proj_bias,
+                gangs=gangs,
+                scatter_input=False,
                 init_fn=output_proj_init_fn or init_mha_output_projection,
                 device=device,
                 dtype=dtype,
@@ -408,19 +384,7 @@ class StandardMultiheadAttention(MultiheadAttention):
                     f"`output_proj.output_dim` must be equal to `model_dim` ({model_dim}), but is {output_proj.output_dim} instead."
                 )
 
-        self.output_proj: Projection
-
-        if gangs is None or gangs.tp.size == 1:
             self.output_proj = output_proj
-        else:
-            if isinstance(output_proj, Linear):
-                self.output_proj = RowShardedLinear.from_linear(
-                    output_proj, gangs.tp, scatter_input=False
-                )
-            else:
-                self.ouput_proj = output_proj
-
-            del output_proj
 
         self.state_factory = state_factory
 

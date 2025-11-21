@@ -92,19 +92,22 @@ class LLaMAFactory:
 
             _init_truncated_normal(embed.weight, bias=None, std=std)
 
-        embed = StandardEmbedding(
-            config.vocab_size, config.model_dim, config.pad_idx, init_fn=init_embed
-        )
-
-        gangs = self._gangs
-
-        if gangs is not None and gangs.tp.size > 1:
-            if not config.shard_embed_dim:
-                return VocabShardedEmbedding.from_embedding(embed, gangs.tp)
-
-            return ShardedEmbedding.from_embedding(embed, gangs.tp)
-
-        return embed
+        if config.shard_embed_dim:
+            return ShardedEmbedding(
+                config.vocab_size,
+                config.model_dim,
+                config.pad_idx,
+                gangs=self._gangs,
+                init_fn=init_embed,
+            )
+        else:
+            return VocabShardedEmbedding(
+                config.vocab_size,
+                config.model_dim,
+                config.pad_idx,
+                gangs=self._gangs,
+                init_fn=init_embed,
+            )
 
     def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
         config = self._config
@@ -255,16 +258,13 @@ class LLaMAFactory:
 
             _init_truncated_normal(proj.weight, proj.bias, std=std)
 
-        final_proj = Linear(
-            config.model_dim, config.vocab_size, bias=False, init_fn=init_projection
+        return ColumnShardedLinear(
+            config.model_dim,
+            config.vocab_size,
+            bias=False,
+            gangs=self._gangs,
+            init_fn=init_projection,
         )
-
-        gangs = self._gangs
-
-        if gangs is not None and gangs.tp.size > 1:
-            return ColumnShardedLinear.from_linear(final_proj, gangs.tp)
-
-        return final_proj
 
     def create_layer_norm(self) -> LayerNorm:
         config = self._config

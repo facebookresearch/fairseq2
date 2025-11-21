@@ -33,7 +33,7 @@ from torch import Tensor
 from torch.distributed import Backend, ProcessGroup, ReduceOp
 from typing_extensions import override
 
-from fairseq2.device import Device
+from fairseq2.device import CPU, Device
 from fairseq2.error import (
     InternalError,
     InvalidOperationError,
@@ -1021,7 +1021,7 @@ def create_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs
     )
 
 
-def create_fake_gangs(device: Device) -> Gangs:
+def create_fake_gangs(device: Device = CPU) -> Gangs:
     """
     Creates a set of fake gangs for single-process scenarios.
 
