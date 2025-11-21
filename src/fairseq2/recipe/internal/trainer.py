@@ -12,7 +12,7 @@ from typing import Sequence, final
 import torch
 from torch.optim import Optimizer
 
-from fairseq2.checkpoint import NOOP_CHECKPOINT_HG_EXPORTER, CheckpointHGExporter
+from fairseq2.checkpoint import NOOP_HG_EXPORTER, HuggingFaceExporter
 from fairseq2.datasets import DataReader
 from fairseq2.early_stopper import NOOP_EARLY_STOPPER
 from fairseq2.evaluator import EvalUnit
@@ -221,12 +221,12 @@ class _Float16LossScalerFactory:
 
 
 @final
-class _CheckpointHGExporterFactory:
+class _HuggingFaceExporterFactory:
     def __init__(
         self,
         section: RegimeSection,
         model_holder: _ModelHolder,
-        default_factory: Callable[[], CheckpointHGExporter],
+        default_factory: Callable[[], HuggingFaceExporter],
         hg_converters: Lookup[HuggingFaceConverter],
     ) -> None:
         self._section = section
@@ -234,9 +234,9 @@ class _CheckpointHGExporterFactory:
         self._default_factory = default_factory
         self._hg_converter = hg_converters
 
-    def create(self) -> CheckpointHGExporter:
+    def create(self) -> HuggingFaceExporter:
         if not self._section.export_hugging_face:
-            return NOOP_CHECKPOINT_HG_EXPORTER
+            return NOOP_HG_EXPORTER
 
         hg_converter = self._hg_converter.maybe_get(self._model_holder.family.name)
         if hg_converter is None:

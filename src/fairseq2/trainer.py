@@ -7,10 +7,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from collections.abc import MutableMapping
 from contextlib import nullcontext
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Generic, Literal, TypeVar, final
+from typing import Any, Generic, Literal, Protocol, TypeVar, final
 
 import torch
 import torch.distributed
@@ -19,12 +21,14 @@ from torch.cuda import OutOfMemoryError
 from torch.nn import Module
 from torch.optim import Optimizer
 from torch.profiler import record_function
+from torch.utils.hooks import RemovableHandle
 from typing_extensions import override
 
 from fairseq2.checkpoint import (
-    NOOP_CHECKPOINT_HG_EXPORTER,
-    CheckpointHGExporter,
+    NOOP_HG_EXPORTER,
     CheckpointManager,
+    HuggingFaceExporter,
+    HuggingFaceExportOptions,
 )
 from fairseq2.data_type import DataType
 from fairseq2.datasets import DataReader
@@ -116,7 +120,7 @@ class Trainer(Task):
         validator: Validator,
         early_stopper: EarlyStopper,
         checkpoint_manager: CheckpointManager,
-        hg_exporter: CheckpointHGExporter,
+        hg_exporter: HuggingFaceExporter,
         metric_recorder: MetricRecorder,
         garbage_collector: GarbageCollector,
         profiler: Profiler,
@@ -321,6 +325,8 @@ class Trainer(Task):
         self._stop_requested = False
         self._num_batches_read = 0
         self._last_lrs = last_lrs
+        self._checkpoint_save_hooks: dict[int, TrainStepHook] = OrderedDict()
+        self._hg_export_hooks: dict[int, TrainStepHook] = OrderedDict()
 
     @override
     def run(self) -> None:
@@ -361,7 +367,7 @@ class Trainer(Task):
 
         log.info("Restoring trainer state.")
 
-        trainer = _TrainerCheckpointProxy(self)
+        trainer = _TrainerProxy(self)
 
         self._checkpoint_manager.load_trainer_state(step_nr, trainer)
 
@@ -735,15 +741,25 @@ class Trainer(Task):
     def _save_checkpoint(self, blocking: bool) -> None:
         step_nr = self._step_nr
 
+        data_epoch_nr = self._data_epoch_nr
+
         log.info("Preparing checkpoint at step {}.", step_nr)
 
         self._maybe_complete_checkpoint_save_operation()
 
-        def on_checkpoint_ready(step_nr: int, blocking: bool) -> None:
+        def on_checkpoint_ready() -> None:
             if blocking:
                 log.info("Checkpoint prepared. Saving.")
             else:
                 log.info("Checkpoint prepared. Saving asynchronously.")
+
+        def on_checkpoint_saved() -> None:
+            args = TrainStepHookArgs(step_nr, data_epoch_nr)
+
+            self._on_checkpoint_saved(args, blocking)
+
+        ready_callback = lambda n, b: on_checkpoint_ready()
+        saved_callback = lambda n, b: on_checkpoint_saved()
 
         if isinstance(self._save_model_only, bool):
             save_model_only = self._save_model_only
@@ -754,12 +770,12 @@ class Trainer(Task):
             self._checkpoint_manager.save_model_only(
                 step_nr,
                 self._model_dp_facade,
-                ready_callback=on_checkpoint_ready,
-                saved_callback=self._on_checkpoint_saved,
+                ready_callback=ready_callback,
+                saved_callback=saved_callback,
                 blocking=blocking,
             )
         else:
-            trainer = _TrainerCheckpointProxy(self)
+            trainer = _TrainerProxy(self)
 
             self._checkpoint_manager.save_checkpoint(
                 step_nr,
@@ -767,13 +783,16 @@ class Trainer(Task):
                 self._model_dp_facade,
                 self._optimizer,
                 self._data_reader,
-                ready_callback=on_checkpoint_ready,
-                saved_callback=self._on_checkpoint_saved,
+                ready_callback=ready_callback,
+                saved_callback=saved_callback,
                 blocking=blocking,
             )
 
-    def _on_checkpoint_saved(self, step_nr: int, blocking: bool) -> None:
-        log.info("Checkpoint at step {} saved.", step_nr)
+    def _on_checkpoint_saved(self, args: TrainStepHookArgs, blocking: bool) -> None:
+        log.info("Checkpoint at step {} saved.", args.step_nr)
+
+        for hook in self._checkpoint_save_hooks.values():
+            hook(args)
 
         self._maybe_complete_hg_export_operation()
 
@@ -782,7 +801,7 @@ class Trainer(Task):
         if self._save_model_only == "all_but_last":
             self._delete_previous_non_model_checkpoints()
 
-        self._maybe_export_hg(step_nr, blocking)
+        self._maybe_export_hg(args, blocking)
 
     def _maybe_complete_hg_export_operation(self) -> None:
         if not self._hg_exporter.is_exporting:
@@ -792,21 +811,30 @@ class Trainer(Task):
 
         self._hg_exporter.maybe_complete_operation(blocking=True)
 
-    def _maybe_export_hg(self, step_nr: int, blocking: bool) -> None:
-        if self._hg_exporter is NOOP_CHECKPOINT_HG_EXPORTER:
+    def _maybe_export_hg(self, args: TrainStepHookArgs, blocking: bool) -> None:
+        if self._hg_exporter is NOOP_HG_EXPORTER:
             return
+
+        step_nr = args.step_nr
 
         if blocking:
             log.info("Exporting Hugging Face model of step {}.", step_nr)  # fmt: skip
         else:
             log.info("Asynchronously exporting Hugging Face model of step {}.", step_nr)  # fmt: skip
 
-        def on_exported(step_nr: int) -> None:
+        def on_exported() -> None:
             log.info("Hugging Face model of step {} exported.", step_nr)
 
-        self._hg_exporter.export(
-            step_nr, exported_callback=on_exported, blocking=blocking
+            for hook in self._hg_export_hooks.values():
+                hook(args)
+
+        export_callback = lambda _: on_exported()
+
+        options = HuggingFaceExportOptions(
+            export_callback=export_callback, blocking=blocking
         )
+
+        self._hg_exporter.export(step_nr, options)
 
     def _maybe_publish_metrics(self) -> None:
         should_publish = self._should_publish_metrics()
@@ -1073,10 +1101,34 @@ class Trainer(Task):
 
         self._metric_recorder.close()
 
+    def register_checkpoint_save_hook(self, hook: TrainStepHook) -> RemovableHandle:
+        handle = RemovableHandle(self._checkpoint_save_hooks)
+
+        self._checkpoint_save_hooks[handle.id] = hook
+
+        return handle
+
+    def register_hg_export_hook(self, hook: TrainStepHook) -> RemovableHandle:
+        handle = RemovableHandle(self._hg_export_hooks)
+
+        self._hg_export_hooks[handle.id] = hook
+
+        return handle
+
     @property
     @override
     def step_nr(self) -> int:
         return self._step_nr
+
+
+@dataclass
+class TrainStepHookArgs:
+    step_nr: int
+    data_epoch_nr: int
+
+
+class TrainStepHook(Protocol):
+    def __call__(self, args: TrainStepHookArgs) -> None: ...
 
 
 class _TrainerState(Enum):
@@ -1097,7 +1149,7 @@ class _TrainerState(Enum):
 T = TypeVar("T")
 
 
-class _TrainerCheckpointProxy(Stateful):
+class _TrainerProxy(Stateful):
     def __init__(self, trainer: Trainer) -> None:
         self._trainer = trainer
 

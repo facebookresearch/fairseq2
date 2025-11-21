@@ -16,7 +16,7 @@ from torch import Tensor
 from torch.profiler import record_function
 from typing_extensions import override
 
-from fairseq2.checkpoint import CheckpointHGExporter, CheckpointManager
+from fairseq2.checkpoint import CheckpointManager, HuggingFaceExporter
 from fairseq2.data_type import DataType
 from fairseq2.datasets import DataReader
 from fairseq2.device import CPU, SupportsDeviceTransfer
@@ -77,7 +77,7 @@ class StandardValidator(Validator):
         amp_dtype: DataType,
         score_metric_descriptor: MetricDescriptor,
         checkpoint_manager: CheckpointManager,
-        hg_exporter: CheckpointHGExporter,
+        hg_exporter: HuggingFaceExporter,
         metric_recorder: MetricRecorder,
         profiler: Profiler,
         device_stat_tracker: DeviceStatTracker,
