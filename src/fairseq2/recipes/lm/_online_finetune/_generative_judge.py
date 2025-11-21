@@ -371,6 +371,86 @@ class SelfAugmentingExtractor(JudgmentExtractor):
         return round(avg_score / len(judgments), 4)
 
 
+class SelfAugmentingExtractorHandler2(JudgmentExtractorHandler):
+    def __init__(self):
+        pass
+
+    @override
+    def create(self):
+        return SelfAugmentingExtractor2()
+
+    @property
+    @override
+    def name(self):
+        return "self_augmenting_extractor2"
+
+    @property
+    @override
+    def config_kls(self):
+        return None
+
+
+class SelfAugmentingExtractor2(JudgmentExtractor):
+    def __init__(
+        self,
+    ):
+        pass
+
+    @override
+    def prompt(self):
+        return SELF_AUGMENTING_PROMPT2
+
+    def remove_think_tags(self, rollout_text):
+        tag = "</think>"
+        count = rollout_text.count(tag)
+        if count == 1:
+            # Find the position after the tag and return everything after it
+            index = rollout_text.find(tag) + len(tag)
+            return rollout_text[index:]
+        else:
+            return ""  # set rollout to empty string if it doesn't contain thought or has multiple
+
+    @override
+    def format_prompt(
+        self, tokenizer, prompt_text, rollout_text, reference_answer, dp_gangs
+    ):
+        # if dp_gangs.rank == 0
+        #     breakpoint()
+        # dp_gangs.root.barrier()
+
+        rollout_text = self.remove_think_tags(rollout_text)
+
+        content = self.prompt().format(
+            ground_truth=reference_answer, generation=rollout_text
+        )
+
+        # log.info(f"Judge prompt = {content}")
+        wrapped_text = [{"role": "user", "content": content}]
+        chat_str = tokenizer.apply_chat_template(
+            wrapped_text, tokenize=False, add_generation_prompt=True
+        )
+        return chat_str
+
+    @override
+    def extract(self, generation):
+        # pattern = r'\\boxed\{(-?\d+)\}'
+        pattern = r"\\boxed\{([01])\}"
+        match = re.search(pattern, generation)
+        if match:
+            score = float(match.group(1))
+        else:
+            score = 0.0
+        return score
+
+    @override
+    def aggregate(self, judgments):
+        avg_score = 0.0
+        for score in judgments:
+            avg_score += score
+
+        return round(avg_score / len(judgments), 4)
+
+
 class J1PointwiseExtractorHandler(JudgmentExtractorHandler):
     def __init__(self):
         pass

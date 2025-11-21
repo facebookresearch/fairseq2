@@ -21,6 +21,7 @@ from fairseq2.recipes.lm import (  # GroupDpoFinetuneUnitHandler,
     J1PairwiseScoreExtractorHandler,
     J1PointwiseExtractorHandler,
     SelfAugmentingExtractorHandler,
+    SelfAugmentingExtractorHandler2,
     JudgmentExtractorHandler,
     MathVerifyHandler,
     NoEnvAtheneRewardPipeline,
@@ -126,6 +127,9 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
     registry.register(handler.name, handler)
 
     handler = SelfAugmentingExtractorHandler()
+    registry.register(handler.name, handler)
+
+    handler = SelfAugmentingExtractorHandler2()
     registry.register(handler.name, handler)
 
     handler = J1PairwiseScoreExtractorHandler()

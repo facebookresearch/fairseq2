@@ -427,19 +427,17 @@ def convert_vllm_output_to_ref_score(vllm_outputs: List[RequestOutput], gangs):
 def compute_token_level_entropy(logits: torch.Tensor, target_mask: torch.Tensor):
     """Calculate entropy from logits. Returns sum of entropies averages for each sequence.
 
-    Uses numerically stable entropy calculation: H = -sum(p * log(p))
-    where p = softmax(logits)
+    Uses numerically stable entropy calculation: H = log(Z) - E[logits]
+    where Z = sum(exp(logits)) and E is the expectation over softmax distribution.
     """
     # Clamp logits to prevent numerical overflow
     logits = torch.clamp(logits, min=-100, max=100)
 
-    # Use log_softmax for numerical stability
-    log_pd = torch.nn.functional.log_softmax(logits, dim=-1)
-    pd = torch.exp(log_pd)
-
-    # Entropy = -sum(p * log(p)) = -sum(p * log_p)
-    # This is more stable than logsumexp - sum(p * logits)
-    entropy = -torch.sum(pd * log_pd, dim=-1)
+    # Compute entropy using: H = logsumexp(logits) - sum(softmax(logits) * logits)
+    # This avoids computing exp(log_softmax) which can cause gradient issues
+    entropy = torch.logsumexp(logits, dim=-1) - torch.sum(
+        torch.softmax(logits.detach(), dim=-1) * logits, dim=-1
+    )
 
     # Clamp entropy to prevent NaN gradients
     entropy = torch.clamp(entropy, min=0.0, max=100.0)

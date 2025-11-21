@@ -61,6 +61,12 @@ from fairseq2.recipes.lm._online_finetune._generative_judge import (
     SelfAugmentingExtractorHandler as SelfAugmentingExtractorHandler,
 )
 from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    SelfAugmentingExtractor2 as SelfAugmentingExtractor2,
+)
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    SelfAugmentingExtractorHandler2 as SelfAugmentingExtractorHandler2,
+)
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
     JudgmentExtractorHandler as JudgmentExtractorHandler,
 )
 

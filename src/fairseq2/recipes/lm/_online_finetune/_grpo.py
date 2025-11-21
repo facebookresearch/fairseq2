@@ -685,6 +685,8 @@ class GrpoFinetuneConfig:
 
     clip_rollout_after_think: int | None = None
 
+    clip_reference_after_think: int | None = None
+
     rollout_tokenizer: str | None = None
 
 
@@ -705,6 +707,10 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
     ) -> TrainUnit[PreferenceBatch]:
 
         config = structure(recipe_config.criterion.config, GrpoFinetuneConfig)
+
+        # Set clip_reference_after_think to clip_rollout_after_think if not specified
+        if config.clip_reference_after_think is None:
+            config.clip_reference_after_think = config.clip_rollout_after_think
 
         validate(config)
         log.info(f"GRPO loss config:\n{config}")
