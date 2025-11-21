@@ -463,6 +463,10 @@ def log_rollouts(prompt_batch: PromptBatch, rollouts, split_name, num_rollouts=1
         prompt = prompt_batch.meta_info.get("prompt_raw")[0]
     elif "raw_prompt" in prompt_batch.meta_info:
         prompt = prompt_batch.meta_info.get("raw_prompt")[0]
+    elif "raw_prompt_text" in prompt_batch.meta_info:
+        prompt = prompt_batch.meta_info.get("raw_prompt_text")[0]
+    elif "prefix_text" in prompt_batch.meta_info:
+        prompt = prompt_batch.meta_info.get("prefix_text")[0]
     else:
         # raw text prompt doesn't exist for this dataset
         prompt = "DUMMY PROMPT"
