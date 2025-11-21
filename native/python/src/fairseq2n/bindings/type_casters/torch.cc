@@ -71,7 +71,7 @@ type_caster<at::Tensor>::load(handle src, bool)
         #if TORCH_VERSION_MAJOR < 2 || (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR < 10)
         value = *reinterpret_cast<THPVariable *>(ptr)->cdata;
         #else
-	value = reinterpret_cast<THPVariable *>(ptr)->cdata;
+        value = reinterpret_cast<THPVariable *>(ptr)->cdata;
         #endif
         return true;
     }
