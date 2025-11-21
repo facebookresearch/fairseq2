@@ -229,7 +229,7 @@ class MathVerifyVerifier(VLLMOutputReward):
             precision=6,
         )
 
-    def verify_answer(self, completion: str, answer: str):
+    def remove_think_string(self, completion: str):
         # Remove reasoning from completion before verification
         # If both <think> and </think> exist, remove everything between them
         # If only </think> exists, remove everything before and including it
@@ -240,6 +240,12 @@ class MathVerifyVerifier(VLLMOutputReward):
         elif "</think>" in completion:
             end_idx = completion.find("</think>") + len("</think>")
             completion = completion[end_idx:]
+        elif "<think>" in completion:
+            completion = ""
+        return completion
+
+    def verify_answer(self, completion: str, answer: str):
+        completion = self.remove_think_string(completion)
 
         # here we add extra $$ to label so that LatexExtractor works as expected
         # if answer doesn't contain \\boxed, we add it
@@ -1034,7 +1040,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         # the rollouts and compute reward on future tokens after them. i.e.
         # changing from next token reasoning -> future token reasoning
         completion_fmt: str = "{completion}",
-        reason_fmt: str = "{reason}{reason_end_wrap}",
+        reason_fmt: str = "{reason} {reason_end_wrap}",
         reason_start_wrap: Optional[str] = None,
         reason_end_wrap: Optional[str] = None,
     ):
@@ -1046,7 +1052,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         )
         if reason is None or not self.wrap_think_tags:
             prefix_text = (
-                prefix_text.removesuffix(" <think>").removesuffix("<think>")
+                prefix_text.strip().removesuffix("<think>")
                 if reason_start_wrap is None
                 else prefix_text.removesuffix(reason_start_wrap)
             )
@@ -1061,19 +1067,19 @@ class PplDerivedVerifier(VLLMOutputReward):
         completion_text: str = completion_fmt.format(completion=completion)
 
         # add whitespace if no whitespace between prefix and following text.
-        text_after_prefix: str = (
-            reason_text
-            if ((reason_text is not None) and len(reason_text) > 0)
-            else completion_text
-        )
-        if not (prefix_text[-1].isspace() or text_after_prefix[0].isspace()):
-            prefix_text += " "
+        # text_after_prefix: str = (
+        #     reason_text
+        #     if ((reason_text is not None) and len(reason_text) > 0)
+        #     else completion_text
+        # )
+        # if not (prefix_text[-1].isspace() or text_after_prefix[0].isspace()):
+        #     prefix_text += " "
 
         # add whitespace to reason if needed
-        if reason_text and (
-            not (reason_text[-1].isspace() or completion_text[0].isspace())
-        ):
-            reason_text += " "
+        # if reason_text and (
+        #     not (reason_text[-1].isspace() or completion_text[0].isspace())
+        # ):
+        #     reason_text += " "
 
         prefix_tokens = self.tokenizer.encode(prefix_text, add_special_tokens=False)
         n_prefix_tokens: int = len(prefix_tokens)

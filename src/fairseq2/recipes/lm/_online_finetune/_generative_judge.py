@@ -91,6 +91,29 @@ Below are the ground truth text and the assistant's Generation:
 [End of AI assistant's generation]
 """
 
+SELF_AUGMENTING_PROMPT2 = """
+## Task
+Given a Predicted sentence and a Reference paragraph, determine whether the Predicted text is a prefix (initial segment) of the Reference paragraph, and whether it expresses exactly the same semantic contentas the corresponding prefix of the Reference. The Predicted text does not need to match the prefix of the Reference word-for-word, but it must convey the same meaning.
+
+Reference:
+{ground_truth}
+
+Predicted:
+{generation}
+
+## Scoring Rules
+If the Predicted text semantically matches the prefix of the Reference, assign a score of 1.
+
+If the Predicted text does not semantically match the prefix of the Reference, assign a score of 0.
+
+When making your judgment, focus primarily on semantic equivalence, not on exact wording. Only output the score on a single line; do not provide any explanatory text or additional content.
+
+Output format (choose one):
+\\boxed{{0}}
+or
+\\boxed{{1}}
+"""
+
 
 import re
 from abc import ABC, abstractmethod
@@ -297,7 +320,6 @@ class SelfAugmentingExtractor(JudgmentExtractor):
     def prompt(self):
         return SELF_AUGMENTING_PROMPT
 
-
     def remove_think_tags(self, rollout_text):
         tag = "</think>"
         count = rollout_text.count(tag)
@@ -306,17 +328,21 @@ class SelfAugmentingExtractor(JudgmentExtractor):
             index = rollout_text.find(tag) + len(tag)
             return rollout_text[index:]
         else:
-            return "" # set rollout to empty string if it doesn't contain thought or has multiple
+            return ""  # set rollout to empty string if it doesn't contain thought or has multiple
 
     @override
-    def format_prompt(self, tokenizer, prompt_text, rollout_text, reference_answer, dp_gangs):
+    def format_prompt(
+        self, tokenizer, prompt_text, rollout_text, reference_answer, dp_gangs
+    ):
         # if dp_gangs.rank == 0
         #     breakpoint()
         # dp_gangs.root.barrier()
 
         rollout_text = self.remove_think_tags(rollout_text)
 
-        content = self.prompt().format(ground_truth=reference_answer, generation=rollout_text)
+        content = self.prompt().format(
+            ground_truth=reference_answer, generation=rollout_text
+        )
 
         # log.info(f"Judge prompt = {content}")
         wrapped_text = [{"role": "user", "content": content}]
@@ -328,7 +354,7 @@ class SelfAugmentingExtractor(JudgmentExtractor):
     @override
     def extract(self, generation):
         # pattern = r'\\boxed\{(-?\d+)\}'
-        pattern = r'\\boxed\{([01])\}'
+        pattern = r"\\boxed\{([01])\}"
         match = re.search(pattern, generation)
         if match:
             score = float(match.group(1))
@@ -343,6 +369,7 @@ class SelfAugmentingExtractor(JudgmentExtractor):
             avg_score += score
 
         return round(avg_score / len(judgments), 4)
+
 
 class J1PointwiseExtractorHandler(JudgmentExtractorHandler):
     def __init__(self):
