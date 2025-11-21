@@ -96,7 +96,7 @@ class DatasetHubAccessor(Generic[DatasetT, DatasetConfigT]):
 
         name = self._family_name
 
-        family = resolver.resolve_optional(DatasetFamily, key=name)
+        family = resolver.maybe_resolve(DatasetFamily, key=name)
         if family is None:
             raise DatasetFamilyNotKnownError(name)
 

@@ -128,7 +128,7 @@ class TokenizerHubAccessor(Generic[TokenizerT, TokenizerConfigT]):
 
         name = self._family_name
 
-        family = resolver.resolve_optional(TokenizerFamily, key=name)
+        family = resolver.maybe_resolve(TokenizerFamily, key=name)
         if family is None:
             raise TokenizerFamilyNotKnownError(name)
 

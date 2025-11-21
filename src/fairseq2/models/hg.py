@@ -133,7 +133,7 @@ def get_hugging_face_converter(family_name: str) -> HuggingFaceConverter:
     """
     resolver = get_dependency_resolver()
 
-    hg_converter = resolver.resolve_optional(HuggingFaceConverter, key=family_name)
+    hg_converter = resolver.maybe_resolve(HuggingFaceConverter, key=family_name)
     if hg_converter is None:
         raise NotSupportedError(
             f"{family_name} model family does not support Hugging Face conversion."
