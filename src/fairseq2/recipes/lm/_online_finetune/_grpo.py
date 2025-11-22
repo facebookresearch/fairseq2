@@ -359,19 +359,17 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             #     breakpoint()
             # self._gangs.root.barrier()
             if self._config.clip_rollout_after_think is not None:
-
-                clip_length = self._config.clip_rollout_after_think
                 prompt_batch.meta_info["suffix"] = [
                     self._rollout_tokenizer.decode(
                         self._rollout_tokenizer.encode(text, add_special_tokens=False)[
-                            :clip_length
+                            : self._config.clip_reference
                         ]
                     )
                     for text in prompt_batch.meta_info.get("suffix")
                 ]
                 prompt_batch.meta_info["suffix_ids"] = [
                     self._rollout_tokenizer.encode(text, add_special_tokens=False)[
-                        :clip_length
+                        : self._config.clip_reference
                     ]
                     for text in prompt_batch.meta_info.get("suffix")
                 ]
@@ -379,7 +377,10 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                     "</think>", add_special_tokens=False
                 )
                 rollouts = clip_outputs_after_think_token(
-                    rollouts, self._rollout_tokenizer, think_tokens, clip_length
+                    rollouts,
+                    self._rollout_tokenizer,
+                    think_tokens,
+                    self._config.clip_rollout_after_think,
                 )
             if self._config.loss_config.log_rollouts:
                 log_rollouts(prompt_batch, rollouts, "Train")
@@ -685,7 +686,7 @@ class GrpoFinetuneConfig:
 
     clip_rollout_after_think: int | None = None
 
-    clip_reference_after_think: int | None = None
+    clip_reference: int | None = None
 
     rollout_tokenizer: str | None = None
 
@@ -708,9 +709,9 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
 
         config = structure(recipe_config.criterion.config, GrpoFinetuneConfig)
 
-        # Set clip_reference_after_think to clip_rollout_after_think if not specified
-        if config.clip_reference_after_think is None:
-            config.clip_reference_after_think = config.clip_rollout_after_think
+        # Set clip_reference to clip_rollout if not specified
+        if config.clip_reference is None:
+            config.clip_reference = config.clip_rollout_after_think
 
         validate(config)
         log.info(f"GRPO loss config:\n{config}")

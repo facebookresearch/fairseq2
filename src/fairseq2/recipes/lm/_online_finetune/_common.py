@@ -429,18 +429,19 @@ def compute_token_level_entropy(logits: torch.Tensor, target_mask: torch.Tensor)
 
     Uses numerically stable entropy calculation: H = log(Z) - E[logits]
     where Z = sum(exp(logits)) and E is the expectation over softmax distribution.
+
+    Note: Entropy is computed without gradients to avoid numerical instability.
     """
     # Clamp logits to prevent numerical overflow
-    logits = torch.clamp(logits, min=-100, max=100)
 
-    # Compute entropy using: H = logsumexp(logits) - sum(softmax(logits) * logits)
-    # This avoids computing exp(log_softmax) which can cause gradient issues
-    entropy = torch.logsumexp(logits, dim=-1) - torch.sum(
-        torch.softmax(logits.detach(), dim=-1) * logits, dim=-1
-    )
-
-    # Clamp entropy to prevent NaN gradients
-    entropy = torch.clamp(entropy, min=0.0, max=100.0)
+    # Compute entropy without gradients to avoid backprop instability
+    with torch.no_grad():
+        logits_clamped = torch.clamp(logits, min=-100, max=100)
+        entropy = torch.logsumexp(logits_clamped, dim=-1) - torch.sum(
+            torch.softmax(logits_clamped, dim=-1) * logits_clamped, dim=-1
+        )
+        # Clamp entropy to prevent NaN values
+        entropy = torch.clamp(entropy, min=0.0, max=100.0)
 
     entropy_target_only = entropy * target_mask
 
