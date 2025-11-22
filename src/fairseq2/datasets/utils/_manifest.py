@@ -21,15 +21,18 @@ def _load_files_and_weights(
 
     manifest_file = path.joinpath("MANIFEST")
 
-    try:
-        with manifest_file.open(encoding="utf-8") as fp:
-            content = list(fp)
-    except FileNotFoundError:
-        content = None
-    except OSError as ex:
-        raise DatasetLoadError(
-            dataset_name, f"The '{manifest_file}' manifest file of the '{dataset_name}' dataset cannot be read. See the nested exception for details."  # fmt: skip
-        ) from ex
+    # if manifest_file.exists():
+    #     try:
+    #         with manifest_file.open(encoding="utf-8") as fp:
+    #             content = list(fp)
+    #     except FileNotFoundError:
+    #         content = None
+    #     except OSError as ex:
+    #         raise DatasetLoadError(
+    #             dataset_name, f"The '{manifest_file}' manifest file of the '{dataset_name}' dataset cannot be read. See the nested exception for details."  # fmt: skip
+    #         ) from ex
+    # else:
+    content = None
 
     # If the directory does not contain a MANIFEST file, treat all JSONL
     # files as part of the dataset with equal weight.
