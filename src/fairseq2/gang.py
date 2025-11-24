@@ -18,7 +18,6 @@ See :doc:`/concepts/gang` for more information.
 from __future__ import annotations
 
 import os
-import threading
 import warnings
 from abc import abstractmethod
 from collections.abc import Sequence
@@ -43,6 +42,7 @@ from fairseq2.error import (
 from fairseq2.logging import log
 from fairseq2.runtime.closable import Closable
 from fairseq2.utils.tensor import to_tensor
+from fairseq2.utils.threading import _tls
 
 
 class Gang(Closable):
@@ -694,20 +694,18 @@ class Gangs(Closable):
                 )
 
     def __enter__(self) -> None:
-        _thread_local.current_gangs.append(self)
+        _tls.current_gangs.append(self)
 
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
-        _thread_local.current_gangs.pop()
+        _tls.current_gangs.pop()
 
     def close(self) -> None:
         """Destroys all gangs."""
         self.root.close()
 
 
-_thread_local = threading.local()
-
 # Holds the stack of current thread-local gangs.
-_thread_local.current_gangs = []
+_tls.current_gangs = []
 
 
 def maybe_get_current_gangs() -> Gangs | None:
@@ -739,8 +737,8 @@ def maybe_get_current_gangs() -> Gangs | None:
     Note that the return value of this function is thread specific. Individual
     threads may have their own set of current gangs.
     """
-    if _thread_local.current_gangs:
-        return cast(Gangs, _thread_local.current_gangs[-1])
+    if _tls.current_gangs:
+        return cast(Gangs, _tls.current_gangs[-1])
 
     return None
 

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from abc import ABC, abstractmethod
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import ParamSpec, Protocol, TypeVar, final
@@ -14,6 +15,9 @@ from typing import ParamSpec, Protocol, TypeVar, final
 from typing_extensions import override
 
 from fairseq2.error import OperationalError
+
+_tls = threading.local()
+
 
 P = ParamSpec("P")
 
@@ -35,14 +39,14 @@ class ThreadPool(ABC):
 
 
 @final
-class StandardThreadPool(ThreadPool):
+class _StandardThreadPool(ThreadPool):
     @staticmethod
-    def create_default(local_world_size: int) -> StandardThreadPool:
+    def create_default(local_world_size: int) -> _StandardThreadPool:
         num_threads = get_num_threads(local_world_size)
 
         # Due to GIL, threads in CPython are typically used to overlap I/O with
         # CPU work; therefore, we can slightly oversubscribe here (i.e. +4).
-        return StandardThreadPool(max_num_workers=num_threads + 4)
+        return _StandardThreadPool(max_num_workers=num_threads + 4)
 
     def __init__(self, max_num_workers: int) -> None:
         self._executor = ThreadPoolExecutor(max_workers=max_num_workers)

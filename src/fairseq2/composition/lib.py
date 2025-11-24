@@ -87,7 +87,7 @@ from fairseq2.utils.rich import (
 )
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.structured import StandardValueConverter, ValueConverter
-from fairseq2.utils.threading import StandardThreadPool, ThreadPool
+from fairseq2.utils.threading import ThreadPool, _StandardThreadPool
 from fairseq2.utils.validation import ObjectValidator, StandardObjectValidator
 from fairseq2.utils.yaml import (
     RuamelYamlDumper,
@@ -163,7 +163,7 @@ def _register_library(
     def create_thread_pool(resolver: DependencyResolver) -> ThreadPool:
         world_info = resolver.resolve(WorldInfo)
 
-        return StandardThreadPool.create_default(world_info.local_size)
+        return _StandardThreadPool.create_default(world_info.local_size)
 
     container.register(ThreadPool, create_thread_pool, singleton=True)
 
