@@ -431,15 +431,31 @@ def compute_token_level_entropy(logits: torch.Tensor, target_mask: torch.Tensor)
     where Z = sum(exp(logits)) and E is the expectation over softmax distribution.
 
     Note: Entropy is computed without gradients to avoid numerical instability.
+    Memory-efficient implementation processes sequences in chunks.
     """
-    # Clamp logits to prevent numerical overflow
-
     # Compute entropy without gradients to avoid backprop instability
     with torch.no_grad():
         logits_clamped = torch.clamp(logits, min=-100, max=100)
-        entropy = torch.logsumexp(logits_clamped, dim=-1) - torch.sum(
-            torch.softmax(logits_clamped, dim=-1) * logits_clamped, dim=-1
-        )
+
+        # Compute logsumexp for normalization constant
+        log_z = torch.logsumexp(logits_clamped, dim=-1)  # [batch, seq_len]
+
+        # Compute expected logits: E[logits] = sum(softmax(logits) * logits)
+        # Process in smaller chunks to avoid OOM
+        batch_size, seq_len, vocab_size = logits_clamped.shape
+        chunk_size = 128  # Process 128 positions at a time
+
+        expected_logits = torch.zeros(batch_size, seq_len, device=logits.device)
+        for i in range(0, seq_len, chunk_size):
+            end_i = min(i + chunk_size, seq_len)
+            chunk_logits = logits_clamped[:, i:end_i, :]
+            chunk_probs = torch.softmax(chunk_logits, dim=-1)
+            expected_logits[:, i:end_i] = torch.sum(chunk_probs * chunk_logits, dim=-1)
+            del chunk_probs, chunk_logits  # Free memory immediately
+
+        # Entropy = log(Z) - E[logits]
+        entropy = log_z - expected_logits
+
         # Clamp entropy to prevent NaN values
         entropy = torch.clamp(entropy, min=0.0, max=100.0)
 

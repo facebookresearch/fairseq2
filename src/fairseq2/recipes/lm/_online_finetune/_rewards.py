@@ -577,7 +577,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         if vllm_outputs is None:
             vllm_outputs = [None] * len(prompt_batch.prompts)
 
-        text_prompts = prompt_batch.meta_info.get(self.prompt_key)
+        text_prompts = prompt_batch.meta_info.get("raw_prompt_text")
         reference_answers = prompt_batch.meta_info.get(self.answer_key)
         for i, (i_batch_request_output, prompt_text) in enumerate(
             zip(vllm_outputs, text_prompts)
@@ -633,7 +633,7 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
                     gen_suffix = rollout_text
 
                 log.info("====================================================")
-                # log.info(f"Prefix = {prompt_text}")
+                log.info(f"Prefix = {prompt_text}")
                 log.info(f"[Think Start]\n{gen_think}\n[Think End]")
                 log.info(
                     f"\n[Gold Suffix Start]\n{i_reference_answer}\n[Gold Suffix End]\n\n[Gen Suffix Start]\n{gen_suffix}\n[Gen Suffix End]"
