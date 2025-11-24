@@ -355,9 +355,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 dp_gang=self._gangs.dp,
                 vllm_model=self._vllm_model,
             )
-            # if self._gangs.root.rank == 0:
-            #     breakpoint()
-            # self._gangs.root.barrier()
             if self._config.clip_rollout_after_think is not None:
                 prompt_batch.meta_info["suffix"] = [
                     self._rollout_tokenizer.decode(
@@ -416,6 +413,27 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         grpo_model_logits = self._model.module(
             grpo_input_batch_seqs, grpo_input_batch_seqs_layout
         )
+
+        # if self._gangs.root.rank == 0:
+        #     breakpoint()
+        # self._gangs.root.barrier()
+
+        # FIXME NLL loss only works for batch_size = 1 for now
+        # suffix_text = prompt_batch.meta_info.get("suffix")[0]
+        # targets = (
+        #     torch.Tensor(self._rollout_tokenizer.encode(suffix_text))
+        #     .repeat(grpo_input_batch_seqs.size(0), 1)
+        #     .to(grpo_input_batch_seqs.device)
+        # )
+        # target_mask = torch.ones_like(targets).to(targets.device).float()
+
+        # nll_loss, chosen_logits = self._model.module(
+        #     grpo_input_batch_seqs,
+        #     grpo_input_batch_seqs_layout,
+        #     targets=targets,
+        #     target_mask=target_mask,
+        #     return_logits=True,
+        # )
 
         model_logps = self._gather_lprobs(grpo_model_logits, grpo_target_batch)
         rollout_window = self._rollout_bag.get_rollout_start_end(
