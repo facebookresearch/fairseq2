@@ -244,6 +244,7 @@
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.gang.html">fairseq2.gang</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.models.html">fairseq2.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.models.hg.html">fairseq2.models.hg</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.models.hub.html">fairseq2.models.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.models.llama.html">fairseq2.models.llama</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.models.qwen.html">fairseq2.models.qwen</a></li>
@@ -348,6 +349,8 @@
 </li>
         <li><a href="reference/fairseq2.nn.utils.html#fairseq2.nn.utils.mask.apply_mask">apply_mask() (in module fairseq2.nn.utils.mask)</a>
 </li>
+        <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HuggingFaceConfig.arch">arch (fairseq2.models.hg.HuggingFaceConfig attribute)</a>
+</li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.FakeGang.as_process_group">as_process_group() (fairseq2.gang.FakeGang method)</a>
 
         <ul>
@@ -430,37 +433,23 @@
 </li>
         <li><a href="reference/fairseq2.nn.utils.html#fairseq2.nn.utils.mask.compute_row_mask">compute_row_mask() (in module fairseq2.nn.utils.mask)</a>
 </li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.convert_qwen_state_dict">convert_qwen_state_dict() (in module fairseq2.models.qwen)</a>
-</li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.Tokenizer.create_decoder">create_decoder() (fairseq2.data.tokenizers.Tokenizer method)</a>
 
         <ul>
-          <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenFactory.create_decoder">(fairseq2.models.qwen.QwenFactory method)</a>
-</li>
           <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenTokenizer.create_decoder">(fairseq2.models.qwen.QwenTokenizer method)</a>
 </li>
         </ul></li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenFactory.create_decoder_frontend">create_decoder_frontend() (fairseq2.models.qwen.QwenFactory method)</a>
-</li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenFactory.create_decoder_layer">create_decoder_layer() (fairseq2.models.qwen.QwenFactory method)</a>
-</li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ProcessGroupGang.create_default_process_group">create_default_process_group() (fairseq2.gang.ProcessGroupGang class method)</a>
 </li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenFactory.create_embedding">create_embedding() (fairseq2.models.qwen.QwenFactory method)</a>
-</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.Tokenizer.create_encoder">create_encoder() (fairseq2.data.tokenizers.Tokenizer method)</a>
 
         <ul>
           <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenTokenizer.create_encoder">(fairseq2.models.qwen.QwenTokenizer method)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.create_fake_gangs">create_fake_gangs() (in module fairseq2.gang)</a>
-</li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenFactory.create_ffn">create_ffn() (fairseq2.models.qwen.QwenFactory method)</a>
-</li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenFactory.create_final_projection">create_final_projection() (fairseq2.models.qwen.QwenFactory method)</a>
 </li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.create_fsdp_gangs">create_fsdp_gangs() (in module fairseq2.gang)</a>
 </li>
@@ -472,10 +461,6 @@
           <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ProcessGroupGang.create_gang">(fairseq2.gang.ProcessGroupGang method)</a>
 </li>
         </ul></li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenFactory.create_layer_norm">create_layer_norm() (fairseq2.models.qwen.QwenFactory method)</a>
-</li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenFactory.create_model">create_model() (fairseq2.models.qwen.QwenFactory method)</a>
-</li>
         <li><a href="reference/fairseq2.models.hub.html#fairseq2.models.hub.ModelHub.create_new_model">create_new_model() (fairseq2.models.hub.ModelHub method)</a>
 
         <ul>
@@ -484,18 +469,12 @@
         </ul></li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.create_parallel_gangs">create_parallel_gangs() (in module fairseq2.gang)</a>
 </li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenFactory.create_position_encoder">create_position_encoder() (fairseq2.models.qwen.QwenFactory method)</a>
-</li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.create_qwen_model">create_qwen_model() (in module fairseq2.models.qwen)</a>
-</li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.Tokenizer.create_raw_encoder">create_raw_encoder() (fairseq2.data.tokenizers.Tokenizer method)</a>
 
         <ul>
           <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenTokenizer.create_raw_encoder">(fairseq2.models.qwen.QwenTokenizer method)</a>
 </li>
         </ul></li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenFactory.create_self_attention">create_self_attention() (fairseq2.models.qwen.QwenFactory method)</a>
-</li>
         <li><a href="reference/fairseq2.device.html#fairseq2.device.CudaContext">CudaContext (class in fairseq2.device)</a>
 </li>
     </ul></td>
@@ -506,22 +485,18 @@
   <h2>D</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade">DataParallelFacade (class in fairseq2.nn.data_parallel)</a>
+        <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HuggingFaceConfig.data">data (fairseq2.models.hg.HuggingFaceConfig attribute)</a>
 </li>
-        <li><a href="reference/fairseq2.datasets.hub.html#fairseq2.datasets.hub.DatasetFamilyNotKnownError">DatasetFamilyNotKnownError</a>
+        <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade">DataParallelFacade (class in fairseq2.nn.data_parallel)</a>
 </li>
         <li><a href="reference/fairseq2.datasets.hub.html#fairseq2.datasets.hub.DatasetHub">DatasetHub (class in fairseq2.datasets.hub)</a>
 </li>
         <li><a href="reference/fairseq2.datasets.hub.html#fairseq2.datasets.hub.DatasetHubAccessor">DatasetHubAccessor (class in fairseq2.datasets.hub)</a>
 </li>
-        <li><a href="reference/fairseq2.datasets.hub.html#fairseq2.datasets.hub.DatasetNotKnownError">DatasetNotKnownError</a>
-</li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.TokenDecoder.decode_from_tokens">decode_from_tokens() (fairseq2.data.tokenizers.TokenDecoder method)</a>
 </li>
         <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.DelegatingModelCheckpointLoader">DelegatingModelCheckpointLoader (class in fairseq2.model_checkpoint)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.FakeGang.device">device (fairseq2.gang.FakeGang property)</a>
 
         <ul>
@@ -530,6 +505,8 @@
           <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ProcessGroupGang.device">(fairseq2.gang.ProcessGroupGang property)</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.device.html#fairseq2.device.CudaContext.device_count">device_count() (fairseq2.device.CudaContext method)</a>
 
         <ul>
@@ -558,13 +535,11 @@
 </li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.VocabularyInfo.eoh_idx">eoh_idx (fairseq2.data.tokenizers.VocabularyInfo attribute)</a>
 </li>
-        <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.VocabularyInfo.eos_idx">eos_idx (fairseq2.data.tokenizers.VocabularyInfo attribute)</a>
-</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="reference/fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationResult.errors">errors (fairseq2.utils.validation.ValidationResult property)</a>
+        <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.VocabularyInfo.eos_idx">eos_idx (fairseq2.data.tokenizers.VocabularyInfo attribute)</a>
 </li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.export_qwen">export_qwen() (in module fairseq2.models.qwen)</a>
+        <li><a href="reference/fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationResult.errors">errors (fairseq2.utils.validation.ValidationResult property)</a>
 </li>
         <li><a href="reference/fairseq2.nn.normalization.html#fairseq2.nn.RMSNorm.extra_repr">extra_repr() (fairseq2.nn.RMSNorm method)</a>
 
@@ -623,6 +598,13 @@
 </li>
         </ul></li>
         <li>
+    fairseq2.models.hg
+
+        <ul>
+          <li><a href="reference/fairseq2.models.hg.html#module-fairseq2.models.hg">module</a>
+</li>
+        </ul></li>
+        <li>
     fairseq2.recipe.composition
 
         <ul>
@@ -645,14 +627,14 @@
         </ul></li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.FakeGang">FakeGang (class in fairseq2.gang)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.ffn_inner_dim">ffn_inner_dim (fairseq2.models.llama.LLaMAConfig attribute)</a>
 
         <ul>
           <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.ffn_inner_dim">(fairseq2.models.qwen.QwenConfig attribute)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.ffn_inner_dim_multiple_of">ffn_inner_dim_multiple_of (fairseq2.models.llama.LLaMAConfig attribute)</a>
 </li>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.ffn_inner_dim_multiplier">ffn_inner_dim_multiplier (fairseq2.models.llama.LLaMAConfig attribute)</a>
@@ -725,10 +707,10 @@
 </li>
         <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.get_data_parallel_facade">get_data_parallel_facade() (in module fairseq2.nn.data_parallel)</a>
 </li>
-        <li><a href="reference/fairseq2.datasets.hub.html#fairseq2.datasets.hub.DatasetHub.get_dataset_config">get_dataset_config() (fairseq2.datasets.hub.DatasetHub method)</a>
-</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/fairseq2.datasets.hub.html#fairseq2.datasets.hub.DatasetHub.get_dataset_config">get_dataset_config() (fairseq2.datasets.hub.DatasetHub method)</a>
+</li>
         <li><a href="reference/fairseq2.device.html#fairseq2.device.get_default_device">get_default_device() (in module fairseq2.device)</a>
 </li>
         <li><a href="reference/fairseq2.device.html#fairseq2.device.CudaContext.get_device_properties">get_device_properties() (fairseq2.device.CudaContext method)</a>
@@ -737,19 +719,17 @@
           <li><a href="reference/fairseq2.device.html#fairseq2.device.StandardCudaContext.get_device_properties">(fairseq2.device.StandardCudaContext method)</a>
 </li>
         </ul></li>
+        <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.get_hugging_face_converter">get_hugging_face_converter() (in module fairseq2.models.hg)</a>
+</li>
         <li><a href="reference/fairseq2.models.hub.html#fairseq2.models.hub.ModelHub.get_model_config">get_model_config() (fairseq2.models.hub.ModelHub method)</a>
 
         <ul>
           <li><a href="reference/fairseq2.models.html#fairseq2.models.ModelHub.get_model_config">(fairseq2.models.ModelHub method)</a>
 </li>
         </ul></li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.get_qwen_shard_specs">get_qwen_shard_specs() (in module fairseq2.models.qwen)</a>
-</li>
         <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.get_qwen_tokenizer_hub">get_qwen_tokenizer_hub() (in module fairseq2.models.qwen)</a>
 </li>
         <li><a href="reference/fairseq2.nn.embedding.html#fairseq2.nn.ShardedEmbedding.get_shard_dims">get_shard_dims() (fairseq2.nn.ShardedEmbedding method)</a>
-</li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenFactory.get_std_scale_factor">get_std_scale_factor() (fairseq2.models.qwen.QwenFactory method)</a>
 </li>
         <li><a href="reference/fairseq2.data.tokenizers.hub.html#fairseq2.data.tokenizers.hub.TokenizerHub.get_tokenizer_config">get_tokenizer_config() (fairseq2.data.tokenizers.hub.TokenizerHub method)</a>
 </li>
@@ -763,9 +743,13 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationResult.has_error">has_error() (fairseq2.utils.validation.ValidationResult method)</a>
 </li>
+        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.head_dim">head_dim (fairseq2.models.qwen.QwenConfig attribute)</a>
+</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.head_dim">head_dim (fairseq2.models.qwen.QwenConfig attribute)</a>
+        <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HuggingFaceConfig">HuggingFaceConfig (class in fairseq2.models.hg)</a>
+</li>
+        <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HuggingFaceConverter">HuggingFaceConverter (class in fairseq2.models.hg)</a>
 </li>
     </ul></td>
   </tr></table>
@@ -822,6 +806,10 @@
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.k_norm">k_norm (fairseq2.models.qwen.QwenConfig attribute)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HuggingFaceConfig.kls_name">kls_name (fairseq2.models.hg.HuggingFaceConfig attribute)</a>
 </li>
     </ul></td>
   </tr></table>
@@ -933,24 +921,16 @@
           <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.model_dim">(fairseq2.models.qwen.QwenConfig attribute)</a>
 </li>
         </ul></li>
-        <li><a href="reference/fairseq2.models.hub.html#fairseq2.models.hub.ModelArchitectureNotKnownError">ModelArchitectureNotKnownError</a>
-
-        <ul>
-          <li><a href="reference/fairseq2.models.html#fairseq2.models.ModelArchitectureNotKnownError">(class in fairseq2.models)</a>
+        <li><a href="reference/fairseq2.models.html#fairseq2.models.ModelArchitectureNotKnownError">ModelArchitectureNotKnownError (class in fairseq2.models)</a>
 </li>
-        </ul></li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointError">ModelCheckpointError (class in fairseq2.model_checkpoint)</a>
 </li>
         <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoader">ModelCheckpointLoader (class in fairseq2.model_checkpoint)</a>
 </li>
-        <li><a href="reference/fairseq2.models.hub.html#fairseq2.models.hub.ModelFamilyNotKnownError">ModelFamilyNotKnownError</a>
-
-        <ul>
-          <li><a href="reference/fairseq2.models.html#fairseq2.models.ModelFamilyNotKnownError">(class in fairseq2.models)</a>
+        <li><a href="reference/fairseq2.models.html#fairseq2.models.ModelFamilyNotKnownError">ModelFamilyNotKnownError (class in fairseq2.models)</a>
 </li>
-        </ul></li>
         <li><a href="reference/fairseq2.models.html#fairseq2.models.ModelHub">ModelHub (class in fairseq2.models)</a>
 
         <ul>
@@ -963,12 +943,8 @@
           <li><a href="reference/fairseq2.models.hub.html#fairseq2.models.hub.ModelHubAccessor">(class in fairseq2.models.hub)</a>
 </li>
         </ul></li>
-        <li><a href="reference/fairseq2.models.hub.html#fairseq2.models.hub.ModelNotKnownError">ModelNotKnownError</a>
-
-        <ul>
-          <li><a href="reference/fairseq2.models.html#fairseq2.models.ModelNotKnownError">(class in fairseq2.models)</a>
+        <li><a href="reference/fairseq2.models.html#fairseq2.models.ModelNotKnownError">ModelNotKnownError (class in fairseq2.models)</a>
 </li>
-        </ul></li>
         <li>
     module
 
@@ -984,6 +960,8 @@
           <li><a href="reference/fairseq2.model_checkpoint.html#module-fairseq2.model_checkpoint">fairseq2.model_checkpoint</a>
 </li>
           <li><a href="reference/fairseq2.models.html#module-fairseq2.models">fairseq2.models</a>
+</li>
+          <li><a href="reference/fairseq2.models.hg.html#module-fairseq2.models.hg">fairseq2.models.hg</a>
 </li>
           <li><a href="reference/fairseq2.recipe.composition.html#module-fairseq2.recipe.composition">fairseq2.recipe.composition</a>
 </li>
@@ -1096,8 +1074,6 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig">QwenConfig (class in fairseq2.models.qwen)</a>
 </li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenFactory">QwenFactory (class in fairseq2.models.qwen)</a>
-</li>
         <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenTokenizer">QwenTokenizer (class in fairseq2.models.qwen)</a>
 </li>
         <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenTokenizerConfig">QwenTokenizerConfig (class in fairseq2.models.qwen)</a>
@@ -1194,6 +1170,8 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.SafetensorsCheckpointLoader">SafetensorsCheckpointLoader (class in fairseq2.model_checkpoint)</a>
 </li>
+        <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.save_hugging_face_model">save_hugging_face_model() (in module fairseq2.models.hg)</a>
+</li>
         <li><a href="reference/fairseq2.nn.residual.html#fairseq2.nn.ScaledResidualConnect">ScaledResidualConnect (class in fairseq2.nn)</a>
 </li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.Gangs.sdp">sdp (fairseq2.gang.Gangs attribute)</a>
@@ -1232,10 +1210,10 @@
           <li><a href="reference/fairseq2.nn.incremental_state.html#fairseq2.nn.IncrementalStateBag.size_bytes">(fairseq2.nn.IncrementalStateBag method)</a>
 </li>
         </ul></li>
-        <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMATokenizerConfig.split_regex">split_regex (fairseq2.models.llama.LLaMATokenizerConfig attribute)</a>
-</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMATokenizerConfig.split_regex">split_regex (fairseq2.models.llama.LLaMATokenizerConfig attribute)</a>
+</li>
         <li><a href="reference/fairseq2.device.html#fairseq2.device.StandardCudaContext">StandardCudaContext (class in fairseq2.device)</a>
 </li>
         <li><a href="reference/fairseq2.nn.embedding.html#fairseq2.nn.StandardEmbedding">StandardEmbedding (class in fairseq2.nn)</a>
@@ -1298,21 +1276,21 @@
 </li>
         <li><a href="reference/fairseq2.nn.embedding.html#fairseq2.nn.ShardedEmbedding.to_embedding">to_embedding() (fairseq2.nn.ShardedEmbedding method)</a>
 </li>
-        <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.TokenDecoder">TokenDecoder (class in fairseq2.data.tokenizers)</a>
+        <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HuggingFaceConverter.to_hg_config">to_hg_config() (fairseq2.models.hg.HuggingFaceConverter method)</a>
 </li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HuggingFaceConverter.to_hg_state_dict">to_hg_state_dict() (fairseq2.models.hg.HuggingFaceConverter method)</a>
+</li>
+        <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.TokenDecoder">TokenDecoder (class in fairseq2.data.tokenizers)</a>
+</li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.TokenEncoder">TokenEncoder (class in fairseq2.data.tokenizers)</a>
 </li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.Tokenizer">Tokenizer (class in fairseq2.data.tokenizers)</a>
 </li>
-        <li><a href="reference/fairseq2.data.tokenizers.hub.html#fairseq2.data.tokenizers.hub.TokenizerFamilyNotKnownError">TokenizerFamilyNotKnownError</a>
-</li>
         <li><a href="reference/fairseq2.data.tokenizers.hub.html#fairseq2.data.tokenizers.hub.TokenizerHub">TokenizerHub (class in fairseq2.data.tokenizers.hub)</a>
 </li>
         <li><a href="reference/fairseq2.data.tokenizers.hub.html#fairseq2.data.tokenizers.hub.TokenizerHubAccessor">TokenizerHubAccessor (class in fairseq2.data.tokenizers.hub)</a>
-</li>
-        <li><a href="reference/fairseq2.data.tokenizers.hub.html#fairseq2.data.tokenizers.hub.TokenizerNotKnownError">TokenizerNotKnownError</a>
 </li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.Gangs.tp">tp (fairseq2.gang.Gangs attribute)</a>
 </li>
@@ -1422,7 +1400,7 @@
       
     </aside>
   </div>
-</div><script src="_static/documentation_options.js?v=fa7696d9"></script>
+</div><script src="_static/documentation_options.js?v=a76e1523"></script>
     <script src="_static/doctools.js?v=9a2dae69"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/scripts/furo.js?v=5fa4622c"></script>

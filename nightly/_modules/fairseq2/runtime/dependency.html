@@ -245,6 +245,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.gang.html">fairseq2.gang</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.models.html">fairseq2.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.models.hg.html">fairseq2.models.hg</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.models.hub.html">fairseq2.models.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.models.llama.html">fairseq2.models.llama</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.models.qwen.html">fairseq2.models.qwen</a></li>
@@ -350,10 +351,10 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">resolve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Hashable</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span> <span class="o">...</span></div>
 
 
-<div class="viewcode-block" id="DependencyResolver.resolve_optional">
-<a class="viewcode-back" href="../../../basics/design_philosophy.html#fairseq2.runtime.dependency.DependencyResolver.resolve_optional">[docs]</a>
+<div class="viewcode-block" id="DependencyResolver.maybe_resolve">
+<a class="viewcode-back" href="../../../basics/design_philosophy.html#fairseq2.runtime.dependency.DependencyResolver.maybe_resolve">[docs]</a>
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">resolve_optional</span><span class="p">(</span></div>
+    <span class="k">def</span><span class="w"> </span><span class="nf">maybe_resolve</span><span class="p">(</span></div>
 
         <span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Hashable</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
@@ -379,7 +380,7 @@
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">DependencyNotFoundError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Hashable</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="nb">object</span><span class="p">],</span> <span class="n">key</span><span class="p">:</span> <span class="n">Hashable</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">kls</span> <span class="o">=</span> <span class="n">kls</span>
@@ -466,7 +467,7 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_do_register</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">,</span>
+        <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="nb">object</span><span class="p">],</span>
         <span class="n">key</span><span class="p">:</span> <span class="n">Hashable</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">registration</span><span class="p">:</span> <span class="n">_DependencyRegistration</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -513,12 +514,10 @@
         <span class="k">return</span> <span class="n">obj</span></div>
 
 
-<div class="viewcode-block" id="DependencyContainer.resolve_optional">
-<a class="viewcode-back" href="../../../basics/design_philosophy.html#fairseq2.runtime.dependency.DependencyContainer.resolve_optional">[docs]</a>
+<div class="viewcode-block" id="DependencyContainer.maybe_resolve">
+<a class="viewcode-back" href="../../../basics/design_philosophy.html#fairseq2.runtime.dependency.DependencyContainer.maybe_resolve">[docs]</a>
     <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">resolve_optional</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Hashable</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">maybe_resolve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Hashable</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">kls</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">DependencyNotFoundError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
@@ -592,7 +591,7 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_do_register</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">,</span>
+        <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="nb">object</span><span class="p">],</span>
         <span class="n">key</span><span class="p">:</span> <span class="n">Hashable</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">registration</span><span class="p">:</span> <span class="n">_DependencyRegistration</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -705,7 +704,7 @@
 
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">maybe_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Hashable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolver</span><span class="o">.</span><span class="n">resolve_optional</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_kls</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolver</span><span class="o">.</span><span class="n">maybe_resolve</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_kls</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">)</span>
 
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">iter_keys</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Hashable</span><span class="p">]:</span>
@@ -739,7 +738,7 @@
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">AutoWireError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="nb">object</span><span class="p">],</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`</span><span class="si">{</span><span class="n">kls</span><span class="si">}</span><span class="s2">` cannot be auto-wired. </span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">kls</span> <span class="o">=</span> <span class="n">kls</span>
@@ -747,7 +746,7 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_create_wired_instance</span><span class="p">(</span>
-    <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">,</span> <span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">,</span> <span class="n">custom_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
+    <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="nb">object</span><span class="p">],</span> <span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">,</span> <span class="n">custom_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">wire_error</span><span class="p">(</span><span class="n">reason</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="ne">Exception</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">AutoWireError</span><span class="p">(</span><span class="n">kls</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span>
@@ -916,7 +915,7 @@
                 <span class="k">if</span> <span class="n">element_kls</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="k">continue</span>
 
-                <span class="n">arg</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve_optional</span><span class="p">(</span><span class="n">element_kls</span><span class="p">)</span>
+                <span class="n">arg</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">maybe_resolve</span><span class="p">(</span><span class="n">element_kls</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">param_kls</span> <span class="o">=</span> <span class="n">get_param_kls</span><span class="p">()</span>
                 <span class="k">if</span> <span class="n">param_kls</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -925,7 +924,7 @@
                 <span class="k">if</span> <span class="n">param_kls</span> <span class="ow">is</span> <span class="n">DependencyResolver</span><span class="p">:</span>
                     <span class="n">arg</span> <span class="o">=</span> <span class="n">resolver</span>
                 <span class="k">elif</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span> <span class="o">!=</span> <span class="n">Parameter</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
-                    <span class="n">arg</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve_optional</span><span class="p">(</span><span class="n">param_kls</span><span class="p">)</span>
+                    <span class="n">arg</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">maybe_resolve</span><span class="p">(</span><span class="n">param_kls</span><span class="p">)</span>
                     <span class="k">if</span> <span class="n">arg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                         <span class="n">arg</span> <span class="o">=</span> <span class="n">_NOT_SET</span>
                 <span class="k">else</span><span class="p">:</span>
@@ -976,7 +975,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=fa7696d9"></script>
+</div><script src="../../../_static/documentation_options.js?v=a76e1523"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

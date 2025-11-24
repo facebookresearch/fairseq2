@@ -245,6 +245,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../reference/fairseq2.gang.html">fairseq2.gang</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../reference/fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../reference/fairseq2.models.html">fairseq2.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/fairseq2.models.hg.html">fairseq2.models.hg</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../reference/fairseq2.models.hub.html">fairseq2.models.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../reference/fairseq2.models.llama.html">fairseq2.models.llama</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../reference/fairseq2.models.qwen.html">fairseq2.models.qwen</a></li>
@@ -318,7 +319,10 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generic</span><span class="p">,</span> <span class="n">TypeVar</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">final</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.assets</span><span class="w"> </span><span class="kn">import</span> <span class="n">AssetCard</span><span class="p">,</span> <span class="n">AssetCardError</span><span class="p">,</span> <span class="n">AssetNotFoundError</span><span class="p">,</span> <span class="n">AssetStore</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.data.tokenizers.family</span><span class="w"> </span><span class="kn">import</span> <span class="n">TokenizerFamily</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.data.tokenizers.family</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">TokenizerFamily</span><span class="p">,</span>
+    <span class="n">TokenizerFamilyNotKnownError</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.data.tokenizers.ref</span><span class="w"> </span><span class="kn">import</span> <span class="n">resolve_tokenizer_reference</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.data.tokenizers.tokenizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tokenizer</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span>
@@ -449,7 +453,7 @@
 
         <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_family_name</span>
 
-        <span class="n">family</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve_optional</span><span class="p">(</span><span class="n">TokenizerFamily</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">family</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">maybe_resolve</span><span class="p">(</span><span class="n">TokenizerFamily</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">family</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">TokenizerFamilyNotKnownError</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
 
@@ -467,24 +471,11 @@
 
 
 
-<div class="viewcode-block" id="TokenizerNotKnownError">
-<a class="viewcode-back" href="../../../../reference/fairseq2.data.tokenizers.hub.html#fairseq2.data.tokenizers.hub.TokenizerNotKnownError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">TokenizerNotKnownError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> is not a known tokenizer.&quot;</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span></div>
-
-
-
-<div class="viewcode-block" id="TokenizerFamilyNotKnownError">
-<a class="viewcode-back" href="../../../../reference/fairseq2.data.tokenizers.hub.html#fairseq2.data.tokenizers.hub.TokenizerFamilyNotKnownError">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">TokenizerFamilyNotKnownError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> is not a known tokenizer family.&quot;</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span></div>
-
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
 
 
 <div class="viewcode-block" id="load_tokenizer">
@@ -577,7 +568,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=fa7696d9"></script>
+</div><script src="../../../../_static/documentation_options.js?v=a76e1523"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

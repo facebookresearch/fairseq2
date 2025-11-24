@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="fairseq2.models.llama" href="fairseq2.models.llama.html" /><link rel="prev" title="fairseq2.models" href="fairseq2.models.html" />
+    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="fairseq2.models.llama" href="fairseq2.models.llama.html" /><link rel="prev" title="fairseq2.models.hg" href="fairseq2.models.hg.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
         <title>fairseq2.models.hub - fairseq2 Documentation</title>
@@ -246,6 +246,7 @@
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.gang.html">fairseq2.gang</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.html">fairseq2.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.models.hg.html">fairseq2.models.hg</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">fairseq2.models.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.llama.html">fairseq2.models.llama</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.qwen.html">fairseq2.models.qwen</a></li>
@@ -402,7 +403,7 @@ configuration loading, and model instantiation.</p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.models.hub.ModelArchitectureNotKnownError" title="fairseq2.models.hub.ModelArchitectureNotKnownError"><strong>ModelArchitectureNotKnownError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">arch</span></code> is not a known
+<dd class="field-odd"><p><a class="reference internal" href="fairseq2.models.html#fairseq2.models.ModelArchitectureNotKnownError" title="fairseq2.models.hub.ModelArchitectureNotKnownError"><strong>ModelArchitectureNotKnownError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">arch</span></code> is not a known
 architecture in this family.</p>
 </dd>
 </dl>
@@ -440,7 +441,7 @@ asset card.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><a class="reference internal" href="#fairseq2.models.hub.ModelNotKnownError" title="fairseq2.models.hub.ModelNotKnownError"><strong>ModelNotKnownError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">card</span></code> is a string and no asset card
+<li><p><a class="reference internal" href="fairseq2.models.html#fairseq2.models.ModelNotKnownError" title="fairseq2.models.hub.ModelNotKnownError"><strong>ModelNotKnownError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">card</span></code> is a string and no asset card
 with that name exists.</p></li>
 <li><p><strong>AssetCardError</strong> – If the asset card’s model family does not match
 this hub’s family.</p></li>
@@ -557,7 +558,7 @@ parameter of <code class="xref py py-func docutils literal notranslate"><span cl
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><a class="reference internal" href="#fairseq2.models.hub.ModelNotKnownError" title="fairseq2.models.hub.ModelNotKnownError"><strong>ModelNotKnownError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">card</span></code> is a string and no asset card
+<li><p><a class="reference internal" href="fairseq2.models.html#fairseq2.models.ModelNotKnownError" title="fairseq2.models.hub.ModelNotKnownError"><strong>ModelNotKnownError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">card</span></code> is a string and no asset card
 with that name exists.</p></li>
 <li><p><strong>AssetCardError</strong> – If the asset card’s model family doesn’t match
 this hub’s family.</p></li>
@@ -769,7 +770,7 @@ of <code class="xref py py-func docutils literal notranslate"><span class="pre">
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><a class="reference internal" href="#fairseq2.models.hub.ModelNotKnownError" title="fairseq2.models.hub.ModelNotKnownError"><strong>ModelNotKnownError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">card</span></code> is a string and no asset card
+<li><p><a class="reference internal" href="fairseq2.models.html#fairseq2.models.ModelNotKnownError" title="fairseq2.models.hub.ModelNotKnownError"><strong>ModelNotKnownError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">card</span></code> is a string and no asset card
 with that name exists.</p></li>
 <li><p><strong>AssetCardError</strong> – If the asset card’s model family doesn’t match
 this hub’s family.</p></li>
@@ -890,57 +891,6 @@ the appropriate model family from the asset card.</p>
 </div>
 </section>
 </section>
-<section id="error-handling">
-<h2>Error Handling<a class="headerlink" href="#error-handling" title="Link to this heading">¶</a></h2>
-<section id="common-exceptions">
-<h3>Common Exceptions<a class="headerlink" href="#common-exceptions" title="Link to this heading">¶</a></h3>
-<dl class="py exception">
-<dt class="sig sig-object py" id="fairseq2.models.hub.ModelNotKnownError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.models.hub.</span></span><span class="sig-name descname"><span class="pre">ModelNotKnownError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/models/hub.html#ModelNotKnownError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hub.ModelNotKnownError" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
-<p>Raised when a requested model name is not found in the asset store.</p>
-<p>Raised when a requested model name is not found in the asset store.</p>
-</dd></dl>
-
-<dl class="py exception">
-<dt class="sig sig-object py" id="fairseq2.models.hub.ModelFamilyNotKnownError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.models.hub.</span></span><span class="sig-name descname"><span class="pre">ModelFamilyNotKnownError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/models/hub.html#ModelFamilyNotKnownError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hub.ModelFamilyNotKnownError" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
-<p>Raised when a requested model family is not registered.</p>
-<p>Raised when a model family is not registered or available.</p>
-</dd></dl>
-
-<dl class="py exception">
-<dt class="sig sig-object py" id="fairseq2.models.hub.ModelArchitectureNotKnownError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.models.hub.</span></span><span class="sig-name descname"><span class="pre">ModelArchitectureNotKnownError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">family</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/models/hub.html#ModelArchitectureNotKnownError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hub.ModelArchitectureNotKnownError" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
-<p>Raised when a requested model architecture is not supported by a model family.</p>
-<p><code class="docutils literal notranslate"><span class="pre">family</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">None</span></code> due to backwards-compatibility. New code
-must specify a model family when raising this error.</p>
-<p>Raised when a requested architecture is not available in the model family.</p>
-</dd></dl>
-
-</section>
-<section id="example-error-handling">
-<h3>Example Error Handling<a class="headerlink" href="#example-error-handling" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.hub</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_model</span><span class="p">,</span> <span class="n">ModelNotKnownError</span><span class="p">,</span> <span class="n">ModelArchitectureNotKnownError</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.qwen</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_qwen_model_hub</span>
-
-<span class="k">try</span><span class="p">:</span>
-    <span class="n">model</span> <span class="o">=</span> <span class="n">load_model</span><span class="p">(</span><span class="s2">&quot;nonexistent_model&quot;</span><span class="p">)</span>
-<span class="k">except</span> <span class="n">ModelNotKnownError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model not found: </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-<span class="k">try</span><span class="p">:</span>
-    <span class="n">hub</span> <span class="o">=</span> <span class="n">get_qwen_model_hub</span><span class="p">()</span>
-    <span class="n">config</span> <span class="o">=</span> <span class="n">hub</span><span class="o">.</span><span class="n">get_arch_config</span><span class="p">(</span><span class="s2">&quot;invalid_arch&quot;</span><span class="p">)</span>
-<span class="k">except</span> <span class="n">ModelArchitectureNotKnownError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Architecture not found: </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">arch</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Available architectures: </span><span class="si">{</span><span class="n">hub</span><span class="o">.</span><span class="n">get_archs</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-</section>
 <section id="see-also">
 <h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
@@ -967,14 +917,14 @@ must specify a model family when raising this error.</p>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="fairseq2.models.html">
+          <a class="prev-page" href="fairseq2.models.hg.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">fairseq2.models</div>
+                <div class="title">fairseq2.models.hg</div>
                 
               </div>
             </a>
@@ -1055,16 +1005,6 @@ must specify a model family when raising this error.</p>
 <li><a class="reference internal" href="#checkpoint-inspection">Checkpoint Inspection</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#error-handling">Error Handling</a><ul>
-<li><a class="reference internal" href="#common-exceptions">Common Exceptions</a><ul>
-<li><a class="reference internal" href="#fairseq2.models.hub.ModelNotKnownError"><code class="docutils literal notranslate"><span class="pre">ModelNotKnownError</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.hub.ModelFamilyNotKnownError"><code class="docutils literal notranslate"><span class="pre">ModelFamilyNotKnownError</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.hub.ModelArchitectureNotKnownError"><code class="docutils literal notranslate"><span class="pre">ModelArchitectureNotKnownError</span></code></a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#example-error-handling">Example Error Handling</a></li>
-</ul>
-</li>
 <li><a class="reference internal" href="#see-also">See Also</a></li>
 </ul>
 </li>
@@ -1077,7 +1017,7 @@ must specify a model family when raising this error.</p>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=fa7696d9"></script>
+</div><script src="../_static/documentation_options.js?v=a76e1523"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>

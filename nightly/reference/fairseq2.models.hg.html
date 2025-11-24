@@ -3,10 +3,10 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="fairseq2.device" href="fairseq2.device.html" /><link rel="prev" title="fairseq2.datasets" href="fairseq2.datasets.html" />
+    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="fairseq2.models.hub" href="fairseq2.models.hub.html" /><link rel="prev" title="fairseq2.models" href="fairseq2.models.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
-        <title>fairseq2.datasets.hub - fairseq2 Documentation</title>
+        <title>fairseq2.models.hg - fairseq2 Documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
@@ -241,12 +241,12 @@
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.data.tokenizers.html">fairseq2.data.tokenizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.data.tokenizers.hub.html">fairseq2.data.tokenizers.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.datasets.html">fairseq2.datasets</a></li>
-<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">fairseq2.datasets.hub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.datasets.hub.html">fairseq2.datasets.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.device.html">fairseq2.device</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.gang.html">fairseq2.gang</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.html">fairseq2.models</a></li>
-<li class="toctree-l1"><a class="reference internal" href="fairseq2.models.hg.html">fairseq2.models.hg</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">fairseq2.models.hg</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.hub.html">fairseq2.models.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.llama.html">fairseq2.models.llama</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.qwen.html">fairseq2.models.qwen</a></li>
@@ -292,7 +292,7 @@
         </a>
         <div class="content-icon-container">
           <div class="view-this-page">
-  <a class="muted-link" href="../_sources/reference/fairseq2.datasets.hub.rst.txt" title="View this page">
+  <a class="muted-link" href="../_sources/reference/fairseq2.models.hg.rst.txt" title="View this page">
     <svg><use href="#svg-eye"></use></svg>
     <span class="visually-hidden">View this page</span>
   </a>
@@ -312,101 +312,134 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="fairseq2-datasets-hub">
-<span id="dataset-hub"></span><h1>fairseq2.datasets.hub<a class="headerlink" href="#fairseq2-datasets-hub" title="Link to this heading">¶</a></h1>
-<p>The dataset hub provides a centralized way to manage and access datasets in fairseq2.
-It offers functionality for discovering available datasets, loading datasets, and working
-with custom dataset configurations.</p>
-<section id="core-classes">
-<h2>Core Classes<a class="headerlink" href="#core-classes" title="Link to this heading">¶</a></h2>
-<section id="datasethub">
-<h3>DatasetHub<a class="headerlink" href="#datasethub" title="Link to this heading">¶</a></h3>
+          <section id="module-fairseq2.models.hg">
+<span id="fairseq2-models-hg"></span><h1>fairseq2.models.hg<a class="headerlink" href="#module-fairseq2.models.hg" title="Link to this heading">¶</a></h1>
+<p>This module provides an API for converting state dicts and configurations of
+fairseq2 models to their Hugging Face Transformer equivalents.</p>
+<section id="abcs">
+<h2>ABCs<a class="headerlink" href="#abcs" title="Link to this heading">¶</a></h2>
 <dl class="py class">
-<dt class="sig sig-object py" id="fairseq2.datasets.hub.DatasetHub">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.datasets.hub.</span></span><span class="sig-name descname"><span class="pre">DatasetHub</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">family</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DatasetFamily</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">asset_store</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AssetStore</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/datasets/hub.html#DatasetHub"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.datasets.hub.DatasetHub" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generic" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Generic</span></code></a>[<code class="xref py py-obj docutils literal notranslate"><span class="pre">DatasetT</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">DatasetConfigT</span></code>]</p>
-<p>The main hub class for managing datasets. Provides methods for:</p>
-<ul class="simple">
-<li><p>Listing available datasets (<a class="reference internal" href="#fairseq2.datasets.hub.DatasetHub.iter_cards" title="fairseq2.datasets.hub.DatasetHub.iter_cards"><code class="xref py py-meth docutils literal notranslate"><span class="pre">iter_cards()</span></code></a>)</p></li>
-<li><p>Loading dataset configurations (<a class="reference internal" href="#fairseq2.datasets.hub.DatasetHub.get_dataset_config" title="fairseq2.datasets.hub.DatasetHub.get_dataset_config"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get_dataset_config()</span></code></a>)</p></li>
-<li><p>Opening datasets (<a class="reference internal" href="#fairseq2.datasets.hub.DatasetHub.open_dataset" title="fairseq2.datasets.hub.DatasetHub.open_dataset"><code class="xref py py-meth docutils literal notranslate"><span class="pre">open_dataset()</span></code></a>)</p></li>
-<li><p>Opening custom datasets (<a class="reference internal" href="#fairseq2.datasets.hub.DatasetHub.open_custom_dataset" title="fairseq2.datasets.hub.DatasetHub.open_custom_dataset"><code class="xref py py-meth docutils literal notranslate"><span class="pre">open_custom_dataset()</span></code></a>)</p></li>
-</ul>
-<p>Example usage:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">get_my_dataset_hub</span> <span class="o">=</span> <span class="n">DatasetHubAccessor</span><span class="p">(</span>
-    <span class="n">MY_DATA_FAMILY_NAME</span><span class="p">,</span> <span class="n">kls</span><span class="o">=</span><span class="n">MyDataset</span><span class="p">,</span> <span class="n">config_kls</span><span class="o">=</span><span class="n">MyDatasetConfig</span>
-<span class="p">)</span>
+<dt class="sig sig-object py" id="fairseq2.models.hg.HuggingFaceConverter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.models.hg.</span></span><span class="sig-name descname"><span class="pre">HuggingFaceConverter</span></span><a class="reference internal" href="../_modules/fairseq2/models/hg.html#HuggingFaceConverter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hg.HuggingFaceConverter" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<p>Converts the state dict and configuration of a fairseq2 model to its Hugging
+Face Transformers equivalent.</p>
+<p>Model authors must register their converter implementations with fairseq2
+as part of library initialization as shown below:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.hg</span><span class="w"> </span><span class="kn">import</span> <span class="n">HuggingFaceConverter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.runtime.dependency</span><span class="w"> </span><span class="kn">import</span> <span class="n">DependencyContainer</span><span class="p">,</span> <span class="n">register_model_family</span>
 
-<span class="c1"># Get the dataset hub</span>
-<span class="n">hub</span> <span class="o">=</span> <span class="n">get_my_dataset_hub</span><span class="p">()</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MyModelConverter</span><span class="p">(</span><span class="n">HuggingFaceConverter</span><span class="p">):</span>
+    <span class="o">...</span>
 
-<span class="c1"># List all available datasets</span>
-<span class="k">for</span> <span class="n">card</span> <span class="ow">in</span> <span class="n">hub</span><span class="o">.</span><span class="n">iter_cards</span><span class="p">():</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found dataset: </span><span class="si">{</span><span class="n">card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">register_my_model</span><span class="p">(</span><span class="n">container</span><span class="p">:</span> <span class="n">DependencyContainer</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">register_model_family</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;my_model_family&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
 
-<span class="c1"># Load a dataset configuration</span>
-<span class="n">config</span> <span class="o">=</span> <span class="n">hub</span><span class="o">.</span><span class="n">get_dataset_config</span><span class="p">(</span><span class="s2">&quot;my_dataset&quot;</span><span class="p">)</span>
-
-<span class="c1"># Open a dataset</span>
-<span class="n">dataset</span> <span class="o">=</span> <span class="n">hub</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="s2">&quot;my_dataset&quot;</span><span class="p">)</span>
-
-<span class="c1"># Open a custom dataset with specific configuration</span>
-<span class="n">custom_dataset</span> <span class="o">=</span> <span class="n">hub</span><span class="o">.</span><span class="n">open_custom_dataset</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+    <span class="n">container</span><span class="o">.</span><span class="n">register_type</span><span class="p">(</span>
+        <span class="n">HuggingFaceConverter</span><span class="p">,</span> <span class="n">MyModelConverter</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="s2">&quot;my_model_family&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
 </pre></div>
 </div>
 <dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.datasets.hub.DatasetHub.iter_cards">
-<span class="sig-name descname"><span class="pre">iter_cards</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterator" title="(in Python v3.14)"><span class="pre">Iterator</span></a><span class="p"><span class="pre">[</span></span><span class="pre">AssetCard</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/datasets/hub.html#DatasetHub.iter_cards"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.datasets.hub.DatasetHub.iter_cards" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dt class="sig sig-object py" id="fairseq2.models.hg.HuggingFaceConverter.to_hg_config">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">to_hg_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><span class="pre">object</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#fairseq2.models.hg.HuggingFaceConfig" title="fairseq2.models.hg.HuggingFaceConfig"><span class="pre">HuggingFaceConfig</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/models/hg.html#HuggingFaceConverter.to_hg_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hg.HuggingFaceConverter.to_hg_config" title="Link to this definition">¶</a></dt>
+<dd><p>Converts the specified fairseq2 model configuration to its Hugging Face
+Transformers equivalent.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#TypeError" title="(in Python v3.14)"><strong>TypeError</strong></a> – <code class="docutils literal notranslate"><span class="pre">config</span></code> is not of valid type. The expected type
+is one registered as part of the <code class="xref py py-class docutils literal notranslate"><span class="pre">ModelFamily</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.datasets.hub.DatasetHub.get_dataset_config">
-<span class="sig-name descname"><span class="pre">get_dataset_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">card</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AssetCard</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DatasetConfigT</span></span></span><a class="reference internal" href="../_modules/fairseq2/datasets/hub.html#DatasetHub.get_dataset_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.datasets.hub.DatasetHub.get_dataset_config" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.datasets.hub.DatasetHub.open_dataset">
-<span class="sig-name descname"><span class="pre">open_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">card</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AssetCard</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DatasetConfigT</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DatasetT</span></span></span><a class="reference internal" href="../_modules/fairseq2/datasets/hub.html#DatasetHub.open_dataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.datasets.hub.DatasetHub.open_dataset" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.datasets.hub.DatasetHub.open_custom_dataset">
-<span class="sig-name descname"><span class="pre">open_custom_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DatasetConfigT</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DatasetT</span></span></span><a class="reference internal" href="../_modules/fairseq2/datasets/hub.html#DatasetHub.open_custom_dataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.datasets.hub.DatasetHub.open_custom_dataset" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dt class="sig sig-object py" id="fairseq2.models.hg.HuggingFaceConverter.to_hg_state_dict">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">to_hg_state_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><span class="pre">object</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><span class="pre">object</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><span class="pre">object</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/models/hg.html#HuggingFaceConverter.to_hg_state_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hg.HuggingFaceConverter.to_hg_state_dict" title="Link to this definition">¶</a></dt>
+<dd><p>Converts the specified fairseq2 state dict to its Hugging Face
+Transformers equivalent.</p>
+<p><code class="docutils literal notranslate"><span class="pre">config</span></code> is the fairseq2 model configuration and can be used to
+adjust the converted state dict when necessary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#TypeError" title="(in Python v3.14)"><strong>TypeError</strong></a> – <code class="docutils literal notranslate"><span class="pre">config</span></code> is not of valid type. The expected type
+is one registered as part of the <code class="xref py py-class docutils literal notranslate"><span class="pre">ModelFamily</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
 
 </dd></dl>
 
 </section>
-<section id="datasethubaccessor">
-<h3>DatasetHubAccessor<a class="headerlink" href="#datasethubaccessor" title="Link to this heading">¶</a></h3>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">¶</a></h2>
 <dl class="py class">
-<dt class="sig sig-object py" id="fairseq2.datasets.hub.DatasetHubAccessor">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.datasets.hub.</span></span><span class="sig-name descname"><span class="pre">DatasetHubAccessor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">family_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">kls</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><span class="pre">type</span></a><span class="p"><span class="pre">[</span></span><span class="pre">DatasetT</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_kls</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><span class="pre">type</span></a><span class="p"><span class="pre">[</span></span><span class="pre">DatasetConfigT</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/datasets/hub.html#DatasetHubAccessor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.datasets.hub.DatasetHubAccessor" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generic" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Generic</span></code></a>[<code class="xref py py-obj docutils literal notranslate"><span class="pre">DatasetT</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">DatasetConfigT</span></code>]</p>
-<p>Factory class for creating <a class="reference internal" href="#fairseq2.datasets.hub.DatasetHub" title="fairseq2.datasets.hub.DatasetHub"><code class="xref py py-class docutils literal notranslate"><span class="pre">DatasetHub</span></code></a> instances for specific dataset families.
-Can be used by dataset implementors to create hub accessors for their dataset families.</p>
-<p>Example implementation of a dataset hub accessor:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets.hub</span><span class="w"> </span><span class="kn">import</span> <span class="n">DatasetHubAccessor</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">my_dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">MyDataset</span><span class="p">,</span> <span class="n">MyDatasetConfig</span>
+<dt class="sig sig-object py" id="fairseq2.models.hg.HuggingFaceConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.models.hg.</span></span><span class="sig-name descname"><span class="pre">HuggingFaceConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Mapping" title="(in Python v3.14)"><span class="pre">Mapping</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><span class="pre">object</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kls_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">arch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.14)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/models/hg.html#HuggingFaceConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hg.HuggingFaceConfig" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Represents the configuration of a Hugging Face Transformers model.</p>
+<p>This class is part of the <a class="reference internal" href="#fairseq2.models.hg.HuggingFaceConverter" title="fairseq2.models.hg.HuggingFaceConverter"><code class="xref py py-class docutils literal notranslate"><span class="pre">HuggingFaceConverter</span></code></a> interface which
+converts fairseq2 models to their Hugging Face equivalents.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.models.hg.HuggingFaceConfig.data">
+<span class="sig-name descname"><span class="pre">data</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Mapping" title="(in Python v3.14)"><span class="pre">Mapping</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><span class="pre">object</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fairseq2.models.hg.HuggingFaceConfig.data" title="Link to this definition">¶</a></dt>
+<dd><p>Configuration data.</p>
+<p>Each key in this mapping must correspond to an attribute of the actual
+configuration class in Hugging Face Transformers.</p>
+</dd></dl>
 
-<span class="c1"># Create a hub accessor for your dataset family</span>
-<span class="n">get_my_dataset_hub</span> <span class="o">=</span> <span class="n">DatasetHubAccessor</span><span class="p">(</span>
-    <span class="s2">&quot;my_dataset_family&quot;</span><span class="p">,</span>  <span class="c1"># dataset family name</span>
-    <span class="n">MyDataset</span><span class="p">,</span>           <span class="c1"># concrete dataset class</span>
-    <span class="n">MyDatasetConfig</span>      <span class="c1"># concrete dataset config class</span>
-<span class="p">)</span>
-</pre></div>
-</div>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.models.hg.HuggingFaceConfig.kls_name">
+<span class="sig-name descname"><span class="pre">kls_name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></em><a class="headerlink" href="#fairseq2.models.hg.HuggingFaceConfig.kls_name" title="Link to this definition">¶</a></dt>
+<dd><p>Name of the configuration class in Hugging Face Transformers. For instance,
+Qwen3Config or LlamaConfig.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.models.hg.HuggingFaceConfig.arch">
+<span class="sig-name descname"><span class="pre">arch</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.14)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fairseq2.models.hg.HuggingFaceConfig.arch" title="Link to this definition">¶</a></dt>
+<dd><p>Architecture(s) of the model as defined in Hugging Face Transformers. For
+instance, Qwen3ForCausalLM, LlamaForCausalLM.</p>
+</dd></dl>
+
 </dd></dl>
 
 </section>
-</section>
-<section id="see-also">
-<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
-<ul class="simple">
-<li><p><a class="reference internal" href="fairseq2.data.tokenizers.hub.html#tokenizer-hub"><span class="std std-ref">fairseq2.data.tokenizers.hub</span></a> for tokenizer hub reference documentation.</p></li>
-<li><p><a class="reference internal" href="fairseq2.models.hub.html#api-models-hub"><span class="std std-ref">fairseq2.models.hub</span></a> for model hub reference documentation.</p></li>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.models.hg.get_hugging_face_converter">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.models.hg.</span></span><span class="sig-name descname"><span class="pre">get_hugging_face_converter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">family_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#fairseq2.models.hg.HuggingFaceConverter" title="fairseq2.models.hg.HuggingFaceConverter"><span class="pre">HuggingFaceConverter</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/models/hg.html#get_hugging_face_converter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hg.get_hugging_face_converter" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the <a class="reference internal" href="#fairseq2.models.hg.HuggingFaceConverter" title="fairseq2.models.hg.HuggingFaceConverter"><code class="xref py py-class docutils literal notranslate"><span class="pre">HuggingFaceConverter</span></code></a> of the specified model family.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>NotSupportedError</strong> – The model family does not support Hugging Face
+conversion.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.models.hg.save_hugging_face_model">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.models.hg.</span></span><span class="sig-name descname"><span class="pre">save_hugging_face_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">save_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.14)"><span class="pre">Path</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">state_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><span class="pre">object</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fairseq2.models.hg.HuggingFaceConfig" title="fairseq2.models.hg.HuggingFaceConfig"><span class="pre">HuggingFaceConfig</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/models/hg.html#save_hugging_face_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hg.save_hugging_face_model" title="Link to this definition">¶</a></dt>
+<dd><p>Saves the state dict and configuration of a Hugging Face Transformers model
+to the specified directory.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#TypeError" title="(in Python v3.14)"><strong>TypeError</strong></a> – <code class="docutils literal notranslate"><span class="pre">config.kls_name</span></code> does not correspond to the expected
+<code class="xref py py-class docutils literal notranslate"><span class="pre">PretrainedConfig</span></code> subclass of the Hugging Face model.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#TypeError" title="(in Python v3.14)"><strong>TypeError</strong></a> – <code class="docutils literal notranslate"><span class="pre">state_dict</span></code> contains non-tensor values which is not
+supported in Safetensors format.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – A key in <code class="docutils literal notranslate"><span class="pre">config</span></code> does not have a corresponding
+attribute in Hugging Face model configuration class.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#OSError" title="(in Python v3.14)"><strong>OSError</strong></a> – The state dict or configuration cannot be saved to the
+file system.</p></li>
 </ul>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
 </section>
 
@@ -415,23 +448,23 @@ Can be used by dataset implementors to create hub accessors for their dataset fa
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="fairseq2.device.html">
+          <a class="next-page" href="fairseq2.models.hub.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">fairseq2.device</div>
+                <div class="title">fairseq2.models.hub</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="fairseq2.datasets.html">
+          <a class="prev-page" href="fairseq2.models.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">fairseq2.datasets</div>
+                <div class="title">fairseq2.models</div>
                 
               </div>
             </a>
@@ -469,25 +502,29 @@ Can be used by dataset implementors to create hub accessors for their dataset fa
         <div class="toc-tree-container">
           <div class="toc-tree">
             <ul>
-<li><a class="reference internal" href="#">fairseq2.datasets.hub</a><ul>
-<li><a class="reference internal" href="#core-classes">Core Classes</a><ul>
-<li><a class="reference internal" href="#datasethub">DatasetHub</a><ul>
-<li><a class="reference internal" href="#fairseq2.datasets.hub.DatasetHub"><code class="docutils literal notranslate"><span class="pre">DatasetHub</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.datasets.hub.DatasetHub.iter_cards"><code class="docutils literal notranslate"><span class="pre">DatasetHub.iter_cards()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.datasets.hub.DatasetHub.get_dataset_config"><code class="docutils literal notranslate"><span class="pre">DatasetHub.get_dataset_config()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.datasets.hub.DatasetHub.open_dataset"><code class="docutils literal notranslate"><span class="pre">DatasetHub.open_dataset()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.datasets.hub.DatasetHub.open_custom_dataset"><code class="docutils literal notranslate"><span class="pre">DatasetHub.open_custom_dataset()</span></code></a></li>
+<li><a class="reference internal" href="#">fairseq2.models.hg</a><ul>
+<li><a class="reference internal" href="#abcs">ABCs</a><ul>
+<li><a class="reference internal" href="#fairseq2.models.hg.HuggingFaceConverter"><code class="docutils literal notranslate"><span class="pre">HuggingFaceConverter</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.models.hg.HuggingFaceConverter.to_hg_config"><code class="docutils literal notranslate"><span class="pre">HuggingFaceConverter.to_hg_config()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.models.hg.HuggingFaceConverter.to_hg_state_dict"><code class="docutils literal notranslate"><span class="pre">HuggingFaceConverter.to_hg_state_dict()</span></code></a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#datasethubaccessor">DatasetHubAccessor</a><ul>
-<li><a class="reference internal" href="#fairseq2.datasets.hub.DatasetHubAccessor"><code class="docutils literal notranslate"><span class="pre">DatasetHubAccessor</span></code></a></li>
+<li><a class="reference internal" href="#classes">Classes</a><ul>
+<li><a class="reference internal" href="#fairseq2.models.hg.HuggingFaceConfig"><code class="docutils literal notranslate"><span class="pre">HuggingFaceConfig</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.models.hg.HuggingFaceConfig.data"><code class="docutils literal notranslate"><span class="pre">HuggingFaceConfig.data</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.models.hg.HuggingFaceConfig.kls_name"><code class="docutils literal notranslate"><span class="pre">HuggingFaceConfig.kls_name</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.models.hg.HuggingFaceConfig.arch"><code class="docutils literal notranslate"><span class="pre">HuggingFaceConfig.arch</span></code></a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#see-also">See Also</a></li>
+<li><a class="reference internal" href="#functions">Functions</a><ul>
+<li><a class="reference internal" href="#fairseq2.models.hg.get_hugging_face_converter"><code class="docutils literal notranslate"><span class="pre">get_hugging_face_converter()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.models.hg.save_hugging_face_model"><code class="docutils literal notranslate"><span class="pre">save_hugging_face_model()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>

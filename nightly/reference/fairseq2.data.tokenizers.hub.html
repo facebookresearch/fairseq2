@@ -246,6 +246,7 @@
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.gang.html">fairseq2.gang</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.html">fairseq2.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.models.hg.html">fairseq2.models.hg</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.hub.html">fairseq2.models.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.llama.html">fairseq2.models.llama</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.qwen.html">fairseq2.models.qwen</a></li>
@@ -431,29 +432,6 @@ This is a high-level function that handles all the complexities of tokenizer loa
 
 </section>
 </section>
-<section id="exceptions">
-<h2>Exceptions<a class="headerlink" href="#exceptions" title="Link to this heading">¶</a></h2>
-<section id="tokenizernotknownerror">
-<h3>TokenizerNotKnownError<a class="headerlink" href="#tokenizernotknownerror" title="Link to this heading">¶</a></h3>
-<dl class="py exception">
-<dt class="sig sig-object py" id="fairseq2.data.tokenizers.hub.TokenizerNotKnownError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.tokenizers.hub.</span></span><span class="sig-name descname"><span class="pre">TokenizerNotKnownError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/data/tokenizers/hub.html#TokenizerNotKnownError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.tokenizers.hub.TokenizerNotKnownError" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
-<p>Raised when attempting to load a tokenizer that is not registered in the asset store.</p>
-</dd></dl>
-
-</section>
-<section id="tokenizerfamilynotknownerror">
-<h3>TokenizerFamilyNotKnownError<a class="headerlink" href="#tokenizerfamilynotknownerror" title="Link to this heading">¶</a></h3>
-<dl class="py exception">
-<dt class="sig sig-object py" id="fairseq2.data.tokenizers.hub.TokenizerFamilyNotKnownError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.tokenizers.hub.</span></span><span class="sig-name descname"><span class="pre">TokenizerFamilyNotKnownError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/data/tokenizers/hub.html#TokenizerFamilyNotKnownError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.tokenizers.hub.TokenizerFamilyNotKnownError" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
-<p>Raised when attempting to access a tokenizer family that is not registered in the system.</p>
-</dd></dl>
-
-</section>
-</section>
 <section id="see-also">
 <h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
@@ -548,17 +526,6 @@ This is a high-level function that handles all the complexities of tokenizer loa
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#exceptions">Exceptions</a><ul>
-<li><a class="reference internal" href="#tokenizernotknownerror">TokenizerNotKnownError</a><ul>
-<li><a class="reference internal" href="#fairseq2.data.tokenizers.hub.TokenizerNotKnownError"><code class="docutils literal notranslate"><span class="pre">TokenizerNotKnownError</span></code></a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#tokenizerfamilynotknownerror">TokenizerFamilyNotKnownError</a><ul>
-<li><a class="reference internal" href="#fairseq2.data.tokenizers.hub.TokenizerFamilyNotKnownError"><code class="docutils literal notranslate"><span class="pre">TokenizerFamilyNotKnownError</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li><a class="reference internal" href="#see-also">See Also</a></li>
 </ul>
 </li>
@@ -571,7 +538,7 @@ This is a high-level function that handles all the complexities of tokenizer loa
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=fa7696d9"></script>
+</div><script src="../_static/documentation_options.js?v=a76e1523"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>

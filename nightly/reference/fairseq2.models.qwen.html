@@ -246,6 +246,7 @@
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.gang.html">fairseq2.gang</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.html">fairseq2.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.models.hg.html">fairseq2.models.hg</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.hub.html">fairseq2.models.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.llama.html">fairseq2.models.llama</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">fairseq2.models.qwen</a></li>
@@ -482,92 +483,6 @@ formula <code class="docutils literal notranslate"><span class="pre">model_dim</
 
 </section>
 </section>
-<section id="model-factory">
-<h2>Model Factory<a class="headerlink" href="#model-factory" title="Link to this heading">¶</a></h2>
-<section id="qwenfactory">
-<h3>QwenFactory<a class="headerlink" href="#qwenfactory" title="Link to this heading">¶</a></h3>
-<dl class="py class">
-<dt class="sig sig-object py" id="fairseq2.models.qwen.QwenFactory">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.models.qwen.</span></span><span class="sig-name descname"><span class="pre">QwenFactory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fairseq2.models.qwen.QwenConfig" title="fairseq2.models.qwen.config.QwenConfig"><span class="pre">QwenConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fairseq2.gang.html#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><span class="pre">Gangs</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/models/qwen/factory.html#QwenFactory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.qwen.QwenFactory" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Factory class for creating Qwen models. Handles model instantiation and checkpoint loading.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.qwen.QwenFactory.create_model">
-<span class="sig-name descname"><span class="pre">create_model</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">TransformerLM</span></span></span><a class="reference internal" href="../_modules/fairseq2/models/qwen/factory.html#QwenFactory.create_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.qwen.QwenFactory.create_model" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.qwen.QwenFactory.create_embedding">
-<span class="sig-name descname"><span class="pre">create_embedding</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="fairseq2.nn.embedding.html#fairseq2.nn.Embedding" title="fairseq2.nn.embedding.Embedding"><span class="pre">Embedding</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/models/qwen/factory.html#QwenFactory.create_embedding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.qwen.QwenFactory.create_embedding" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.qwen.QwenFactory.create_decoder_frontend">
-<span class="sig-name descname"><span class="pre">create_decoder_frontend</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">embed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fairseq2.nn.embedding.html#fairseq2.nn.Embedding" title="fairseq2.nn.embedding.Embedding"><span class="pre">Embedding</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">TransformerFrontend</span></span></span><a class="reference internal" href="../_modules/fairseq2/models/qwen/factory.html#QwenFactory.create_decoder_frontend"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.qwen.QwenFactory.create_decoder_frontend" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.qwen.QwenFactory.create_decoder">
-<span class="sig-name descname"><span class="pre">create_decoder</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">TransformerLMDecoder</span></span></span><a class="reference internal" href="../_modules/fairseq2/models/qwen/factory.html#QwenFactory.create_decoder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.qwen.QwenFactory.create_decoder" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.qwen.QwenFactory.create_position_encoder">
-<span class="sig-name descname"><span class="pre">create_position_encoder</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="fairseq2.nn.position_encoder.html#fairseq2.nn.PositionEncoder" title="fairseq2.nn.position_encoder.PositionEncoder"><span class="pre">PositionEncoder</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/models/qwen/factory.html#QwenFactory.create_position_encoder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.qwen.QwenFactory.create_position_encoder" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.qwen.QwenFactory.create_decoder_layer">
-<span class="sig-name descname"><span class="pre">create_decoder_layer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">layer_idx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">pos_encoder</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fairseq2.nn.position_encoder.html#fairseq2.nn.PositionEncoder" title="fairseq2.nn.position_encoder.PositionEncoder"><span class="pre">PositionEncoder</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">TransformerLMDecoderLayer</span></span></span><a class="reference internal" href="../_modules/fairseq2/models/qwen/factory.html#QwenFactory.create_decoder_layer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.qwen.QwenFactory.create_decoder_layer" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.qwen.QwenFactory.create_self_attention">
-<span class="sig-name descname"><span class="pre">create_self_attention</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">layer_idx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">pos_encoder</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fairseq2.nn.position_encoder.html#fairseq2.nn.PositionEncoder" title="fairseq2.nn.position_encoder.PositionEncoder"><span class="pre">PositionEncoder</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">MultiheadAttention</span></span></span><a class="reference internal" href="../_modules/fairseq2/models/qwen/factory.html#QwenFactory.create_self_attention"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.qwen.QwenFactory.create_self_attention" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.qwen.QwenFactory.create_ffn">
-<span class="sig-name descname"><span class="pre">create_ffn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">layer_idx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">FeedForwardNetwork</span></span></span><a class="reference internal" href="../_modules/fairseq2/models/qwen/factory.html#QwenFactory.create_ffn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.qwen.QwenFactory.create_ffn" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.qwen.QwenFactory.create_final_projection">
-<span class="sig-name descname"><span class="pre">create_final_projection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">embed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fairseq2.nn.embedding.html#fairseq2.nn.Embedding" title="fairseq2.nn.embedding.Embedding"><span class="pre">Embedding</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="fairseq2.nn.projection.html#fairseq2.nn.Projection" title="fairseq2.nn.projection.Projection"><span class="pre">Projection</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/models/qwen/factory.html#QwenFactory.create_final_projection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.qwen.QwenFactory.create_final_projection" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.qwen.QwenFactory.create_layer_norm">
-<span class="sig-name descname"><span class="pre">create_layer_norm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="fairseq2.nn.normalization.html#fairseq2.nn.LayerNorm" title="fairseq2.nn.normalization.LayerNorm"><span class="pre">LayerNorm</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/models/qwen/factory.html#QwenFactory.create_layer_norm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.qwen.QwenFactory.create_layer_norm" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.qwen.QwenFactory.get_std_scale_factor">
-<span class="sig-name descname"><span class="pre">get_std_scale_factor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">layer_idx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/models/qwen/factory.html#QwenFactory.get_std_scale_factor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.qwen.QwenFactory.get_std_scale_factor" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-</section>
-<section id="create-qwen-model">
-<h3>create_qwen_model<a class="headerlink" href="#create-qwen-model" title="Link to this heading">¶</a></h3>
-<dl class="py function">
-<dt class="sig sig-object py" id="fairseq2.models.qwen.create_qwen_model">
-<span class="sig-prename descclassname"><span class="pre">fairseq2.models.qwen.</span></span><span class="sig-name descname"><span class="pre">create_qwen_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fairseq2.models.qwen.QwenConfig" title="fairseq2.models.qwen.config.QwenConfig"><span class="pre">QwenConfig</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">TransformerLM</span></span></span><a class="reference internal" href="../_modules/fairseq2/models/qwen/factory.html#create_qwen_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.qwen.create_qwen_model" title="Link to this definition">¶</a></dt>
-<dd><p>Creates a Qwen model instance with the specified configuration.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.qwen</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_qwen_model</span><span class="p">,</span> <span class="n">QwenConfig</span>
-
-<span class="n">config</span> <span class="o">=</span> <span class="n">QwenConfig</span><span class="p">()</span>
-<span class="n">config</span><span class="o">.</span><span class="n">model_dim</span> <span class="o">=</span> <span class="mi">2048</span>
-<span class="n">config</span><span class="o">.</span><span class="n">num_layers</span> <span class="o">=</span> <span class="mi">24</span>
-
-<span class="n">model</span> <span class="o">=</span> <span class="n">create_qwen_model</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-</pre></div>
-</div>
-</dd></dl>
-
-</section>
-</section>
 <section id="tokenizer">
 <h2>Tokenizer<a class="headerlink" href="#tokenizer" title="Link to this heading">¶</a></h2>
 <section id="qwentokenizer">
@@ -659,55 +574,6 @@ tasks use <code class="docutils literal notranslate"><span class="pre">mode</spa
 
 <span class="c1"># Load tokenizer through hub</span>
 <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">tokenizer_hub</span><span class="o">.</span><span class="n">load_tokenizer</span><span class="p">(</span><span class="s2">&quot;qwen25_7b&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-</dd></dl>
-
-</section>
-</section>
-<section id="interoperability">
-<h2>Interoperability<a class="headerlink" href="#interoperability" title="Link to this heading">¶</a></h2>
-<section id="convert-qwen-state-dict">
-<h3>convert_qwen_state_dict<a class="headerlink" href="#convert-qwen-state-dict" title="Link to this heading">¶</a></h3>
-<dl class="py function">
-<dt class="sig sig-object py" id="fairseq2.models.qwen.convert_qwen_state_dict">
-<span class="sig-prename descclassname"><span class="pre">fairseq2.models.qwen.</span></span><span class="sig-name descname"><span class="pre">convert_qwen_state_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><span class="pre">object</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fairseq2.models.qwen.QwenConfig" title="fairseq2.models.qwen.config.QwenConfig"><span class="pre">QwenConfig</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><span class="pre">object</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/models/qwen/interop.html#convert_qwen_state_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.qwen.convert_qwen_state_dict" title="Link to this definition">¶</a></dt>
-<dd><p>Converts Qwen model state dictionaries between different formats (e.g., from Hugging Face format).</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.qwen</span><span class="w"> </span><span class="kn">import</span> <span class="n">convert_qwen_state_dict</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
-
-<span class="c1"># Load checkpoint from Hugging Face format</span>
-<span class="n">hf_state_dict</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;qwen_hf_checkpoint.pt&quot;</span><span class="p">)</span>
-
-<span class="c1"># Convert to fairseq2 format</span>
-<span class="n">fs2_state_dict</span> <span class="o">=</span> <span class="n">convert_qwen_state_dict</span><span class="p">(</span><span class="n">hf_state_dict</span><span class="p">)</span>
-</pre></div>
-</div>
-</dd></dl>
-
-</section>
-<section id="export-qwen">
-<h3>export_qwen<a class="headerlink" href="#export-qwen" title="Link to this heading">¶</a></h3>
-<dl class="py function">
-<dt class="sig sig-object py" id="fairseq2.models.qwen.export_qwen">
-<span class="sig-prename descclassname"><span class="pre">fairseq2.models.qwen.</span></span><span class="sig-name descname"><span class="pre">export_qwen</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><span class="pre">object</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fairseq2.models.qwen.QwenConfig" title="fairseq2.models.qwen.config.QwenConfig"><span class="pre">QwenConfig</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">HuggingFaceExport</span></span></span><a class="reference internal" href="../_modules/fairseq2/models/qwen/interop.html#export_qwen"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.qwen.export_qwen" title="Link to this definition">¶</a></dt>
-<dd><p>Exports fairseq2 Qwen models to other formats for interoperability.</p>
-</dd></dl>
-
-</section>
-</section>
-<section id="sharding">
-<h2>Sharding<a class="headerlink" href="#sharding" title="Link to this heading">¶</a></h2>
-<section id="get-qwen-shard-specs">
-<h3>get_qwen_shard_specs<a class="headerlink" href="#get-qwen-shard-specs" title="Link to this heading">¶</a></h3>
-<dl class="py function">
-<dt class="sig sig-object py" id="fairseq2.models.qwen.get_qwen_shard_specs">
-<span class="sig-prename descclassname"><span class="pre">fairseq2.models.qwen.</span></span><span class="sig-name descname"><span class="pre">get_qwen_shard_specs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fairseq2.models.qwen.QwenConfig" title="fairseq2.models.qwen.config.QwenConfig"><span class="pre">QwenConfig</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ShardSpec</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/models/qwen/sharder.html#get_qwen_shard_specs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.qwen.get_qwen_shard_specs" title="Link to this definition">¶</a></dt>
-<dd><p>Returns sharding specifications for distributed training and inference of Qwen models.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.qwen</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_qwen_shard_specs</span><span class="p">,</span> <span class="n">QwenConfig</span>
-
-<span class="n">config</span> <span class="o">=</span> <span class="n">QwenConfig</span><span class="p">()</span>
-<span class="n">shard_specs</span> <span class="o">=</span> <span class="n">get_qwen_shard_specs</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -913,30 +779,6 @@ errors defaults to ‘strict’.</p>
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#model-factory">Model Factory</a><ul>
-<li><a class="reference internal" href="#qwenfactory">QwenFactory</a><ul>
-<li><a class="reference internal" href="#fairseq2.models.qwen.QwenFactory"><code class="docutils literal notranslate"><span class="pre">QwenFactory</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.models.qwen.QwenFactory.create_model"><code class="docutils literal notranslate"><span class="pre">QwenFactory.create_model()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.qwen.QwenFactory.create_embedding"><code class="docutils literal notranslate"><span class="pre">QwenFactory.create_embedding()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.qwen.QwenFactory.create_decoder_frontend"><code class="docutils literal notranslate"><span class="pre">QwenFactory.create_decoder_frontend()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.qwen.QwenFactory.create_decoder"><code class="docutils literal notranslate"><span class="pre">QwenFactory.create_decoder()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.qwen.QwenFactory.create_position_encoder"><code class="docutils literal notranslate"><span class="pre">QwenFactory.create_position_encoder()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.qwen.QwenFactory.create_decoder_layer"><code class="docutils literal notranslate"><span class="pre">QwenFactory.create_decoder_layer()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.qwen.QwenFactory.create_self_attention"><code class="docutils literal notranslate"><span class="pre">QwenFactory.create_self_attention()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.qwen.QwenFactory.create_ffn"><code class="docutils literal notranslate"><span class="pre">QwenFactory.create_ffn()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.qwen.QwenFactory.create_final_projection"><code class="docutils literal notranslate"><span class="pre">QwenFactory.create_final_projection()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.qwen.QwenFactory.create_layer_norm"><code class="docutils literal notranslate"><span class="pre">QwenFactory.create_layer_norm()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.qwen.QwenFactory.get_std_scale_factor"><code class="docutils literal notranslate"><span class="pre">QwenFactory.get_std_scale_factor()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li><a class="reference internal" href="#create-qwen-model">create_qwen_model</a><ul>
-<li><a class="reference internal" href="#fairseq2.models.qwen.create_qwen_model"><code class="docutils literal notranslate"><span class="pre">create_qwen_model()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li><a class="reference internal" href="#tokenizer">Tokenizer</a><ul>
 <li><a class="reference internal" href="#qwentokenizer">QwenTokenizer</a><ul>
 <li><a class="reference internal" href="#fairseq2.models.qwen.QwenTokenizer"><code class="docutils literal notranslate"><span class="pre">QwenTokenizer</span></code></a><ul>
@@ -957,24 +799,6 @@ errors defaults to ‘strict’.</p>
 </li>
 <li><a class="reference internal" href="#get-qwen-tokenizer-hub">get_qwen_tokenizer_hub</a><ul>
 <li><a class="reference internal" href="#fairseq2.models.qwen.get_qwen_tokenizer_hub"><code class="docutils literal notranslate"><span class="pre">get_qwen_tokenizer_hub()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li><a class="reference internal" href="#interoperability">Interoperability</a><ul>
-<li><a class="reference internal" href="#convert-qwen-state-dict">convert_qwen_state_dict</a><ul>
-<li><a class="reference internal" href="#fairseq2.models.qwen.convert_qwen_state_dict"><code class="docutils literal notranslate"><span class="pre">convert_qwen_state_dict()</span></code></a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#export-qwen">export_qwen</a><ul>
-<li><a class="reference internal" href="#fairseq2.models.qwen.export_qwen"><code class="docutils literal notranslate"><span class="pre">export_qwen()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li><a class="reference internal" href="#sharding">Sharding</a><ul>
-<li><a class="reference internal" href="#get-qwen-shard-specs">get_qwen_shard_specs</a><ul>
-<li><a class="reference internal" href="#fairseq2.models.qwen.get_qwen_shard_specs"><code class="docutils literal notranslate"><span class="pre">get_qwen_shard_specs()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -1005,7 +829,7 @@ errors defaults to ‘strict’.</p>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=fa7696d9"></script>
+</div><script src="../_static/documentation_options.js?v=a76e1523"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>

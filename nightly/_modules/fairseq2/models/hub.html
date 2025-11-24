@@ -245,6 +245,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.gang.html">fairseq2.gang</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.models.html">fairseq2.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.models.hg.html">fairseq2.models.hg</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.models.hub.html">fairseq2.models.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.models.llama.html">fairseq2.models.llama</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.models.qwen.html">fairseq2.models.qwen</a></li>
@@ -326,7 +327,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span><span class="p">,</span> <span class="n">Device</span><span class="p">,</span> <span class="n">get_current_device</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InternalError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gangs</span><span class="p">,</span> <span class="n">create_fake_gangs</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.family</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelFamily</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.family</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelFamily</span><span class="p">,</span> <span class="n">ModelFamilyNotKnownError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.runtime.dependency</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_dependency_resolver</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.runtime.lookup</span><span class="w"> </span><span class="kn">import</span> <span class="n">Lookup</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.warn</span><span class="w"> </span><span class="kn">import</span> <span class="n">_warn_deprecated</span><span class="p">,</span> <span class="n">_warn_progress_deprecated</span>
@@ -923,7 +924,7 @@
 
         <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_family_name</span>
 
-        <span class="n">family</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve_optional</span><span class="p">(</span><span class="n">ModelFamily</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">family</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">maybe_resolve</span><span class="p">(</span><span class="n">ModelFamily</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">family</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ModelFamilyNotKnownError</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
 
@@ -942,7 +943,7 @@
 
 
 <div class="viewcode-block" id="ModelNotKnownError">
-<a class="viewcode-back" href="../../../reference/fairseq2.models.hub.html#fairseq2.models.ModelNotKnownError">[docs]</a>
+<a class="viewcode-back" href="../../../reference/fairseq2.models.html#fairseq2.models.ModelNotKnownError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ModelNotKnownError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when a requested model name is not found in the asset store.&quot;&quot;&quot;</span>
 
@@ -953,20 +954,8 @@
 
 
 
-<div class="viewcode-block" id="ModelFamilyNotKnownError">
-<a class="viewcode-back" href="../../../reference/fairseq2.models.hub.html#fairseq2.models.ModelFamilyNotKnownError">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">ModelFamilyNotKnownError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when a requested model family is not registered.&quot;&quot;&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> is not a known model family.&quot;</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span></div>
-
-
-
 <div class="viewcode-block" id="ModelArchitectureNotKnownError">
-<a class="viewcode-back" href="../../../reference/fairseq2.models.hub.html#fairseq2.models.ModelArchitectureNotKnownError">[docs]</a>
+<a class="viewcode-back" href="../../../reference/fairseq2.models.html#fairseq2.models.ModelArchitectureNotKnownError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ModelArchitectureNotKnownError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Raised when a requested model architecture is not supported by a model family.</span>
@@ -1226,7 +1215,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=fa7696d9"></script>
+</div><script src="../../../_static/documentation_options.js?v=a76e1523"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

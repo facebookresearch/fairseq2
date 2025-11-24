@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
-        <title>fairseq2.nn.residual - fairseq2 Documentation</title>
+        <title>fairseq2.models.hg - fairseq2 Documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
@@ -305,141 +305,223 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <h1>Source code for fairseq2.nn.residual</h1><div class="highlight"><pre>
+          <h1>Source code for fairseq2.models.hg</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
 <span class="c1"># All rights reserved.</span>
 <span class="c1">#</span>
 <span class="c1"># This source code is licensed under the BSD-style license found in the</span>
 <span class="c1"># LICENSE file in the root directory of this source tree.</span>
 
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module provides an API for converting state dicts and configurations of</span>
+<span class="sd">fairseq2 models to their Hugging Face Transformer equivalents.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">final</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">final</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">huggingface_hub</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">transformers</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">transformers</span><span class="w"> </span><span class="kn">import</span> <span class="n">PretrainedConfig</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">NotSupportedError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.family</span><span class="w"> </span><span class="kn">import</span> <span class="n">HuggingFaceExporter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.runtime.dependency</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_dependency_resolver</span>
 
-<div class="viewcode-block" id="ResidualConnect">
-<a class="viewcode-back" href="../../../reference/fairseq2.nn.residual.html#fairseq2.nn.ResidualConnect">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">ResidualConnect</span><span class="p">(</span><span class="n">Module</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a residual connection.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="ResidualConnect.forward">
-<a class="viewcode-back" href="../../../reference/fairseq2.nn.residual.html#fairseq2.nn.ResidualConnect.forward">[docs]</a>
+<div class="viewcode-block" id="HuggingFaceConfig">
+<a class="viewcode-back" href="../../../reference/fairseq2.models.hg.html#fairseq2.models.hg.HuggingFaceConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">HuggingFaceConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Represents the configuration of a Hugging Face Transformers model.</span>
+
+<span class="sd">    This class is part of the :class:`HuggingFaceConverter` interface which</span>
+<span class="sd">    converts fairseq2 models to their Hugging Face equivalents.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">data</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration data.</span>
+
+<span class="sd">    Each key in this mapping must correspond to an attribute of the actual</span>
+<span class="sd">    configuration class in Hugging Face Transformers.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">kls_name</span><span class="p">:</span> <span class="nb">str</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Name of the configuration class in Hugging Face Transformers. For instance,</span>
+<span class="sd">    Qwen3Config or LlamaConfig.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">arch</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Architecture(s) of the model as defined in Hugging Face Transformers. For</span>
+<span class="sd">    instance, Qwen3ForCausalLM, LlamaForCausalLM.</span>
+<span class="sd">    &quot;&quot;&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="HuggingFaceConverter">
+<a class="viewcode-back" href="../../../reference/fairseq2.models.hg.html#fairseq2.models.hg.HuggingFaceConverter">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">HuggingFaceConverter</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Converts the state dict and configuration of a fairseq2 model to its Hugging</span>
+<span class="sd">    Face Transformers equivalent.</span>
+
+<span class="sd">    Model authors must register their converter implementations with fairseq2</span>
+<span class="sd">    as part of library initialization as shown below:</span>
+
+<span class="sd">    .. code:: python</span>
+
+<span class="sd">        from fairseq2.models.hg import HuggingFaceConverter</span>
+<span class="sd">        from fairseq2.runtime.dependency import DependencyContainer, register_model_family</span>
+
+<span class="sd">        class MyModelConverter(HuggingFaceConverter):</span>
+<span class="sd">            ...</span>
+
+<span class="sd">        def register_my_model(container: DependencyContainer) -&gt; None:</span>
+<span class="sd">            register_model_family(container, name=&quot;my_model_family&quot;, ...)</span>
+
+<span class="sd">            container.register_type(</span>
+<span class="sd">                HuggingFaceConverter, MyModelConverter, key=&quot;my_model_family&quot;,</span>
+<span class="sd">            )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="HuggingFaceConverter.to_hg_config">
+<a class="viewcode-back" href="../../../reference/fairseq2.models.hg.html#fairseq2.models.hg.HuggingFaceConverter.to_hg_config">[docs]</a>
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">residual</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_hg_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HuggingFaceConfig</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param seqs: The sequences output by a module. *Shape:* :math:`(N,S,M)`,</span>
-<span class="sd">            where :math:`N` is the batch size, :math:`S` is the sequence length,</span>
-<span class="sd">            and :math:`M` is the dimensionality of the model.</span>
-<span class="sd">        :param residual: The input sequences to the module. *Shape:* Same as</span>
-<span class="sd">            ``seqs``.</span>
+<span class="sd">        Converts the specified fairseq2 model configuration to its Hugging Face</span>
+<span class="sd">        Transformers equivalent.</span>
 
-<span class="sd">        :returns: The output sequences with residuals applied. *Shape:* Same as</span>
-<span class="sd">            ``seqs``.</span>
+<span class="sd">        :raises TypeError: ``config`` is not of valid type. The expected type</span>
+<span class="sd">            is one registered as part of the :class:`ModelFamily`.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
 
-    <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-        <span class="fm">__call__</span> <span class="o">=</span> <span class="n">forward</span></div>
+<div class="viewcode-block" id="HuggingFaceConverter.to_hg_state_dict">
+<a class="viewcode-back" href="../../../reference/fairseq2.models.hg.html#fairseq2.models.hg.HuggingFaceConverter.to_hg_state_dict">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_hg_state_dict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span> <span class="n">config</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Converts the specified fairseq2 state dict to its Hugging Face</span>
+<span class="sd">        Transformers equivalent.</span>
 
+<span class="sd">        ``config`` is the fairseq2 model configuration and can be used to</span>
+<span class="sd">        adjust the converted state dict when necessary.</span>
 
-
-<div class="viewcode-block" id="AdditiveResidualConnect">
-<a class="viewcode-back" href="../../../reference/fairseq2.nn.residual.html#fairseq2.nn.AdditiveResidualConnect">[docs]</a>
-<span class="nd">@final</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">AdditiveResidualConnect</span><span class="p">(</span><span class="n">ResidualConnect</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sums inputs and outputs of a module.&quot;&quot;&quot;</span>
-
-<div class="viewcode-block" id="AdditiveResidualConnect.forward">
-<a class="viewcode-back" href="../../../reference/fairseq2.nn.residual.html#fairseq2.nn.AdditiveResidualConnect.forward">[docs]</a>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">residual</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">seqs</span> <span class="o">+</span> <span class="n">residual</span></div>
+<span class="sd">        :raises TypeError: ``config`` is not of valid type. The expected type</span>
+<span class="sd">            is one registered as part of the :class:`ModelFamily`.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
 </div>
 
 
 
-<div class="viewcode-block" id="ScaledResidualConnect">
-<a class="viewcode-back" href="../../../reference/fairseq2.nn.residual.html#fairseq2.nn.ScaledResidualConnect">[docs]</a>
+<span class="c1"># TODO: Remove in v0.9</span>
 <span class="nd">@final</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">ScaledResidualConnect</span><span class="p">(</span><span class="n">ResidualConnect</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_LegacyHuggingFaceConverter</span><span class="p">(</span><span class="n">HuggingFaceConverter</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exporter</span><span class="p">:</span> <span class="n">HuggingFaceExporter</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_exporter</span> <span class="o">=</span> <span class="n">exporter</span>
+
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_hg_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HuggingFaceConfig</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">NotSupportedError</span><span class="p">()</span>
+
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_hg_state_dict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span> <span class="n">config</span><span class="p">:</span> <span class="nb">object</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="n">NotSupportedError</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="get_hugging_face_converter">
+<a class="viewcode-back" href="../../../reference/fairseq2.models.hg.html#fairseq2.models.hg.get_hugging_face_converter">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_hugging_face_converter</span><span class="p">(</span><span class="n">family_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HuggingFaceConverter</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Scales residuals by a constant factor before adding them to the output of a</span>
-<span class="sd">    Transformer module.</span>
+<span class="sd">    Returns the :class:`HuggingFaceConverter` of the specified model family.</span>
+
+<span class="sd">    :raises NotSupportedError: The model family does not support Hugging Face</span>
+<span class="sd">        conversion.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">resolver</span> <span class="o">=</span> <span class="n">get_dependency_resolver</span><span class="p">()</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param scale: The scale factor.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">scale</span> <span class="o">=</span> <span class="n">scale</span>
+    <span class="n">hg_converter</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">maybe_resolve</span><span class="p">(</span><span class="n">HuggingFaceConverter</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">family_name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">hg_converter</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">NotSupportedError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">family_name</span><span class="si">}</span><span class="s2"> model family does not support Hugging Face conversion.&quot;</span>
+        <span class="p">)</span>
 
-<div class="viewcode-block" id="ScaledResidualConnect.forward">
-<a class="viewcode-back" href="../../../reference/fairseq2.nn.residual.html#fairseq2.nn.ScaledResidualConnect.forward">[docs]</a>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">residual</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-        <span class="n">residual</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span> <span class="o">*</span> <span class="n">residual</span>
-
-        <span class="k">return</span> <span class="n">seqs</span> <span class="o">+</span> <span class="n">residual</span></div>
-
-
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;:meta private:&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;scale=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="si">}</span><span class="s2">&quot;</span></div>
+    <span class="k">return</span> <span class="n">hg_converter</span></div>
 
 
 
-<span class="nd">@final</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">DropPathResidualConnect</span><span class="p">(</span><span class="n">ResidualConnect</span><span class="p">):</span>
+<div class="viewcode-block" id="save_hugging_face_model">
+<a class="viewcode-back" href="../../../reference/fairseq2.models.hg.html#fairseq2.models.hg.save_hugging_face_model">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">save_hugging_face_model</span><span class="p">(</span>
+    <span class="n">save_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span> <span class="n">config</span><span class="p">:</span> <span class="n">HuggingFaceConfig</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Drops entire sequences from module outputs before adding residuals which</span>
-<span class="sd">    effectively results in stochastic depth as described in section 3 of</span>
-<span class="sd">    :cite:t:`https://doi.org/10.48550/arxiv.1603.09382`.</span>
+<span class="sd">    Saves the state dict and configuration of a Hugging Face Transformers model</span>
+<span class="sd">    to the specified directory.</span>
 
-<span class="sd">    .. note::</span>
-<span class="sd">        This implementation is mostly adapted from Ross Wightman&#39;s ``drop_path``</span>
-<span class="sd">        function in timm.</span>
+<span class="sd">    :raises TypeError: ``config.kls_name`` does not correspond to the expected</span>
+<span class="sd">        :class:`PretrainedConfig` subclass of the Hugging Face model.</span>
+
+<span class="sd">    :raises TypeError: ``state_dict`` contains non-tensor values which is not</span>
+<span class="sd">        supported in Safetensors format.</span>
+
+<span class="sd">    :raises ValueError: A key in ``config`` does not have a corresponding</span>
+<span class="sd">        attribute in Hugging Face model configuration class.</span>
+
+<span class="sd">    :raises OSError: The state dict or configuration cannot be saved to the</span>
+<span class="sd">        file system.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">config_kls</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">transformers</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">kls_name</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`transformers.</span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">kls_name</span><span class="si">}</span><span class="s2">` is not a type.&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">drop_p</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">scale_by_keep</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param drop_p: The probability of dropping sequences from module outputs.</span>
-<span class="sd">        :param scale_by_keep: If ``True``, non-dropped sequences will be scaled</span>
-<span class="sd">            by the keep probability (i.e. ``1 - drop_p``) as in EfficientNet.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">config_kls</span><span class="p">,</span> <span class="n">PretrainedConfig</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;`transformers.</span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">kls_name</span><span class="si">}</span><span class="s2">` is expected to be a subclass of `</span><span class="si">{</span><span class="n">PretrainedConfig</span><span class="si">}</span><span class="s2">`.&quot;</span>
+        <span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">drop_p</span> <span class="o">=</span> <span class="n">drop_p</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">scale_by_keep</span> <span class="o">=</span> <span class="n">scale_by_keep</span>
+    <span class="n">native_config</span> <span class="o">=</span> <span class="n">config_kls</span><span class="p">()</span>
 
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">residual</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">drop_p</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">seqs</span> <span class="o">+</span> <span class="n">residual</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">native_config</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`transformers.</span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">kls_name</span><span class="si">}</span><span class="s2">` does not have an attribute named </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
 
-        <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="n">seqs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)]</span> <span class="o">+</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">seqs</span><span class="o">.</span><span class="n">ndim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">native_config</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
 
-        <span class="n">keep_p</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">drop_p</span>
+    <span class="n">arch</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">arch</span>
 
-        <span class="c1"># (N)</span>
-        <span class="n">drop_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">seqs</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">seqs</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="o">+</span> <span class="n">keep_p</span>
+    <span class="nb">setattr</span><span class="p">(</span><span class="n">native_config</span><span class="p">,</span> <span class="s2">&quot;architectures&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">arch</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arch</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">arch</span><span class="p">)</span>
 
-        <span class="n">drop_mask</span><span class="o">.</span><span class="n">floor_</span><span class="p">()</span>  <span class="c1"># binarize</span>
+    <span class="n">native_config</span><span class="o">.</span><span class="n">save_pretrained</span><span class="p">(</span><span class="n">save_dir</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale_by_keep</span><span class="p">:</span>
-            <span class="n">seqs</span> <span class="o">=</span> <span class="n">seqs</span> <span class="o">/</span> <span class="n">keep_p</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">state_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`state_dict[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">]` must be of type `</span><span class="si">{</span><span class="n">Tensor</span><span class="si">}</span><span class="s2">`, but is of type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
+            <span class="p">)</span>
 
-        <span class="k">return</span> <span class="p">(</span><span class="n">seqs</span> <span class="o">*</span> <span class="n">drop_mask</span><span class="p">)</span> <span class="o">+</span> <span class="n">residual</span>
+    <span class="n">tensors</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">],</span> <span class="n">state_dict</span><span class="p">)</span>
 
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;drop_p=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">drop_p</span><span class="si">}</span><span class="s2">, scale_by_keep=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_by_keep</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="n">huggingface_hub</span><span class="o">.</span><span class="n">save_torch_state_dict</span><span class="p">(</span><span class="n">tensors</span><span class="p">,</span> <span class="n">save_dir</span><span class="p">)</span></div>
+
 </pre></div>
         </article>
       </div>
