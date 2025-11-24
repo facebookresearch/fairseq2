@@ -20,6 +20,7 @@ from typing_extensions import override
 from fairseq2.error import InternalError
 from fairseq2.runtime.dependency import get_dependency_resolver
 from fairseq2.utils.env import Environment, EnvironmentVariableError
+from fairseq2.utils.version import torch_greater_or_equal
 from fairseq2.world_info import WorldInfo
 
 Device: TypeAlias = torch.device
@@ -74,12 +75,6 @@ def get_current_device() -> Device:
 
     .. __: https://docs.pytorch.org/tutorials/recipes/recipes/changing_default_device.html
 
-    .. note::
-
-        PyTorch does not currently expose a public API to retrieve the current
-        device of a thread. If such an API becomes available in the future, this
-        function will act as an alias for it.
-
     .. warning::
 
         This function might impose a slight performance cost. Avoid calling it
@@ -103,17 +98,16 @@ def get_current_device() -> Device:
         with device:
             assert get_current_device() == device
     """
-    # One might expect `torch.get_default_device()` to return the nearest device
-    # set as context in the call stack; however, this is not the case. Currently,
-    # the only way to determine the current device is to create a dummy tensor
-    # and inspect its device attribute.
+    if torch_greater_or_equal(2, 8):
+        return torch.get_default_device()
+
+    # In PyTorch versions earlier than 2.8 the only way to find out the closest
+    # device set as context is to create a dummy tensor and check its device.
     return torch.empty(()).device
 
 
 @final
-class DefaultDeviceDetector:
-    """This class is used internally by the :func:`get_default_device` function."""
-
+class _DefaultDeviceDetector:
     def __init__(
         self, env: Environment, world_info: WorldInfo, cuda_context: CudaContext
     ) -> None:
@@ -226,9 +220,7 @@ class CudaContext(ABC):
 
 
 @final
-class StandardCudaContext(CudaContext):
-    """Represents the standard implementation of :class:`CudaContext`."""
-
+class _StandardCudaContext(CudaContext):
     @override
     def is_available(self) -> bool:
         return torch.cuda.is_available()

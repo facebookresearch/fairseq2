@@ -34,9 +34,9 @@ from fairseq2.data.tokenizers.sentencepiece import (
 from fairseq2.device import (
     CPU,
     CudaContext,
-    DefaultDeviceDetector,
     Device,
-    StandardCudaContext,
+    _DefaultDeviceDetector,
+    _StandardCudaContext,
 )
 from fairseq2.file_system import FileSystem, LocalFileSystem
 from fairseq2.io import (
@@ -153,7 +153,7 @@ def _register_library(
 
     # Device
     def detect_default_device(resolver: DependencyResolver) -> Device:
-        device_detector = resolver.resolve(DefaultDeviceDetector)
+        device_detector = resolver.resolve(_DefaultDeviceDetector)
 
         return device_detector.detect()
 
@@ -179,8 +179,8 @@ def _register_library(
     container.register_type(ClusterResolver, StandardClusterResolver)
     container.register_type(ConfigMerger, StandardConfigMerger)
     container.register_type(ConfigProcessor, StandardConfigProcessor, singleton=True)
-    container.register_type(CudaContext, StandardCudaContext)
-    container.register_type(DefaultDeviceDetector)
+    container.register_type(CudaContext, _StandardCudaContext)
+    container.register_type(_DefaultDeviceDetector)
     container.register_type(FileSystem, LocalFileSystem, singleton=True)
     container.register_type(GlobalModelLoader, singleton=True)
     container.register_type(GlobalTokenizerLoader, singleton=True)

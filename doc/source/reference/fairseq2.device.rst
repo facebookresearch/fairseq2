@@ -11,11 +11,6 @@ Interfaces
 .. autoclass:: CudaContext
 .. autoclass:: SupportsDeviceTransfer
 
-Classes
-=======
-
-.. autoclass:: StandardCudaContext
-
 Functions
 =========
 
