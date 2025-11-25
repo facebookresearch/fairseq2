@@ -1,0 +1,68 @@
+model:
+  name: null
+  path: null
+  family: null
+  arch: null
+  config_overrides: null
+  dtype: float32
+  mmap: false
+  compile: false
+  compile_options:
+    fullgraph: false
+    dynamic: null
+    mode: default
+    backend: inductor
+    backend_options: null
+tokenizer:
+  name: llama3_1_8b_instruct
+  path: null
+  family: null
+  config_overrides: null
+evaluator:
+  tasks:
+  - winogrande
+  batch_size: 16
+  num_fewshot: null
+  cache_requests: false
+  log_samples: false
+  amp: false
+  amp_dtype: float32
+gang:
+  tensor_parallel_size: 1
+  timeout: 15
+  high_priority: true
+common:
+  torch:
+    num_threads: null
+    allow_tf32: true
+    fp16_reduced_precision: true
+    bf16_reduced_precision: true
+    default_sdpa: torch
+    compiled_region_activation_memory_budget: 1.0
+  metric_recorders:
+    tensorboard:
+      enabled: true
+    wandb:
+      enabled: true
+      entity: null
+      project: null
+      run_id: persistent
+      run_name: null
+      group: null
+      job_type: eval
+      resume_mode: null
+  profilers:
+    torch:
+      enabled: false
+      skip_n_steps: 4
+      wait_n_steps: 0
+      num_warmup_steps: 1
+      num_active_steps: 4
+      repeat: 1
+  assets:
+    extra_paths: []
+    prev_checkpoint_dir: null
+  seed: 2
+  debug: false
+  cluster: auto
+  no_sweep_dir: true

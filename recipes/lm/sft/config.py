@@ -31,7 +31,7 @@ from .dataset import LM_SFT_DATASET, LMSFTDatasetConfig, LMSFTDataSource
 @dataclass(kw_only=True)
 class LMSFTConfig:
     model: ModelSection = field(
-        default_factory=lambda: ModelSection(name="llama3_2_1b")
+        default_factory=lambda: ModelSection(name="llama3_1_8b_instruct")
     )
 
     dataset: LMSFTDatasetSection = field(
@@ -52,7 +52,7 @@ class LMSFTConfig:
     )
 
     tokenizer: TokenizerSection = field(
-        default_factory=lambda: TokenizerSection(name="llama3_2_1b")
+        default_factory=lambda: TokenizerSection(name="llama3_1_8b_instruct")
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
