@@ -245,7 +245,6 @@ class HgFactory:
 
             # Check if this is a special case model
             model_info = _get_model_info(config_class_name, config)
-            # dist.barrier()
 
             if model_info:
                 return _load_special_model(name, config, model_info, gangs)
@@ -422,7 +421,6 @@ def _load_special_model(
     # Shard the model according to available gangs
     if gangs is not None and gangs.tp.size > 1:
         try:
-            # dist.barrier()
             print(f"Sharding model with {gangs.tp.size} gangs...")
             model = _simple_shard_qwen_omni_model(model, gangs)
             print("Model successfully sharded!")
