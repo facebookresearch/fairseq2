@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from copy import copy
 from dataclasses import dataclass, field
-from typing import Any, Dict, Final, List, Union, cast, final
+from typing import Any, Dict, Final, List, Union, cast, final, Literal
 
 import torch
 from torch import Tensor
@@ -47,6 +47,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     update_batch_metrics,
     update_grpo_batch_metrics,
     update_grpo_loss,
+    update_ntp_loss,
     update_logit_entropy,
     update_std_reward,
 )
@@ -211,6 +212,38 @@ def prepare_grpo_batch(
     return grpo_batch
 
 
+def prepare_prompt_completion_seq_batch(
+    prompt_batch: PromptBatch,
+    prompt_key: str,
+    completion_key: str,
+    tokenizer: AutoTokenizer,
+    gangs: Gang,
+) -> SequenceBatch:
+    prompt_comp_token_batch, prompt_lens = [], []
+    for prefix_text, completion_text in zip(
+        prompt_batch.meta_info.get(prompt_key),
+        prompt_batch.meta_info.get(completion_key),
+    ):
+        prefix_text = prefix_text.removesuffix(" <think>").removesuffix("<think>")
+
+        if not (prefix_text[-1].isspace() or completion_text[0].isspace()):
+            prefix_text += " "
+        prefix_tokens = tokenizer.encode(prefix_text, add_special_tokens=False)
+        completion_tokens = tokenizer.encode(completion_text, add_special_tokens=False)
+        prompt_lens.append(len(prefix_tokens))
+        prompt_comp_token_batch.append(
+            torch.tensor(
+                prefix_tokens + completion_tokens,
+                device=gangs.dp.device,
+            )
+        )
+
+    prompt_completion_batch: SequenceBatch = collate_with_target_mask(
+        prompt_comp_token_batch, prompt_lens, device=gangs.dp.device
+    )
+    return prompt_completion_batch
+
+
 @final
 class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     """Represents the language model DPO-finetuning unit with online generations. Paper: https://arxiv.org/abs/2305.18290."""
@@ -250,12 +283,15 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             )
         )
 
-        if self._config.rollout_tokenizer is not None:
-            self._rollout_tokenizer = AutoTokenizer.from_pretrained(
-                self._config.rollout_tokenizer
-            )
+        if self._config.tokenizer is not None:
+            self._tokenizer = AutoTokenizer.from_pretrained(self._config.tokenizer)
+        self.prompt_key = self._config.prompt_key
+        self.completion_key = self._config.answer_key
 
         self._display_name = "GRPO"
+
+        # this flag tells trainer to process each loss's norm independently.
+        self._multi_loss_norm = self._config.loss_config.ntp_loss_weight > 0
 
     @property
     @override
@@ -272,6 +308,10 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     @override
     def name(self) -> str | None:
         return self._display_name
+
+    @property
+    def multi_loss_norm(self) -> bool:
+        return self._multi_loss_norm
 
     def validate_reward(
         self, prompt_batch: PromptBatch, metric_bag
@@ -357,25 +397,25 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             )
             if self._config.clip_rollout_after_think is not None:
                 prompt_batch.meta_info["suffix"] = [
-                    self._rollout_tokenizer.decode(
-                        self._rollout_tokenizer.encode(text, add_special_tokens=False)[
+                    self._tokenizer.decode(
+                        self._tokenizer.encode(text, add_special_tokens=False)[
                             : self._config.clip_reference
                         ]
                     )
                     for text in prompt_batch.meta_info.get("suffix")
                 ]
                 prompt_batch.meta_info["suffix_ids"] = [
-                    self._rollout_tokenizer.encode(text, add_special_tokens=False)[
+                    self._tokenizer.encode(text, add_special_tokens=False)[
                         : self._config.clip_reference
                     ]
                     for text in prompt_batch.meta_info.get("suffix")
                 ]
-                think_tokens = self._rollout_tokenizer.encode(
+                think_tokens = self._tokenizer.encode(
                     "</think>", add_special_tokens=False
                 )
                 rollouts = clip_outputs_after_think_token(
                     rollouts,
-                    self._rollout_tokenizer,
+                    self._tokenizer,
                     think_tokens,
                     self._config.clip_rollout_after_think,
                 )
@@ -536,12 +576,74 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         update_std_reward(metric_bag, std_reward)
         update_avg_reward(metric_bag, avg_reward)
 
-        loss = grpo_loss
+        # ntp is per prompt rather than per rollout, so it's added only once in the 1st microbatches in each training step to avoid redundant computation.
+        if (
+            self._config.loss_config.ntp_loss_weight > 0
+            and self._rollout_bag.bag_step - 1 == 0
+        ):
+            prompt_completion_seq_batch: SequenceBatch = (
+                prepare_prompt_completion_seq_batch(
+                    prompt_batch,
+                    self.prompt_key,
+                    self.completion_key,
+                    self._tokenizer,
+                    self._gangs,
+                )
+            )
+            ntp_input_batch, ntp_target_batch = (
+                prompt_completion_seq_batch.as_auto_regressive()
+            )
+            ntp_input_batch_seqs, ntp_input_batch_seqs_layout = (
+                ntp_input_batch.as_input()
+            )
+
+            ntp_model_logits: Tensor = self._model.module(
+                ntp_input_batch_seqs, ntp_input_batch_seqs_layout
+            )
+            ntp_loss: Tensor = -self._gather_lprobs(
+                ntp_model_logits, ntp_target_batch
+            )  # (bsz, s_len)
+
+            ntp_loss *= ntp_target_batch.target_mask  # mask: (bsz, s_len)
+
+            if (
+                self._config.loss_config.group_size
+                / self._config.loss_config.forward_group_size
+                != 1
+            ):
+                # TODO(lidli): if we want support ntp loss for multiple micro-batch
+                # case, we take care of the gradient scaling in trainer code.
+                raise NotImplementedError(
+                    "Micro batching is not supported now for ntp currently"
+                )
+
+            if self._config.loss_config.ntp_loss_norm == "length":
+                ntp_loss = (
+                    ntp_loss.sum(-1) / ntp_target_batch.target_mask.sum(dim=-1)
+                ).sum()
+                ntp_num_batch_targets: int = prompt_batch.batch_size
+            elif self._config.loss_config.ntp_loss_norm == "all_tokens":
+                ntp_loss = ntp_loss.sum()
+                ntp_num_batch_targets: int = ntp_target_batch.target_mask.sum().item()
+            elif self._config.loss_config.ntp_loss_norm == "none":
+                ntp_loss = ntp_loss.sum()
+                ntp_num_batch_targets: int = prompt_batch.batch_size
+            else:
+                raise ValueError("Invalid ntp_loss_norm value")
+
+            ntp_loss *= self._config.loss_config.ntp_loss_weight
+
+            update_ntp_loss(metric_bag, prompt_batch, ntp_loss)
 
         if self._config.loss_config.loss_token_mean:
-            return loss, total_tokens
+            grpo_result = (grpo_loss, total_tokens)
         else:
-            return loss, prompt_batch.batch_size
+            grpo_result = (grpo_loss, prompt_batch.batch_size)
+
+        if self._config.loss_config.ntp_loss_weight == 0:
+            return grpo_result
+
+        return {"grpo_loss": grpo_result, "ntp_loss": (ntp_loss, ntp_num_batch_targets)}
 
     def _gather_lprobs(self, logits: Tensor, target: SequenceBatch) -> Tensor:
         assert target.target_mask is not None
@@ -673,6 +775,10 @@ class GrpoLossConfig:
     tis_imp_ratio_cap: float = 2.0
     """Maximum cap for the truncated importance sampling ratio. If <= 0, no cap is applied."""
 
+    ntp_loss_weight: float = 0.0  # ntp loss is enabled when this is greater than 0
+
+    ntp_loss_norm: Literal["length", "all_tokens", "none"] = "length"
+
 
 @dataclass(kw_only=True)
 class GrpoFinetuneConfig:
@@ -706,7 +812,11 @@ class GrpoFinetuneConfig:
 
     clip_reference: int | None = None
 
-    rollout_tokenizer: str | None = None
+    tokenizer: str | None = None
+
+    prompt_key: str | None = None
+
+    answer_key: str | None = None
 
 
 @final
