@@ -525,6 +525,18 @@ def register_wav2vec2_asr_configs(context: RuntimeContext) -> None:
         )
         return config
 
+    @wav2vec2_asr_arch("3b_v8_tokenizer")
+    def v8_tokenizer_3b() -> Wav2Vec2AsrConfig:
+        config = bib1143_3b()
+        config.vocab_info = VocabularyInfo(
+            size=10288,
+            unk_idx=3,
+            bos_idx=0,
+            eos_idx=2,
+            pad_idx=1,
+        )
+        return config
+
     @wav2vec2_asr_arch("1b_v4_tokenizer_updated")
     def v4_tokenizer_updated_1b() -> Wav2Vec2AsrConfig:
         config = bib1143_1b()
@@ -549,6 +561,18 @@ def register_wav2vec2_asr_configs(context: RuntimeContext) -> None:
         )
         return config
 
+    @wav2vec2_asr_arch("1b_v8_tokenizer")
+    def v8_tokenizer_1b() -> Wav2Vec2AsrConfig:
+        config = bib1143_1b()
+        config.vocab_info = VocabularyInfo(
+            size=10288,
+            unk_idx=3,
+            bos_idx=0,
+            eos_idx=2,
+            pad_idx=1,
+        )
+        return config
+
     @wav2vec2_asr_arch("300m_v4_tokenizer_updated")
     def v4_tokenizer_updated_300m() -> Wav2Vec2AsrConfig:
         config = bib1143_300m()
@@ -566,6 +590,18 @@ def register_wav2vec2_asr_configs(context: RuntimeContext) -> None:
         config = bib1143_300m()
         config.vocab_info = VocabularyInfo(
             size=9818,
+            unk_idx=3,
+            bos_idx=0,
+            eos_idx=2,
+            pad_idx=1,
+        )
+        return config
+
+    @wav2vec2_asr_arch("300m_v8_tokenizer")
+    def v8_tokenizer_300m() -> Wav2Vec2AsrConfig:
+        config = bib1143_300m()
+        config.vocab_info = VocabularyInfo(
+            size=10288,
             unk_idx=3,
             bos_idx=0,
             eos_idx=2,
