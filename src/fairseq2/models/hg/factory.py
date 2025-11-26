@@ -208,7 +208,6 @@ class HgFactory:
         """Initialize the factory with configuration."""
         self._config = config
         self._gangs = gangs
-        print(f"Gangs: {self._gangs}")
 
     def create_model(self) -> Any:
         """Create the model according to the configuration.
@@ -397,7 +396,6 @@ def _load_special_model(
     load_kwargs.pop("safe_serialization")
     load_kwargs["device_map"] = device
     load_kwargs["ignore_mismatched_sizes"] = True
-    print(load_kwargs)
 
     # Import and load the model class
     model_class_name = model_info["model_class"]
