@@ -107,7 +107,7 @@ class TestCreateHgModel:
         config = HuggingFaceModelConfig(hf_name="gpt2")
         result = create_hg_model(config)
 
-        mock_factory_class.assert_called_once_with(config)
+        mock_factory_class.assert_called_once_with(config, None)
         mock_factory.create_model.assert_called_once()
         assert result is mock_model
 
@@ -118,7 +118,7 @@ class TestHgFactory:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.config = HuggingFaceModelConfig(hf_name="gpt2")
-        self.factory = HgFactory(self.config)
+        self.factory = HgFactory(self.config, None)
 
     @patch("fairseq2.models.hg.factory._has_transformers", False)
     def test_create_model_no_transformers(self) -> None:
@@ -150,7 +150,7 @@ class TestHgFactory:
 
         mock_auto_config.from_pretrained.assert_called_once_with("gpt2")
         mock_get_info.assert_called_once_with("GPT2Config", self.config)
-        mock_load_auto.assert_called_once_with("gpt2", self.config, mock_hf_config)
+        mock_load_auto.assert_called_once_with("gpt2", self.config, mock_hf_config, None)
         assert result is mock_model
 
     @patch("fairseq2.models.hg.factory._has_transformers", True)
@@ -175,7 +175,7 @@ class TestHgFactory:
 
         result = self.factory.create_model()
 
-        mock_load_special.assert_called_once_with("gpt2", self.config, mock_model_info)
+        mock_load_special.assert_called_once_with("gpt2", self.config, mock_model_info, None)
         assert result is mock_model
 
     @patch("fairseq2.models.hg.factory._has_transformers", True)
