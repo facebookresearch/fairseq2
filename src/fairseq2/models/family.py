@@ -26,7 +26,7 @@ from fairseq2.assets import (
     AssetDownloadManager,
     AssetStore,
 )
-from fairseq2.data_type import DataType, current_dtype
+from fairseq2.data_type import DataType, set_dtype
 from fairseq2.device import META_DEVICE
 from fairseq2.error import (
     InternalError,
@@ -694,7 +694,7 @@ class StandardModelFamily(ModelFamily):
 
         try:
             with device, gangs:
-                with current_dtype(dtype):
+                with set_dtype(dtype):
                     model = self._factory(config)
         except NotImplementedError as ex:
             if "'Meta' backend" not in str(ex):

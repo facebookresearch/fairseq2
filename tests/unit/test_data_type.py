@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import torch
 
-from fairseq2.data_type import DataType, current_dtype, get_current_dtype
+from fairseq2.data_type import DataType, get_current_dtype, set_dtype
 from tests.common import device
 
 
@@ -20,10 +20,10 @@ def test_current_dtype_works() -> None:
 
         assert get_current_dtype() == dtype
 
-    with current_dtype(torch.bfloat16):
+    with set_dtype(torch.bfloat16):
         check_dtype(torch.bfloat16)
 
-        with current_dtype(torch.float16):
+        with set_dtype(torch.float16):
             check_dtype(torch.float16)
 
         check_dtype(torch.bfloat16)

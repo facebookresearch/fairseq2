@@ -18,6 +18,7 @@ See :doc:`/concepts/gang` for more information.
 from __future__ import annotations
 
 import os
+import threading
 import warnings
 from abc import abstractmethod
 from collections.abc import Sequence
@@ -42,7 +43,8 @@ from fairseq2.error import (
 from fairseq2.logging import log
 from fairseq2.runtime.closable import Closable
 from fairseq2.utils.tensor import to_tensor
-from fairseq2.utils.threading import _tls
+
+_tls = threading.local()
 
 
 class Gang(Closable):

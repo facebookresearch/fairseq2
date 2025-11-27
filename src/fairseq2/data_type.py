@@ -10,27 +10,23 @@ This module provides functions for managing PyTorch data types.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Set
 from contextlib import contextmanager
-from functools import cache
-from typing import Any, ContextManager, TypeAlias, cast, final
+from typing import Any, ContextManager, TypeAlias, final
 
 import torch
 from torch import get_default_dtype
 from torch.overrides import TorchFunctionMode
 
-from fairseq2.utils.threading import _tls
+from fairseq2.runtime.dependency import get_dependency_resolver
+from fairseq2.utils.threading import ThreadLocalStorage
 from fairseq2.utils.warn import _warn_deprecated
 
 DataType: TypeAlias = torch.dtype
 
 
-# Holds the stack of current thread-local data types.
-_tls.dtype_contexts = []
-
-
 @contextmanager
-def current_dtype(dtype: DataType) -> Iterator[None]:
+def set_dtype(dtype: DataType) -> Iterator[None]:
     """
     Changes the floating-point data type of the calling thread to the specified
     type.
@@ -43,14 +39,14 @@ def current_dtype(dtype: DataType) -> Iterator[None]:
 
         import torch
 
-        from fairseq2.data_type import current_dtype
+        from fairseq2.data_type import set_dtype
 
-        with current_dtype(torch.bfloat16):
+        with set_dtype(torch.bfloat16):
             t = torch.ones((4,4))
 
             assert t.dtype == torch.bfloat16
 
-            with current_dtype(torch.float16):
+            with set_dtype(torch.float16):
                 t = torch.ones((4, 4))
 
                 assert t.dtype == torch.float16
@@ -59,50 +55,74 @@ def current_dtype(dtype: DataType) -> Iterator[None]:
 
         assert t.dtype == torch.float32
     """
-    contexts = _tls.dtype_contexts
+    resolver = get_dependency_resolver()
 
-    if contexts:
-        contexts[-1].enabled = False
-
-    try:
-        constructors = _tensor_constructors()
-
-        context = _DataTypeContext(dtype, constructors)
-
-        contexts.append(context)
-
-        try:
-            with context:
-                yield
-        finally:
-            contexts.pop()
-    finally:
-        if contexts:
-            contexts[-1].enabled = True
+    with resolver.resolve(_DataTypeModeStack).push_mode(dtype) as mode:
+        with mode:
+            yield
 
 
 def default_dtype(dtype: DataType) -> ContextManager[None]:
     _warn_deprecated(
-        "`default_dtype()` is deprecated and will be removed in v0.14. Use `current_dtype()` instead."
+        "`default_dtype()` is deprecated and will be removed in v0.14. Use `set_dtype()` instead."
     )
 
-    return current_dtype(dtype)
+    return set_dtype(dtype)
 
 
 def get_current_dtype() -> DataType:
     """Returns the current floating point data type of the calling thread."""
-    contexts = _tls.dtype_contexts
-    if contexts:
-        return cast(DataType, contexts[-1].dtype)
+    resolver = get_dependency_resolver()
+
+    mode = resolver.resolve(_DataTypeModeStack).maybe_get_top_mode()
+    if mode is not None:
+        return mode.dtype
 
     return get_default_dtype()
 
 
 @final
-class _DataTypeContext(TorchFunctionMode):
-    def __init__(self, dtype: DataType, constructors: set[Any]) -> None:
+class _DataTypeModeStack:
+    def __init__(self, constructors: Set[Any], tls: ThreadLocalStorage) -> None:
+        self._constructors = constructors
+        self._tls = tls
+
+    @contextmanager
+    def push_mode(self, dtype: DataType) -> Iterator[_DataTypeMode]:
+        mode = _DataTypeMode(dtype, self._constructors)
+
+        modes = self._get_thread_dtype_modes()
+
+        modes.append(mode)
+
+        if len(modes) > 1:
+            modes[-2].enabled = False
+
+        try:
+            yield mode
+        finally:
+            if len(modes) > 1:
+                modes[-2].enabled = True
+
+            modes.pop()
+
+    def maybe_get_top_mode(self) -> _DataTypeMode | None:
+        modes = self._get_thread_dtype_modes()
+        if modes:
+            return modes[-1]
+
+        return None
+
+    def _get_thread_dtype_modes(self) -> list[_DataTypeMode]:
+        return self._tls.get("dtype_modes", list)
+
+
+@final
+class _DataTypeMode(TorchFunctionMode):
+    def __init__(self, dtype: DataType, constructors: Set[Any]) -> None:
+        self._constructors = constructors
+
         self.dtype = dtype
-        self.constructors = constructors
         self.enabled = True
 
     def __torch_function__(  # type: ignore[override]
@@ -111,7 +131,7 @@ class _DataTypeContext(TorchFunctionMode):
         if kwargs is None:
             kwargs = {}
 
-        if self.enabled and func in self.constructors:
+        if self.enabled and func in self._constructors:
             dtype = kwargs.get("dtype", None)
             if dtype is None:
                 kwargs["dtype"] = self.dtype
@@ -119,7 +139,6 @@ class _DataTypeContext(TorchFunctionMode):
         return func(*args, **kwargs)
 
 
-@cache
 def _tensor_constructors() -> set[Any]:
     # Taken from torch/utils/_device.py.
     return {

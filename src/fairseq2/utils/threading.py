@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import threading
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import ParamSpec, Protocol, TypeVar, final
 
@@ -16,7 +17,28 @@ from typing_extensions import override
 
 from fairseq2.error import OperationalError
 
-_tls = threading.local()
+T = TypeVar("T")
+
+
+class ThreadLocalStorage(ABC):
+    @abstractmethod
+    def get(self, key: str, default_factory: Callable[[], T]) -> T: ...
+
+
+@final
+class _StandardThreadLocalStorage(ThreadLocalStorage):
+    def __init__(self) -> None:
+        self._local = threading.local()
+
+    @override
+    def get(self, key: str, default_factory: Callable[[], T]) -> T:
+        value = getattr(self._local, key, None)
+        if value is None:
+            value = default_factory()
+
+            setattr(self._local, key, value)
+
+        return value
 
 
 P = ParamSpec("P")
