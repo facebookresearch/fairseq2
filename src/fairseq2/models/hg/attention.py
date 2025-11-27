@@ -16,6 +16,9 @@ import torch.nn as nn
 from torch import Tensor
 from torch.nn import Module
 from torch.utils.hooks import RemovableHandle
+from transformers.models.qwen2_5_omni.modeling_qwen2_5_omni import (
+    Qwen2_5OmniRotaryEmbedding,
+)
 from typing_extensions import override
 
 from fairseq2.data_type import DataType
@@ -39,7 +42,6 @@ from fairseq2.nn.utils.module import get_name_or_self
 from fairseq2.ops import repeat_interleave
 from fairseq2.utils.warn import _warn_deprecated
 
-from transformers.models.qwen2_5_omni.modeling_qwen2_5_omni import Qwen2_5OmniRotaryEmbedding
 
 class MultiheadAttention(Module, ABC):
     """Represents a Transformer multi-head attention layer."""
@@ -549,19 +551,19 @@ class QwenOmniMultiheadAttention(MultiheadAttention):
 
         return s
 
+
 class QwenOmniMultiheadAttentionRotaryEmbed(QwenOmniMultiheadAttention):
-    def __init__(self, model_dim: int,
-                 num_heads:int,
-                 sdpa,
-                 o_proj,
-                 **kwargs):
+    def __init__(self, model_dim: int, num_heads: int, sdpa, o_proj, **kwargs):
         # k_proj: Linear, q_proj: Linear, v_proj: Linear, out_proj: Linear
         super().__init__()
         self.o_proj = o_proj
         self.rotary_emb = Qwen2_5OmniRotaryEmbedding()
-    
+
+
 class QwenOmniMultiheadDiTAttention(QwenOmniMultiheadAttention):
-    def __init__(self, k_proj: Linear, q_proj: Linear, v_proj: Linear, out_proj: Linear):
+    def __init__(
+        self, k_proj: Linear, q_proj: Linear, v_proj: Linear, out_proj: Linear
+    ):
         super().__init__()
         self.to_q = q_proj
         self.to_k = k_proj
@@ -570,6 +572,7 @@ class QwenOmniMultiheadDiTAttention(QwenOmniMultiheadAttention):
             out_proj,
             nn.Dropout(0.1, inplace=False),
         )
+
 
 def init_qkv_projection(proj: Linear) -> None:
     """Initialize ``proj`` as a multi-head attention input projection."""
