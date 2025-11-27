@@ -24,6 +24,7 @@ def main():
     gangs = create_parallel_gangs(root_gang, tp_size=world_size)
 
     card = get_asset_store().retrieve_card("hg_qwen25_omni_3b")
+    dist.barrier()
     model = get_hg_model_hub().load_model(card, gangs=gangs)
     dist.barrier()
     

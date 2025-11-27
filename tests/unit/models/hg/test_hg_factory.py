@@ -28,7 +28,6 @@ from fairseq2.models.hg.factory import (
     register_hg_model_class,
 )
 
-
 class TestRegisterHgModelClass:
     """Test the register_hg_model_class function."""
 
@@ -177,6 +176,19 @@ class TestHgFactory:
 
         mock_load_special.assert_called_once_with("gpt2", self.config, mock_model_info, None)
         assert result is mock_model
+
+    def test_create_model_special_model_with_gangs(self) -> None:
+        if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+            world_size = torch.cuda.device_count()
+            device = get_default_device()
+            root_gang = ProcessGroupGang.create_default_process_group(device)
+            gangs = create_parallel_gangs(root_gang, tp_size=world_size)
+
+            card = get_asset_store().retrieve_card("hg_qwen25_omni_3b")
+            dist.barrier()
+            model = get_hg_model_hub().load_model(card, gangs=gangs)
+            dist.barrier()
+            gangs.close()
 
     @patch("fairseq2.models.hg.factory._has_transformers", True)
     @patch("fairseq2.models.hg.factory.AutoConfig")
@@ -511,3 +523,13 @@ class TestImportClassFromTransformers:
 
         assert "TestClass" in str(exc_info.value)
         assert "not found" in str(exc_info.value)
+
+if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+    from fairseq2.assets import get_asset_store
+    from fairseq2.device import get_default_device
+    from fairseq2.gang import Gang, Gangs, ProcessGroupGang, create_parallel_gangs, maybe_get_current_gangs
+    from fairseq2.models.hg import get_hg_model_hub
+    import torch.distributed as dist
+    
+    mg_factory = TestHgFactory()
+    mg_factory.test_create_model_special_model_with_gangs()
