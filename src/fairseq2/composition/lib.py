@@ -31,6 +31,7 @@ from fairseq2.data.tokenizers.sentencepiece import (
     SentencePieceModelLoader,
     StandardSentencePieceModelLoader,
 )
+from fairseq2.data_type import _DataTypeModeStack, _tensor_constructors
 from fairseq2.device import (
     CPU,
     CudaContext,
@@ -87,7 +88,12 @@ from fairseq2.utils.rich import (
 )
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.structured import StandardValueConverter, ValueConverter
-from fairseq2.utils.threading import ThreadPool, _StandardThreadPool
+from fairseq2.utils.threading import (
+    ThreadLocalStorage,
+    ThreadPool,
+    _StandardThreadLocalStorage,
+    _StandardThreadPool,
+)
 from fairseq2.utils.validation import ObjectValidator, StandardObjectValidator
 from fairseq2.utils.yaml import (
     RuamelYamlDumper,
@@ -159,6 +165,14 @@ def _register_library(
 
     container.register(Device, detect_default_device, singleton=True)
 
+    # DataTypeModeStack
+    def create_dtype_mode_stack(resolver: DependencyResolver) -> _DataTypeModeStack:
+        constructors = _tensor_constructors()
+
+        return wire_object(resolver, _DataTypeModeStack, constructors=constructors)
+
+    container.register(_DataTypeModeStack, create_dtype_mode_stack, singleton=True)
+
     # ThreadPool
     def create_thread_pool(resolver: DependencyResolver) -> ThreadPool:
         world_info = resolver.resolve(WorldInfo)
@@ -198,6 +212,7 @@ def _register_library(
     )
     container.register_type(TensorDumper, TorchTensorDumper, singleton=True)
     container.register_type(TensorLoader, TorchTensorLoader, singleton=True)
+    container.register_type(ThreadLocalStorage, _StandardThreadLocalStorage)
     container.register_type(ValueConverter, StandardValueConverter, singleton=True)
     container.register_type(YamlDumper, RuamelYamlDumper, singleton=True)
     container.register_type(YamlLoader, RuamelYamlLoader, singleton=True)
