@@ -577,8 +577,9 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
         if vllm_outputs is None:
             vllm_outputs = [None] * len(prompt_batch.prompts)
 
-        text_prompts = prompt_batch.meta_info.get("raw_prompt_text")
         reference_answers = prompt_batch.meta_info.get(self.answer_key)
+        text_prompts = prompt_batch.meta_info.get("raw_prompt_text")
+        # text_prompts = ["DUMMY"] * len(reference_answers)
         for i, (i_batch_request_output, prompt_text) in enumerate(
             zip(vllm_outputs, text_prompts)
         ):
@@ -602,10 +603,10 @@ class GenerativePointwiseVerifier(VLLMOutputReward):
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
 
+        # batch_rewards = [0] * 8
         batch_judgments = generate_rewards_generative(
             vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.reward_model
         )
-
         batch_rewards = []
         for per_rollout_judgments in batch_judgments:
             per_rollout_rewards = [

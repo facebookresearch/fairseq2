@@ -74,7 +74,82 @@ class GRPOBatch:
     rewards: torch.Tensor
 
 
-def clip_outputs_after_think_token(rollouts, tokenizer, think_tokens, num_tokens):
+# def clip_outputs_after_think_token(rollouts, tokenizer, num_tokens):
+#     """
+#     Clip token_ids and logprobs to keep only num_tokens after the </think> token sequence ends.
+#     If </think> is not found, clip to just the first num_tokens.
+#     Recompute the text from clipped tokens.
+
+#     Args:
+#         rollouts: List of rollout objects
+#         tokenizer: Tokenizer instance
+#         think_tokens: List of token IDs for </think>
+#         num_tokens: Number of tokens to keep after </think> token sequence ends (or from start if no </think>)
+
+#     Returns:
+#         List of modified rollout objects
+#     """
+#     think_tokens = tokenizer.encode(
+#                     "</think>", add_special_tokens=False
+#                 )
+#     ret = []
+#     for rollout in rollouts:
+#         clipped_outputs = []
+
+#         for output in rollout.outputs:
+#             # Find the position where </think> tokens start
+#             think_token_len = len(think_tokens)
+#             clip_index = None
+
+#             # Search for the think tokens sequence in token_ids
+#             for i in range(len(output.token_ids) - think_token_len + 1):
+#                 if output.token_ids[i : i + think_token_len] == think_tokens:
+#                     # Clip to include everything up to and including </think> plus num_tokens after
+#                     clip_index = i + think_token_len + num_tokens
+#                     break
+
+#             # If </think> not found, clip to just the first num_tokens
+#             if clip_index is None:
+#                 clip_index = num_tokens
+
+#             # Clip token_ids and logprobs
+#             clipped_token_ids = output.token_ids[:clip_index]
+#             clipped_logprobs = output.logprobs[:clip_index]
+
+#             # Recompute text from clipped tokens
+#             clipped_text = tokenizer.decode(clipped_token_ids)
+
+#             # Recalculate cumulative_logprob from clipped logprobs
+#             cumulative_logprob = 0.0
+#             for logprob_dict in clipped_logprobs:
+#                 # Get the first token's logprob (the selected token)
+#                 first_token_id = list(logprob_dict.keys())[0]
+#                 cumulative_logprob += logprob_dict[first_token_id].logprob
+
+#             # Create new CompletionOutput with clipped data
+#             clipped_output = type(output)(
+#                 index=output.index,
+#                 text=clipped_text,
+#                 token_ids=clipped_token_ids,
+#                 cumulative_logprob=cumulative_logprob,
+#                 logprobs=clipped_logprobs,
+#                 finish_reason=output.finish_reason,
+#                 stop_reason=output.stop_reason,
+#             )
+#             clipped_outputs.append(clipped_output)
+
+#         # Create new rollout object with clipped outputs
+#         clipped_rollout = type(rollout)(
+#             outputs=clipped_outputs,
+#             # Copy other attributes from original rollout
+#             **{k: v for k, v in vars(rollout).items() if k != "outputs"},
+#         )
+#         ret.append(clipped_rollout)
+
+#     return ret
+
+
+def clip_outputs_after_think_token(rollouts, tokenizer, num_tokens):
     """
     Clip token_ids and logprobs to keep only num_tokens after the </think> token sequence ends.
     If </think> is not found, clip to just the first num_tokens.
@@ -83,27 +158,45 @@ def clip_outputs_after_think_token(rollouts, tokenizer, think_tokens, num_tokens
     Args:
         rollouts: List of rollout objects
         tokenizer: Tokenizer instance
-        think_tokens: List of token IDs for </think>
+        think_tokens: List of token IDs for </think> (not used, kept for compatibility)
         num_tokens: Number of tokens to keep after </think> token sequence ends (or from start if no </think>)
 
     Returns:
         List of modified rollout objects
     """
+    # think_tokens = tokenizer.encode("</think>", add_special_tokens=False)
     ret = []
     for rollout in rollouts:
         clipped_outputs = []
 
         for output in rollout.outputs:
-            # Find the position where </think> tokens start
-            think_token_len = len(think_tokens)
+            # Decode the full output text to search for </think> substring
+            full_text = output.text
+            think_end_marker = "</think>"
+
             clip_index = None
 
-            # Search for the think tokens sequence in token_ids
-            for i in range(len(output.token_ids) - think_token_len + 1):
-                if output.token_ids[i : i + think_token_len] == think_tokens:
-                    # Clip to include everything up to and including </think> plus num_tokens after
-                    clip_index = i + think_token_len + num_tokens
-                    break
+            # Search for </think> in the decoded text
+            think_pos = full_text.find(think_end_marker)
+
+            if think_pos != -1:
+                # Found </think> in text, now find the corresponding token position
+                # We need to find which token index corresponds to the character position
+                # right after </think>
+                char_pos_after_think = think_pos + len(think_end_marker)
+
+                # Decode tokens incrementally to find where char_pos_after_think lands
+                cumulative_text = ""
+                token_idx_after_think = None
+
+                for i, token_id in enumerate(output.token_ids):
+                    cumulative_text = tokenizer.decode(output.token_ids[: i + 1])
+                    if len(cumulative_text) >= char_pos_after_think:
+                        token_idx_after_think = i + 1
+                        break
+
+                if token_idx_after_think is not None:
+                    clip_index = token_idx_after_think + num_tokens
 
             # If </think> not found, clip to just the first num_tokens
             if clip_index is None:
@@ -356,6 +449,11 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 vllm_model=self._vllm_model,
             )
             if self._config.clip_rollout_after_think is not None:
+
+                # if self._gangs.root.rank == 0:
+                #     breakpoint()
+                # self._gangs.root.barrier()
+
                 prompt_batch.meta_info["suffix"] = [
                     self._rollout_tokenizer.decode(
                         self._rollout_tokenizer.encode(text, add_special_tokens=False)[
@@ -364,19 +462,9 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                     )
                     for text in prompt_batch.meta_info.get("suffix")
                 ]
-                prompt_batch.meta_info["suffix_ids"] = [
-                    self._rollout_tokenizer.encode(text, add_special_tokens=False)[
-                        : self._config.clip_reference
-                    ]
-                    for text in prompt_batch.meta_info.get("suffix")
-                ]
-                think_tokens = self._rollout_tokenizer.encode(
-                    "</think>", add_special_tokens=False
-                )
                 rollouts = clip_outputs_after_think_token(
                     rollouts,
                     self._rollout_tokenizer,
-                    think_tokens,
                     self._config.clip_rollout_after_think,
                 )
             if self._config.loss_config.log_rollouts:
@@ -514,7 +602,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             .mean(dim=1)
         )  # [Batch]
         update_avg_rollout_length(metric_bag, rollouts_lengths)
-
         # Calculate average think rollout length (tokens before </think>)
         think_rollout_lengths = get_think_rollout_lengths(rollouts)
         if think_rollout_lengths:
