@@ -1040,7 +1040,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         # the rollouts and compute reward on future tokens after them. i.e.
         # changing from next token reasoning -> future token reasoning
         completion_fmt: str = "{completion}",
-        reason_fmt: str = "{reason} {reason_end_wrap}",
+        reason_fmt: str = "{reason}{reason_end_wrap}",
         reason_start_wrap: Optional[str] = None,
         reason_end_wrap: Optional[str] = None,
     ):
@@ -1052,7 +1052,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         )
         if reason is None or not self.wrap_think_tags:
             prefix_text = (
-                prefix_text.strip().removesuffix("<think>")
+                prefix_text.removesuffix(" <think>").removesuffix("<think>")
                 if reason_start_wrap is None
                 else prefix_text.removesuffix(reason_start_wrap)
             )
@@ -1067,19 +1067,19 @@ class PplDerivedVerifier(VLLMOutputReward):
         completion_text: str = completion_fmt.format(completion=completion)
 
         # add whitespace if no whitespace between prefix and following text.
-        # text_after_prefix: str = (
-        #     reason_text
-        #     if ((reason_text is not None) and len(reason_text) > 0)
-        #     else completion_text
-        # )
-        # if not (prefix_text[-1].isspace() or text_after_prefix[0].isspace()):
-        #     prefix_text += " "
+        text_after_prefix: str = (
+            reason_text
+            if ((reason_text is not None) and len(reason_text) > 0)
+            else completion_text
+        )
+        if not (prefix_text[-1].isspace() or text_after_prefix[0].isspace()):
+            prefix_text += " "
 
         # add whitespace to reason if needed
-        # if reason_text and (
-        #     not (reason_text[-1].isspace() or completion_text[0].isspace())
-        # ):
-        #     reason_text += " "
+        if reason_text and (
+            not (reason_text[-1].isspace() or completion_text[0].isspace())
+        ):
+            reason_text += " "
 
         prefix_tokens = self.tokenizer.encode(prefix_text, add_special_tokens=False)
         n_prefix_tokens: int = len(prefix_tokens)
@@ -1109,7 +1109,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         ]
         return text_tokens, n_input_tokens
 
-    def extract_reward(self, prompt_logprobs: List[Any], prompt_len: int) -> float:
+    def extract_scores(self, prompt_logprobs: List[Any], prompt_len: int) -> float:
         completion_logprobs = prompt_logprobs[prompt_len:]
         completion_logprobs_vals = [
             list(d.values())[0].logprob for d in completion_logprobs
@@ -1122,7 +1122,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         else:
             raise NotImplementedError
 
-    def aggregate(self, rewards):
+    def aggregate_rewards(self, rewards: List[float]) -> list[float]:
         if self.apply_diff_reward:
             if self.reward_type.endswith("diff"):
                 return [
@@ -1144,14 +1144,12 @@ class PplDerivedVerifier(VLLMOutputReward):
         tokenizer,
         rm_vllm_inputs,  # flatten
         all_input_tok_lens,  # flatten
-        rewards,  # flatten
+        rewards_batch,
         rm_rollouts,  # flatten
     ):
-        assert (
-            len(rm_vllm_inputs) == len(all_input_tok_lens)
-            and len(all_input_tok_lens) == len(rewards)
-            and len(rewards) == len(rm_rollouts)
-        )
+        assert len(rm_vllm_inputs) == len(all_input_tok_lens) and len(
+            all_input_tok_lens
+        ) == len(rm_rollouts)
         N = len(rm_vllm_inputs)
         ex_n = N // B
         # group into a 2d list with the first dim equals B
@@ -1161,7 +1159,6 @@ class PplDerivedVerifier(VLLMOutputReward):
         input_tok_lens_batch = [
             all_input_tok_lens[i * ex_n : (i + 1) * ex_n] for i in range(B)
         ]
-        rewards_batch = [rewards[i * ex_n : (i + 1) * ex_n] for i in range(B)]
         rm_rollouts_batch = [rm_rollouts[i * ex_n : (i + 1) * ex_n] for i in range(B)]
 
         for example_i, (
@@ -1315,25 +1312,30 @@ class PplDerivedVerifier(VLLMOutputReward):
             sampling_params=SamplingParams(**rm_sampling_params),
         )
 
-        curr_rewards = [
-            self.extract_reward(rollout.prompt_logprobs, prompt_len=input_len)
+        flat_scores: list[float] = [
+            self.extract_scores(rollout.prompt_logprobs, prompt_len=input_len)
             for rollout, input_len in zip(rollouts, all_input_tok_lens)
         ]
-        fs2_log.info(f"{curr_rewards=}")
+        fs2_log.info(f"{flat_scores=}")
 
-        batch_rewards = self.aggregate(curr_rewards)
+        B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
+        score_split_sz: int = len(flat_scores) // B
+        assert score_split_sz == (R + 1 if self.apply_diff_reward else R)
+        batch_scores: list[list[float]] = [
+            flat_scores[i * score_split_sz : (i + 1) * score_split_sz] for i in range(B)
+        ]  # B, R or R+1
+        batch_rewards: list[list[float]] = [
+            self.aggregate_rewards(scores) for scores in batch_scores
+        ]
         fs2_log.info(f"{batch_rewards=}")
 
-        # reshape batch_rewards to [Batch, Rollouts]
-        B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
-        batch_rewards = [batch_rewards[i * R : (i + 1) * R] for i in range(B)]
         if self.enable_human_friendly_log:
             self._log_human_friendly(
                 B,
                 self.tokenizer,
                 vllm_inputs,
                 all_input_tok_lens,
-                curr_rewards,
+                batch_rewards,
                 rollouts,
             )
 
