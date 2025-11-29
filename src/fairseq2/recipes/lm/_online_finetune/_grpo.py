@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from copy import copy
 from dataclasses import dataclass, field
-from typing import Any, Dict, Final, List, Union, cast, final
+from typing import Any, Dict, Final, List, Union, cast, final, Optional
 
 import torch
 from torch import Tensor
@@ -570,7 +570,10 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             model_logps - model_logps.detach()
         ).exp() * advantages[:, :, None]
 
-        if self._config.loss_config.tis_imp_ratio_cap > 0:
+        if (
+            self._config.loss_config.tis_imp_ratio_cap is not None
+            and self._config.loss_config.tis_imp_ratio_cap > 0
+        ) or (self._config.loss_config.tis_imp_ratio_low is not None):
             # Debug: Log shapes before computing tis_imp_ratio
             if model_logps.shape != vllm_logps.shape:
                 log.error(
@@ -583,7 +586,9 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 log.error(f"batch_size: {batch_size}, num_rollouts: {num_rollouts}")
             tis_imp_ratio = torch.exp(model_logps - vllm_logps)
             tis_imp_ratio = torch.clamp(
-                tis_imp_ratio, max=self._config.loss_config.tis_imp_ratio_cap
+                tis_imp_ratio,
+                min=self._config.loss_config.tis_imp_ratio_low,
+                max=self._config.loss_config.tis_imp_ratio_cap,
             )
             per_token_scaled_advantage = per_token_scaled_advantage * tis_imp_ratio
 
@@ -670,8 +675,11 @@ class GrpoLossConfig:
     validation_vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
     """VLLM sampling params for validation. If empty, training params will be used."""
 
-    tis_imp_ratio_cap: float = 2.0
-    """Maximum cap for the truncated importance sampling ratio. If <= 0, no cap is applied."""
+    tis_imp_ratio_cap: Optional[float] = 2.0
+    """ 1 + epslon_high, the maximum cap for the truncated importance sampling ratio. If is None (or <= 0 for backward compatibility), no cap is applied."""
+
+    tis_imp_ratio_low: Optional[float] = None
+    """1 - epson_low for importance sampling ratio lower bound clip. If None, no such clip is applied."""
 
 
 @dataclass(kw_only=True)
