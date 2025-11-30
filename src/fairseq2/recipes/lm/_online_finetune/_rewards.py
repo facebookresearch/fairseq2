@@ -1230,7 +1230,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         prompt_batch: PromptBatch,
     ):
         all_input_tok_lens = []
-        vllm_inputs = []
+        rm_vllm_inputs = []
         batch_text = []
         batch_tokens = []
 
@@ -1271,7 +1271,7 @@ class PplDerivedVerifier(VLLMOutputReward):
                 )
                 # fs2_log.debug(f"{text_tokens=}, {n_input_tokens=}")
                 all_input_tok_lens.append(n_input_tokens)
-                vllm_inputs.append(text_tokens)
+                rm_vllm_inputs.append(text_tokens)
 
             for rollout_output in vllm_output.outputs:  # reasoning in rollouts
 
@@ -1285,13 +1285,13 @@ class PplDerivedVerifier(VLLMOutputReward):
                 )
                 # fs2_log.debug(f"{text_tokens=}, {n_input_tokens=}")
                 all_input_tok_lens.append(n_input_tokens)
-                vllm_inputs.append(text_tokens)
+                rm_vllm_inputs.append(text_tokens)
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)
 
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
-        fs2_log.debug(f"rm {vllm_inputs=}")
+        fs2_log.debug(f"{rm_vllm_inputs=}")
         fs2_log.debug(f"{all_input_tok_lens=}")
 
         rm_sampling_params = {
@@ -1306,7 +1306,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         # self._gangs.root.barrier()
 
         rollouts = generate_rollouts(
-            vllm_inputs,
+            rm_vllm_inputs,
             dp_gang=self._gangs.dp,
             vllm_model=self.reward_model,
             sampling_params=SamplingParams(**rm_sampling_params),
@@ -1333,7 +1333,7 @@ class PplDerivedVerifier(VLLMOutputReward):
             self._log_human_friendly(
                 B,
                 self.tokenizer,
-                vllm_inputs,
+                rm_vllm_inputs,
                 all_input_tok_lens,
                 batch_rewards,
                 rollouts,
