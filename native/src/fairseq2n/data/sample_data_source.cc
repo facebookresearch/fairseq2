@@ -20,14 +20,11 @@
 
 namespace fairseq2n::detail {
 
-sample_data_source::sample_data_source(
-    std::vector<data_pipeline> &&pipelines,
-    std::vector<float32> &&weights,
-    std::optional<std::uint64_t> maybe_seed,
-    bool allow_repeats)
-  : pipelines_(std::move(pipelines)), 
-    is_epoch_done_(pipelines_.size()),
-    allow_repeats_{allow_repeats}
+sample_data_source::sample_data_source(std::vector<data_pipeline> &&pipelines,
+                                       std::vector<float32> &&weights,
+                                       std::optional<std::uint64_t> maybe_seed, bool allow_repeats)
+    : pipelines_(std::move(pipelines)), is_epoch_done_(pipelines_.size()),
+      is_blocked_(pipelines_.size(), false), allow_repeats_{allow_repeats}
 {
     seed_ = maybe_seed ? *maybe_seed : pseudo_random();
 
@@ -57,11 +54,11 @@ sample_data_source::sample_data_source(
     if (pipelines_.empty())
         finitude_type_ = data_source_finitude_type::finite;
     else {
-        auto max_cardinality_pipeline_it = std::max_element(
-            pipelines_.begin(), pipelines_.end(), [](const data_pipeline &a, const data_pipeline &b)
-            {
-                return a.finitude_type() < b.finitude_type();
-            });
+        auto max_cardinality_pipeline_it =
+            std::max_element(pipelines_.begin(), pipelines_.end(),
+                             [](const data_pipeline &a, const data_pipeline &b) {
+                                 return a.finitude_type() < b.finitude_type();
+                             });
         finitude_type_ = max_cardinality_pipeline_it->finitude_type();
     }
 }
@@ -89,6 +86,8 @@ sample_data_source::reset(bool reset_rng)
 
     is_epoch_done_.assign(pipelines_.size(), false);
 
+    is_blocked_.assign(pipelines_.size(), false);
+
     is_eod_ = false;
 
     if (reset_rng)
@@ -108,6 +107,8 @@ sample_data_source::record_position(tape &t, bool strict) const
         t.record(buffer_);
 
         t.record(is_epoch_done_);
+
+        t.record(is_blocked_);
     }
 
     t.record(seed_);
@@ -127,10 +128,14 @@ sample_data_source::reload_position(tape &t, bool strict)
         buffer_ = t.read<std::vector<std::optional<data>>>();
 
         is_epoch_done_ = t.read<std::vector<bool>>();
+
+        is_blocked_ = t.read<std::vector<bool>>();
     } else {
         buffer_.clear();
 
         is_epoch_done_.assign(pipelines_.size(), false);
+
+        is_blocked_.assign(pipelines_.size(), false);
     }
 
     is_eod_ = false;
@@ -170,9 +175,26 @@ sample_data_source::random_pipeline_index()
             rptr = mptr;
     }
 
+    // The binary search returns the index where cumsum[idx] >= sample and cumsum[idx-1] < sample
+    // If this pipeline is blocked, it means cumsum[idx] == cumsum[idx-1], which is a
+    // degenerate interval. We need to search forward to find the pipeline that actually
+    // owns this probability mass (the next unblocked one with cumsum[idx] > cumsum[idx-1])
+    while (lptr < weight_cumsums_.size() && is_blocked_[lptr]) {
+        lptr++;
+    }
+
+    // If we went past the end, wrap around and search from the beginning
+    if (lptr >= weight_cumsums_.size()) {
+        for (std::size_t i = 0; i < weight_cumsums_.size(); ++i) {
+            if (!is_blocked_[i]) {
+                return i;
+            }
+        }
+        // This should never happen if are_all_done() is working correctly
+    }
+
     return lptr;
 }
-
 std::optional<data>
 sample_data_source::next_in_pipeline(std::size_t pipeline_idx)
 {
@@ -188,7 +210,8 @@ sample_data_source::next_in_pipeline(std::size_t pipeline_idx)
             // Circle back to the first example.
             maybe_example = pipeline.next();
             if (!maybe_example)
-                throw_data_pipeline_error(/*maybe_example=*/std::nullopt, /*recoverable=*/false,
+                throw_data_pipeline_error(
+                    /*maybe_example=*/std::nullopt, /*recoverable=*/false,
                     "The data pipeline at index {} is empty and cannot be sampled.", pipeline_idx);
         } else
             block(pipeline_idx);
@@ -201,6 +224,8 @@ sample_data_source::next_in_pipeline(std::size_t pipeline_idx)
 void
 sample_data_source::block(std::size_t idx)
 {
+    is_blocked_[idx] = true;
+
     float32 weight = weight_cumsums_[idx];
     if (idx > 0) {
         weight -= weight_cumsums_[idx - 1];
@@ -212,9 +237,10 @@ sample_data_source::block(std::size_t idx)
         weight_cumsums_[i] -= weight;
     }
 
-    float32 sum = weight_cumsums_.back();
+    // Find the actual maximum cumulative weight (total remaining probability mass)
+    float32 sum = *std::max_element(weight_cumsums_.begin(), weight_cumsums_.end());
 
-    if (!are_close(sum, 1.0F)) {
+    if (!are_close(sum, 1.0F) && sum > 0.0F) {
         for (float32 &s : weight_cumsums_)
             s /= sum;
     }
@@ -223,11 +249,9 @@ sample_data_source::block(std::size_t idx)
 bool
 sample_data_source::are_all_done() noexcept
 {
-    is_eod_ = std::all_of(
-        is_epoch_done_.begin(), is_epoch_done_.end(), [](bool b)
-        {
-            return b;
-        });
+    is_eod_ = std::all_of(is_epoch_done_.begin(), is_epoch_done_.end(), [](bool b) {
+        return b;
+    });
 
     return is_eod_;
 }

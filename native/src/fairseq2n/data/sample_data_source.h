@@ -62,6 +62,7 @@ private:
     std::vector<float32> weight_cumsums_;
     std::vector<std::optional<data>> buffer_{};
     std::vector<bool> is_epoch_done_;
+    std::vector<bool> is_blocked_;
     bool is_eod_ = false;
     data_source_finitude_type finitude_type_;
     std::uint64_t seed_;
