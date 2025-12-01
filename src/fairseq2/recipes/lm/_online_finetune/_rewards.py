@@ -11,7 +11,7 @@ import math
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 from fairseq2.context import RuntimeContext
@@ -983,6 +983,10 @@ class PplDerivedVerifierHandler(VLLMOutputRewardHandler):
             wrap_think_tags=reward_config.additional_fields.get(
                 "wrap_think_tags", True
             ),
+            vllm_proc_name_dict=reward_config.additional_fields.get(
+                "vllm_proc_name_dict", None
+            ),
+            reward_agg=reward_config.additional_fields.get("reward_agg", "sum"),
         )
 
     @property
@@ -1012,6 +1016,8 @@ class PplDerivedVerifier(VLLMOutputReward):
         wrap_think_tags,
         reason_start_wrap_key="reason_start_wrap",
         reason_end_wrap_key="reason_end_wrap",
+        vllm_proc_name_dict=None,
+        reward_agg="sum",
     ):
         self.prompt_key = prompt_key
         self.answer_key = answer_key
@@ -1021,14 +1027,219 @@ class PplDerivedVerifier(VLLMOutputReward):
         self.reward_name = reward_name
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
         self.reward_type = reward_type
-        self.apply_diff_reward = "diff" in self.reward_type
         self.completion_window = completion_window
         self.n_reason_mask = n_reason_mask
         self.reason_start_wrap_key = reason_start_wrap_key
         self.reason_end_wrap_key = reason_end_wrap_key
         self.wrap_think_tags = wrap_think_tags
         self.enable_human_friendly_log = False
+        self.vllm_proc_name_dict = vllm_proc_name_dict
+        self.reward_agg = reward_agg
 
+        self._dummy_prefix_w_think_tag = "Water in a pan reaches 100°C, but the pan is still left on the heat, so eventually all of the water turns to water vapor. Calculate the energy needed to evaporate the 1.2 kg of water contained by the pan. Use a value of 2258 kJ/kg for the specific latent heat of vaporization of water. Give your answer to 2 significant figures. <think>"
+        self._dummy_suffix = "04:11 ### Video Transcript Water in a pan reaches 100 degrees Celsius. But the pan is still left on the heat. So eventually, all of the water turns to water vapor. Calculate the energy needed to evaporate the 1.2 kilograms of water contained by the pan. Use a value of 2258 kilojoules per kilogram for the specific latent heat of vaporization of water. Give your answer to two significant figures. Alright. So this is a long question. So we should start by underlining all the important"
+
+        self.vllm_input_proc_dict = {
+            # -------- prefix related --------
+            "pref_to_wrapped_reason_for_rm": self._pref_to_wrapped_reason_for_rm,
+            "wrapped_reason_for_rm": self._wrapped_reason_for_rm,
+            "pref_soth_to_reason_eoth_for_rm": self._pref_soth_to_reason_eoth_for_rm,
+            "dummy_pref_soth_to_reason_eoth_for_rm": self._dummy_pref_soth_to_reason_eoth_for_rm,
+            "soth_to_reason_eoth_for_rm": self._soth_to_reason_eoth_for_rm,
+            # -------- suffix related --------
+            "pref_to_suf_for_rm": self._pref_to_suf_for_rm,  # base
+            "pref_wrapped_reason_to_suf_for_rm": self._pref_wrapped_reason_to_suf_for_rm,  # target
+            "dummy_pref_wrapped_reason_to_dummy_suf_for_rm": self._dummy_pref_wrapped_reason_to_dummy_suf_for_rm,  # base
+        }
+        self.reward_agg_fn_dict = {
+            "cap_pref_0p01_weight_0p02_1": self._cap_pref_0p01_weight_0p02_1,
+            "cap_pref_0p01_weight_0p05_1": self._cap_pref_0p01_weight_0p05_1,
+            "cap_pref_0p02_weight_0p02_1": self._cap_pref_0p02_weight_0p02_1,
+            "cap_pref_0p05_weight_0p02_1": self._cap_pref_0p05_weight_0p02_1,
+            "weight_0p05_1": self._weight_0p05_1,
+            "sum": (lambda x, y: x + y),
+        }
+
+    def __post_init__(self):
+        # validate the input flag correctness.
+        assert self.reward_type in ["logp_ratio", "logp", "ppl_ratio", "ppl"]
+        assert "suffix_target" in self.vllm_proc_name_dict
+        for key, proc_name in self.vllm_proc_name_dict.items():
+            assert key in {
+                "prefix_base",
+                "prefix_target",
+                "suffix_base",
+                "suffix_target",
+            }
+            assert proc_name in self.vllm_input_proc_dict
+        assert self.reward_agg in self.reward_agg_fn_dict
+
+    def _get_rm_vllm_inputs(
+        self,
+        input_text: str,
+        target_text: str,
+        maybe_add_whitespace=True,
+        target_window: List[int] = None,
+    ) -> Tuple[List[int], int]:
+        # returns the all tokens and length of input tokens for rm vllm.
+        if len(input_text) == 0:
+            input_tokens = []
+        else:
+            if (
+                maybe_add_whitespace
+                and (not input_text[-1].isspace())
+                and (not target_text[0].isspace())
+            ):
+                input_text += " "
+            input_tokens = self.tokenizer.encode(input_text, add_special_tokens=False)
+
+        target_tokens = self.tokenizer.encode(target_text, add_special_tokens=False)
+        if target_window is not None:
+            target_tokens = target_tokens[:target_window]
+        return input_tokens + target_tokens, len(input_tokens)
+
+    def _pref_wrapped_reason_to_suf_for_rm(
+        self, inputs: Dict[str, str]
+    ) -> List[Tuple[List[int], int]]:
+        # text of "prefix <think> reason </think> suffix" for rm(suffix | prefix <think> reason </think>)
+        return [
+            self._get_rm_vllm_inputs(
+                inputs["prefix_w_think_tag"] + reason + inputs["think_end_tag"],
+                inputs["suffix"],
+                target_window=self.completion_window,
+            )
+            for reason in inputs["think_texts"]
+        ]
+
+    def _get_dummy_prefix_w_think_tag(self) -> str:
+        return self._dummy_prefix_w_think_tag
+
+    def _get_dummy_suffix(self) -> str:
+        return self._dummy_suffix
+
+    def _dummy_pref_wrapped_reason_to_dummy_suf_for_rm(self, inputs: Dict[str, str]):
+        # text of "dummy_prefix <think> reason </think> dummy_suffix" for rm(dummy_suffix | dummy_prefix <think> reason </think>)
+
+        dummy_prefix_w_think_tag: str = self._get_dummy_prefix_w_think_tag()
+        dummy_suffix: str = self._get_dummy_suffix()
+        log.debug(f"{dummy_prefix_w_think_tag=}")
+        log.debug(f"{dummy_suffix=}")
+        assert (
+            inputs["prefix_w_think_tag"] != dummy_prefix_w_think_tag
+            and inputs["suffix"] != dummy_suffix
+        )
+
+        return [
+            self._get_rm_vllm_inputs(
+                dummy_prefix_w_think_tag + reason + inputs["think_end_tag"],
+                dummy_suffix,
+                target_window=self.completion_window,
+            )
+            for reason in inputs["think_texts"]
+        ]
+
+    def _pref_to_suf_for_rm(
+        self, inputs: Dict[str, str]
+    ) -> List[Tuple[List[int], int]]:
+        # text of "prefix suffix" for rm(suffix | prefix)
+
+        prefix = inputs["prefix_w_think_tag"].removesuffix(inputs["think_start_tag"])
+        assert len(prefix) > 0, "empty prefix!"
+        # remove upto 1 whitespace (to better the original text native whitespace.)
+        if prefix[-1].isspace():
+            prefix = prefix[:-1]
+
+        return [
+            self._get_rm_vllm_inputs(
+                prefix, inputs["suffix"], target_window=self.completion_window
+            )
+        ]  # this is not reasoning dependent so only compute once.
+
+    def _pref_to_wrapped_reason_for_rm(
+        self, inputs: Dict[str, str]
+    ) -> List[Tuple[List[int], int]]:
+        # text of "prefix <think> reason </think>" for rm(<think> reason </think> | prefix)
+        prefix = inputs["prefix_w_think_tag"].removesuffix(inputs["think_start_tag"])
+        return [
+            self._get_rm_vllm_inputs(
+                prefix,
+                inputs["think_start_tag"] + reason + inputs["think_end_tag"],
+                maybe_add_whitespace=False,
+            )
+            for reason in inputs["think_texts"]
+        ]
+
+    def _wrapped_reason_for_rm(
+        self, inputs: Dict[str, str]
+    ) -> List[Tuple[List[int], int]]:
+        return [
+            self._get_rm_vllm_inputs(
+                "",
+                inputs["think_start_tag"] + reason + inputs["think_end_tag"],
+                maybe_add_whitespace=False,
+            )
+            for reason in inputs["think_texts"]
+        ]
+
+    def _pref_soth_to_reason_eoth_for_rm(
+        self, inputs: Dict[str, str]
+    ) -> List[Tuple[List[int], int]]:
+        # text: "prefix <think> reason </think>", for rm(reason </think> | prefix <think>)
+        return [
+            self._get_rm_vllm_inputs(
+                inputs["prefix_w_think_tag"],
+                reason + inputs["think_end_tag"],
+                maybe_add_whitespace=False,
+            )
+            for reason in inputs["think_texts"]
+        ]
+
+    def _dummy_pref_soth_to_reason_eoth_for_rm(
+        self, inputs: Dict[str, str]
+    ) -> List[Tuple[List[int], int]]:
+        # text: "dummy_prefix <think> reason </think>", for rm(reason </think> | dummy_prefix <think>)
+        dummy_prefix_w_think_tag: str = self._get_dummy_prefix_w_think_tag()
+        log.debug(f"{dummy_prefix_w_think_tag=}")
+        assert inputs["prefix_w_think_tag"] != dummy_prefix_w_think_tag
+
+        return [
+            self._get_rm_vllm_inputs(
+                dummy_prefix_w_think_tag,
+                reason + inputs["think_end_tag"],
+                maybe_add_whitespace=False,
+            )
+            for reason in inputs["think_texts"]
+        ]
+
+    def _soth_to_reason_eoth_for_rm(
+        self, inputs: Dict[str, str]
+    ) -> List[Tuple[List[int], int]]:
+        # text: "<think> reason </think>", for rm(reason </think> | <think>)
+        return [
+            self._get_rm_vllm_inputs(
+                inputs["think_start_tag"],
+                reason + inputs["think_end_tag"],
+                maybe_add_whitespace=False,
+            )
+            for reason in inputs["think_texts"]
+        ]
+
+    def _cap_pref_0p01_weight_0p05_1(self, pref_r, suffix_r):
+        return min(0.01, pref_r) * 0.05 + suffix_r
+
+    def _cap_pref_0p01_weight_0p02_1(self, pref_r, suffix_r):
+        return min(0.01, pref_r) * 0.02 + suffix_r
+
+    def _cap_pref_0p02_weight_0p02_1(self, pref_r, suffix_r):
+        return min(0.02, pref_r) * 0.02 + suffix_r
+
+    def _cap_pref_0p05_weight_0p02_1(self, pref_r, suffix_r):
+        return min(0.05, pref_r) * 0.02 + suffix_r
+
+    def _weight_0p05_1(self, pref_r, suffix_r):
+        return pref_r * 0.05 + suffix_r
+
+    # TODO(lidli): deprecate this and clear flags
     def _preprocess_reward_input(
         self,
         prefix: List[int] | str,
@@ -1111,32 +1322,78 @@ class PplDerivedVerifier(VLLMOutputReward):
 
     def extract_scores(self, prompt_logprobs: List[Any], prompt_len: int) -> float:
         completion_logprobs = prompt_logprobs[prompt_len:]
+        assert completion_logprobs[0] is not None
         completion_logprobs_vals = [
             list(d.values())[0].logprob for d in completion_logprobs
-        ]  # TODO: douable check we skip the first None
+        ]
+        tokens = [list(item.keys())[0] for item in completion_logprobs]
+        fs2_log.debug(f"completion tokens={tokens}")
+        fs2_log.debug(f"{completion_logprobs_vals=}")
         mean_logp = sum(completion_logprobs_vals) / len(completion_logprobs_vals)
         if self.reward_type.startswith("logp"):
             return mean_logp
         elif self.reward_type.startswith("ppl"):
+            # -ppl
             return -math.exp(-mean_logp)
         else:
             raise NotImplementedError
 
-    def aggregate_rewards(self, rewards: List[float]) -> list[float]:
-        if self.apply_diff_reward:
-            if self.reward_type.endswith("diff"):
+    def _cal_reward_diff(
+        self, base_rewards: List[float], target_rewards: List[float], num_rollouts: int
+    ) -> list[float]:
+        if len(base_rewards) == 0:
+            # rewards are not comparative in this case. And if both base and
+            # target rewards are empty return zero rewards.
+            return ([0] * num_rollouts) if target_rewards == [] else target_rewards
+        else:
+            # we avoid redundant computation earlier.
+            if len(base_rewards) == 1:
+                base_rewards = base_rewards * len(target_rewards)
+            if len(base_rewards) == len(target_rewards):
                 return [
-                    reward - rewards[0] for reward in rewards[1:]
-                ]  # NOTE: order is without reasoning augmentation, with reasoning augmentation -ppl
-            elif self.reward_type.endswith("diff_percent"):
-                return [
-                    (reward - rewards[0]) / (-rewards[0]) * 100
-                    for reward in rewards[1:]
+                    (
+                        # take abs in case the reward is (-ppl)
+                        (target_rw - base_rw) / abs(base_rw)
+                        if self.reward_type.endswith("ratio")
+                        else (target_rw - base_rw)
+                    )
+                    for base_rw, target_rw in zip(base_rewards, target_rewards)
                 ]
             else:
-                raise NotImplementedError
-        else:
-            return rewards  # reason augmented case: -ppl as reward
+                raise Exception(f"bad values: {base_rewards=}, {target_rewards=}")
+
+    def aggregate_rewards(
+        self,
+        rewards: List[float],
+        rm_compo_ranges: Dict[str, List[int]],
+        num_rollouts: int,
+    ) -> list[float]:
+        prefix_base_start, prefix_base_end = rm_compo_ranges["prefix_base"]
+        prefix_base_rewards: list[float] = rewards[prefix_base_start:prefix_base_end]
+        prefix_target_start, prefix_target_end = rm_compo_ranges["prefix_target"]
+        prefix_target_rewards: list[float] = rewards[
+            prefix_target_start:prefix_target_end
+        ]
+        suffix_base_start, suffix_base_end = rm_compo_ranges["suffix_base"]
+        suffix_base_rewards: list[float] = rewards[suffix_base_start:suffix_base_end]
+        suffix_target_start, suffix_target_end = rm_compo_ranges["suffix_target"]
+        suffix_target_rewards: list[float] = rewards[
+            suffix_target_start:suffix_target_end
+        ]
+
+        prefix_rel_reward_diffs: list[float] = self._cal_reward_diff(
+            prefix_base_rewards, prefix_target_rewards, num_rollouts
+        )
+        fs2_log.info(f"{prefix_rel_reward_diffs=}")
+        suffix_rel_reward_diffs: list[float] = self._cal_reward_diff(
+            suffix_base_rewards, suffix_target_rewards, num_rollouts
+        )
+        fs2_log.info(f"{suffix_rel_reward_diffs=}")
+        agg_func = self.reward_agg_fn_dict[self.reward_agg]
+        return [
+            agg_func(r1, r2)
+            for r1, r2 in zip(prefix_rel_reward_diffs, suffix_rel_reward_diffs)
+        ]
 
     def _log_human_friendly(
         self,
@@ -1181,7 +1438,7 @@ class PplDerivedVerifier(VLLMOutputReward):
                 fs2_log.info("-" * 6 + f"prefix {i}" + "-" * 6)
                 fs2_log.info(
                     tokenizer.decode(tokens[:prefix_len], skip_special_tokens=True)
-                    + "^"
+                    + "$"
                 )
                 if self.n_reason_mask > 0 and i == 0:
                     fs2_log.info("-" * 6 + f"masked tokens groundtruth {i}" + "-" * 6)
@@ -1193,7 +1450,7 @@ class PplDerivedVerifier(VLLMOutputReward):
                     )
                 fs2_log.info("-" * 6 + f"completion window {i}" + "-" * 6)
                 fs2_log.info(
-                    "$"
+                    "^"
                     + tokenizer.decode(tokens[prefix_len:], skip_special_tokens=True)
                 )
                 completion_logprobs = rm_rollout.prompt_logprobs[prefix_len:]
@@ -1216,12 +1473,25 @@ class PplDerivedVerifier(VLLMOutputReward):
             for i, vllm_output in enumerate(vllm_outputs):
                 fs2_log.debug(f"prompt_token_id {i} = {vllm_output.prompt_token_ids}")
                 for j, output in enumerate(vllm_output.outputs):
-                    fs2_log.debug(f"output text {i}.{j} = {output.text}")
-                    fs2_log.debug(f"output token_ids {i}.{j} = {output.token_ids}")
+                    fs2_log.debug(f"rollout text {i}.{j} = {output.text}")
+                    fs2_log.debug(f"rollout token_ids {i}.{j} = {output.token_ids}")
                     fs2_log.debug(
-                        f"output finish_reason {i}.{j} = {output.finish_reason}"
+                        f"rollout finish_reason {i}.{j} = {output.finish_reason}"
                     )
-                    fs2_log.debug(f"output stop_reason {i}.{j} = {output.stop_reason}")
+                    fs2_log.debug(f"rollout stop_reason {i}.{j} = {output.stop_reason}")
+
+    def _process_rm_inputs(self, key: str, proc_inputs):
+        result = (
+            []
+            if key is None
+            else self.vllm_input_proc_dict[self.vllm_proc_name_dict[key]](proc_inputs)
+        )  # list of tuples of tokens and input_len
+        rm_vllm_tokens, input_lens = zip(*result)
+        rm_vllm_tokens: list[List[int]] = list(rm_vllm_tokens)
+        input_lens: list[int] = list(input_lens)
+        fs2_log.debug(f"{key}_rm_vllm_tokens={rm_vllm_tokens}")
+        fs2_log.debug(f"{key}_input_lens={input_lens}")
+        return rm_vllm_tokens, input_lens
 
     @override
     def process_rollouts(
@@ -1240,10 +1510,10 @@ class PplDerivedVerifier(VLLMOutputReward):
         prefix_batch = prompt_batch.meta_info.get(self.prompt_key)
         completion_batch = prompt_batch.meta_info.get(self.answer_key)
         reason_start_wrap_batch = prompt_batch.meta_info.get(
-            self.reason_start_wrap_key, len(prompt_batch.prompts) * [None]
+            self.reason_start_wrap_key, len(prompt_batch.prompts) * ["<think>"]
         )
         reason_end_wrap_batch = prompt_batch.meta_info.get(
-            self.reason_end_wrap_key, len(prompt_batch.prompts) * [None]
+            self.reason_end_wrap_key, len(prompt_batch.prompts) * ["</think>"]
         )
 
         self._maybe_log_vllm_policy_outputs(vllm_outputs)
@@ -1258,47 +1528,55 @@ class PplDerivedVerifier(VLLMOutputReward):
         ):
             rollouts_text = []
             rollouts_tokens = []
-
-            # case where no reasoning is augmented
-            if self.apply_diff_reward:
-                text_tokens, n_input_tokens = self._preprocess_reward_input(
-                    prefix,
-                    None,
-                    completion,
-                    completion_window=self.completion_window,
-                    reason_start_wrap=reason_start_wrap,
-                    reason_end_wrap=reason_end_wrap,
-                )
-                # fs2_log.debug(f"{text_tokens=}, {n_input_tokens=}")
-                all_input_tok_lens.append(n_input_tokens)
-                rm_vllm_inputs.append(text_tokens)
+            think_texts = []
 
             for rollout_output in vllm_output.outputs:  # reasoning in rollouts
-
-                text_tokens, n_input_tokens = self._preprocess_reward_input(
-                    prefix,
-                    rollout_output.text,
-                    completion,
-                    completion_window=self.completion_window,
-                    reason_start_wrap=reason_start_wrap,
-                    reason_end_wrap=reason_end_wrap,
-                )
-                # fs2_log.debug(f"{text_tokens=}, {n_input_tokens=}")
-                all_input_tok_lens.append(n_input_tokens)
-                rm_vllm_inputs.append(text_tokens)
+                think_texts.append(rollout_output.text)
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)
 
+            proc_inputs: Dict[str, str] = {
+                "prefix_w_think_tag": prefix,
+                "think_texts": think_texts,
+                "suffix": completion,
+                "think_end_tag": reason_end_wrap,
+                "think_start_tag": reason_start_wrap,
+            }
+            rm_compo_key_list = [
+                "prefix_base",
+                "prefix_target",
+                "suffix_base",
+                "suffix_target",
+            ]
+            # concat all the rm vllm tokens and record their counts so we can extract later.
+            rm_compo_ranges = {}
+            all_rm_vllm_tokens = []
+            all_input_tok_lens = []
+            for key in rm_compo_key_list:
+                rm_vllm_tokens, input_lens = self._process_rm_inputs(key, proc_inputs)
+                all_rm_vllm_tokens.extend(rm_vllm_tokens)
+                start_idx = len(all_input_tok_lens)
+                all_input_tok_lens.extend(input_lens)
+                end_idx = len(all_input_tok_lens)
+                rm_compo_ranges[key] = [start_idx, end_idx]
+
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
-        fs2_log.debug(f"{rm_vllm_inputs=}")
-        fs2_log.debug(f"{all_input_tok_lens=}")
+
+            fs2_log.debug(f"{all_rm_vllm_tokens=}")
+            fs2_log.debug(f"{all_input_tok_lens=}")
+            fs2_log.debug(f"{rm_compo_ranges=}")
+
+            self._dummy_prefix_w_think_tag = proc_inputs["prefix_w_think_tag"]
+            self._dummy_suffix = proc_inputs["suffix"]
 
         rm_sampling_params = {
             "n": 1,
             "max_tokens": 1,
             "prompt_logprobs": 0,
-            "detokenize": self.enable_human_friendly_log,
+            "detokenize": (
+                self.enable_human_friendly_log or fs2_log.is_enabled_for_debug()
+            ),
         }
 
         # if self._gangs.root.rank == 0:
@@ -1306,11 +1584,12 @@ class PplDerivedVerifier(VLLMOutputReward):
         # self._gangs.root.barrier()
 
         rollouts = generate_rollouts(
-            rm_vllm_inputs,
+            all_rm_vllm_tokens,
             dp_gang=self._gangs.dp,
             vllm_model=self.reward_model,
             sampling_params=SamplingParams(**rm_sampling_params),
         )
+        fs2_log.debug(f"rm {rollouts=}")
 
         flat_scores: list[float] = [
             self.extract_scores(rollout.prompt_logprobs, prompt_len=input_len)
@@ -1320,12 +1599,13 @@ class PplDerivedVerifier(VLLMOutputReward):
 
         B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
         score_split_sz: int = len(flat_scores) // B
-        assert score_split_sz == (R + 1 if self.apply_diff_reward else R)
+        assert len(flat_scores) % B == 0
         batch_scores: list[list[float]] = [
             flat_scores[i * score_split_sz : (i + 1) * score_split_sz] for i in range(B)
-        ]  # B, R or R+1
+        ]  # B, # of raw scores in batch
         batch_rewards: list[list[float]] = [
-            self.aggregate_rewards(scores) for scores in batch_scores
+            self.aggregate_rewards(scores, rm_compo_ranges, R)
+            for scores in batch_scores
         ]
         fs2_log.info(f"{batch_rewards=}")
 
@@ -1333,7 +1613,7 @@ class PplDerivedVerifier(VLLMOutputReward):
             self._log_human_friendly(
                 B,
                 self.tokenizer,
-                rm_vllm_inputs,
+                all_rm_vllm_tokens,
                 all_input_tok_lens,
                 batch_rewards,
                 rollouts,
