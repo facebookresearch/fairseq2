@@ -24,7 +24,7 @@ sample_data_source::sample_data_source(std::vector<data_pipeline> &&pipelines,
                                        std::vector<float32> &&weights,
                                        std::optional<std::uint64_t> maybe_seed, bool allow_repeats)
     : pipelines_(std::move(pipelines)), is_epoch_done_(pipelines_.size()),
-      is_blocked_(pipelines_.size(), false), allow_repeats_{allow_repeats}
+      allow_repeats_{allow_repeats}, is_blocked_(pipelines_.size(), false)
 {
     seed_ = maybe_seed ? *maybe_seed : pseudo_random();
 
@@ -183,16 +183,6 @@ sample_data_source::random_pipeline_index()
         lptr++;
     }
 
-    // If we went past the end, wrap around and search from the beginning
-    if (lptr >= weight_cumsums_.size()) {
-        for (std::size_t i = 0; i < weight_cumsums_.size(); ++i) {
-            if (!is_blocked_[i]) {
-                return i;
-            }
-        }
-        // This should never happen if are_all_done() is working correctly
-    }
-
     return lptr;
 }
 std::optional<data>
@@ -237,10 +227,9 @@ sample_data_source::block(std::size_t idx)
         weight_cumsums_[i] -= weight;
     }
 
-    // Find the actual maximum cumulative weight (total remaining probability mass)
-    float32 sum = *std::max_element(weight_cumsums_.begin(), weight_cumsums_.end());
+    float32 sum = weight_cumsums_.back();
 
-    if (!are_close(sum, 1.0F) && sum > 0.0F) {
+    if (!are_close(sum, 1.0F)) {
         for (float32 &s : weight_cumsums_)
             s /= sum;
     }
