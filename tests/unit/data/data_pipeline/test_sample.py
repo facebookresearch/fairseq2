@@ -9,8 +9,8 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
-import pytest
 import numpy as np
+import pytest
 
 from fairseq2.data.data_pipeline import DataPipeline, DataPipelineError, read_sequence
 from fairseq2.data.text import read_text
@@ -257,7 +257,7 @@ class TestSampleOp:
 
     def test_op_works_with_many_pipelines_when_allow_repeats_false(self) -> None:
         """Test edge case with many pipelines where only lowest-weight ones remain."""
-        
+
         # See https://github.com/fairinternal/fairseq2-ext/issues/181
         nb = 21
         weights = np.random.RandomState(0).rand(nb)
@@ -265,10 +265,12 @@ class TestSampleOp:
         pipelines = []
         for s in sizes:
             pipelines.append(read_sequence(list(range(s))).and_return())
-        
+
         builder = DataPipeline.sample(pipelines, weights, seed=123, allow_repeats=False)
         pipeline = builder.and_return()
 
         expected_total_size = np.sum(sizes)
         actual_sampled_size = len([_ for _ in iter(pipeline)])
-        assert actual_sampled_size == expected_total_size, f"Expected {expected_total_size}, got {actual_sampled_size}"
+        assert (
+            actual_sampled_size == expected_total_size
+        ), f"Expected {expected_total_size}, got {actual_sampled_size}"
