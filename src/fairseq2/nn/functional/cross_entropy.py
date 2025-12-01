@@ -41,6 +41,8 @@ def cross_entropy(
         # (N, S) -> (N x S)
         targets = targets.flatten()
 
+    loss_mask: Tensor | None
+
     # For numerical stability run in single precision.
     # (S, T) -> (S, T)
     log_probs = log_softmax(logits, dim=-1, dtype=torch.float32)
@@ -75,7 +77,12 @@ def cross_entropy(
             return loss.sum()
 
         if reduction == "mean":
-            return loss.mean()
+            if pad_idx is None:
+                loss_mask = target_mask
+            else:
+                loss_mask = target_mask & targets.ne(pad_idx)
+
+            return loss.sum() / loss_mask.sum()
 
         if reduction == "none":
             if batch_size is not None:
@@ -100,10 +107,8 @@ def cross_entropy(
     else:
         smooth_loss = None
 
-    loss_mask = None
     if pad_idx is not None:
         padding_mask = targets.eq(pad_idx)
-        loss_mask = ~padding_mask
 
         loss.masked_fill_(padding_mask, 0.0)
 
@@ -118,11 +123,6 @@ def cross_entropy(
         # (S) -> (S, 1)
         target_mask = target_mask.unsqueeze(-1)
 
-        if loss_mask is None:
-            loss_mask = target_mask
-        else:
-            loss_mask &= target_mask
-        
         # (S, 1)
         loss = loss * target_mask
 
@@ -138,10 +138,20 @@ def cross_entropy(
         if smooth_loss is not None:
             smooth_loss = smooth_loss.sum()
     elif reduction == "mean":
+        if target_mask is not None:
+            if pad_idx is None:
+                loss_mask = target_mask
+            else:
+                loss_mask = target_mask & targets.ne(pad_idx)
+        elif pad_idx is not None:
+            loss_mask = targets.ne(pad_idx)
+        else:
+            loss_mask = None
+
         if loss_mask is None:
             # ()
             loss = loss.mean()
-    
+
             # ()
             if smooth_loss is not None:
                 smooth_loss = smooth_loss.mean()
