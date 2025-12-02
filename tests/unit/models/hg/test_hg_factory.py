@@ -524,12 +524,19 @@ class TestImportClassFromTransformers:
         assert "TestClass" in str(exc_info.value)
         assert "not found" in str(exc_info.value)
 
-if torch.cuda.is_available() and torch.cuda.device_count() > 1:
-    from fairseq2.assets import get_asset_store
-    from fairseq2.device import get_default_device
-    from fairseq2.gang import Gang, Gangs, ProcessGroupGang, create_parallel_gangs, maybe_get_current_gangs
-    from fairseq2.models.hg import get_hg_model_hub
-    import torch.distributed as dist
+if __name__ == "__main__":
+    """
+    Hardware dependent test:
+    If more than one GPU is present, model sharding with tp
+    can be tested.
+    """
     
-    mg_factory = TestHgFactory()
-    mg_factory.test_create_model_special_model_with_gangs()
+    if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+        from fairseq2.assets import get_asset_store
+        from fairseq2.device import get_default_device
+        from fairseq2.gang import Gang, Gangs, ProcessGroupGang, create_parallel_gangs, maybe_get_current_gangs
+        from fairseq2.models.hg import get_hg_model_hub
+        import torch.distributed as dist
+
+        mg_factory = TestHgFactory()
+        mg_factory.test_create_model_special_model_with_gangs()
