@@ -46,7 +46,7 @@ class _DelegatingDPModelWrapper(_DataParallelModelWrapper):
     @override
     def wrap(self, model_holder: _ModelHolder) -> Module:
         if self._gangs.dp.size == 1:
-            to_device(model_holder.model, self._gangs.root.device)
+            to_device(model_holder.model, self._gangs.device)
 
             return model_holder.model
 

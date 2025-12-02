@@ -88,7 +88,7 @@ class _TrainerFactory:
         else:
             amp = mp_config.mode == "auto"
 
-        if self._gangs.root.device.type == "cpu":
+        if self._gangs.device.type == "cpu":
             log.warning("Based on the environment setup, training will be run on CPU. If this is not intentional, check your job configuration (e.g. pass `--gpus-per-node` on Slurm).")  # fmt: skip
 
         seed = self._common_section.seed + 3

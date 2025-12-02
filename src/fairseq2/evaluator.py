@@ -98,7 +98,7 @@ class Evaluator(Task):
                 f"Number of data readers in `data_readers` must match the number of units in `units` ({len(units)}), but is {len(data_readers)} instead."
             )
 
-        rng_bag = RngBag.from_device_defaults(CPU, gangs.root.device)
+        rng_bag = RngBag.from_device_defaults(CPU, gangs.device)
 
         self._model = model
         self._units = units
@@ -111,7 +111,7 @@ class Evaluator(Task):
         self._profiler = profiler
         self._device_stat_tracker = device_stat_tracker
         self._data_watch = Stopwatch()
-        self._compute_watch = Stopwatch(device=gangs.root.device)
+        self._compute_watch = Stopwatch(device=gangs.device)
         self._lapse_watch = Stopwatch()
         self._wall_watch = wall_watch
         self._progress_reporter = progress_reporter
@@ -146,7 +146,7 @@ class Evaluator(Task):
             self._run_unit(unit, data_reader)
 
     def _run_unit(self, unit: EvalUnit[Any], data_reader: DataReader[Any]) -> None:
-        metric_bag = MetricBag(device=self._gangs.root.device)
+        metric_bag = MetricBag(device=self._gangs.device)
 
         unit.prepare_metric_bag(metric_bag)
 
@@ -209,7 +209,7 @@ class Evaluator(Task):
             for batch_nr in range(num_batches):
                 batch = batches.pop()
 
-                batch.to(self._gangs.root.device, non_blocking=True)
+                batch.to(self._gangs.device, non_blocking=True)
 
                 with record_function(f"step_{self._step_nr}_{batch_nr}"):
                     self._call_unit(unit, batch, metric_bag)
@@ -230,9 +230,9 @@ class Evaluator(Task):
         if not self._amp or self._amp_dtype == torch.float32:
             return nullcontext()
 
-        device_type = self._gangs.root.device.type
-
-        return torch.autocast(device_type=device_type, dtype=self._amp_dtype)
+        return torch.autocast(
+            device_type=self._gangs.device.type, dtype=self._amp_dtype
+        )
 
     def _publish_metrics(self, unit: EvalUnit[Any], metric_bag: MetricBag) -> None:
         log.debug("Syncing evaluation metrics.")

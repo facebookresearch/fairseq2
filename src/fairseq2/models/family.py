@@ -34,7 +34,7 @@ from fairseq2.error import (
     raise_operational_system_error,
 )
 from fairseq2.file_system import FileSystem, raise_if_not_exists
-from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
+from fairseq2.gang import GangError, Gangs, raise_operational_gang_error, set_gangs
 from fairseq2.model_checkpoint import ModelCheckpointError, ModelCheckpointLoader
 from fairseq2.models.utils.checkpoint import (
     ModelCheckpointMismatchError,
@@ -693,8 +693,8 @@ class StandardModelFamily(ModelFamily):
         device = META_DEVICE if meta else gangs.root.device
 
         try:
-            with device, gangs:
-                with set_dtype(dtype):
+            with device:
+                with set_gangs(gangs, meta=True), set_dtype(dtype):
                     model = self._factory(config)
         except NotImplementedError as ex:
             if "'Meta' backend" not in str(ex):
