@@ -27,31 +27,41 @@ The factory supports:
 
 from __future__ import annotations
 
-import re
 import copy
-import os
-
 import importlib
+import os
+import re
 import urllib
 from pathlib import Path
 from typing import Any, Dict, Type
 
+import torch
+import torch.distributed as dist
+import torch.nn as nn
 from tqdm.auto import tqdm
 
-import torch
-import torch.nn as nn
-import torch.distributed as dist
-
 from fairseq2.assets import HuggingFaceHub
-from fairseq2.error import NotSupportedError, OperationalError
-from fairseq2.logging import log
-from fairseq2.models.hg.config import HuggingFaceModelConfig
-from fairseq2.utils.uri import Uri
-from fairseq2.gang import Gangs, FakeGang, Gang, GangError, maybe_get_current_gangs, ProcessGroupGang, create_parallel_gangs
 from fairseq2.device import get_default_device
-from fairseq2.models.hg.attention import QwenOmniMultiheadAttention, QwenOmniMultiheadAttentionRotaryEmbed, QwenOmniMultiheadDiTAttention
+from fairseq2.error import NotSupportedError, OperationalError
+from fairseq2.gang import (
+    FakeGang,
+    Gang,
+    GangError,
+    Gangs,
+    ProcessGroupGang,
+    create_parallel_gangs,
+    maybe_get_current_gangs,
+)
+from fairseq2.logging import log
+from fairseq2.models.hg.attention import (
+    QwenOmniMultiheadAttention,
+    QwenOmniMultiheadAttentionRotaryEmbed,
+    QwenOmniMultiheadDiTAttention,
+)
+from fairseq2.models.hg.config import HuggingFaceModelConfig
+from fairseq2.nn import ColumnShardedLinear, Linear, RowShardedLinear
 from fairseq2.nn.embedding import StandardEmbedding, VocabShardedEmbedding
-from fairseq2.nn import Linear, ColumnShardedLinear, RowShardedLinear
+from fairseq2.utils.uri import Uri
 
 try:
     from transformers import (
@@ -64,9 +74,9 @@ try:
         PreTrainedTokenizer,
     )
     from transformers.models.qwen2_5_omni.modeling_qwen2_5_omni import (
-        Qwen2_5OmniAudioAttention,
-        Qwen2_5OmniAttention,
         DiTAttention,
+        Qwen2_5OmniAttention,
+        Qwen2_5OmniAudioAttention,
     )
 except ImportError:
     _has_transformers = False
@@ -164,9 +174,7 @@ def register_hg_model_class(
     log.info(f"Registered custom HF model mapping: {config_class_name} -> {entry}")
 
 
-def create_hg_model(
-    config: HuggingFaceModelConfig    
-) -> Any:
+def create_hg_model(config: HuggingFaceModelConfig) -> Any:
     """
     Create a HuggingFace model from configuration.
 
@@ -180,8 +188,9 @@ def create_hg_model(
     """
 
     gangs = maybe_get_current_gangs()
-    
+
     return HgFactory(config, gangs).create_model()
+
 
 class HgFactory:
     """
@@ -199,7 +208,6 @@ class HgFactory:
         """Initialize the factory with configuration."""
         self._config = config
         self._gangs = gangs
-        print(f"Gangs: {self._gangs}")
 
     def create_model(self) -> Any:
         """Create the model according to the configuration.
@@ -236,7 +244,6 @@ class HgFactory:
 
             # Check if this is a special case model
             model_info = _get_model_info(config_class_name, config)
-            dist.barrier()
 
             if model_info:
                 return _load_special_model(name, config, model_info, gangs)
@@ -279,9 +286,8 @@ def _get_model_info(
 
     return None
 
-def _replace_layer(
-        obj:object, path:str, value:object
-) -> None:
+
+def _replace_layer(obj: object, path: str, value: object) -> None:
     """Replace a potentially indexed, nested object atrribute
     by parsing an object path string
 
@@ -291,7 +297,7 @@ def _replace_layer(
 
     :param value: The object to substitute, e.g. a `RowShardedLinear` layer
     """
-    parts = path.split('.')
+    parts = path.split(".")
     for i, part in enumerate(parts[:-1]):
         # If the part is an integer, treat as index
         if part.isdigit():
@@ -305,52 +311,74 @@ def _replace_layer(
     else:
         setattr(obj, last, value)
 
-def _simple_shard_qwen_omni_model(model:Qwen2_5OmniForConditionalGeneration, gangs: Gangs) -> Qwen2_5OmniForConditionalGeneration:
+
+def _simple_shard_qwen_omni_model(
+    model: Qwen2_5OmniForConditionalGeneration, gangs: Gangs
+) -> Qwen2_5OmniForConditionalGeneration:
     """
     Shard a QwenOmni HuggingFace checkpoint to provided gangs, replacing
     layers with fairseq2 compatible linear layers (non-row/column)
 
     :param model: The model to shard
-    
+
     :param gangs: The gangs to use when sharding
 
     :returns: The sharded model with replaced layers
     """
-    
-    qkv_pattern_c = re.compile('[.]q_|[.]k_|[.]v_|_[qkv]$|[.][qkv]$')
-    out_pattern_c = re.compile('out|[.]o_|_o$|[.]o$|[.]proj$')
-    col_ffn_pattern_c = re.compile('ff.*[02]|fc[1]|mlp.*[01]|[.]gate_|[.]down_')
-    row_ffn_pattern_c = re.compile('ff.*[13]|up_|fc2|mlp.*[2]')
+
+    qkv_pattern_c = re.compile("[.]q_|[.]k_|[.]v_|_[qkv]$|[.][qkv]$")
+    out_pattern_c = re.compile("out|[.]o_|_o$|[.]o$|[.]proj$")
+    col_ffn_pattern_c = re.compile("ff.*[02]|fc[1]|mlp.*[01]|[.]gate_|[.]down_")
+    row_ffn_pattern_c = re.compile("ff.*[13]|up_|fc2|mlp.*[2]")
 
     fs_model = copy.copy(model)
 
     progress_bar = tqdm(total=len(list(model.modules())))
 
     gang = gangs.tp
-    
+
     for name, module in model.named_modules():
 
         # Place attention heads on a single device
-        if isinstance(module, Qwen2_5OmniAudioAttention) or isinstance(module, Qwen2_5OmniAttention) or isinstance(module, DiTAttention):
+        if (
+            isinstance(module, Qwen2_5OmniAudioAttention)
+            or isinstance(module, Qwen2_5OmniAttention)
+            or isinstance(module, DiTAttention)
+        ):
             sharded_attn_head = module.to(gang.device)
             _replace_layer(fs_model, name, sharded_attn_head)
 
         # Place gated and projection layers, MLP, FFN according to gang sharding strategy
         elif isinstance(module, torch.nn.Linear):
-            output_dim, input_dim, bias, dtype = module.out_features, module.in_features, module.bias is not None, module.weight.dtype
+            output_dim, input_dim, bias, dtype = (
+                module.out_features,
+                module.in_features,
+                module.bias is not None,
+                module.weight.dtype,
+            )
             if not qkv_pattern_c.search(name) and not out_pattern_c.search(name):
-                fs_proj = Linear(input_dim=input_dim, output_dim=output_dim, bias=bias, dtype=dtype, device=gang.device)
+                fs_proj = Linear(
+                    input_dim=input_dim,
+                    output_dim=output_dim,
+                    bias=bias,
+                    dtype=dtype,
+                    device=gang.device,
+                )
                 state_dict = module.state_dict()
                 fs_proj.load_state_dict(state_dict)
 
                 _replace_layer(fs_model, name, fs_proj)
 
         progress_bar.update(1)
-    
+
     return fs_model
 
+
 def _load_special_model(
-    name: str, config: HuggingFaceModelConfig, model_info: Dict[str, str], gangs: Gang | None = None
+    name: str,
+    config: HuggingFaceModelConfig,
+    model_info: Dict[str, str],
+    gangs: Gang | None = None,
 ) -> Any:
     """Load a model using special/custom classes."""
 
@@ -360,7 +388,7 @@ def _load_special_model(
     torch.cuda.set_device(local_rank)
 
     device = get_default_device()
-    
+
     # Prepare kwargs for from_pretrained
     load_kwargs = _prepare_load_kwargs(config)
 
@@ -368,19 +396,20 @@ def _load_special_model(
     load_kwargs.pop("safe_serialization")
     load_kwargs["device_map"] = device
     load_kwargs["ignore_mismatched_sizes"] = True
-    print(load_kwargs)
 
     # Import and load the model class
     model_class_name = model_info["model_class"]
     try:
         model_class = _import_class_from_transformers(model_class_name)
         try:
-            model = model_class.from_pretrained(**load_kwargs, attn_implementation="flash_attention_2")
+            model = model_class.from_pretrained(
+                **load_kwargs, attn_implementation="flash_attention_2"
+            )
             print("Using flash_attention_2.")
         except:
             print("Couldn't load flash_attention_2. Using classic SDPA.")
             model = model_class.from_pretrained(**load_kwargs)
-        
+
     except Exception as ex:
         raise HuggingFaceModelError(
             name,
@@ -390,13 +419,14 @@ def _load_special_model(
     # Shard the model according to available gangs
     if gangs is not None and gangs.tp.size > 1:
         try:
-            dist.barrier()
             print(f"Sharding model with {gangs.tp.size} gangs...")
             model = _simple_shard_qwen_omni_model(model, gangs)
             print("Model successfully sharded!")
-    
+
         except Exception as e:
-            print(f"Error sharding the model. Is special model type supported? (Qwen2.5-Omni) {e}")
+            print(
+                f"Error sharding the model. Is special model type supported? (Qwen2.5-Omni) {e}"
+            )
 
     # Load tokenizer/processor
     if "processor_class" in model_info:
@@ -423,7 +453,7 @@ def _load_auto_model(name: str, config: HuggingFaceModelConfig, hf_config: Any) 
 
     # Determine which AutoModel class to use
     auto_model_class = _get_auto_model_class(config, hf_config)
-    
+
     try:
         model = auto_model_class.from_pretrained(**load_kwargs)
     except Exception as ex:

@@ -73,6 +73,9 @@ from fairseq2.models.hg.factory import create_hg_model as create_hg_model
 from fairseq2.models.hg.factory import (
     register_hg_model_class as register_hg_model_class,
 )
+from fairseq2.models.hg.fsdp import (
+    apply_fsdp_to_hg_transformer_lm as apply_fsdp_to_hg_transformer_lm,
+)
 from fairseq2.models.hg.hub import get_hg_model_hub as get_hg_model_hub
 from fairseq2.models.hg.hub import get_hg_tokenizer_hub as get_hg_tokenizer_hub
 from fairseq2.models.hg.tokenizer import HgTokenizer as HgTokenizer

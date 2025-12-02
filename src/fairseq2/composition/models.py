@@ -25,6 +25,7 @@ from fairseq2.models import (
 from fairseq2.models.hg import (
     HG_FAMILY,
     HuggingFaceModelConfig,
+    apply_fsdp_to_hg_transformer_lm,
     create_hg_model,
     register_hg_configs,
 )
@@ -400,6 +401,7 @@ def _register_model_families(container: DependencyContainer) -> None:
         HG_FAMILY,
         kls=hg_kls,
         config_kls=HuggingFaceModelConfig,
+        fsdp_applier=apply_fsdp_to_hg_transformer_lm,
         factory=create_hg_model,
         supports_meta=False,  # HF models don't support meta device initialization
     )
