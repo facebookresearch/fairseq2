@@ -717,7 +717,7 @@ def _handle_lr_scheduler_not_known_error(ex: LRSchedulerNotKnownError) -> int:
 
 
 def _handle_local_rank_out_of_range_error(ex: LocalRankOutOfRangeError) -> int:
-    log.error("Failed to detect the default device of the process. Host has {} {} device(s), but the local rank of the process is {}.", ex.num_devices, ex.device_type, ex.local_rank)
+    log.error("Failed to detect the default device of the process. Host has {} {} device(s), but the local rank of the process is {}.", ex.num_devices, ex.device_type, ex.rank)
 
     return 1
 

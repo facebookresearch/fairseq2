@@ -10,23 +10,25 @@ This module provides functions for managing PyTorch data types.
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Iterator, Set
 from contextlib import contextmanager
-from typing import Any, ContextManager, TypeAlias, final
+from typing import Any, TypeAlias, final
 
 import torch
 from torch import get_default_dtype
 from torch.overrides import TorchFunctionMode
+from typing_extensions import override
 
 from fairseq2.runtime.dependency import get_dependency_resolver
+from fairseq2.typing import ContextManager
 from fairseq2.utils.threading import ThreadLocalStorage
 from fairseq2.utils.warn import _warn_deprecated
 
 DataType: TypeAlias = torch.dtype
 
 
-@contextmanager
-def set_dtype(dtype: DataType) -> Iterator[None]:
+def set_dtype(dtype: DataType) -> ContextManager[None]:
     """
     Changes the floating-point data type of the calling thread to the specified
     type.
@@ -57,9 +59,7 @@ def set_dtype(dtype: DataType) -> Iterator[None]:
     """
     resolver = get_dependency_resolver()
 
-    with resolver.resolve(_DataTypeModeStack).push_mode(dtype) as mode:
-        with mode:
-            yield
+    return resolver.resolve(DataTypeContext).set_dtype(dtype)
 
 
 def default_dtype(dtype: DataType) -> ContextManager[None]:
@@ -71,14 +71,60 @@ def default_dtype(dtype: DataType) -> ContextManager[None]:
 
 
 def get_current_dtype() -> DataType:
-    """Returns the current floating point data type of the calling thread."""
+    """
+    Returns the current floating-point data type of the calling thread.
+
+    .. warning::
+
+        This function might impose a slight performance cost. Avoid calling it
+        in hot code paths.
+    """
     resolver = get_dependency_resolver()
 
-    mode = resolver.resolve(_DataTypeModeStack).maybe_get_top_mode()
-    if mode is not None:
-        return mode.dtype
+    return resolver.resolve(DataTypeContext).get_current_dtype()
 
-    return get_default_dtype()
+
+class DataTypeContext(ABC):
+    """
+    Provides methods to get and set the current floating-point data type of the
+    calling thread.
+
+    This interface can be used as an alternative to the corresponding standalone
+    functions in object-oriented code.
+    """
+
+    @abstractmethod
+    def get_current_dtype(self) -> DataType:
+        """See :func:`get_current_dtype`."""
+
+    @abstractmethod
+    def set_dtype(self, dtype: DataType) -> ContextManager[None]:
+        """See :func:`set_dtype`."""
+
+
+@final
+class _StandardDataTypeContext(DataTypeContext):
+    def __init__(self, mode_stack: _DataTypeModeStack) -> None:
+        self._mode_stack = mode_stack
+
+    @override
+    def get_current_dtype(self) -> DataType:
+        mode = self._mode_stack.maybe_get_top_mode()
+        if mode is not None:
+            return mode.dtype
+
+        return get_default_dtype()
+
+    @override
+    @contextmanager
+    def set_dtype(self, dtype: DataType) -> Iterator[None]:
+        mode = self._mode_stack.set_mode(dtype)
+
+        try:
+            with mode:
+                yield
+        finally:
+            self._mode_stack.pop_mode()
 
 
 @final
@@ -87,34 +133,35 @@ class _DataTypeModeStack:
         self._constructors = constructors
         self._tls = tls
 
-    @contextmanager
-    def push_mode(self, dtype: DataType) -> Iterator[_DataTypeMode]:
+    def set_mode(self, dtype: DataType) -> _DataTypeMode:
         mode = _DataTypeMode(dtype, self._constructors)
 
-        modes = self._get_thread_dtype_modes()
+        modes = self._get_dtype_mode_stack()
 
         modes.append(mode)
 
         if len(modes) > 1:
             modes[-2].enabled = False
 
-        try:
-            yield mode
-        finally:
-            if len(modes) > 1:
-                modes[-2].enabled = True
+        return mode
 
-            modes.pop()
+    def pop_mode(self) -> None:
+        modes = self._get_dtype_mode_stack()
+
+        if len(modes) > 1:
+            modes[-2].enabled = True
+
+        modes.pop()
 
     def maybe_get_top_mode(self) -> _DataTypeMode | None:
-        modes = self._get_thread_dtype_modes()
+        modes = self._get_dtype_mode_stack()
         if modes:
             return modes[-1]
 
         return None
 
-    def _get_thread_dtype_modes(self) -> list[_DataTypeMode]:
-        return self._tls.get("dtype_modes", list)
+    def _get_dtype_mode_stack(self) -> list[_DataTypeMode]:
+        return self._tls.get("dtype_mode_stack", list)
 
 
 @final

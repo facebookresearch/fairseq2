@@ -31,13 +31,20 @@ from fairseq2.data.tokenizers.sentencepiece import (
     SentencePieceModelLoader,
     StandardSentencePieceModelLoader,
 )
-from fairseq2.data_type import _DataTypeModeStack, _tensor_constructors
+from fairseq2.data_type import (
+    DataTypeContext,
+    _DataTypeModeStack,
+    _StandardDataTypeContext,
+    _tensor_constructors,
+)
 from fairseq2.device import (
     CPU,
     CudaContext,
     Device,
+    DeviceContext,
     _DefaultDeviceDetector,
     _StandardCudaContext,
+    _StandardDeviceContext,
 )
 from fairseq2.file_system import FileSystem, LocalFileSystem
 from fairseq2.io import (
@@ -171,7 +178,7 @@ def _register_library(
 
         return wire_object(resolver, _DataTypeModeStack, constructors=constructors)
 
-    container.register(_DataTypeModeStack, create_dtype_mode_stack, singleton=True)
+    container.register(_DataTypeModeStack, create_dtype_mode_stack)
 
     # ThreadPool
     def create_thread_pool(resolver: DependencyResolver) -> ThreadPool:
@@ -194,7 +201,9 @@ def _register_library(
     container.register_type(ConfigMerger, StandardConfigMerger)
     container.register_type(ConfigProcessor, StandardConfigProcessor, singleton=True)
     container.register_type(CudaContext, _StandardCudaContext)
+    container.register_type(DataTypeContext, _StandardDataTypeContext, singleton=True)
     container.register_type(_DefaultDeviceDetector)
+    container.register_type(DeviceContext, _StandardDeviceContext, singleton=True)
     container.register_type(FileSystem, LocalFileSystem, singleton=True)
     container.register_type(GlobalModelLoader, singleton=True)
     container.register_type(GlobalTokenizerLoader, singleton=True)
