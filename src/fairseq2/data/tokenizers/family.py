@@ -23,7 +23,7 @@ from fairseq2.assets import (
 from fairseq2.data.tokenizers.tokenizer import Tokenizer
 from fairseq2.error import InternalError, raise_operational_system_error
 from fairseq2.file_system import FileSystem
-from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
+from fairseq2.gang import GangContext, GangError, Gangs, raise_operational_gang_error
 from fairseq2.runtime.dependency import DependencyLookup, get_dependency_resolver
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.utils.uri import Uri
@@ -179,6 +179,7 @@ class StandardTokenizerFamily(TokenizerFamily):
         validator: ObjectValidator,
         asset_download_manager: AssetDownloadManager,
         asset_config_loader: AssetConfigLoader,
+        gang_context: GangContext,
     ) -> None:
         self._name = name
         self._kls: type[Tokenizer] = kls
@@ -188,6 +189,7 @@ class StandardTokenizerFamily(TokenizerFamily):
         self._validator = validator
         self._asset_download_manager = asset_download_manager
         self._asset_config_loader = asset_config_loader
+        self._gang_context = gang_context
 
     @override
     def get_tokenizer_config(self, card: AssetCard) -> object:
@@ -267,7 +269,7 @@ class StandardTokenizerFamily(TokenizerFamily):
             path = cached_path
 
         try:
-            with gangs:
+            with self._gang_context.set_gangs(gangs):
                 tokenizer = self._loader(path, config)
         except TokenizerModelError as ex:
             msg = f"Tokenizer model of the {name} asset card is erroneous."
@@ -302,7 +304,7 @@ class StandardTokenizerFamily(TokenizerFamily):
                 f"`config` must be of type `{self._config_kls}`, but is of type `{type(config)}` instead."
             )
 
-        with gangs:
+        with self._gang_context.set_gangs(gangs):
             tokenizer = self._loader(path, config)
 
         try:

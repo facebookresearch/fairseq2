@@ -112,10 +112,12 @@ class DeviceContext(ABC):
     """
 
     @abstractmethod
-    def get_current_device(self) -> Device: ...
+    def get_current_device(self) -> Device:
+        """See :func:`get_current_device`."""
 
     @abstractmethod
-    def set_device(self, device: Device) -> ContextManager[None]: ...
+    def set_device(self, device: Device) -> ContextManager[None]:
+        """See :func:`set_device`."""
 
 
 @final

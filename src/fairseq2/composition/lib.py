@@ -47,6 +47,7 @@ from fairseq2.device import (
     _StandardDeviceContext,
 )
 from fairseq2.file_system import FileSystem, LocalFileSystem
+from fairseq2.gang import GangContext, _GangManager, _StandardGangContext
 from fairseq2.io import (
     HuggingFaceSafetensorsLoader,
     SafetensorsLoader,
@@ -205,6 +206,8 @@ def _register_library(
     container.register_type(_DefaultDeviceDetector)
     container.register_type(DeviceContext, _StandardDeviceContext, singleton=True)
     container.register_type(FileSystem, LocalFileSystem, singleton=True)
+    container.register_type(GangContext, _StandardGangContext, singleton=True)
+    container.register_type(_GangManager, singleton=True)
     container.register_type(GlobalModelLoader, singleton=True)
     container.register_type(GlobalTokenizerLoader, singleton=True)
     container.register_type(

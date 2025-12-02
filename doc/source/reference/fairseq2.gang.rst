@@ -5,10 +5,15 @@ fairseq2.gang
 .. automodule:: fairseq2.gang
     :no-members:
 
+ABCs
+====
+
+.. autoclass:: Gang
+.. autoclass:: GangContext
+
 Classes
 =======
 
-.. autoclass:: Gang
 .. autoclass:: ProcessGroupGang
 .. autoclass:: FakeGang
 .. autoclass:: Gangs
@@ -29,10 +34,13 @@ listed below are used to create sub-gangs for different parallelism strategies.
 .. autofunction:: create_fsdp_gangs
 .. autofunction:: create_fake_gangs
 
-Utilities
+Functions
 =========
 
-.. autofunction:: maybe_get_current_gangs
+.. autofunction:: get_current_gangs
+.. autofunction:: get_default_gangs
+.. autofunction:: set_default_gangs
+.. autofunction:: set_gangs
 .. autofunction:: broadcast_flag
 .. autofunction:: all_sum
 
@@ -41,5 +49,3 @@ Exceptions
 ==========
 
 .. autoclass:: GangError
-
-.. autofunction:: raise_operational_gang_error

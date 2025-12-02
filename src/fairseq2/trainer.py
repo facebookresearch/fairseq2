@@ -154,9 +154,9 @@ class Trainer(Task):
     ) -> None:
         model_dp_facade = get_data_parallel_facade(model)
 
-        rng_bag = RngBag.from_device_defaults(CPU, gangs.root.device)
+        rng_bag = RngBag.from_device_defaults(CPU, gangs.device)
 
-        metric_bag = MetricBag(device=gangs.root.device)
+        metric_bag = MetricBag(device=gangs.device)
 
         metric_bag.add("grad_norm", Mean())
 
@@ -311,7 +311,7 @@ class Trainer(Task):
         self._profiler = profiler
         self._device_stat_tracker = device_stat_tracker
         self._data_watch = Stopwatch()
-        self._compute_watch = Stopwatch(device=gangs.root.device)
+        self._compute_watch = Stopwatch(device=gangs.device)
         self._lapse_watch = Stopwatch()
         self._wall_watch = wall_watch
         self._base_wall_time = 0.0
@@ -521,7 +521,7 @@ class Trainer(Task):
         if self._first_iter:
             # Emptying the CUDA memory allocator cache after the first iteration
             # can reduce fragmentation and avoid OOM.
-            if self._gangs.root.device.type == "cuda":
+            if self._gangs.device.type == "cuda":
                 torch.cuda.empty_cache()
 
             self._first_iter = False
@@ -558,7 +558,7 @@ class Trainer(Task):
                 batch = batches.pop()
 
                 try:
-                    batch.to(gangs.root.device, non_blocking=True)
+                    batch.to(gangs.device, non_blocking=True)
 
                     with self._maybe_no_sync(batch_nr, num_batches):
                         with record_function(f"step_{step_nr}_{batch_nr}_forward"):
@@ -643,9 +643,9 @@ class Trainer(Task):
         if not self._amp or self._amp_dtype == torch.float32:
             return nullcontext()
 
-        device_type = self._gangs.root.device.type
-
-        return torch.autocast(device_type=device_type, dtype=self._amp_dtype)
+        return torch.autocast(
+            device_type=self._gangs.device.type, dtype=self._amp_dtype
+        )
 
     def _inspect_fp16_scale_result(self, result: Float16LossScaleResult) -> None:
         if result.exploded:
@@ -972,7 +972,7 @@ class Trainer(Task):
         self._model.train()
 
         # Try to avoid CUDA memory fragmentation after validation.
-        if self._gangs.root.device.type == "cuda":
+        if self._gangs.device.type == "cuda":
             torch.cuda.empty_cache()
 
         log.info("Validation finished.")
