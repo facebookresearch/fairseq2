@@ -52,7 +52,7 @@ class LMSFTConfig:
     )
 
     tokenizer: TokenizerSection = field(
-        default_factory=lambda: TokenizerSection(name="llama3_2_1b")
+        default_factory=lambda: TokenizerSection(name="llama3_2_1b_instruct")
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
