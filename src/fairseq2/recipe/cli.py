@@ -47,7 +47,7 @@ from fairseq2.error import (
 from fairseq2.file_system import FileSystem
 from fairseq2.generation import SequenceGenerationError
 from fairseq2.logging import configure_logging, log
-from fairseq2.model_checkpoint import ModelCheckpointError
+from fairseq2.model_checkpoint import CorruptModelCheckpointError
 from fairseq2.models import (
     ModelArchitectureNotKnownError,
     ModelFamilyNotKnownError,
@@ -540,7 +540,7 @@ def _register_cli_errors(container: DependencyContainer) -> None:
     register(MetricNotKnownError, _handle_metric_not_known_error)
     register(MinimumLossScaleReachedError, _handle_minimim_loss_scale_reached_error)
     register(ModelArchitectureNotKnownError, _handle_model_arch_not_known_error)
-    register(ModelCheckpointError, _handle_model_checkpoint_error)
+    register(CorruptModelCheckpointError, _handle_corrupt_model_checkpoint_error)
     register(ModelCheckpointNotFoundError, _handle_model_checkpoint_not_found_error)
     register(ModelFamilyNotKnownError, _handle_model_family_not_known_error)
     register(ModelGatedError, _handle_model_gated_error)
@@ -749,7 +749,7 @@ def _handle_model_arch_not_known_error(ex: ModelArchitectureNotKnownError) -> in
     return 2
 
 
-def _handle_model_checkpoint_error(ex: ModelCheckpointError) -> int:
+def _handle_corrupt_model_checkpoint_error(ex: CorruptModelCheckpointError) -> int:
     log.exception("Model checkpoint at {} is erroneous. See logged stack trace for details.", ex.path)
 
     return 1

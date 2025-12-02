@@ -29,10 +29,12 @@ from fairseq2.error import (
 from fairseq2.file_system import FileMode, FileSystem, _flush_nfs_lookup_cache
 from fairseq2.gang import GangError, Gangs, all_sum, raise_operational_gang_error
 from fairseq2.io import (
-    TensorDataNotValidError,
-    TensorDumper,
-    TensorFileError,
-    TensorLoader,
+    CorruptFileError,
+    DataNotPicklableError,
+    TensorFileDumper,
+    TensorFileDumpOptions,
+    TensorFileLoader,
+    TensorFileLoadOptions,
 )
 from fairseq2.nn.fsdp import load_with_sdp_gang
 from fairseq2.runtime.closable import Closable
@@ -159,8 +161,8 @@ class StandardCheckpointManager(CheckpointManager):
         output_dir: Path,
         gangs: Gangs,
         file_system: FileSystem,
-        tensor_loader: TensorLoader,
-        tensor_dumper: TensorDumper,
+        tensor_file_loader: TensorFileLoader,
+        tensor_file_dumper: TensorFileDumper,
         thread_pool: ThreadPool,
     ) -> None:
         checkpoint_dir = output_dir.joinpath("checkpoints")
@@ -168,8 +170,8 @@ class StandardCheckpointManager(CheckpointManager):
         self._checkpoint_dir = checkpoint_dir
         self._gangs = gangs
         self._file_system = file_system
-        self._tensor_loader = tensor_loader
-        self._tensor_dumper = tensor_dumper
+        self._tensor_file_loader = tensor_file_loader
+        self._tensor_file_dumper = tensor_file_dumper
         self._thread_pool = thread_pool
         self._save_op: Future[Callable[[], None]] | None = None
 
@@ -445,14 +447,16 @@ class StandardCheckpointManager(CheckpointManager):
             # `torch.load(..., weights_only=True)` cannot unpickle objects
             # serialized with v5. See:
             #   https://github.com/pytorch/pytorch/issues/118092
-            protocol = 2 if record.kind == "model" else 5
+            dump_options = TensorFileDumpOptions(
+                pickle_protocol=2 if record.kind == "model" else 5
+            )
 
             try:
-                self._tensor_dumper.dump(
-                    record.state_dict, record.file, pickle_protocol=protocol
+                self._tensor_file_dumper.dump(
+                    record.state_dict, record.file, dump_options
                 )
-            except TensorDataNotValidError as ex:
-                msg = f"`{record.kind}` checkpoint must contain primitive and pickeable objects only."
+            except DataNotPicklableError as ex:
+                msg = f"`{record.kind}` checkpoint must contain pickeable objects only."
 
                 raise CheckpointStateNotValidError(step_nr, record.kind, msg) from ex
             except OSError as ex:
@@ -602,14 +606,14 @@ class StandardCheckpointManager(CheckpointManager):
     ) -> dict[str, object]:
         gangs = self._gangs
 
+        load_options = TensorFileLoadOptions(map_location=CPU, restrict=kind == "model")
+
         with load_with_sdp_gang(gangs):  # Required for `ShardedTensor`.
             file = self._checkpoint_dir.joinpath(f"step_{step_nr}/{pathname}")
 
             try:
-                return self._tensor_loader.load(
-                    file, map_location=CPU, restrict=kind == "model"
-                )
-            except TensorFileError as ex:
+                return self._tensor_file_loader.load(file, load_options)
+            except CorruptFileError as ex:
                 msg = f"{file} of step {step_nr} is not a valid checkpoint file."
 
                 raise CheckpointError(step_nr, kind, msg) from ex

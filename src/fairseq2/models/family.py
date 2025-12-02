@@ -35,7 +35,11 @@ from fairseq2.error import (
 )
 from fairseq2.file_system import FileSystem, raise_if_not_exists
 from fairseq2.gang import GangError, Gangs, raise_operational_gang_error, set_gangs
-from fairseq2.model_checkpoint import ModelCheckpointError, ModelCheckpointLoader
+from fairseq2.model_checkpoint import (
+    CorruptModelCheckpointError,
+    ModelCheckpointLoader,
+    ModelCheckpointLoadOptions,
+)
 from fairseq2.models.utils.checkpoint import (
     ModelCheckpointMismatchError,
     set_model_state,
@@ -509,7 +513,7 @@ class StandardModelFamily(ModelFamily):
             return self._do_load_model(
                 path, config, gangs, dtype, load_rank0_only, mmap, restrict
             )
-        except ModelCheckpointError as ex:
+        except CorruptModelCheckpointError as ex:
             msg = f"Model checkpoint of the {name} asset card is erroneous."
 
             if uri.scheme != "file":
@@ -580,7 +584,7 @@ class StandardModelFamily(ModelFamily):
             except ModelCheckpointMismatchError as ex:
                 msg = f"Checkpoint at {path} is not compatible with the {self._name} model."
 
-                raise ModelCheckpointError(path, msg) from ex
+                raise CorruptModelCheckpointError(path, msg) from ex
 
             if self._supports_meta:
                 # Non-persistent buffers are not included in the checkpoint, so we
@@ -671,21 +675,21 @@ class StandardModelFamily(ModelFamily):
         else:
             state_dict_converter = partial(self._state_dict_converter, config=config)
 
-        if self._shard_specs is None:
-            shard_specs = None
-        else:
-            shard_specs = self._shard_specs(config)
+        if shard_dims is None:
+            if self._shard_specs is None:
+                shard_dims = {}
+            else:
+                shard_dims = {k: v.dim for k, v in self._shard_specs(config).items()}
+
+        load_options = ModelCheckpointLoadOptions(
+            gangs=gangs,
+            mmap=mmap,
+            restrict=restrict,
+            state_dict_converter=state_dict_converter,
+        )
 
         with load_with_sdp_gang(gangs):  # Required for ShardedTensor
-            yield from self._checkpoint_loader.lazy_load(
-                path,
-                gangs,
-                mmap=mmap,
-                restrict=restrict,
-                state_dict_converter=state_dict_converter,
-                shard_specs=shard_specs,
-                shard_dims=shard_dims,
-            )
+            yield from self._checkpoint_loader.lazy_load(path, shard_dims, load_options)
 
     def _do_create_model(
         self, config: object, gangs: Gangs, dtype: DataType, meta: bool

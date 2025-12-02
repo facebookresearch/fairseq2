@@ -42,7 +42,7 @@ from fairseq2.error import OperationalError, raise_operational_system_error
 from fairseq2.file_system import FileSystem
 from fairseq2.gang import create_fake_gangs
 from fairseq2.logging import configure_logging, log
-from fairseq2.model_checkpoint import ModelCheckpointError
+from fairseq2.model_checkpoint import CorruptModelCheckpointError
 from fairseq2.models import (
     ModelFamily,
     ModelFamilyNotKnownError,
@@ -237,9 +237,9 @@ class _HuggingFaceExportCommand:
             raise OperationalError(
                 f"Download of the {model_name} model checkpoint failed."
             ) from ex
-        except ModelCheckpointError as ex:
+        except CorruptModelCheckpointError as ex:
             raise CommandError(
-                f"Checkpoint of the {model_name} model is erroneous."
+                f"Checkpoint of the {model_name} model is erroneous and cannot be loaded."
             ) from ex
         except ModelGatedError as ex:
             raise CommandError(

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from fairseq2.models.llama.checkpoint import (
-    LLaMACheckpointLoader as LLaMACheckpointLoader,
+    _LLaMACheckpointLoader as _LLaMACheckpointLoader,
 )
 from fairseq2.models.llama.config import LLAMA_FAMILY as LLAMA_FAMILY
 from fairseq2.models.llama.config import LLaMAConfig as LLaMAConfig

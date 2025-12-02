@@ -16,46 +16,51 @@ from typing_extensions import override
 
 from fairseq2.device import CPU
 from fairseq2.file_system import FileSystem, raise_if_not_exists
-from fairseq2.gang import Gangs
-from fairseq2.io import TensorFileError, TensorLoader
+from fairseq2.gang import GangContext
+from fairseq2.io import CorruptFileError, TensorFileLoader, TensorFileLoadOptions
 from fairseq2.model_checkpoint import (
-    ModelCheckpointError,
+    CorruptModelCheckpointError,
     ModelCheckpointLoader,
-    StateDictConverter,
+    ModelCheckpointLoadOptions,
     reshard_tensor,
 )
-from fairseq2.sharder import ShardSpec
 
 
 @final
-class LLaMACheckpointLoader(ModelCheckpointLoader):
-    def __init__(self, file_system: FileSystem, tensor_loader: TensorLoader) -> None:
+class _LLaMACheckpointLoader(ModelCheckpointLoader):
+    def __init__(
+        self,
+        file_system: FileSystem,
+        tensor_file_loader: TensorFileLoader,
+        gang_context: GangContext,
+    ) -> None:
         self._file_system = file_system
-        self._tensor_loader = tensor_loader
+        self._tensor_file_loader = tensor_file_loader
+        self._gang_context = gang_context
 
     @override
     def lazy_load(
         self,
         path: Path,
-        gangs: Gangs,
-        *,
-        mmap: bool = False,
-        restrict: bool = True,
-        state_dict_converter: StateDictConverter | None = None,
-        shard_specs: Mapping[str, ShardSpec] | None = None,
-        shard_dims: Mapping[str, int] | None = None,
+        shard_dims: Mapping[str, int],
+        options: ModelCheckpointLoadOptions | None = None,
     ) -> Iterator[tuple[str, Tensor]]:
+        if options is None:
+            options = ModelCheckpointLoadOptions()
+
         raise_if_not_exists(self._file_system, path)
 
         is_dir = self._file_system.is_dir(path)
         if not is_dir:
-            msg = f"{path} does not point to a LLaMA checkpoint."
+            message = f"{path} does not point to a LLaMA checkpoint."
 
-            raise ModelCheckpointError(path, msg)
+            raise CorruptModelCheckpointError(path, message)
 
         tp_files = self._get_checkpoint_files(path)
 
         tp_size = len(tp_files)
+
+        gangs = options.gangs or self._gang_context.get_current_gangs()
 
         source_shard_sizes = (tp_size, 1)
 
@@ -72,21 +77,23 @@ class LLaMACheckpointLoader(ModelCheckpointLoader):
             target_shard_sizes = (1, gangs.sdp.size)
             target_shard_ranks = (0, gangs.sdp.rank)
 
+        load_options = TensorFileLoadOptions(
+            map_location=CPU, mmap=options.mmap, restrict=options.restrict
+        )
+
         # Load the checkpoint files.
         tp_shards = []
 
         for tp_file in tp_files:
             try:
-                tp_shard = self._tensor_loader.load(
-                    tp_file, map_location=CPU, mmap=mmap, restrict=restrict
-                )
-            except TensorFileError as ex:
-                msg = f"{tp_file} is not a valid checkpoint file."
+                tp_shard = self._tensor_file_loader.load(tp_file, load_options)
+            except CorruptFileError as ex:
+                message = f"{tp_file} cannot be loaded as a PyTorch checkpoint file."
 
-                raise ModelCheckpointError(path, msg) from ex
+                raise CorruptModelCheckpointError(path, message) from ex
 
-            if state_dict_converter is not None:
-                tp_shard = state_dict_converter(tp_shard)
+            if options.state_dict_converter is not None:
+                tp_shard = options.state_dict_converter(tp_shard)
 
             tp_shards.append(tp_shard)
 
@@ -106,9 +113,9 @@ class LLaMACheckpointLoader(ModelCheckpointLoader):
                     break  # data parallel sharding can be uneven.
 
                 if not isinstance(tp_split, Tensor):
-                    msg = f"{key} in {path} is not a `{Tensor}`."
+                    message = f"{key} in {path} is not a `{Tensor}`."
 
-                    raise ModelCheckpointError(path, msg)
+                    raise CorruptModelCheckpointError(path, message)
 
                 splits.append([tp_split])
 
@@ -125,7 +132,6 @@ class LLaMACheckpointLoader(ModelCheckpointLoader):
                 source_shard_sizes,
                 target_shard_sizes,
                 target_shard_ranks,
-                shard_specs,
                 shard_dims,
             )
 
@@ -146,9 +152,9 @@ class LLaMACheckpointLoader(ModelCheckpointLoader):
             tp_files.append(tp_file)
 
         if not tp_files:
-            msg = f"{path} does not contain any tensor files."
+            message = f"{path} directory does not contain any PyTorch checkpoint files."
 
-            raise ModelCheckpointError(path, msg)
+            raise CorruptModelCheckpointError(path, message)
 
         return tp_files
 

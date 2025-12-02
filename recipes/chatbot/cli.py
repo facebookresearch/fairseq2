@@ -42,7 +42,7 @@ from fairseq2.gang import (
 )
 from fairseq2.generation.sampling import SamplingSequenceGenerator, TopPSampler
 from fairseq2.logging import configure_logging, log
-from fairseq2.model_checkpoint import ModelCheckpointError
+from fairseq2.model_checkpoint import CorruptModelCheckpointError
 from fairseq2.models import ModelGatedError, ModelNotKnownError, load_model
 from fairseq2.models.clm import CausalLM
 from fairseq2.recipe.error import (
@@ -113,7 +113,7 @@ def _main() -> None:
         log.exception("Failed to download {}.", ex.uri)
 
         sys.exit(1)
-    except ModelCheckpointError as ex:
+    except CorruptModelCheckpointError as ex:
         log.exception("Model checkpoint at {} is erroneous. See logged stack trace for details.", ex.path)  # fmt: skip
 
         sys.exit(1)
