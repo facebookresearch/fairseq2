@@ -35,7 +35,7 @@ from fairseq2.data_type import DataType
 from fairseq2.datasets import DataReader, DataReadError
 from fairseq2.device import CPU, SupportsDeviceTransfer
 from fairseq2.error import InternalError, InvalidOperationError
-from fairseq2.gang import GangError, Gangs, broadcast_flag
+from fairseq2.gang import GangError, Gangs, all_sum, broadcast_flag
 from fairseq2.logging import log
 from fairseq2.metrics import (
     Mean,
@@ -504,6 +504,8 @@ class Trainer(Recipe):
 
         self._last_lr = 0.0
 
+        self._multi_loss_norm = getattr(self._unit, "multi_loss_norm", False)
+
     @override
     def run(self) -> None:
         if self._state != _TrainerState.NOT_STARTED:
@@ -774,19 +776,49 @@ class Trainer(Recipe):
                     batch.to(gangs.root.device, non_blocking=True)
 
                     with self._maybe_no_sync(batch_nr, num_batches):
-                        with record_function(f"step_{step_nr}_{batch_nr}_forward"):
-                            loss, num_batch_targets = self._compute_loss(batch)
+                        if self._multi_loss_norm:
+                            assert (
+                                num_batches == 1
+                            ), "microbatching is not supported for multiple loss norm yet"
+                            with record_function(f"step_{step_nr}_{batch_nr}_forward"):
+                                loss_target_count_dict = self._compute_loss(batch)
 
-                        # If the unit does not return the number of logit targets
-                        # of this batch, we assume that the loss is the mean loss
-                        # and that each batch in this step has the same number of
-                        # logit targets. In this case, we don't need to normalize
-                        # the gradients at the end of the step, but we still have
-                        # to take gradient accumulation into account.
-                        if num_batch_targets is None:
-                            loss = loss / num_batches
+                            all_losses = []
+                            for name, (
+                                curr_loss,
+                                target_count,
+                            ) in loss_target_count_dict.items():
+                                if target_count is None:
+                                    target_sum = num_batches
+                                else:
+                                    # we do the all sum here as compared to in
+                                    # grad scaling to apply different norm to
+                                    # different loss components.
+                                    # TODO(lidli): double check if we need to consider the factor of world size like in grad scale.
+                                    target_sum = all_sum(gangs.dp, target_count)
+                                curr_loss = curr_loss * gangs.dp.size / target_sum
+                                all_losses.append(curr_loss)
+                                log.info(f"{name}_loss={curr_loss}, {target_sum=}")
+                                self._metric_bag.get(Mean, f"{name}_after_norm").update(
+                                    curr_loss / batch.batch_size,
+                                    weight=batch.batch_size,
+                                )
+                                log.info(f"{all_losses=}")
+                            loss = sum(all_losses)
                         else:
-                            num_targets += num_batch_targets
+                            with record_function(f"step_{step_nr}_{batch_nr}_forward"):
+                                loss, num_batch_targets = self._compute_loss(batch)
+
+                            # If the unit does not return the number of logit targets
+                            # of this batch, we assume that the loss is the mean loss
+                            # and that each batch in this step has the same number of
+                            # logit targets. In this case, we don't need to normalize
+                            # the gradients at the end of the step, but we still have
+                            # to take gradient accumulation into account.
+                            if num_batch_targets is None:
+                                loss = loss / num_batches
+                            else:
+                                num_targets += num_batch_targets
 
                         with record_function(f"step_{step_nr}_{batch_nr}_backward"):
                             self._loss_scaler.backward(loss)

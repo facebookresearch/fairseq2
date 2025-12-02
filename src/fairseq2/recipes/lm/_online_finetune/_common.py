@@ -707,6 +707,15 @@ def update_grpo_loss(
     metric_bag.get(Mean, "tis_imp_ratio").update(tis_imp_ratio)
 
 
+@torch.inference_mode()
+def update_ntp_loss(
+    metric_bag: MetricBag, batch: PromptBatch, ntp_loss: Tensor
+) -> None:
+    metric_bag.get(Mean, "ntp_loss").update(
+        ntp_loss / batch.batch_size, weight=batch.batch_size
+    )
+
+
 def compute_reference_logps(
     gangs: Gangs,
     reference_model: RemoteVllmModel,
