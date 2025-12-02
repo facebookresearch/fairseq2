@@ -57,8 +57,8 @@ sample_data_source::sample_data_source(
     if (pipelines_.empty())
         finitude_type_ = data_source_finitude_type::finite;
     else {
-            auto max_cardinality_pipeline_it = std::max_element(
-                pipelines_.begin(), pipelines_.end(), [](const data_pipeline &a, const data_pipeline &b)
+        auto max_cardinality_pipeline_it = std::max_element(
+            pipelines_.begin(), pipelines_.end(), [](const data_pipeline &a, const data_pipeline &b)
             {
                 return a.finitude_type() < b.finitude_type();
             });
