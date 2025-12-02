@@ -258,19 +258,19 @@ class TestSampleOp:
     def test_op_works_with_many_pipelines_when_allow_repeats_false(self) -> None:
         """Test edge case with many pipelines where only lowest-weight ones remain."""
 
-        # See https://github.com/fairinternal/fairseq2-ext/issues/181
-        nb = 21
-        weights = np.random.RandomState(0).rand(nb)
-        sizes = np.random.RandomState(0).randint(0, 100_000, nb)
+        nb_pipelines = 21
+        pipeline_weights = np.random.RandomState(0).rand(nb_pipelines).tolist()
+        pipeline_sizes = np.random.RandomState(0).randint(0, 100_000, nb_pipelines).tolist()
         pipelines = []
-        for s in sizes:
-            pipelines.append(read_sequence(list(range(s))).and_return())
+        for size in pipeline_sizes:
+            pipeline_items = list(range(size))
+            pipelines.append(read_sequence(pipeline_items).and_return())
 
-        builder = DataPipeline.sample(pipelines, weights, seed=123, allow_repeats=False)
+        builder = DataPipeline.sample(pipelines, pipeline_weights, seed=123, allow_repeats=False)
         pipeline = builder.and_return()
 
-        expected_total_size = np.sum(sizes)
-        actual_sampled_size = len([_ for _ in iter(pipeline)])
+        expected_total_size = np.sum(pipeline_sizes)
+        actual_sampled_size = len(list(pipeline))
         assert (
             actual_sampled_size == expected_total_size
-        ), f"Expected {expected_total_size}, got {actual_sampled_size}"
+        )

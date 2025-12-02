@@ -20,11 +20,14 @@
 
 namespace fairseq2n::detail {
 
-sample_data_source::sample_data_source(std::vector<data_pipeline> &&pipelines,
-                                       std::vector<float32> &&weights,
-                                       std::optional<std::uint64_t> maybe_seed, bool allow_repeats)
-    : pipelines_(std::move(pipelines)), is_epoch_done_(pipelines_.size()),
-      allow_repeats_{allow_repeats}, is_blocked_(pipelines_.size(), false)
+sample_data_source::sample_data_source(
+    std::vector<data_pipeline> &&pipelines,
+    std::vector<float32> &&weights,
+    std::optional<std::uint64_t> maybe_seed,
+    bool allow_repeats)
+  : pipelines_(std::move(pipelines)), 
+    is_epoch_done_(pipelines_.size()),
+    allow_repeats_{allow_repeats}
 {
     seed_ = maybe_seed ? *maybe_seed : pseudo_random();
 
@@ -86,8 +89,6 @@ sample_data_source::reset(bool reset_rng)
 
     is_epoch_done_.assign(pipelines_.size(), false);
 
-    is_blocked_.assign(pipelines_.size(), false);
-
     is_eod_ = false;
 
     if (reset_rng)
@@ -107,8 +108,6 @@ sample_data_source::record_position(tape &t, bool strict) const
         t.record(buffer_);
 
         t.record(is_epoch_done_);
-
-        t.record(is_blocked_);
     }
 
     t.record(seed_);
@@ -128,14 +127,10 @@ sample_data_source::reload_position(tape &t, bool strict)
         buffer_ = t.read<std::vector<std::optional<data>>>();
 
         is_epoch_done_ = t.read<std::vector<bool>>();
-
-        is_blocked_ = t.read<std::vector<bool>>();
     } else {
         buffer_.clear();
 
         is_epoch_done_.assign(pipelines_.size(), false);
-
-        is_blocked_.assign(pipelines_.size(), false);
     }
 
     is_eod_ = false;
@@ -175,13 +170,16 @@ sample_data_source::random_pipeline_index()
             rptr = mptr;
     }
 
-    // The binary search returns the index where cumsum[idx] >= sample and cumsum[idx-1] < sample
-    // If this pipeline is blocked, it means cumsum[idx] == cumsum[idx-1], which is a
-    // degenerate interval. We need to search forward to find the pipeline that actually
-    // owns this probability mass (the next unblocked one with cumsum[idx] > cumsum[idx-1])
-    while (lptr < weight_cumsums_.size() && is_blocked_[lptr]) {
-        lptr++;
+    // Binary search finds an index where cumsum[idx] >= sample.
+    // When allow_repeats_ is false, exhausted pipelines have cumsum[idx] == cumsum[idx-1].
+    // Skip forward to find the next active pipeline that "owns" this probability mass.
+    if (!allow_repeats_) { 
+        while (lptr < is_epoch_done_.size() && is_epoch_done_[lptr]) lptr++;
     }
+
+    // Should never happen since at least one pipeline is active 
+    // (guaranteed by are_all_done() check in next())
+    assert(lptr < weight_cumsums_.size());
 
     return lptr;
 }
@@ -214,8 +212,6 @@ sample_data_source::next_in_pipeline(std::size_t pipeline_idx)
 void
 sample_data_source::block(std::size_t idx)
 {
-    is_blocked_[idx] = true;
-
     float32 weight = weight_cumsums_[idx];
     if (idx > 0) {
         weight -= weight_cumsums_[idx - 1];
