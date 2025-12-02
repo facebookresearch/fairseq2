@@ -49,22 +49,22 @@ from fairseq2.device import (
 from fairseq2.file_system import FileSystem, LocalFileSystem
 from fairseq2.gang import GangContext, _GangManager, _StandardGangContext
 from fairseq2.io import (
-    HuggingFaceSafetensorsLoader,
     SafetensorsLoader,
-    TensorDumper,
-    TensorLoader,
-    TorchTensorDumper,
-    TorchTensorLoader,
+    TensorFileDumper,
+    TensorFileLoader,
+    _HuggingFaceSafetensorsLoader,
+    _TorchTensorFileDumper,
+    _TorchTensorFileLoader,
 )
 from fairseq2.model_checkpoint import (
-    BasicModelCheckpointLoader,
-    DelegatingModelCheckpointLoader,
     ModelCheckpointLoader,
-    NativeModelCheckpointLoader,
-    SafetensorsCheckpointLoader,
+    _BasicModelCheckpointLoader,
+    _DelegatingModelCheckpointLoader,
+    _NativeModelCheckpointLoader,
+    _SafetensorsCheckpointLoader,
 )
 from fairseq2.models.hub import GlobalModelLoader
-from fairseq2.models.llama import LLaMACheckpointLoader
+from fairseq2.models.llama import _LLaMACheckpointLoader
 from fairseq2.models.llama4.sharder import MoESharder
 from fairseq2.runtime.dependency import (
     DependencyContainer,
@@ -211,19 +211,19 @@ def _register_library(
     container.register_type(GlobalModelLoader, singleton=True)
     container.register_type(GlobalTokenizerLoader, singleton=True)
     container.register_type(
-        ModelCheckpointLoader, DelegatingModelCheckpointLoader, singleton=True
+        ModelCheckpointLoader, _DelegatingModelCheckpointLoader, singleton=True
     )
     container.register_type(ModelMetadataDumper, StandardModelMetadataDumper)
     container.register_type(ModelMetadataLoader, StandardModelMetadataLoader)
     container.register_type(ModelSharder, StandardModelSharder, singleton=True)
     container.register_type(ObjectValidator, StandardObjectValidator, singleton=True)
     container.register_type(ProcessRunner, StandardProcessRunner)
-    container.register_type(SafetensorsLoader, HuggingFaceSafetensorsLoader)
+    container.register_type(SafetensorsLoader, _HuggingFaceSafetensorsLoader)
     container.register_type(
         SentencePieceModelLoader, StandardSentencePieceModelLoader, singleton=True
     )
-    container.register_type(TensorDumper, TorchTensorDumper, singleton=True)
-    container.register_type(TensorLoader, TorchTensorLoader, singleton=True)
+    container.register_type(TensorFileDumper, _TorchTensorFileDumper, singleton=True)
+    container.register_type(TensorFileLoader, _TorchTensorFileLoader, singleton=True)
     container.register_type(ThreadLocalStorage, _StandardThreadLocalStorage)
     container.register_type(ValueConverter, StandardValueConverter, singleton=True)
     container.register_type(YamlDumper, RuamelYamlDumper, singleton=True)
@@ -236,15 +236,15 @@ def _register_library(
     container.collection.register_type(ModuleSharder, MoESharder)
 
     container.collection.register_type(
-        ModelCheckpointLoader, BasicModelCheckpointLoader
+        ModelCheckpointLoader, _BasicModelCheckpointLoader
     )
     container.collection.register_type(
-        ModelCheckpointLoader, NativeModelCheckpointLoader
+        ModelCheckpointLoader, _NativeModelCheckpointLoader
     )
     container.collection.register_type(
-        ModelCheckpointLoader, SafetensorsCheckpointLoader
+        ModelCheckpointLoader, _SafetensorsCheckpointLoader
     )
-    container.collection.register_type(ModelCheckpointLoader, LLaMACheckpointLoader)
+    container.collection.register_type(ModelCheckpointLoader, _LLaMACheckpointLoader)
 
     container.collection.register_type(ConfigDirective, ReplaceEnvDirective)
 
