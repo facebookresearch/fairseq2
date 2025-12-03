@@ -1045,9 +1045,12 @@ class PplDerivedVerifier(VLLMOutputReward):
             "wrapped_reason_for_rm": self._wrapped_reason_for_rm,
             "pref_soth_to_reason_eoth_for_rm": self._pref_soth_to_reason_eoth_for_rm,
             "dummy_pref_soth_to_reason_eoth_for_rm": self._dummy_pref_soth_to_reason_eoth_for_rm,
+            "dummy_pref_to_reason_for_rm": self._dummy_pref_to_reason_for_rm,  # base
+            "pref_to_reason_for_rm": self._pref_to_reason_for_rm,  # target
             "soth_to_reason_eoth_for_rm": self._soth_to_reason_eoth_for_rm,
             # -------- suffix related --------
             "pref_to_suf_for_rm": self._pref_to_suf_for_rm,  # base
+            "pref_reason_to_suf_for_rm": self._pref_reason_to_suf_for_rm,  # target
             "pref_wrapped_reason_to_suf_for_rm": self._pref_wrapped_reason_to_suf_for_rm,  # target
             "dummy_pref_wrapped_reason_to_dummy_suf_for_rm": self._dummy_pref_wrapped_reason_to_dummy_suf_for_rm,  # base
         }
@@ -1056,6 +1059,7 @@ class PplDerivedVerifier(VLLMOutputReward):
             "cap_pref_0p01_weight_0p05_1": self._cap_pref_0p01_weight_0p05_1,
             "cap_pref_0p02_weight_0p02_1": self._cap_pref_0p02_weight_0p02_1,
             "cap_pref_0p05_weight_0p02_1": self._cap_pref_0p05_weight_0p02_1,
+            "cap_pref_0p08_weight_0p1_1": self._cap_pref_0p08_weight_0p1_1,
             "weight_0p05_1": self._weight_0p05_1,
             "sum": (lambda x, y: x + y),
         }
@@ -1074,42 +1078,98 @@ class PplDerivedVerifier(VLLMOutputReward):
             assert proc_name in self.vllm_input_proc_dict
         assert self.reward_agg in self.reward_agg_fn_dict
 
+    def _tokenize(self, input_str, max_length=None):
+        return self.tokenizer.encode(
+            input_str, add_special_tokens=False, max_length=max_length
+        )
+
+    def _concat_w_maybe_ws(self, left_text, right_text):
+        if (not left_text[-1].isspace()) and (not right_text[0].isspace()):
+            return left_text + " " + right_text
+        return left_text + right_text
+
     def _get_rm_vllm_inputs(
         self,
-        input_text: str,
-        target_text: str,
+        input_text_list: List[str] | str,
+        target_text_list: List[str] | str,
         maybe_add_whitespace=True,
         target_window: List[int] = None,
     ) -> Tuple[List[int], int]:
-        # returns the all tokens and length of input tokens for rm vllm.
-        if len(input_text) == 0:
-            input_tokens = []
-        else:
+        # this function returns the all tokens (input & target tokens) and length of input tokens for rm vllm.
+
+        if isinstance(input_text_list, str):
+            input_text_list = [input_text_list]
+        if isinstance(target_text_list, str):
+            target_text_list = [target_text_list]
+
+        # input tokens
+        input_tokens_list = [
+            [] if input_text == "" else self._tokenize(input_text)
+            for input_text in input_text_list
+        ]
+        # target tokens
+        target_tokens_list = [
+            self._tokenize(target_text, max_length=target_window)
+            for target_text in target_text_list
+        ]
+
+        assert (
+            len(input_tokens_list) == 1
+            or len(target_tokens_list) == 1
+            or len(input_tokens_list) == len(target_tokens_list)
+        )
+        len_expanded = max(len(input_tokens_list), len(target_tokens_list))
+        # expand
+        if len(input_tokens_list) == 1:
+            input_tokens_list = input_tokens_list * len_expanded
+        if len(target_tokens_list) == 1:
+            target_tokens_list = target_tokens_list * len_expanded
+        if len(input_text_list) == 1:
+            input_text_list = input_text_list * len_expanded
+        if len(target_text_list) == 1:
+            target_text_list = target_text_list * len_expanded
+
+        results = []
+        for input_text, target_text, input_tokens, target_tokens in zip(
+            input_text_list, target_text_list, input_tokens_list, target_tokens_list
+        ):
             if (
                 maybe_add_whitespace
                 and (not input_text[-1].isspace())
                 and (not target_text[0].isspace())
             ):
-                input_text += " "
-            input_tokens = self.tokenizer.encode(input_text, add_special_tokens=False)
-
-        target_tokens = self.tokenizer.encode(target_text, add_special_tokens=False)
-        if target_window is not None:
-            target_tokens = target_tokens[:target_window]
-        return input_tokens + target_tokens, len(input_tokens)
+                input_tokens = input_tokens + self._tokenize(" ")
+            results.append((input_tokens + target_tokens, len(input_tokens)))
+        return results
 
     def _pref_wrapped_reason_to_suf_for_rm(
         self, inputs: Dict[str, str]
     ) -> List[Tuple[List[int], int]]:
         # text of "prefix <think> reason </think> suffix" for rm(suffix | prefix <think> reason </think>)
-        return [
-            self._get_rm_vllm_inputs(
-                inputs["prefix_w_think_tag"] + reason + inputs["think_end_tag"],
-                inputs["suffix"],
-                target_window=self.completion_window,
-            )
-            for reason in inputs["think_texts"]
-        ]
+        return self._get_rm_vllm_inputs(
+            [
+                inputs["prefix_w_think_tag"] + reason + inputs["think_end_tag"]
+                for reason in inputs["think_texts"]
+            ],
+            inputs["suffix"],
+            target_window=self.completion_window,
+        )
+
+    def _pref_reason_to_suf_for_rm(
+        self, inputs: Dict[str, str]
+    ) -> List[Tuple[List[int], int]]:
+        # text of "prefix reason suffix" for rm(suffix | prefix reason)
+        prefix = self._get_raw_prefix(
+            inputs["prefix_w_think_tag"], inputs["think_start_tag"]
+        )
+        return self._get_rm_vllm_inputs(
+            [
+                self._concat_w_maybe_ws(prefix, reason)
+                for reason in inputs["think_texts"]
+            ],
+            inputs["suffix"],
+            target_window=self.completion_window,
+        )
 
     def _get_dummy_prefix_w_think_tag(self) -> str:
         return self._dummy_prefix_w_think_tag
@@ -1129,70 +1189,71 @@ class PplDerivedVerifier(VLLMOutputReward):
             and inputs["suffix"] != dummy_suffix
         )
 
-        return [
-            self._get_rm_vllm_inputs(
-                dummy_prefix_w_think_tag + reason + inputs["think_end_tag"],
-                dummy_suffix,
-                target_window=self.completion_window,
-            )
-            for reason in inputs["think_texts"]
-        ]
+        return self._get_rm_vllm_inputs(
+            [
+                dummy_prefix_w_think_tag + reason + inputs["think_end_tag"]
+                for reason in inputs["think_texts"]
+            ],
+            dummy_suffix,
+            target_window=self.completion_window,
+        )
+
+    def _get_raw_prefix(self, prefix_w_think_tag, think_start_tag):
+        prefix = prefix_w_think_tag.removesuffix(think_start_tag)
+        assert len(prefix) > 0, "empty prefix!"
+        # remove upto 1 whitespace (to better the original text native whitespace.)
+        if prefix[-1].isspace():
+            prefix = prefix[:-1]
+        return prefix
 
     def _pref_to_suf_for_rm(
         self, inputs: Dict[str, str]
     ) -> List[Tuple[List[int], int]]:
         # text of "prefix suffix" for rm(suffix | prefix)
 
-        prefix = inputs["prefix_w_think_tag"].removesuffix(inputs["think_start_tag"])
-        assert len(prefix) > 0, "empty prefix!"
-        # remove upto 1 whitespace (to better the original text native whitespace.)
-        if prefix[-1].isspace():
-            prefix = prefix[:-1]
+        prefix = self._get_raw_prefix(
+            inputs["prefix_w_think_tag"], inputs["think_start_tag"]
+        )
 
-        return [
-            self._get_rm_vllm_inputs(
-                prefix, inputs["suffix"], target_window=self.completion_window
-            )
-        ]  # this is not reasoning dependent so only compute once.
+        return self._get_rm_vllm_inputs(
+            prefix, inputs["suffix"], target_window=self.completion_window
+        )  # this is not reasoning dependent so only compute once.
 
     def _pref_to_wrapped_reason_for_rm(
         self, inputs: Dict[str, str]
     ) -> List[Tuple[List[int], int]]:
         # text of "prefix <think> reason </think>" for rm(<think> reason </think> | prefix)
         prefix = inputs["prefix_w_think_tag"].removesuffix(inputs["think_start_tag"])
-        return [
-            self._get_rm_vllm_inputs(
-                prefix,
-                inputs["think_start_tag"] + reason + inputs["think_end_tag"],
-                maybe_add_whitespace=False,
-            )
-            for reason in inputs["think_texts"]
-        ]
+        return self._get_rm_vllm_inputs(
+            prefix,
+            [
+                inputs["think_start_tag"] + reason + inputs["think_end_tag"]
+                for reason in inputs["think_texts"]
+            ],
+            maybe_add_whitespace=False,
+        )
 
     def _wrapped_reason_for_rm(
         self, inputs: Dict[str, str]
     ) -> List[Tuple[List[int], int]]:
-        return [
-            self._get_rm_vllm_inputs(
-                "",
-                inputs["think_start_tag"] + reason + inputs["think_end_tag"],
-                maybe_add_whitespace=False,
-            )
-            for reason in inputs["think_texts"]
-        ]
+        return self._get_rm_vllm_inputs(
+            "",
+            [
+                inputs["think_start_tag"] + reason + inputs["think_end_tag"]
+                for reason in inputs["think_texts"]
+            ],
+            maybe_add_whitespace=False,
+        )
 
     def _pref_soth_to_reason_eoth_for_rm(
         self, inputs: Dict[str, str]
     ) -> List[Tuple[List[int], int]]:
         # text: "prefix <think> reason </think>", for rm(reason </think> | prefix <think>)
-        return [
-            self._get_rm_vllm_inputs(
-                inputs["prefix_w_think_tag"],
-                reason + inputs["think_end_tag"],
-                maybe_add_whitespace=False,
-            )
-            for reason in inputs["think_texts"]
-        ]
+        return self._get_rm_vllm_inputs(
+            inputs["prefix_w_think_tag"],
+            [reason + inputs["think_end_tag"] for reason in inputs["think_texts"]],
+            maybe_add_whitespace=False,
+        )
 
     def _dummy_pref_soth_to_reason_eoth_for_rm(
         self, inputs: Dict[str, str]
@@ -1201,28 +1262,42 @@ class PplDerivedVerifier(VLLMOutputReward):
         dummy_prefix_w_think_tag: str = self._get_dummy_prefix_w_think_tag()
         log.debug(f"{dummy_prefix_w_think_tag=}")
         assert inputs["prefix_w_think_tag"] != dummy_prefix_w_think_tag
+        return self._get_rm_vllm_inputs(
+            dummy_prefix_w_think_tag,
+            [reason + inputs["think_end_tag"] for reason in inputs["think_texts"]],
+            maybe_add_whitespace=False,
+        )
 
-        return [
-            self._get_rm_vllm_inputs(
-                dummy_prefix_w_think_tag,
-                reason + inputs["think_end_tag"],
-                maybe_add_whitespace=False,
-            )
-            for reason in inputs["think_texts"]
-        ]
+    def _dummy_pref_to_reason_for_rm(
+        self, inputs: Dict[str, str]
+    ) -> List[Tuple[List[int], int]]:
+        # text: "dummy_prefix reason", for rm(reason | dummy_prefix)
+        dummy_prefix_w_think_tag: str = self._get_dummy_prefix_w_think_tag()
+        log.debug(f"{dummy_prefix_w_think_tag=}")
+        assert inputs["prefix_w_think_tag"] != dummy_prefix_w_think_tag
+        dummy_prefix = self._get_raw_prefix(
+            dummy_prefix_w_think_tag, inputs["think_start_tag"]
+        )
+        return self._get_rm_vllm_inputs(dummy_prefix, inputs["think_texts"])
+
+    def _pref_to_reason_for_rm(
+        self, inputs: Dict[str, str]
+    ) -> List[Tuple[List[int], int]]:
+        # text: "dummy_prefix reason", for rm(reason | dummy_prefix)
+        prefix = self._get_raw_prefix(
+            inputs["prefix_w_think_tag"], inputs["think_start_tag"]
+        )
+        return self._get_rm_vllm_inputs(prefix, inputs["think_texts"])
 
     def _soth_to_reason_eoth_for_rm(
         self, inputs: Dict[str, str]
     ) -> List[Tuple[List[int], int]]:
         # text: "<think> reason </think>", for rm(reason </think> | <think>)
-        return [
-            self._get_rm_vllm_inputs(
-                inputs["think_start_tag"],
-                reason + inputs["think_end_tag"],
-                maybe_add_whitespace=False,
-            )
-            for reason in inputs["think_texts"]
-        ]
+        return self._get_rm_vllm_inputs(
+            inputs["think_start_tag"],
+            [reason + inputs["think_end_tag"] for reason in inputs["think_texts"]],
+            maybe_add_whitespace=False,
+        )
 
     def _cap_pref_0p01_weight_0p05_1(self, pref_r, suffix_r):
         return min(0.01, pref_r) * 0.05 + suffix_r
@@ -1235,6 +1310,9 @@ class PplDerivedVerifier(VLLMOutputReward):
 
     def _cap_pref_0p05_weight_0p02_1(self, pref_r, suffix_r):
         return min(0.05, pref_r) * 0.02 + suffix_r
+
+    def _cap_pref_0p08_weight_0p1_1(self, pref_r, suffix_r):
+        return min(0.08, pref_r) * 0.1 + suffix_r
 
     def _weight_0p05_1(self, pref_r, suffix_r):
         return pref_r * 0.05 + suffix_r
