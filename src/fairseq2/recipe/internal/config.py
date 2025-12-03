@@ -13,11 +13,7 @@ from typing import TypeVar, final, get_type_hints
 from typing_extensions import override
 
 from fairseq2.recipe.component import ComponentManager
-from fairseq2.recipe.config import (
-    ConfigSectionNotFoundError,
-    ModelSection,
-    SupportsStructure,
-)
+from fairseq2.recipe.config import ModelSection, SupportsStructure
 from fairseq2.runtime.dependency import DependencyResolver
 from fairseq2.typing import is_dataclass_instance
 from fairseq2.utils.structured import StructureError, ValueConverter
@@ -50,11 +46,11 @@ def _get_config_section(
     try:
         section = getattr(config_holder.config, name)
     except AttributeError:
-        raise ConfigSectionNotFoundError(name) from None
+        raise LookupError() from None
 
     if not isinstance(section, kls):
         raise TypeError(
-            f"{name} recipe configuration section must be of type `{kls}`, but is of type `{type(section)}` instead."
+            f"`{name}` recipe configuration section must be of type `{kls}`, but is of type `{type(section)}` instead."
         )
 
     return section

@@ -29,3 +29,14 @@ class DataClass(Protocol):
 def is_dataclass_instance(obj: object) -> TypeGuard[DataClass]:
     """Return ``True`` if ``obj`` is of type :class:`DataClass`."""
     return is_dataclass(obj) and not isinstance(obj, type)
+
+
+def get_full_type_name(obj: object) -> str:
+    kls = obj if isinstance(obj, type) else type(obj)
+
+    mod = kls.__module__
+
+    if mod == "builtins" or mod == "__main__":
+        return kls.__qualname__
+
+    return f"{mod}.{kls.__qualname__}"

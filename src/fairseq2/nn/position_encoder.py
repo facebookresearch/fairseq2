@@ -85,7 +85,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
         :param max_seq_len: The maximum allowed length for input sequences.
             Sequences longer than ``max_seq_len`` will cause a :class:`ValueError`.
 
-        :raise ValueError: when ``encoding_dim`` is not even.
+        :raises ValueError: when ``encoding_dim`` is not even.
         """
         super().__init__(encoding_dim)
 
@@ -149,7 +149,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
 
         if max_seq_len > self.max_seq_len:
             raise ValueError(
-                f"The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence is of length {max_seq_len} instead."
+                f"Lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence is of length {max_seq_len} instead."
             )
 
         if seqs_layout.packed or seqs_layout.padded:
@@ -268,7 +268,7 @@ class LearnedPositionEncoder(PositionEncoder):
 
         if max_seq_len > self.max_seq_len:
             raise ValueError(
-                f"The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence is of length {max_seq_len} instead."
+                f"Lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence is of length {max_seq_len} instead."
             )
 
         indices = seqs_layout.position_indices + 1  # +1 for padding
@@ -320,7 +320,7 @@ class RotaryEncoder(PositionEncoder):
             the frequency table. If ``None``, the frequencies will be initialized
             as described in the reference paper.
 
-        :raise ValueError: when ``encoding_dim`` is not even.
+        :raises ValueError: when ``encoding_dim`` is not even.
         """
         super().__init__(encoding_dim)
 
@@ -391,7 +391,7 @@ class RotaryEncoder(PositionEncoder):
 
         if max_seq_len > self.max_seq_len:
             raise ValueError(
-                f"The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence is of length {max_seq_len} instead."
+                f"Lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence is of length {max_seq_len} instead."
             )
 
         complex_freqs = torch.view_as_complex(self.freqs)
@@ -475,7 +475,7 @@ class ReferenceRotaryEncoder(PositionEncoder):
         :param theta: The coefficient of the long-term decay as described in
             section 3.3 of the reference paper.
 
-        :raise ValueError: when ``encoding_dim`` is not even.
+        :raises ValueError: when ``encoding_dim`` is not even.
         """
         super().__init__(encoding_dim)
 
@@ -558,7 +558,7 @@ class ReferenceRotaryEncoder(PositionEncoder):
 
         if max_seq_len > self.max_seq_len:
             raise ValueError(
-                f"The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence is of length {max_seq_len} instead."
+                f"Lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence is of length {max_seq_len} instead."
             )
 
         if seqs_layout.packed or seqs_layout.padded:

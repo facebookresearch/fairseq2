@@ -44,10 +44,10 @@ def register_dataset_family(
     if advanced_opener is not None:
         if opener is not None:
             raise ValueError(
-                "`opener` and `advanced_opener` must not be specified at the same time."
+                "`opener` and `advanced_opener` must not be provided at the same time."
             )
     elif opener is None:
-        raise ValueError("`opener` or `advanced_opener` must be specified.")
+        raise ValueError("`opener` or `advanced_opener` must be provided.")
 
     def create_family(resolver: DependencyResolver) -> DatasetFamily:
         nonlocal opener

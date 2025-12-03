@@ -15,32 +15,33 @@ from fairseq2.checkpoint.hg import HuggingFaceExportOptions as HuggingFaceExport
 from fairseq2.checkpoint.hg import (
     OutOfProcHuggingFaceExporter as OutOfProcHuggingFaceExporter,
 )
+from fairseq2.checkpoint.manager import BadCheckpointError as BadCheckpointError
+from fairseq2.checkpoint.manager import (
+    BadCheckpointScoreError as BadCheckpointScoreError,
+)
+from fairseq2.checkpoint.manager import CheckpointCallback as CheckpointCallback
+from fairseq2.checkpoint.manager import CheckpointCallbackArgs as CheckpointCallbackArgs
 from fairseq2.checkpoint.manager import CheckpointError as CheckpointError
 from fairseq2.checkpoint.manager import CheckpointManager as CheckpointManager
 from fairseq2.checkpoint.manager import (
     CheckpointNotFoundError as CheckpointNotFoundError,
 )
-from fairseq2.checkpoint.manager import (
-    CheckpointReadyCallback as CheckpointReadyCallback,
-)
-from fairseq2.checkpoint.manager import (
-    CheckpointSavedCallback as CheckpointSavedCallback,
-)
+from fairseq2.checkpoint.manager import CheckpointSaveOptions as CheckpointSaveOptions
 from fairseq2.checkpoint.manager import (
     StandardCheckpointManager as StandardCheckpointManager,
 )
 from fairseq2.checkpoint.model_metadata import (
-    ModelMetadataDumper as ModelMetadataDumper,
+    _ModelMetadataDumper as _ModelMetadataDumper,
 )
 from fairseq2.checkpoint.model_metadata import (
-    ModelMetadataLoader as ModelMetadataLoader,
+    _ModelMetadataLoader as _ModelMetadataLoader,
 )
 from fairseq2.checkpoint.model_metadata import (
-    ModelMetadataSource as ModelMetadataSource,
+    _ModelMetadataSource as _ModelMetadataSource,
 )
 from fairseq2.checkpoint.model_metadata import (
-    StandardModelMetadataDumper as StandardModelMetadataDumper,
+    _StandardModelMetadataDumper as _StandardModelMetadataDumper,
 )
 from fairseq2.checkpoint.model_metadata import (
-    StandardModelMetadataLoader as StandardModelMetadataLoader,
+    _StandardModelMetadataLoader as _StandardModelMetadataLoader,
 )

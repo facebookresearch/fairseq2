@@ -15,18 +15,16 @@ from torch import Generator, Tensor
 from typing_extensions import override
 
 from fairseq2.device import Device
-from fairseq2.error import StateDictError
+from fairseq2.error import CorruptDataError
 from fairseq2.typing import Stateful
 
 
 def use_deterministic(value: bool, warn_only: bool = False) -> None:
-    """Set whether PyTorch algorithms must use deterministic algorithms.
+    """
+    Sets whether PyTorch algorithms must use deterministic algorithms.
 
-    :param value:
-        If ``True``, uses deterministic algorithms.
-    :param warn_only:
-        If ``True``, operations that do not have a deterministic implementation
-        will raise a warning instead of an error.
+    If ``warn_only`` is ``True``, operations that do not have a deterministic
+    implementation will raise a warning instead of an error.
     """
     torch.backends.cudnn.benchmark = not value
 
@@ -38,15 +36,14 @@ class RngBag(Stateful):
     """Holds a collection of random number generators."""
 
     def __init__(self, *generators: Generator) -> None:
-        """
-        :param generators:
-            The generators to hold.
-        """
         self._generators = list(generators)
 
     @staticmethod
     def from_device_defaults(*devices: Device) -> RngBag:
-        """Make an :class:`RngBag` from the random number generators of ``devices``."""
+        """
+        Creates an :class:`RngBag` instance from the default random number
+        generators of the specified devices.
+        """
         unique_devices = set()
 
         generators = []
@@ -76,7 +73,7 @@ class RngBag(Stateful):
         return RngBag(*generators)
 
     def seed(self) -> None:
-        """Set the seed of the random number generators to a random number."""
+        """Sets the seed of the random number generators to a random number."""
         if not self._generators:
             return
 
@@ -88,7 +85,7 @@ class RngBag(Stateful):
             g.manual_seed(random_seed)
 
     def manual_seed(self, seed: int) -> None:
-        """Set the seed of the random number generators."""
+        """Sets the seed of the random number generators to the specified value."""
         if seed < 0 or seed >= 1 << 32:
             raise ValueError(
                 f"`seed` must be greater than or equal to 0 and less than 2^32, but is {seed} instead."
@@ -99,7 +96,10 @@ class RngBag(Stateful):
 
     @contextmanager
     def temporary_manual_seed(self, seed: int) -> Iterator[None]:
-        """Temporarily change the seed of the random number generators."""
+        """
+        Temporarily changes the seed of the random number generators to the
+        specified value.
+        """
         original_states = [g.get_state() for g in self._generators]
 
         self.manual_seed(seed)
@@ -119,28 +119,28 @@ class RngBag(Stateful):
         state_dict = dict(state_dict)
 
         try:
-            gen_state_dicts = state_dict.pop("generators")
+            gen_tensors = state_dict.pop("generators")
         except KeyError:
-            raise StateDictError(
-                "`state_dict` is expected to contain a key named 'generators'."
+            raise CorruptDataError(
+                "`state_dict` does not contain a key named 'generators'."
             ) from None
 
-        if not isinstance(gen_state_dicts, list):
-            raise StateDictError(
-                f"`state_dict['generators']` is expected to be of type `{list}`, but is of type `{type(gen_state_dicts)}` instead."
+        if not isinstance(gen_tensors, list):
+            raise CorruptDataError(
+                f"`state_dict['generators']` is expected to be of type `{list}`, but is of type `{type(gen_tensors)}` instead."
             )
 
-        if len(gen_state_dicts) != len(self._generators):
-            raise StateDictError(
-                f"Number of generators in `state_dict['generators']` is expected to match the number of generators in the bag ({len(self._generators)}), but is {len(gen_state_dicts)} instead."
+        if len(gen_tensors) != len(self._generators):
+            raise CorruptDataError(
+                f"Number of generators in `state_dict['generators']` is expected to match the number of generators in the bag ({len(self._generators)}), but is {len(gen_tensors)} instead."
             )
 
-        for idx, gen_state_dict in enumerate(gen_state_dicts):
-            if not isinstance(gen_state_dict, Tensor):
-                raise StateDictError(
-                    f"Generator states in `state_dict['generators']` are expected to be of type `{Tensor}`, but the state at index {idx} is of type `{type(gen_state_dict)}` instead."
+        for idx, gen_tensor in enumerate(gen_tensors):
+            if not isinstance(tensor, Tensor):
+                raise CorruptDataError(
+                    f"Generator states in `state_dict['generators']` are expected to be of type `{Tensor}`, but the state at index {idx} is of type `{type(gen_tensor)}` instead."
                 )
 
-            self._generators[idx].set_state(gen_state_dict.clone())
+            self._generators[idx].set_state(gen_tensor.clone())
 
-        StateDictError.raise_if_not_empty(state_dict)
+        CorruptDataError.raise_if_state_dict_not_empty(state_dict)

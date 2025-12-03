@@ -33,7 +33,7 @@ class MetricBag(Stateful):
 
     def add(self, name: str, metric: Metric[Any]) -> None:
         if name in self._metrics:
-            raise ValueError(f"A metric named {name} is already registered.")
+            raise ValueError(f"a metric named '{name}' is already registered")
 
         self._metrics[name] = metric.to(self._device)
 
@@ -44,7 +44,7 @@ class MetricBag(Stateful):
 
         if not isinstance(metric, kls):
             raise TypeError(
-                f"{name} metric is expected to be of type `{kls}`, but is of type `{type(metric)}` instead."
+                f"metric '{name}' is expected to be of type `{kls}`, but is of type `{type(metric)}` instead"
             )
 
         return metric
@@ -62,19 +62,19 @@ class MetricBag(Stateful):
         try:
             self._original_metrics = deepcopy(self._metrics)
         except Exception as ex:
-            raise InternalError("Metrics in the bag cannot be copied.") from ex
+            raise InternalError("failed to deepcopy metrics") from ex
 
     def commit_updates(self) -> None:
         """Commits pending metric updates."""
         if self._original_metrics is None:
-            raise InvalidOperationError("`begin_updates()` must be called first.")
+            raise InvalidOperationError("`begin_updates()` must be called first")
 
         self._original_metrics = None
 
     def rollback_updates(self) -> None:
         """Discards pending metric updates and rollback to the original state."""
         if self._original_metrics is None:
-            raise InvalidOperationError("`begin_updates()` must be called first.")
+            raise InvalidOperationError("`begin_updates()` must be called first")
 
         self._metrics, self._original_metrics = self._original_metrics, None
 
@@ -101,20 +101,20 @@ class MetricBag(Stateful):
                 metric_state_dict = state_dict.pop(name)
             except KeyError:
                 raise StateDictError(
-                    f"`state_dict` is expected to contain a key named '{name}'."
-                )
+                    f"`state_dict` does not contain a key named '{name}'"
+                ) from None
 
             if not isinstance(metric_state_dict, dict):
+                from fairseq2.typing import get_full_type_name as n
+
                 raise StateDictError(
-                    f"`state_dict['{name}']` is expected to be of type `{dict}`, but is of type `{type(metric_state_dict)}` instead."
+                    f"`state_dict['{name}']` is expected to be of type `dict`, but is of type `{n(metric_state_dict)}` instead"
                 )
 
             try:
                 metric.load_state_dict(metric_state_dict)
             except (RuntimeError, ValueError, TypeError, StateDictError) as ex:
-                raise StateDictError(
-                    f"`state_dict['{name}']` does not represent a valid `{type(metric)}` state."
-                ) from ex
+                raise StateDictError(f"`state_dict['{name}']` is erroneous") from ex
 
             metric.to(self._device)
 
@@ -128,7 +128,7 @@ class MetricBag(Stateful):
 def sync_and_compute_metrics(bag: MetricBag, gang: Gang) -> dict[str, object] | None:
     """Sync the metrics across all processes and and compute their values."""
     if gang.device != bag.device:
-        raise ValueError("`bag.device` and `gang.device` must be same.")
+        raise ValueError("`bag.device` and `gang.device` must be same")
 
     if gang.size == 1:
         metric_values = {name: m.compute() for name, m in bag.metrics.items()}
@@ -140,6 +140,6 @@ def sync_and_compute_metrics(bag: MetricBag, gang: Gang) -> dict[str, object] | 
                 metrics, gang.as_process_group()
             )
         except RuntimeError as ex:
-            raise GangError("Metric value synchronization failed.") from ex
+            raise GangError("an error occurred while syncing metric values") from ex
 
     return metric_values

@@ -45,7 +45,11 @@ class DataReader(ABC, Iterator[list[BatchT_co]], Stateful):
     def __iter__(self) -> Self: ...
 
     @abstractmethod
-    def __next__(self) -> list[BatchT_co]: ...
+    def __next__(self) -> list[BatchT_co]:
+        """
+        :raises DataReadError:
+        :raises GangError:
+        """
 
     @abstractmethod
     def reset(self) -> None:
@@ -86,11 +90,11 @@ class DataPipelineReader(DataReader[BatchT]):
         strict_state: bool = True,
     ) -> None:
         """
-        :param pipeline: The data pipeline to iterate over.
-        :param gang: The gang over which the underlying dataset is sharded.
-        :param strict_state: If ``True``, the entire state of the data pipeline
-            including shuffling and bucketing buffers will be included in the
-            state dictionary.
+        ``gang`` specifies the gang over which the underlying dataset is sharded.
+
+        If ``strict_state`` is ``True``, the entire state of the data pipeline
+        including shuffling and bucketing buffers will be included in the
+        state dictionary.
         """
         self._pipeline = pipeline
         self._pipeline_iter = iter(pipeline)
@@ -113,13 +117,13 @@ class DataPipelineReader(DataReader[BatchT]):
 
         batches = []
 
-        for idx in range(self._num_accumulate):
+        for nr in range(self._num_accumulate):
             try:
                 batch = next(self._pipeline_iter)
             except StopIteration:
                 break
             except DataPipelineError as ex:
-                raise DataReadError("Data pipeline failed to read next batch.") from ex
+                raise DataReadError(f"Failed to read batch {nr}.") from ex
 
             batches.append(batch)
 

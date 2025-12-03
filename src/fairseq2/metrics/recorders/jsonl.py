@@ -16,7 +16,7 @@ from typing import Final, TextIO, final
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.error import raise_operational_system_error
+from fairseq2.error import InternalError
 from fairseq2.file_system import FileMode, FileSystem
 from fairseq2.metrics.recorders.descriptor import (
     MetricDescriptor,
@@ -37,22 +37,18 @@ class JsonlMetricRecorder(MetricRecorder):
         file_system: FileSystem,
         metric_descriptors: MetricDescriptorRegistry,
     ) -> None:
-        """
-        :param output_dir: The base directory under which to store the metric
-            files.
-        """
         metrics_dir = output_dir.joinpath("metrics")
 
         self._output_dir = metrics_dir
         self._file_system = file_system
         self._metric_descriptors = metric_descriptors
-        self._streams: dict[str, TextIO] = {}
+        self._streams: dict[str, tuple[Path, TextIO]] = {}
 
     @override
     def record_metric_values(
         self, category: str, values: Mapping[str, object], step_nr: int | None = None
     ) -> None:
-        stream = self._get_stream(category)
+        file, stream = self._get_stream(category)
 
         values_and_descriptors = []
 
@@ -82,7 +78,7 @@ class JsonlMetricRecorder(MetricRecorder):
                 return [sanitize(e) for e in value]
 
             raise ValueError(
-                f"`values` must consist of objects of types `{int}`, `{float}`, `{Tensor}`, and `{str}` only."
+                "`values` must consist of objects of types `int`, `float`, `Tensor`, and `str` only"
             )
 
         output: dict[str, object] = {"Time": datetime.utcnow().isoformat()}
@@ -99,20 +95,26 @@ class JsonlMetricRecorder(MetricRecorder):
             stream.write("\n")
 
             stream.flush()
+        except (RuntimeError, ValueError, TypeError) as ex:
+            raise InternalError(
+                f"an unexpected error occurred while serializing metric values of category '{category}' to JSON"
+            ) from ex
         except OSError as ex:
-            raise_operational_system_error(ex)
+            raise OSError(
+                f"an I/O error occurred while writing metric values of category '{category}' to JSONL file '{file}'"
+            ) from ex
 
-    def _get_stream(self, category: str) -> TextIO:
+    def _get_stream(self, category: str) -> tuple[Path, TextIO]:
         category = category.strip()
 
-        fp = self._streams.get(category)
-        if fp is not None:
-            return fp
+        pair = self._streams.get(category)
+        if pair is not None:
+            return pair
 
         for part in category.split("/"):
             if re.match(self._CATEGORY_PART_REGEX, part) is None:
                 raise ValueError(
-                    f"`category` must contain only alphanumeric characters, dash, underscore, and forward slash, but is '{category}' instead."
+                    f"`category` must contain only alphanumeric characters, dash, underscore, and forward slash, but is '{category}' instead"
                 )
 
         file = self._output_dir.joinpath(category).with_suffix(".jsonl")
@@ -120,20 +122,24 @@ class JsonlMetricRecorder(MetricRecorder):
         try:
             self._file_system.make_directory(file.parent)
         except OSError as ex:
-            raise_operational_system_error(ex)
+            raise OSError(
+                f"an I/O error occurred while creating metric directory '{file.parent}' for category '{category}'"
+            ) from ex
 
         try:
             fp = self._file_system.open_text(file, mode=FileMode.APPEND)
         except OSError as ex:
-            raise_operational_system_error(ex)
+            raise OSError(
+                f"an I/O error occurred while opening JSONL file '{file}' to save metric values of category '{category}'"
+            ) from ex
 
-        self._streams[category] = fp
+        self._streams[category] = (file, fp)
 
-        return fp
+        return file, fp
 
     @override
     def close(self) -> None:
-        for stream in self._streams.values():
+        for _, stream in self._streams.values():
             stream.close()
 
         self._streams.clear()

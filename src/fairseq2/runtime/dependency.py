@@ -15,6 +15,7 @@ from types import NoneType, UnionType
 from typing import (
     Any,
     Final,
+    NoReturn,
     Protocol,
     TypeVar,
     Union,
@@ -60,8 +61,8 @@ class DependencyCollectionResolver(ABC):
 
 
 class DependencyNotFoundError(Exception):
-    def __init__(self, kls: type[object], key: Hashable | None, msg: str) -> None:
-        super().__init__(msg)
+    def __init__(self, kls: type[object], key: Hashable | None, message: str) -> None:
+        super().__init__(message)
 
         self.kls = kls
         self.key = key
@@ -69,14 +70,23 @@ class DependencyNotFoundError(Exception):
 
 class DependencyCycleError(Exception):
     def __init__(self, cycle: Sequence[tuple[type, Hashable | None]]) -> None:
-        super().__init__("Dependency cycle detected.")
-
         self.cycle = cycle
 
     def __str__(self) -> str:
-        s = " -> ".join(str(t) if k is None else f"{t} ({k})" for t, k in self.cycle)
+        from fairseq2.typing import get_full_type_name as n
 
-        return f"Dependency cycle detected. {s}"
+        s = " -> ".join(n(t) if k is None else f"{n(t)} ({k})" for t, k in self.cycle)
+
+        return f"dependency cycle detected: {s}"
+
+
+def activate_dependency(
+    resolver: DependencyResolver, kls: type[object], *, key: Hashable | None = None
+) -> None:
+    """
+    Instantiates a singleton dependency eagerly instead of first time it is used.
+    """
+    _ = resolver.resolve(kls, key=key)
 
 
 T_co = TypeVar("T_co", covariant=True)
@@ -115,8 +125,10 @@ class DependencyContainer(DependencyResolver):
         if sub_kls is None:
             sub_kls = kls
         elif not issubclass(sub_kls, kls):
+            from fairseq2.typing import get_full_type_name as n
+
             raise ValueError(
-                f"`sub_kls` must be a subclass of `kls`, but `{sub_kls}` is not a subclass of `{kls}`."
+                f"`sub_kls` must be a subclass of `kls`, but `{n(sub_kls)}` is not a subclass of `{n(kls)}`."
             )
 
         def create_instance(resolver: DependencyResolver) -> T:
@@ -139,13 +151,20 @@ class DependencyContainer(DependencyResolver):
     ) -> None:
         if self._frozen:
             raise InvalidOperationError(
-                "No new objects can be registered after the first `resolve()` call."
+                "no new objects can be registered after the first `resolve()` call"
             )
 
         full_key = (kls, key)
 
         if full_key in self._registrations:
-            raise InvalidOperationError(f"`{kls}` has already a registered provider.")
+            from fairseq2.typing import get_full_type_name as n
+
+            if key is None:
+                message = f"type `{n(kls)}` has already a registered provider"
+            else:
+                message = f"type `{n(kls)}` with key '{key}' has already a registered provider"
+
+            raise InvalidOperationError(message)
 
         self._registrations[full_key] = registration
 
@@ -159,21 +178,25 @@ class DependencyContainer(DependencyResolver):
 
         registration = self._registrations.get(full_key)
         if registration is None:
-            if key is None:
-                msg = f"No registered provider found for `{kls}`."
-            else:
-                msg = f"No registered provider found for `{kls}` with key {key}. "
+            from fairseq2.typing import get_full_type_name as n
 
-            raise DependencyNotFoundError(kls, key, msg)
+            if key is None:
+                message = f"no registered provider found for type `{n(kls)}`"
+            else:
+                message = f"no registered provider found for type `{n(kls)}` with key '{key}' "
+
+            raise DependencyNotFoundError(kls, key, message)
 
         obj = registration.get_instance(kls, self)
         if obj is None:
-            if key is None:
-                msg = f"Registered provider for `{kls}` returned `None`."
-            else:
-                msg = f"Registered provider for `{kls}` with key {key} returned `None`."
+            from fairseq2.typing import get_full_type_name as n
 
-            raise DependencyNotFoundError(kls, key, msg)
+            if key is None:
+                message = f"registered provider for type `{n(kls)}` returned `None`"
+            else:
+                message = f"registered provider for type `{n(kls)}` with key '{key}' returned `None`"
+
+            raise DependencyNotFoundError(kls, key, message)
 
         return obj
 
@@ -229,8 +252,10 @@ class DependencyCollectionContainer(DependencyCollectionResolver):
         if sub_kls is None:
             sub_kls = kls
         elif not issubclass(sub_kls, kls):
+            from fairseq2.typing import get_full_type_name as n
+
             raise ValueError(
-                f"`sub_kls` must be a subclass of `kls`, but `{sub_kls}` is not a subclass of `{kls}`."
+                f"`sub_kls` must be a subclass of `kls`, but `{n(sub_kls)}` is not a subclass of `{n(kls)}`"
             )
 
         def create_instance(resolver: DependencyResolver) -> T:
@@ -253,7 +278,7 @@ class DependencyCollectionContainer(DependencyCollectionResolver):
     ) -> None:
         if self._container._frozen:
             raise InvalidOperationError(
-                "No new objects can be registered after the first `resolve()` call."
+                "no new objects can be registered after the first `resolve()` call"
             )
 
         full_key = (kls, key)
@@ -345,8 +370,10 @@ class _DependencyRegistration:
             obj = self.obj
 
         if obj is not None and not isinstance(obj, kls):
+            from fairseq2.typing import get_full_type_name as n
+
             raise InternalError(
-                f"Object is expected to be of type `{kls}`, but is of type `{type(obj)}` instead."
+                f"resolved object must be of type `{n(kls)}`, but is of type `{n(obj)}` instead"
             )
 
         return obj
@@ -382,7 +409,7 @@ def get_dependency_resolver() -> DependencyResolver:
         init_fairseq2()
 
     if _resolver is None:
-        raise InternalError("`_resolver` is `None`.")
+        raise InternalError("`_resolver` is `None`")
 
     return _resolver
 
@@ -394,33 +421,30 @@ def wire_object(resolver: DependencyResolver, wire_kls: type[T], /, **kwargs: An
 
 
 class AutoWireError(Exception):
-    def __init__(self, kls: type[object], reason: str) -> None:
-        super().__init__(f"`{kls}` cannot be auto-wired. {reason}")
-
-        self.kls = kls
-        self.reason = reason
+    pass
 
 
 def _create_wired_instance(
     kls: type[object], resolver: DependencyResolver, custom_kwargs: dict[str, object]
 ) -> object:
-    def wire_error(reason: str) -> Exception:
-        return AutoWireError(kls, reason)
+    from fairseq2.typing import get_full_type_name as n
 
     init_method = getattr(kls, "__init__", None)
     if init_method is None:
-        raise wire_error("Must have an `__init__()` for auto-wiring.")
+        raise AutoWireError(f"`{n(kls)}` does not have an `__init__()` method")
 
     try:
         sig = signature(init_method)
     except (TypeError, ValueError) as ex:
-        raise wire_error("Signature of `__init__()` cannot be inspected.") from ex
+        raise AutoWireError(
+            f"signature of `{n(kls)}.__init__()` cannot be inspected"
+        ) from ex
 
     try:
         type_hints = get_type_hints(init_method)
     except (TypeError, ValueError, NameError) as ex:
-        raise wire_error(
-            "Type annotations of `__init__()` cannot be inspected."
+        raise AutoWireError(
+            f"type annotations of `{n(kls)}.__init__()` cannot be inspected"
         ) from ex
 
     kwargs: dict[str, object] = {}
@@ -430,7 +454,9 @@ def _create_wired_instance(
             continue
 
         if param.kind == Parameter.POSITIONAL_ONLY:
-            raise wire_error("`__init__()` has one or more positional-only parameters.")
+            raise AutoWireError(
+                f"`{n(kls)}` has one or more positional-only parameters"
+            )
 
         if param.kind in (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD):
             continue
@@ -438,9 +464,9 @@ def _create_wired_instance(
         try:
             param_type = type_hints[param_name]
         except KeyError:
-            raise wire_error(
-                f"`{param_name}` parameter has no type annotation."
-            ) from None
+            raise AutoWireError(
+                f"parameter `{param_name}` of `{n(kls)}` does not have a type annotation"
+            )
 
         arg: Any
 
@@ -451,16 +477,16 @@ def _create_wired_instance(
 
         if arg is _NOT_SET:
 
-            def non_type_param_error() -> Exception:
-                return wire_error(
-                    f"Type annotation of the `{param_name}` parameter does not represent a `type`."
+            def raise_non_type_param_error() -> NoReturn:
+                raise AutoWireError(
+                    f"type annotation of parameter `{param_name}` of `{n(kls)}` is not a type"
                 )
 
             def get_element_kls() -> type | None:
                 param_type_args = get_args(param_type)
                 if len(param_type_args) != 1:
-                    raise wire_error(
-                        f"Type annotation of the `{param_name}` parameter has no valid element type expression."
+                    raise AutoWireError(
+                        f"type annotation of parameter `{param_name}` of `{n(kls)}` does not have a valid element type expression"
                     )
 
                 element_kls = param_type_args[0]
@@ -468,8 +494,8 @@ def _create_wired_instance(
                     if param.default != Parameter.empty:
                         return None
 
-                    raise wire_error(
-                        f"Element type expression of the `{param_name}` parameter does not represent a `type`."
+                    raise AutoWireError(
+                        f"element type expression of parameter `{param_name}` of `{n(kls)}` is not a type"
                     )
 
                 return element_kls
@@ -477,16 +503,16 @@ def _create_wired_instance(
             def get_return_kls() -> type | None:
                 param_type_args = get_args(param_type)
                 if len(param_type_args) != 2:
-                    raise wire_error(
-                        f"Type annotation of the `{param_name}` parameter has no valid signature expression."
+                    raise AutoWireError(
+                        f"type annotation of parameter `{param_name}` of `{n(kls)}` does not have a valid signature expression"
                     )
 
                 if len(param_type_args[0]) > 0:
                     if param.default != Parameter.empty:
                         return None
 
-                    raise wire_error(
-                        f"Type annotation of the `{param_name}` parameter has one or more parameter type expressions."
+                    raise AutoWireError(
+                        f"type annotation of parameter `{param_name}` of `{n(kls)}` has one or more parameter type expressions"
                     )
 
                 return_kls = param_type_args[1]
@@ -494,8 +520,8 @@ def _create_wired_instance(
                     if param.default != Parameter.empty:
                         return None
 
-                    raise wire_error(
-                        f"Return type expression of the `{param_name}` parameter does not represent a `type`."
+                    raise AutoWireError(
+                        f"return type expression of parameter `{param_name}` of `{n(kls)}` is not a type"
                     )
 
                 return return_kls
@@ -503,7 +529,7 @@ def _create_wired_instance(
             def get_optional_kls() -> type | None:
                 param_type_args = get_args(param_type)
                 if len(param_type_args) != 2:
-                    raise non_type_param_error()
+                    raise_non_type_param_error()
 
                 if param_type_args[0] is NoneType:
                     element_kls = param_type_args[1]
@@ -513,13 +539,13 @@ def _create_wired_instance(
                     if param.default != Parameter.empty:
                         return None
 
-                    raise non_type_param_error()
+                    raise_non_type_param_error()
 
                 if not isinstance(element_kls, type):
                     if param.default != Parameter.empty:
                         return None
 
-                    raise non_type_param_error()
+                    raise_non_type_param_error()
 
                 return element_kls
 
@@ -528,7 +554,7 @@ def _create_wired_instance(
                     if param.default != Parameter.empty:
                         return None
 
-                    raise non_type_param_error()
+                    raise_non_type_param_error()
 
                 return param_type
 
@@ -590,8 +616,8 @@ def _create_wired_instance(
             kwargs[param_name] = arg
 
     if custom_kwargs:
-        raise wire_error(
-            f"`kwargs` has one or more extra arguments not used. Extra arguments: {custom_kwargs}"
+        raise AutoWireError(
+            f"`kwargs` has extra arguments not used in `{n(kls)}`: {custom_kwargs}"
         )
 
     return kls(**kwargs)

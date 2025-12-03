@@ -13,7 +13,7 @@ from torch import Tensor
 from typing_extensions import override
 from wandb import Run as WandbRun
 
-from fairseq2.error import OperationalError, raise_operational_system_error
+from fairseq2.error import InternalError
 from fairseq2.metrics.recorders.descriptor import MetricDescriptorRegistry
 from fairseq2.metrics.recorders.recorder import MetricRecorder
 
@@ -25,10 +25,6 @@ class WandbRecorder(MetricRecorder):
     def __init__(
         self, run: WandbRun, metric_descriptors: MetricDescriptorRegistry
     ) -> None:
-        """
-        In order to use W&B, run `wandb login` from the command line and enter
-        the API key when prompted.
-        """
         self._run = run
         self._metric_descriptors = metric_descriptors
 
@@ -49,11 +45,9 @@ class WandbRecorder(MetricRecorder):
 
         try:
             self._run.log(output, step=step_nr)
-        except OSError as ex:
-            raise_operational_system_error(ex)
-        except RuntimeError as ex:
-            raise OperationalError(
-                "Metric values cannot be saved to Weights & Biases."
+        except (RuntimeError, ValueError, TypeError) as ex:
+            raise InternalError(
+                f"an unexpected error occurred while logging metric values of category '{category}' to Weights & Biases"
             ) from ex
 
     def _add_value(self, name: str, value: object, output: dict[str, object]) -> None:
@@ -69,7 +63,7 @@ class WandbRecorder(MetricRecorder):
             return
 
         raise ValueError(
-            f"`values` must consist of objects of types `{int}`, `{float}`, `{Tensor}`, and `{str}` only."
+            "`values` must consist of objects of types `int`, `float`, `Tensor`, and `str` only"
         )
 
     @override

@@ -22,24 +22,21 @@ class Stopwatch:
 
     def __init__(self, *, device: Device | None = None) -> None:
         """
-        :param device: If not ``None``, waits for all operations on ``device``
-            to complete before measuring the elapsed time. Note that this can
-            have a negative impact on the runtime performance if not used
-            carefully.
+        If ``device`` is provided, waits for all operations on the specified
+        device to complete before measuring the elapsed time. This can have a
+        negative impact on the runtime performance if not used carefully.
         """
+        if device is None:
+            device = CPU
+        elif device.type != "cpu" and device.type != "cuda":
+            raise ValueError(
+                f"`device.type` must be `cpu` or `cuda`, but is `{device.type}` instead."
+            )
+
         self._is_running = False
-
         self._accumulated_duration = 0.0
-
         self._start_time = 0.0
-
-        if device is not None:
-            if device.type != "cpu" and device.type != "cuda":
-                raise ValueError(
-                    f"Type of `device` must be `cpu` or `cuda`, but is `{device.type}` instead."
-                )
-
-        self._device = device or CPU
+        self._device = device
 
     def start(self) -> None:
         if self._is_running:

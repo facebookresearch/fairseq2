@@ -13,6 +13,7 @@ from fairseq2.datasets import DatasetFamily
 DatasetT = TypeVar("DatasetT")
 
 
+# TODO: remove in v0.14
 @final
 class RecipeDataset:
     def __init__(

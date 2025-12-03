@@ -14,7 +14,7 @@ from typing import final
 from typing_extensions import override
 
 from fairseq2.assets import AssetCardError, AssetStore
-from fairseq2.checkpoint import CheckpointManager, ModelMetadataDumper
+from fairseq2.checkpoint import CheckpointManager, _ModelMetadataDumper
 from fairseq2.error import InternalError, raise_operational_system_error
 from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
 from fairseq2.logging import log
@@ -26,10 +26,7 @@ from fairseq2.models import (
     _maybe_get_model_family,
 )
 from fairseq2.recipe.config import ModelSection, TrainerSection
-from fairseq2.recipe.error import (
-    LayerwiseACNotSupportedError,
-    ModelCheckpointNotFoundError,
-)
+from fairseq2.recipe.error import RecipeError
 from fairseq2.recipe.internal.asset_config import _AssetConfigOverrider
 from fairseq2.recipe.internal.compile import _compile_model
 from fairseq2.recipe.internal.data_parallel import _DataParallelModelWrapper
@@ -236,8 +233,10 @@ class _StandardTrainModelBootstrapper(_TrainModelBootstrapper):
                     mmap=self._section.mmap,
                     restrict=None,
                 )
-            except FileNotFoundError as ex:
-                raise ModelCheckpointNotFoundError(path) from ex
+            except FileNotFoundError:
+                raise RecipeError(
+                    f"{path} does not point to a model checkpoint."
+                ) from None
             except OSError as ex:
                 raise_operational_system_error(ex)
 
@@ -327,7 +326,7 @@ class _TrainModelMetadataSaver(ABC):
 @final
 class _StandardTrainModelMetadataSaver(_TrainModelMetadataSaver):
     def __init__(
-        self, metadata_dumper: ModelMetadataDumper, output_dir: Path, gangs: Gangs
+        self, metadata_dumper: _ModelMetadataDumper, output_dir: Path, gangs: Gangs
     ) -> None:
         self._metadata_dumper = metadata_dumper
         self._output_dir = output_dir
@@ -341,7 +340,9 @@ class _StandardTrainModelMetadataSaver(_TrainModelMetadataSaver):
             try:
                 self._metadata_dumper.dump(checkpoint_dir, family_name, config)
             except OSError as ex:
-                raise_operational_system_error(ex)
+                raise OperationalError(
+                    f"{family_name} dumping failed due to a system error."
+                ) from ex
 
         try:
             self._gangs.root.barrier()
@@ -385,7 +386,9 @@ class _LastTrainModelPreparer(_TrainModelPreparer):
         # the AC information and avoid recomputing twice.
         if ac_config.mode == "layerwise":
             if not model_holder.family.supports_layerwise_ac:
-                raise LayerwiseACNotSupportedError()
+                raise RecipeError(
+                    "Model does not support layerwise activation checkpointing."
+                )
 
             model_holder.family.apply_layerwise_ac(
                 model_holder.model, ac_config.every_nth_layer

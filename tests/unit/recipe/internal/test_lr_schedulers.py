@@ -252,7 +252,7 @@ class TestCosineAnnealingLRFactory:
         factory = _CosineAnnealingLRFactory(optimizer, regime_section)
 
         with pytest.raises(
-            ValidationError, match=r"^`lr_scheduler.config` is not valid: The length of `start_lr` must match the number of optimizer parameter groups \(2\), but is 3 instead\.$"  # fmt: skip
+            ValidationError, match=r"^`lr_scheduler.config` is not valid: Length of `start_lr` must match the number of optimizer parameter groups \(2\), but is 3 instead\.$"  # fmt: skip
         ):
             factory.create(config)
 
@@ -270,7 +270,7 @@ class TestCosineAnnealingLRFactory:
         factory = _CosineAnnealingLRFactory(optimizer, regime_section)
 
         with pytest.raises(
-            ValidationError, match=r"^`lr_scheduler.config` is not valid: The length of `final_lr` must match the number of optimizer parameter groups \(2\), but is 4 instead\.$"  # fmt: skip
+            ValidationError, match=r"^`lr_scheduler.config` is not valid: Length of `final_lr` must match the number of optimizer parameter groups \(2\), but is 4 instead\.$"  # fmt: skip
         ):
             factory.create(config)
 
@@ -290,7 +290,7 @@ class TestCosineAnnealingLRFactory:
         factory = _CosineAnnealingLRFactory(optimizer, regime_section)
 
         with pytest.raises(
-            ValidationError, match=r"^`lr_scheduler.config` is not valid: The length of `final_lr_scale` must match the number of optimizer parameter groups \(2\), but is 4 instead\.$"  # fmt: skip
+            ValidationError, match=r"^`lr_scheduler.config` is not valid: Length of `final_lr_scale` must match the number of optimizer parameter groups \(2\), but is 4 instead\.$"  # fmt: skip
         ):
             factory.create(config)
 
@@ -403,7 +403,7 @@ class TestMyleLRFactory:
         factory = _MyleLRFactory(optimizer)
 
         with pytest.raises(
-            ValidationError, match=r"^`lr_scheduler.config` is not valid: The length of `start_lr` must match the number of optimizer parameter groups \(2\), but is 3 instead\.$"  # fmt: skip
+            ValidationError, match=r"^`lr_scheduler.config` is not valid: Length of `start_lr` must match the number of optimizer parameter groups \(2\), but is 3 instead\.$"  # fmt: skip
         ):
             factory.create(config)
 
@@ -530,7 +530,7 @@ class TestPolynomialDecayLRFactory:
         factory = _PolynomialDecayLRFactory(optimizer, regime_section)
 
         with pytest.raises(
-            ValidationError, match=r"^`lr_scheduler.config` is not valid: The length of `start_lr` must match the number of optimizer parameter groups \(2\), but is 3 instead\.$"  # fmt: skip
+            ValidationError, match=r"^`lr_scheduler.config` is not valid: Length of `start_lr` must match the number of optimizer parameter groups \(2\), but is 3 instead\.$"  # fmt: skip
         ):
             factory.create(config)
 
@@ -548,7 +548,7 @@ class TestPolynomialDecayLRFactory:
         factory = _PolynomialDecayLRFactory(optimizer, regime_section)
 
         with pytest.raises(
-            ValidationError, match=r"^`lr_scheduler.config` is not valid: The length of `final_lr` must match the number of optimizer parameter groups \(2\), but is 4 instead\.$"  # fmt: skip
+            ValidationError, match=r"^`lr_scheduler.config` is not valid: Length of `final_lr` must match the number of optimizer parameter groups \(2\), but is 4 instead\.$"  # fmt: skip
         ):
             factory.create(config)
 
@@ -648,7 +648,7 @@ class TestTriStageLRFactory:
         factory = _TriStageLRFactory(optimizer, regime_section)
 
         with pytest.raises(
-            ValidationError, match=r"^`lr_scheduler.config` is not valid: The length of `start_lr_scale` must match the number of optimizer parameter groups \(2\), but is 3 instead\.$"  # fmt: skip
+            ValidationError, match=r"^`lr_scheduler.config` is not valid: Length of `start_lr_scale` must match the number of optimizer parameter groups \(2\), but is 3 instead\.$"  # fmt: skip
         ):
             factory.create(config)
 
@@ -666,6 +666,6 @@ class TestTriStageLRFactory:
         factory = _TriStageLRFactory(optimizer, regime_section)
 
         with pytest.raises(
-            ValidationError, match=r"^`lr_scheduler.config` is not valid: The length of `final_lr_scale` must match the number of optimizer parameter groups \(2\), but is 4 instead\.$"  # fmt: skip
+            ValidationError, match=r"^`lr_scheduler.config` is not valid: Length of `final_lr_scale` must match the number of optimizer parameter groups \(2\), but is 4 instead\.$"  # fmt: skip
         ):
             factory.create(config)

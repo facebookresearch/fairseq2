@@ -60,7 +60,7 @@ class TokenizerFamily(ABC):
 class TokenizerGatedError(Exception):
     def __init__(self, name: str, info_url: str | None) -> None:
         super().__init__(
-            f"{name} is a gated tokenizer and cannot be loaded. See {info_url} for details."
+            f"{name} is a gated tokenizer. See {info_url} for details."
         )
 
         self.name = name

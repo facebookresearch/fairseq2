@@ -25,9 +25,7 @@ from fairseq2.utils.yaml import YamlError
 
 @final
 class ConfigAction(Action):
-    """
-    Adds support for reading configuration key-value pairs in format ``<key>=<yaml_value>``.
-    """
+    """Reads configuration key-value pairs in format ``<key>=<yaml_value>``."""
 
     def __init__(
         self, option_strings: list[str], dest: str, help: str | None = None

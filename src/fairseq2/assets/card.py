@@ -13,9 +13,9 @@ from typing import TypeVar, final
 
 from typing_extensions import override
 
-from fairseq2.utils.config import ConfigDirectiveError, ConfigMerger, ConfigProcessor
-from fairseq2.utils.structured import StructureError, ValueConverter
-from fairseq2.utils.uri import Uri
+from fairseq2.utils.config import ConfigMerger, ConfigProcessor
+from fairseq2.utils.structured import ValueConverter
+from fairseq2.utils.uri import Uri, UriFormatError
 
 T = TypeVar("T", bool, int, float, str)
 
@@ -32,11 +32,12 @@ class AssetCard:
         self._base = base
 
     def field(self, name: str) -> AssetCardField:
+        """
+        :raises AssetCardFieldNotFoundError:
+        """
         field = self.maybe_get_field(name)
         if field is None:
-            msg = f"{self._name} asset card does not have a field named {name}."
-
-            raise AssetCardError(self._name, msg)
+            raise AssetCardFieldNotFoundError(self, name)
 
         return field
 
@@ -82,6 +83,37 @@ class AssetCard:
         return self._base
 
 
+class AssetCardFieldError(Exception):
+    def __init__(self, card: AssetCard, field: str, message: str) -> None:
+        super().__init__(message)
+
+        self.card = card
+        self.field = field
+
+
+class AssetCardFieldNotFoundError(AssetCardFieldError):
+    def __init__(self, card: AssetCard, field: str) -> None:
+        super().__init__(
+            card, field, f"field '{field}' of asset card '{card.name}' is not found"
+        )
+
+
+class AssetCardFieldTypeError(AssetCardFieldError):
+    def __init__(
+        self, card: AssetCard, field: str, kls: type[object], valid_kls: type[object]
+    ) -> None:
+        super().__init__(
+            card, field, f"field '{field}' of asset card '{card.name}' is expected to be of type `{valid_kls}`, but is of type `{kls}` instead"  # fmt: skip
+        )
+
+        self.kls = kls
+        self.valid_kls = valid_kls
+
+
+class AssetCardFieldFormatError(AssetCardFieldError):
+    pass
+
+
 @final
 class AssetCardField:
     def __init__(self, name: str, card: AssetCard, value: object) -> None:
@@ -94,14 +126,21 @@ class AssetCardField:
         return self._value
 
     def as_(self, kls: type[T]) -> T:
+        """
+        :raises AssetCardFieldTypeError:
+        """
         if not isinstance(self._value, kls):
-            msg = f"{self._name} field of the {self._card.name} asset card is expected to be of type `{kls}`, but is of type `{type(self._value)}` instead."
-
-            raise AssetCardError(self._card.name, msg)
+            raise AssetCardFieldTypeError(
+                self._card, self._name, type(self._value), kls
+            )
 
         return self._value
 
     def as_uri(self) -> Uri:
+        """
+        :raises AssetCardFieldTypeError:
+        :raises AssetCardFieldFormatError:
+        """
         value = self.as_(str)
 
         uri = Uri.maybe_parse(value)
@@ -111,34 +150,25 @@ class AssetCardField:
         try:
             path = Path(value)
         except ValueError:
-            msg = f"{self._name} field of the {self._card.name} asset card cannot be parsed as a URI or a pathname."
-
-            raise AssetCardError(self._card.name, msg) from None
+            raise AssetCardFieldFormatError(
+                self._card, self._name, f"field '{self._name}' of asset card '{self._card.name}' is expected to be a pathname or a URI, but is '{value}' instead"  # fmt: skip
+            ) from None
 
         if not path.is_absolute():
             base_path = self._card.metadata.get("__base_path__")
             if not isinstance(base_path, Path):
-                msg = f"{self._name} field of the {self._card.name} asset card is a relative pathname and cannot be converted to a URI."
-
-                raise AssetCardError(self._card.name, msg)
+                raise AssetCardFieldFormatError(
+                    self._card, self._name, f"field '{self._name}' of asset card '{self._card.name}' is expected to be an absolute pathname, but is '{value}' instead"  # fmt: skip
+                )
 
             path = base_path.joinpath(path)
 
-        return Uri.from_path(path)
-
-
-class AssetCardError(Exception):
-    def __init__(self, name: str, message: str) -> None:
-        super().__init__(message)
-
-        self.name = name
-
-
-class AssetCardNotValidError(Exception):
-    def __init__(self, name: str, message: str) -> None:
-        super().__init__(message)
-
-        self.name = name
+        try:
+            return Uri.from_path(path)
+        except UriFormatError as ex:
+            raise AssetCardFieldFormatError(
+                self._card, self._name, f"failed to convert value '{path}' of field '{self._name}' of asset card '{self._card.name}' to a URI"  # fmt: skip
+            ) from ex
 
 
 class AssetConfigLoader(ABC):
@@ -174,39 +204,17 @@ class StandardAssetConfigLoader(AssetConfigLoader):
         if not all_config_overrides:
             return base_config
 
-        config_kls = type(base_config)
-
-        try:
-            unstructured_config = self._value_converter.unstructure(base_config)
-        except StructureError:
-            msg = f"{config_key} field of the {card.name} asset card cannot be parsed as of type `{config_kls}`."
-
-            raise AssetCardError(card.name, msg) from None
+        unstructured_config = self._value_converter.unstructure(base_config)
 
         for name, config_overrides in reversed(all_config_overrides):
             # TODO(balioglu): unescape _set_ and _del_ in config_overrides
-            try:
-                unstructured_config = self._config_merger.merge(
-                    unstructured_config, config_overrides
-                )
-            except (ValueError, TypeError) as ex:
-                msg = f"{config_key} field of the {name} asset card cannot be merged with the base configuration."
-
-                raise AssetCardError(name, msg) from ex
+            unstructured_config = self._config_merger.merge(
+                unstructured_config, config_overrides
+            )
 
             # TODO(balioglu): unescape config directives and run them.
-            try:
-                unstructured_config = self._config_processor.process(
-                    unstructured_config
-                )
-            except ConfigDirectiveError as ex:
-                msg = f"A directive in the {config_key} field of the {name} asset card cannot processed."
+            unstructured_config = self._config_processor.process(unstructured_config)
 
-                raise AssetCardError(name, msg) from ex
+        config_kls = type(base_config)
 
-        try:
-            return self._value_converter.structure(unstructured_config, config_kls)
-        except StructureError as ex:
-            msg = f"{config_key} field of the {card.name} asset card cannot be parsed as of type `{config_kls}`."
-
-            raise AssetCardError(card.name, msg) from ex
+        return self._value_converter.structure(unstructured_config, config_kls)

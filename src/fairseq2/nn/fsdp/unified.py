@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, NoReturn
 
 from torch.nn import Module
 
@@ -97,7 +97,7 @@ def fsdp_local_state_dict(module: Module) -> dict[str, object]:
     if isinstance(module, FSDP2Module):
         return fsdp2_local_state_dict(module)
 
-    raise _type_error(module)
+    _raise_type_error(module)
 
 
 def fsdp_load_local_state_dict(module: Module, state_dict: dict[str, object]) -> None:
@@ -107,7 +107,7 @@ def fsdp_load_local_state_dict(module: Module, state_dict: dict[str, object]) ->
     if isinstance(module, FSDP2Module):
         fsdp2_load_local_state_dict(module, state_dict)
 
-    raise _type_error(module)
+    _raise_type_error(module)
 
 
 def fsdp_no_sync(module: Module, *, unsafe: bool = False) -> ContextManager[None]:
@@ -117,7 +117,7 @@ def fsdp_no_sync(module: Module, *, unsafe: bool = False) -> ContextManager[None
     if isinstance(module, FSDP2Module):
         return fsdp2_no_sync(module)
 
-    raise _type_error(module)
+    _raise_type_error(module)
 
 
 def fsdp_summon_full_parameters(module: Module) -> ContextManager[None]:
@@ -133,10 +133,10 @@ def fsdp_summon_full_parameters(module: Module) -> ContextManager[None]:
     if isinstance(module, FSDP2Module):
         return fsdp2_summon_full_parameters(module)
 
-    raise _type_error(module)
+    _raise_type_error(module)
 
 
-def _type_error(module: Module) -> Exception:
-    return TypeError(
+def _raise_type_error(module: Module) -> NoReturn:
+    raise TypeError(
         f"`module` must be of type `{FSDP1Module}` or `{FSDP2Module}`, but is of type `{type(module)}` instead."
     )

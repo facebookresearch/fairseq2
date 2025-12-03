@@ -13,10 +13,7 @@ from typing import Any, Final
 
 from torch import Tensor
 
-from fairseq2.data.data_pipeline import (
-    DataPipeline,
-    read_sequence,
-)
+from fairseq2.data.data_pipeline import DataPipeline, read_sequence
 from fairseq2.data.text import read_text
 from fairseq2.data.tokenizers import Tokenizer
 from fairseq2.datasets import DataPipelineReader, DataReader, SequenceBatch, SyncMode

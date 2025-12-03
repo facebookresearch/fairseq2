@@ -47,7 +47,7 @@ from fairseq2.model_checkpoint.delegating import (
     _DelegatingModelCheckpointLoader as _DelegatingModelCheckpointLoader,
 )
 from fairseq2.model_checkpoint.loader import (
-    CorruptModelCheckpointError as CorruptModelCheckpointError,
+    BadModelCheckpointError as BadModelCheckpointError,
 )
 from fairseq2.model_checkpoint.loader import (
     ModelCheckpointLoader as ModelCheckpointLoader,

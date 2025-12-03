@@ -262,7 +262,7 @@ def fsdp2_summon_full_parameters(module: FSDP2Module) -> Iterator[None]:
             try:
                 module.unshard()
             except RuntimeError as ex:
-                raise OperationalError("FSDP2 summon operation failed.") from ex
+                raise OperationalError("Failed to summon FSDP2 parameters.") from ex
 
             disable_hooks(module, "_forward_pre_hooks")
             disable_hooks(module, "_forward_hooks")
@@ -278,7 +278,7 @@ def fsdp2_summon_full_parameters(module: FSDP2Module) -> Iterator[None]:
             try:
                 module.reshard()
             except RuntimeError as ex:
-                raise OperationalError("FSDP2 summon operation failed.") from ex
+                raise OperationalError("Failed to reshard FSDP2 parameters.") from ex
 
     def maybe_cast_dtype(t: Tensor) -> Tensor:
         if not isinstance(t, Parameter):

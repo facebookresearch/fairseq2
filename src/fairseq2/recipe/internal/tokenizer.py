@@ -22,7 +22,7 @@ from fairseq2.error import InternalError, raise_operational_system_error
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
 from fairseq2.recipe.config import TokenizerSection
-from fairseq2.recipe.error import TokenizerModelNotFoundError
+from fairseq2.recipe.error import RecipeError
 from fairseq2.recipe.internal.asset_config import _AssetConfigOverrider
 from fairseq2.recipe.internal.log import _log_tokenizer, _LogHelper
 from fairseq2.runtime.lookup import Lookup
@@ -141,8 +141,8 @@ class _TokenizerLoader:
 
         try:
             tokenizer = family.load_custom_tokenizer(path, config, self._gangs)
-        except FileNotFoundError as ex:
-            raise TokenizerModelNotFoundError(path) from ex
+        except FileNotFoundError:
+            raise ConfigError(f"{path} does not point to a tokenizer model.") from None
         except OSError as ex:
             raise_operational_system_error(ex)
 

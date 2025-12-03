@@ -7,12 +7,12 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from concurrent.futures import Future
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from pickle import PickleError
+from pickle import PickleError, PicklingError, UnpicklingError
 from typing import Any, Protocol, final
 
 import torch
@@ -20,17 +20,11 @@ from torch import Tensor
 from torch.overrides import TorchFunctionMode
 from typing_extensions import override
 
-from fairseq2.device import CPU
-from fairseq2.error import (
-    OperationalError,
-    StateDictError,
-    raise_operational_system_error,
-)
+from fairseq2.device import CPU, CudaContext
+from fairseq2.error import InternalError, StateDictError
 from fairseq2.file_system import FileMode, FileSystem, _flush_nfs_lookup_cache
-from fairseq2.gang import GangError, Gangs, all_sum, raise_operational_gang_error
+from fairseq2.gang import GangError, Gangs, all_sum
 from fairseq2.io import (
-    CorruptFileError,
-    DataNotPicklableError,
     TensorFileDumper,
     TensorFileDumpOptions,
     TensorFileLoader,
@@ -40,6 +34,23 @@ from fairseq2.nn.fsdp import load_with_sdp_gang
 from fairseq2.runtime.closable import Closable
 from fairseq2.typing import Stateful
 from fairseq2.utils.threading import ThreadPool
+
+
+@dataclass
+class CheckpointCallbackArgs:
+    step_nr: int
+    blocking: bool
+
+
+class CheckpointCallback(Protocol):
+    def __call__(self, args: CheckpointCallbackArgs) -> None: ...
+
+
+@dataclass(kw_only=True)
+class CheckpointSaveOptions:
+    ready_callback: CheckpointCallback | None = None
+    saved_callback: CheckpointCallback | None = None
+    blocking: bool = False
 
 
 class CheckpointManager(Closable):
@@ -53,63 +64,105 @@ class CheckpointManager(Closable):
         model: Stateful,
         optimizer: Stateful,
         data_reader: Stateful,
-        *,
-        ready_callback: CheckpointReadyCallback | None = None,
-        saved_callback: CheckpointSavedCallback | None = None,
-        blocking: bool = False,
-    ) -> None: ...
+        options: CheckpointSaveOptions | None = None,
+    ) -> None:
+        """
+        :raises BadCheckpointError:
+        :raises CheckpointError:
+        """
 
     @abstractmethod
     def save_model_only(
         self,
         step_nr: int,
         model: Stateful,
-        *,
-        ready_callback: CheckpointReadyCallback | None = None,
-        saved_callback: CheckpointSavedCallback | None = None,
-        blocking: bool = False,
-    ) -> None: ...
+        options: CheckpointSaveOptions | None = None,
+    ) -> None:
+        """
+        :raises BadCheckpointError:
+        :raises CheckpointError:
+        """
 
     @abstractmethod
-    def maybe_complete_save_operation(
-        self, *, blocking: bool = False
-    ) -> bool | None: ...
+    def maybe_complete_save_operation(self, *, blocking: bool = False) -> bool | None:
+        """
+        :raises CheckpointError:
+        """
 
     @property
     @abstractmethod
-    def is_saving(self) -> bool: ...
+    def step_nr(self) -> int | None: ...
 
     @abstractmethod
-    def save_score(self, step_nr: int, score: float) -> None: ...
+    def save_score(self, step_nr: int, score: float) -> None:
+        """
+        :raises CheckpointError:
+        """
 
     @abstractmethod
-    def load_trainer_state(self, step_nr: int, trainer: Stateful) -> None: ...
+    def load_trainer_state(self, step_nr: int, trainer: Stateful) -> None:
+        """
+        :raises CheckpointNotFoundError:
+        :raises BadCheckpointError:
+        :raises CheckpointError:
+        """
 
     @abstractmethod
-    def load_model_state(self, step_nr: int, model: Stateful) -> None: ...
+    def load_model_state(self, step_nr: int, model: Stateful) -> None:
+        """
+        :raises CheckpointNotFoundError:
+        :raises BadCheckpointError:
+        :raises CheckpointError:
+        """
 
     @abstractmethod
-    def load_optimizer_state(self, step_nr: int, optimizer: Stateful) -> None: ...
+    def load_optimizer_state(self, step_nr: int, optimizer: Stateful) -> None:
+        """
+        :raises CheckpointNotFoundError:
+        :raises BadCheckpointError:
+        :raises CheckpointError:
+        """
 
     @abstractmethod
-    def load_data_reader_state(self, step_nr: int, data_reader: Stateful) -> None: ...
+    def load_data_reader_state(self, step_nr: int, data_reader: Stateful) -> None:
+        """
+        :raises CheckpointNotFoundError:
+        :raises BadCheckpointError:
+        :raises CheckpointError:
+        """
 
     @abstractmethod
-    def load_scores(self) -> list[tuple[float, int]]: ...
+    def load_scores(self) -> list[tuple[float, int]]:
+        """
+        :raises BadCheckpointScoreError:
+        :raises CheckpointError:
+        """
 
     @abstractmethod
-    def delete_checkpoint(self, step_nr: int, *, keep_model: bool = False) -> None: ...
+    def delete_checkpoint(self, step_nr: int, *, keep_model: bool = False) -> None:
+        """
+        :raises CheckpointError:
+        """
 
     @abstractmethod
-    def has_checkpoint(self, *, exclude_model_only: bool = False) -> bool: ...
+    def has_checkpoint(self, *, exclude_model_only: bool = False) -> bool:
+        """
+        :raises CheckpointError:
+        """
 
     @abstractmethod
-    def get_step_numbers(self, *, exclude_model_only: bool = False) -> list[int]: ...
+    def get_step_numbers(self, *, exclude_model_only: bool = False) -> list[int]:
+        """
+        :raises CheckpointError:
+        """
 
     @abstractmethod
     def maybe_get_last_step_number(
         self, *, exclude_model_only: bool = False
-    ) -> int | None: ...
+    ) -> int | None:
+        """
+        :raises CheckpointError:
+        """
 
     @abstractmethod
     def get_stale_step_numbers(
@@ -117,39 +170,40 @@ class CheckpointManager(Closable):
         keep_last_n: int | None,
         keep_best_n: int | None,
         keep_every_n_steps: int | None,
-    ) -> list[int]: ...
-
-
-class CheckpointReadyCallback(Protocol):
-    def __call__(self, step_nr: int, blocking: bool) -> None: ...
-
-
-class CheckpointSavedCallback(Protocol):
-    def __call__(self, step_nr: int, blocking: bool) -> None: ...
-
-
-class CheckpointStateNotValidError(Exception):
-    def __init__(self, step_nr: int, kind: str, message: str) -> None:
-        super().__init__(message)
-
-        self.step_nr = step_nr
-        self.kind = kind
-
-
-class CheckpointNotFoundError(Exception):
-    def __init__(self, step_nr: int, kind: str) -> None:
-        super().__init__(f"`{kind}` checkpoint of step {step_nr} is not found.")
-
-        self.step_nr = step_nr
-        self.kind = kind
+    ) -> list[int]:
+        """
+        :raises BadCheckpointScoreError:
+        :raises CheckpointError:
+        """
 
 
 class CheckpointError(Exception):
+    pass
+
+
+class CheckpointNotFoundError(CheckpointError):
+    def __init__(self, step_nr: int, kind: str) -> None:
+        super().__init__(f"`{kind}` checkpoint of step {step_nr} is not found")
+
+        self.step_nr = step_nr
+        self.kind = kind
+
+
+class BadCheckpointError(CheckpointError):
     def __init__(self, step_nr: int, kind: str, message: str) -> None:
         super().__init__(message)
 
         self.step_nr = step_nr
         self.kind = kind
+
+
+class BadCheckpointScoreError(CheckpointError):
+    def __init__(self, step_nr: int) -> None:
+        super().__init__(
+            f"checkpoint score of step {step_nr} is not a valid floating-point number"
+        )
+
+        self.step_nr = step_nr
 
 
 @final
@@ -164,6 +218,7 @@ class StandardCheckpointManager(CheckpointManager):
         tensor_file_loader: TensorFileLoader,
         tensor_file_dumper: TensorFileDumper,
         thread_pool: ThreadPool,
+        cuda_context: CudaContext,
     ) -> None:
         checkpoint_dir = output_dir.joinpath("checkpoints")
 
@@ -173,7 +228,9 @@ class StandardCheckpointManager(CheckpointManager):
         self._tensor_file_loader = tensor_file_loader
         self._tensor_file_dumper = tensor_file_dumper
         self._thread_pool = thread_pool
+        self._cuda_context = cuda_context
         self._save_op: Future[Callable[[], None]] | None = None
+        self._step_nr: int | None = None
 
     @override
     def save_checkpoint(
@@ -183,16 +240,13 @@ class StandardCheckpointManager(CheckpointManager):
         model: Stateful,
         optimizer: Stateful,
         data_reader: Stateful,
-        *,
-        ready_callback: CheckpointReadyCallback | None = None,
-        saved_callback: CheckpointSavedCallback | None = None,
-        blocking: bool = False,
+        options: CheckpointSaveOptions | None = None,
     ) -> None:
         self.maybe_complete_save_operation(blocking=True)
 
-        self._begin_checkpoint(step_nr)
-
         records: list[_CheckpointRecord] = []
+
+        self._begin_checkpoint(step_nr)
 
         self._record_trainer_state(step_nr, trainer, records)
 
@@ -202,36 +256,34 @@ class StandardCheckpointManager(CheckpointManager):
 
         self._record_data_reader_state(step_nr, data_reader, records)
 
-        self._do_save_checkpoint(
-            step_nr, records, ready_callback, saved_callback, blocking
-        )
+        self._do_save_checkpoint(step_nr, records, options)
 
     @override
     def save_model_only(
         self,
         step_nr: int,
         model: Stateful,
-        *,
-        ready_callback: CheckpointReadyCallback | None = None,
-        saved_callback: CheckpointSavedCallback | None = None,
-        blocking: bool = False,
+        options: CheckpointSaveOptions | None = None,
     ) -> None:
         self.maybe_complete_save_operation(blocking=True)
 
-        self._begin_checkpoint(step_nr)
-
         records: list[_CheckpointRecord] = []
+
+        self._begin_checkpoint(step_nr)
 
         self._record_model_state(step_nr, model, records)
 
-        self._do_save_checkpoint(
-            step_nr, records, ready_callback, saved_callback, blocking
-        )
+        self._do_save_checkpoint(step_nr, records, options)
 
     @override
     def maybe_complete_save_operation(self, *, blocking: bool = False) -> bool | None:
-        if self._save_op is None:
+        step_nr = self._step_nr
+
+        if step_nr is None:
             return None
+
+        if self._save_op is None:
+            raise InternalError(f"``step_nr` is {step_nr}, but `save_op` is `None`.")
 
         gangs = self._gangs
 
@@ -241,7 +293,9 @@ class StandardCheckpointManager(CheckpointManager):
             try:
                 gangs.root.barrier()
             except GangError as ex:
-                raise_operational_gang_error(ex)
+                raise CheckpointError(
+                    f"failed to sync ranks after saving checkpoint of step {step_nr}"
+                ) from ex
         else:
             try:
                 if self._save_op.done():
@@ -249,23 +303,27 @@ class StandardCheckpointManager(CheckpointManager):
                 else:
                     num_done = all_sum(gangs.root, 0)
             except GangError as ex:
-                raise_operational_gang_error(ex)
+                raise CheckpointError(
+                    f"failed to retrieve number of ranks completed saving checkpoint of step {step_nr}"
+                ) from ex
 
             if num_done != gangs.root.size:
                 return False
 
             committer = self._save_op.result()
 
+        committer()
+
         self._save_op = None
 
-        committer()
+        self._step_nr = None
 
         return True
 
     @property
     @override
-    def is_saving(self) -> bool:
-        return self._save_op is not None
+    def step_nr(self) -> int | None:
+        return self._step_nr
 
     def _begin_checkpoint(self, step_nr: int) -> None:
         self.delete_checkpoint(step_nr)
@@ -275,10 +333,7 @@ class StandardCheckpointManager(CheckpointManager):
         tmp_step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
 
         if gangs.root.rank == 0:
-            try:
-                self._file_system.make_directory(tmp_step_dir)
-            except OSError as ex:
-                raise_operational_system_error(ex)
+            self._create_directory(tmp_step_dir)
 
     def _record_trainer_state(
         self, step_nr: int, trainer: Stateful, records: list[_CheckpointRecord]
@@ -290,10 +345,7 @@ class StandardCheckpointManager(CheckpointManager):
         file = self._checkpoint_dir.joinpath(pathname)
 
         if gangs.root.rank == 0:
-            try:
-                self._file_system.make_directory(file.parent)
-            except OSError as ex:
-                raise_operational_system_error(ex)
+            self._create_directory(file.parent)
 
         state_dict = trainer.state_dict()
 
@@ -314,18 +366,15 @@ class StandardCheckpointManager(CheckpointManager):
         file = self._checkpoint_dir.joinpath(pathname)
 
         if gangs.sdp.rank == 0:
-            try:
-                self._file_system.make_directory(file.parent)
-            except OSError as ex:
-                raise_operational_system_error(ex)
+            self._create_directory(file.parent)
 
         state_dict = model.state_dict()
 
         for k, v in state_dict.items():
             if not isinstance(v, Tensor):
-                msg = f"`model` checkpoint of step {step_nr} must contain only objects of type `{Tensor}`, but the value of the {k} key is of type `{type(v)}`."
-
-                raise CheckpointStateNotValidError(step_nr, "model", msg)
+                raise BadCheckpointError(
+                    step_nr, "model", f"`model` checkpoint of step {step_nr} is expected to contain only objects of type `{Tensor}`, but the value of key '{k}' is of type `{type(v)}` instead"  # fmt: skip
+                )
 
         record = _CheckpointRecord("model", file, state_dict)
 
@@ -344,10 +393,7 @@ class StandardCheckpointManager(CheckpointManager):
         file = self._checkpoint_dir.joinpath(pathname)
 
         if gangs.sdp.rank == 0:
-            try:
-                self._file_system.make_directory(file.parent)
-            except OSError as ex:
-                raise_operational_system_error(ex)
+            self._create_directory(file.parent)
 
         state_dict = optimizer.state_dict()
 
@@ -368,10 +414,7 @@ class StandardCheckpointManager(CheckpointManager):
         file = self._checkpoint_dir.joinpath(pathname)
 
         if gangs.dp.rank == 0:
-            try:
-                self._file_system.make_directory(file.parent)
-            except OSError as ex:
-                raise_operational_system_error(ex)
+            self._create_directory(file.parent)
 
         state_dict = data_reader.state_dict()
 
@@ -383,11 +426,14 @@ class StandardCheckpointManager(CheckpointManager):
         self,
         step_nr: int,
         records: list[_CheckpointRecord],
-        ready_callback: CheckpointReadyCallback | None,
-        saved_callback: CheckpointSavedCallback | None,
-        blocking: bool,
+        options: CheckpointSaveOptions | None,
     ) -> None:
+        if options is None:
+            options = CheckpointSaveOptions()
+
         self._sync_nfs_cache()
+
+        blocking = options.blocking
 
         if not blocking:
             memo: dict[Tensor, Tensor] = {}
@@ -397,8 +443,13 @@ class StandardCheckpointManager(CheckpointManager):
 
             del memo
 
+        ready_callback = options.ready_callback
+        saved_callback = options.saved_callback
+
         if ready_callback is not None:
-            ready_callback(step_nr, blocking)
+            args = CheckpointCallbackArgs(step_nr, blocking)
+
+            ready_callback(args)
 
         def save() -> Callable[[], None]:
             nonlocal records
@@ -411,7 +462,9 @@ class StandardCheckpointManager(CheckpointManager):
                 self._commit_checkpoint(step_nr)
 
                 if saved_callback is not None:
-                    saved_callback(step_nr, blocking)
+                    args = CheckpointCallbackArgs(step_nr, blocking)
+
+                    saved_callback(args)
 
             return commit
 
@@ -420,10 +473,7 @@ class StandardCheckpointManager(CheckpointManager):
 
             committer()
         else:
-            try:
-                self._save_op = self._thread_pool.queue(save)
-            except RuntimeError as ex:
-                raise OperationalError("A thread pool queue operation failed.") from ex
+            self._save_op = self._thread_pool.queue(save)
 
     def _copy_state_dict_to_host(
         self, record: _CheckpointRecord, step_nr: int, memo: dict[Tensor, Tensor]
@@ -434,16 +484,16 @@ class StandardCheckpointManager(CheckpointManager):
             with d2h_mode:
                 record.state_dict = deepcopy(record.state_dict)
         except (ValueError, RuntimeError, TypeError, PickleError) as ex:
-            msg = f"`{record.kind}` checkpoint must contain primitive and pickeable objects only."
-
-            raise CheckpointStateNotValidError(step_nr, record.kind, msg) from ex
+            raise BadCheckpointError(
+                step_nr, record.kind, f"failed to deepcopy `{record.kind}` checkpoint of step {step_nr}"  # fmt: skip
+            ) from ex
 
         if d2h_mode.has_cuda:
-            torch.cuda.synchronize()
+            self._cuda_context.synchronize()
 
     def _save_state_files(self, step_nr: int, records: list[_CheckpointRecord]) -> None:
         for record in records:
-            # We do not use pickle protocol v5 for model state because
+            # Do not use pickle protocol v5 for model state because
             # `torch.load(..., weights_only=True)` cannot unpickle objects
             # serialized with v5. See:
             #   https://github.com/pytorch/pytorch/issues/118092
@@ -455,12 +505,12 @@ class StandardCheckpointManager(CheckpointManager):
                 self._tensor_file_dumper.dump(
                     record.state_dict, record.file, dump_options
                 )
-            except DataNotPicklableError as ex:
-                msg = f"`{record.kind}` checkpoint must contain pickeable objects only."
-
-                raise CheckpointStateNotValidError(step_nr, record.kind, msg) from ex
+            except (PicklingError, EOFError) as ex:
+                raise BadCheckpointError(
+                    step_nr, record.kind, f"failed to save `{record.kind}` checkpoint of step {step_nr} to file '{record.file}'"  # fmt: skip
+                ) from ex
             except OSError as ex:
-                raise_operational_system_error(ex)
+                raise CheckpointError(f"failed to write file '{record.file}'") from ex
 
     def _commit_checkpoint(self, step_nr: int) -> None:
         gangs = self._gangs
@@ -468,7 +518,9 @@ class StandardCheckpointManager(CheckpointManager):
         try:
             gangs.root.barrier()
         except GangError as ex:
-            raise_operational_gang_error(ex)
+            raise CheckpointError(
+                f"failed to sync ranks before committing checkpoint of step {step_nr}"
+            ) from ex
 
         if gangs.root.rank == 0:
             tmp_step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
@@ -478,12 +530,16 @@ class StandardCheckpointManager(CheckpointManager):
             try:
                 self._file_system.move(tmp_step_dir, step_dir)
             except OSError as ex:
-                raise_operational_system_error(ex)
+                raise CheckpointError(
+                    f"failed to move directory '{tmp_step_dir}' to '{step_dir}'"
+                ) from ex
 
         try:
             gangs.root.barrier()
         except GangError as ex:
-            raise_operational_gang_error(ex)
+            raise CheckpointError(
+                f"failed to sync ranks after committing checkpoint of step {step_nr}"
+            ) from ex
 
     def _sync_nfs_cache(self) -> None:
         if not self._file_system.is_local:
@@ -497,7 +553,9 @@ class StandardCheckpointManager(CheckpointManager):
         try:
             gangs.root.barrier()
         except GangError as ex:
-            raise_operational_gang_error(ex)
+            raise CheckpointError(
+                "failed to sync ranks while flushing NFS lookup cache"
+            ) from ex
 
         if gangs.root.rank != 0:
             _flush_nfs_lookup_cache(self._checkpoint_dir)
@@ -507,31 +565,23 @@ class StandardCheckpointManager(CheckpointManager):
         gangs = self._gangs
 
         if gangs.root.rank == 0:
-            scores_dir = self._checkpoint_dir.joinpath("scores")
+            score_file = self._checkpoint_dir.joinpath(f"scores/step_{step_nr}.txt")
 
-            try:
-                self._file_system.make_directory(scores_dir)
-            except OSError as ex:
-                raise_operational_system_error(ex)
-
-            score_file = scores_dir.joinpath(f"step_{step_nr}.txt")
+            self._create_directory(score_file.parent)
 
             try:
                 fp = self._file_system.open_text(score_file, mode=FileMode.WRITE)
+                with fp:
+                    fp.write(f"{score}\n")
             except OSError as ex:
-                raise_operational_system_error(ex)
-
-            try:
-                fp.write(f"{score}\n")
-            except OSError as ex:
-                raise_operational_system_error(ex)
-            finally:
-                fp.close()
+                raise CheckpointError(f"failed to write file '{score_file}'") from ex
 
         try:
             gangs.root.barrier()
         except GangError as ex:
-            raise_operational_gang_error(ex)
+            raise CheckpointError(
+                f"failed to sync ranks after saving score of step {step_nr}"
+            ) from ex
 
     @override
     def load_trainer_state(self, step_nr: int, trainer: Stateful) -> None:
@@ -546,9 +596,9 @@ class StandardCheckpointManager(CheckpointManager):
         try:
             trainer.load_state_dict(state_dict)
         except (ValueError, TypeError, RuntimeError, StateDictError) as ex:
-            msg = f"`{kind}` state cannot be restored from checkpoint of step {step_nr}."  # fmt: skip
-
-            raise CheckpointError(step_nr, kind, msg) from ex
+            raise BadCheckpointError(
+                step_nr, kind, f"failed to restore `{kind}` state from checkpoint of step {step_nr}"  # fmt: skip
+            ) from ex
 
     @override
     def load_model_state(self, step_nr: int, model: Stateful) -> None:
@@ -563,9 +613,9 @@ class StandardCheckpointManager(CheckpointManager):
         try:
             model.load_state_dict(state_dict)
         except (ValueError, TypeError, RuntimeError, StateDictError) as ex:
-            msg = f"`{kind}` state cannot be restored from checkpoint of step {step_nr}."  # fmt: skip
-
-            raise CheckpointError(step_nr, kind, msg) from ex
+            raise BadCheckpointError(
+                step_nr, kind, f"failed to restore `{kind}` state from checkpoint of step {step_nr}"  # fmt: skip
+            ) from ex
 
     @override
     def load_optimizer_state(self, step_nr: int, optimizer: Stateful) -> None:
@@ -580,9 +630,9 @@ class StandardCheckpointManager(CheckpointManager):
         try:
             optimizer.load_state_dict(state_dict)
         except (ValueError, TypeError, RuntimeError, StateDictError) as ex:
-            msg = f"`{kind}` state cannot be restored from checkpoint of step {step_nr}."  # fmt: skip
-
-            raise CheckpointError(step_nr, kind, msg) from ex
+            raise BadCheckpointError(
+                step_nr, kind, f"failed to restore `{kind}` state from checkpoint of step {step_nr}"  # fmt: skip
+            ) from ex
 
     @override
     def load_data_reader_state(self, step_nr: int, data_reader: Stateful) -> None:
@@ -597,9 +647,9 @@ class StandardCheckpointManager(CheckpointManager):
         try:
             data_reader.load_state_dict(state_dict)
         except (ValueError, TypeError, RuntimeError, StateDictError) as ex:
-            msg = f"`{kind}` state cannot be restored from checkpoint of step {step_nr}."  # fmt: skip
-
-            raise CheckpointError(step_nr, kind, msg) from ex
+            raise BadCheckpointError(
+                step_nr, kind, f"failed to restore `{kind}` state from checkpoint of step {step_nr}"  # fmt: skip
+            ) from ex
 
     def _load_state_dict(
         self, step_nr: int, kind: str, pathname: str
@@ -613,14 +663,14 @@ class StandardCheckpointManager(CheckpointManager):
 
             try:
                 return self._tensor_file_loader.load(file, load_options)
-            except CorruptFileError as ex:
-                msg = f"{file} of step {step_nr} is not a valid checkpoint file."
-
-                raise CheckpointError(step_nr, kind, msg) from ex
+            except (UnpicklingError, EOFError) as ex:
+                raise BadCheckpointError(
+                    step_nr, kind, f"failed to load `{kind}` checkpoint of step {step_nr} from file '{file}'"  # fmt: skip
+                ) from ex
             except FileNotFoundError:
                 raise CheckpointNotFoundError(step_nr, kind) from None
             except OSError as ex:
-                raise_operational_system_error(ex)
+                raise CheckpointError(f"failed to read file '{file}'") from ex
 
     @override
     def load_scores(self) -> list[tuple[float, int]]:
@@ -635,55 +685,93 @@ class StandardCheckpointManager(CheckpointManager):
         gangs = self._gangs
 
         if gangs.root.rank == 0:
+            fs = self._file_system
+
             step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}")
 
             # Delete the temporary checkpoint directory if exists.
             tmp_step_dir = step_dir.with_suffix(".tmp")
 
             try:
-                self._file_system.remove_directory(tmp_step_dir)
+                fs.remove_directory(tmp_step_dir)
             except FileNotFoundError:
                 pass
             except OSError as ex:
-                raise_operational_system_error(ex)
+                raise CheckpointError(
+                    f"failed to delete directory '{tmp_step_dir}'"
+                ) from ex
 
             # Delete the checkpoint.
             try:
-                step_dir_exists = self._file_system.exists(step_dir)
+                dir_exists = fs.exists(step_dir)
             except OSError as ex:
-                raise_operational_system_error(ex)
+                raise CheckpointError(
+                    f"failed to access directory '{step_dir}'"
+                ) from ex
 
-            if step_dir_exists:
-                try:
-                    if keep_model:
-                        for path in self._file_system.glob(step_dir, pattern="*"):
-                            if path.stem in ("model", "hg", "hook"):
-                                continue
+            if dir_exists:
+                if keep_model:
 
-                            if self._file_system.is_dir(path):
-                                self._file_system.remove_directory(path)
-                            else:
-                                self._file_system.remove(path)
-                    else:
-                        self._file_system.remove_directory(step_dir)
-                except OSError as ex:
-                    raise_operational_system_error(ex)
+                    def paths() -> Iterator[Path]:
+                        try:
+                            yield from fs.glob(step_dir, pattern="*")
+                        except OSError as ex:
+                            raise CheckpointError(
+                                f"failed to glob directory '{step_dir}'"
+                            ) from ex
+
+                    for path in paths():
+                        if path.stem in ("model", "hg", "hook"):
+                            continue
+
+                        try:
+                            is_dir = fs.is_dir(path)
+                        except OSError as ex:
+                            raise CheckpointError(
+                                f"failed to access path '{path}'"
+                            ) from ex
+
+                        if is_dir:
+                            try:
+                                fs.remove_directory(path)
+                            except OSError as ex:
+                                raise CheckpointError(
+                                    f"failed to delete directory '{path}'"
+                                ) from ex
+                        else:
+                            try:
+                                fs.remove(path)
+                            except OSError as ex:
+                                raise CheckpointError(
+                                    f"failed to delete file '{path}'"
+                                ) from ex
+                else:
+                    try:
+                        fs.remove_directory(step_dir)
+                    except OSError as ex:
+                        raise CheckpointError(
+                            f"failed to delete directory '{step_dir}'"
+                        ) from ex
 
             if not keep_model:
                 # Delete the score file.
                 score_file = self._checkpoint_dir.joinpath(f"scores/step_{step_nr}.txt")
 
                 try:
-                    self._file_system.remove(score_file)
+                    fs.remove(score_file)
                 except FileNotFoundError:
                     pass
                 except OSError as ex:
-                    raise_operational_system_error(ex)
+                    raise CheckpointError(
+                        f"failed to delete file '{score_file}'"
+                    ) from ex
 
         try:
             gangs.root.barrier()
         except GangError as ex:
-            raise_operational_gang_error(ex)
+            raise CheckpointError(
+                f"failed to sync ranks after deleting checkpoint of step {step_nr}"
+            ) from ex
 
     @override
     def has_checkpoint(self, *, exclude_model_only: bool = False) -> bool:
@@ -695,25 +783,46 @@ class StandardCheckpointManager(CheckpointManager):
     def get_step_numbers(self, *, exclude_model_only: bool = False) -> list[int]:
         step_nrs = []
 
-        try:
-            for step_dir in self._file_system.glob(self._checkpoint_dir, "step_*"):
-                if not self._file_system.is_dir(step_dir):
-                    continue
+        fs = self._file_system
+
+        def step_dirs() -> Iterator[Path]:
+            try:
+                yield from fs.glob(self._checkpoint_dir, "step_*")
+            except OSError as ex:
+                raise CheckpointError(
+                    f"failed to glob directory '{self._checkpoint_dir}'"
+                ) from ex
+
+        for step_dir in step_dirs():
+            try:
+                dir_exists = fs.exists(step_dir)
+            except OSError as ex:
+                raise CheckpointError(
+                    f"failed to access directory '{step_dir}'"
+                ) from ex
+
+            if not dir_exists:
+                continue
+
+            try:
+                step_nr = int(step_dir.name[5:])
+            except ValueError:
+                continue
+
+            if exclude_model_only:
+                trainer_dir = step_dir.joinpath("trainer")
 
                 try:
-                    step_nr = int(step_dir.name[5:])
-                except ValueError:
-                    continue
+                    dir_exists = fs.exists(trainer_dir)
+                except OSError as ex:
+                    raise CheckpointError(
+                        f"failed to access directory '{trainer_dir}'"
+                    ) from ex
 
-                if exclude_model_only:
-                    trainer_dir = step_dir.joinpath("trainer")
-
-                    if self._file_system.exists(trainer_dir):
-                        step_nrs.append(step_nr)
-                else:
+                if dir_exists:
                     step_nrs.append(step_nr)
-        except OSError as ex:
-            raise_operational_system_error(ex)
+            else:
+                step_nrs.append(step_nr)
 
         step_nrs.sort()
 
@@ -772,7 +881,9 @@ class StandardCheckpointManager(CheckpointManager):
         try:
             self._gangs.root.barrier()
         except GangError as ex:
-            raise_operational_gang_error(ex)
+            raise CheckpointError(
+                "failed to sync ranks after retrieving list of stale checkpoints"
+            ) from ex
 
         return [s for s in step_nrs if s not in non_stale_step_nrs]
 
@@ -785,31 +896,29 @@ class StandardCheckpointManager(CheckpointManager):
             score_file = scores_dir.joinpath(f"step_{step_nr}.txt")
 
             try:
-                fp = self._file_system.open_text(score_file)
+                with self._file_system.open_text(score_file) as fp:
+                    line = fp.readline()
             except FileNotFoundError:
                 continue
             except OSError as ex:
-                raise_operational_system_error(ex)
-
-            try:
-                line = fp.readline()
-            except OSError as ex:
-                raise_operational_system_error(ex)
-            finally:
-                fp.close()
+                raise CheckpointError(f"failed to read file '{score_file}'") from ex
 
             try:
                 score = float(line)
             except ValueError:
-                msg = f"Score of step {step_nr} cannot be parsed as floating-point number."
-
-                raise CheckpointError(step_nr, "score", msg) from None
+                raise BadCheckpointScoreError(step_nr) from None
 
             scores.append((score, step_nr))
 
         scores.sort(reverse=True)
 
         return scores
+
+    def _create_directory(self, path: Path) -> None:
+        try:
+            self._file_system.make_directory(path)
+        except OSError as ex:
+            raise CheckpointError(f"failed to create directory '{path}'") from ex
 
     @override
     def close(self) -> None:

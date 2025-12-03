@@ -11,6 +11,7 @@ from typing import final
 
 import torch.distributed as dist
 
+from fairseq2.error import OperationalError
 from fairseq2.device import Device
 from fairseq2.gang import (
     FakeGang,
@@ -20,16 +21,10 @@ from fairseq2.gang import (
     ProcessGroupGang,
     create_fsdp_gangs,
     create_parallel_gangs,
-    raise_operational_gang_error,
 )
 from fairseq2.logging import log
 from fairseq2.recipe.config import GangSection, TrainerSection
-from fairseq2.recipe.error import (
-    DeviceTypeNotSupportedError,
-    GangTopologyError,
-    HSDPTopologyError,
-    TorchDistributedNotAvailableError,
-)
+from fairseq2.recipe.error import ConfigError
 from fairseq2.utils.validation import ValidationError
 from fairseq2.world_info import WorldInfo
 
@@ -52,10 +47,12 @@ class _GangsFactory:
 
         if self._world_info.size > 1:
             if self._device.type != "cpu" and self._device.type != "cuda":
-                raise DeviceTypeNotSupportedError(self._device)
+                raise ConfigError(
+                    f"Only `cpu` and `cuda` devices are supported, but the device of the process is `{self._device}`."
+                )
 
             if not dist.is_available():
-                raise TorchDistributedNotAvailableError()
+                raise ConfigError("torch.distributed is not available.")
 
             timeout = timedelta(minutes=section.timeout)
 
@@ -64,7 +61,7 @@ class _GangsFactory:
                     self._device, timeout=timeout, high_priority=section.high_priority
                 )
             except GangError as ex:
-                raise_operational_gang_error(ex)
+                raise OperationalError("Failed to create root gang.") from ex
         else:
             root_gang = FakeGang(self._device)
 
@@ -75,12 +72,14 @@ class _GangsFactory:
         tp_size = section.tensor_parallel_size
 
         if root_gang.size % tp_size != 0:
-            raise GangTopologyError(root_gang.size, tp_size)
+            raise ConfigError(
+                f"`gang.tensor_parallel_size` must be a factor of the number of processes in the root gang ({root_gang.size}), but is {tp_size} instead."
+            )
 
         try:
             gangs = create_parallel_gangs(root_gang, tp_size=tp_size)
         except GangError as ex:
-            raise_operational_gang_error(ex)
+            raise OperationalError("Failed to create parallel gangs.") from ex
 
         log.info("Parallel gangs created.")
 
@@ -111,21 +110,23 @@ class _FSDPGangsFactory:
                 return gangs
 
             if gangs.dp.size % local_world_size != 0:
-                raise HSDPTopologyError(local_world_size, gangs.dp.size)
+                raise ConfigError(
+                    f"Local world size must be a factor of the number of processes in the data parallel gang ({gangs.dp.size}), but is {local_world_size} instead."
+                )
 
             log.info("Creating hybrid sharded data parallel gangs.")
 
             try:
                 gangs = create_fsdp_gangs(gangs, local_world_size)
             except GangError as ex:
-                raise_operational_gang_error(ex)
+                raise OperationalError("Failed to create FSDP gangs.") from ex
 
             log.info("Hybrid sharded data parallel gangs created.")
         else:
             try:
                 gangs = create_fsdp_gangs(gangs)
             except GangError as ex:
-                raise_operational_gang_error(ex)
+                raise OperationalError("Failed to create FSDP gangs.") from ex
 
         return gangs
 
@@ -136,6 +137,6 @@ def _warmup_gangs(gangs: Gangs) -> None:
     try:
         gangs.root.barrier()
     except GangError as ex:
-        raise_operational_gang_error(ex)
+        raise OperationalError("Failed to warm up gangs.") from ex
 
     log.info("Gangs warmed up.")

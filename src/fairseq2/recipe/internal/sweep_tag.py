@@ -52,15 +52,11 @@ class _StandardSweepTagGenerator(_SweepTagGenerator):
                 self._config_holder.config
             )
         except StructureError as ex:
-            raise InternalError(
-                "`self._config` cannot be converted to an unstructured form."
-            ) from ex
+            raise InternalError("Recipe configuration cannot be unstructured.") from ex
 
         sweep_format = self._section.sweep_format.strip()
         if not sweep_format:
-            msg = "`sweep_format` must not be empty."
-
-            raise ValidationError(msg, field="common")
+            raise ValidationError("`sweep_format` must not be empty.", field="common")
 
         tags = {"world_size": f"{self._world_info.size}"}
 
@@ -111,7 +107,7 @@ class _StandardSweepTagGenerator(_SweepTagGenerator):
             return
 
         raise InternalError(
-            f"Unstructured `config` contains an object of type `{type(obj)}`."
+            f"Unstructured recipe configuration contains an object of type `{type(obj)}`."
         )
 
     @staticmethod
@@ -168,9 +164,9 @@ class _StandardSweepTagGenerator(_SweepTagGenerator):
 
                         output.append("{")
                     elif c == "}":
-                        msg = "`sweep_format` must not have any empty placeholders."
-
-                        raise ValidationError(msg, field="common")
+                        raise ValidationError(
+                            "`sweep_format` must not have any empty placeholders.", field="common"  # fmt: skip
+                        )
                     else:
                         state = State.PLACEHOLDER
 
@@ -201,9 +197,9 @@ class _StandardSweepTagGenerator(_SweepTagGenerator):
                         output.append(c)
 
         if state != State.LITERAL:
-            msg = "`sweep_format` must have matching opening and closing braces."
-
-            raise ValidationError(msg, field="common")
+            raise ValidationError(
+                "`sweep_format` must have matching opening and closing braces.", field="common"  # fmt: skip
+            )
 
         if unknown_keys:
             keys = list(unknown_keys)
@@ -212,8 +208,8 @@ class _StandardSweepTagGenerator(_SweepTagGenerator):
 
             s = ", ".join(keys)
 
-            msg = f"`sweep_format` must contain only placeholders that correspond to the configuration keys, but contains unexpected placeholder(s) {s}."
-
-            raise ValidationError(msg, field="common")
+            raise ValidationError(
+                f"`sweep_format` must contain only placeholders that correspond to the configuration keys, but contains unexpected placeholder(s) {s}.", field="common"  # fmt: skip
+            )
 
         return "".join(output)

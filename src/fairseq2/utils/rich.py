@@ -40,12 +40,6 @@ def get_console() -> Console:
     return _console
 
 
-def set_console(console: Console) -> None:
-    global _console
-
-    _console = console
-
-
 _error_console: Console | None = None
 
 
@@ -56,12 +50,6 @@ def get_error_console() -> Console:
         _error_console = Console(stderr=True, highlight=False)
 
     return _error_console
-
-
-def set_error_console(console: Console) -> None:
-    global _error_console
-
-    _error_console = console
 
 
 @final

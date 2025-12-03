@@ -20,7 +20,7 @@ from fairseq2.optim.lr_schedulers import (
     PolynomialDecayLR,
     TriStageLR,
 )
-from fairseq2.recipe.component import ComponentManager, ComponentNotKnownError
+from fairseq2.recipe.component import ComponentManager
 from fairseq2.recipe.config import (
     COSINE_ANNEALING_LR,
     POLYNOMIAL_DECAY_LR,
@@ -33,7 +33,7 @@ from fairseq2.recipe.config import (
     RegimeSection,
     TriStageLRConfig,
 )
-from fairseq2.recipe.error import LRSchedulerNotKnownError
+from fairseq2.recipe.error import ConfigError
 from fairseq2.recipe.optim import maybe_raise_param_group_length_error
 from fairseq2.utils.validation import ValidationError
 
@@ -53,8 +53,10 @@ class _LRSchedulerFactory:
             return self._component_manager.create_component(
                 LRScheduler, section.name, section.config
             )
-        except ComponentNotKnownError:
-            raise LRSchedulerNotKnownError(section.name) from None
+        except LookupError:
+            raise ConfigError(
+                f"'{section.name}' is not a known learning rate scheduler."
+            ) from None
 
 
 @final

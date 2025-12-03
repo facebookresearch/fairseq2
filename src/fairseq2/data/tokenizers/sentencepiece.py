@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, final
@@ -20,7 +19,6 @@ from fairseq2.data.tokenizers.tokenizer import TokenDecoder, TokenEncoder, Token
 from fairseq2.data.tokenizers.vocab_info import VocabularyInfo
 from fairseq2.device import Device
 from fairseq2.error import NotSupportedError
-from fairseq2.runtime.dependency import get_dependency_resolver
 
 if TYPE_CHECKING or DOC_MODE:
 
@@ -251,35 +249,15 @@ class RawSentencePieceTokenizer(Tokenizer):
         return self._vocab_info
 
 
-class SentencePieceModelLoader(ABC):
-    @abstractmethod
-    def load(
-        self, path: Path, *, control_symbols: Sequence[str] | None = None
-    ) -> SentencePieceModel: ...
-
-
-@final
-class StandardSentencePieceModelLoader(SentencePieceModelLoader):
-    @override
-    def load(
-        self, path: Path, *, control_symbols: Sequence[str] | None = None
-    ) -> SentencePieceModel:
-        try:
-            return SentencePieceModel(path, control_symbols)
-        except RuntimeError as ex:
-            msg = f"{path} is not a valid SentencePiece model."
-
-            raise TokenizerModelError(path, msg) from ex
-
-
 def load_sentencepiece_model(
     path: Path, *, control_symbols: Sequence[str] | None = None
 ) -> SentencePieceModel:
-    resolver = get_dependency_resolver()
+    try:
+        return SentencePieceModel(path, control_symbols)
+    except RuntimeError as ex:
+        msg = f"{path} is not a valid SentencePiece model."
 
-    model_loader = resolver.resolve(SentencePieceModelLoader)
-
-    return model_loader.load(path, control_symbols=control_symbols)
+        raise TokenizerModelError(path, msg) from ex
 
 
 def get_sentencepiece_vocabulary_info(model: SentencePieceModel) -> VocabularyInfo:

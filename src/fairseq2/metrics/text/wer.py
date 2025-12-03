@@ -73,11 +73,11 @@ class WerMetric(Metric[tuple[Tensor, Tensor]]):
             length of the hypotheses.
         """
         if ref_seqs_layout.packed or hyp_seqs_layout.packed:
-            raise ValueError("`refs` and `hyps` must not be packed batches.")
+            raise ValueError("`refs` and `hyps` must not be packed batches")
 
         ref_seq_lens = ref_seqs_layout.seq_lens
         hyp_seq_lens = hyp_seqs_layout.seq_lens
-        # editdistance requires lists
+
         ref_seqs_list = ref_seqs.cpu().tolist()
         hyp_seqs_list = ref_seqs.cpu().tolist()
 

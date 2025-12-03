@@ -29,7 +29,20 @@ class StateDictError(Exception):
 
         s = ", ".join(sorted(state_dict.keys()))
 
-        raise StateDictError(f"`state_dict` contains unexpected key(s) {s}.")
+        raise StateDictError(f"`state_dict` contains unexpected key(s): {s}")
+class CorruptDataError(Exception):
+    @staticmethod
+    def raise_if_state_dict_not_empty(state_dict: dict[str, object]) -> None:
+        if not state_dict:
+            return
+
+        s = ", ".join(sorted(state_dict.keys()))
+
+        raise CorruptDataError(f"`state_dict` contains unexpected key(s) {s}.")
+
+
+class FormatError(Exception):
+    pass
 
 
 class OperationalError(Exception):
@@ -38,3 +51,39 @@ class OperationalError(Exception):
 
 def raise_operational_system_error(cause: OSError) -> NoReturn:
     raise OperationalError("A system error occurred.") from cause
+
+
+class NumericalError(Exception):
+    def __init__(self, step_nr: int, message: str) -> None:
+        super().__init__(message)
+
+        self.step_nr = step_nr
+
+
+class CorruptBatchError(Exception):
+    def __init__(self, step_nr: int, message: str) -> None:
+        super().__init__(message)
+
+        self.step_nr = step_nr
+
+
+class CorruptCheckpointError(Exception):
+    def __init__(self, step_nr: int, message: str) -> None:
+        super().__init__(message)
+
+        self.step_nr = step_nr
+
+
+class MinimumLossScaleReachedError(Exception):
+    def __init__(self, step_nr: int, loss_scale: float, message: str) -> None:
+        super().__init__(message)
+
+        self.step_nr = step_nr
+        self.loss_scale = loss_scale
+
+
+class TrainValidationError(Exception):
+    def __init__(self, step_nr: int, message: str) -> None:
+        super().__init__(message)
+
+        self.step_nr = step_nr

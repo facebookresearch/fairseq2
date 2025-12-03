@@ -15,8 +15,6 @@ from typing import ParamSpec, Protocol, TypeVar, final
 
 from typing_extensions import override
 
-from fairseq2.error import OperationalError
-
 T = TypeVar("T")
 
 
@@ -77,12 +75,7 @@ class _StandardThreadPool(ThreadPool):
     def queue(
         self, callback: Action[P, R], *args: P.args, **kwargs: P.kwargs
     ) -> Future[R]:
-        try:
-            return self._executor.submit(callback, *args, **kwargs)
-        except RuntimeError as ex:
-            raise OperationalError(
-                "`callback` cannot be submitted to the thread pool."
-            ) from ex
+        return self._executor.submit(callback, *args, **kwargs)
 
 
 def get_num_threads(local_world_size: int) -> int:
@@ -91,9 +84,7 @@ def get_num_threads(local_world_size: int) -> int:
     affinity_mask = os.sched_getaffinity(0)
 
     if num_cpus is None or affinity_mask is None:
-        raise OperationalError(
-            "Number of CPUs on the host machine cannot be determined."
-        )
+        raise RuntimeError("Number of CPUs on the host machine cannot be determined.")
 
     # We should not exceed the number of cores available in the affinity mask.
     return min(max(num_cpus // local_world_size, 1), len(affinity_mask))

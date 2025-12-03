@@ -22,6 +22,7 @@ from fairseq2.device import Device
 TokenizerT = TypeVar("TokenizerT")
 
 
+# TODO: remove in v0.14
 @final
 class RecipeTokenizer(Tokenizer):
     def __init__(

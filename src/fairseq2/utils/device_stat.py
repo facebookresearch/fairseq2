@@ -12,7 +12,6 @@ from typing import Final, final
 from typing_extensions import override
 
 from fairseq2.device import CudaContext, Device
-from fairseq2.error import OperationalError
 
 
 class DeviceStatTracker(ABC):
@@ -47,20 +46,16 @@ class CudaDeviceStatTracker(DeviceStatTracker):
 
         self._device = device
         self._cuda_context = cuda_context
-
-        try:
-            props = cuda_context.get_device_properties(device)
-        except RuntimeError as ex:
-            raise OperationalError("CUDA call failed.") from ex
-
-        self._total_memory = props.total_memory
+        self._total_memory: int | None = None
 
     @override
     def get_stats(self) -> dict[str, object]:
-        try:
-            stats = self._cuda_context.memory_stats(self._device)
-        except RuntimeError as ex:
-            raise OperationalError("CUDA call failed.") from ex
+        if self._total_memory is None:
+            props = self._cuda_context.get_device_properties(self._device)
+
+            self._total_memory = props.total_memory
+
+        stats = self._cuda_context.memory_stats(self._device)
 
         peak_active_mem_bytes = stats["active_bytes.all.peak"]
         peak_active_mem_ratio = peak_active_mem_bytes / self._total_memory
@@ -77,7 +72,4 @@ class CudaDeviceStatTracker(DeviceStatTracker):
 
     @override
     def reset(self) -> None:
-        try:
-            self._cuda_context.reset_peak_memory_stats()
-        except RuntimeError as ex:
-            raise OperationalError("CUDA call failed.") from ex
+        self._cuda_context.reset_peak_memory_stats()

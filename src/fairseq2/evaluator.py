@@ -17,17 +17,17 @@ from torch.profiler import record_function
 from typing_extensions import override
 
 from fairseq2.data_type import DataType
-from fairseq2.datasets import DataReader
-from fairseq2.device import CPU, SupportsDeviceTransfer
+from fairseq2.datasets import DataReader, DataReadError
+from fairseq2.device import SupportsDeviceTransfer
 from fairseq2.error import InternalError, InvalidOperationError
-from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
+from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.metrics import MetricBag, sync_and_compute_metrics
 from fairseq2.metrics.common import extend_batch_metric_values
-from fairseq2.metrics.recorders import MetricRecorder
+from fairseq2.metrics.recorders import MetricRecorder, MetricRecordError
 from fairseq2.profilers import Profiler
 from fairseq2.recipe.model import RecipeModel
-from fairseq2.task import Task, TaskStopException
+from fairseq2.runtime.closable import Closable
 from fairseq2.typing import ContextManager
 from fairseq2.utils.device_stat import DeviceStatTracker
 from fairseq2.utils.progress import ProgressReporter
@@ -57,8 +57,8 @@ class EvalUnit(ABC, Generic[BatchT_contra]):
         pass
 
     @property
-    def name(self) -> str | None:
-        return None
+    def name(self) -> str:
+        return "default"
 
     @property
     def model(self) -> RecipeModel:
@@ -67,11 +67,15 @@ class EvalUnit(ABC, Generic[BatchT_contra]):
         raise NotImplementedError()
 
 
+class EvaluatorError(Exception):
+    pass
+
+
 BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
 
 
 @final
-class Evaluator(Task):
+class Evaluator(Closable):
     """Evaluates a machine learning model."""
 
     def __init__(
@@ -88,6 +92,7 @@ class Evaluator(Task):
         device_stat_tracker: DeviceStatTracker,
         wall_watch: Stopwatch,
         progress_reporter: ProgressReporter,
+        rng_bag: RngBag,
         seed: int,
     ) -> None:
         if len(units) == 0:
@@ -98,15 +103,12 @@ class Evaluator(Task):
                 f"Number of data readers in `data_readers` must match the number of units in `units` ({len(units)}), but is {len(data_readers)} instead."
             )
 
-        rng_bag = RngBag.from_device_defaults(CPU, gangs.device)
-
         self._model = model
         self._units = units
         self._data_readers = data_readers
         self._gangs = gangs
         self._amp = amp
         self._amp_dtype = amp_dtype
-        self._rng_bag = rng_bag
         self._metric_recorder = metric_recorder
         self._profiler = profiler
         self._device_stat_tracker = device_stat_tracker
@@ -115,15 +117,19 @@ class Evaluator(Task):
         self._lapse_watch = Stopwatch()
         self._wall_watch = wall_watch
         self._progress_reporter = progress_reporter
+        self._rng_bag = rng_bag
         self._seed = seed
         self._step_nr = 0
         self._stop_requested = False
         self._num_batches_read = 0
         self._has_run = False
 
-    @override
     @torch.inference_mode()
-    def run(self) -> None:
+    def run(self) -> bool:
+        """
+        :raises EvaluatorError:
+        :raises InvalidOperationError:
+        """
         if self._has_run:
             raise InvalidOperationError("Evaluator has already been run.")
 
@@ -132,20 +138,26 @@ class Evaluator(Task):
         with self._progress_reporter:
             with self._rng_bag.temporary_manual_seed(self._seed):
                 with self._profiler:
-                    self._do_run()
+                    done = self._do_run()
 
         self._gangs.close()
 
-    def _do_run(self) -> None:
+        return done
+
+    def _do_run(self) -> bool:
         self._model.eval()
 
         for unit, data_reader in zip(self._units, self._data_readers):
-            if unit.name:
-                log.info("Evaluating {}.", unit.name)
+            if self._units:
+                log.info("Evaluating '{}' unit.", unit.name)
 
-            self._run_unit(unit, data_reader)
+            done = self._run_unit(unit, data_reader)
+            if not done:
+                return False
 
-    def _run_unit(self, unit: EvalUnit[Any], data_reader: DataReader[Any]) -> None:
+        return True
+
+    def _run_unit(self, unit: EvalUnit[Any], data_reader: DataReader[Any]) -> bool:
         metric_bag = MetricBag(device=self._gangs.device)
 
         unit.prepare_metric_bag(metric_bag)
@@ -159,7 +171,7 @@ class Evaluator(Task):
         with progress_task, self._lapse_watch:
             while not eod:
                 if self._stop_requested:
-                    raise TaskStopException()
+                    return False
 
                 batches = self._read_next_batches(unit, data_reader)
                 if batches is None:
@@ -182,12 +194,18 @@ class Evaluator(Task):
 
         self._publish_metrics(unit, metric_bag)
 
+        return True
+
     def _read_next_batches(
         self, unit: EvalUnit[Any], data_reader: DataReader[Any]
     ) -> list[Any] | None:
         with self._data_watch:
             try:
                 batches = next(data_reader)
+            except DataReadError as ex:
+                raise EvaluatorError(
+                    f"Failed to read data at step {self._step_nr} for '{unit.name}' unit."
+                ) from ex
             except StopIteration:
                 batches = None
 
@@ -219,12 +237,20 @@ class Evaluator(Task):
     def _call_unit(
         self, unit: EvalUnit[Any], batch: Any, metric_bag: MetricBag
     ) -> None:
-        with self._maybe_autocast():
-            unit.process_batch(batch, metric_bag)
+        try:
+            with self._maybe_autocast():
+                unit.process_batch(batch, metric_bag)
+        except (RuntimeError, OSError, GangError, DataReadError) as ex:
+            raise EvaluatorError(
+                f"'{unit.name}' unit failed at step {self._step_nr}."
+            ) from ex
 
     def _call_unit_finalize(self, unit: EvalUnit[Any], metric_bag: MetricBag) -> None:
-        with self._maybe_autocast():
-            unit.finalize(metric_bag)
+        try:
+            with self._maybe_autocast():
+                unit.finalize(metric_bag)
+        except (RuntimeError, OSError, GangError) as ex:
+            raise EvaluatorError(f"'{unit.name}' unit failed to finalize.") from ex
 
     def _maybe_autocast(self) -> ContextManager[None]:
         if not self._amp or self._amp_dtype == torch.float32:
@@ -235,17 +261,22 @@ class Evaluator(Task):
         )
 
     def _publish_metrics(self, unit: EvalUnit[Any], metric_bag: MetricBag) -> None:
+        try:
+            self._do_publish_metrics(unit, metric_bag)
+        except (GangError, MetricRecordError) as ex:
+            raise EvaluatorError(
+                f"Failed to publish metrics of '{unit.name}' unit."
+            ) from ex
+
+    def _do_publish_metrics(self, unit: EvalUnit[Any], metric_bag: MetricBag) -> None:
         log.debug("Syncing evaluation metrics.")
 
         gangs = self._gangs
 
-        try:
-            if gangs.tp.rank == 0:
-                values = sync_and_compute_metrics(metric_bag, gangs.dp)
-            else:
-                values = None
-        except GangError as ex:
-            raise_operational_gang_error(ex)
+        if gangs.tp.rank == 0:
+            values = sync_and_compute_metrics(metric_bag, gangs.dp)
+        else:
+            values = None
 
         if gangs.root.rank == 0:
             if values is None:
@@ -277,7 +308,7 @@ class Evaluator(Task):
 
             category = "eval"
 
-            if unit.name:
+            if self._units:
                 category = f"{category}/{unit.name}"
 
             self._metric_recorder.record_metric_values(category, values)
@@ -297,7 +328,6 @@ class Evaluator(Task):
 
         self._num_batches_read = 0
 
-    @override
     def request_stop(self) -> None:
         self._stop_requested = True
 
@@ -306,6 +336,5 @@ class Evaluator(Task):
         self._metric_recorder.close()
 
     @property
-    @override
     def step_nr(self) -> int:
         return self._step_nr

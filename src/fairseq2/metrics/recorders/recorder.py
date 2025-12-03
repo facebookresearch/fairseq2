@@ -21,7 +21,10 @@ class MetricRecorder(Closable):
     @abstractmethod
     def record_metric_values(
         self, category: str, values: Mapping[str, object], step_nr: int | None = None
-    ) -> None: ...
+    ) -> None:
+        """
+        :raises OSError:
+        """
 
 
 @final

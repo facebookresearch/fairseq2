@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, final
 
 from fairseq2n import DOC_MODE
 
-from fairseq2.error import raise_operational_system_error
+from fairseq2.error import OperationalError
 from fairseq2.file_system import FileSystem
 from fairseq2.logging import log
 from fairseq2.recipe.config import CommonSection
@@ -37,11 +37,13 @@ class _DistributedLogConfigurer:
         self._file_system = file_system
 
     def configure(self) -> None:
-        self._configure_logger()
+        try:
+            self._configure_logger()
 
-        self._configure_aten_logging()
-
-        self._configure_nccl_logging()
+            self._configure_aten_logging()
+            self._configure_nccl_logging()
+        except OSError as ex:
+            raise OperationalError("Failed to configure distributed logger.") from ex
 
         log.info("Log files are stored under {}.", self._output_dir)
 
@@ -58,15 +60,9 @@ class _DistributedLogConfigurer:
 
         log_file = self._output_dir.joinpath(f"logs/rank_{rank}.log")
 
-        try:
-            self._file_system.make_directory(log_file.parent)
-        except OSError as ex:
-            raise_operational_system_error(ex)
+        self._file_system.make_directory(log_file.parent)
 
-        try:
-            handler = FileHandler(log_file)
-        except OSError as ex:
-            raise_operational_system_error(ex)
+        handler = FileHandler(log_file)
 
         fmt = f"[Rank {rank}] %(asctime)s %(levelname)s %(name)s - %(message)s"
 
@@ -87,10 +83,7 @@ class _DistributedLogConfigurer:
             f"logs/aten/rank_{self._world_info.rank}.log"
         )
 
-        try:
-            self._file_system.make_directory(log_file.parent)
-        except OSError as ex:
-            raise_operational_system_error(ex)
+        self._file_system.make_directory(log_file.parent)
 
         _enable_aten_logging(log_file)
 
@@ -105,10 +98,7 @@ class _DistributedLogConfigurer:
             f"logs/nccl/rank_{self._world_info.rank}.log"
         )
 
-        try:
-            self._file_system.make_directory(log_file.parent)
-        except OSError as ex:
-            raise_operational_system_error(ex)
+        self._file_system.make_directory(log_file.parent)
 
         self._env.set("NCCL_DEBUG", "INFO")
         self._env.set("NCCL_DEBUG_FILE", str(log_file))

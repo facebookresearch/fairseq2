@@ -33,7 +33,7 @@ class BleuMetric(Metric[Tensor]):
 
         if tokenizer not in BLEU.TOKENIZERS:
             raise NotSupportedError(
-                f"`tokenizer` must be a supported tokenizer available in the sacrebleu package, but is {tokenizer} instead."
+                f"`tokenizer` must be a supported tokenizer available in sacrebleu, but is '{tokenizer}' instead"
             )
 
         self._bleu = BLEU(tokenize=tokenizer)

@@ -40,12 +40,6 @@ class ChrfMetric(Metric[Tensor]):
     @override
     @torch.inference_mode()
     def update(self, refs: Sequence[str], hyps: Sequence[str]) -> Self:
-        """
-        :param refs:
-            The references.
-        :param hyps:
-            The hypotheses.
-        """
         chrf = self._build_chrf()
 
         all_stats = chrf._extract_corpus_statistics(hyps, [refs])

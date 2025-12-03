@@ -18,10 +18,7 @@ class EarlyStopper(ABC):
     @abstractmethod
     def should_stop(self, step_nr: int, score: float) -> bool:
         """
-        :param step_nr: The number of the current training step.
-        :para score: The validation score of the current training step.
-
-        :returns: ``True`` if the training should be stopped; otherwise, ``False``.
+        Returns ``True`` if the training should be stopped; otherwise, ``False``.
         """
 
 

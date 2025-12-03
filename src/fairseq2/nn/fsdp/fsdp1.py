@@ -147,7 +147,7 @@ def to_fsdp1(
                 use_orig_params=True,
             )
         except RuntimeError as ex:
-            raise GangError("FSDP1 parameter synchronization failed.") from ex
+            raise GangError("Failed to synchronize FSDP1 parameters.") from ex
 
     module = applier(module, wrap)
 
@@ -269,4 +269,4 @@ def fsdp1_summon_full_parameters(module: FSDP1Module) -> Iterator[None]:
             finally:
                 enable_fsdp_forward(module)
     except RuntimeError as ex:
-        raise OperationalError("FSDP1 summon operation failed.") from ex
+        raise OperationalError("Failed to summon FSDP1 parameters.") from ex

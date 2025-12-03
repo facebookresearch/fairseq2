@@ -16,13 +16,13 @@ from torch import Tensor
 from torch.profiler import record_function
 from typing_extensions import override
 
-from fairseq2.checkpoint import CheckpointManager, HuggingFaceExporter
+from fairseq2.checkpoint import CheckpointError, CheckpointManager, HuggingFaceExporter
 from fairseq2.data_type import DataType
-from fairseq2.datasets import DataReader
-from fairseq2.device import CPU, SupportsDeviceTransfer
-from fairseq2.error import InternalError, InvalidOperationError
-from fairseq2.evaluator import EvalUnit
-from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
+from fairseq2.datasets import DataReader, DataReadError
+from fairseq2.device import SupportsDeviceTransfer
+from fairseq2.error import CorruptDataError, InternalError, InvalidOperationError
+from fairseq2.evaluator import CorruptEvalBatchError, EvalUnit
+from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.metrics import MetricBag, sync_and_compute_metrics
 from fairseq2.metrics.common import extend_batch_metric_values
@@ -30,11 +30,12 @@ from fairseq2.metrics.recorders import (
     NOOP_METRIC_DESCRIPTOR,
     MetricDescriptor,
     MetricRecorder,
+    MetricRecordError,
 )
 from fairseq2.profilers import Profiler
 from fairseq2.typing import ContextManager
 from fairseq2.utils.device_stat import DeviceStatTracker
-from fairseq2.utils.progress import ProgressReporter
+from fairseq2.utils.progress import ProgressReporter, ProgressTask
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.stopwatch import Stopwatch
 
@@ -45,10 +46,19 @@ class Validator(ABC):
     """Validates a machine learning model during training."""
 
     @abstractmethod
-    def run(self, train_step_nr: int) -> float | None: ...
+    def run(self, train_step_nr: int) -> float | None:
+        """
+        :raises CorruptBatchError:
+        :raises ValidatorIOError:
+        :raises InvalidOperationError:
+        """
 
     @abstractmethod
     def reset(self) -> None: ...
+
+
+class ValidatorIOError(Exception):
+    pass
 
 
 @final
@@ -83,6 +93,7 @@ class StandardValidator(Validator):
         device_stat_tracker: DeviceStatTracker,
         wall_watch: Stopwatch,
         progress_reporter: ProgressReporter,
+        rng_bag: RngBag,
         seed: int,
     ) -> None:
         if len(units) == 0:
@@ -93,8 +104,6 @@ class StandardValidator(Validator):
                 f"Number of data readers in `data_readers` must match the number of units in `units` ({len(units)}), but is {len(data_readers)} instead."
             )
 
-        rng_bag = RngBag.from_device_defaults(CPU, gangs.device)
-
         self._units = units
         self._data_readers = data_readers
         self._gangs = gangs
@@ -103,7 +112,6 @@ class StandardValidator(Validator):
         self._score_metric_descriptor = score_metric_descriptor
         self._checkpoint_manager = checkpoint_manager
         self._hg_exporter = hg_exporter
-        self._rng_bag = rng_bag
         self._metric_recorder = metric_recorder
         self._profiler = profiler
         self._device_stat_tracker = device_stat_tracker
@@ -112,6 +120,7 @@ class StandardValidator(Validator):
         self._lapse_watch = Stopwatch()
         self._wall_watch = wall_watch
         self._progress_reporter = progress_reporter
+        self._rng_bag = rng_bag
         self._seed = seed
         self._step_nr = 0
         self._num_batches_read = 0
@@ -134,6 +143,16 @@ class StandardValidator(Validator):
                 return self._do_run(train_step_nr)
 
     def _maybe_restore_best_score_and_step(self) -> None:
+        try:
+            self._do_maybe_restore_best_score_and_step()
+        except CorruptDataError as ex:
+            raise CorruptCheckpointError(
+                ex.step_nr, f"Checkpoint score of step {ex.step_nr} is corrupt."
+            )
+        except (GangError, CheckpointError) as ex:
+            raise ValidatorIOError("Failed to restore best score.") from ex
+
+    def _do_maybe_restore_best_score_and_step(self) -> None:
         if self._score_metric_descriptor is NOOP_METRIC_DESCRIPTOR:
             return
 
@@ -156,8 +175,8 @@ class StandardValidator(Validator):
         scores = []
 
         for unit, data_reader in zip(self._units, self._data_readers):
-            if unit.name:
-                log.info("Validating {}.", unit.name)
+            if self._units:
+                log.info("Validating '{}' unit.", unit.name)
 
             score = self._run_unit(train_step_nr, unit, data_reader)
 
@@ -187,24 +206,13 @@ class StandardValidator(Validator):
             unit.set_train_step_nr(train_step_nr)
 
             while not eod:
-                self._checkpoint_manager.maybe_complete_save_operation()
-
-                self._hg_exporter.maybe_complete_operation()
-
                 batches = self._read_next_batches(unit, data_reader)
                 if batches is None:
                     eod = True
 
                     continue
 
-                self._step_nr += 1
-
-                progress_task.step(1)
-
-                with record_function(f"step_{self._step_nr}"):
-                    self._run_step(unit, batches, metric_bag)
-
-                self._profiler.step()
+                self._run_step(unit, batches, metric_bag, progress_task)
 
             with self._compute_watch:
                 with record_function("finalize"):
@@ -220,6 +228,14 @@ class StandardValidator(Validator):
         with self._data_watch:
             try:
                 batches = next(data_reader)
+            except CorruptDataError as ex:
+                raise CorruptBatchError(
+                    self._step_nr, f"A corrupt data batch encountered at validation step {self._step_nr} in '{unit.name}' unit."  # fmt: skip
+                ) from ex
+            except (DataReadError, GangError) as ex:
+                raise ValidatorIOError(
+                    f"Failed to read data batch for validation step {self._step_nr} in '{unit.name}' unit."  # fmt: skip
+                ) from ex
             except StopIteration:
                 batches = None
 
@@ -229,6 +245,40 @@ class StandardValidator(Validator):
         return batches
 
     def _run_step(
+        self,
+        unit: EvalUnit[Any],
+        batches: list[Any],
+        metric_bag: MetricBag,
+        progress_task: ProgressTask,
+    ) -> None:
+        chk_step_nr = self._checkpoint_manager.step_nr
+        if chk_step_nr is not None:
+            try:
+                self._checkpoint_manager.maybe_complete_save_operation()
+            except CheckpointError as ex:
+                raise ValidatorIOError(
+                    f"Failed to save checkpoint of step {chk_step_nr}."
+                ) from ex
+
+        chk_step_nr = self._hg_exporter.step_nr
+        if chk_step_nr is not None:
+            try:
+                self._hg_exporter.maybe_complete_operation()
+            except CheckpointError as ex:
+                raise ValidatorIOError(
+                    f"Failed to export Hugging Face model of step {chk_step_nr}."
+                ) from ex
+
+        self._step_nr += 1
+
+        progress_task.step(1)
+
+        with record_function(f"step_{self._step_nr}"):
+            self._do_run_step(unit, batches, metric_bag)
+
+        self._profiler.step()
+
+    def _do_run_step(
         self, unit: EvalUnit[Any], batches: list[Any], metric_bag: MetricBag
     ) -> None:
         log.debug("Running validation step {}.", self._step_nr)
@@ -251,12 +301,20 @@ class StandardValidator(Validator):
     def _call_unit(
         self, unit: EvalUnit[Any], batch: Any, metric_bag: MetricBag
     ) -> None:
-        with self._maybe_autocast():
-            unit.process_batch(batch, metric_bag)
+        try:
+            with self._maybe_autocast():
+                unit.process_batch(batch, metric_bag)
+        except (RuntimeError, OSError, GangError) as ex:
+            raise ValidatorIOError(
+                f"'{unit.name}' unit failed at validation step {self._step_nr}."
+            ) from ex
 
     def _call_unit_finalize(self, unit: EvalUnit[Any], metric_bag: MetricBag) -> None:
-        with self._maybe_autocast():
-            unit.finalize(metric_bag)
+        try:
+            with self._maybe_autocast():
+                unit.finalize(metric_bag)
+        except (RuntimeError, OSError, GangError) as ex:
+            raise ValidatorIOError(f"'{unit.name}' unit failed to finalize.") from ex
 
     def _maybe_autocast(self) -> ContextManager[None]:
         if not self._amp or self._amp_dtype == torch.float32:
@@ -269,17 +327,24 @@ class StandardValidator(Validator):
     def _publish_metrics(
         self, train_step_nr: int, unit: EvalUnit[Any], metric_bag: MetricBag
     ) -> dict[str, object]:
+        try:
+            return self._do_publish_metrics(train_step_nr, unit, metric_bag)
+        except (GangError, MetricRecordError) as ex:
+            raise ValidatorIOError(
+                f"Failed to publish validation metrics of '{unit.name}' unit."
+            ) from ex
+
+    def _do_publish_metrics(
+        self, train_step_nr: int, unit: EvalUnit[Any], metric_bag: MetricBag
+    ) -> dict[str, object]:
         log.debug("Syncing validation metrics.")
 
         gangs = self._gangs
 
-        try:
-            if gangs.tp.rank == 0:
-                values = sync_and_compute_metrics(metric_bag, gangs.dp)
-            else:
-                values = None
-        except GangError as ex:
-            raise_operational_gang_error(ex)
+        if gangs.tp.rank == 0:
+            values = sync_and_compute_metrics(metric_bag, gangs.dp)
+        else:
+            values = None
 
         if gangs.root.rank == 0:
             if values is None:
@@ -297,21 +362,25 @@ class StandardValidator(Validator):
 
             compute_time = self._compute_watch.get_elapsed_time()
 
-            extend_batch_metric_values(
-                values, self._num_batches_read, data_time + compute_time
-            )
+            lapse_time = self._lapse_watch.get_elapsed_time()
+
+            wall_time = self._wall_watch.get_elapsed_time()
 
             values["data_time"] = data_time
 
             values["compute_time"] = compute_time
 
-            values["lapse_time"] = self._lapse_watch.get_elapsed_time()
+            values["lapse_time"] = lapse_time
 
-            values["wall_time"] = self._wall_watch.get_elapsed_time()
+            values["wall_time"] = wall_time
+
+            extend_batch_metric_values(
+                values, self._num_batches_read, data_time + compute_time
+            )
 
             category = "valid"
 
-            if unit.name is not None:
+            if self._units:
                 category = f"{category}/{unit.name}"
 
             self._metric_recorder.record_metric_values(category, values, train_step_nr)
@@ -349,7 +418,7 @@ class StandardValidator(Validator):
 
         if not isinstance(metric_value, (int, float, Tensor)):
             raise InternalError(
-                f"Score metric value must be of type `{int}`, `{float}`, or `{Tensor}`, but is of type `{type(metric_value)}` instead."
+                f"Score metric value must be of type `int`, `float`, or `Tensor`, but is of type `{type(metric_value)}` instead."
             )
 
         score = float(metric_value)

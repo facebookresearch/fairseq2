@@ -1,4 +1,3 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -19,13 +18,16 @@ class Uri:
 
     @classmethod
     def parse(cls, s: str) -> Uri:
+        """
+        :raises UriFormatError:
+        """
         try:
             result = urlparse(s)
         except ValueError as ex:
-            raise UriFormatError(f"{s} cannot be parsed as URI.") from ex
+            raise UriFormatError("Failed to parse as URI.") from None
 
         if not result.scheme:
-            raise UriFormatError(f"{s} does not have a URI scheme.")
+            raise UriFormatError("URI has no scheme.")
 
         return Uri(result)
 

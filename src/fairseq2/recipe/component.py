@@ -102,16 +102,8 @@ class _StandardComponentManager(ComponentManager):
             entry = self._resolver.resolve(_ComponentEntry, key=key)
         except DependencyNotFoundError as ex:
             if ex.kls is _ComponentEntry and ex.key == key:
-                raise ComponentNotKnownError(name, kls) from None
+                raise LookupError() from None
 
             raise
 
         return self._value_converter.structure(unstructured_config, entry.config_kls)
-
-
-class ComponentNotKnownError(Exception):
-    def __init__(self, name: str, component_kls: type[object]) -> None:
-        super().__init__(f"{name} is not a known `{component_kls}`.")
-
-        self.name = name
-        self.component_kls = component_kls

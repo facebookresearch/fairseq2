@@ -13,7 +13,7 @@ from fairseq2.runtime.closable import Closable
 
 class Task(Closable):
     @abstractmethod
-    def run(self) -> None: ...
+    def run(self) -> bool: ...
 
     @abstractmethod
     def request_stop(self) -> None: ...
@@ -21,8 +21,3 @@ class Task(Closable):
     @property
     @abstractmethod
     def step_nr(self) -> int: ...
-
-
-class TaskStopException(Exception):
-    def __init__(self) -> None:
-        super().__init__("Task stopped.")

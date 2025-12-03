@@ -87,7 +87,7 @@ def to_ddp(
             static_graph=static_graph,
         )
     except RuntimeError as ex:
-        raise GangError("DDP parameter synchronization failed.") from ex
+        raise GangError("Failed to synchronize DDP parameters.") from ex
 
     # For performance reasons we do not broadcast buffers during training, so
     # ensure that batch normalization works.
@@ -135,7 +135,7 @@ def _broadcast_buffers(module: Module, gang: Gang) -> None:
     try:
         _broadcast_coalesced(pg, buffers, bucket_size, source_rank)
     except RuntimeError as ex:
-        raise GangError("`broadcast_coalesced()` collective operation failed.") from ex
+        raise GangError("Failed to broadcast buffers.") from ex
 
 
 def _all_reduce_hook(gang: Gang, bucket: GradBucket) -> Future[Tensor]:

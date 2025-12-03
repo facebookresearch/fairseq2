@@ -87,10 +87,11 @@ class ModelCheckpointLoader(ABC):
         Yields pairs of ``(parameter name, parameter)`` for each parameter in
         the checkpoint.
 
-        :raises CorruptModelCheckpointError: Checkpoint is erroneous and cannot
-            be loaded.
+        :raises FileNotFoundError: Checkpoint is not found.
 
-        :raises OSError: A system error occurred.
+        :raises BadModelCheckpointError: Checkpoint is erroneous.
+
+        :raises OSError: An I/O error occurred.
         """
 
     @abstractmethod
@@ -98,12 +99,9 @@ class ModelCheckpointLoader(ABC):
         """
         Checks if this loader can handle the specified checkpoint path.
 
-        :raises OSError: A system error occurred.
+        :raises OSError: An I/O error occurred.
         """
 
 
-class CorruptModelCheckpointError(Exception):
-    def __init__(self, path: Path, message: str) -> None:
-        super().__init__(message)
-
-        self.path = path
+class BadModelCheckpointError(Exception):
+    pass

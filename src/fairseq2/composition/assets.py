@@ -10,32 +10,32 @@ from pathlib import Path
 from typing import Iterator, Sequence
 
 from fairseq2.assets import (
-    AssetDirectoryAccessor,
     AssetDownloadManager,
-    AssetEnvironmentDetector,
-    AssetMetadataFileLoader,
     AssetMetadataProvider,
     AssetMetadataSource,
     AssetStore,
-    DelegatingAssetDownloadManager,
     FileAssetMetadataLoader,
-    FileAssetMetadataSource,
-    HuggingFaceHub,
-    InMemoryAssetMetadataSource,
-    LocalAssetDownloadManager,
-    PackageAssetMetadataLoader,
-    PackageAssetMetadataSource,
-    PackageFileLister,
-    StandardAssetDirectoryAccessor,
-    StandardAssetDownloadManager,
-    StandardAssetStore,
-    StandardFileAssetMetadataLoader,
-    StandardPackageAssetMetadataLoader,
-    StandardPackageFileLister,
-    WellKnownAssetMetadataSource,
-    YamlAssetMetadataFileLoader,
+    _AssetDirectoryAccessor,
+    _AssetEnvironmentDetector,
+    _AssetMetadataFileLoader,
+    _DelegatingAssetDownloadManager,
+    _FileAssetMetadataSource,
+    _HuggingFaceHub,
+    _InMemoryAssetMetadataSource,
+    _LocalAssetDownloadManager,
+    _PackageAssetMetadataLoader,
+    _PackageAssetMetadataSource,
+    _PackageFileLister,
+    _StandardAssetDirectoryAccessor,
+    _StandardAssetDownloadManager,
+    _StandardAssetStore,
+    _StandardFileAssetMetadataLoader,
+    _StandardPackageAssetMetadataLoader,
+    _StandardPackageFileLister,
+    _WellKnownAssetMetadataSource,
+    _YamlAssetMetadataFileLoader,
 )
-from fairseq2.checkpoint import ModelMetadataSource
+from fairseq2.checkpoint import _ModelMetadataSource
 from fairseq2.runtime.dependency import (
     DependencyContainer,
     DependencyResolver,
@@ -49,7 +49,7 @@ def register_file_assets(
 ) -> None:
     def create_source(resolver: DependencyResolver) -> AssetMetadataSource:
         return wire_object(
-            resolver, FileAssetMetadataSource, path=path, not_exist_ok=not_exist_ok
+            resolver, _FileAssetMetadataSource, path=path, not_exist_ok=not_exist_ok
         )
 
     container.collection.register(AssetMetadataSource, create_source)
@@ -57,7 +57,7 @@ def register_file_assets(
 
 def register_package_assets(container: DependencyContainer, package: str) -> None:
     def create_source(resolver: DependencyResolver) -> AssetMetadataSource:
-        return wire_object(resolver, PackageAssetMetadataSource, package=package)
+        return wire_object(resolver, _PackageAssetMetadataSource, package=package)
 
     container.collection.register(AssetMetadataSource, create_source)
 
@@ -67,7 +67,7 @@ def register_in_memory_assets(
 ) -> None:
     def create_source(resolver: DependencyResolver) -> AssetMetadataSource:
         return wire_object(
-            resolver, InMemoryAssetMetadataSource, name=source, entries=entries
+            resolver, _InMemoryAssetMetadataSource, name=source, entries=entries
         )
 
     container.collection.register(AssetMetadataSource, create_source)
@@ -77,13 +77,15 @@ def register_checkpoint_models(
     container: DependencyContainer, checkpoint_dir: Path
 ) -> None:
     def create_source(resolver: DependencyResolver) -> AssetMetadataSource:
-        return wire_object(resolver, ModelMetadataSource, checkpoint_dir=checkpoint_dir)
+        return wire_object(
+            resolver, _ModelMetadataSource, checkpoint_dir=checkpoint_dir
+        )
 
     container.collection.register(AssetMetadataSource, create_source)
 
 
 def _register_asset(container: DependencyContainer) -> None:
-    container.register_type(AssetDirectoryAccessor, StandardAssetDirectoryAccessor)
+    container.register_type(_AssetDirectoryAccessor, _StandardAssetDirectoryAccessor)
 
     # Store
     def load_asset_store(resolver: DependencyResolver) -> AssetStore:
@@ -93,47 +95,47 @@ def _register_asset(container: DependencyContainer) -> None:
             for source in sources:
                 yield from source.load()
 
-        env_detector = resolver.resolve(AssetEnvironmentDetector)
+        metadata_providers = load_providers()
+
+        env_detector = resolver.resolve(_AssetEnvironmentDetector)
 
         env = env_detector.detect()
 
-        metadata_providers = load_providers()
-
         return wire_object(
             resolver,
-            StandardAssetStore,
+            _StandardAssetStore,
             metadata_providers=metadata_providers,
             default_env=env,
         )
 
     container.register(AssetStore, load_asset_store, singleton=True)
 
-    container.register_type(AssetEnvironmentDetector)
+    container.register_type(_AssetEnvironmentDetector)
 
     # Asset Metadata
     register_package_assets(container, package="fairseq2.assets.cards")
 
     container.collection.register_type(
-        AssetMetadataSource, WellKnownAssetMetadataSource
+        AssetMetadataSource, _WellKnownAssetMetadataSource
     )
 
-    container.register_type(AssetMetadataFileLoader, YamlAssetMetadataFileLoader)
-    container.register_type(FileAssetMetadataLoader, StandardFileAssetMetadataLoader)
-    container.register_type(PackageAssetMetadataLoader, StandardPackageAssetMetadataLoader)  # fmt: skip
-    container.register_type(PackageFileLister, StandardPackageFileLister)
+    container.register_type(_AssetMetadataFileLoader, _YamlAssetMetadataFileLoader)
+    container.register_type(FileAssetMetadataLoader, _StandardFileAssetMetadataLoader)
+    container.register_type(_PackageAssetMetadataLoader, _StandardPackageAssetMetadataLoader)  # fmt: skip
+    container.register_type(_PackageFileLister, _StandardPackageFileLister)
 
-    # Download Manager
+    # DownloadManager
     container.register_type(
-        AssetDownloadManager, DelegatingAssetDownloadManager, singleton=True
+        AssetDownloadManager, _DelegatingAssetDownloadManager, singleton=True
     )
 
-    container.collection.register_type(AssetDownloadManager, LocalAssetDownloadManager)
-    container.collection.register_type(AssetDownloadManager, HuggingFaceHub)
+    container.collection.register_type(AssetDownloadManager, _LocalAssetDownloadManager)
+    container.collection.register_type(AssetDownloadManager, _HuggingFaceHub)
 
     def create_standard_asset_download_manager(
         resolver: DependencyResolver,
     ) -> AssetDownloadManager:
-        dirs = resolver.resolve(AssetDirectoryAccessor)
+        dirs = resolver.resolve(_AssetDirectoryAccessor)
 
         cache_dir = dirs.get_cache_dir()
 
@@ -145,7 +147,7 @@ def _register_asset(container: DependencyContainer) -> None:
 
         return wire_object(
             resolver,
-            StandardAssetDownloadManager,
+            _StandardAssetDownloadManager,
             cache_dir=cache_dir,
             progress_reporter=progress_reporter,
             download_progress_reporter=download_progress_reporter,

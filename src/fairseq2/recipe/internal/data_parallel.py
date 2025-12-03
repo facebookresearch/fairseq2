@@ -15,13 +15,13 @@ from typing_extensions import override
 
 from fairseq2.checkpoint import CheckpointManager
 from fairseq2.data_type import DataType
-from fairseq2.error import InternalError
-from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
+from fairseq2.error import InternalError, OperationalError
+from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.nn.fsdp import FSDPApplier, FSDPWrapper
 from fairseq2.nn.utils.module import to_device
 from fairseq2.recipe.config import TrainerSection
-from fairseq2.recipe.error import FSDPNotSupportedError
+from fairseq2.recipe.error import ConfigError
 from fairseq2.recipe.internal.model import _ModelHolder
 from fairseq2.runtime.lookup import Lookup
 
@@ -94,7 +94,7 @@ class _DDPModelWrapper(_DataParallelModelWrapper):
                 find_unused_parameters=not self._static_graph,
             )
         except GangError as ex:
-            raise_operational_gang_error(ex)
+            raise OperationalError("Failed to apply DDP.") from ex
 
         log.info("Model wrapped with DDP and broadcasted.")
 
@@ -134,7 +134,7 @@ class _FSDPModelWrapper(_DataParallelModelWrapper):
     @override
     def wrap(self, model_holder: _ModelHolder) -> Module:
         if not model_holder.family.supports_fsdp:
-            raise FSDPNotSupportedError()
+            raise ConfigError("Model does not support FSDP.")
 
         fsdp_config = self._section.fsdp
 
@@ -172,7 +172,7 @@ class _FSDPModelWrapper(_DataParallelModelWrapper):
                     reshard_after_forward=fsdp_config.reshard_after_forward,
                 )
             except GangError as ex:
-                raise_operational_gang_error(ex)
+                raise OperationalError("Failed to apply FSDP1.") from ex
 
             if has_checkpoint:
                 log.info("Model wrapped with FSDP1.")
@@ -197,7 +197,7 @@ class _FSDPModelWrapper(_DataParallelModelWrapper):
                     reshard_after_forward=fsdp_config.reshard_after_forward,
                 )
             except GangError as ex:
-                raise_operational_gang_error(ex)
+                raise OperationalError("Failed to apply FSDP2.") from ex
 
             if has_checkpoint:
                 log.info("Model wrapped with FSDP2.")

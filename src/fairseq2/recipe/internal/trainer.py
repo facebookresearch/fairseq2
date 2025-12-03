@@ -36,11 +36,7 @@ from fairseq2.recipe.config import (
     RegimeSection,
     TrainerSection,
 )
-from fairseq2.recipe.error import (
-    HuggingFaceNotSupportedError,
-    ManualGradScalingNotSupportedError,
-    MetricNotKnownError,
-)
+from fairseq2.recipe.error import ConfigError
 from fairseq2.recipe.internal.model import _ModelHolder
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.trainer import BatchT, Trainer, TrainUnit
@@ -204,7 +200,9 @@ class _Float16LossScalerFactory:
 
         if gangs.sdp.size > 1:
             if not supports_manual_grad_scaling(self._optimizer):
-                raise ManualGradScalingNotSupportedError()
+                raise ConfigError(
+                    "Selected optimizer configuration does not support manual fp16 gradient scaling required for FSDP."
+                )
 
         grad_accumulation = self._section.grad_accumulation.num_batches
 
@@ -240,7 +238,7 @@ class _HuggingFaceExporterFactory:
 
         hg_converter = self._hg_converter.maybe_get(self._model_holder.family.name)
         if hg_converter is None:
-            raise HuggingFaceNotSupportedError()
+            raise ConfigError("Model does not support Hugging Face conversion.")
 
         return self._default_factory()
 
@@ -260,7 +258,7 @@ class _MaybeScoreMetricProvider:
 
         descriptor = self._metric_descriptors.maybe_get(score_metric)
         if descriptor is None:
-            raise MetricNotKnownError(score_metric)
+            raise ConfigError(f"'{score_metric}' is not a known metric.")
 
         return descriptor
 

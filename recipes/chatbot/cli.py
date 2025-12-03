@@ -19,8 +19,8 @@ from typing_extensions import override
 from fairseq2.assets import (
     AssetCardError,
     AssetDownloadError,
-    AssetMetadataError,
     AssetNotFoundError,
+    CorruptAssetMetadataError,
     get_asset_store,
 )
 from fairseq2.cluster import (
@@ -45,15 +45,12 @@ from fairseq2.logging import configure_logging, log
 from fairseq2.model_checkpoint import CorruptModelCheckpointError
 from fairseq2.models import ModelGatedError, ModelNotKnownError, load_model
 from fairseq2.models.clm import CausalLM
-from fairseq2.recipe.error import (
-    GangTopologyError,
-    ModelTypeNotValidError,
-    raise_model_type_not_valid_error,
-)
+from fairseq2.recipe.error import RecipeError
 from fairseq2.utils.argparse import parse_dtype
+from fairseq2.utils.env import get_env
 from fairseq2.utils.rich import get_console
 from fairseq2.utils.rng import RngBag
-from fairseq2.world_info import get_world_info
+from fairseq2.world_info import WorldInfo
 
 from .chatbot import StandardChatbot
 from .llama import create_llama_dialog_encoder
@@ -81,16 +78,8 @@ def _main() -> None:
         log.error("{} is not a known cluster.", ex.cluster)  # fmt: skip
 
         sys.exit(2)
-    except GangTopologyError as ex:
-        log.error("--tensor-parallel-size must be a factor of the number of processes in the root gang ({}), but is {} instead.", ex.world_size, ex.tp_size)  # fmt: skip
-
-        sys.exit(2)
     except ModelNotKnownError as ex:
         log.error("{} is not a known model.", ex.name)  # fmt: skip
-
-        sys.exit(2)
-    except ModelTypeNotValidError:
-        log.error("Model must be a text-only causal language model.")  # fmt: skip
 
         sys.exit(2)
     except ModelGatedError as ex:
@@ -101,7 +90,7 @@ def _main() -> None:
         log.error("{} model does not have a chatbot.", ex.model_name)  # fmt: skip
 
         sys.exit(2)
-    except AssetMetadataError as ex:
+    except CorruptAssetMetadataError as ex:
         log.exception("Asset metadata in {} is erroneous. See logged stack trace for details.", ex.source)  # fmt: skip
 
         sys.exit(1)
@@ -218,7 +207,9 @@ def _run(args: Namespace) -> None:
 
     root_gang: Gang
 
-    world_info = get_world_info()
+    env = get_env()
+
+    world_info = WorldInfo.from_env(env)
     if world_info.size > 1:
         timeout = timedelta(minutes=999)
 
@@ -232,7 +223,9 @@ def _run(args: Namespace) -> None:
         root_gang = FakeGang(device)
 
     if root_gang.size % args.tp_size != 0:
-        raise GangTopologyError(root_gang.size, args.tp_size)
+        raise RecipeError(
+            f"--tensor-parallel-size must be a factor of the number of processes in the root gang ({root_gang.size}), but is {args.tp_size} instead."
+        )
 
     try:
         gangs = create_parallel_gangs(root_gang, tp_size=args.tp_size)
@@ -264,7 +257,9 @@ def _run(args: Namespace) -> None:
     log.info("{}", model)
 
     if not isinstance(model, CausalLM):
-        raise raise_model_type_not_valid_error(model, CausalLM)
+        raise RecipeError(
+            f"Model must be of type `{CausalLM}`, but is of type `{type(model)}` instead."
+        )
 
     log.info("Loading {} tokenizer.", card.name)
 

@@ -17,8 +17,7 @@ from torch.distributed.tensor import DTensor
 from torch.nn import Module
 from torch.nn.utils import clip_grad_norm_  # type: ignore[attr-defined]
 
-from fairseq2.error import OperationalError
-from fairseq2.gang import Gang, all_sum
+from fairseq2.gang import Gang, GangError, all_sum
 from fairseq2.nn.fsdp import FSDP1Module
 
 
@@ -113,7 +112,7 @@ def clip_grad_norm(
             try:
                 return module.clip_grad_norm_(max_norm, norm_type)
             except RuntimeError as ex:
-                raise OperationalError("FSDP1 gradient norm clipping failed.") from ex
+                raise GangError("Failed to clip FSDP1 gradient norm.") from ex
 
     try:
         grad_norm = clip_grad_norm_(
@@ -125,21 +124,13 @@ def clip_grad_norm(
         if isinstance(grad_norm, DTensor):
             grad_norm = grad_norm.full_tensor()
     except RuntimeError as ex:
-        raise OperationalError("FSDP2 gradient norm clipping failed.") from ex
+        raise GangError("Failed to clip FSDP2 gradient norm.") from ex
 
     return grad_norm  # type: ignore[no-any-return]
 
 
 def check_grad_norms(local_norm: Tensor, gang: Gang, step_nr: int) -> None:
-    """Sanity check the total gradient norm across all processes.
-
-    :param local_norm:
-        The local total gradient norm.
-    :param gang:
-        The gang over which to check the total gradient norm.
-    :param step_nr:
-        The number of the training step. Used for logging purposes.
-    """
+    """Sanity checks the total gradient norm across all processes."""
     if gang.size == 1:
         return
 

@@ -492,7 +492,7 @@ class ProcessGroupGang(Gang):
                 dist.init_process_group(
                     backend, timeout=timeout, pg_options=pg_options, **kwargs
                 )
-        except (RuntimeError, ValueError) as ex:
+        except RuntimeError as ex:
             raise GangError("Underlying process group failed to initialize.") from ex
 
         pg = dist.group.WORLD
@@ -520,7 +520,7 @@ class ProcessGroupGang(Gang):
         try:
             backend = dist.get_backend()
         except RuntimeError as ex:
-            raise OperationalError(
+            raise InternalError(
                 "Root process group backend cannot be determined."
             ) from ex
 

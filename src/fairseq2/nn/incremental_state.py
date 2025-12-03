@@ -86,7 +86,7 @@ class IncrementalStateBag:
 
         if step_nr >= self._max_num_steps:
             raise ValueError(
-                f"The current step number ({self._step_nr}) with `value` increment ({value}) must be less than or equal to the maximum number of steps ({self.max_num_steps}), but is {self._step_nr + value} instead."
+                f"Current step number ({self._step_nr}) with `value` increment ({value}) must be less than or equal to the maximum number of steps ({self.max_num_steps}), but is {self._step_nr + value} instead."
             )
 
         self._step_nr = step_nr

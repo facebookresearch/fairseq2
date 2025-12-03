@@ -14,7 +14,7 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 
-from fairseq2.assets import AssetCard, AssetCardError, AssetNotFoundError, AssetStore
+from fairseq2.assets import AssetCard, AssetCardError, AssetStore
 from fairseq2.data_type import DataType
 from fairseq2.device import CPU, Device, get_current_device
 from fairseq2.error import InternalError
@@ -138,7 +138,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
 
             try:
                 card = self._asset_store.retrieve_card(name)
-            except AssetNotFoundError:
+            except LookupError:
                 raise ModelNotKnownError(name) from None
         else:
             name = card.name
@@ -360,7 +360,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
 
             try:
                 card = self._asset_store.retrieve_card(name)
-            except AssetNotFoundError:
+            except LookupError:
                 raise ModelNotKnownError(name) from None
         else:
             name = card.name
@@ -794,7 +794,7 @@ class GlobalModelLoader:
 
             try:
                 card = self._asset_store.retrieve_card(name)
-            except AssetNotFoundError:
+            except LookupError:
                 raise ModelNotKnownError(name) from None
         else:
             name = card.name

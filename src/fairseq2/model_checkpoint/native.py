@@ -9,18 +9,19 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 from itertools import count
 from pathlib import Path
-from typing import final
+from pickle import PickleError
+from typing import NoReturn, final
 
 from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.device import CPU
-from fairseq2.file_system import FileSystem, raise_if_not_exists
+from fairseq2.file_system import FileSystem, _raise_file_not_found_error
 from fairseq2.gang import GangContext
-from fairseq2.io import CorruptFileError, TensorFileLoader, TensorFileLoadOptions
+from fairseq2.io import TensorFileLoader, TensorFileLoadOptions
 from fairseq2.model_checkpoint.common import reshard_tensor
 from fairseq2.model_checkpoint.loader import (
-    CorruptModelCheckpointError,
+    BadModelCheckpointError,
     ModelCheckpointLoader,
     ModelCheckpointLoadOptions,
 )
@@ -55,13 +56,23 @@ class _NativeModelCheckpointLoader(ModelCheckpointLoader):
         if options is None:
             options = ModelCheckpointLoadOptions()
 
-        raise_if_not_exists(self._file_system, path)
+        try:
+            is_dir = self._file_system.is_dir(path)
+        except OSError as ex:
+            self._raise_path_access_error(path, ex)
 
-        is_dir = self._file_system.is_dir(path)
         if not is_dir:
-            message = f"{path} does not point to a fairseq2 checkpoint."
+            try:
+                path_exists = self._file_system.exists(path)
+            except OSError as ex:
+                self._raise_path_access_error(path, ex)
 
-            raise CorruptModelCheckpointError(path, message)
+            if not path_exists:
+                _raise_file_not_found_error(path)
+
+            raise BadModelCheckpointError(
+                f"checkpoint '{path}' does not have a known format"
+            )
 
         pp_files = self._get_checkpoint_files(path)
 
@@ -103,12 +114,14 @@ class _NativeModelCheckpointLoader(ModelCheckpointLoader):
                 for dp_file in dp_files:
                     try:
                         dp_shard = self._tensor_file_loader.load(dp_file, load_options)
-                    except CorruptFileError as ex:
-                        message = (
-                            f"{dp_file} cannot e loaded as a PyTorch checkpoint file."
-                        )
-
-                        raise CorruptModelCheckpointError(path, message) from ex
+                    except (PickleError, EOFError) as ex:
+                        raise BadModelCheckpointError(
+                            f"'{dp_file}' is not a valid PyTorch tensor file"
+                        ) from ex
+                    except OSError as ex:
+                        raise OSError(
+                            f"an I/O error occurred while reading checkpoint file '{dp_file}'"
+                        ) from ex
 
                     if options.state_dict_converter is not None:
                         dp_shard = options.state_dict_converter(dp_shard)
@@ -140,9 +153,11 @@ class _NativeModelCheckpointLoader(ModelCheckpointLoader):
                             break  # data parallel sharding can be uneven.
 
                         if not isinstance(dp_split, Tensor):
-                            message = f"{key} in {path} is not a `{Tensor}`."
+                            from fairseq2.typing import get_full_type_name as n
 
-                            raise CorruptModelCheckpointError(path, message)
+                            raise BadModelCheckpointError(
+                                f"key '{key}' in checkpoint '{path}' is expected to be of type `Tensor`, but is of type `{n(dp_split)}` instead"  # fmt: skip
+                            )
 
                         dp_splits.append(dp_split)
 
@@ -174,7 +189,11 @@ class _NativeModelCheckpointLoader(ModelCheckpointLoader):
         for pp_idx in count():
             pp_dir = path.joinpath(f"pp_{pp_idx:02d}")
 
-            is_dir = self._file_system.is_dir(pp_dir)
+            try:
+                is_dir = self._file_system.is_dir(pp_dir)
+            except OSError as ex:
+                self._raise_path_access_error(pp_dir, ex)
+
             if not is_dir:
                 break
 
@@ -183,7 +202,11 @@ class _NativeModelCheckpointLoader(ModelCheckpointLoader):
             for tp_idx in count():
                 tp_dir = pp_dir.joinpath(f"tp_{tp_idx:02d}")
 
-                is_dir = self._file_system.is_dir(tp_dir)
+                try:
+                    is_dir = self._file_system.is_dir(tp_dir)
+                except OSError as ex:
+                    self._raise_path_access_error(tp_dir, ex)
+
                 if not is_dir:
                     break
 
@@ -192,7 +215,11 @@ class _NativeModelCheckpointLoader(ModelCheckpointLoader):
                 for dp_idx in count():
                     dp_file = tp_dir.joinpath(f"sdp_{dp_idx:02d}.pt")
 
-                    is_file = self._file_system.is_file(dp_file)
+                    try:
+                        is_file = self._file_system.is_file(dp_file)
+                    except OSError as ex:
+                        self._raise_path_access_error(dp_file, ex)
+
                     if not is_file:
                         break
 
@@ -203,33 +230,43 @@ class _NativeModelCheckpointLoader(ModelCheckpointLoader):
             pp_files.append(tp_files)
 
         if not pp_files or not pp_files[0] or not pp_files[0][0]:
-            message = f"{path} directory does not contain any PyTorch checkpoint files."
-
-            raise CorruptModelCheckpointError(path, message)
+            raise BadModelCheckpointError(
+                f"checkpoint '{path}' does not have a known format"
+            )
 
         tp_size = len(pp_files[0])
         dp_size = len(pp_files[0][0])
 
         for pp_idx, tp_files in enumerate(pp_files):
             if len(tp_files) != tp_size:
-                message = f"Number of tensor parallel shards is expected to be {tp_size}, but the pipeline parallel shard at index {pp_idx} has {len(tp_files)} tensor parallel shards."
-
-                raise CorruptModelCheckpointError(path, message)
+                raise BadModelCheckpointError(
+                    f"each pipeline parallel shard in checkpoint '{path}' is expected to have {tp_size} tensor parallel shards, but the pipeline parallel shard at index {pp_idx} has {len(tp_files)} tensor parallel shards"  # fmt: skip
+                )
 
             for tp_idx, dp_files in enumerate(tp_files):
                 if len(dp_files) != dp_size:
-                    message = f"Number of data parallel shards is expected to be {dp_size}, but the tensor parallel shard at index {pp_idx}.{tp_idx} has {len(dp_files)} data parallel shards."
-
-                    raise CorruptModelCheckpointError(path, message)
+                    raise BadModelCheckpointError(
+                        f"each tensor parallel shard in checkpoint '{path}' is expected to have {dp_size} data parallel shards, but the tensor parallel shard at index {pp_idx}.{tp_idx} has {len(dp_files)} data parallel shards"  # fmt: skip
+                    )
 
         return pp_files
 
     @override
     def supports_path(self, path: Path) -> bool:
-        is_dir = self._file_system.is_dir(path)
+        try:
+            is_dir = self._file_system.is_dir(path)
+        except OSError as ex:
+            self._raise_path_access_error(path, ex)
+
         if not is_dir:
             return False
 
         pp_dir = path.joinpath("pp_00")
 
-        return self._file_system.is_dir(pp_dir)
+        try:
+            return self._file_system.is_dir(pp_dir)
+        except OSError as ex:
+            self._raise_path_access_error(pp_dir, ex)
+
+    def _raise_path_access_error(self, path: Path, cause: OSError) -> NoReturn:
+        raise OSError(f"an I/O error occurred while accessing path '{path}'") from cause

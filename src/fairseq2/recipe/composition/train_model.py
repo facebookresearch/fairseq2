@@ -11,8 +11,8 @@ from typing import final
 from torch.nn import Module
 from typing_extensions import override
 
-from fairseq2.error import raise_operational_system_error
-from fairseq2.gang import GangError, raise_operational_gang_error
+from fairseq2.error import OperationalError
+from fairseq2.gang import GangError
 from fairseq2.recipe.base import Recipe, RecipeContext
 from fairseq2.recipe.internal.model import _ModelHolder
 from fairseq2.recipe.internal.train_model import (
@@ -88,7 +88,7 @@ class _UserTrainModelPreparer(_TrainModelPreparer):
             model = self._recipe.prepare_model(context, model)
 
             model_holder.model = model.module
-        except OSError as ex:
-            raise_operational_system_error(ex)
-        except GangError as ex:
-            raise_operational_gang_error(ex)
+        except (RuntimeError, OSError, GangError) as ex:
+            raise OperationalError(
+                "Failed to setup model specified in `model` section."
+            ) from ex

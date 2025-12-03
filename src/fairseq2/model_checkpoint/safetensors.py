@@ -8,19 +8,20 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from pathlib import Path
-from typing import final
+from typing import NoReturn, final
 
+from safetensors import SafetensorError
 from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.device import CPU
 from fairseq2.error import InternalError
-from fairseq2.file_system import FileSystem
+from fairseq2.file_system import FileSystem, _raise_file_not_found_error
 from fairseq2.gang import GangContext
-from fairseq2.io import CorruptFileError, SafetensorsLoader, SafetensorsLoadOptions
+from fairseq2.io import SafetensorsLoader, SafetensorsLoadOptions
 from fairseq2.model_checkpoint.common import reshard_tensor
 from fairseq2.model_checkpoint.loader import (
-    CorruptModelCheckpointError,
+    BadModelCheckpointError,
     ModelCheckpointLoader,
     ModelCheckpointLoadOptions,
 )
@@ -56,13 +57,31 @@ class _SafetensorsCheckpointLoader(ModelCheckpointLoader):
         if options is None:
             options = ModelCheckpointLoadOptions()
 
-        is_dir = self._file_system.is_dir(path)
-        if is_dir:
-            files = list(self._file_system.glob(path, "*.safetensors"))
-            if not files:
-                message = f"{path} directory does not contain any Safetensors checkpoint files."
+        try:
+            path_exists = self._file_system.exists(path)
+        except OSError as ex:
+            self._raise_path_access_error(path, ex)
 
-                raise CorruptModelCheckpointError(path, message)
+        if not path_exists:
+            _raise_file_not_found_error(path)
+
+        try:
+            is_dir = self._file_system.is_dir(path)
+        except OSError as ex:
+            self._raise_path_access_error(path, ex)
+
+        if is_dir:
+            try:
+                files = list(self._file_system.glob(path, "*.safetensors"))
+            except OSError as ex:
+                raise OSError(
+                    f"an I/O error occurred while globing directory '{path}'"
+                ) from ex
+
+            if not files:
+                raise BadModelCheckpointError(
+                    f"checkpoint '{path}' does not have a known format"
+                )
         else:
             files = [path]
 
@@ -73,16 +92,20 @@ class _SafetensorsCheckpointLoader(ModelCheckpointLoader):
         for file in files:
             try:
                 shard = self._safetensors_loader.load(file, load_options)
-            except CorruptFileError as ex:
-                message = f"{file} cannot be loaded as a Safetensors checkpoint file."
-
-                raise CorruptModelCheckpointError(path, message) from ex
+            except (SafetensorError, EOFError) as ex:
+                raise BadModelCheckpointError(
+                    f"'{path}' is not a valid Safetensors file"
+                ) from ex
+            except OSError as ex:
+                raise OSError(
+                    f"an I/O error occurred while reading checkpoint file '{file}'"
+                ) from ex
 
             for key, value in shard.items():
                 if key in checkpoint:
-                    message = f"{path} directory has more than one checkpoint file with key {key}."
-
-                    raise CorruptModelCheckpointError(path, message)
+                    raise BadModelCheckpointError(
+                        f"more than one Safetensors file in checkpoint '{path}' contains key '{key}'"  # fmt: skip
+                    )
 
                 checkpoint[key] = value
 
@@ -100,7 +123,9 @@ class _SafetensorsCheckpointLoader(ModelCheckpointLoader):
 
         for key, tensor in checkpoint.items():
             if not isinstance(tensor, Tensor):
-                raise InternalError(f"{key} in {path} is not a `{Tensor}`.")
+                raise InternalError(
+                    f"key '{key}' in checkpoint '{path}' is not a `Tensor`"
+                )
 
             if tensor in memo:  # Yield shared tensors only once.
                 continue
@@ -125,16 +150,40 @@ class _SafetensorsCheckpointLoader(ModelCheckpointLoader):
     @override
     def supports_path(self, path: Path) -> bool:
         if path.suffix == ".safetensors":
-            is_file = self._file_system.is_file(path)
+            try:
+                is_file = self._file_system.is_file(path)
+            except OSError as ex:
+                self._raise_path_access_error(path, ex)
+
             if is_file:
                 return True
 
-        is_dir = self._file_system.is_dir(path)
+        try:
+            is_dir = self._file_system.is_dir(path)
+        except OSError as ex:
+            self._raise_path_access_error(path, ex)
+
         if not is_dir:
             return False
 
-        for file in self._file_system.glob(path, "*.safetensors"):
-            if self._file_system.is_file(file):
+        def files() -> Iterator[Path]:
+            try:
+                yield from self._file_system.glob(path, "*.safetensors")
+            except OSError as ex:
+                raise OSError(
+                    f"an I/O error occurred while globing directory '{path}'"
+                ) from ex
+
+        for file in files():
+            try:
+                is_file = self._file_system.is_file(file)
+            except OSError as ex:
+                self._raise_path_access_error(file, ex)
+
+            if is_file:
                 return True
 
         return False
+
+    def _raise_path_access_error(self, path: Path, cause: OSError) -> NoReturn:
+        raise OSError(f"an I/O error occurred while accessing path '{path}'") from cause

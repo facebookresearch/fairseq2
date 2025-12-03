@@ -7,14 +7,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Collection, Iterable
+from collections.abc import Iterable, Sequence
 from functools import cached_property
 from typing import final
 
 import clusterscope
 from typing_extensions import override
 
-from fairseq2.error import OperationalError
+from fairseq2.error import InvalidOperationError
 from fairseq2.runtime.dependency import get_dependency_resolver
 from fairseq2.utils.env import Environment
 
@@ -22,7 +22,7 @@ from fairseq2.utils.env import Environment
 def set_torch_distributed_env_variables(cluster: str = "auto") -> str:
     resolver = get_dependency_resolver()
 
-    cluster_resolver = resolver.resolve(ClusterResolver)
+    cluster_resolver = resolver.resolve(_ClusterResolver)
 
     handler = cluster_resolver.resolve(cluster)
 
@@ -31,87 +31,92 @@ def set_torch_distributed_env_variables(cluster: str = "auto") -> str:
     return handler.cluster
 
 
-class ClusterResolver(ABC):
+class _ClusterResolver(ABC):
     @abstractmethod
-    def resolve(self, name: str) -> ClusterHandler: ...
+    def resolve(self, name: str) -> ClusterHandler:
+        """
+        :raises ClusterNotKnownError:
+        """
+
+    @property
+    @abstractmethod
+    def supported_clusters(self) -> Sequence[str]: ...
 
 
 @final
-class StandardClusterResolver(ClusterResolver):
+class _StandardClusterResolver(_ClusterResolver):
     def __init__(self, env: Environment, handlers: Iterable[ClusterHandler]) -> None:
+        names = [h.cluster for h in handlers]
+
+        names.sort()
+
         self._env = env
         self._handlers = {h.cluster: h for h in handlers}
+        self._names = names
 
+    @override
     def resolve(self, name: str) -> ClusterHandler:
         if name == "none":
-            return NoneClusterHandler()
+            return _NoneClusterHandler()
 
         handler: ClusterHandler | None
 
         if name == "auto":
             if self._env.has("RANK") and self._env.has("WORLD_SIZE"):
-                return NoneClusterHandler()
+                return _NoneClusterHandler()
 
             for handler in self._handlers.values():
                 if handler.supports_current_cluster():
                     return handler
 
-            return NoneClusterHandler()
+            return _NoneClusterHandler()
 
         handler = self._handlers.get(name)
         if handler is None:
-            raise ClusterNotKnownError(name, self._handlers.keys())
+            raise LookupError()
 
         return handler
 
-
-class ClusterNotKnownError(Exception):
-    def __init__(self, cluster: str, known_clusters: Collection[str]) -> None:
-        super().__init__(f"{cluster} is not a known cluster.")
-
-        self.cluster = cluster
-        self.known_clusters = known_clusters
+    @property
+    @override
+    def supported_clusters(self) -> Sequence[str]:
+        return self._names
 
 
 class ClusterHandler(ABC):
     @abstractmethod
     def set_torch_distributed_env_variables(self) -> None:
-        """Set environment variables required to initialize ``torch.distributed``."""
+        """
+        Sets environment variables required to initialize ``torch.distributed``.
+
+        :raises ClusterNotDetectedError:
+        :raises RuntimeError:
+        """
 
     @abstractmethod
     def supports_current_cluster(self) -> bool:
-        """Return ``True`` if this instance supports the current cluster."""
+        """Returns ``True`` if this handler supports the current cluster."""
 
     @property
     @abstractmethod
     def cluster(self) -> str: ...
 
 
-class ClusterNotDetectedError(Exception):
-    def __init__(self, cluster: str) -> None:
-        super().__init__(f"Process is not running on a {cluster} cluster.")
-
-        self.cluster = cluster
-
-
 @final
 class SlurmHandler(ClusterHandler):
     @cached_property
     def _job(self) -> clusterscope.job_info.JobInfo:
-        try:
-            return clusterscope.get_job()
-        except RuntimeError as ex:
-            raise OperationalError("`clusterscope.get_job()` has failed.") from ex
+        return clusterscope.get_job()
 
     @override
     def set_torch_distributed_env_variables(self) -> None:
         if not self._job.is_slurm_srun():
-            raise ClusterNotDetectedError("slurm")
+            raise InvalidOperationError("Process is not running on a Slurm cluster.")
 
         try:
             self._job.set_torch_distributed_env_from_slurm()
         except RuntimeError as ex:
-            raise OperationalError("SLURM job information cannot be retrieved.") from ex
+            raise RuntimeError("clusterscope failed.") from ex
 
     @override
     def supports_current_cluster(self) -> bool:
@@ -120,11 +125,11 @@ class SlurmHandler(ClusterHandler):
     @property
     @override
     def cluster(self) -> str:
-        return "slurm"
+        return "Slurm"
 
 
 @final
-class NoneClusterHandler(ClusterHandler):
+class _NoneClusterHandler(ClusterHandler):
     @override
     def set_torch_distributed_env_variables(self) -> None:
         pass

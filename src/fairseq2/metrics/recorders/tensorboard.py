@@ -14,7 +14,7 @@ from torch import Tensor
 from torch.utils.tensorboard import SummaryWriter
 from typing_extensions import override
 
-from fairseq2.error import OperationalError, raise_operational_system_error
+from fairseq2.error import InternalError
 from fairseq2.metrics.recorders.descriptor import MetricDescriptorRegistry
 from fairseq2.metrics.recorders.recorder import MetricRecorder
 
@@ -26,10 +26,6 @@ class TensorBoardRecorder(MetricRecorder):
     def __init__(
         self, output_dir: Path, metric_descriptors: MetricDescriptorRegistry
     ) -> None:
-        """
-        :param output_dir:
-            The base directory under which to store the TensorBoard files.
-        """
         tb_dir = output_dir.joinpath("tb")
 
         self._output_dir = tb_dir
@@ -53,11 +49,13 @@ class TensorBoardRecorder(MetricRecorder):
                 self._add_value(writer, step_nr, display_name, value)
 
             writer.flush()
+        except (RuntimeError, ValueError, TypeError) as ex:
+            raise InternalError(
+                f"an unexpected error occurred while writing metric values of category '{category}' to TensorBoard"
+            ) from ex
         except OSError as ex:
-            raise_operational_system_error(ex)
-        except RuntimeError as ex:
-            raise OperationalError(
-                "Metric values cannot be saved to TensorBoard."
+            raise OSError(
+                f"an I/O error occurred while writing metric values of category '{category}' to TensorBoard log file '{writer.log_dir}'"
             ) from ex
 
     def _add_value(
@@ -80,7 +78,7 @@ class TensorBoardRecorder(MetricRecorder):
             return
 
         raise ValueError(
-            f"`values` must consist of objects of types `{int}`, `{float}`, `{Tensor}`, and `{str}` only."
+            "`values` must consist of objects of types `int`, `float`, `Tensor`, and `str` only"
         )
 
     def _get_writer(self, category: str) -> SummaryWriter:
@@ -88,7 +86,12 @@ class TensorBoardRecorder(MetricRecorder):
         if writer is None:
             path = self._output_dir.joinpath(category)
 
-            writer = SummaryWriter(path)
+            try:
+                writer = SummaryWriter(path)
+            except OSError as ex:
+                raise OSError(
+                    f"an I/O error occurred while opening TensorBoard log file '{path}' to save metric values of category '{category}'"
+                ) from ex
 
             self._writers[category] = writer
 

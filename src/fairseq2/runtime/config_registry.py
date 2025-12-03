@@ -17,6 +17,7 @@ from typing import (
     overload,
 )
 
+from fairseq2.error import InvalidOperationError
 from fairseq2.runtime.dependency import (
     DependencyContainer,
     DependencyNotFoundError,
@@ -103,13 +104,10 @@ def get_config(resolver: DependencyResolver, kls: type[ConfigT], name: str) -> C
         return resolver.resolve(kls, key=name)
     except DependencyNotFoundError as ex:
         if ex.kls is kls and ex.key == name:
-            raise ConfigNotFoundError(name) from None
+            from fairseq2.typing import get_full_type_name as n
+
+            raise InvalidOperationError(
+                f"a configuration of type `{n(kls)}` named '{name}' is not found"
+            ) from None
 
         raise
-
-
-class ConfigNotFoundError(Exception):
-    def __init__(self, name: str) -> None:
-        super().__init__(f"A configuration named {name} cannot be found.")
-
-        self.name = name

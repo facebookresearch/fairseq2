@@ -29,21 +29,21 @@ def _register_extensions(container: DependencyContainer) -> None:
                 raise
 
             if should_trace:
-                msg = f"{entry_point.value} entry point cannot be run as an extension since its signature does not match `extension_function(container: DependencyContainer)`."
-
-                raise ExtensionError(entry_point.value, msg) from None
+                raise ExtensionError(
+                    entry_point.value, f"{entry_point.value} entry point cannot be run as an extension since its signature does not match `extension_function(container: DependencyContainer)`."  # fmt: skip
+                ) from None
 
             log.warning("{} entry point is not a valid extension. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value)  # fmt: skip
         except Exception as ex:
             if should_trace:
-                msg = f"{entry_point.value} extension failed."
-
-                raise ExtensionError(entry_point.value, msg) from ex
+                raise ExtensionError(
+                    entry_point.value, f"{entry_point.value} extension failed to initialize."  # fmt: skip
+                ) from ex
 
             log.warning("{} extension failed. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value)  # fmt: skip
 
         if should_trace:
-            log.info("{} extension registered successfully.", entry_point.value)  # fmt: skip
+            log.info("{} extension initialized successfully.", entry_point.value)  # fmt: skip
 
 
 class ExtensionError(Exception):

@@ -19,9 +19,9 @@ from fairseq2.generation.sampling import (
 )
 from fairseq2.models.clm import CausalLM
 from fairseq2.models.seq2seq import Seq2SeqModel
-from fairseq2.recipe.component import ComponentManager, ComponentNotKnownError
+from fairseq2.recipe.component import ComponentManager
 from fairseq2.recipe.config import SamplingConfig
-from fairseq2.recipe.error import SamplerNotKnownError, raise_model_type_not_valid_error
+from fairseq2.recipe.error import RecipeError
 
 
 @final
@@ -41,11 +41,15 @@ class _SamplingSequenceGeneratorFactory:
             sampler = self._component_manager.create_component(
                 Sampler, config.sampler.name, config.sampler.config
             )
-        except ComponentNotKnownError:
-            raise SamplerNotKnownError(config.sampler.name) from None
+        except LookupError:
+            raise ConfigError(
+                f"'{config.sampler.name}' is not a known sampler."
+            ) from None
 
         if not isinstance(self._model, CausalLM):
-            raise_model_type_not_valid_error(self._model, CausalLM)
+            raise ConfigError(
+                f"Model must be of type `{CausalLM}` to be used with sampling generation, but is of type `{type(self._model)}` instead."
+            )
 
         max_gen_len = config.max_gen_len
 
@@ -87,11 +91,15 @@ class _SamplingSeq2SeqGeneratorFactory:
             sampler = self._component_manager.create_component(
                 Sampler, config.sampler.name, config.sampler.config
             )
-        except ComponentNotKnownError:
-            raise SamplerNotKnownError(config.sampler.name) from None
+        except LookupError:
+            raise ConfigError(
+                f"'{config.sampler.name}' is not a known sampler."
+            ) from None
 
         if not isinstance(self._model, Seq2SeqModel):
-            raise_model_type_not_valid_error(self._model, Seq2SeqModel)
+            raise ConfigError(
+                f"Model must be of type `{Seq2SeqModel}` to be used with sampling generation, but is of type `{type(self._model)}` instead."
+            )
 
         max_gen_len = config.max_gen_len
 

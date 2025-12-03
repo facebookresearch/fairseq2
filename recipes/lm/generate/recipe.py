@@ -14,8 +14,8 @@ from typing_extensions import override
 
 from fairseq2.composition import register_dataset_family
 from fairseq2.data.tokenizers import Tokenizer
-from fairseq2.datasets import DataReadError, SequenceBatch
-from fairseq2.error import InternalError
+from fairseq2.datasets import SequenceBatch
+from fairseq2.error import CorruptDataError, InternalError
 from fairseq2.file_system import FileMode
 from fairseq2.generation import SequenceGenerator
 from fairseq2.metrics import MetricBag
@@ -25,8 +25,8 @@ from fairseq2.metrics.common import (
 )
 from fairseq2.recipe.base import Recipe, RecipeContext
 from fairseq2.recipe.generator import GeneratorUnit
+from fairseq2.recipe.task import Task
 from fairseq2.runtime.dependency import DependencyContainer
-from fairseq2.task import Task
 
 from ..common import check_model_vocabulary
 from .config import LMGenerateConfig
@@ -88,7 +88,7 @@ class LMGenerateRecipe(Recipe):
             prefetch=config.dataset.prefetch,
         )
 
-        return context.create_generator(unit, data_reader)
+        return context.create_generation_task(unit, data_reader)
 
     @property
     @override
@@ -118,32 +118,34 @@ class LMGenerateUnit(GeneratorUnit[SequenceBatch]):
     @override
     def process_batch(self, batch: SequenceBatch, metric_bag: MetricBag) -> None:
         if batch.example is None:
-            raise DataReadError("`batch.example` must not be `None`.")
+            raise CorruptDataError("`batch.example` is `None`.")
 
         if not isinstance(batch.example, Mapping):
-            raise DataReadError(
-                f"`batch.example` must be of type `{Mapping}`, but is of type `{type(batch.example)}` instead."
+            raise CorruptDataError(
+                f"`batch.example` is expected to be of type `{Mapping}`, but is of type `{type(batch.example)}` instead."
             )
 
-        try:
-            prompts = batch.example["prompt"]
-        except KeyError:
-            raise DataReadError(
-                "`batch.example` must contain a 'prompt' item."
-            ) from None
+        prompts = batch.example.get("prompt")
+        if prompts is None:
+            raise CorruptDataError(
+                "`batch.example` does not contain a key named 'prompt'."
+            )
 
         if not isinstance(prompts, Sequence):
-            raise DataReadError(
-                f"`batch.example['prompt']` must be a sequence of strings, but is of type `{type(prompts)}` instead."
+            raise CorruptDataError(
+                f"`batch.example['prompt']` is expected to be of type `{Sequence}`, but is of type `{type(prompts)}` instead."
             )
 
         ids = batch.example.get("id")
         if ids is None:
-            raise DataReadError("`batch.example` must contain an 'id' entry.")
+            raise CorruptDataError("`batch.example` does not contain a key named 'id'.")
 
         prompt_seqs, prompt_seqs_layout = batch.as_input()
 
-        output = self._generator(prompt_seqs, prompt_seqs_layout)
+        try:
+            output = self._generator(prompt_seqs, prompt_seqs_layout)
+        except SequenceGenerationError as ex:
+            raise ModelError("Model produced NaN during sequence generation.") from ex
 
         update_seq_generator_metrics(metric_bag, output)
 
@@ -153,7 +155,7 @@ class LMGenerateUnit(GeneratorUnit[SequenceBatch]):
 
         for id_, prompt, hypotheses in zip(ids, prompts, output.hypotheses):
             if len(hypotheses) == 0:
-                raise InternalError("The sequence generator returned no hypothesis.")
+                raise InternalError("Sequence generator returned no hypothesis.")
 
             hypothesis = hypotheses[0]
 

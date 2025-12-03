@@ -7,13 +7,16 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Iterator, Sequence, Set
+from collections.abc import Iterable, Iterator, Set
 from typing import Protocol, final, runtime_checkable
 
 from typing_extensions import override
 
-from fairseq2.assets.card import AssetCard, AssetCardError
-from fairseq2.assets.metadata_provider import AssetMetadataError, AssetMetadataProvider
+from fairseq2.assets.card import AssetCard
+from fairseq2.assets.metadata_provider import (
+    AssetMetadataProvider,
+    BadAssetMetadataError,
+)
 from fairseq2.error import InternalError
 from fairseq2.runtime.dependency import DependencyResolver, get_dependency_resolver
 
@@ -24,71 +27,100 @@ def get_asset_store() -> AssetStore:
 
 class AssetStore(ABC):
     @abstractmethod
-    def retrieve_card(self, name: str) -> AssetCard: ...
+    def retrieve_card(self, name: str) -> AssetCard:
+        """
+        :raises AssetCardNotFoundError:
+        :raises BaseAssetCardNotFoundError:
+        :raises AssetStoreError:
+        """
 
     @abstractmethod
-    def maybe_retrieve_card(self, name: str) -> AssetCard | None: ...
+    def maybe_retrieve_card(self, name: str) -> AssetCard | None:
+        """
+        :raises BaseAssetCardNotFoundError:
+        :raises AssetStoreError:
+        """
 
     @abstractmethod
-    def find_cards(self, field: str, value: object) -> Iterator[AssetCard]: ...
+    def find_cards(self, field: str, value: object) -> Iterator[AssetCard]:
+        """
+        :raises AssetStoreError:
+        """
 
     @property
     @abstractmethod
     def asset_names(self) -> Set[str]: ...
 
 
-class AssetNotFoundError(Exception):
+class AssetStoreError(Exception):
+    pass
+
+
+class AssetCardNotFoundError(AssetStoreError):
     def __init__(self, name: str) -> None:
-        super().__init__(f"{name} asset is not found.")
+        super().__init__(f"an asset card named '{name}' is not found")
 
         self.name = name
 
 
+class BaseAssetCardNotFoundError(AssetStoreError):
+    def __init__(self, name: str, base_name: str) -> None:
+        super().__init__(f"base asset card '{base_name}' of '{name}' is not found")
+
+        self.name = name
+        self.base_name = base_name
+
+
 @final
-class StandardAssetStore(AssetStore):
+class _StandardAssetStore(AssetStore):
     def __init__(
         self,
         metadata_providers: Iterable[AssetMetadataProvider],
         *,
         default_env: str | None = None,
     ) -> None:
+        """
+        :raises CorruptAssetMetadataError:
+        """
         if default_env is not None:
             default_env = default_env.strip()
 
         # user is a special, always-available environment and takes precedence
         # over the default environment.
-        self._envs = ["user", default_env] if default_env else ["user"]
+        envs = ["user", default_env] if default_env else ["user"]
 
-        self._asset_names: set[str] = set()
+        asset_names: set[str] = set()
 
-        self._metadata_providers: list[AssetMetadataProvider] = []
+        metadata_provider_list: list[AssetMetadataProvider] = []
 
         for i, provider in enumerate(metadata_providers):
             for name in provider.asset_names:
                 if not name:
-                    msg = (
-                        f"{provider.source} asset source has an asset with empty name."
+                    raise BadAssetMetadataError(
+                        provider.source, f"asset metadata source '{provider.source}' has an asset with empty name"  # fmt: skip
                     )
 
-                    raise AssetMetadataError(provider.source, msg)
-
                 for j in range(i):
-                    other_provider = self._metadata_providers[j]
+                    other_provider = metadata_provider_list[j]
 
                     if name in other_provider.asset_names:
-                        msg = f"An asset with name {name} exists in both {provider.source} and {other_provider.source}."
+                        raise BadAssetMetadataError(
+                            provider.source, f"an asset with name '{name}' exists in both asset metadata sources '{provider.source}' and '{other_provider.source}'"  # fmt: skip
+                        )
 
-                        raise AssetMetadataError(provider.source, msg)
+                asset_names.add(name)
 
-                self._asset_names.add(name)
+            metadata_provider_list.append(provider)
 
-            self._metadata_providers.append(provider)
+        self._envs = envs
+        self._asset_names = asset_names
+        self._metadata_providers = metadata_provider_list
 
     @override
     def retrieve_card(self, name: str) -> AssetCard:
         card = self.maybe_retrieve_card(name)
         if card is None:
-            raise AssetNotFoundError(name)
+            raise AssetCardNotFoundError(name)
 
         return card
 
@@ -121,9 +153,7 @@ class StandardAssetStore(AssetStore):
         metadata = self._maybe_get_metadata(f"{name}@")
         if metadata is None:
             if name != leaf_name:
-                msg = f"{name} base asset of the {leaf_name} asset card does not exist."
-
-                raise AssetCardError(leaf_name, msg)
+                raise BaseAssetCardNotFoundError(leaf_name, name)
 
             return None
 
@@ -155,7 +185,7 @@ class StandardAssetStore(AssetStore):
 
         if name in self._asset_names:
             raise InternalError(
-                f"{name} is in `asset_names`, but not in `metadata_providers`."
+                f"'{name}' is in `asset_names`, but not in `metadata_providers`"
             )
 
         return None
@@ -169,7 +199,7 @@ class StandardAssetStore(AssetStore):
             card = self.maybe_retrieve_card(name[:-1])
             if card is None:
                 raise InternalError(
-                    f"{name} is in `asset_names`, but `maybe_retrieve_card()` returned `None`."
+                    f"'{name}' is in `asset_names`, but `maybe_retrieve_card()` returned `None`"
                 )
 
             field_ = card.maybe_get_field(field)
@@ -189,10 +219,10 @@ class AssetEnvironmentResolver(Protocol):
 
 
 @final
-class AssetEnvironmentDetector:
+class _AssetEnvironmentDetector:
     def __init__(
         self,
-        env_resolvers: Sequence[AssetEnvironmentResolver],
+        env_resolvers: Iterable[AssetEnvironmentResolver],
         resolver: DependencyResolver,
     ) -> None:
         self._env_resolvers = env_resolvers

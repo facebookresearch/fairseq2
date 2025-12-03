@@ -9,9 +9,23 @@ from __future__ import annotations
 import torch
 
 from fairseq2.assets import AssetMetadataSource
-from fairseq2.checkpoint import CheckpointManager, StandardCheckpointManager
-from fairseq2.error import raise_operational_system_error
-from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
+from fairseq2.checkpoint import (
+    CheckpointManager,
+    StandardCheckpointManager,
+    _ModelMetadataDumper,
+    _ModelMetadataLoader,
+    _StandardModelMetadataDumper,
+    _StandardModelMetadataLoader,
+)
+from fairseq2.device import (
+    CPU,
+    CudaContext,
+    Device,
+    _DefaultDeviceDetector,
+    _StandardCudaContext,
+)
+from fairseq2.error import OperationalError
+from fairseq2.gang import GangError, Gangs
 from fairseq2.recipe.base import Recipe, RecipeContext
 from fairseq2.recipe.component import ComponentManager, _StandardComponentManager
 from fairseq2.recipe.composition.beam_search import _register_beam_search
@@ -34,6 +48,7 @@ from fairseq2.recipe.composition.seq_generator import _register_seq_generators
 from fairseq2.recipe.composition.tokenizer import _register_default_tokenizer
 from fairseq2.recipe.composition.train_model import _register_train_model
 from fairseq2.recipe.composition.trainer import _register_trainer_factory
+from fairseq2.recipe.error import ConfigError
 from fairseq2.recipe.internal.asset_config import (
     _AssetConfigOverrider,
     _StandardAssetConfigOverrider,
@@ -59,13 +74,17 @@ from fairseq2.recipe.internal.sweep_tag import (
 from fairseq2.recipe.internal.task import _TaskRunner
 from fairseq2.recipe.internal.torch import _TorchConfigurer
 from fairseq2.recipe.run import _RecipeConfigDumper
+from fairseq2.recipe.task import Task
 from fairseq2.runtime.dependency import (
     DependencyContainer,
     DependencyResolver,
     wire_object,
 )
-from fairseq2.task import Task
+from fairseq2.utils.env import Environment, EnvironmentVariableError
+from fairseq2.utils.rng import RngBag
 from fairseq2.utils.stopwatch import Stopwatch
+from fairseq2.utils.threading import ThreadPool, _StandardThreadPool
+from fairseq2.world_info import WorldInfo
 
 
 def _register_train_recipe(container: DependencyContainer, recipe: Recipe) -> None:
@@ -81,10 +100,8 @@ def _register_train_recipe(container: DependencyContainer, recipe: Recipe) -> No
 
         try:
             return recipe.create_task(context)
-        except OSError as ex:
-            raise_operational_system_error(ex)
-        except GangError as ex:
-            raise_operational_gang_error(ex)
+        except (RuntimeError, OSError, GangError) as ex:
+            raise OperationalError("Failed to create task.") from ex
 
     container.register(Task, create_task)
 
@@ -137,10 +154,8 @@ def _register_inference_recipe(container: DependencyContainer, recipe: Recipe) -
 
         try:
             return recipe.create_task(context)
-        except OSError as ex:
-            raise_operational_system_error(ex)
-        except GangError as ex:
-            raise_operational_gang_error(ex)
+        except (RuntimeError, OSError, GangError) as ex:
+            raise OperationalError("Failed to create task.") from ex
 
     container.register(Task, create_task)
 
@@ -183,6 +198,50 @@ def _register_recipe_common(container: DependencyContainer) -> None:
     _register_sampling(container)
     _register_seq_generators(container)
 
+    # Device
+    def detect_default_device(resolver: DependencyResolver) -> Device:
+        device_detector = resolver.resolve(_DefaultDeviceDetector)
+
+        try:
+            return device_detector.detect()
+        except EnvironmentVariableError as ex:
+            raise ConfigError(f"Default device cannot be detected. {ex}") from None
+
+    container.register(Device, detect_default_device, singleton=True)
+
+    # WorldInfo
+    def get_world_info(resolver: DependencyResolver) -> WorldInfo:
+        env = resolver.resolve(Environment)
+
+        try:
+            return WorldInfo.from_env(env)
+        except EnvironmentVariableError as ex:
+            raise ConfigError(f"{ex}") from None
+
+    container.register(WorldInfo, get_world_info, singleton=True)
+
+    # ThreadPool
+    def create_thread_pool(resolver: DependencyResolver) -> ThreadPool:
+        world_info = resolver.resolve(WorldInfo)
+
+        try:
+            return _StandardThreadPool.create_default(world_info.local_size)
+        except RuntimeError as ex:
+            raise OperationalError(
+                "Failed to initialize the thread pool of the process."
+            ) from ex
+
+    container.register(ThreadPool, create_thread_pool, singleton=True)
+
+    # RngBag
+    def create_rng_bag(resolver: DependencyResolver) -> RngBag:
+        device = resolver.resolve(Device)
+
+        return RngBag.from_device_defaults(CPU, device)
+
+    container.register(RngBag, create_rng_bag, singleton=True)
+
+    # TaskRunner
     def create_task_runner(resolver: DependencyResolver) -> _TaskRunner:
         task_runner = wire_object(resolver, _TaskRunner)
 
@@ -197,10 +256,14 @@ def _register_recipe_common(container: DependencyContainer) -> None:
     container.register_type(_AssetConfigOverrider, _StandardAssetConfigOverrider)
     container.register_type(_ClusterPreparer)
     container.register_type(ComponentManager, _StandardComponentManager, singleton=True)
+    container.register_type(CudaContext, _StandardCudaContext)
+    container.register_type(_DefaultDeviceDetector)
     container.register_type(_DistributedLogConfigurer)
     container.register_type(_GangsFactory)
     container.register_type(_HookManager, singleton=True)
     container.register_type(_LogHelper, _StandardLogHelper)
+    container.register_type(_ModelMetadataDumper, _StandardModelMetadataDumper)
+    container.register_type(_ModelMetadataLoader, _StandardModelMetadataLoader)
     container.register_type(_OutputDirectoryCreator)
     container.register_type(_RecipeConfigDumper)
     container.register_type(_SweepTagGenerator, _StandardSweepTagGenerator)

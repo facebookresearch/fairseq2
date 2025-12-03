@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from fairseq2.logging import log
 from fairseq2.recipe.config import CompileOptions
-from fairseq2.recipe.error import TorchCompileError, TorchCompileNotSupportedError
+from fairseq2.recipe.error import ConfigError
 from fairseq2.recipe.internal.model import _ModelHolder
 
 
@@ -16,7 +16,9 @@ def _compile_model(
     model_holder: _ModelHolder, section_name: str, options: CompileOptions
 ) -> None:
     if not model_holder.family.supports_compilation:
-        raise TorchCompileNotSupportedError(section_name)
+        raise ConfigError(
+            f"Model specified in `{section_name}` section does not support torch.compile()."
+        )
 
     log.info("Applying torch.compile() to the model.")
 
@@ -30,4 +32,6 @@ def _compile_model(
             options=options.backend_options,
         )
     except RuntimeError as ex:
-        raise TorchCompileError(section_name) from ex
+        raise OperationError(
+            f"torch.compile() failed for the model specified in `{section_name}` section."
+        ) from ex

@@ -6,58 +6,118 @@
 
 from __future__ import annotations
 
-import sys
 from argparse import ArgumentParser, Namespace
 from collections import defaultdict
+from pathlib import Path
 from typing import final
 
 from rich.console import Console
 from rich.pretty import pretty_repr
 
-from fairseq2.assets.card import AssetCard, AssetCardError
-from fairseq2.assets.metadata_provider import AssetMetadataError
-from fairseq2.assets.store import AssetNotFoundError, AssetStore, get_asset_store
-from fairseq2.composition import ExtensionError
+from fairseq2 import init_fairseq2
+from fairseq2.assets.card import AssetCard
+from fairseq2.assets.dirs import InvalidAssetPathVariableError
+from fairseq2.assets.metadata_provider import (
+    AssetMetadataSourceError,
+    AssetMetadataSourceNotFoundError,
+    CorruptAssetMetadataSourceError,
+)
+from fairseq2.assets.store import (
+    AssetStore,
+    AssetStoreError,
+    BaseAssetCardNotFoundError,
+)
+from fairseq2.composition import (
+    ExtensionError,
+    register_checkpoint_models,
+    register_file_assets,
+)
 from fairseq2.error import InternalError, OperationalError
 from fairseq2.logging import configure_logging, log
+from fairseq2.runtime.dependency import (
+    DependencyContainer,
+    DependencyResolver,
+    activate_dependency,
+    wire_object,
+)
 from fairseq2.utils.rich import get_console
 
 
-def _main() -> None:
+def main() -> int:
+    try:
+        _run()
+    except CommandArgumentError as ex:
+        log.error(str(ex))
+
+        return 2
+    except CommandError as ex:
+        log.error(str(ex), exc=ex.__cause__)
+
+        return 1
+    except OperationalError:
+        log.exception("Command failed due to an operational error.")
+
+        return 1
+    except Exception:
+        log.exception("Command failed due to an unexpected error. File a bug report to the corresponding author.")  # fmt: skip
+
+        return 1
+    else:
+        return 0
+
+
+def _run() -> None:
     args = _parse_args()
 
     configure_logging()
 
+    def extras(container: DependencyContainer) -> None:
+        _register_commands(container, args)
+
     try:
-        args.command(args)
-    except AssetNotFoundError as ex:
-        log.error("{} asset is not found.", ex.name)  # fmt: skip
-
-        sys.exit(2)
-    except AssetMetadataError as ex:
-        log.exception("Asset metadata in {} is erroneous. See logged stack trace for details.", ex.source)  # fmt: skip
-
-        sys.exit(1)
-    except AssetCardError as ex:
-        log.exception("{} asset card is erroneous. See logged stack trace for details.", ex.name)  # fmt: skip
-
-        sys.exit(1)
-    except OperationalError:
-        log.exception("Command failed due to an operational error. See logged stack trace for details.")  # fmt: skip
-
-        sys.exit(1)
+        resolver = init_fairseq2(extras=extras)
     except ExtensionError as ex:
-        log.exception("{} extension failed to initialize. See logged stack trace for details.", ex.entry_point)  # fmt: skip
+        raise CommandError(
+            f"'{ex.entry_point}' extension failed to initialize."
+        ) from ex
 
-        sys.exit(1)
-    except Exception:
-        log.exception("Command failed due to an unexpected error. See logged stack trace for details and file a bug report to the corresponding author.")  # fmt: skip
+    try:
+        activate_dependency(resolver, AssetStore)
+    except AssetMetadataSourceNotFoundError as ex:
+        raise CommandError(
+            f"Failed to load asset store. '{ex.source}' asset metadata source is not found."
+        ) from None
+    except CorruptAssetMetadataSourceError as ex:
+        raise CommandError(
+            f"Failed to load asset store. '{ex.source}' asset metadata source is corrupt."
+        ) from ex
+    except AssetMetadataSourceError as ex:
+        cause = ex.__cause__
 
-        sys.exit(1)
+        if isinstance(cause, InvalidAssetPathVariableError):
+            raise CommandError(
+                f"Failed to load asset store. `{cause.var_name}` environment variable of the '{ex.source}' asset metadata source is expected to be a pathname, but is '{cause.value}' instead."
+            ) from None
+
+        raise OperationalError("Failed to load asset store.") from ex
+
+    args.command(resolver, args)
 
 
 def _parse_args() -> Namespace:
     parser = ArgumentParser()
+
+    parser.add_argument(
+        "--extra-asset-path",
+        type=Path,
+        help="extra asset card path",
+    )
+
+    parser.add_argument(
+        "--checkpoint-dir",
+        type=Path,
+        help="fairseq2 checkpoint directory",
+    )
 
     sub_parsers = parser.add_subparsers()
 
@@ -67,7 +127,10 @@ def _parse_args() -> Namespace:
     kinds = ["all", "model", "dataset", "tokenizer"]
 
     sub_parser.add_argument(
-        "--kind", choices=kinds, default="all", help="asset kinds to list"
+        "--kind",
+        choices=kinds,
+        default="all",
+        help="asset kinds to list",
     )
 
     sub_parser.set_defaults(command=_list_assets)
@@ -75,21 +138,40 @@ def _parse_args() -> Namespace:
     # show
     sub_parser = sub_parsers.add_parser("show", help="show asset")
 
-    sub_parser.add_argument("name", help="name of the asset")
+    sub_parser.add_argument(
+        "name",
+        help="name of the asset",
+    )
 
     sub_parser.set_defaults(command=_show_asset)
 
     return parser.parse_args()
 
 
-def _list_assets(args: Namespace) -> None:
+def _register_commands(container: DependencyContainer, args: Namespace) -> None:
+    if args.extra_asset_path:
+        register_file_assets(container, args.extra_asset_path)
+
+    if args.checkpoint_dir:
+        register_checkpoint_models(container, args.checkpoint_dir)
+
     console = get_console()
 
-    asset_store = get_asset_store()
+    # ListAssets
+    def create_list_assets_command(resolver: DependencyResolver) -> _ListAssetsCommand:
+        return wire_object(resolver, _ListAssetsCommand, console=console)
 
-    command = _ListAssetsCommand(console, asset_store)
+    container.register(_ListAssetsCommand, create_list_assets_command)
 
-    command.run(args.kind)
+    # ShowAsset
+    def create_show_asset_command(resolver: DependencyResolver) -> _ShowAssetCommand:
+        return wire_object(resolver, _ShowAssetCommand, console=console)
+
+    container.register(_ShowAssetCommand, create_show_asset_command)
+
+
+def _list_assets(resolver: DependencyResolver, args: Namespace) -> None:
+    resolver.resolve(_ListAssetsCommand).run(args.kind)
 
 
 @final
@@ -99,6 +181,9 @@ class _ListAssetsCommand:
         self._asset_store = asset_store
 
     def run(self, asset_kind: str) -> None:
+        """
+        :raises CommandError:
+        """
         console = self._console
 
         assets = self._retrieve_assets(asset_kind)
@@ -120,19 +205,23 @@ class _ListAssetsCommand:
         for name in self._asset_store.asset_names:
             try:
                 card = self._asset_store.maybe_retrieve_card(name)
-            except AssetCardError:
-                log.warning("{} asset card cannot be loaded. Skipping.", name)
+            except BaseAssetCardNotFoundError as ex:
+                log.warning("'{}' base asset card of '{}' is not found. Skipping.", ex.base_name, name)  # fmt: skip
 
                 continue
+            except AssetStoreError as ex:
+                raise OperationalError(
+                    f"Failed to retrieve '{name}' asset card."
+                ) from ex
 
             if card is None:
                 if name[-1] != "@":
-                    log.warning("Base card of {} not found. Skipping.", name)
+                    log.warning("Base asset card of {} not found. Skipping.", name)
 
                     continue
 
                 raise InternalError(
-                    f"'{name[:-1]}' is in `asset_names`, but cannot be found in the store."
+                    f"'{name[:-1]}' is in `asset_names`, but is not found in the store."
                 )
 
             source = card.metadata.get("__source__")
@@ -172,14 +261,8 @@ class _ListAssetsCommand:
         return assets_by_source
 
 
-def _show_asset(args: Namespace) -> None:
-    console = get_console()
-
-    asset_store = get_asset_store()
-
-    command = _ShowAssetCommand(console, asset_store)
-
-    command.run(args.name)
+def _show_asset(resolver: DependencyResolver, args: Namespace) -> None:
+    resolver.resolve(_ShowAssetCommand).run(args.name)
 
 
 @final
@@ -189,7 +272,20 @@ class _ShowAssetCommand:
         self._asset_store = asset_store
 
     def run(self, name: str) -> None:
-        card: AssetCard | None = self._asset_store.retrieve_card(name)
+        """
+        :raises CommandError:
+        """
+        try:
+            card = self._asset_store.maybe_retrieve_card(name)
+        except BaseAssetCardNotFoundError as ex:
+            raise CommandError(
+                f"'{ex.base_name}' base asset card of '{name}' is not found."
+            ) from None
+        except AssetStoreError as ex:
+            raise OperationalError(f"Failed to retrieve '{name}' asset card.") from ex
+
+        if card is None:
+            raise CommandArgumentError(f"'{name}' asset is not found.")
 
         while card is not None:
             self._print_asset_card(card)
@@ -217,3 +313,11 @@ class _ShowAssetCommand:
     @staticmethod
     def _is_dunder(name: str) -> bool:
         return len(name) > 4 and name.startswith("__") and name.endswith("__")
+
+
+class CommandError(Exception):
+    pass
+
+
+class CommandArgumentError(CommandError):
+    pass

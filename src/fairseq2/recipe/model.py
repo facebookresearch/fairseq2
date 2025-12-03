@@ -19,6 +19,7 @@ from fairseq2.recipe.internal.model import _ModelHolder
 from fairseq2.typing import ContextManager, Stateful
 
 
+# TODO: remove in v0.14
 class RecipeModel(ABC, Stateful):
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         return self.module(*args, **kwargs)

@@ -29,8 +29,9 @@ from fairseq2 import init_fairseq2
 from fairseq2.assets import (
     AssetCardError,
     AssetDownloadError,
-    AssetMetadataError,
+    AssetMetadataSourceNotFoundError,
     AssetStore,
+    CorruptAssetMetadataError,
 )
 from fairseq2.composition import (
     ExtensionError,
@@ -38,7 +39,7 @@ from fairseq2.composition import (
     register_file_assets,
 )
 from fairseq2.device import CPU
-from fairseq2.error import OperationalError, raise_operational_system_error
+from fairseq2.error import OperationalError, raise_operational_error
 from fairseq2.file_system import FileSystem
 from fairseq2.gang import create_fake_gangs
 from fairseq2.logging import configure_logging, log
@@ -58,9 +59,11 @@ from fairseq2.models.hg import (
 from fairseq2.runtime.dependency import (
     DependencyContainer,
     DependencyResolver,
+    activate_dependency,
     wire_object,
 )
 from fairseq2.runtime.lookup import Lookup
+from fairseq2.utils.env import EnvironmentVariableError
 from fairseq2.utils.progress import ProgressReporter
 
 
@@ -74,8 +77,8 @@ def main() -> int:
             log.exception("{} See logged stack trace for details.", ex)
 
         return 2
-    except OperationalError as ex:
-        log.exception("{} See logged stack trace for details.", ex)
+    except OperationalError:
+        log.exception("Command failed due to an operational error. See logged stack trace for details.")  # fmt: skip
 
         return 1
     except Exception:
@@ -89,22 +92,37 @@ def main() -> int:
 def _run() -> None:
     args = _parse_args()
 
-    configure_logging(no_rich=args.no_rich)
+    try:
+        configure_logging(no_rich=args.no_rich)
+    except EnvironmentVariableError as ex:
+        raise CommandError(
+            f"{ex.var_name} environment variable is not set correctly."
+        ) from ex
 
     def extras(container: DependencyContainer) -> None:
         _register_command(container, args)
 
     try:
-        resolver = init_fairseq2(extras=extras, no_progress=args.no_rich)
+        resolver = init_fairseq2(extras=extras)
     except ExtensionError as ex:
-        raise CommandError(f"{ex.entry_point} extension failed to initialize.") from ex
+        raise CommandError(f"{ex.entry_point} extension cannot be initialized.") from ex
 
     try:
-        export_command = resolver.resolve(_HuggingFaceExportCommand)
-    except AssetMetadataError as ex:
-        raise CommandError(f"Asset metadata in {ex.source} is erroneous.") from ex
+        activate_dependency(resolver, AssetStore)
+    except EnvironmentVariableError as ex:
+        raise CommandError(
+            f"{ex.var_name} environment variable is not set correctly."
+        ) from ex
+    except AssetMetadataSourceNotFoundError as ex:
+        raise CommandError(f"{ex.source} asset source is not found.") from None
+    except CorruptAssetMetadataError as ex:
+        raise CommandError(f"{ex.source} asset source is erroneous.") from ex
+    except AssetMetadataLoadError as ex:
+        raise OperationalError("Asset store cannot be initialized.") from ex
 
-    export_command.run(args.model, args.save_dir)
+    command = resolver.resolve(_HuggingFaceExportCommand)
+
+    command.run(args.model, args.save_dir)
 
 
 def _parse_args() -> Namespace:
@@ -230,20 +248,18 @@ class _HuggingFaceExportCommand:
                 card, gangs, torch.float32, config, load_rank0_only=True, mmap=False
             )
         except OSError as ex:
-            raise_operational_system_error(ex)
+            raise_operational_error(ex)
         except AssetCardError as ex:
             raise_card_error(ex)
         except AssetDownloadError as ex:
-            raise OperationalError(
-                f"Download of the {model_name} model checkpoint failed."
-            ) from ex
+            raise_operational_error(ex)
         except CorruptModelCheckpointError as ex:
             raise CommandError(
-                f"Checkpoint of the {model_name} model is erroneous and cannot be loaded."
+                f"Checkpoint of the {model_name} model is erroneous."
             ) from ex
         except ModelGatedError as ex:
             raise CommandError(
-                f"{model_name} model is gated and cannot be loaded. See {ex.info_url} for more information."
+                f"{model_name} model is gated. See {ex.info_url} for more information."
             ) from None
 
         state_dict = model.state_dict()
@@ -279,7 +295,7 @@ class _HuggingFaceExportCommand:
 
                 self._file_system.move(tmp_save_dir, save_dir)
         except OSError as ex:
-            raise_operational_system_error(ex)
+            raise_operational_error(ex)
 
         log.info("Hugging Face model exported to {}!", save_dir)
 

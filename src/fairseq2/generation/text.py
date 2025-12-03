@@ -326,9 +326,7 @@ class TextCompleter:
             - The output of the underlying sequence generator.
         """
         if len(prompts) == 0:
-            raise ValueError(
-                "`prompts` must contain at least one element, but is empty instead."
-            )
+            raise ValueError("`prompts` must contain at least one element.")
 
         prompt_seqs = [self._text_encoder(p) for p in prompts]
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import final
 
 from fairseq2.gang import Gangs
-from fairseq2.recipe.error import DeviceTypeNotSupportedError
+from fairseq2.recipe.error import ConfigError
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.utils.device_stat import NOOP_DEVICE_STAT_TRACKER, DeviceStatTracker
 
@@ -26,7 +26,9 @@ class _DeviceStatTrackerProvider:
         if gang.rank == 0:
             tracker = self._trackers.maybe_get(gang.device.type)
             if tracker is None:
-                raise DeviceTypeNotSupportedError(gang.device)
+                raise ConfigError(
+                    f"Only `cpu` and `cuda` devices are supported, but the device of the process is `{gang.device}`."
+                )
 
             return tracker
 

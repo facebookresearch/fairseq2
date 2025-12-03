@@ -11,7 +11,6 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from pickle import PickleError
 from typing import TypeAlias, final
 
 import safetensors
@@ -35,14 +34,14 @@ class TensorFileLoadOptions:
 
     mmap: bool = False
     """
-    Indicates whether the tensor file should be memory-mapped rather than
-    loading it into memory.
+    Indicates whether the tensor file should be memory-mapped rather than loaded
+    into memory.
     """
 
     restrict: bool = True
     """
     Indicates whether unpickler should be restricted to loading only tensors,
-    primitive types, dictionaries.
+    primitive types, lists, and dictionaries.
     """
 
 
@@ -54,53 +53,18 @@ class TensorFileLoader(ABC):
         self, file: Path, options: TensorFileLoadOptions | None = None
     ) -> dict[str, object]:
         """
-        :raises CorruptFileError: Specified file is erroneous and cannot be
-            loaded as a PyTorch tensor file.
+        :raises PickleError: File is not a valid PyTorch tensor file.
 
-        :raises OSError: A system error occurred.
+        :raises EOFError: File is not a valid PyTorch tensor file.
+
+        :raises FileNotFoundError: File is not found.
+
+        :raises OSError: An I/O error occurred.
         """
 
 
 # Legacy name
 TensorLoader: TypeAlias = TensorFileLoader
-
-
-class CorruptFileError(Exception):
-    def __init__(self, file: Path) -> None:
-        super().__init__(f"{file} is erroneous and cannot be loaded.")
-
-        self.file = file
-
-
-@dataclass(kw_only=True)
-class TensorFileDumpOptions:
-    pickle_protocol: int = 2
-
-
-class TensorFileDumper(ABC):
-    """Dumps tensors to PyTorch tensor files."""
-
-    @abstractmethod
-    def dump(
-        self,
-        data: Mapping[str, object],
-        file: Path,
-        options: TensorFileDumpOptions | None = None,
-    ) -> None:
-        """
-        :raises DataNotPicklableError: Specified data is not picklable.
-
-        :raises OSError: A system error occurred.
-        """
-
-
-# Legacy name
-TensorDumper: TypeAlias = TensorFileDumper
-
-
-class DataNotPicklableError(Exception):
-    def __init__(self) -> None:
-        super().__init__("Data is not picklable.")
 
 
 @final
@@ -120,17 +84,40 @@ class _TorchTensorFileLoader(TensorFileLoader):
                 action="ignore", message=r".*You are using `torch\.load` with `weights_only=False`.*"  # fmt: skip
             )
 
-            try:
-                data: dict[str, object] = torch.load(
-                    file,
-                    options.map_location,  # type: ignore[arg-type]
-                    weights_only=options.restrict,
-                    mmap=options.mmap,
-                )
-            except (RuntimeError, PickleError, EOFError) as ex:
-                raise CorruptFileError(file) from ex
+            data: dict[str, object] = torch.load(
+                file,
+                options.map_location,  # type: ignore[arg-type]
+                weights_only=options.restrict,
+                mmap=options.mmap,
+            )
 
         return data
+
+
+@dataclass(kw_only=True)
+class TensorFileDumpOptions:
+    pickle_protocol: int = 2
+
+
+class TensorFileDumper(ABC):
+    """Dumps tensors to PyTorch tensor files."""
+
+    @abstractmethod
+    def dump(
+        self,
+        data: Mapping[str, object],
+        file: Path,
+        options: TensorFileDumpOptions | None = None,
+    ) -> None:
+        """
+        :raises PickleError: Specified data is not picklable.
+
+        :raises OSError: An I/O error occurred.
+        """
+
+
+# Legacy name
+TensorDumper: TypeAlias = TensorFileDumper
 
 
 @final
@@ -154,13 +141,8 @@ class _TorchTensorFileDumper(TensorFileDumper):
             )
 
             fp = self._file_system.open(file, mode=FileMode.WRITE)
-
-            try:
+            with fp:
                 torch.save(data, fp, pickle_protocol=options.pickle_protocol)
-            except (RuntimeError, PickleError) as ex:
-                raise DataNotPicklableError() from ex
-            finally:
-                fp.close()
 
 
 @dataclass
@@ -173,8 +155,8 @@ class SafetensorsLoadOptions:
 
     mmap: bool = False
     """
-    Indicates whether the tensor file should be memory-mapped rather than
-    loading it into memory.
+    Indicates whether the tensor file should be memory-mapped rather than loaded
+    into memory.
     """
 
 
@@ -186,10 +168,13 @@ class SafetensorsLoader(ABC):
         self, file: Path, options: SafetensorsLoadOptions | None = None
     ) -> dict[str, object]:
         """
-        :raises CorruptFileError: Specified file is erroneous and cannot be
-            loaded as a Safetensors file.
+        :raises SafetensorError: File is not a valid Safetensors file.
 
-        :raises OSError: A system error occurred.
+        :raises EOFError: File is not a valid Safetensors file.
+
+        :raises FileNotFoundError: File is not found.
+
+        :raises OSError: An I/O error occurred.
         """
 
 
@@ -211,24 +196,19 @@ class _HuggingFaceSafetensorsLoader(SafetensorsLoader):
 
         data = {}
 
-        try:
-            if options.mmap:
-                with safetensors.safe_open(
-                    file, framework="pt", device=str(device)
-                ) as f:
-                    for key in f.keys():
-                        data[key] = f.get_tensor(key)
-            else:
-                fp = self._file_system.open(file, mode=FileMode.READ)
+        if options.mmap:
+            f = safetensors.safe_open(file, framework="pt", device=str(device))
+            with f:
+                for key in f.keys():
+                    data[key] = f.get_tensor(key)
+        else:
+            fp = self._file_system.open(file, mode=FileMode.READ)
+            with fp:
+                bits = fp.read()
 
-                with fp:
-                    bits = fp.read()
+            tensors = safetensors.torch.load(bits)
 
-                tensors = safetensors.torch.load(bits)
-
-                for key, tensor in tensors.items():
-                    data[key] = tensor.to(device)
-        except (RuntimeError, PickleError, EOFError) as ex:
-            raise CorruptFileError(file) from ex
+            for key, tensor in tensors.items():
+                data[key] = tensor.to(device)
 
         return data

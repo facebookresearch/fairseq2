@@ -6,5 +6,6 @@
 
 from __future__ import annotations
 
+# TODO: remove in v0.14
 from fairseq2.evaluator import Evaluator as Evaluator  # noqa: F401
 from fairseq2.evaluator import EvalUnit as EvalUnit  # noqa: F401

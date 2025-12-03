@@ -26,20 +26,22 @@ from typing_extensions import override
 
 from fairseq2.checkpoint import (
     NOOP_HG_EXPORTER,
+    CheckpointError,
     CheckpointManager,
+    CheckpointSaveOptions,
     HuggingFaceExporter,
     HuggingFaceExportOptions,
 )
 from fairseq2.data_type import DataType
-from fairseq2.datasets import DataReader
-from fairseq2.device import CPU, SupportsDeviceTransfer
+from fairseq2.datasets import DataReader, DataReadError
+from fairseq2.device import CudaContext, SupportsDeviceTransfer
 from fairseq2.early_stopper import NOOP_EARLY_STOPPER, EarlyStopper
-from fairseq2.error import InternalError, InvalidOperationError, StateDictError
-from fairseq2.gang import GangError, Gangs, broadcast_flag, raise_operational_gang_error
+from fairseq2.error import CorruptDataError, InternalError, InvalidOperationError
+from fairseq2.gang import GangError, Gangs, broadcast_flag
 from fairseq2.logging import log
 from fairseq2.metrics import Mean, MetricBag, sync_and_compute_metrics
 from fairseq2.metrics.common import extend_batch_metric_values
-from fairseq2.metrics.recorders import MetricRecorder
+from fairseq2.metrics.recorders import MetricRecorder, MetricRecordError
 from fairseq2.nn.data_parallel import get_data_parallel_facade
 from fairseq2.nn.utils.grad import check_grad_norms, normalize_grads
 from fairseq2.optim.fp16_loss_scaler import (
@@ -49,9 +51,8 @@ from fairseq2.optim.fp16_loss_scaler import (
 )
 from fairseq2.optim.lr_schedulers import LRScheduler
 from fairseq2.profilers import Profiler
-from fairseq2.recipe.error import MinimumLossScaleReachedError
 from fairseq2.recipe.model import RecipeModel
-from fairseq2.task import Task, TaskStopException
+from fairseq2.runtime.closable import Closable
 from fairseq2.typing import ContextManager, Stateful
 from fairseq2.utils.device_stat import DeviceStatTracker
 from fairseq2.utils.gc import GarbageCollector
@@ -59,7 +60,7 @@ from fairseq2.utils.progress import ProgressReporter, ProgressTask
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.stopwatch import Stopwatch
 from fairseq2.utils.warn import _warn_deprecated
-from fairseq2.validator import NOOP_VALIDATOR, Validator
+from fairseq2.validator import NOOP_VALIDATOR, CorruptBatchError, Validator, ValidatorError
 
 BatchT_contra = TypeVar(
     "BatchT_contra", bound=SupportsDeviceTransfer, contravariant=True
@@ -98,11 +99,15 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
         raise NotImplementedError()
 
 
+class TrainerIOError(Exception):
+    pass
+
+
 BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
 
 
 @final
-class Trainer(Task):
+class Trainer(Closable):
     """Trains a machine learning model."""
 
     def __init__(
@@ -124,9 +129,11 @@ class Trainer(Task):
         metric_recorder: MetricRecorder,
         garbage_collector: GarbageCollector,
         profiler: Profiler,
+        cuda_context: CudaContext,
         device_stat_tracker: DeviceStatTracker,
         wall_watch: Stopwatch,
         progress_reporter: ProgressReporter,
+        rng_bag: RngBag,
         seed: int,
         no_sync_grad_accumulation: bool = False,
         max_grad_norm: float | None = None,
@@ -153,8 +160,6 @@ class Trainer(Task):
         publish_metrics_every_n_data_epochs: int | None = None,
     ) -> None:
         model_dp_facade = get_data_parallel_facade(model)
-
-        rng_bag = RngBag.from_device_defaults(CPU, gangs.device)
 
         metric_bag = MetricBag(device=gangs.device)
 
@@ -281,7 +286,6 @@ class Trainer(Task):
         self._max_grad_norm = max_grad_norm
         self._grad_check = grad_check
         self._anomaly_detection = anomaly_detection
-        self._rng_bag = rng_bag
         self._max_num_steps = max_num_steps
         self._max_num_data_epochs = max_num_data_epochs
         self._validator = validator
@@ -309,6 +313,7 @@ class Trainer(Task):
         self._publish_metrics_every_n_data_epochs = publish_metrics_every_n_data_epochs
         self._garbage_collector = garbage_collector
         self._profiler = profiler
+        self._cuda_context = cuda_context
         self._device_stat_tracker = device_stat_tracker
         self._data_watch = Stopwatch()
         self._compute_watch = Stopwatch(device=gangs.device)
@@ -316,6 +321,7 @@ class Trainer(Task):
         self._wall_watch = wall_watch
         self._base_wall_time = 0.0
         self._progress_reporter = progress_reporter
+        self._rng_bag = rng_bag
         self._seed = seed
         self._state = _TrainerState.NOT_STARTED
         self._step_nr = 0
@@ -323,13 +329,21 @@ class Trainer(Task):
         self._first_iter = True
         self._batches: list[Any] | None = None
         self._stop_requested = False
+        self._early_stopped = False
         self._num_batches_read = 0
         self._last_lrs = last_lrs
         self._checkpoint_save_hooks: dict[int, TrainStepHook] = OrderedDict()
         self._hg_export_hooks: dict[int, TrainStepHook] = OrderedDict()
 
-    @override
-    def run(self) -> None:
+    def run(self) -> bool:
+        """
+        :raises CorruptBatchError:
+        :raises CorruptCheckpointError:
+        :raises MinimumLossScaleReachedError:
+        :raises ValidationError:
+        :raises TrainerIOError:
+        :raises InvalidOperationError:
+        """
         if self._state != _TrainerState.NOT_STARTED:
             raise InvalidOperationError("Trainer cannot be run more than once.")
 
@@ -344,25 +358,53 @@ class Trainer(Task):
 
         if self._state != _TrainerState.STOPPED:
             raise InternalError(
-                f"`_state` must be `STOPPED`, but is `{self._state}` instead."
+                f"`state` must be `STOPPED`, but is `{self._state}` instead."
             )
 
         gangs.close()
 
-        if self._stop_requested:
-            raise TaskStopException()
+        return not self._early_stopped
 
     def _maybe_restore_state(self) -> _TrainerState:
-        step_nr = self._checkpoint_manager.maybe_get_last_step_number(
-            exclude_model_only=True
-        )
+        try:
+            chk_step_nr = self._checkpoint_manager.maybe_get_last_step_number(
+                exclude_model_only=True
+            )
+        except CheckpointError as ex:
+            raise TrainerIOError("Failed to load the list of checkpoints.") from ex
 
-        if step_nr is None:
+        if chk_step_nr is None:
             if self._validate_at_start:
                 return _TrainerState.PRE_VALIDATION
 
             return _TrainerState.DATA_LOAD
 
+        try:
+            self._do_maybe_restore_state(chk_step_nr)
+        except LookupError:
+            raise InternalError(
+                f"Checkpoint of step {chk_step_nr} is expected to be available, but is not found."
+            ) from None
+        except CorruptDataError as ex:
+            raise CorruptCheckpointError(
+                chk_step_nr, f"Checkpoint of step {chk_step_nr} is corrupt."
+            ) from ex
+        except (GangError, CheckpointError) as ex:
+            raise TrainerIOError(
+                f"Failed to load checkpoint of step {chk_step_nr}."
+            ) from ex
+
+        if self._max_num_steps is not None:
+            if self._step_nr >= self._max_num_steps:
+                return _TrainerState.STOPPED
+
+        if self._max_num_data_epochs is not None:
+            if self._data_epoch_nr >= self._max_num_data_epochs:
+                return _TrainerState.STOPPED
+
+        return _TrainerState.DATA_LOAD
+
+    def _do_maybe_restore_state(self, step_nr: int) -> None:
         log.info("Restoring training from the last checkpoint at step {}.", step_nr)
 
         log.info("Restoring trainer state.")
@@ -396,16 +438,6 @@ class Trainer(Task):
         self._gangs.root.barrier()
 
         log.info("Training restored. Resuming from step {}.", step_nr)
-
-        if self._max_num_steps is not None:
-            if self._step_nr >= self._max_num_steps:
-                return _TrainerState.STOPPED
-
-        if self._max_num_data_epochs is not None:
-            if self._data_epoch_nr >= self._max_num_data_epochs:
-                return _TrainerState.STOPPED
-
-        return _TrainerState.DATA_LOAD
 
     def _do_run(self) -> None:
         self._model.train()
@@ -450,10 +482,14 @@ class Trainer(Task):
                         self._state = self._stop()
 
                     case _TrainerState.EARLY_STOP:
+                        self._early_stopped = True
+
                         self._state = self._early_stop()
 
                     case _TrainerState.STOP_REQUESTED:
                         log.info("Stopping training at step {}.", self._step_nr)
+
+                        self._early_stopped = True
 
                         self._state = self._stop()
 
@@ -467,6 +503,14 @@ class Trainer(Task):
         with self._data_watch:
             try:
                 self._batches = next(self._data_reader)
+            except CorruptDataError as ex:
+                raise CorruptBatchError(
+                    self._step_nr, f"A corrupt data batch encountered at step {self._step_nr}."  # fmt: skip
+                ) from ex
+            except (DataReadError, GangError) as ex:
+                raise TrainerIOError(
+                    f"Failed to read data batches for step {self._step_nr}."
+                ) from ex
             except StopIteration:
                 self._batches = None
 
@@ -498,9 +542,23 @@ class Trainer(Task):
         return state
 
     def _run_step(self, progress_task: ProgressTask) -> _TrainerState:
-        self._checkpoint_manager.maybe_complete_save_operation()
+        chk_step_nr = self._checkpoint_manager.step_nr
+        if chk_step_nr is not None:
+            try:
+                self._checkpoint_manager.maybe_complete_save_operation()
+            except CheckpointError as ex:
+                raise TrainerIOError(
+                    f"Failed to save checkpoint of step {chk_step_nr}."
+                ) from ex
 
-        self._hg_exporter.maybe_complete_operation()
+        chk_step_nr = self._hg_exporter.step_nr
+        if chk_step_nr is not None:
+            try:
+                self._hg_exporter.maybe_complete_operation()
+            except CheckpointError as ex:
+                raise TrainerIOError(
+                    f"Failed to export Hugging Face model of step {chk_step_nr}."
+                ) from ex
 
         detect_anomaly = torch.autograd.set_detect_anomaly(  # type: ignore[attr-defined]
             self._anomaly_detection, check_nan=True
@@ -522,7 +580,7 @@ class Trainer(Task):
             # Emptying the CUDA memory allocator cache after the first iteration
             # can reduce fragmentation and avoid OOM.
             if self._gangs.device.type == "cuda":
-                torch.cuda.empty_cache()
+                self._cuda_context.empty_cache()
 
             self._first_iter = False
 
@@ -535,7 +593,7 @@ class Trainer(Task):
 
         batches = self._batches
         if batches is None:
-            raise InternalError("`_batches` is `None`.")
+            raise InternalError("`batches` is `None`.")
 
         self._batches = None
 
@@ -636,8 +694,11 @@ class Trainer(Task):
         return nullcontext()
 
     def _compute_loss(self, batch: Any) -> tuple[Tensor, int | None]:
-        with self._maybe_autocast():
-            return self._unit.process_batch(batch, self._metric_bag)
+        try:
+            with self._maybe_autocast():
+                return self._unit.process_batch(batch, self._metric_bag)
+        except (OSError, GangError) as ex:
+            raise TrainerIOError(f"Train unit failed at step {self._step_nr}") from ex
 
     def _maybe_autocast(self) -> ContextManager[None]:
         if not self._amp or self._amp_dtype == torch.float32:
@@ -649,14 +710,14 @@ class Trainer(Task):
 
     def _inspect_fp16_scale_result(self, result: Float16LossScaleResult) -> None:
         if result.exploded:
-            log.error("Overflow detected at step {}, ignoring gradient, loss scale is already at minimum ({:g}). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", self._step_nr, result.new_scale)  # fmt: skip
-
-            raise MinimumLossScaleReachedError(self._step_nr)
+            raise MinimumLossScaleReachedError(
+                self._step_nr, result.new_scale, f"Loss is scaled down to minimum at step {self._step_nr}."  # fmt: skip
+            )
 
         if result.scaled:
             log.info("No gradient overflow detected in the last {} step(s) after step {}, increasing loss scale from {:g} to {:g}.", self._fp16_loss_scaler.scale_window, self._step_nr, result.old_scale, result.new_scale)  # fmt: skip
         elif result.overflowed:
-            log.info("Overflow detected at step {}, ignoring gradient, decreasing loss scale from {:g} to {:g}.", self._step_nr, result.old_scale, result.new_scale)  # fmt: skip
+            log.info("Overflow detected at step {}, decreasing loss scale from {:g} to {:g}.", self._step_nr, result.old_scale, result.new_scale)  # fmt: skip
 
     def _repeat_step(self, progress_task: ProgressTask) -> _TrainerState:
         if self._stop_requested:
@@ -713,8 +774,6 @@ class Trainer(Task):
     def _early_stop(self) -> _TrainerState:
         log.info("Early stop requested. Stopping training at step {}.", self._step_nr)  # fmt: skip
 
-        self._stop_requested = True
-
         should_save_checkpoint = self._should_save_checkpoint()
         if should_save_checkpoint:
             self._save_checkpoint(blocking=True)
@@ -739,6 +798,16 @@ class Trainer(Task):
         )
 
     def _save_checkpoint(self, blocking: bool) -> None:
+        try:
+            self._do_save_checkpoint(blocking)
+        except CorruptDataError as ex:
+            raise InternalError("Corrupt state.") from ex
+        except CheckpointError as ex:
+            raise TrainerIOError(
+                f"Failed to save checkpoint of step {self._step_nr}."
+            ) from ex
+
+    def _do_save_checkpoint(self, blocking: bool) -> None:
         step_nr = self._step_nr
 
         data_epoch_nr = self._data_epoch_nr
@@ -758,8 +827,11 @@ class Trainer(Task):
 
             self._on_checkpoint_saved(args, blocking)
 
-        ready_callback = lambda n, b: on_checkpoint_ready()
-        saved_callback = lambda n, b: on_checkpoint_saved()
+        options = CheckpointSaveOptions(
+            ready_callback=lambda _: on_checkpoint_ready(),
+            saved_callback=lambda _: on_checkpoint_saved(),
+            blocking=blocking,
+        )
 
         if isinstance(self._save_model_only, bool):
             save_model_only = self._save_model_only
@@ -768,11 +840,7 @@ class Trainer(Task):
 
         if save_model_only:
             self._checkpoint_manager.save_model_only(
-                step_nr,
-                self._model_dp_facade,
-                ready_callback=ready_callback,
-                saved_callback=saved_callback,
-                blocking=blocking,
+                step_nr, self._model_dp_facade, options
             )
         else:
             trainer = _TrainerProxy(self)
@@ -783,9 +851,7 @@ class Trainer(Task):
                 self._model_dp_facade,
                 self._optimizer,
                 self._data_reader,
-                ready_callback=ready_callback,
-                saved_callback=saved_callback,
-                blocking=blocking,
+                options,
             )
 
     def _on_checkpoint_saved(self, args: TrainStepHookArgs, blocking: bool) -> None:
@@ -804,26 +870,32 @@ class Trainer(Task):
         self._maybe_export_hg(args, blocking)
 
     def _maybe_complete_hg_export_operation(self) -> None:
-        if not self._hg_exporter.is_exporting:
+        chk_step_nr = self._hg_exporter.step_nr
+        if chk_step_nr is None:
             return
 
-        log.info("Waiting for the current Hugging Face model export operation to complete before continuing.")  # fmt: skip
+        log.info("Waiting for the Hugging Face model export operation of step {} to complete before continuing.", chk_step_nr)  # fmt: skip
 
-        self._hg_exporter.maybe_complete_operation(blocking=True)
+        try:
+            self._hg_exporter.maybe_complete_operation(blocking=True)
+        except CheckpointError as ex:
+            raise TrainerIOError(
+                f"Failed to export Hugging Face model of step {chk_step_nr}."
+            ) from ex
 
     def _maybe_export_hg(self, args: TrainStepHookArgs, blocking: bool) -> None:
         if self._hg_exporter is NOOP_HG_EXPORTER:
             return
 
-        step_nr = args.step_nr
+        chk_step_nr = args.step_nr
 
         if blocking:
-            log.info("Exporting Hugging Face model of step {}.", step_nr)  # fmt: skip
+            log.info("Exporting Hugging Face model of step {}.", chk_step_nr)  # fmt: skip
         else:
-            log.info("Asynchronously exporting Hugging Face model of step {}.", step_nr)  # fmt: skip
+            log.info("Asynchronously exporting Hugging Face model of step {}.", chk_step_nr)  # fmt: skip
 
         def on_exported() -> None:
-            log.info("Hugging Face model of step {} exported.", step_nr)
+            log.info("Hugging Face model of step {} exported.", chk_step_nr)
 
             for hook in self._hg_export_hooks.values():
                 hook(args)
@@ -834,7 +906,12 @@ class Trainer(Task):
             export_callback=export_callback, blocking=blocking
         )
 
-        self._hg_exporter.export(step_nr, options)
+        try:
+            self._hg_exporter.export(chk_step_nr, options)
+        except CheckpointError as ex:
+            raise TrainerIOError(
+                f"Failed to export Hugging Face model of step {chk_step_nr}."
+            ) from ex
 
     def _maybe_publish_metrics(self) -> None:
         should_publish = self._should_publish_metrics()
@@ -850,17 +927,22 @@ class Trainer(Task):
         )
 
     def _publish_metrics(self) -> None:
+        try:
+            self._do_publish_metrics()
+        except (GangError, MetricRecordError) as ex:
+            raise TrainerIOError(
+                f"Failed to publish metrics at step {self._step_nr}."
+            ) from ex
+
+    def _do_publish_metrics(self) -> None:
         log.debug("Syncing train metrics.")
 
         gangs = self._gangs
 
-        try:
-            if gangs.tp.rank == 0:
-                values = sync_and_compute_metrics(self._metric_bag, gangs.dp)
-            else:
-                values = None
-        except GangError as ex:
-            raise_operational_gang_error(ex)
+        if gangs.tp.rank == 0:
+            values = sync_and_compute_metrics(self._metric_bag, gangs.dp)
+        else:
+            values = None
 
         if gangs.root.rank == 0:
             if values is None:
@@ -885,21 +967,23 @@ class Trainer(Task):
 
             compute_time = self._compute_watch.get_elapsed_time()
 
-            extend_batch_metric_values(
-                values, self._num_batches_read, data_time + compute_time
-            )
+            lapse_time = self._lapse_watch.get_elapsed_time()
+
+            wall_time = self._wall_watch.get_elapsed_time()
 
             values["data_time"] = data_time
 
             values["compute_time"] = compute_time
 
-            values["lapse_time"] = self._lapse_watch.get_elapsed_time()
+            values["lapse_time"] = lapse_time
 
-            wall_time = self._wall_watch.get_elapsed_time()
+            values["wall_time"] = wall_time
 
             values["total_time"] = self._base_wall_time + wall_time
 
-            values["wall_time"] = wall_time
+            extend_batch_metric_values(
+                values, self._num_batches_read, data_time + compute_time
+            )
 
             self._metric_recorder.record_metric_values("train", values, self._step_nr)
 
@@ -960,8 +1044,27 @@ class Trainer(Task):
 
         self._model.eval()
 
-        with self._model_dp_facade.summon_full_parameters():
-            score = self._validator.run(self._step_nr)
+        try:
+            with self._model_dp_facade.summon_full_parameters():
+                score = self._validator.run(self._step_nr)
+        except CorruptBatchError as ex:
+            if self._step_nr == 0:
+                raise ValidationError(
+                    self._step_nr, "Pre-validation before training failed."
+                ) from ex
+            else:
+                raise ValidationError(
+                    self._step_nr, f"Validation after step {self._step_nr} failed."
+                ) from ex
+        except (ValidatorError, GangError) as ex:
+            if self._step_nr == 0:
+                raise TrainerIOError(
+                    self._step_nr, "Pre-validation before training failed."
+                ) from ex
+            else:
+                raise TrainerIOError(
+                    self._step_nr, f"Validation after step {self._step_nr} failed."
+                ) from ex
 
         if score is not None:
             if self._should_save_checkpoint():
@@ -973,14 +1076,19 @@ class Trainer(Task):
 
         # Try to avoid CUDA memory fragmentation after validation.
         if self._gangs.device.type == "cuda":
-            torch.cuda.empty_cache()
+            self._cuda_context.empty_cache()
 
         log.info("Validation finished.")
 
         return score
 
     def _save_score(self, score: float) -> None:
-        self._checkpoint_manager.save_score(self._step_nr, score)
+        try:
+            self._checkpoint_manager.save_score(self._step_nr, score)
+        except CheckpointError as ex:
+            raise TrainerIOError(
+                f"Failed to save checkpoint score of step {self._step_nr}."
+            ) from ex
 
         if self._keep_best_n_checkpoints is not None:
             self._delete_stale_checkpoints()
@@ -999,28 +1107,50 @@ class Trainer(Task):
         return broadcast_flag(gangs.root, should_stop)
 
     def _maybe_complete_checkpoint_save_operation(self) -> None:
-        if not self._checkpoint_manager.is_saving:
+        chk_step_nr = self._checkpoint_manager.step_nr
+        if chk_step_nr is None:
             return
 
-        log.info("Waiting for the current checkpoint save operation to complete before continuing.")  # fmt: skip
+        log.info("Waiting for the checkpoint save operation of step {} to complete before continuing.", chk_step_nr)  # fmt: skip
 
-        self._checkpoint_manager.maybe_complete_save_operation(blocking=True)
+        try:
+            self._checkpoint_manager.maybe_complete_save_operation(blocking=True)
+        except CheckpointError as ex:
+            raise TrainerIOError(
+                f"Failed to save checkpoint of step {chk_step_nr}."
+            ) from ex
 
     def _delete_previous_non_model_checkpoints(self) -> None:
-        step_nrs = self._checkpoint_manager.get_step_numbers(exclude_model_only=True)
+        try:
+            self._do_delete_previous_non_model_checkpoints()
+        except CheckpointError as ex:
+            raise TrainerIOError(
+                "Failed to delete previous non-model checkpoints."
+            ) from ex
 
-        num_steps = len(step_nrs)
+    def _do_delete_previous_non_model_checkpoints(self) -> None:
+        chk_step_nrs = self._checkpoint_manager.get_step_numbers(
+            exclude_model_only=True
+        )
+
+        num_steps = len(chk_step_nrs)
         if num_steps <= 1:
             return
 
         log.info("Deleting non-model state of previous {} checkpoint(s).", num_steps - 1)  # fmt: skip
 
-        for step_nr in step_nrs[:-1]:  # always keep the last checkpoint.
-            self._checkpoint_manager.delete_checkpoint(step_nr, keep_model=True)
+        for chk_step_nr in chk_step_nrs[:-1]:  # always keep the last checkpoint.
+            self._checkpoint_manager.delete_checkpoint(chk_step_nr, keep_model=True)
 
         log.info("Non-model state of previous checkpoints deleted.")
 
     def _delete_stale_checkpoints(self) -> None:
+        try:
+            self._do_delete_stale_checkpoints()
+        except CheckpointError as ex:
+            raise TrainerIOError("Failed to delete stale checkpoints.") from ex
+
+    def _do_delete_stale_checkpoints(self) -> None:
         stale_step_nrs = self._checkpoint_manager.get_stale_step_numbers(
             self._keep_last_n_checkpoints,
             self._keep_best_n_checkpoints,
@@ -1032,8 +1162,8 @@ class Trainer(Task):
 
         log.info("Deleting {} stale checkpoint(s).", len(stale_step_nrs))
 
-        for step_nr in stale_step_nrs:
-            self._checkpoint_manager.delete_checkpoint(step_nr)
+        for chk_step_nr in stale_step_nrs:
+            self._checkpoint_manager.delete_checkpoint(chk_step_nr)
 
         log.info("Stale checkpoints deleted.")
 
@@ -1091,7 +1221,6 @@ class Trainer(Task):
 
         raise InternalError(f"`_state` is `{self._state}`")
 
-    @override
     def request_stop(self) -> None:
         self._stop_requested = True
 
@@ -1116,7 +1245,6 @@ class Trainer(Task):
         return handle
 
     @property
-    @override
     def step_nr(self) -> int:
         return self._step_nr
 
@@ -1179,12 +1307,12 @@ class _TrainerProxy(Stateful):
             try:
                 state = state_dict.pop(name)
             except KeyError:
-                raise StateDictError(
-                    f"`state_dict` is expected to contain a key named '{name}'."
+                raise CorruptDataError(
+                    f"`state_dict` does not contain a key named '{name}'."
                 )
 
             if not isinstance(state, kls):
-                raise StateDictError(
+                raise CorruptDataError(
                     f"`state_dict['{name}']` is expected to be of type `{kls}`, but is of type `{type(state)}` instead."
                 )
 
@@ -1195,10 +1323,8 @@ class _TrainerProxy(Stateful):
 
             try:
                 obj.load_state_dict(attr_state_dict)
-            except (RuntimeError, ValueError, TypeError, StateDictError) as ex:
-                raise StateDictError(
-                    f"`state_dict['{name}']` does not represent a valid `{type(obj)}` state."
-                ) from ex
+            except (RuntimeError, ValueError, TypeError, CorruptDataError) as ex:
+                raise CorruptDataError(f"`state_dict['{name}']` is corrupt.") from ex
 
         self._trainer._step_nr = get_state("_step_nr", int)
         self._trainer._data_epoch_nr = get_state("_data_epoch_nr", int)
@@ -1210,4 +1336,4 @@ class _TrainerProxy(Stateful):
 
         self._trainer._base_wall_time = get_state("_base_wall_time", float)
 
-        StateDictError.raise_if_not_empty(state_dict)
+        CorruptDataError.raise_if_state_dict_not_empty(state_dict)

@@ -13,6 +13,15 @@ from typing import final, overload
 
 from typing_extensions import override
 
+from fairseq2.error import FormatError
+from fairseq2.runtime.dependency import get_dependency_resolver
+
+
+def get_env() -> Environment:
+    resolver = get_dependency_resolver()
+
+    return resolver.resolve(Environment)
+
 
 class Environment(ABC, Iterable[tuple[str, str]]):
     @abstractmethod
@@ -38,6 +47,13 @@ class Environment(ABC, Iterable[tuple[str, str]]):
 
     @abstractmethod
     def __iter__(self) -> Iterator[tuple[str, str]]: ...
+
+
+class EnvironmentVariableError(Exception):
+    def __init__(self, var_name: str, message: str) -> None:
+        super().__init__(message)
+
+        self.var_name = var_name
 
 
 @final
@@ -73,30 +89,83 @@ class StandardEnvironment(Environment):
         return iter(os.environ.items())
 
 
-class EnvironmentVariableError(Exception):
-    def __init__(self, var_name: str, message: str) -> None:
-        super().__init__(message)
+def get_rank(env: Environment) -> int:
+    """
+    :raises LookupError:
+    :raises FormatError:
+    """
+    rank = maybe_get_rank(env)
+    if rank is None:
+        raise LookupError()
 
-        self.var_name = var_name
-
-
-def get_rank(env: Environment) -> int | None:
-    return _get_rank(env, "RANK")
-
-
-def get_world_size(env: Environment) -> int | None:
-    return _get_world_size(env, "WORLD_SIZE")
+    return rank
 
 
-def get_local_rank(env: Environment) -> int | None:
-    return _get_rank(env, "LOCAL_RANK")
+def maybe_get_rank(env: Environment) -> int | None:
+    """
+    :raises FormatError:
+    """
+    return _maybe_get_rank(env, "RANK")
 
 
-def get_local_world_size(env: Environment) -> int | None:
-    return _get_world_size(env, "LOCAL_WORLD_SIZE")
+def get_world_size(env: Environment) -> int:
+    """
+    :raises LookupError:
+    :raises FormatError:
+    """
+    world_size = maybe_get_world_size(env)
+    if world_size is None:
+        raise LookupError()
+
+    return world_size
 
 
-def _get_rank(env: Environment, var_name: str) -> int | None:
+def maybe_get_world_size(env: Environment) -> int | None:
+    """
+    :raises FormatError:
+    """
+    return _maybe_get_world_size(env, "WORLD_SIZE")
+
+
+def get_local_rank(env: Environment) -> int:
+    """
+    :raises LookupError:
+    :raises FormatError:
+    """
+    rank = maybe_get_local_rank(env)
+    if rank is None:
+        raise LookupError()
+
+    return rank
+
+
+def maybe_get_local_rank(env: Environment) -> int | None:
+    """
+    :raises FormatError:
+    """
+    return _maybe_get_rank(env, "LOCAL_RANK")
+
+
+def get_local_world_size(env: Environment) -> int:
+    """
+    :raises LookupError:
+    :raises FormatError:
+    """
+    world_size = maybe_get_local_world_size(env)
+    if world_size is None:
+        raise LookupError()
+
+    return world_size
+
+
+def maybe_get_local_world_size(env: Environment) -> int | None:
+    """
+    :raises FormatError:
+    """
+    return _maybe_get_world_size(env, "LOCAL_WORLD_SIZE")
+
+
+def _maybe_get_rank(env: Environment, var_name: str) -> int | None:
     s = env.maybe_get(var_name)
     if s is None:
         return None
@@ -104,19 +173,17 @@ def _get_rank(env: Environment, var_name: str) -> int | None:
     try:
         value = int(s)
     except ValueError:
-        raise EnvironmentVariableError(
-            var_name, f"{var_name} environment variable cannot be parsed as an integer."
-        ) from None
+        raise FormatError(f"Expected to be an integer, but is '{s} instead.") from None
 
     if value < 0:
-        raise EnvironmentVariableError(
-            var_name, f"{var_name} environment variable is expected to be greater than or equal to 0, but is {value} instead."  # fmt: skip
+        raise FormatError(
+            f"Expected to be equal or greater than 0, but is {value} instead."
         )
 
     return value
 
 
-def _get_world_size(env: Environment, var_name: str) -> int | None:
+def _maybe_get_world_size(env: Environment, var_name: str) -> int | None:
     s = env.maybe_get(var_name)
     if s is None:
         return None
@@ -124,13 +191,11 @@ def _get_world_size(env: Environment, var_name: str) -> int | None:
     try:
         value = int(s)
     except ValueError:
-        raise EnvironmentVariableError(
-            var_name, f"{var_name} environment variable cannot be parsed as an integer."
-        ) from None
+        raise FormatError(f"Expected to be an integer, but is '{s} instead.") from None
 
     if value < 1:
-        raise EnvironmentVariableError(
-            var_name, f"{var_name} environment variable is expected to be greater than or equal to 1, but is {value} instead."  # fmt: skip
+        raise FormatError(
+            f"Expected to be equal or greater than 1, but is {value} instead."
         )
 
     return value

@@ -17,9 +17,7 @@ from fairseq2.data.parquet.fragment_streaming.config import (
     FragmentStreamingConfig,
     ParquetDatasetLimitOptions,
 )
-from fairseq2.data.parquet.fragment_streaming.primitives import (
-    list_parquet_fragments,
-)
+from fairseq2.data.parquet.fragment_streaming.primitives import list_parquet_fragments
 from fairseq2.data.parquet.table_bucketing.config import TableBucketingConfig
 from fairseq2.data.parquet.table_bucketing.primitives import (
     build_batching_loop_over_one_table,

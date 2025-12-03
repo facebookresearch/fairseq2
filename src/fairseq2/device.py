@@ -22,7 +22,11 @@ from typing_extensions import override
 from fairseq2.error import InternalError
 from fairseq2.runtime.dependency import get_dependency_resolver
 from fairseq2.typing import ContextManager
-from fairseq2.utils.env import Environment, EnvironmentVariableError, get_local_rank
+from fairseq2.utils.env import (
+    Environment,
+    EnvironmentVariableError,
+    maybe_get_local_rank,
+)
 from fairseq2.utils.version import torch_greater_or_equal
 from fairseq2.utils.warn import _warn_deprecated
 
@@ -153,13 +157,11 @@ def detect_default_device() -> Device:
     4) CPU will be used.
 
     :raises EnvironmentVariableError: ``FAIRSEQ2_DEVICE`` environment variable
-        does not represent a device.
+        cannot be parsed as a PyTorch device.
 
-    :raises EnvironmentVariableError: ``LOCAL_RANK`` environment variable is not
-        a positive integer.
-
-    :raises LocalRankOutOfRangeError: ``LOCAL_RANK`` environment variable
-        exceeds the number of available devices.
+    :raises EnvironmentVariableError: ``LOCAL_RANK`` environment variable is
+        not an integer, or is less than 0, or exceeds the number of available
+        devices.
     """
     resolver = get_dependency_resolver()
 
@@ -199,10 +201,10 @@ class _DefaultDeviceDetector:
 
         try:
             return Device(s)
-        except (RuntimeError, ValueError) as ex:
-            message = f"`{var_name}` environment variable does not represent a PyTorch device."
-
-            raise EnvironmentVariableError(var_name, message) from ex
+        except (RuntimeError, ValueError):
+            raise EnvironmentVariableError(
+                var_name, f"`{var_name}` environment variable is expected to be a PyTorch device, but is '{s} instead."  # fmt: skip
+            ) from None
 
     def _get_default_cuda_device(self) -> Device | None:
         if not self._cuda_context.is_available():
@@ -236,25 +238,16 @@ class _DefaultDeviceDetector:
         if num_devices <= 0:
             raise InternalError(f"`num_devices` is {num_devices}.")
 
-        rank = get_local_rank(self._env)
+        rank = maybe_get_local_rank(self._env)
         if rank is None:
             return 0
 
         if rank >= num_devices:
-            raise LocalRankOutOfRangeError(rank, num_devices, device_type)
+            raise EnvironmentVariableError(
+                "LOCAL_RANK", f"`LOCAL_RANK` environment variable is expected to be less than the number of `{device_type}` device(s) on the host ({num_devices}), but is {rank} instead."  # fmt: skip
+            )
 
         return rank
-
-
-class LocalRankOutOfRangeError(Exception):
-    def __init__(self, rank: int, num_devices: int, device_type: str) -> None:
-        super().__init__(
-            f"Host has {num_devices} `{device_type}` device(s), but the local rank of the process is {rank}."
-        )
-
-        self.rank = rank
-        self.num_devices = num_devices
-        self.device_type = device_type
 
 
 class CudaContext(ABC):
@@ -278,6 +271,11 @@ class CudaContext(ABC):
     @abstractmethod
     def reset_peak_memory_stats(self) -> None: ...
 
+    @abstractmethod
+    def synchronize(self) -> None: ...
+
+    @abstractmethod
+    def empty_cache(self) -> None: ...
 
 @final
 class _StandardCudaContext(CudaContext):
@@ -300,3 +298,11 @@ class _StandardCudaContext(CudaContext):
     @override
     def reset_peak_memory_stats(self) -> None:
         torch.cuda.reset_peak_memory_stats()
+
+    @override
+    def synchronize(self) -> None:
+        torch.cuda.synchronize()
+
+    @override
+    def empty_cache(self) -> None:
+        torch.cuda.empty_cache()

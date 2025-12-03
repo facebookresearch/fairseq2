@@ -22,14 +22,8 @@ from fairseq2.generation import Seq2SeqGenerator, SequenceGenerator
 from fairseq2.generation.beam_search import BeamSearchAlgorithm
 from fairseq2.generation.sampling import Sampler
 from fairseq2.optim.lr_schedulers import LRScheduler
-from fairseq2.recipe.component import ComponentManager, ComponentNotKnownError
-from fairseq2.recipe.error import (
-    BeamSearchAlgorithmNotKnownError,
-    LRSchedulerNotKnownError,
-    OptimizerNotKnownError,
-    SamplerNotKnownError,
-    SequenceGeneratorNotKnownError,
-)
+from fairseq2.recipe.component import ComponentManager
+from fairseq2.recipe.error import ConfigError
 from fairseq2.runtime.dependency import DependencyResolver
 from fairseq2.utils.structured import StructureError
 from fairseq2.utils.validation import Validatable, ValidationResult
@@ -37,6 +31,7 @@ from fairseq2.utils.validation import Validatable, ValidationResult
 ConfigT = TypeVar("ConfigT")
 
 
+# TODO: remove in v0.14
 @final
 class RecipeConfig:
     def __init__(self, inner_config: object) -> None:
@@ -743,8 +738,8 @@ class OptimizerSection(SupportsStructure):
             self.config = structure_component_config(
                 resolver, Optimizer, self.name, self.config
             )
-        except ComponentNotKnownError:
-            raise OptimizerNotKnownError(self.name) from None
+        except LookupError:
+            raise ConfigError(f"'{self.name}' is not a known optimizer.") from None
 
 
 @dataclass(kw_only=True)
@@ -923,8 +918,10 @@ class LRSchedulerSection(SupportsStructure):
             self.config = structure_component_config(
                 resolver, LRScheduler, self.name, self.config
             )
-        except ComponentNotKnownError:
-            raise LRSchedulerNotKnownError(self.name) from None
+        except LookupError:
+            raise ConfigError(
+                f"'{self.name}' is not a known learning rate scheduler."
+            ) from None
 
 
 @dataclass(kw_only=True)
@@ -1106,8 +1103,10 @@ class SequenceGeneratorSection(SupportsStructure):
             self.config = structure_component_config(
                 resolver, SequenceGenerator, self.name, self.config
             )
-        except ComponentNotKnownError:
-            raise SequenceGeneratorNotKnownError(self.name) from None
+        except LookupError:
+            raise ConfigError(
+                f"'{self.name}' is not a known sequence generator."
+            ) from None
 
 
 @dataclass(kw_only=True)
@@ -1122,8 +1121,10 @@ class Seq2SeqGeneratorSection(SupportsStructure):
             self.config = structure_component_config(
                 resolver, Seq2SeqGenerator, self.name, self.config
             )
-        except ComponentNotKnownError:
-            raise SequenceGeneratorNotKnownError(self.name) from None
+        except LookupError:
+            raise ConfigError(
+                f"'{self.name}' is not a known sequence-to-sequence generator."
+            ) from None
 
 
 @dataclass(kw_only=True)
@@ -1220,8 +1221,8 @@ class SamplerChoice(SupportsStructure):
             self.config = structure_component_config(
                 resolver, Sampler, self.name, self.config
             )
-        except ComponentNotKnownError:
-            raise SamplerNotKnownError(self.name) from None
+        except LookupError:
+            raise ConfigError(f"'{self.name}' is not a known sampler.") from None
 
 
 @dataclass(kw_only=True)
@@ -1350,8 +1351,10 @@ class BeamSearchAlgorithmChoice(SupportsStructure):
             self.config = structure_component_config(
                 resolver, BeamSearchAlgorithm, self.name, self.config
             )
-        except ComponentNotKnownError:
-            raise BeamSearchAlgorithmNotKnownError(self.name) from None
+        except LookupError:
+            raise ConfigError(
+                f"'{self.name}' is not a known beam search algorithm."
+            ) from None
 
 
 def structure_component_config(
@@ -1363,10 +1366,3 @@ def structure_component_config(
         return component_manager.structure_component_config(kls, name, config)
     except StructureError as ex:
         raise StructureError("`config` field cannot be structured.") from ex
-
-
-class ConfigSectionNotFoundError(Exception):
-    def __init__(self, name: str) -> None:
-        super().__init__(f"Recipe configuration does not have a section named {name}.")
-
-        self.name = name

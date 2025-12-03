@@ -25,7 +25,7 @@ from fairseq2.models import (
 )
 from fairseq2.nn.utils.module import broadcast_module, remove_parametrizations
 from fairseq2.recipe.config import ReferenceModelSection
-from fairseq2.recipe.error import ModelCheckpointNotFoundError
+from fairseq2.recipe.error import RecipeError
 from fairseq2.recipe.internal.asset_config import _AssetConfigOverrider
 from fairseq2.recipe.internal.compile import _compile_model
 from fairseq2.recipe.internal.log import _log_model, _LogHelper
@@ -193,8 +193,8 @@ class _StandardReferenceModelBootstrapper(_ReferenceModelBootstrapper):
                 mmap=section.mmap,
                 restrict=None,
             )
-        except FileNotFoundError as ex:
-            raise ModelCheckpointNotFoundError(path) from ex
+        except FileNotFoundError:
+            raise RecipeError(f"{path} does not point to a model checkpoint.") from None
         except OSError as ex:
             raise_operational_system_error(ex)
 

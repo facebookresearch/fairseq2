@@ -6,5 +6,6 @@
 
 from __future__ import annotations
 
+# TODO: remove in v0.14
 from fairseq2.generator import Generator as Generator  # noqa: F401
 from fairseq2.generator import GeneratorUnit as GeneratorUnit  # noqa: F401

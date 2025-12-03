@@ -228,5 +228,5 @@ def maybe_raise_param_group_length_error(
     """
     if len(value) != num_param_groups:
         raise ValidationError(
-            f"The length of `{field}` must match the number of optimizer parameter groups ({num_param_groups}), but is {len(value)} instead.", field="lr_scheduler.config"  # fmt: skip
+            f"Length of `{field}` must match the number of optimizer parameter groups ({num_param_groups}), but is {len(value)} instead.", field="lr_scheduler.config"  # fmt: skip
         )

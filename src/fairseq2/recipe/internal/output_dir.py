@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import final
 
-from fairseq2.error import raise_operational_system_error
+from fairseq2.error import OperationalError
 from fairseq2.file_system import FileSystem
 from fairseq2.recipe.internal.sweep_tag import _SweepTagGenerator
 
@@ -32,6 +32,8 @@ class _OutputDirectoryCreator:
 
             self._file_system.make_directory(output_dir)
         except OSError as ex:
-            raise_operational_system_error(ex)
+            raise OperationalError(
+                f"Failed to create {output_dir} recipe output directory."
+            ) from ex
 
         return output_dir

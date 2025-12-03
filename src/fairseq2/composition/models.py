@@ -11,6 +11,7 @@ from typing import Protocol, TypeVar
 from torch.nn import Module
 
 from fairseq2.error import InternalError
+from fairseq2.model_checkpoint import ModelCheckpointLoader
 from fairseq2.models import (
     HuggingFaceExporter,
     LayerwiseACApplier,
@@ -41,6 +42,7 @@ from fairseq2.models.jepa.classifier import (
 from fairseq2.models.llama import (
     LLAMA_FAMILY,
     LLaMAConfig,
+    _LLaMACheckpointLoader,
     _LLaMAHuggingFaceConverter,
     convert_llama_state_dict,
     create_llama_model,
@@ -182,10 +184,10 @@ def register_model_family(
     if advanced_factory is not None:
         if factory is not None:
             raise ValueError(
-                "`factory` and `advanced_factory` must not be specified at the same time."
+                "`factory` and `advanced_factory` must not be provided at the same time."
             )
     elif factory is None:
-        raise ValueError("`factory` or `advanced_factory` must be specified.")
+        raise ValueError("`factory` or `advanced_factory` must be provided.")
 
     def create_family(resolver: DependencyResolver) -> ModelFamily:
         nonlocal factory
@@ -258,6 +260,8 @@ def _register_model_families(container: DependencyContainer) -> None:
     )
 
     register_llama_configs(container)
+
+    container.collection.register_type(ModelCheckpointLoader, _LLaMACheckpointLoader)
 
     container.register_type(
         HuggingFaceConverter, _LLaMAHuggingFaceConverter, key=LLAMA_FAMILY

@@ -113,7 +113,7 @@ class ObjectValidator(ABC):
         """
         Validates ``obj``.
 
-        :raises ValidationError: If ``obj`` or one of its sub-objects has a
+        :raises ValidationError: ``obj`` or one of its sub-objects has a
             validation error.
         """
 

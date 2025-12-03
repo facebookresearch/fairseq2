@@ -10,7 +10,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Generic, TypeVar, cast, final
 
-from fairseq2.assets import AssetCard, AssetCardError, AssetNotFoundError, AssetStore
+from fairseq2.assets import AssetCard, AssetCardError, AssetStore
 from fairseq2.data.tokenizers.family import (
     TokenizerFamily,
     TokenizerFamilyNotKnownError,
@@ -44,7 +44,7 @@ class TokenizerHub(Generic[TokenizerT, TokenizerConfigT]):
 
             try:
                 card = self._asset_store.retrieve_card(name)
-            except AssetNotFoundError:
+            except LookupError:
                 raise TokenizerNotKnownError(name) from None
         else:
             name = card.name
@@ -80,7 +80,7 @@ class TokenizerHub(Generic[TokenizerT, TokenizerConfigT]):
 
             try:
                 card = self._asset_store.retrieve_card(name)
-            except AssetNotFoundError:
+            except LookupError:
                 raise TokenizerNotKnownError(name) from None
         else:
             name = card.name
@@ -187,7 +187,7 @@ class GlobalTokenizerLoader:
 
             try:
                 card = self._asset_store.retrieve_card(name)
-            except AssetNotFoundError:
+            except LookupError:
                 raise TokenizerNotKnownError(name) from None
         else:
             name = card.name

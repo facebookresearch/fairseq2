@@ -79,10 +79,10 @@ def register_tokenizer_family(
     if advanced_loader is not None:
         if loader is not None:
             raise ValueError(
-                "`loader` and `advanced_loader` must not be specified at the same time."
+                "`loader` and `advanced_loader` must not be provided at the same time."
             )
     elif loader is None:
-        raise ValueError("`loader` or `advanced_loader` must be specified.")
+        raise ValueError("`loader` or `advanced_loader` must be provided.")
 
     def create_family(resolver: DependencyResolver) -> TokenizerFamily:
         nonlocal loader

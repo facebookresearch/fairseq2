@@ -24,9 +24,9 @@ from fairseq2.metrics.common import (
 from fairseq2.models.clm import CausalLM
 from fairseq2.recipe.base import Recipe, RecipeContext
 from fairseq2.recipe.evaluator import EvalUnit
+from fairseq2.recipe.task import Task
 from fairseq2.recipe.trainer import TrainUnit
 from fairseq2.runtime.dependency import DependencyContainer
-from fairseq2.task import Task
 
 from ..common import check_model_vocabulary
 from .config import LMSFTConfig
@@ -128,7 +128,7 @@ class LMSFTRecipe(Recipe):
 
             valid_data_readers.append(valid_data_reader)
 
-        return context.create_trainer(
+        return context.create_train_task(
             unit, data_reader, valid_units, valid_data_readers
         )
 

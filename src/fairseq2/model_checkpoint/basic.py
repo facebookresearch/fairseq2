@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from pathlib import Path
+from pickle import PickleError
 from typing import final
 
 from torch import Tensor
@@ -16,10 +17,10 @@ from typing_extensions import override
 from fairseq2.device import CPU
 from fairseq2.file_system import FileSystem
 from fairseq2.gang import GangContext
-from fairseq2.io import CorruptFileError, TensorFileLoader, TensorFileLoadOptions
+from fairseq2.io import TensorFileLoader, TensorFileLoadOptions
 from fairseq2.model_checkpoint.common import reshard_tensor
 from fairseq2.model_checkpoint.loader import (
-    CorruptModelCheckpointError,
+    BadModelCheckpointError,
     ModelCheckpointLoader,
     ModelCheckpointLoadOptions,
 )
@@ -55,10 +56,16 @@ class _BasicModelCheckpointLoader(ModelCheckpointLoader):
 
         try:
             checkpoint = self._tensor_file_loader.load(path, load_options)
-        except CorruptFileError as ex:
-            message = f"{path} cannot be loaded as a PyTorch checkpoint file."
-
-            raise CorruptModelCheckpointError(path, message) from ex
+        except (PickleError, EOFError) as ex:
+            raise BadModelCheckpointError(
+                f"checkpoint file '{path}' is not picklable"
+            ) from ex
+        except FileNotFoundError:
+            raise
+        except OSError as ex:
+            raise OSError(
+                f"an I/O error occurred while reading checkpoint file '{path}'"
+            ) from ex
 
         if options.state_dict_converter is not None:
             checkpoint = options.state_dict_converter(checkpoint)
@@ -74,9 +81,11 @@ class _BasicModelCheckpointLoader(ModelCheckpointLoader):
 
         for key, tensor in checkpoint.items():
             if not isinstance(tensor, Tensor):
-                message = f"{key} in {path} is not a `{Tensor}`."
+                from fairseq2.typing import get_full_type_name as n
 
-                raise CorruptModelCheckpointError(path, message)
+                raise BadModelCheckpointError(
+                    f"key '{key}' in checkpoint '{path}' is expected to be of type `Tensor`, but is of type `{n(tensor)}` instead"  # fmt: skip
+                )
 
             if tensor in memo:  # Yield shared tensors only once.
                 continue
@@ -103,4 +112,9 @@ class _BasicModelCheckpointLoader(ModelCheckpointLoader):
         if not path.suffix in (".pt", ".pth", ".bin"):
             return False
 
-        return self._file_system.is_file(path)
+        try:
+            return self._file_system.is_file(path)
+        except OSError as ex:
+            raise OSError(
+                f"an I/O error occurred while accessing path '{path}'"
+            ) from ex

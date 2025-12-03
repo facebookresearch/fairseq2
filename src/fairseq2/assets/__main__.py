@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
-from fairseq2.assets.cli import _main
+import sys
 
-_main()
+from fairseq2.assets.cli import main
+
+sys.exit(main())

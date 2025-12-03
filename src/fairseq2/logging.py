@@ -10,7 +10,8 @@ import logging
 from logging import INFO, Formatter, Logger, NullHandler, StreamHandler, getLogger
 from typing import Any, Final, final
 
-from fairseq2.utils.env import StandardEnvironment, get_rank
+from fairseq2.error import FormatError
+from fairseq2.utils.env import StandardEnvironment, maybe_get_rank
 
 
 @final
@@ -22,29 +23,42 @@ class LogWriter:
     def __init__(self, logger: Logger) -> None:
         self._logger = logger
 
-    def debug(self, message: str, *args: Any) -> None:
-        self._log(logging.DEBUG, message, args)
+    def debug(
+        self, message: str, *args: Any, exc: BaseException | None = None, **kwargs: Any
+    ) -> None:
+        self._log(logging.DEBUG, message, args, kwargs, exc or False)
 
-    def info(self, message: str, *args: Any) -> None:
-        self._log(logging.INFO, message, args)
+    def info(
+        self, message: str, *args: Any, exc: BaseException | None = None, **kwargs: Any
+    ) -> None:
+        self._log(logging.INFO, message, args, kwargs, exc or False)
 
-    def warning(self, message: str, *args: Any) -> None:
-        self._log(logging.WARNING, message, args)
+    def warning(
+        self, message: str, *args: Any, exc: BaseException | None = None, **kwargs: Any
+    ) -> None:
+        self._log(logging.WARNING, message, args, kwargs, exc or False)
 
-    def error(self, message: str, *args: Any) -> None:
-        self._log(logging.ERROR, message, args)
+    def error(
+        self, message: str, *args: Any, exc: BaseException | None = None, **kwargs: Any
+    ) -> None:
+        self._log(logging.ERROR, message, args, kwargs, exc or False)
 
-    def exception(self, message: str, *args: Any) -> None:
-        self._log(logging.ERROR, message, args, exc_info=True)
+    def exception(self, message: str, *args: Any, **kwargs: Any) -> None:
+        self._log(logging.ERROR, message, args, kwargs, exc_info=True)
 
     def _log(
-        self, level: int, message: str, args: tuple[Any, ...], exc_info: bool = False
+        self,
+        level: int,
+        message: str,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+        exc_info: bool | BaseException = False,
     ) -> None:
-        if args:
+        if args or kwargs:
             if not self._logger.isEnabledFor(level):
                 return
 
-            message = str(message).format(*args)
+            message = message.format(*args, **kwargs)
 
         self._logger.log(level, message, exc_info=exc_info, extra=self._NO_HIGHLIGHT)
 
@@ -57,10 +71,6 @@ class LogWriter:
     def is_enabled_for_info(self) -> bool:
         return self._logger.isEnabledFor(logging.INFO)
 
-    @property
-    def logger(self) -> Logger:
-        return self._logger
-
 
 def get_log_writer(name: str | None = None) -> LogWriter:
     """Returns the :class:`LogWriter` for the specified name."""
@@ -71,6 +81,9 @@ log = get_log_writer("fairseq2")
 
 
 def configure_logging(no_rich: bool = False) -> None:
+    """
+    :raises EnvironmentVariableError:
+    """
     logger = getLogger()
 
     for handler in logger.handlers[:]:
@@ -80,7 +93,11 @@ def configure_logging(no_rich: bool = False) -> None:
 
     env = StandardEnvironment()
 
-    rank = get_rank(env)
+    try:
+        rank = maybe_get_rank(env)
+    except FormatError:
+        rank = None
+
     if rank is None or rank == 0:
         datefmt = "%Y-%m-%d %H:%M:%S"
 

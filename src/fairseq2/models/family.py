@@ -169,7 +169,7 @@ class ModelFamily(ABC):
 class ModelGatedError(Exception):
     def __init__(self, name: str, info_url: str | None) -> None:
         super().__init__(
-            f"{name} is a gated model and cannot be loaded. See {info_url} for details."
+            f"{name} is a gated model. See {info_url} for details."
         )
 
         self.name = name

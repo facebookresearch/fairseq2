@@ -6,17 +6,17 @@
 
 from __future__ import annotations
 
+import errno
 import os
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from enum import Enum
-from errno import ENOENT
 from os import scandir, strerror
 from pathlib import Path
 from shutil import copytree, rmtree
 from tempfile import TemporaryDirectory
-from typing import BinaryIO, TextIO, cast, final
+from typing import BinaryIO, NoReturn, TextIO, cast, final
 
 from typing_extensions import override
 
@@ -100,7 +100,7 @@ class LocalFileSystem(FileSystem):
                 m = "ab"
             case _:
                 raise ValueError(
-                    f"`mode` must be a valid `FileMode` value, but is `{mode}` instead."
+                    f"`mode` must be a valid `FileMode` value, but is `{mode.name}` instead"
                 )
 
         fp = path.open(m)
@@ -118,7 +118,7 @@ class LocalFileSystem(FileSystem):
                 m = "a"
             case _:
                 raise ValueError(
-                    f"`mode` must be a valid `FileMode` value, but is `{mode}` instead."
+                    f"`mode` must be a valid `FileMode` value, but is `{mode.name}` instead"
                 )
 
         fp = path.open(m, encoding="utf-8")
@@ -163,7 +163,7 @@ class LocalFileSystem(FileSystem):
     @override
     @contextmanager
     def tmp_directory(self, base_dir: Path) -> Iterator[Path]:
-        with TemporaryDirectory(dir=base_dir) as dirname:
+        with TemporaryDirectory(dir=base_dir, ignore_cleanup_errors=True) as dirname:
             yield Path(dirname)
 
     @override
@@ -176,10 +176,8 @@ class LocalFileSystem(FileSystem):
         return True
 
 
-def raise_if_not_exists(file_system: FileSystem, path: Path) -> None:
-    """Raises a :class:`FileNotFoundError` if ``path`` does not exist."""
-    if not file_system.exists(path):
-        raise FileNotFoundError(ENOENT, strerror(ENOENT), path)
+def _raise_file_not_found_error(path: Path) -> NoReturn:
+    raise FileNotFoundError(errno.ENOENT, strerror(errno.ENOENT), path)
 
 
 def _flush_nfs_lookup_cache(path: Path) -> None:
@@ -199,6 +197,8 @@ def _flush_nfs_lookup_cache(path: Path) -> None:
             next(it)
         except StopIteration:
             pass
+        except OSError:
+            break
         finally:
             it.close()
 

@@ -12,7 +12,7 @@ from typing import final
 from typing_extensions import override
 
 from fairseq2.error import InternalError
-from fairseq2.recipe.error import RecipeConfigParseError
+from fairseq2.recipe.error import RecipeError
 from fairseq2.utils.config import ConfigDirectiveError, ConfigMerger, ConfigProcessor
 from fairseq2.utils.structured import StructureError, ValueConverter
 from fairseq2.utils.validation import ObjectValidator, ValidationError
@@ -50,14 +50,14 @@ class _StandardAssetConfigOverrider(_AssetConfigOverrider):
         try:
             unstructured_config = self._value_converter.unstructure(config)
         except StructureError as ex:
-            raise InternalError("`config` cannot be unstructured") from ex
+            raise InternalError("Recipe configuration cannot be unstructured") from ex
 
         try:
             unstructured_config = self._config_merger.merge(
                 unstructured_config, unstructured_overrides
             )
-        except (ValueError, TypeError) as ex:
-            raise RecipeConfigParseError(
+        except TypeError as ex:
+            raise RecipeError(
                 f"`{section_name}.config_overrides` cannot be merged with the base configuration."
             ) from ex
 
@@ -65,7 +65,7 @@ class _StandardAssetConfigOverrider(_AssetConfigOverrider):
         try:
             unstructured_config = self._config_processor.process(unstructured_config)
         except ConfigDirectiveError as ex:
-            raise RecipeConfigParseError(
+            raise RecipeError(
                 f"A directive in `{section_name}.config_overrides` cannot be processed."
             ) from ex
 
@@ -74,7 +74,7 @@ class _StandardAssetConfigOverrider(_AssetConfigOverrider):
         try:
             config = self._value_converter.structure(unstructured_config, config_kls)
         except StructureError as ex:
-            raise RecipeConfigParseError(
+            raise RecipeError(
                 f"`{section_name}.config_overrides` cannot be structured."
             ) from ex
 

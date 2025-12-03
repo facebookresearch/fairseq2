@@ -12,9 +12,9 @@ from torch.nn import Module
 from torch.optim import Adafactor, AdamW, Optimizer
 
 from fairseq2.gang import Gangs
-from fairseq2.recipe.component import ComponentManager, ComponentNotKnownError
+from fairseq2.recipe.component import ComponentManager
 from fairseq2.recipe.config import AdafactorConfig, AdamWConfig, OptimizerSection
-from fairseq2.recipe.error import OptimizerNotKnownError
+from fairseq2.recipe.error import ConfigError
 from fairseq2.recipe.optim import prepare_parameter_groups
 
 
@@ -37,8 +37,8 @@ class _OptimizerFactory:
             return self._component_manager.create_component(
                 Optimizer, section.name, section.config
             )
-        except ComponentNotKnownError:
-            raise OptimizerNotKnownError(section.name) from None
+        except LookupError:
+            raise ConfigError(f"'{section.name}' is not a known optimizer.") from None
 
 
 @final

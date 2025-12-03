@@ -13,9 +13,9 @@ from typing import final
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.file_system import FileSystem, raise_if_not_exists
+from fairseq2.file_system import FileSystem, _raise_file_not_found_error
 from fairseq2.model_checkpoint.loader import (
-    CorruptModelCheckpointError,
+    BadModelCheckpointError,
     ModelCheckpointLoader,
     ModelCheckpointLoadOptions,
 )
@@ -52,15 +52,23 @@ class _DelegatingModelCheckpointLoader(ModelCheckpointLoader):
         if options is None:
             options = ModelCheckpointLoadOptions()
 
-        raise_if_not_exists(self._file_system, path)
+        try:
+            path_exists = self._file_system.exists(path)
+        except OSError as ex:
+            raise OSError(
+                f"an I/O error occurred while accessing path '{path}'"
+            ) from ex
+
+        if not path_exists:
+            _raise_file_not_found_error(path)
 
         for loader in self._loaders:
             if loader.supports_path(path):
                 return loader.lazy_load(path, shard_dims, options)
 
-        message = f"{path} does not point to any known checkpoints."
-
-        raise CorruptModelCheckpointError(path, message)
+        raise BadModelCheckpointError(
+            f"checkpoint '{path}' does not have a known format"
+        )
 
     @override
     def supports_path(self, path: Path) -> bool:

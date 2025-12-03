@@ -9,9 +9,9 @@ from __future__ import annotations
 from typing import final
 
 from fairseq2.generation import Seq2SeqGenerator, SequenceGenerator
-from fairseq2.recipe.component import ComponentManager, ComponentNotKnownError
+from fairseq2.recipe.component import ComponentManager
 from fairseq2.recipe.config import Seq2SeqGeneratorSection, SequenceGeneratorSection
-from fairseq2.recipe.error import SequenceGeneratorNotKnownError
+from fairseq2.recipe.error import ConfigError
 
 
 @final
@@ -29,8 +29,10 @@ class _SequenceGeneratorFactory:
             return self._component_manager.create_component(
                 SequenceGenerator, section.name, section.config
             )
-        except ComponentNotKnownError:
-            raise SequenceGeneratorNotKnownError(section.name) from None
+        except LookupError:
+            raise ConfigError(
+                f"'{section.name}' is not a known sequence generator."
+            ) from None
 
 
 @final
@@ -48,5 +50,7 @@ class _Seq2SeqGeneratorFactory:
             return self._component_manager.create_component(
                 Seq2SeqGenerator, section.name, section.config
             )
-        except ComponentNotKnownError:
-            raise SequenceGeneratorNotKnownError(section.name) from None
+        except LookupError:
+            raise ConfigError(
+                f"'{section.name}' is not a known sequence-to-sequence generator."
+            ) from None

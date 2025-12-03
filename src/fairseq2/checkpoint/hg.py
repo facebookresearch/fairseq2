@@ -19,11 +19,21 @@ from typing import Final, Protocol, final
 
 from typing_extensions import override
 
+from fairseq2.checkpoint.manager import CheckpointError
+from fairseq2.error import InternalError
 from fairseq2.file_system import FileMode, FileSystem
-from fairseq2.gang import Gangs, broadcast_flag
-from fairseq2.logging import log
+from fairseq2.gang import GangError, Gangs, broadcast_flag
 from fairseq2.utils.process import ProcessRunner
 from fairseq2.utils.threading import ThreadPool
+
+
+@dataclass
+class HuggingFaceExportCallbackArgs:
+    step_nr: int
+
+
+class HuggingFaceExportCallback(Protocol):
+    def __call__(self, args: HuggingFaceExportCallbackArgs) -> None: ...
 
 
 @dataclass(kw_only=True)
@@ -36,23 +46,20 @@ class HuggingFaceExporter(ABC):
     @abstractmethod
     def export(
         self, step_nr: int, options: HuggingFaceExportOptions | None = None
-    ) -> None: ...
+    ) -> None:
+        """
+        :raises CheckpointError:
+        """
 
     @abstractmethod
-    def maybe_complete_operation(self, *, blocking: bool = False) -> bool | None: ...
+    def maybe_complete_operation(self, *, blocking: bool = False) -> bool | None:
+        """
+        :raises CheckpointError:
+        """
 
     @property
     @abstractmethod
-    def is_exporting(self) -> bool: ...
-
-
-@dataclass
-class HuggingFaceExportCallbackArgs:
-    step_nr: int
-
-
-class HuggingFaceExportCallback(Protocol):
-    def __call__(self, args: HuggingFaceExportCallbackArgs) -> None: ...
+    def step_nr(self) -> int | None: ...
 
 
 @final
@@ -69,8 +76,8 @@ class _NoopHuggingFaceExporter(HuggingFaceExporter):
 
     @property
     @override
-    def is_exporting(self) -> bool:
-        return False
+    def step_nr(self) -> int | None:
+        return None
 
 
 NOOP_HG_EXPORTER: Final = _NoopHuggingFaceExporter()
@@ -94,6 +101,7 @@ class OutOfProcHuggingFaceExporter(HuggingFaceExporter):
         self._process_runner = process_runner
         self._thread_pool = thread_pool
         self._export_op: Future[Callable[[], None]] | None = None
+        self._step_nr: int | None = None
 
     @override
     def export(
@@ -107,28 +115,41 @@ class OutOfProcHuggingFaceExporter(HuggingFaceExporter):
         def do_export() -> Callable[[], None]:
             export_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}/hg")
 
+            out_file = export_dir.with_suffix(".stdout")
+            err_file = export_dir.with_suffix(".stderr")
+
             cmd = [sys.executable, "-m", "fairseq2.models.utils.hg_export", "--no-rich", "--checkpoint-dir", str(self._checkpoint_dir), f"checkpoint_step_{step_nr}", str(export_dir)]  # fmt: skip
 
             if self._gangs.root.rank == 0:
+                command_line = shlex.join(cmd)
+
                 run_file = export_dir.with_suffix(".run")
 
-                fp = self._file_system.open_text(run_file, mode=FileMode.WRITE)
-                with fp:
-                    command_line = shlex.join(cmd)
-
-                    fp.write(command_line)
-
-                out_file = export_dir.with_suffix(".stdout")
-                err_file = export_dir.with_suffix(".stderr")
+                try:
+                    fp = self._file_system.open_text(run_file, mode=FileMode.WRITE)
+                    with fp:
+                        fp.write(command_line)
+                except OSError as ex:
+                    raise CheckpointError(f"failed to write file '{run_file}'") from ex
 
                 with ExitStack() as exit_stack:
-                    out_fp = exit_stack.enter_context(
-                        self._file_system.open_text(out_file, mode=FileMode.WRITE)
-                    )
+                    try:
+                        out_fp = exit_stack.enter_context(
+                            self._file_system.open_text(out_file, mode=FileMode.WRITE)
+                        )
+                    except OSError as ex:
+                        raise CheckpointError(
+                            f"failed to open file '{out_file}'"
+                        ) from ex
 
-                    err_fp = exit_stack.enter_context(
-                        self._file_system.open_text(err_file, mode=FileMode.WRITE)
-                    )
+                    try:
+                        err_fp = exit_stack.enter_context(
+                            self._file_system.open_text(err_file, mode=FileMode.WRITE)
+                        )
+                    except OSError as ex:
+                        raise CheckpointError(
+                            f"failed to open file '{err_file}'"
+                        ) from ex
 
                     result = self._process_runner.run_text(
                         cmd, stdout=out_fp, stderr=err_fp, env={}
@@ -138,9 +159,9 @@ class OutOfProcHuggingFaceExporter(HuggingFaceExporter):
 
             def commit() -> None:
                 if result.returncode != 0:
-                    log.warning("Hugging Face export operation of step {} failed. See operation output at {}.", step_nr, err_file)  # fmt: skip
-
-                    return
+                    raise CheckpointError(
+                        f"failed to export Hugging Face model of step {step_nr}, see operation output at {err_file}"
+                    )
 
                 if options.export_callback is not None:
                     args = HuggingFaceExportCallbackArgs(step_nr)
@@ -158,22 +179,37 @@ class OutOfProcHuggingFaceExporter(HuggingFaceExporter):
 
     @override
     def maybe_complete_operation(self, *, blocking: bool = False) -> bool | None:
-        if self._export_op is None:
+        step_nr = self._step_nr
+
+        if step_nr is None:
             return None
+
+        if self._export_op is None:
+            raise InternalError(f"``step_nr` is {step_nr}, but `export_op` is `None`.")
 
         gangs = self._gangs
 
         if blocking:
             committer = self._export_op.result()
 
-            gangs.root.barrier()
+            try:
+                gangs.root.barrier()
+            except GangError as ex:
+                raise CheckpointError(
+                    f"failed to sync ranks after exporting Hugging Face model of step {step_nr}"
+                ) from ex
         else:
             if gangs.root.rank == 0:
                 done = self._export_op.done()
             else:
                 done = True
 
-            done = broadcast_flag(gangs.root, done)
+            try:
+                done = broadcast_flag(gangs.root, done)
+            except GangError as ex:
+                raise CheckpointError(
+                    f"failed to broadcast status of Hugging Face model export operation of step {step_nr}"
+                ) from ex
 
             if not done:
                 return False
@@ -188,5 +224,5 @@ class OutOfProcHuggingFaceExporter(HuggingFaceExporter):
 
     @property
     @override
-    def is_exporting(self) -> bool:
-        return self._export_op is not None
+    def step_nr(self) -> int | None:
+        return self._step_nr

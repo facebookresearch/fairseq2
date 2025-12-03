@@ -15,7 +15,7 @@ from typing_extensions import override
 from wandb import Run as WandbRun
 from wandb.errors import UsageError as WandbUsageError
 
-from fairseq2.error import raise_operational_system_error
+from fairseq2.error import InternalError, OperationalError
 from fairseq2.file_system import FileMode, FileSystem
 from fairseq2.gang import Gangs
 from fairseq2.metrics.recorders import (
@@ -25,10 +25,10 @@ from fairseq2.metrics.recorders import (
     WandbRecorder,
 )
 from fairseq2.recipe.config import CommonSection
-from fairseq2.recipe.error import WandbInitializationError
+from fairseq2.recipe.error import ConfigError
 from fairseq2.recipe.internal.config import _RecipeConfigHolder
 from fairseq2.utils.env import Environment
-from fairseq2.utils.structured import ValueConverter
+from fairseq2.utils.structured import StructureError, ValueConverter
 
 
 @final
@@ -105,11 +105,19 @@ class _MaybeWandbRunFactory:
         if not wandb_config.enabled:
             return None
 
-        run_id = self._run_id_manager.get_id()
+        try:
+            run_id = self._run_id_manager.get_id()
+        except OSError as ex:
+            raise OperationalError(
+                "Failed to initialize Weights & Biases client."
+            ) from ex
 
-        unstructured_config = self._value_converter.unstructure(
-            self._config_holder.config
-        )
+        try:
+            unstructured_config = self._value_converter.unstructure(
+                self._config_holder.config
+            )
+        except StructureError as ex:
+            raise InternalError("Recipe configuration cannot be unstructured.") from ex
 
         if not isinstance(unstructured_config, dict):
             unstructured_config = None
@@ -126,8 +134,10 @@ class _MaybeWandbRunFactory:
                 job_type=wandb_config.job_type,
                 resume=wandb_config.resume_mode,
             )
-        except (RuntimeError, ValueError, WandbUsageError) as ex:
-            raise WandbInitializationError() from ex
+        except WandbUsageError as ex:
+            raise ConfigError(
+                f"Wrong arguments passed to the Weights & Biases client. {ex}"
+            ) from None
 
 
 class _WandbRunIdManager(ABC):
@@ -167,32 +177,17 @@ class _StandardWandbRunIdManager(_WandbRunIdManager):
 
         run_id_file = self._save_dir.joinpath("wandb_run_id")
 
-        fp = None
-
         try:
             fp = self._file_system.open_text(run_id_file)
-
-            return fp.read()
+            with fp:
+                return fp.read()
         except FileNotFoundError:
             pass
-        except OSError as ex:
-            raise_operational_system_error(ex)
-        finally:
-            if fp is not None:
-                fp.close()
 
         run_id = self._id_generator()
 
-        fp = None
-
-        try:
-            fp = self._file_system.open_text(run_id_file, mode=FileMode.WRITE)
-
+        fp = self._file_system.open_text(run_id_file, mode=FileMode.WRITE)
+        with fp:
             fp.write(run_id)
-        except OSError as ex:
-            raise_operational_system_error(ex)
-        finally:
-            if fp is not None:
-                fp.close()
 
         return run_id

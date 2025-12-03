@@ -31,11 +31,7 @@ from fairseq2.metrics.recorders import MetricRecorder
 from fairseq2.optim.lr_schedulers import LRScheduler
 from fairseq2.recipe.config import RecipeConfig, ReferenceModelSection
 from fairseq2.recipe.dataset import RecipeDataset
-from fairseq2.recipe.error import (
-    DatasetTypeNotValidError,
-    ModelTypeNotValidError,
-    TokenizerTypeNotValidError,
-)
+from fairseq2.recipe.error import ConfigError
 from fairseq2.recipe.internal.config import _get_config_section, _RecipeConfigHolder
 from fairseq2.recipe.internal.dataset import _DatasetHolder
 from fairseq2.recipe.internal.evaluator import _EvaluatorFactory
@@ -43,12 +39,13 @@ from fairseq2.recipe.internal.generator import _GeneratorFactory
 from fairseq2.recipe.internal.hook import _TrainHookManager
 from fairseq2.recipe.internal.model import _ModelHolder
 from fairseq2.recipe.internal.reference_model import _ReferenceModelBootstrapper
+from fairseq2.recipe.internal.task import _EvalTask, _GenerationTask, _TrainTask
 from fairseq2.recipe.internal.tokenizer import _TokenizerHolder
 from fairseq2.recipe.internal.trainer import _TrainerFactory, _ValidatorFactory
 from fairseq2.recipe.model import RecipeModel, _StandardRecipeModel
+from fairseq2.recipe.task import Task
 from fairseq2.recipe.tokenizer import RecipeTokenizer
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
-from fairseq2.task import Task
 from fairseq2.trainer import Trainer, TrainUnit
 from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.warn import _warn_deprecated
@@ -118,7 +115,9 @@ class RecipeContext:
     def get_model_as(self, kls: type[ModelT], section_name: str = "model") -> ModelT:
         model = self.get_model(section_name)
         if not isinstance(model, kls):
-            raise ModelTypeNotValidError(type(model), kls, section_name)
+            raise ConfigError(
+                f"Model specified in `{section_name}` section must be of type `{kls}`, but is of type `{type(model)}` instead."
+            )
 
         return model
 
@@ -144,7 +143,9 @@ class RecipeContext:
     ) -> ModelT:
         model = self.bootstrap_reference_model(section_name)
         if not isinstance(model, kls):
-            raise ModelTypeNotValidError(type(model), kls, section_name)
+            raise ConfigError(
+                f"Model specified in `{section_name}` section must be of type `{kls}`, but is of type `{type(model)}` instead."
+            )
 
         return model
 
@@ -156,7 +157,9 @@ class RecipeContext:
     ) -> DatasetT:
         dataset = self.get_dataset(section_name)
         if not isinstance(dataset, kls):
-            raise DatasetTypeNotValidError(type(dataset), kls, section_name)
+            raise ConfigError(
+                f"Dataset specified in `{section_name}` section must be of type `{kls}`, but is of type `{type(dataset)}` instead."
+            )
 
         return dataset
 
@@ -168,7 +171,9 @@ class RecipeContext:
     ) -> TokenizerT:
         tokenizer = self.get_tokenizer(section_name)
         if not isinstance(tokenizer, kls):
-            raise TokenizerTypeNotValidError(type(tokenizer), kls, section_name)
+            raise ConfigError(
+                f"Tokenizer specified in `{section_name}` section must be of type `{kls}`, but is of type `{type(tokenizer)}` instead."
+            )
 
         return tokenizer
 
@@ -186,6 +191,39 @@ class RecipeContext:
 
     def get_seq2seq_generator(self) -> Seq2SeqGenerator:
         return self._resolver.resolve(Seq2SeqGenerator)
+
+    def create_train_task(
+        self,
+        unit: TrainUnit[BatchT],
+        data_reader: DataReader[BatchT],
+        valid_units: Sequence[EvalUnit[BatchT]] | None = None,
+        valid_data_readers: Sequence[DataReader[BatchT]] | None = None,
+    ) -> Task:
+        trainer = self.create_trainer(
+            unit, data_reader, valid_units, valid_data_readers
+        )
+
+        return _TrainTask(trainer)
+
+    def create_eval_task(
+        self,
+        units: Sequence[EvalUnit[BatchT]],
+        data_readers: Sequence[DataReader[BatchT]],
+    ) -> Task:
+        evaluator = self.create_evaluator(units, data_readers)
+
+        return _EvalTask(evaluator)
+
+    def create_generation_task(
+        self, unit: GeneratorUnit[BatchT], data_reader: DataReader[BatchT]
+    ) -> Task:
+        generator = self.create_generator(unit, data_reader)
+
+        return _GenerationTask(generator)
+
+    #
+    # DEPRECATED - BEGIN
+    #
 
     def create_trainer(
         self,
@@ -223,10 +261,6 @@ class RecipeContext:
         generator_factory = self._resolver.resolve(_GeneratorFactory)
 
         return generator_factory.create(unit, data_reader)
-
-    #
-    # DEPRECATED - BEGIN
-    #
 
     @cached_property
     def config(self) -> RecipeConfig:
@@ -383,7 +417,9 @@ class TrainRecipe(Recipe):
 
     @override
     def create_task(self, context: RecipeContext) -> Task:
-        return self.create_trainer(context)
+        trainer = self.create_trainer(context)
+
+        return _TrainTask(trainer)
 
     @abstractmethod
     def create_trainer(self, context: RecipeContext) -> Trainer: ...
@@ -397,7 +433,9 @@ class EvalRecipe(Recipe):
 
     @override
     def create_task(self, context: RecipeContext) -> Task:
-        return self.create_evaluator(context)
+        evaluator = self.create_evaluator(context)
+
+        return _EvalTask(evaluator)
 
     @abstractmethod
     def create_evaluator(self, context: RecipeContext) -> Evaluator: ...
@@ -411,7 +449,9 @@ class GenerationRecipe(Recipe):
 
     @override
     def create_task(self, context: RecipeContext) -> Task:
-        return self.create_generator(context)
+        generator = self.create_generator(context)
+
+        return _GenerationTask(generator)
 
     @abstractmethod
     def create_generator(self, context: RecipeContext) -> Generator: ...

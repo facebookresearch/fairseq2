@@ -17,6 +17,7 @@ import torch
 from fairseq2.device import Device
 from fairseq2.file_system import FileSystem
 from fairseq2.logging import log
+from fairseq2.error import OperationalError
 from fairseq2.models.transformer import (
     Flash2SDPA,
     Flash3SDPA,
@@ -97,7 +98,7 @@ class _TorchConfigurer:
             try:
                 self._file_system.make_directory(triton_cache_dir)
             except OSError:
-                log.warning("A system error occurred while creating the '{}' Triton cache directory.", triton_cache_dir)  # fmt: skip
+                log.warning("A system error occurred while creating the {} Triton cache directory.", triton_cache_dir)  # fmt: skip
             else:
                 self._env.set("TRITON_CACHE_DIR", str(triton_cache_dir))
 
@@ -108,7 +109,7 @@ class _TorchConfigurer:
             try:
                 self._file_system.make_directory(jit_cache_dir)
             except OSError:
-                log.warning("A system error occurred while creating the '{}' PyTorch JIT kernel cache directory.", jit_cache_dir)  # fmt: skip
+                log.warning("A system error occurred while creating the {} PyTorch JIT kernel cache directory.", jit_cache_dir)  # fmt: skip
             else:
                 self._env.set("PYTORCH_KERNEL_CACHE_PATH", str(jit_cache_dir))
 
@@ -122,7 +123,12 @@ class _TorchConfigurer:
             return
 
         if num_threads is None:
-            num_threads = get_num_threads(self._world_info.local_size)
+            try:
+                num_threads = get_num_threads(self._world_info.local_size)
+            except RuntimeError as ex:
+                raise OperationalError(
+                    "Failed to set number of intra-op parallel threads for PyTorch."
+                ) from ex
 
         torch.set_num_threads(num_threads)
 

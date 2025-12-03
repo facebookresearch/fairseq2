@@ -63,7 +63,7 @@ class TriStageLR(AbstractLRScheduler):
         ratio_sum = sum(stage_ratio)
         if not math.isclose(ratio_sum, 1.0):
             raise ValueError(
-                f"The sum of `stage_ratio` values must be 1.0, but is {ratio_sum} instead."
+                f"Sum of `stage_ratio` values must be 1.0, but is {ratio_sum} instead."
             )
 
         start_lr_scales = get_per_param_group(optimizer, "start_lr", start_lr_scale)

@@ -74,4 +74,6 @@ class StandardGarbageCollector(GarbageCollector):
 
             gc.collect(generation=1)
 
+            log.info("Garbage collection complete.")
+
             self._step = 0

@@ -20,7 +20,7 @@ from torch.optim import Optimizer
 from typing_extensions import override
 
 from fairseq2.device import Device
-from fairseq2.error import InternalError, StateDictError
+from fairseq2.error import InternalError, CorruptDataError
 from fairseq2.gang import Gangs
 from fairseq2.typing import Stateful
 
@@ -115,7 +115,7 @@ class _NoopFloat16LossScaler(Float16LossScaler):
 
     @override
     def load_state_dict(self, state_dict: dict[str, object]) -> None:
-        StateDictError.raise_if_not_empty(state_dict)
+        CorruptDataError.raise_if_state_dict_not_empty(state_dict)
 
     @property
     @override
@@ -260,23 +260,21 @@ class StandardFloat16LossScaler(Float16LossScaler):
         try:
             gs_state_dict = state_dict.pop("grad_scaler")
         except KeyError:
-            raise StateDictError(
-                "`state_dict` is expected to contain a 'grad_scaler' key."
+            raise CorruptDataError(
+                "`state_dict` does not contain a key named 'grad_scaler'."
             ) from None
 
         if not isinstance(gs_state_dict, dict):
-            raise StateDictError(
+            raise CorruptDataError(
                 f"`state_dict['grad_scaler']` is expected to be of type `{dict}`, but is of type `{type(gs_state_dict)}` instead."
             )
 
         try:
             self._grad_scaler.load_state_dict(gs_state_dict)
         except (RuntimeError, ValueError, TypeError) as ex:
-            raise StateDictError(
-                f"`state_dict['grad_scaler']` does not represent a valid `{type(self._grad_scaler)}` state."
-            ) from ex
+            raise CorruptDataError(f"`state_dict['grad_scaler']` is corrupt.") from ex
 
-        StateDictError.raise_if_not_empty(state_dict)
+        CorruptDataError.raise_if_state_dict_not_empty(state_dict)
 
 
 @dataclass(frozen=True)
