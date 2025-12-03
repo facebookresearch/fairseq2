@@ -239,6 +239,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.data.html">fairseq2.data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.data.tokenizers.html">fairseq2.data.tokenizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.data.tokenizers.hub.html">fairseq2.data.tokenizers.hub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.data_type.html">fairseq2.data_type</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.datasets.html">fairseq2.datasets</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.datasets.hub.html">fairseq2.datasets.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.device.html">fairseq2.device</a></li>
@@ -334,7 +335,7 @@
     <span class="n">AssetDownloadManager</span><span class="p">,</span>
     <span class="n">AssetStore</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.data_type</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataType</span><span class="p">,</span> <span class="n">default_dtype</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.data_type</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataType</span><span class="p">,</span> <span class="n">set_dtype</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">META_DEVICE</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">InternalError</span><span class="p">,</span>
@@ -342,8 +343,12 @@
     <span class="n">raise_operational_system_error</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.file_system</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileSystem</span><span class="p">,</span> <span class="n">raise_if_not_exists</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">GangError</span><span class="p">,</span> <span class="n">Gangs</span><span class="p">,</span> <span class="n">raise_operational_gang_error</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.model_checkpoint</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelCheckpointError</span><span class="p">,</span> <span class="n">ModelCheckpointLoader</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">GangError</span><span class="p">,</span> <span class="n">Gangs</span><span class="p">,</span> <span class="n">raise_operational_gang_error</span><span class="p">,</span> <span class="n">set_gangs</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.model_checkpoint</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CorruptModelCheckpointError</span><span class="p">,</span>
+    <span class="n">ModelCheckpointLoader</span><span class="p">,</span>
+    <span class="n">ModelCheckpointLoadOptions</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.utils.checkpoint</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">ModelCheckpointMismatchError</span><span class="p">,</span>
     <span class="n">set_model_state</span><span class="p">,</span>
@@ -820,7 +825,7 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_load_model</span><span class="p">(</span>
                 <span class="n">path</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">gangs</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">load_rank0_only</span><span class="p">,</span> <span class="n">mmap</span><span class="p">,</span> <span class="n">restrict</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="n">ModelCheckpointError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">CorruptModelCheckpointError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Model checkpoint of the </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> asset card is erroneous.&quot;</span>
 
             <span class="k">if</span> <span class="n">uri</span><span class="o">.</span><span class="n">scheme</span> <span class="o">!=</span> <span class="s2">&quot;file&quot;</span><span class="p">:</span>
@@ -891,7 +896,7 @@
             <span class="k">except</span> <span class="n">ModelCheckpointMismatchError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
                 <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Checkpoint at </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> is not compatible with the </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2"> model.&quot;</span>
 
-                <span class="k">raise</span> <span class="n">ModelCheckpointError</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
+                <span class="k">raise</span> <span class="n">CorruptModelCheckpointError</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
 
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_supports_meta</span><span class="p">:</span>
                 <span class="c1"># Non-persistent buffers are not included in the checkpoint, so we</span>
@@ -982,21 +987,21 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">state_dict_converter</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state_dict_converter</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shard_specs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">shard_specs</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">shard_specs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shard_specs</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">shard_dims</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shard_specs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">shard_dims</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">shard_dims</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">dim</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shard_specs</span><span class="p">(</span><span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+        <span class="n">load_options</span> <span class="o">=</span> <span class="n">ModelCheckpointLoadOptions</span><span class="p">(</span>
+            <span class="n">gangs</span><span class="o">=</span><span class="n">gangs</span><span class="p">,</span>
+            <span class="n">mmap</span><span class="o">=</span><span class="n">mmap</span><span class="p">,</span>
+            <span class="n">restrict</span><span class="o">=</span><span class="n">restrict</span><span class="p">,</span>
+            <span class="n">state_dict_converter</span><span class="o">=</span><span class="n">state_dict_converter</span><span class="p">,</span>
+        <span class="p">)</span>
 
         <span class="k">with</span> <span class="n">load_with_sdp_gang</span><span class="p">(</span><span class="n">gangs</span><span class="p">):</span>  <span class="c1"># Required for ShardedTensor</span>
-            <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_loader</span><span class="o">.</span><span class="n">lazy_load</span><span class="p">(</span>
-                <span class="n">path</span><span class="p">,</span>
-                <span class="n">gangs</span><span class="p">,</span>
-                <span class="n">mmap</span><span class="o">=</span><span class="n">mmap</span><span class="p">,</span>
-                <span class="n">restrict</span><span class="o">=</span><span class="n">restrict</span><span class="p">,</span>
-                <span class="n">state_dict_converter</span><span class="o">=</span><span class="n">state_dict_converter</span><span class="p">,</span>
-                <span class="n">shard_specs</span><span class="o">=</span><span class="n">shard_specs</span><span class="p">,</span>
-                <span class="n">shard_dims</span><span class="o">=</span><span class="n">shard_dims</span><span class="p">,</span>
-            <span class="p">)</span>
+            <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_loader</span><span class="o">.</span><span class="n">lazy_load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">shard_dims</span><span class="p">,</span> <span class="n">load_options</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_do_create_model</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span><span class="p">,</span> <span class="n">meta</span><span class="p">:</span> <span class="nb">bool</span>
@@ -1004,8 +1009,8 @@
         <span class="n">device</span> <span class="o">=</span> <span class="n">META_DEVICE</span> <span class="k">if</span> <span class="n">meta</span> <span class="k">else</span> <span class="n">gangs</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">device</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">with</span> <span class="n">device</span><span class="p">,</span> <span class="n">gangs</span><span class="p">:</span>
-                <span class="k">with</span> <span class="n">default_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+            <span class="k">with</span> <span class="n">device</span><span class="p">:</span>
+                <span class="k">with</span> <span class="n">set_gangs</span><span class="p">(</span><span class="n">gangs</span><span class="p">,</span> <span class="n">meta</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">set_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
                     <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_factory</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">NotImplementedError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="k">if</span> <span class="s2">&quot;&#39;Meta&#39; backend&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">):</span>
@@ -1149,7 +1154,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=a76e1523"></script>
+</div><script src="../../../_static/documentation_options.js?v=9d98ccbd"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

@@ -239,6 +239,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.data.html">fairseq2.data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.data.tokenizers.html">fairseq2.data.tokenizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.data.tokenizers.hub.html">fairseq2.data.tokenizers.hub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.data_type.html">fairseq2.data_type</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.datasets.html">fairseq2.datasets</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.datasets.hub.html">fairseq2.datasets.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.device.html">fairseq2.device</a></li>
@@ -316,17 +317,58 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">Mapping</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Protocol</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gangs</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.sharder</span><span class="w"> </span><span class="kn">import</span> <span class="n">ShardSpec</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.runtime.dependency</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_dependency_resolver</span>
+
+
+<div class="viewcode-block" id="get_model_checkpoint_loader">
+<a class="viewcode-back" href="../../../reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.get_model_checkpoint_loader">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_model_checkpoint_loader</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">ModelCheckpointLoader</span><span class="p">:</span>
+    <span class="n">resolver</span> <span class="o">=</span> <span class="n">get_dependency_resolver</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">ModelCheckpointLoader</span><span class="p">)</span></div>
+
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">StateDictConverter</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span> <span class="o">...</span>
+
+
+<div class="viewcode-block" id="ModelCheckpointLoadOptions">
+<a class="viewcode-back" href="../../../reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoadOptions">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ModelCheckpointLoadOptions</span><span class="p">:</span>
+    <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Used to determine the distributed target configuration and shard yielded</span>
+<span class="sd">    parameters accordingly. If ``None``, the gangs returned from</span>
+<span class="sd">    :func:`get_current_gangs` will be used.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">mmap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Indicates whether the checkpoint will be memory-mapped. This can reduce</span>
+<span class="sd">    memory usage but may cause slower load times on some systems.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">restrict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Indicates whether unpickler (if used) will be restricted to load only</span>
+<span class="sd">    tensors and types that can be safely serialized and deserialized.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">state_dict_converter</span><span class="p">:</span> <span class="n">StateDictConverter</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    If provided, used to transform the (sharded) state dictionaries in the</span>
+<span class="sd">    checkpoint from one format, such as Hugging Face Transformers, to fairseq2.</span>
+<span class="sd">    &quot;&quot;&quot;</span></div>
+
 
 
 <div class="viewcode-block" id="ModelCheckpointLoader">
@@ -336,8 +378,8 @@
 <span class="sd">    Represents the abstract base class for model checkpoint loaders.</span>
 
 <span class="sd">    This class defines the interface for checkpoint loaders that can efficiently</span>
-<span class="sd">    load model state by yielding parameters lazily rather than loading everything</span>
-<span class="sd">    into memory at once.</span>
+<span class="sd">    load model state by yielding parameters lazily rather than loading</span>
+<span class="sd">    everything into memory at once.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="ModelCheckpointLoader.lazy_load">
@@ -346,47 +388,28 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">lazy_load</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
-        <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">,</span>
-        <span class="o">*</span><span class="p">,</span>
-        <span class="n">mmap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">restrict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">state_dict_converter</span><span class="p">:</span> <span class="n">StateDictConverter</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">shard_specs</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ShardSpec</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">shard_dims</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">shard_dims</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+        <span class="n">options</span><span class="p">:</span> <span class="n">ModelCheckpointLoadOptions</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Lazily loads parameters from the specified checkpoint path.</span>
 
 <span class="sd">        Yields tensors one at a time to minimize memory usage if the underlying</span>
-<span class="sd">        format allows it. Supports tensor resharding and optional state dictionary</span>
-<span class="sd">        conversion.</span>
-
-<span class="sd">        ``gangs`` is used to determine the distributed target configuration and</span>
-<span class="sd">        shard yielded parameters accordingly.</span>
-
-<span class="sd">        If ``mmap`` is ``True``, the checkpoint will be memory-mapped. This can</span>
-<span class="sd">        reduce memory usage but may cause slower load times on some systems.</span>
-
-<span class="sd">        If ``restrict`` is ``True``, pickle (if used) will be restricted to load</span>
-<span class="sd">        only tensors and types that can be safely serialized and deserialized.</span>
-
-<span class="sd">        If ``state_dict_converter`` is provided, it will be used to transform</span>
-<span class="sd">        the (sharded) state dictionaries in the checkpoint. Typically used to</span>
-<span class="sd">        convert from one format such as Hugging Face Transformers to fairseq2.</span>
+<span class="sd">        format allows it. Supports tensor resharding and optional state</span>
+<span class="sd">        dictionary conversion.</span>
 
 <span class="sd">        If ``shard_dims`` is provided, it specifies the sharding dimension of</span>
 <span class="sd">        each parameter as returned by :func:`~fairseq2.nn.get_sharding_dims`.</span>
 <span class="sd">        Along with ``gangs``, they enable on-the-fly parameter resharding during</span>
-<span class="sd">        checkpoint loading. If ``None``, no resharding will be performed and</span>
-<span class="sd">        full parameters will be loaded.</span>
-
-<span class="sd">        ``shard_specs`` is deprecated and will be removed in v0.12; please use</span>
-<span class="sd">        ``shard_dims`` instead.</span>
+<span class="sd">        checkpoint loading.</span>
 
 <span class="sd">        Yields pairs of ``(parameter name, parameter)`` for each parameter in</span>
 <span class="sd">        the checkpoint.</span>
 
-<span class="sd">        :raises ModelCheckpointError: If the checkpoint is not valid.</span>
+<span class="sd">        :raises CorruptModelCheckpointError: Checkpoint is erroneous and cannot</span>
+<span class="sd">            be loaded.</span>
+
+<span class="sd">        :raises OSError: A system error occurred.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
 
@@ -394,16 +417,18 @@
 <a class="viewcode-back" href="../../../reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoader.supports_path">[docs]</a>
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">supports_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks if this loader can handle the specified checkpoint path.&quot;&quot;&quot;</span></div>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Checks if this loader can handle the specified checkpoint path.</span>
+
+<span class="sd">        :raises OSError: A system error occurred.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
 </div>
 
 
 
-<div class="viewcode-block" id="ModelCheckpointError">
-<a class="viewcode-back" href="../../../reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointError">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">ModelCheckpointError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when a model checkpoint is not valid.&quot;&quot;&quot;</span>
-
+<div class="viewcode-block" id="CorruptModelCheckpointError">
+<a class="viewcode-back" href="../../../reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.CorruptModelCheckpointError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CorruptModelCheckpointError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
 
@@ -445,7 +470,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=a76e1523"></script>
+</div><script src="../../../_static/documentation_options.js?v=9d98ccbd"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

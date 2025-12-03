@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
-        <title>fairseq2.device - fairseq2 Documentation</title>
+        <title>fairseq2.data_type - fairseq2 Documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
@@ -306,7 +306,7 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <h1>Source code for fairseq2.device</h1><div class="highlight"><pre>
+          <h1>Source code for fairseq2.data_type</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
 <span class="c1"># All rights reserved.</span>
 <span class="c1">#</span>
@@ -314,104 +314,79 @@
 <span class="c1"># LICENSE file in the root directory of this source tree.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">This module provides abstractions for managing PyTorch devices and handling CUDA</span>
-<span class="sd">contexts.</span>
+<span class="sd">This module provides functions for managing PyTorch data types.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">Set</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">contextmanager</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Final</span><span class="p">,</span> <span class="n">TypeAlias</span><span class="p">,</span> <span class="n">final</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">TypeAlias</span><span class="p">,</span> <span class="n">final</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_dtype</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.overrides</span><span class="w"> </span><span class="kn">import</span> <span class="n">TorchFunctionMode</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InternalError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.runtime.dependency</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_dependency_resolver</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContextManager</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.env</span><span class="w"> </span><span class="kn">import</span> <span class="n">Environment</span><span class="p">,</span> <span class="n">EnvironmentVariableError</span><span class="p">,</span> <span class="n">get_local_rank</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.version</span><span class="w"> </span><span class="kn">import</span> <span class="n">torch_greater_or_equal</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.threading</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadLocalStorage</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.warn</span><span class="w"> </span><span class="kn">import</span> <span class="n">_warn_deprecated</span>
 
-<span class="n">Device</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span>
+<span class="n">DataType</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span>
 
 
-<span class="n">CPU</span><span class="p">:</span> <span class="n">Final</span> <span class="o">=</span> <span class="n">Device</span><span class="p">(</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
-
-<span class="n">META_DEVICE</span><span class="p">:</span> <span class="n">Final</span> <span class="o">=</span> <span class="n">Device</span><span class="p">(</span><span class="s2">&quot;meta&quot;</span><span class="p">)</span>
-
-
-<div class="viewcode-block" id="SupportsDeviceTransfer">
-<a class="viewcode-back" href="../../reference/fairseq2.device.html#fairseq2.device.SupportsDeviceTransfer">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">SupportsDeviceTransfer</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents an object that can be transferred between devices.&quot;&quot;&quot;</span>
-
-<div class="viewcode-block" id="SupportsDeviceTransfer.to">
-<a class="viewcode-back" href="../../reference/fairseq2.device.html#fairseq2.device.SupportsDeviceTransfer.to">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">non_blocking</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Transfers this object to the specified device.</span>
-
-<span class="sd">        If ``non_blocking`` is ``True``, the transfer will be performed</span>
-<span class="sd">        asynchronously if possible.</span>
-<span class="sd">        &quot;&quot;&quot;</span></div>
-</div>
-
-
-
-<div class="viewcode-block" id="set_device">
-<a class="viewcode-back" href="../../reference/fairseq2.device.html#fairseq2.device.set_device">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">set_device</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+<div class="viewcode-block" id="set_dtype">
+<a class="viewcode-back" href="../../reference/fairseq2.data_type.html#fairseq2.data_type.set_dtype">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Changes the device of the calling thread to the specified device.</span>
+<span class="sd">    Changes the floating-point data type of the calling thread to the specified</span>
+<span class="sd">    type.</span>
 
 <span class="sd">    This function acts as a context manager, ensuring that within its scope, any</span>
-<span class="sd">    operation that constructs tensors uses the specified device - unless an</span>
-<span class="sd">    explicit ``device`` argument is provided.</span>
-
-<span class="sd">    .. note::</span>
-
-<span class="sd">        This function is equivalent to using a ``torch.device`` as a context</span>
-<span class="sd">        manager.</span>
+<span class="sd">    operation that constructs tensors uses the specified data type - unless an</span>
+<span class="sd">    explicit ``dtype`` argument is provided.</span>
 
 <span class="sd">    .. code:: python</span>
 
 <span class="sd">        import torch</span>
 
-<span class="sd">        from fairseq2.device import set_device</span>
+<span class="sd">        from fairseq2.data_type import set_dtype</span>
 
-<span class="sd">        cuda0_device = torch.device(&quot;cuda:0&quot;)</span>
-
-<span class="sd">        with set_device(cuda0_device):</span>
+<span class="sd">        with set_dtype(torch.bfloat16):</span>
 <span class="sd">            t = torch.ones((4,4))</span>
 
-<span class="sd">            assert t.device == cuda0_device</span>
+<span class="sd">            assert t.dtype == torch.bfloat16</span>
 
-<span class="sd">            cuda1_device = torch.device(&quot;cuda:1&quot;)</span>
-
-<span class="sd">            with set_device(cuda1_device):</span>
+<span class="sd">            with set_dtype(torch.float16):</span>
 <span class="sd">                t = torch.ones((4, 4))</span>
 
-<span class="sd">                assert t.device == cuda1_device</span>
+<span class="sd">                assert t.dtype == torch.float16</span>
 
 <span class="sd">        t = torch.ones((4, 4))</span>
 
-<span class="sd">        assert t.device == torch.device(&quot;cpu&quot;)</span>
+<span class="sd">        assert t.dtype == torch.float32</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">resolver</span> <span class="o">=</span> <span class="n">get_dependency_resolver</span><span class="p">()</span>
 
-    <span class="k">return</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">DeviceContext</span><span class="p">)</span><span class="o">.</span><span class="n">set_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">DataTypeContext</span><span class="p">)</span><span class="o">.</span><span class="n">set_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span></div>
 
 
 
-<div class="viewcode-block" id="get_current_device">
-<a class="viewcode-back" href="../../reference/fairseq2.device.html#fairseq2.device.get_current_device">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">get_current_device</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">default_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+    <span class="n">_warn_deprecated</span><span class="p">(</span>
+        <span class="s2">&quot;`default_dtype()` is deprecated and will be removed in v0.14. Use `set_dtype()` instead.&quot;</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">set_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="get_current_dtype">
+<a class="viewcode-back" href="../../reference/fairseq2.data_type.html#fairseq2.data_type.get_current_dtype">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_current_dtype</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">DataType</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Returns the current device of the calling thread.</span>
+<span class="sd">    Returns the current floating-point data type of the calling thread.</span>
 
 <span class="sd">    .. warning::</span>
 
@@ -420,240 +395,161 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">resolver</span> <span class="o">=</span> <span class="n">get_dependency_resolver</span><span class="p">()</span>
 
-    <span class="k">return</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">DeviceContext</span><span class="p">)</span><span class="o">.</span><span class="n">get_current_device</span><span class="p">()</span></div>
+    <span class="k">return</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">DataTypeContext</span><span class="p">)</span><span class="o">.</span><span class="n">get_current_dtype</span><span class="p">()</span></div>
 
 
 
-<div class="viewcode-block" id="DeviceContext">
-<a class="viewcode-back" href="../../reference/fairseq2.device.html#fairseq2.device.DeviceContext">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">DeviceContext</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<div class="viewcode-block" id="DataTypeContext">
+<a class="viewcode-back" href="../../reference/fairseq2.data_type.html#fairseq2.data_type.DataTypeContext">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DataTypeContext</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Provides methods to get and set the current device of the calling thread.</span>
+<span class="sd">    Provides methods to get and set the current floating-point data type of the</span>
+<span class="sd">    calling thread.</span>
 
 <span class="sd">    This interface can be used as an alternative to the corresponding standalone</span>
 <span class="sd">    functions in object-oriented code.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="DeviceContext.get_current_device">
-<a class="viewcode-back" href="../../reference/fairseq2.device.html#fairseq2.device.DeviceContext.get_current_device">[docs]</a>
+<div class="viewcode-block" id="DataTypeContext.get_current_dtype">
+<a class="viewcode-back" href="../../reference/fairseq2.data_type.html#fairseq2.data_type.DataTypeContext.get_current_dtype">[docs]</a>
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_current_device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;See :func:`get_current_device`.&quot;&quot;&quot;</span></div>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_current_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataType</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;See :func:`get_current_dtype`.&quot;&quot;&quot;</span></div>
 
 
-<div class="viewcode-block" id="DeviceContext.set_device">
-<a class="viewcode-back" href="../../reference/fairseq2.device.html#fairseq2.device.DeviceContext.set_device">[docs]</a>
+<div class="viewcode-block" id="DataTypeContext.set_dtype">
+<a class="viewcode-back" href="../../reference/fairseq2.data_type.html#fairseq2.data_type.DataTypeContext.set_dtype">[docs]</a>
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">set_device</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;See :func:`set_device`.&quot;&quot;&quot;</span></div>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;See :func:`set_dtype`.&quot;&quot;&quot;</span></div>
 </div>
 
 
 
 <span class="nd">@final</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">_StandardDeviceContext</span><span class="p">(</span><span class="n">DeviceContext</span><span class="p">):</span>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_current_device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">torch_greater_or_equal</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">8</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">get_default_device</span><span class="p">()</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_StandardDataTypeContext</span><span class="p">(</span><span class="n">DataTypeContext</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mode_stack</span><span class="p">:</span> <span class="n">_DataTypeModeStack</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mode_stack</span> <span class="o">=</span> <span class="n">mode_stack</span>
 
-        <span class="c1"># In PyTorch versions earlier than 2.8 the only way to determine the</span>
-        <span class="c1"># closest contextual device is to create a dummy tensor.</span>
-        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(())</span><span class="o">.</span><span class="n">device</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_current_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataType</span><span class="p">:</span>
+        <span class="n">mode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode_stack</span><span class="o">.</span><span class="n">maybe_get_top_mode</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">mode</span><span class="o">.</span><span class="n">dtype</span>
+
+        <span class="k">return</span> <span class="n">get_default_dtype</span><span class="p">()</span>
 
     <span class="nd">@override</span>
     <span class="nd">@contextmanager</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">set_device</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
-        <span class="k">with</span> <span class="n">device</span><span class="p">:</span>
-            <span class="k">yield</span>
-
-
-<div class="viewcode-block" id="detect_default_device">
-<a class="viewcode-back" href="../../reference/fairseq2.device.html#fairseq2.device.detect_default_device">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">detect_default_device</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Detects the default device of this process from environment variables.</span>
-
-<span class="sd">    The default device is determined by the following precedence:</span>
-
-<span class="sd">    1) If ``FAIRSEQ2_DEVICE`` environment variable is set, the specified device</span>
-<span class="sd">       will be used.</span>
-<span class="sd">    2) If CUDA is enabled and ``CUDA_VISIBLE_DEVICES`` environment variable</span>
-<span class="sd">       contains a single device, the specified device will be used.</span>
-<span class="sd">    3) If CUDA is enabled and ``LOCAL_RANK`` environment variable is set, the</span>
-<span class="sd">       CUDA device at the specified index will be used.</span>
-<span class="sd">    4) CPU will be used.</span>
-
-<span class="sd">    :raises EnvironmentVariableError: ``FAIRSEQ2_DEVICE`` environment variable</span>
-<span class="sd">        does not represent a device.</span>
-
-<span class="sd">    :raises EnvironmentVariableError: ``LOCAL_RANK`` environment variable is not</span>
-<span class="sd">        a positive integer.</span>
-
-<span class="sd">    :raises LocalRankOutOfRangeError: ``LOCAL_RANK`` environment variable</span>
-<span class="sd">        exceeds the number of available devices.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">resolver</span> <span class="o">=</span> <span class="n">get_dependency_resolver</span><span class="p">()</span>
-
-    <span class="k">return</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">_DefaultDeviceDetector</span><span class="p">)</span><span class="o">.</span><span class="n">detect</span><span class="p">()</span></div>
-
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">get_default_device</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
-    <span class="n">_warn_deprecated</span><span class="p">(</span>
-        <span class="s2">&quot;`get_default_device()` is deprecated and will be removed in v0.14. Use `detect_default_device()` instead.&quot;</span>
-    <span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">detect_default_device</span><span class="p">()</span>
-
-
-<span class="nd">@final</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">_DefaultDeviceDetector</span><span class="p">:</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">Environment</span><span class="p">,</span> <span class="n">cuda_context</span><span class="p">:</span> <span class="n">CudaContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_env</span> <span class="o">=</span> <span class="n">env</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cuda_context</span> <span class="o">=</span> <span class="n">cuda_context</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;See :func:`detect_default_device`.&quot;&quot;&quot;</span>
-        <span class="n">device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_get_device_from_env</span><span class="p">(</span><span class="s2">&quot;FAIRSEQ2_DEVICE&quot;</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_default_cuda_device</span><span class="p">()</span>
-
-        <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">device</span> <span class="o">=</span> <span class="n">CPU</span>
-
-        <span class="k">return</span> <span class="n">device</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_maybe_get_device_from_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_env</span><span class="o">.</span><span class="n">maybe_get</span><span class="p">(</span><span class="n">var_name</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">s</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+        <span class="n">mode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode_stack</span><span class="o">.</span><span class="n">set_mode</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Device</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
-        <span class="k">except</span> <span class="p">(</span><span class="ne">RuntimeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;`</span><span class="si">{</span><span class="n">var_name</span><span class="si">}</span><span class="s2">` environment variable does not represent a PyTorch device.&quot;</span>
-
-            <span class="k">raise</span> <span class="n">EnvironmentVariableError</span><span class="p">(</span><span class="n">var_name</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_get_default_cuda_device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cuda_context</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
-            <span class="k">return</span> <span class="kc">None</span>
-
-        <span class="n">num_devices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cuda_context</span><span class="o">.</span><span class="n">device_count</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">num_devices</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span>
-
-        <span class="n">visible_devices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_env</span><span class="o">.</span><span class="n">maybe_get</span><span class="p">(</span><span class="s2">&quot;CUDA_VISIBLE_DEVICES&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">visible_devices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="nb">int</span><span class="p">(</span><span class="n">visible_devices</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-                <span class="c1"># If here, this means CUDA_VISIBLE_DEVICES is a list instead of</span>
-                <span class="c1"># a single device index.</span>
-                <span class="n">device</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">device</span> <span class="o">=</span> <span class="n">Device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">device</span> <span class="o">=</span> <span class="kc">None</span>
-
-        <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_device_index</span><span class="p">(</span><span class="n">num_devices</span><span class="p">,</span> <span class="n">device_type</span><span class="o">=</span><span class="s2">&quot;cuda&quot;</span><span class="p">)</span>
-
-            <span class="n">device</span> <span class="o">=</span> <span class="n">Device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">idx</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">device</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_get_device_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_devices</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">device_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">num_devices</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`num_devices` is </span><span class="si">{</span><span class="n">num_devices</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
-
-        <span class="n">rank</span> <span class="o">=</span> <span class="n">get_local_rank</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_env</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">rank</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="mi">0</span>
-
-        <span class="k">if</span> <span class="n">rank</span> <span class="o">&gt;=</span> <span class="n">num_devices</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">LocalRankOutOfRangeError</span><span class="p">(</span><span class="n">rank</span><span class="p">,</span> <span class="n">num_devices</span><span class="p">,</span> <span class="n">device_type</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">rank</span>
-
-
-<div class="viewcode-block" id="LocalRankOutOfRangeError">
-<a class="viewcode-back" href="../../reference/fairseq2.device.html#fairseq2.device.LocalRankOutOfRangeError">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">LocalRankOutOfRangeError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_devices</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">device_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Host has </span><span class="si">{</span><span class="n">num_devices</span><span class="si">}</span><span class="s2"> `</span><span class="si">{</span><span class="n">device_type</span><span class="si">}</span><span class="s2">` device(s), but the local rank of the process is </span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">.&quot;</span>
-        <span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">=</span> <span class="n">rank</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">num_devices</span> <span class="o">=</span> <span class="n">num_devices</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">device_type</span> <span class="o">=</span> <span class="n">device_type</span></div>
-
-
-
-<div class="viewcode-block" id="CudaContext">
-<a class="viewcode-back" href="../../reference/fairseq2.device.html#fairseq2.device.CudaContext">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">CudaContext</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Represents an interface for interacting with CUDA runtime and device</span>
-<span class="sd">    information.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-<div class="viewcode-block" id="CudaContext.is_available">
-<a class="viewcode-back" href="../../reference/fairseq2.device.html#fairseq2.device.CudaContext.is_available">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">is_available</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span></div>
-
-
-<div class="viewcode-block" id="CudaContext.device_count">
-<a class="viewcode-back" href="../../reference/fairseq2.device.html#fairseq2.device.CudaContext.device_count">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">device_count</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="o">...</span></div>
-
-
-<div class="viewcode-block" id="CudaContext.get_device_properties">
-<a class="viewcode-back" href="../../reference/fairseq2.device.html#fairseq2.device.CudaContext.get_device_properties">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_device_properties</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span> <span class="o">...</span></div>
-
-
-<div class="viewcode-block" id="CudaContext.memory_stats">
-<a class="viewcode-back" href="../../reference/fairseq2.device.html#fairseq2.device.CudaContext.memory_stats">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">memory_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span> <span class="o">...</span></div>
-
-
-<div class="viewcode-block" id="CudaContext.reset_peak_memory_stats">
-<a class="viewcode-back" href="../../reference/fairseq2.device.html#fairseq2.device.CudaContext.reset_peak_memory_stats">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">reset_peak_memory_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span></div>
-</div>
-
+            <span class="k">with</span> <span class="n">mode</span><span class="p">:</span>
+                <span class="k">yield</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_mode_stack</span><span class="o">.</span><span class="n">pop_mode</span><span class="p">()</span>
 
 
 <span class="nd">@final</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">_StandardCudaContext</span><span class="p">(</span><span class="n">CudaContext</span><span class="p">):</span>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">is_available</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_DataTypeModeStack</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constructors</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="n">tls</span><span class="p">:</span> <span class="n">ThreadLocalStorage</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_constructors</span> <span class="o">=</span> <span class="n">constructors</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tls</span> <span class="o">=</span> <span class="n">tls</span>
 
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">device_count</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_DataTypeMode</span><span class="p">:</span>
+        <span class="n">mode</span> <span class="o">=</span> <span class="n">_DataTypeMode</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constructors</span><span class="p">)</span>
 
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_device_properties</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">get_device_properties</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">modes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_dtype_mode_stack</span><span class="p">()</span>
 
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">memory_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">memory_stats</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">modes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mode</span><span class="p">)</span>
 
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">reset_peak_memory_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">reset_peak_memory_stats</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">modes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">modes</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="k">return</span> <span class="n">mode</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">pop_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">modes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_dtype_mode_stack</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">modes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">modes</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="n">modes</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">maybe_get_top_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_DataTypeMode</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">modes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_dtype_mode_stack</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">modes</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">modes</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_dtype_mode_stack</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">_DataTypeMode</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tls</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dtype_mode_stack&quot;</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
+
+
+<span class="nd">@final</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_DataTypeMode</span><span class="p">(</span><span class="n">TorchFunctionMode</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span><span class="p">,</span> <span class="n">constructors</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_constructors</span> <span class="o">=</span> <span class="n">constructors</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">dtype</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__torch_function__</span><span class="p">(</span>  <span class="c1"># type: ignore[override]</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">types</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">kwargs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">enabled</span> <span class="ow">and</span> <span class="n">func</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constructors</span><span class="p">:</span>
+            <span class="n">dtype</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dtype&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;dtype&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span>
+
+        <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_tensor_constructors</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+    <span class="c1"># Taken from torch/utils/_device.py.</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">empty_permuted</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">empty_strided</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">empty_quantized</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">bartlett_window</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">blackman_window</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfftfreq</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">hamming_window</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">hann_window</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">kaiser_window</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">linspace</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">logspace</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">nested</span><span class="o">.</span><span class="n">nested_tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">randperm</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">range</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">sparse_coo_tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">sparse_compressed_tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">sparse_csr_tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">sparse_csc_tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">sparse_bsr_tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">sparse_bsc_tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">tril_indices</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">triu_indices</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">asarray</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">scalar_tensor</span><span class="p">,</span>
+    <span class="p">}</span>
 </pre></div>
         </article>
       </div>

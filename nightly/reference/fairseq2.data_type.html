@@ -3,10 +3,10 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="fairseq2.nn.utils" href="fairseq2.nn.utils.html" /><link rel="prev" title="fairseq2.nn.projection" href="fairseq2.nn.projection.html" />
+    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="fairseq2.datasets" href="fairseq2.datasets.html" /><link rel="prev" title="fairseq2.data.tokenizers.hub" href="fairseq2.data.tokenizers.hub.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
-        <title>fairseq2.nn.residual - fairseq2 Documentation</title>
+        <title>fairseq2.data_type - fairseq2 Documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
@@ -240,7 +240,7 @@
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.data.html">fairseq2.data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.data.tokenizers.html">fairseq2.data.tokenizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.data.tokenizers.hub.html">fairseq2.data.tokenizers.hub</a></li>
-<li class="toctree-l1"><a class="reference internal" href="fairseq2.data_type.html">fairseq2.data_type</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">fairseq2.data_type</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.datasets.html">fairseq2.datasets</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.datasets.hub.html">fairseq2.datasets.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.device.html">fairseq2.device</a></li>
@@ -262,7 +262,7 @@
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.normalization.html">fairseq2.nn.normalization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.position_encoder.html">fairseq2.nn.position_encoder</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.projection.html">fairseq2.nn.projection</a></li>
-<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">fairseq2.nn.residual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.residual.html">fairseq2.nn.residual</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.nn.utils.html">fairseq2.nn.utils</a></li>
 <li class="toctree-l1"><a class="reference internal" href="logging.html">fairseq2.logging</a></li>
 <li class="toctree-l1"><a class="reference internal" href="metrics.html">fairseq2.metrics</a></li>
@@ -293,7 +293,7 @@
         </a>
         <div class="content-icon-container">
           <div class="view-this-page">
-  <a class="muted-link" href="../_sources/reference/fairseq2.nn.residual.rst.txt" title="View this page">
+  <a class="muted-link" href="../_sources/reference/fairseq2.data_type.rst.txt" title="View this page">
     <svg><use href="#svg-eye"></use></svg>
     <span class="visually-hidden">View this page</span>
   </a>
@@ -313,97 +313,77 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="fairseq2-nn-residual">
-<span id="residual"></span><h1>fairseq2.nn.residual<a class="headerlink" href="#fairseq2-nn-residual" title="Link to this heading">¶</a></h1>
+          <section id="module-fairseq2.data_type">
+<span id="fairseq2-data-type"></span><h1>fairseq2.data_type<a class="headerlink" href="#module-fairseq2.data_type" title="Link to this heading">¶</a></h1>
+<p>This module provides functions for managing PyTorch data types.</p>
+<section id="abcs">
+<h2>ABCs<a class="headerlink" href="#abcs" title="Link to this heading">¶</a></h2>
 <dl class="py class">
-<dt class="sig sig-object py" id="fairseq2.nn.ResidualConnect">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.</span></span><span class="sig-name descname"><span class="pre">ResidualConnect</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/nn/residual.html#ResidualConnect"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.ResidualConnect" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
-<p>Represents a residual connection.</p>
-<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p>
+<dt class="sig sig-object py" id="fairseq2.data_type.DataTypeContext">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data_type.</span></span><span class="sig-name descname"><span class="pre">DataTypeContext</span></span><a class="reference internal" href="../_modules/fairseq2/data_type.html#DataTypeContext"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data_type.DataTypeContext" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<p>Provides methods to get and set the current floating-point data type of the
+calling thread.</p>
+<p>This interface can be used as an alternative to the corresponding standalone
+functions in object-oriented code.</p>
 <dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.nn.ResidualConnect.forward">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seqs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.9)"><span class="pre">Tensor</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">residual</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.9)"><span class="pre">Tensor</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.9)"><span class="pre">Tensor</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/nn/residual.html#ResidualConnect.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.ResidualConnect.forward" title="Link to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>seqs</strong> – The sequences output by a module. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S,M)\)</span>,
-where <span class="math notranslate nohighlight">\(N\)</span> is the batch size, <span class="math notranslate nohighlight">\(S\)</span> is the sequence length,
-and <span class="math notranslate nohighlight">\(M\)</span> is the dimensionality of the model.</p></li>
-<li><p><strong>residual</strong> – The input sequences to the module. <em>Shape:</em> Same as
-<code class="docutils literal notranslate"><span class="pre">seqs</span></code>.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>The output sequences with residuals applied. <em>Shape:</em> Same as
-<code class="docutils literal notranslate"><span class="pre">seqs</span></code>.</p>
-</dd>
-</dl>
+<dt class="sig sig-object py" id="fairseq2.data_type.DataTypeContext.get_current_dtype">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_current_dtype</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.dtype" title="(in PyTorch v2.9)"><span class="pre">dtype</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/data_type.html#DataTypeContext.get_current_dtype"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data_type.DataTypeContext.get_current_dtype" title="Link to this definition">¶</a></dt>
+<dd><p>See <a class="reference internal" href="#fairseq2.data_type.get_current_dtype" title="fairseq2.data_type.get_current_dtype"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_current_dtype()</span></code></a>.</p>
 </dd></dl>
 
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="fairseq2.nn.AdditiveResidualConnect">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.</span></span><span class="sig-name descname"><span class="pre">AdditiveResidualConnect</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/nn/residual.html#AdditiveResidualConnect"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.AdditiveResidualConnect" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fairseq2.nn.ResidualConnect" title="fairseq2.nn.residual.ResidualConnect"><code class="xref py py-class docutils literal notranslate"><span class="pre">ResidualConnect</span></code></a></p>
-<p>Sums inputs and outputs of a module.</p>
-<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p>
 <dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.nn.AdditiveResidualConnect.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seqs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.9)"><span class="pre">Tensor</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">residual</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.9)"><span class="pre">Tensor</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.9)"><span class="pre">Tensor</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/nn/residual.html#AdditiveResidualConnect.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.AdditiveResidualConnect.forward" title="Link to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>seqs</strong> – The sequences output by a module. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S,M)\)</span>,
-where <span class="math notranslate nohighlight">\(N\)</span> is the batch size, <span class="math notranslate nohighlight">\(S\)</span> is the sequence length,
-and <span class="math notranslate nohighlight">\(M\)</span> is the dimensionality of the model.</p></li>
-<li><p><strong>residual</strong> – The input sequences to the module. <em>Shape:</em> Same as
-<code class="docutils literal notranslate"><span class="pre">seqs</span></code>.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>The output sequences with residuals applied. <em>Shape:</em> Same as
-<code class="docutils literal notranslate"><span class="pre">seqs</span></code>.</p>
-</dd>
-</dl>
+<dt class="sig sig-object py" id="fairseq2.data_type.DataTypeContext.set_dtype">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">set_dtype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.dtype" title="(in PyTorch v2.9)"><span class="pre">dtype</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/contextlib.html#contextlib.AbstractContextManager" title="(in Python v3.14)"><span class="pre">AbstractContextManager</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/data_type.html#DataTypeContext.set_dtype"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data_type.DataTypeContext.set_dtype" title="Link to this definition">¶</a></dt>
+<dd><p>See <a class="reference internal" href="#fairseq2.data_type.set_dtype" title="fairseq2.data_type.set_dtype"><code class="xref py py-func docutils literal notranslate"><span class="pre">set_dtype()</span></code></a>.</p>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="py class">
-<dt class="sig sig-object py" id="fairseq2.nn.ScaledResidualConnect">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.</span></span><span class="sig-name descname"><span class="pre">ScaledResidualConnect</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/nn/residual.html#ScaledResidualConnect"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.ScaledResidualConnect" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fairseq2.nn.ResidualConnect" title="fairseq2.nn.residual.ResidualConnect"><code class="xref py py-class docutils literal notranslate"><span class="pre">ResidualConnect</span></code></a></p>
-<p>Scales residuals by a constant factor before adding them to the output of a
-Transformer module.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>scale</strong> – The scale factor.</p>
-</dd>
-</dl>
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.nn.ScaledResidualConnect.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seqs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.9)"><span class="pre">Tensor</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">residual</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.9)"><span class="pre">Tensor</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.9)"><span class="pre">Tensor</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/nn/residual.html#ScaledResidualConnect.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.ScaledResidualConnect.forward" title="Link to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>seqs</strong> – The sequences output by a module. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S,M)\)</span>,
-where <span class="math notranslate nohighlight">\(N\)</span> is the batch size, <span class="math notranslate nohighlight">\(S\)</span> is the sequence length,
-and <span class="math notranslate nohighlight">\(M\)</span> is the dimensionality of the model.</p></li>
-<li><p><strong>residual</strong> – The input sequences to the module. <em>Shape:</em> Same as
-<code class="docutils literal notranslate"><span class="pre">seqs</span></code>.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>The output sequences with residuals applied. <em>Shape:</em> Same as
-<code class="docutils literal notranslate"><span class="pre">seqs</span></code>.</p>
-</dd>
-</dl>
+</section>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.data_type.get_current_dtype">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.data_type.</span></span><span class="sig-name descname"><span class="pre">get_current_dtype</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.dtype" title="(in PyTorch v2.9)"><span class="pre">dtype</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/data_type.html#get_current_dtype"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data_type.get_current_dtype" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the current floating-point data type of the calling thread.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This function might impose a slight performance cost. Avoid calling it
+in hot code paths.</p>
+</div>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.data_type.set_dtype">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.data_type.</span></span><span class="sig-name descname"><span class="pre">set_dtype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.dtype" title="(in PyTorch v2.9)"><span class="pre">dtype</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/contextlib.html#contextlib.AbstractContextManager" title="(in Python v3.14)"><span class="pre">AbstractContextManager</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/data_type.html#set_dtype"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data_type.set_dtype" title="Link to this definition">¶</a></dt>
+<dd><p>Changes the floating-point data type of the calling thread to the specified
+type.</p>
+<p>This function acts as a context manager, ensuring that within its scope, any
+operation that constructs tensors uses the specified data type - unless an
+explicit <code class="docutils literal notranslate"><span class="pre">dtype</span></code> argument is provided.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.data_type</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_dtype</span>
+
+<span class="k">with</span> <span class="n">set_dtype</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span><span class="p">):</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">))</span>
+
+    <span class="k">assert</span> <span class="n">t</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span>
+
+    <span class="k">with</span> <span class="n">set_dtype</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float16</span><span class="p">):</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+
+        <span class="k">assert</span> <span class="n">t</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">float16</span>
+
+<span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+
+<span class="k">assert</span> <span class="n">t</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+</pre></div>
+</div>
 </dd></dl>
 
+</section>
 </section>
 
         </article>
@@ -411,23 +391,23 @@ and <span class="math notranslate nohighlight">\(M\)</span> is the dimensionalit
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="fairseq2.nn.utils.html">
+          <a class="next-page" href="fairseq2.datasets.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">fairseq2.nn.utils</div>
+                <div class="title">fairseq2.datasets</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="fairseq2.nn.projection.html">
+          <a class="prev-page" href="fairseq2.data.tokenizers.hub.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">fairseq2.nn.projection</div>
+                <div class="title">fairseq2.data.tokenizers.hub</div>
                 
               </div>
             </a>
@@ -465,17 +445,18 @@ and <span class="math notranslate nohighlight">\(M\)</span> is the dimensionalit
         <div class="toc-tree-container">
           <div class="toc-tree">
             <ul>
-<li><a class="reference internal" href="#">fairseq2.nn.residual</a><ul>
-<li><a class="reference internal" href="#fairseq2.nn.ResidualConnect"><code class="docutils literal notranslate"><span class="pre">ResidualConnect</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.nn.ResidualConnect.forward"><code class="docutils literal notranslate"><span class="pre">ResidualConnect.forward()</span></code></a></li>
+<li><a class="reference internal" href="#">fairseq2.data_type</a><ul>
+<li><a class="reference internal" href="#abcs">ABCs</a><ul>
+<li><a class="reference internal" href="#fairseq2.data_type.DataTypeContext"><code class="docutils literal notranslate"><span class="pre">DataTypeContext</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.data_type.DataTypeContext.get_current_dtype"><code class="docutils literal notranslate"><span class="pre">DataTypeContext.get_current_dtype()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data_type.DataTypeContext.set_dtype"><code class="docutils literal notranslate"><span class="pre">DataTypeContext.set_dtype()</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#fairseq2.nn.AdditiveResidualConnect"><code class="docutils literal notranslate"><span class="pre">AdditiveResidualConnect</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.nn.AdditiveResidualConnect.forward"><code class="docutils literal notranslate"><span class="pre">AdditiveResidualConnect.forward()</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#fairseq2.nn.ScaledResidualConnect"><code class="docutils literal notranslate"><span class="pre">ScaledResidualConnect</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.nn.ScaledResidualConnect.forward"><code class="docutils literal notranslate"><span class="pre">ScaledResidualConnect.forward()</span></code></a></li>
+<li><a class="reference internal" href="#functions">Functions</a><ul>
+<li><a class="reference internal" href="#fairseq2.data_type.get_current_dtype"><code class="docutils literal notranslate"><span class="pre">get_current_dtype()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data_type.set_dtype"><code class="docutils literal notranslate"><span class="pre">set_dtype()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -495,7 +476,5 @@ and <span class="math notranslate nohighlight">\(M\)</span> is the dimensionalit
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
     <script src="../_static/design-tabs.js?v=36754332"></script>
     <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
-    <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
-    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     </body>
 </html>

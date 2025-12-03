@@ -58,6 +58,7 @@ other content generation tasks.
     reference/fairseq2.data
     reference/fairseq2.data.tokenizers
     reference/fairseq2.data.tokenizers.hub
+    reference/fairseq2.data_type
     reference/fairseq2.datasets
     reference/fairseq2.datasets.hub
     reference/fairseq2.device

@@ -20,10 +20,9 @@ process ranks and the total number of processes.
     import torch
 
     from fairseq2.gang import ProcessGroupGang, create_parallel_gangs
-    from fairseq2.device import get_default_device
 
     # Get the default CUDA or CPU device of the process.
-    device = get_default_device()
+    device = torch.get_default_device()
 
     # Depending on the device creates a ProcessGroup with NCCL or Gloo backend.
     root_gang = ProcessGroupGang.create_default_process_group(device)
@@ -119,20 +118,20 @@ management.
     :caption: Gang vs DeviceMesh usage comparison
 
     # DeviceMesh approach - coordinate-based access
-    import torch 
+    import torch
     import torch.distributed as dist
     from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 
     # Initialize 2D mesh (2x4) - just coordinates, no semantic meaning
-    mesh: DeviceMesh = init_device_mesh("cuda", (2, 4), mesh_dim_names=("dp", "tp"))
+    mesh = init_device_mesh("cuda", (2, 4), mesh_dim_names=("dp", "tp"))
 
     # Manual coordinate extraction
-    dp_mesh: DeviceMesh = mesh["dp"]
-    tp_mesh: DeviceMesh = mesh["tp"]
+    dp_mesh = mesh["dp"]
+    tp_mesh = mesh["tp"]
 
     # Create tensors
-    tensor_tp: torch.Tensor = torch.randn(4, 4, device='cuda')
-    tensor_dp: torch.Tensor = torch.randn(4, 4, device='cuda')
+    tensor_tp = torch.randn(4, 4, device="cuda")
+    tensor_dp = torch.randn(4, 4, device="cuda")
 
     # AllReduce - no semantic indication of parallelism strategy
     dist.all_reduce(tensor_tp, group=tp_mesh.get_group())
@@ -142,29 +141,25 @@ management.
 
     # --------------------------
 
-    # Gang approach - explicit parallelism strategies 
+    # Gang approach - explicit parallelism strategies
     import torch
-    from fairseq2.gang import Gang, Gangs, ProcessGroupGang, ReduceOperation, create_parallel_gangs
-    from fairseq2.device import Device, get_default_device
+    from fairseq2.gang import ProcessGroupGang, ReduceOperation, create_parallel_gangs
 
     # Initialize distributed setup
-    device: Device = get_default_device()
-    root_gang: Gang = ProcessGroupGang.create_default_process_group(device)
-    
-    # Create semantic parallelism abstractions (dp_size = 8 // 4 = 2)
-    gangs: Gangs = create_parallel_gangs(root_gang, tp_size=4)
-    
-    # Access parallelism strategies - semantic meaning guaranteed
-    dp_gang: Gang = gangs.dp
-    tp_gang: Gang = gangs.tp  
-    
-    tensor_tp: torch.Tensor = torch.randn(4, 4, device=device)
-    tensor_dp: torch.Tensor = torch.randn(4, 4, device=device)
-    
-    # Direct semantic access to parallelism-specific gangs
-    tp_gang.all_reduce(tensor_tp, ReduceOperation.SUM)  # Tensor parallel
-    dp_gang.all_reduce(tensor_dp, ReduceOperation.SUM)  # Data parallel
-    
+    device = torch.get_default_device()
+
+    root_gang = ProcessGroupGang.create_default_process_group(device)
+
+    # Create parallelism abstractions (dp_size = 8 // 4 = 2)
+    gangs = create_parallel_gangs(root_gang, tp_size=4)
+
+    tensor_tp = torch.randn(4, 4, device=device)
+    tensor_dp = torch.randn(4, 4, device=device)
+
+    # Direct access to parallelism-specific gangs
+    tp_gang.all_reduce(gangs.tp, ReduceOperation.SUM)  # Tensor parallel
+    dp_gang.all_reduce(gangs.dp, ReduceOperation.SUM)  # Data parallel
+
     root_gang.close()
 
 How to create a Gang?
@@ -182,12 +177,11 @@ not require any implementation changes.
     import torch
 
     from fairseq2.gang import FakeGang, ProcessGroupGang, ReduceOperation
-    from fairseq2.device import get_default_device
     from fairseq2.utils.env import get_world_size
 
     def main() -> None:
         # Get the default CUDA or CPU device of the process.
-        device = get_default_device()
+        device = torch.get_default_device()
 
         # Infer the world size from the `WORLD_SIZE` environment variable.
         world_size = get_world_size()
@@ -219,10 +213,9 @@ which is a wrapper on top of PyTorch’s ProcessGroup. It encapsulates scattered
     import torch
 
     from fairseq2.gang import ProcessGroupGang
-    from fairseq2.device import get_default_device
 
     # Get the default CUDA or CPU device of the process.
-    device = get_default_device()
+    device = torch.get_default_device()
 
     # Depending on the device creates a ProcessGroup with NCCL or Gloo backend.
     gang = ProcessGroupGang.create_default_process_group(device)
@@ -254,10 +247,9 @@ container for all the created parallel gangs.
     import torch
 
     from fairseq2.gang import ProcessGroupGang, create_parallel_gangs
-    from fairseq2.device import get_default_device
 
     # Get the default CUDA or CPU device of the process.
-    device = get_default_device()
+    device = torch.get_default_device()
 
     # Depending on the device creates a ProcessGroup with NCCL or Gloo backend.
     root_gang = ProcessGroupGang.create_default_process_group(device)
@@ -286,10 +278,9 @@ sharded gangs to support hybrid and fully sharded data parallelism strategies.
     import torch
 
     from fairseq2.gang import ProcessGroupGang, create_parallel_gangs
-    from fairseq2.device import get_default_device
 
     # Get the default CUDA or CPU device of the process.
-    device = get_default_device()
+    device = torch.get_default_device()
 
     # Depending on the device creates a ProcessGroup with NCCL or Gloo backend.
     root_gang = ProcessGroupGang.create_default_process_group(device)
@@ -311,10 +302,9 @@ sharded gangs to support hybrid and fully sharded data parallelism strategies.
     import torch
 
     from fairseq2.gang import ProcessGroupGang, create_parallel_gangs
-    from fairseq2.device import get_default_device
 
     # Get the default CUDA or CPU device of the process.
-    device = get_default_device()
+    device = torch.get_default_device()
 
     # Depending on the device creates a ProcessGroup with NCCL or Gloo backend.
     root_gang = ProcessGroupGang.create_default_process_group(device)
@@ -350,28 +340,37 @@ learn more about how gangs are utilized there.
 How to use Gangs in deeply nested functions?
 ============================================
 
-fairseq2 provides a basic API for setting a :class:`Gangs` instance as the
-"current" gangs for the calling thread. This feature is particularly useful in
-procedural programming, as it eliminates the need to pass a :class:`Gangs`
-instance through every function call.
+fairseq2 provides a basic API for setting a :class:`Gangs` instance as either
+the default for the process or the current instance for the calling thread. This
+feature is particularly useful in procedural programming, as it eliminates the
+need to pass a :class:`Gangs` instance through every function call.
 
 When a :class:`Gangs` instance is used as a context manager, it is set as the
 current gangs. You can nest ``with gangs`` statements to override the current
 gangs as needed. The current gangs instance can be retrieved by calling the
-:func:`maybe_get_current_gangs` function.
+:func:`get_current_gangs` function. Similarly, the default gangs of the process
+can be set and retrieved using :func:`set_default_gangs` and :func:`get_default_gangs`
+respectively.
 
 .. code:: python
     :caption: Set and retrieve current thread-local gangs
 
-    from fairseq2.gang import Gangs, maybe_get_current_gangs
+    from fairseq2.gang import Gangs, get_current_gangs
 
-    gangs = Gangs(...)
+    # If not set previously, returns a set of fake gangs with world size of 1.
+    default_gangs = get_default_gangs()
+
+    gangs = ...
 
     with gangs:
-        current_gangs = maybe_get_current_gangs()
+        current_gangs = get_current_gangs()
 
         assert current_gangs is gangs
 
-    current_gangs = maybe_get_current_gangs()
+    current_gangs = get_current_gangs()
 
-    assert current_gangs is None
+    assert current_gangs is default_gangs
+
+In addition to the standalone getter and setter functions, fairseq2 also offers
+a :class:`GangContext` interface for similar purposes, which can be used in
+object-oriented code with dependency injection.

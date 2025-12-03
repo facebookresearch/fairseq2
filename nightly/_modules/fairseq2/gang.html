@@ -239,6 +239,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../reference/fairseq2.data.html">fairseq2.data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../reference/fairseq2.data.tokenizers.html">fairseq2.data.tokenizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../reference/fairseq2.data.tokenizers.hub.html">fairseq2.data.tokenizers.hub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/fairseq2.data_type.html">fairseq2.data_type</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../reference/fairseq2.datasets.html">fairseq2.datasets</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../reference/fairseq2.datasets.hub.html">fairseq2.datasets.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../reference/fairseq2.device.html">fairseq2.device</a></li>
@@ -326,14 +327,17 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">abstractmethod</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">contextmanager</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">timedelta</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">NoReturn</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">final</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">threading</span><span class="w"> </span><span class="kn">import</span> <span class="n">Lock</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">MutableMapping</span><span class="p">,</span> <span class="n">NoReturn</span><span class="p">,</span> <span class="n">final</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">weakref</span><span class="w"> </span><span class="kn">import</span> <span class="n">WeakValueDictionary</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch.distributed</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dist</span>
@@ -341,7 +345,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.distributed</span><span class="w"> </span><span class="kn">import</span> <span class="n">Backend</span><span class="p">,</span> <span class="n">ProcessGroup</span><span class="p">,</span> <span class="n">ReduceOp</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span><span class="p">,</span> <span class="n">META_DEVICE</span><span class="p">,</span> <span class="n">Device</span><span class="p">,</span> <span class="n">DeviceContext</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">InternalError</span><span class="p">,</span>
     <span class="n">InvalidOperationError</span><span class="p">,</span>
@@ -350,7 +354,11 @@
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">log</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.runtime.closable</span><span class="w"> </span><span class="kn">import</span> <span class="n">Closable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.runtime.dependency</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_dependency_resolver</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContextManager</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.tensor</span><span class="w"> </span><span class="kn">import</span> <span class="n">to_tensor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.threading</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadLocalStorage</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.warn</span><span class="w"> </span><span class="kn">import</span> <span class="n">_warn_deprecated</span>
 
 
 <div class="viewcode-block" id="Gang">
@@ -369,10 +377,10 @@
 
 <span class="sd">        Returns ``None`` if the current process is not included in ``ranks``.</span>
 
-<span class="sd">        :raises ValueError: If ``ranks`` contains duplicates, or has one or more</span>
+<span class="sd">        :raises ValueError: ``ranks`` contains duplicates, or has one or more</span>
 <span class="sd">            out of range values.</span>
 
-<span class="sd">        :raises GangError: If the collective operation fails due to an unexpected</span>
+<span class="sd">        :raises GangError: Collective operation failed due to an unexpected</span>
 <span class="sd">            error such as a network communication failure.</span>
 
 <span class="sd">        .. code:: python</span>
@@ -394,7 +402,7 @@
 <span class="sd">        Returns this gang as a PyTorch ProcessGroup that can be used with</span>
 <span class="sd">        PyTorch&#39;s distributed operations and collective communication functions.</span>
 
-<span class="sd">        :raises NotSupportedError: If the gang implementation does not support</span>
+<span class="sd">        :raises NotSupportedError: Gang implementation does not support</span>
 <span class="sd">            conversion to a ProcessGroup (e.g. :class:`FakeGang`).</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
@@ -410,7 +418,7 @@
 <span class="sd">        gang reach this synchronization point. Used for ensuring a consistent</span>
 <span class="sd">        state across all processes before proceeding.</span>
 
-<span class="sd">        :raises GangError: If the collective operation fails due to an unexpected</span>
+<span class="sd">        :raises GangError: Collective operation failed due to an unexpected</span>
 <span class="sd">            error such as a network communication failure.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
@@ -426,7 +434,7 @@
 <span class="sd">        operation and distributes the result to all processes. The input tensor</span>
 <span class="sd">        is modified in-place to contain the reduction result.</span>
 
-<span class="sd">        :raises GangError: If the collective operation fails due to an unexpected</span>
+<span class="sd">        :raises GangError: Collective operation failed due to an unexpected</span>
 <span class="sd">            error such as a network communication failure.</span>
 
 <span class="sd">        .. code:: python</span>
@@ -458,7 +466,7 @@
 <span class="sd">        tensor. The output tensor must have shape ``[gang.size, *input_tensor.shape]``</span>
 <span class="sd">        and be contiguous in memory.</span>
 
-<span class="sd">        :raises GangError: If the collective operation fails due to an unexpected</span>
+<span class="sd">        :raises GangError: Collective operation failed due to an unexpected</span>
 <span class="sd">            error such as a network communication failure.</span>
 
 <span class="sd">        .. code:: python</span>
@@ -492,7 +500,7 @@
 <span class="sd">        instead of concatenating them into a single tensor. ``output_tensors``</span>
 <span class="sd">        must be a pre-allocated list with length equal to ``gang.size``.</span>
 
-<span class="sd">        :raises GangError: If the collective operation fails due to an unexpected</span>
+<span class="sd">        :raises GangError: Collective operation failed due to an unexpected</span>
 <span class="sd">            error such as a network communication failure.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
@@ -510,9 +518,9 @@
 
 <span class="sd">        ``source_rank`` must be in range [0, gang.size).</span>
 
-<span class="sd">        :raises ValueError: If ``source_rank`` is out of valid range.</span>
+<span class="sd">        :raises ValueError: ``source_rank`` is out of valid range.</span>
 
-<span class="sd">        :raises GangError: If the collective operation fails due to an unexpected</span>
+<span class="sd">        :raises GangError: Collective operation failed due to an unexpected</span>
 <span class="sd">            error such as a network communication failure.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
@@ -530,9 +538,9 @@
 
 <span class="sd">        ``source_rank`` must be in range [0, gang.size).</span>
 
-<span class="sd">        :raises ValueError: If ``source_rank`` is out of valid range.</span>
+<span class="sd">        :raises ValueError: ``source_rank`` is out of valid range.</span>
 
-<span class="sd">        :raises GangError: If the collective operation fails due to an unexpected</span>
+<span class="sd">        :raises GangError: Collective operation failed due to an unexpected</span>
 <span class="sd">            error such as a network communication failure.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
@@ -578,14 +586,8 @@
 
 
 
-<div class="viewcode-block" id="raise_operational_gang_error">
-<a class="viewcode-back" href="../../reference/fairseq2.gang.html#fairseq2.gang.raise_operational_gang_error">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">raise_operational_gang_error</span><span class="p">(</span><span class="n">cause</span><span class="p">:</span> <span class="n">GangError</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NoReturn</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Raises an :class:`OperationalError` caused by a collective communication error.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">raise</span> <span class="n">OperationalError</span><span class="p">(</span><span class="s2">&quot;A collective communication error occurred.&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">cause</span></div>
-
+    <span class="k">raise</span> <span class="n">OperationalError</span><span class="p">(</span><span class="s2">&quot;A collective communication error occurred.&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">cause</span>
 
 
 <div class="viewcode-block" id="FakeGang">
@@ -626,7 +628,7 @@
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;meta&quot;</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`device` must be a real device.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`device` must not be of type `meta`.&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_rank</span> <span class="o">=</span> <span class="n">rank</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="n">size</span>
@@ -800,15 +802,14 @@
 <span class="sd">        will be performed on high-priority channels (e.g. CUDA streams) if</span>
 <span class="sd">        supported by the underlying backend.</span>
 
-<span class="sd">        :raises ValueError: If ``device`` is not of type ``cpu`` or ``cuda``.</span>
+<span class="sd">        :raises ValueError: ``device`` is not of type ``cpu`` or ``cuda``.</span>
 
-<span class="sd">        :raises NotSupportedError: If ``torch.distributed`` is not available.</span>
+<span class="sd">        :raises NotSupportedError: ``torch.distributed`` is not available.</span>
 
-<span class="sd">        :raises InvalidOperationError: If the root process group is already</span>
-<span class="sd">            initialized.</span>
+<span class="sd">        :raises InvalidOperationError: Root process group is already initialized.</span>
 
-<span class="sd">        :raises GangError: If the underlying process group fails to initialize</span>
-<span class="sd">            due to an unexpected error such as a network communication failure.</span>
+<span class="sd">        :raises GangError: Underlying process group failed to initialize due to</span>
+<span class="sd">            an unexpected error such as a network communication failure.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">log</span><span class="o">.</span><span class="n">is_enabled_for_debug</span><span class="p">():</span>
             <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;TORCH_DISTRIBUTED_DEBUG&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;INFO&quot;</span>
@@ -819,9 +820,7 @@
             <span class="k">raise</span> <span class="n">NotSupportedError</span><span class="p">(</span><span class="s2">&quot;torch.distributed is not available.&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="n">InvalidOperationError</span><span class="p">(</span>
-                <span class="s2">&quot;The root process group is already initialized.&quot;</span>
-            <span class="p">)</span>
+            <span class="k">raise</span> <span class="n">InvalidOperationError</span><span class="p">(</span><span class="s2">&quot;Root process group is already initialized.&quot;</span><span class="p">)</span>
 
         <span class="n">backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
 
@@ -874,7 +873,7 @@
 
         <span class="n">pg</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">group</span><span class="o">.</span><span class="n">WORLD</span>
         <span class="k">if</span> <span class="n">pg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">OperationalError</span><span class="p">(</span>
+            <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span>
                 <span class="s2">&quot;Root process group is not available after initialization.&quot;</span>
             <span class="p">)</span>
 
@@ -1102,11 +1101,19 @@
                     <span class="s2">&quot;Coordinator process of the root gang (i.e. `root.rank == 0`) must be rank 0 in all parallel gangs.&quot;</span>
                 <span class="p">)</span>
 
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">device</span>
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">_thread_local</span><span class="o">.</span><span class="n">current_gangs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">resolver</span> <span class="o">=</span> <span class="n">get_dependency_resolver</span><span class="p">()</span>
+
+        <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">_GangManager</span><span class="p">)</span><span class="o">.</span><span class="n">set_gangs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">exc_value</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">traceback</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">_thread_local</span><span class="o">.</span><span class="n">current_gangs</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="n">resolver</span> <span class="o">=</span> <span class="n">get_dependency_resolver</span><span class="p">()</span>
+
+        <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">_GangManager</span><span class="p">)</span><span class="o">.</span><span class="n">pop_gangs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Gangs.close">
 <a class="viewcode-back" href="../../reference/fairseq2.gang.html#fairseq2.gang.Gangs.close">[docs]</a>
@@ -1117,48 +1124,216 @@
 
 
 
-<span class="n">_thread_local</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">local</span><span class="p">()</span>
-
-<span class="c1"># Holds the stack of current thread-local gangs.</span>
-<span class="n">_thread_local</span><span class="o">.</span><span class="n">current_gangs</span> <span class="o">=</span> <span class="p">[]</span>
-
-
-<div class="viewcode-block" id="maybe_get_current_gangs">
-<a class="viewcode-back" href="../../reference/fairseq2.gang.html#fairseq2.gang.maybe_get_current_gangs">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">maybe_get_current_gangs</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Gangs</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="get_default_gangs">
+<a class="viewcode-back" href="../../reference/fairseq2.gang.html#fairseq2.gang.get_default_gangs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_default_gangs</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gangs</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Returns the current gangs to use for collective operations.</span>
+<span class="sd">    Returns the default gangs of the process.</span>
 
-<span class="sd">    By default, this function returns ``None``. The current gangs of the calling</span>
-<span class="sd">    thread can be set by using :class:`Gangs` as a context manager:</span>
+<span class="sd">    The default gangs are assigned per device. If ``device`` is ``None``, the</span>
+<span class="sd">    device returned from :func:`get_current_device` will be used.</span>
+
+<span class="sd">    If no gangs was previously set for ``device``, the function will return fake</span>
+<span class="sd">    gangs (i.e. :class:`FakeGang`) with a world size of 1.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">resolver</span> <span class="o">=</span> <span class="n">get_dependency_resolver</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">_GangManager</span><span class="p">)</span><span class="o">.</span><span class="n">get_default_gangs</span><span class="p">(</span><span class="n">device</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="set_default_gangs">
+<a class="viewcode-back" href="../../reference/fairseq2.gang.html#fairseq2.gang.set_default_gangs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_default_gangs</span><span class="p">(</span><span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">meta</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Changes the default gangs of the process to the specified gangs.</span>
+
+<span class="sd">    The default gangs are assigned per device. Calling this function will set</span>
+<span class="sd">    the default gangs for the gangs&#39; device (i.e. ``gangs.device``).</span>
+
+<span class="sd">    If ``meta`` is ``True``, in addition to gangs&#39; device, the gangs will also</span>
+<span class="sd">    be set as the default gangs of the meta device.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">resolver</span> <span class="o">=</span> <span class="n">get_dependency_resolver</span><span class="p">()</span>
+
+    <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">_GangManager</span><span class="p">)</span><span class="o">.</span><span class="n">set_default_gangs</span><span class="p">(</span><span class="n">gangs</span><span class="p">,</span> <span class="n">meta</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="set_gangs">
+<a class="viewcode-back" href="../../reference/fairseq2.gang.html#fairseq2.gang.set_gangs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_gangs</span><span class="p">(</span><span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">meta</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Changes the gangs of the calling thread to the specified gangs.</span>
+
+<span class="sd">    The gangs are assigned per device. Calling this function will set the gangs</span>
+<span class="sd">    for the gangs&#39; device (i.e. ``gangs.device``).</span>
+
+<span class="sd">    If ``meta`` is ``True``, in addition to gangs&#39; device, the gangs will also</span>
+<span class="sd">    be set as the gangs of the meta device.</span>
+
+<span class="sd">    This function acts as a context manager, ensuring that within its scope, any</span>
+<span class="sd">    :func:`get_current_gangs` call will return the specified gangs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">resolver</span> <span class="o">=</span> <span class="n">get_dependency_resolver</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">GangContext</span><span class="p">)</span><span class="o">.</span><span class="n">set_gangs</span><span class="p">(</span><span class="n">gangs</span><span class="p">,</span> <span class="n">meta</span><span class="o">=</span><span class="n">meta</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_current_gangs">
+<a class="viewcode-back" href="../../reference/fairseq2.gang.html#fairseq2.gang.get_current_gangs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_current_gangs</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gangs</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the current gangs of the calling thread.</span>
+
+<span class="sd">    The gangs are assigned per device. If ``device`` is ``None``, the device</span>
+<span class="sd">    returned from :func:`get_current_device` will be used.</span>
 
 <span class="sd">    .. code::</span>
 
-<span class="sd">        from fairseq2.gang import Gangs</span>
+<span class="sd">        from fairseq2.gang import Gangs, get_current_gangs, get_default_gangs</span>
 
-<span class="sd">        gangs = Gangs(...)</span>
+<span class="sd">        gangs = get_default_gangs()</span>
 
 <span class="sd">        with gangs:</span>
-<span class="sd">            current_gangs = maybe_get_current_gangs()</span>
+<span class="sd">            current_gangs = get_current_gangs()</span>
 
 <span class="sd">            assert current_gangs is gangs</span>
 
-<span class="sd">        current_gangs = maybe_get_current_gangs()</span>
+<span class="sd">        current_gangs = get_current_gangs()</span>
 
-<span class="sd">        assert current_gangs is None</span>
-
-<span class="sd">    Within fairseq2, this function is used by model factories to retrieve the</span>
-<span class="sd">    current gangs and shard the constructed models accordingly. The current gangs</span>
-<span class="sd">    are set internally by fairseq2 before calling the factories.</span>
-
-<span class="sd">    Note that the return value of this function is thread specific. Individual</span>
-<span class="sd">    threads may have their own set of current gangs.</span>
+<span class="sd">        assert current_gangs is default_gangs</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">_thread_local</span><span class="o">.</span><span class="n">current_gangs</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Gangs</span><span class="p">,</span> <span class="n">_thread_local</span><span class="o">.</span><span class="n">current_gangs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">resolver</span> <span class="o">=</span> <span class="n">get_dependency_resolver</span><span class="p">()</span>
 
-    <span class="k">return</span> <span class="kc">None</span></div>
+    <span class="k">return</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">GangContext</span><span class="p">)</span><span class="o">.</span><span class="n">get_current_gangs</span><span class="p">(</span><span class="n">device</span><span class="p">)</span></div>
 
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">maybe_get_current_gangs</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Gangs</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">_warn_deprecated</span><span class="p">(</span>
+        <span class="s2">&quot;`maybe_get_current_gangs` is deprecated and will be removed in v0.9. Usee `get_current_gangs` instead.&quot;</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">get_current_gangs</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="GangContext">
+<a class="viewcode-back" href="../../reference/fairseq2.gang.html#fairseq2.gang.GangContext">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GangContext</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Provides methods to get and set the current gangs of the calling thread.</span>
+
+<span class="sd">    This interface can be used as an alternative to the corresponding standalone</span>
+<span class="sd">    functions in object-oriented code.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="GangContext.get_current_gangs">
+<a class="viewcode-back" href="../../reference/fairseq2.gang.html#fairseq2.gang.GangContext.get_current_gangs">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_current_gangs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gangs</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;See :func:`get_current_gangs`.&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="GangContext.set_gangs">
+<a class="viewcode-back" href="../../reference/fairseq2.gang.html#fairseq2.gang.GangContext.set_gangs">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_gangs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">meta</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;See :func:`set_gangs`.&quot;&quot;&quot;</span></div>
+</div>
+
+
+
+<span class="nd">@final</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_StandardGangContext</span><span class="p">(</span><span class="n">GangContext</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gang_manager</span><span class="p">:</span> <span class="n">_GangManager</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_gang_manager</span> <span class="o">=</span> <span class="n">gang_manager</span>
+
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_current_gangs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gangs</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gang_manager</span><span class="o">.</span><span class="n">get_current_gangs</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="nd">@override</span>
+    <span class="nd">@contextmanager</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_gangs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">meta</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_gang_manager</span><span class="o">.</span><span class="n">set_gangs</span><span class="p">(</span><span class="n">gangs</span><span class="p">,</span> <span class="n">meta</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">yield</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_gang_manager</span><span class="o">.</span><span class="n">pop_gangs</span><span class="p">(</span><span class="n">gangs</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">meta</span><span class="p">)</span>
+
+
+<span class="nd">@final</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_GangManager</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device_context</span><span class="p">:</span> <span class="n">DeviceContext</span><span class="p">,</span> <span class="n">tls</span><span class="p">:</span> <span class="n">ThreadLocalStorage</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_default_gangs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Device</span><span class="p">,</span> <span class="n">Gangs</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">Lock</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fake_gangs</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">Device</span><span class="p">,</span> <span class="n">Gangs</span><span class="p">]</span> <span class="o">=</span> <span class="n">WeakValueDictionary</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_device_context</span> <span class="o">=</span> <span class="n">device_context</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tls</span> <span class="o">=</span> <span class="n">tls</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_default_gangs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">,</span> <span class="n">meta</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_default_gangs</span><span class="p">[</span><span class="n">gangs</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="n">gangs</span>
+
+            <span class="k">if</span> <span class="n">meta</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_default_gangs</span><span class="p">[</span><span class="n">META_DEVICE</span><span class="p">]</span> <span class="o">=</span> <span class="n">gangs</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_default_gangs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gangs</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device_context</span><span class="o">.</span><span class="n">get_current_device</span><span class="p">()</span>
+
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="n">gangs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_gangs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">gangs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">gangs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_singleton_fake_gangs</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">gangs</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_singleton_fake_gangs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gangs</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;meta&quot;</span><span class="p">:</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="n">CPU</span>
+
+        <span class="n">gangs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fake_gangs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">gangs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">gangs</span> <span class="o">=</span> <span class="n">create_fake_gangs</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_fake_gangs</span><span class="p">[</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="n">gangs</span>
+
+        <span class="k">return</span> <span class="n">gangs</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_current_gangs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gangs</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device_context</span><span class="o">.</span><span class="n">get_current_device</span><span class="p">()</span>
+
+        <span class="n">stacks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_gang_stacks</span><span class="p">()</span>
+
+        <span class="n">stack</span> <span class="o">=</span> <span class="n">stacks</span><span class="p">[</span><span class="n">device</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">stack</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_gangs</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_gangs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">,</span> <span class="n">meta</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">stacks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_gang_stacks</span><span class="p">()</span>
+
+        <span class="n">stacks</span><span class="p">[</span><span class="n">gangs</span><span class="o">.</span><span class="n">device</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gangs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">meta</span><span class="p">:</span>
+            <span class="n">stacks</span><span class="p">[</span><span class="n">META_DEVICE</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gangs</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">pop_gangs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span> <span class="n">meta</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">stacks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_gang_stacks</span><span class="p">()</span>
+
+        <span class="n">stacks</span><span class="p">[</span><span class="n">device</span><span class="p">]</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">meta</span><span class="p">:</span>
+            <span class="n">stacks</span><span class="p">[</span><span class="n">META_DEVICE</span><span class="p">]</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_gang_stacks</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">Device</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">Gangs</span><span class="p">]]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tls</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;gang_stacks&quot;</span><span class="p">,</span> <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">))</span>
 
 
 <div class="viewcode-block" id="create_parallel_gangs">
@@ -1332,7 +1507,7 @@
 <span class="sd">    .. __: https://dev-discuss.pytorch.org/t/rfc-c10d-a-new-pytorch-api-split-group-to-create-a-process-group-through-ncclcommsplit/2233</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">intra_node_size</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">fake_gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">gangs</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">fake_gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">gangs</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">Gangs</span><span class="p">(</span>
             <span class="n">root</span><span class="o">=</span><span class="n">gangs</span><span class="o">.</span><span class="n">root</span><span class="p">,</span>
@@ -1498,6 +1673,9 @@
 <span class="sd">        if should_continue:</span>
 <span class="sd">            # All processes execute this together</span>
 <span class="sd">            continue_processing()</span>
+
+<span class="sd">    :raises GangError: Collective operation failed due to an unexpected error</span>
+<span class="sd">        such as a network communication failure.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">flag_pt</span> <span class="o">=</span> <span class="n">to_tensor</span><span class="p">(</span><span class="n">flag</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
@@ -1526,6 +1704,9 @@
 
 <span class="sd">        # Now `total_loss` contains the sum from all processes</span>
 <span class="sd">        average_loss = total_loss / gang.size</span>
+
+<span class="sd">    :raises GangError: Collective operation failed due to an unexpected error</span>
+<span class="sd">        such as a network communication failure.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">value_pt</span> <span class="o">=</span> <span class="n">to_tensor</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
@@ -1569,7 +1750,7 @@
       
     </aside>
   </div>
-</div><script src="../../_static/documentation_options.js?v=a76e1523"></script>
+</div><script src="../../_static/documentation_options.js?v=9d98ccbd"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/scripts/furo.js?v=5fa4622c"></script>

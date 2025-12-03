@@ -240,6 +240,7 @@
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.data.html">fairseq2.data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.data.tokenizers.html">fairseq2.data.tokenizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.data.tokenizers.hub.html">fairseq2.data.tokenizers.hub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.data_type.html">fairseq2.data_type</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.datasets.html">fairseq2.datasets</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.datasets.hub.html">fairseq2.datasets.hub</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">fairseq2.device</a></li>
@@ -316,8 +317,8 @@
 <span id="fairseq2-device"></span><h1>fairseq2.device<a class="headerlink" href="#module-fairseq2.device" title="Link to this heading">¶</a></h1>
 <p>This module provides abstractions for managing PyTorch devices and handling CUDA
 contexts.</p>
-<section id="interfaces">
-<h2>Interfaces<a class="headerlink" href="#interfaces" title="Link to this heading">¶</a></h2>
+<section id="abcs">
+<h2>ABCs<a class="headerlink" href="#abcs" title="Link to this heading">¶</a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.device.CudaContext">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.device.</span></span><span class="sig-name descname"><span class="pre">CudaContext</span></span><a class="reference internal" href="../_modules/fairseq2/device.html#CudaContext"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.device.CudaContext" title="Link to this definition">¶</a></dt>
@@ -352,6 +353,27 @@ information.</p>
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.device.DeviceContext">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.device.</span></span><span class="sig-name descname"><span class="pre">DeviceContext</span></span><a class="reference internal" href="../_modules/fairseq2/device.html#DeviceContext"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.device.DeviceContext" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<p>Provides methods to get and set the current device of the calling thread.</p>
+<p>This interface can be used as an alternative to the corresponding standalone
+functions in object-oriented code.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.device.DeviceContext.get_current_device">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_current_device</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.9)"><span class="pre">device</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/device.html#DeviceContext.get_current_device"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.device.DeviceContext.get_current_device" title="Link to this definition">¶</a></dt>
+<dd><p>See <a class="reference internal" href="#fairseq2.device.get_current_device" title="fairseq2.device.get_current_device"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_current_device()</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.device.DeviceContext.set_device">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">set_device</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.9)"><span class="pre">device</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/contextlib.html#contextlib.AbstractContextManager" title="(in Python v3.14)"><span class="pre">AbstractContextManager</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/device.html#DeviceContext.set_device"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.device.DeviceContext.set_device" title="Link to this definition">¶</a></dt>
+<dd><p>See <a class="reference internal" href="#fairseq2.device.set_device" title="fairseq2.device.set_device"><code class="xref py py-func docutils literal notranslate"><span class="pre">set_device()</span></code></a>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.device.SupportsDeviceTransfer">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.device.</span></span><span class="sig-name descname"><span class="pre">SupportsDeviceTransfer</span></span><a class="reference internal" href="../_modules/fairseq2/device.html#SupportsDeviceTransfer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.device.SupportsDeviceTransfer" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
@@ -367,47 +389,12 @@ asynchronously if possible.</p>
 </dd></dl>
 
 </section>
-<section id="classes">
-<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">¶</a></h2>
-<dl class="py class">
-<dt class="sig sig-object py" id="fairseq2.device.StandardCudaContext">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.device.</span></span><span class="sig-name descname"><span class="pre">StandardCudaContext</span></span><a class="reference internal" href="../_modules/fairseq2/device.html#StandardCudaContext"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.device.StandardCudaContext" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fairseq2.device.CudaContext" title="fairseq2.device.CudaContext"><code class="xref py py-class docutils literal notranslate"><span class="pre">CudaContext</span></code></a></p>
-<p>Represents the standard implementation of <a class="reference internal" href="#fairseq2.device.CudaContext" title="fairseq2.device.CudaContext"><code class="xref py py-class docutils literal notranslate"><span class="pre">CudaContext</span></code></a>.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.device.StandardCudaContext.is_available">
-<span class="sig-name descname"><span class="pre">is_available</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/device.html#StandardCudaContext.is_available"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.device.StandardCudaContext.is_available" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.device.StandardCudaContext.device_count">
-<span class="sig-name descname"><span class="pre">device_count</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/device.html#StandardCudaContext.device_count"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.device.StandardCudaContext.device_count" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.device.StandardCudaContext.get_device_properties">
-<span class="sig-name descname"><span class="pre">get_device_properties</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.9)"><span class="pre">device</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/device.html#StandardCudaContext.get_device_properties"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.device.StandardCudaContext.get_device_properties" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.device.StandardCudaContext.memory_stats">
-<span class="sig-name descname"><span class="pre">memory_stats</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.9)"><span class="pre">device</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/device.html#StandardCudaContext.memory_stats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.device.StandardCudaContext.memory_stats" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.device.StandardCudaContext.reset_peak_memory_stats">
-<span class="sig-name descname"><span class="pre">reset_peak_memory_stats</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/device.html#StandardCudaContext.reset_peak_memory_stats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.device.StandardCudaContext.reset_peak_memory_stats" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-</section>
 <section id="functions">
 <h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h2>
 <dl class="py function">
-<dt class="sig sig-object py" id="fairseq2.device.get_default_device">
-<span class="sig-prename descclassname"><span class="pre">fairseq2.device.</span></span><span class="sig-name descname"><span class="pre">get_default_device</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.9)"><span class="pre">device</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/device.html#get_default_device"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.device.get_default_device" title="Link to this definition">¶</a></dt>
-<dd><p>Returns the default device of this process.</p>
+<dt class="sig sig-object py" id="fairseq2.device.detect_default_device">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.device.</span></span><span class="sig-name descname"><span class="pre">detect_default_device</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.9)"><span class="pre">device</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/device.html#detect_default_device"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.device.detect_default_device" title="Link to this definition">¶</a></dt>
+<dd><p>Detects the default device of this process from environment variables.</p>
 <p>The default device is determined by the following precedence:</p>
 <ol class="arabic simple">
 <li><p>If <code class="docutils literal notranslate"><span class="pre">FAIRSEQ2_DEVICE</span></code> environment variable is set, the specified device
@@ -420,8 +407,14 @@ CUDA device at the specified index will be used.</p></li>
 </ol>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.device.LocalRankOutOfRangeError" title="fairseq2.device.LocalRankOutOfRangeError"><strong>LocalRankOutOfRangeError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">LOCAL_RANK</span></code> environment variable is
-less than zero or exceeds the number of available devices.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>EnvironmentVariableError</strong> – <code class="docutils literal notranslate"><span class="pre">FAIRSEQ2_DEVICE</span></code> environment variable
+does not represent a device.</p></li>
+<li><p><strong>EnvironmentVariableError</strong> – <code class="docutils literal notranslate"><span class="pre">LOCAL_RANK</span></code> environment variable is not
+a positive integer.</p></li>
+<li><p><a class="reference internal" href="#fairseq2.device.LocalRankOutOfRangeError" title="fairseq2.device.LocalRankOutOfRangeError"><strong>LocalRankOutOfRangeError</strong></a> – <code class="docutils literal notranslate"><span class="pre">LOCAL_RANK</span></code> environment variable
+exceeds the number of available devices.</p></li>
+</ul>
 </dd>
 </dl>
 </dd></dl>
@@ -430,34 +423,46 @@ less than zero or exceeds the number of available devices.</p>
 <dt class="sig sig-object py" id="fairseq2.device.get_current_device">
 <span class="sig-prename descclassname"><span class="pre">fairseq2.device.</span></span><span class="sig-name descname"><span class="pre">get_current_device</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.9)"><span class="pre">device</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/device.html#get_current_device"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.device.get_current_device" title="Link to this definition">¶</a></dt>
 <dd><p>Returns the current device of the calling thread.</p>
-<p>The current device of a thread can be changed by using a device as a context
-manager. See <a class="reference external" href="https://docs.pytorch.org/tutorials/recipes/recipes/changing_default_device.html">here</a> for more information.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>PyTorch does not currently expose a public API to retrieve the current
-device of a thread. If such an API becomes available in the future, this
-function will act as an alias for it.</p>
-</div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>This function might impose a slight performance cost. Avoid calling it
 in hot code paths.</p>
 </div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.device.set_device">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.device.</span></span><span class="sig-name descname"><span class="pre">set_device</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.9)"><span class="pre">device</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/contextlib.html#contextlib.AbstractContextManager" title="(in Python v3.14)"><span class="pre">AbstractContextManager</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/device.html#set_device"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.device.set_device" title="Link to this definition">¶</a></dt>
+<dd><p>Changes the device of the calling thread to the specified device.</p>
+<p>This function acts as a context manager, ensuring that within its scope, any
+operation that constructs tensors uses the specified device - unless an
+explicit <code class="docutils literal notranslate"><span class="pre">device</span></code> argument is provided.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This function is equivalent to using a <code class="docutils literal notranslate"><span class="pre">torch.device</span></code> as a context
+manager.</p>
+</div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_current_device</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_device</span>
 
-<span class="c1"># Default device used by PyTorch. Typically CPU.</span>
-<span class="n">default_device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">get_default_device</span><span class="p">()</span>
+<span class="n">cuda0_device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
 
-<span class="k">assert</span> <span class="n">get_current_device</span><span class="p">()</span> <span class="o">==</span> <span class="n">default_device</span>
+<span class="k">with</span> <span class="n">set_device</span><span class="p">(</span><span class="n">cuda0_device</span><span class="p">):</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">))</span>
 
-<span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">t</span><span class="o">.</span><span class="n">device</span> <span class="o">==</span> <span class="n">cuda0_device</span>
 
-<span class="c1"># Instruct PyTorch to use the specified device instead of the default</span>
-<span class="c1"># device for tensor factory operations.</span>
-<span class="k">with</span> <span class="n">device</span><span class="p">:</span>
-    <span class="k">assert</span> <span class="n">get_current_device</span><span class="p">()</span> <span class="o">==</span> <span class="n">device</span>
+    <span class="n">cuda1_device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda:1&quot;</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">set_device</span><span class="p">(</span><span class="n">cuda1_device</span><span class="p">):</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+
+        <span class="k">assert</span> <span class="n">t</span><span class="o">.</span><span class="n">device</span> <span class="o">==</span> <span class="n">cuda1_device</span>
+
+<span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+
+<span class="k">assert</span> <span class="n">t</span><span class="o">.</span><span class="n">device</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -467,10 +472,8 @@ in hot code paths.</p>
 <h2>Exceptions<a class="headerlink" href="#exceptions" title="Link to this heading">¶</a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.device.LocalRankOutOfRangeError">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.device.</span></span><span class="sig-name descname"><span class="pre">LocalRankOutOfRangeError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">local_rank</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_devices</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">device_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/device.html#LocalRankOutOfRangeError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.device.LocalRankOutOfRangeError" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.device.</span></span><span class="sig-name descname"><span class="pre">LocalRankOutOfRangeError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rank</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_devices</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">device_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/device.html#LocalRankOutOfRangeError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.device.LocalRankOutOfRangeError" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
-<p>Raised by <a class="reference internal" href="#fairseq2.device.get_default_device" title="fairseq2.device.get_default_device"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_default_device()</span></code></a> when <code class="docutils literal notranslate"><span class="pre">LOCAL_RANK</span></code> environment variable
-is less than zero or exceeds the number of available devices.</p>
 </dd></dl>
 
 </section>
@@ -536,7 +539,7 @@ is less than zero or exceeds the number of available devices.</p>
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">fairseq2.device</a><ul>
-<li><a class="reference internal" href="#interfaces">Interfaces</a><ul>
+<li><a class="reference internal" href="#abcs">ABCs</a><ul>
 <li><a class="reference internal" href="#fairseq2.device.CudaContext"><code class="docutils literal notranslate"><span class="pre">CudaContext</span></code></a><ul>
 <li><a class="reference internal" href="#fairseq2.device.CudaContext.is_available"><code class="docutils literal notranslate"><span class="pre">CudaContext.is_available()</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.device.CudaContext.device_count"><code class="docutils literal notranslate"><span class="pre">CudaContext.device_count()</span></code></a></li>
@@ -545,26 +548,21 @@ is less than zero or exceeds the number of available devices.</p>
 <li><a class="reference internal" href="#fairseq2.device.CudaContext.reset_peak_memory_stats"><code class="docutils literal notranslate"><span class="pre">CudaContext.reset_peak_memory_stats()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#fairseq2.device.DeviceContext"><code class="docutils literal notranslate"><span class="pre">DeviceContext</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.device.DeviceContext.get_current_device"><code class="docutils literal notranslate"><span class="pre">DeviceContext.get_current_device()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.device.DeviceContext.set_device"><code class="docutils literal notranslate"><span class="pre">DeviceContext.set_device()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#fairseq2.device.SupportsDeviceTransfer"><code class="docutils literal notranslate"><span class="pre">SupportsDeviceTransfer</span></code></a><ul>
 <li><a class="reference internal" href="#fairseq2.device.SupportsDeviceTransfer.to"><code class="docutils literal notranslate"><span class="pre">SupportsDeviceTransfer.to()</span></code></a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#classes">Classes</a><ul>
-<li><a class="reference internal" href="#fairseq2.device.StandardCudaContext"><code class="docutils literal notranslate"><span class="pre">StandardCudaContext</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.device.StandardCudaContext.is_available"><code class="docutils literal notranslate"><span class="pre">StandardCudaContext.is_available()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.device.StandardCudaContext.device_count"><code class="docutils literal notranslate"><span class="pre">StandardCudaContext.device_count()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.device.StandardCudaContext.get_device_properties"><code class="docutils literal notranslate"><span class="pre">StandardCudaContext.get_device_properties()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.device.StandardCudaContext.memory_stats"><code class="docutils literal notranslate"><span class="pre">StandardCudaContext.memory_stats()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.device.StandardCudaContext.reset_peak_memory_stats"><code class="docutils literal notranslate"><span class="pre">StandardCudaContext.reset_peak_memory_stats()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li><a class="reference internal" href="#functions">Functions</a><ul>
-<li><a class="reference internal" href="#fairseq2.device.get_default_device"><code class="docutils literal notranslate"><span class="pre">get_default_device()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.device.detect_default_device"><code class="docutils literal notranslate"><span class="pre">detect_default_device()</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.device.get_current_device"><code class="docutils literal notranslate"><span class="pre">get_current_device()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.device.set_device"><code class="docutils literal notranslate"><span class="pre">set_device()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#exceptions">Exceptions</a><ul>
@@ -582,7 +580,7 @@ is less than zero or exceeds the number of available devices.</p>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=a76e1523"></script>
+</div><script src="../_static/documentation_options.js?v=9d98ccbd"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>

@@ -240,6 +240,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.data.html">fairseq2.data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.data.tokenizers.html">fairseq2.data.tokenizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.data.tokenizers.hub.html">fairseq2.data.tokenizers.hub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.data_type.html">fairseq2.data_type</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.datasets.html">fairseq2.datasets</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.datasets.hub.html">fairseq2.datasets.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.device.html">fairseq2.device</a></li>
@@ -327,10 +328,9 @@ process ranks and the total number of processes.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessGroupGang</span><span class="p">,</span> <span class="n">create_parallel_gangs</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_device</span>
 
 <span class="c1"># Get the default CUDA or CPU device of the process.</span>
-<span class="n">device</span> <span class="o">=</span> <span class="n">get_default_device</span><span class="p">()</span>
+<span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">get_default_device</span><span class="p">()</span>
 
 <span class="c1"># Depending on the device creates a ProcessGroup with NCCL or Gloo backend.</span>
 <span class="n">root_gang</span> <span class="o">=</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">create_default_process_group</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
@@ -432,15 +432,15 @@ patterns.</p></li>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.distributed.device_mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceMesh</span><span class="p">,</span> <span class="n">init_device_mesh</span>
 
 <span class="c1"># Initialize 2D mesh (2x4) - just coordinates, no semantic meaning</span>
-<span class="n">mesh</span><span class="p">:</span> <span class="n">DeviceMesh</span> <span class="o">=</span> <span class="n">init_device_mesh</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">mesh_dim_names</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;dp&quot;</span><span class="p">,</span> <span class="s2">&quot;tp&quot;</span><span class="p">))</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">init_device_mesh</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">mesh_dim_names</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;dp&quot;</span><span class="p">,</span> <span class="s2">&quot;tp&quot;</span><span class="p">))</span>
 
 <span class="c1"># Manual coordinate extraction</span>
-<span class="n">dp_mesh</span><span class="p">:</span> <span class="n">DeviceMesh</span> <span class="o">=</span> <span class="n">mesh</span><span class="p">[</span><span class="s2">&quot;dp&quot;</span><span class="p">]</span>
-<span class="n">tp_mesh</span><span class="p">:</span> <span class="n">DeviceMesh</span> <span class="o">=</span> <span class="n">mesh</span><span class="p">[</span><span class="s2">&quot;tp&quot;</span><span class="p">]</span>
+<span class="n">dp_mesh</span> <span class="o">=</span> <span class="n">mesh</span><span class="p">[</span><span class="s2">&quot;dp&quot;</span><span class="p">]</span>
+<span class="n">tp_mesh</span> <span class="o">=</span> <span class="n">mesh</span><span class="p">[</span><span class="s2">&quot;tp&quot;</span><span class="p">]</span>
 
 <span class="c1"># Create tensors</span>
-<span class="n">tensor_tp</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">)</span>
-<span class="n">tensor_dp</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">)</span>
+<span class="n">tensor_tp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda&quot;</span><span class="p">)</span>
+<span class="n">tensor_dp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda&quot;</span><span class="p">)</span>
 
 <span class="c1"># AllReduce - no semantic indication of parallelism strategy</span>
 <span class="n">dist</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">tensor_tp</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="n">tp_mesh</span><span class="o">.</span><span class="n">get_group</span><span class="p">())</span>
@@ -452,26 +452,22 @@ patterns.</p></li>
 
 <span class="c1"># Gang approach - explicit parallelism strategies</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gang</span><span class="p">,</span> <span class="n">Gangs</span><span class="p">,</span> <span class="n">ProcessGroupGang</span><span class="p">,</span> <span class="n">ReduceOperation</span><span class="p">,</span> <span class="n">create_parallel_gangs</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span><span class="p">,</span> <span class="n">get_default_device</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessGroupGang</span><span class="p">,</span> <span class="n">ReduceOperation</span><span class="p">,</span> <span class="n">create_parallel_gangs</span>
 
 <span class="c1"># Initialize distributed setup</span>
-<span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">get_default_device</span><span class="p">()</span>
-<span class="n">root_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">=</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">create_default_process_group</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+<span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">get_default_device</span><span class="p">()</span>
 
-<span class="c1"># Create semantic parallelism abstractions (dp_size = 8 // 4 = 2)</span>
-<span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span> <span class="o">=</span> <span class="n">create_parallel_gangs</span><span class="p">(</span><span class="n">root_gang</span><span class="p">,</span> <span class="n">tp_size</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">root_gang</span> <span class="o">=</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">create_default_process_group</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
-<span class="c1"># Access parallelism strategies - semantic meaning guaranteed</span>
-<span class="n">dp_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">=</span> <span class="n">gangs</span><span class="o">.</span><span class="n">dp</span>
-<span class="n">tp_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">=</span> <span class="n">gangs</span><span class="o">.</span><span class="n">tp</span>
+<span class="c1"># Create parallelism abstractions (dp_size = 8 // 4 = 2)</span>
+<span class="n">gangs</span> <span class="o">=</span> <span class="n">create_parallel_gangs</span><span class="p">(</span><span class="n">root_gang</span><span class="p">,</span> <span class="n">tp_size</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 
-<span class="n">tensor_tp</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
-<span class="n">tensor_dp</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+<span class="n">tensor_tp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+<span class="n">tensor_dp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
-<span class="c1"># Direct semantic access to parallelism-specific gangs</span>
-<span class="n">tp_gang</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">tensor_tp</span><span class="p">,</span> <span class="n">ReduceOperation</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>  <span class="c1"># Tensor parallel</span>
-<span class="n">dp_gang</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">tensor_dp</span><span class="p">,</span> <span class="n">ReduceOperation</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>  <span class="c1"># Data parallel</span>
+<span class="c1"># Direct access to parallelism-specific gangs</span>
+<span class="n">tp_gang</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">gangs</span><span class="o">.</span><span class="n">tp</span><span class="p">,</span> <span class="n">ReduceOperation</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>  <span class="c1"># Tensor parallel</span>
+<span class="n">dp_gang</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">gangs</span><span class="o">.</span><span class="n">dp</span><span class="p">,</span> <span class="n">ReduceOperation</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>  <span class="c1"># Data parallel</span>
 
 <span class="n">root_gang</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </pre></div>
@@ -490,12 +486,11 @@ not require any implementation changes.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">FakeGang</span><span class="p">,</span> <span class="n">ProcessGroupGang</span><span class="p">,</span> <span class="n">ReduceOperation</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_device</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.env</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_world_size</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="c1"># Get the default CUDA or CPU device of the process.</span>
-    <span class="n">device</span> <span class="o">=</span> <span class="n">get_default_device</span><span class="p">()</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">get_default_device</span><span class="p">()</span>
 
     <span class="c1"># Infer the world size from the `WORLD_SIZE` environment variable.</span>
     <span class="n">world_size</span> <span class="o">=</span> <span class="n">get_world_size</span><span class="p">()</span>
@@ -526,10 +521,9 @@ which is a wrapper on top of PyTorch’s ProcessGroup. It encapsulates scattered
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessGroupGang</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_device</span>
 
 <span class="c1"># Get the default CUDA or CPU device of the process.</span>
-<span class="n">device</span> <span class="o">=</span> <span class="n">get_default_device</span><span class="p">()</span>
+<span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">get_default_device</span><span class="p">()</span>
 
 <span class="c1"># Depending on the device creates a ProcessGroup with NCCL or Gloo backend.</span>
 <span class="n">gang</span> <span class="o">=</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">create_default_process_group</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
@@ -560,10 +554,9 @@ container for all the created parallel gangs.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessGroupGang</span><span class="p">,</span> <span class="n">create_parallel_gangs</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_device</span>
 
 <span class="c1"># Get the default CUDA or CPU device of the process.</span>
-<span class="n">device</span> <span class="o">=</span> <span class="n">get_default_device</span><span class="p">()</span>
+<span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">get_default_device</span><span class="p">()</span>
 
 <span class="c1"># Depending on the device creates a ProcessGroup with NCCL or Gloo backend.</span>
 <span class="n">root_gang</span> <span class="o">=</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">create_default_process_group</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
@@ -592,10 +585,9 @@ sharded gangs to support hybrid and fully sharded data parallelism strategies.</
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessGroupGang</span><span class="p">,</span> <span class="n">create_parallel_gangs</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_device</span>
 
 <span class="c1"># Get the default CUDA or CPU device of the process.</span>
-<span class="n">device</span> <span class="o">=</span> <span class="n">get_default_device</span><span class="p">()</span>
+<span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">get_default_device</span><span class="p">()</span>
 
 <span class="c1"># Depending on the device creates a ProcessGroup with NCCL or Gloo backend.</span>
 <span class="n">root_gang</span> <span class="o">=</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">create_default_process_group</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
@@ -617,10 +609,9 @@ sharded gangs to support hybrid and fully sharded data parallelism strategies.</
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessGroupGang</span><span class="p">,</span> <span class="n">create_parallel_gangs</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_device</span>
 
 <span class="c1"># Get the default CUDA or CPU device of the process.</span>
-<span class="n">device</span> <span class="o">=</span> <span class="n">get_default_device</span><span class="p">()</span>
+<span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">get_default_device</span><span class="p">()</span>
 
 <span class="c1"># Depending on the device creates a ProcessGroup with NCCL or Gloo backend.</span>
 <span class="n">root_gang</span> <span class="o">=</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">create_default_process_group</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
@@ -657,31 +648,39 @@ learn more about how gangs are utilized there.</p>
 </section>
 <section id="how-to-use-gangs-in-deeply-nested-functions">
 <h2>How to use Gangs in deeply nested functions?<a class="headerlink" href="#how-to-use-gangs-in-deeply-nested-functions" title="Link to this heading">¶</a></h2>
-<p>fairseq2 provides a basic API for setting a <a class="reference internal" href="../reference/fairseq2.gang.html#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><code class="xref py py-class docutils literal notranslate"><span class="pre">Gangs</span></code></a> instance as the
-“current” gangs for the calling thread. This feature is particularly useful in
-procedural programming, as it eliminates the need to pass a <a class="reference internal" href="../reference/fairseq2.gang.html#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><code class="xref py py-class docutils literal notranslate"><span class="pre">Gangs</span></code></a>
-instance through every function call.</p>
+<p>fairseq2 provides a basic API for setting a <a class="reference internal" href="../reference/fairseq2.gang.html#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><code class="xref py py-class docutils literal notranslate"><span class="pre">Gangs</span></code></a> instance as either
+the default for the process or the current instance for the calling thread. This
+feature is particularly useful in procedural programming, as it eliminates the
+need to pass a <a class="reference internal" href="../reference/fairseq2.gang.html#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><code class="xref py py-class docutils literal notranslate"><span class="pre">Gangs</span></code></a> instance through every function call.</p>
 <p>When a <a class="reference internal" href="../reference/fairseq2.gang.html#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><code class="xref py py-class docutils literal notranslate"><span class="pre">Gangs</span></code></a> instance is used as a context manager, it is set as the
 current gangs. You can nest <code class="docutils literal notranslate"><span class="pre">with</span> <span class="pre">gangs</span></code> statements to override the current
 gangs as needed. The current gangs instance can be retrieved by calling the
-<a class="reference internal" href="../reference/fairseq2.gang.html#fairseq2.gang.maybe_get_current_gangs" title="fairseq2.gang.maybe_get_current_gangs"><code class="xref py py-func docutils literal notranslate"><span class="pre">maybe_get_current_gangs()</span></code></a> function.</p>
+<a class="reference internal" href="../reference/fairseq2.gang.html#fairseq2.gang.get_current_gangs" title="fairseq2.gang.get_current_gangs"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_current_gangs()</span></code></a> function. Similarly, the default gangs of the process
+can be set and retrieved using <a class="reference internal" href="../reference/fairseq2.gang.html#fairseq2.gang.set_default_gangs" title="fairseq2.gang.set_default_gangs"><code class="xref py py-func docutils literal notranslate"><span class="pre">set_default_gangs()</span></code></a> and <a class="reference internal" href="../reference/fairseq2.gang.html#fairseq2.gang.get_default_gangs" title="fairseq2.gang.get_default_gangs"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_default_gangs()</span></code></a>
+respectively.</p>
 <div class="literal-block-wrapper docutils container" id="id9">
 <div class="code-block-caption"><span class="caption-text">Set and retrieve current thread-local gangs</span><a class="headerlink" href="#id9" title="Link to this code">¶</a></div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gangs</span><span class="p">,</span> <span class="n">maybe_get_current_gangs</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gangs</span><span class="p">,</span> <span class="n">get_current_gangs</span>
 
-<span class="n">gangs</span> <span class="o">=</span> <span class="n">Gangs</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="c1"># If not set previously, returns a set of fake gangs with world size of 1.</span>
+<span class="n">default_gangs</span> <span class="o">=</span> <span class="n">get_default_gangs</span><span class="p">()</span>
+
+<span class="n">gangs</span> <span class="o">=</span> <span class="o">...</span>
 
 <span class="k">with</span> <span class="n">gangs</span><span class="p">:</span>
-    <span class="n">current_gangs</span> <span class="o">=</span> <span class="n">maybe_get_current_gangs</span><span class="p">()</span>
+    <span class="n">current_gangs</span> <span class="o">=</span> <span class="n">get_current_gangs</span><span class="p">()</span>
 
     <span class="k">assert</span> <span class="n">current_gangs</span> <span class="ow">is</span> <span class="n">gangs</span>
 
-<span class="n">current_gangs</span> <span class="o">=</span> <span class="n">maybe_get_current_gangs</span><span class="p">()</span>
+<span class="n">current_gangs</span> <span class="o">=</span> <span class="n">get_current_gangs</span><span class="p">()</span>
 
-<span class="k">assert</span> <span class="n">current_gangs</span> <span class="ow">is</span> <span class="kc">None</span>
+<span class="k">assert</span> <span class="n">current_gangs</span> <span class="ow">is</span> <span class="n">default_gangs</span>
 </pre></div>
 </div>
 </div>
+<p>In addition to the standalone getter and setter functions, fairseq2 also offers
+a <a class="reference internal" href="../reference/fairseq2.gang.html#fairseq2.gang.GangContext" title="fairseq2.gang.GangContext"><code class="xref py py-class docutils literal notranslate"><span class="pre">GangContext</span></code></a> interface for similar purposes, which can be used in
+object-oriented code with dependency injection.</p>
 </section>
 </section>
 
@@ -762,7 +761,7 @@ gangs as needed. The current gangs instance can be retrieved by calling the
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=a76e1523"></script>
+</div><script src="../_static/documentation_options.js?v=9d98ccbd"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>

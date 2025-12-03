@@ -238,6 +238,7 @@
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.data.html">fairseq2.data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.data.tokenizers.html">fairseq2.data.tokenizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.data.tokenizers.hub.html">fairseq2.data.tokenizers.hub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.data_type.html">fairseq2.data_type</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.datasets.html">fairseq2.datasets</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.datasets.hub.html">fairseq2.datasets.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.device.html">fairseq2.device</a></li>
@@ -375,8 +376,6 @@
           <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ProcessGroupGang.barrier">(fairseq2.gang.ProcessGroupGang method)</a>
 </li>
         </ul></li>
-        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.BasicModelCheckpointLoader">BasicModelCheckpointLoader (class in fairseq2.model_checkpoint)</a>
-</li>
         <li><a href="reference/fairseq2.nn.batch_layout.html#fairseq2.nn.BatchLayout">BatchLayout (class in fairseq2.nn)</a>
 </li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.VocabularyInfo.boh_idx">boh_idx (fairseq2.data.tokenizers.VocabularyInfo attribute)</a>
@@ -432,6 +431,8 @@
         <li><a href="reference/fairseq2.nn.batch_layout.html#fairseq2.nn.BatchLayout.compiled_max_seq_len">compiled_max_seq_len (fairseq2.nn.BatchLayout attribute)</a>
 </li>
         <li><a href="reference/fairseq2.nn.utils.html#fairseq2.nn.utils.mask.compute_row_mask">compute_row_mask() (in module fairseq2.nn.utils.mask)</a>
+</li>
+        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.CorruptModelCheckpointError">CorruptModelCheckpointError (class in fairseq2.model_checkpoint)</a>
 </li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.Tokenizer.create_decoder">create_decoder() (fairseq2.data.tokenizers.Tokenizer method)</a>
 
@@ -493,14 +494,18 @@
 </li>
         <li><a href="reference/fairseq2.datasets.hub.html#fairseq2.datasets.hub.DatasetHubAccessor">DatasetHubAccessor (class in fairseq2.datasets.hub)</a>
 </li>
+        <li><a href="reference/fairseq2.data_type.html#fairseq2.data_type.DataTypeContext">DataTypeContext (class in fairseq2.data_type)</a>
+</li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.TokenDecoder.decode_from_tokens">decode_from_tokens() (fairseq2.data.tokenizers.TokenDecoder method)</a>
 </li>
-        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.DelegatingModelCheckpointLoader">DelegatingModelCheckpointLoader (class in fairseq2.model_checkpoint)</a>
+        <li><a href="reference/fairseq2.device.html#fairseq2.device.detect_default_device">detect_default_device() (in module fairseq2.device)</a>
 </li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.FakeGang.device">device (fairseq2.gang.FakeGang property)</a>
 
         <ul>
           <li><a href="reference/fairseq2.gang.html#fairseq2.gang.Gang.device">(fairseq2.gang.Gang property)</a>
+</li>
+          <li><a href="reference/fairseq2.gang.html#fairseq2.gang.Gangs.device">(fairseq2.gang.Gangs property)</a>
 </li>
           <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ProcessGroupGang.device">(fairseq2.gang.ProcessGroupGang property)</a>
 </li>
@@ -508,11 +513,9 @@
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.device.html#fairseq2.device.CudaContext.device_count">device_count() (fairseq2.device.CudaContext method)</a>
-
-        <ul>
-          <li><a href="reference/fairseq2.device.html#fairseq2.device.StandardCudaContext.device_count">(fairseq2.device.StandardCudaContext method)</a>
 </li>
-        </ul></li>
+        <li><a href="reference/fairseq2.device.html#fairseq2.device.DeviceContext">DeviceContext (class in fairseq2.device)</a>
+</li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.Gangs.dp">dp (fairseq2.gang.Gangs attribute)</a>
 </li>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.dropout_p">dropout_p (fairseq2.models.llama.LLaMAConfig attribute)</a>
@@ -567,6 +570,13 @@
 
         <ul>
           <li><a href="reference/assets.html#module-fairseq2.assets">module</a>
+</li>
+        </ul></li>
+        <li>
+    fairseq2.data_type
+
+        <ul>
+          <li><a href="reference/fairseq2.data_type.html#module-fairseq2.data_type">module</a>
 </li>
         </ul></li>
         <li>
@@ -625,10 +635,10 @@
           <li><a href="reference/fairseq2.utils.validation.html#module-fairseq2.utils.validation">module</a>
 </li>
         </ul></li>
-        <li><a href="reference/fairseq2.gang.html#fairseq2.gang.FakeGang">FakeGang (class in fairseq2.gang)</a>
-</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/fairseq2.gang.html#fairseq2.gang.FakeGang">FakeGang (class in fairseq2.gang)</a>
+</li>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.ffn_inner_dim">ffn_inner_dim (fairseq2.models.llama.LLaMAConfig attribute)</a>
 
         <ul>
@@ -687,9 +697,13 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.Gang">Gang (class in fairseq2.gang)</a>
 </li>
+        <li><a href="reference/fairseq2.gang.html#fairseq2.gang.GangContext">GangContext (class in fairseq2.gang)</a>
+</li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.GangError">GangError (class in fairseq2.gang)</a>
 </li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.Gangs">Gangs (class in fairseq2.gang)</a>
+</li>
+        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoadOptions.gangs">gangs (fairseq2.model_checkpoint.ModelCheckpointLoadOptions attribute)</a>
 </li>
         <li><a href="reference/fairseq2.models.hub.html#fairseq2.models.hub.ModelHub.get_arch_config">get_arch_config() (fairseq2.models.hub.ModelHub method)</a>
 
@@ -703,23 +717,37 @@
           <li><a href="reference/fairseq2.models.html#fairseq2.models.ModelHub.get_archs">(fairseq2.models.ModelHub method)</a>
 </li>
         </ul></li>
-        <li><a href="reference/fairseq2.device.html#fairseq2.device.get_current_device">get_current_device() (in module fairseq2.device)</a>
-</li>
-        <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.get_data_parallel_facade">get_data_parallel_facade() (in module fairseq2.nn.data_parallel)</a>
-</li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="reference/fairseq2.datasets.hub.html#fairseq2.datasets.hub.DatasetHub.get_dataset_config">get_dataset_config() (fairseq2.datasets.hub.DatasetHub method)</a>
-</li>
-        <li><a href="reference/fairseq2.device.html#fairseq2.device.get_default_device">get_default_device() (in module fairseq2.device)</a>
-</li>
-        <li><a href="reference/fairseq2.device.html#fairseq2.device.CudaContext.get_device_properties">get_device_properties() (fairseq2.device.CudaContext method)</a>
+        <li><a href="reference/fairseq2.device.html#fairseq2.device.DeviceContext.get_current_device">get_current_device() (fairseq2.device.DeviceContext method)</a>
 
         <ul>
-          <li><a href="reference/fairseq2.device.html#fairseq2.device.StandardCudaContext.get_device_properties">(fairseq2.device.StandardCudaContext method)</a>
+          <li><a href="reference/fairseq2.device.html#fairseq2.device.get_current_device">(in module fairseq2.device)</a>
 </li>
         </ul></li>
+        <li><a href="reference/fairseq2.data_type.html#fairseq2.data_type.DataTypeContext.get_current_dtype">get_current_dtype() (fairseq2.data_type.DataTypeContext method)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.data_type.html#fairseq2.data_type.get_current_dtype">(in module fairseq2.data_type)</a>
+</li>
+        </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/fairseq2.gang.html#fairseq2.gang.GangContext.get_current_gangs">get_current_gangs() (fairseq2.gang.GangContext method)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.gang.html#fairseq2.gang.get_current_gangs">(in module fairseq2.gang)</a>
+</li>
+        </ul></li>
+        <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.get_data_parallel_facade">get_data_parallel_facade() (in module fairseq2.nn.data_parallel)</a>
+</li>
+        <li><a href="reference/fairseq2.datasets.hub.html#fairseq2.datasets.hub.DatasetHub.get_dataset_config">get_dataset_config() (fairseq2.datasets.hub.DatasetHub method)</a>
+</li>
+        <li><a href="reference/fairseq2.gang.html#fairseq2.gang.get_default_gangs">get_default_gangs() (in module fairseq2.gang)</a>
+</li>
+        <li><a href="reference/fairseq2.device.html#fairseq2.device.CudaContext.get_device_properties">get_device_properties() (fairseq2.device.CudaContext method)</a>
+</li>
         <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.get_hugging_face_converter">get_hugging_face_converter() (in module fairseq2.models.hg)</a>
+</li>
+        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.get_model_checkpoint_loader">get_model_checkpoint_loader() (in module fairseq2.model_checkpoint)</a>
 </li>
         <li><a href="reference/fairseq2.models.hub.html#fairseq2.models.hub.ModelHub.get_model_config">get_model_config() (fairseq2.models.hub.ModelHub method)</a>
 
@@ -776,11 +804,7 @@
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.device.html#fairseq2.device.CudaContext.is_available">is_available() (fairseq2.device.CudaContext method)</a>
-
-        <ul>
-          <li><a href="reference/fairseq2.device.html#fairseq2.device.StandardCudaContext.is_available">(fairseq2.device.StandardCudaContext method)</a>
 </li>
-        </ul></li>
         <li><a href="reference/fairseq2.data.tokenizers.hub.html#fairseq2.data.tokenizers.hub.TokenizerHub.iter_cards">iter_cards() (fairseq2.data.tokenizers.hub.TokenizerHub method)</a>
 
         <ul>
@@ -821,18 +845,8 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.nn.normalization.html#fairseq2.nn.LayerNorm">LayerNorm (class in fairseq2.nn)</a>
 </li>
-        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.BasicModelCheckpointLoader.lazy_load">lazy_load() (fairseq2.model_checkpoint.BasicModelCheckpointLoader method)</a>
-
-        <ul>
-          <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.DelegatingModelCheckpointLoader.lazy_load">(fairseq2.model_checkpoint.DelegatingModelCheckpointLoader method)</a>
+        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoader.lazy_load">lazy_load() (fairseq2.model_checkpoint.ModelCheckpointLoader method)</a>
 </li>
-          <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoader.lazy_load">(fairseq2.model_checkpoint.ModelCheckpointLoader method)</a>
-</li>
-          <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.NativeModelCheckpointLoader.lazy_load">(fairseq2.model_checkpoint.NativeModelCheckpointLoader method)</a>
-</li>
-          <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.SafetensorsCheckpointLoader.lazy_load">(fairseq2.model_checkpoint.SafetensorsCheckpointLoader method)</a>
-</li>
-        </ul></li>
         <li><a href="reference/fairseq2.nn.position_encoder.html#fairseq2.nn.LearnedPositionEncoder">LearnedPositionEncoder (class in fairseq2.nn)</a>
 </li>
         <li><a href="reference/fairseq2.nn.projection.html#fairseq2.nn.Linear">Linear (class in fairseq2.nn)</a>
@@ -841,14 +855,14 @@
 </li>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMATokenizerConfig">LLaMATokenizerConfig (class in fairseq2.models.llama)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.models.hub.html#fairseq2.models.hub.ModelHub.load_custom_model">load_custom_model() (fairseq2.models.hub.ModelHub method)</a>
 
         <ul>
           <li><a href="reference/fairseq2.models.html#fairseq2.models.ModelHub.load_custom_model">(fairseq2.models.ModelHub method)</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.data.tokenizers.hub.html#fairseq2.data.tokenizers.hub.TokenizerHub.load_custom_tokenizer">load_custom_tokenizer() (fairseq2.data.tokenizers.hub.TokenizerHub method)</a>
 </li>
         <li><a href="reference/fairseq2.models.hub.html#fairseq2.models.hub.ModelHub.load_model">load_model() (fairseq2.models.hub.ModelHub method)</a>
@@ -897,8 +911,6 @@
           <li><a href="reference/fairseq2.models.html#fairseq2.models.ModelHub.maybe_get_arch_config">(fairseq2.models.ModelHub method)</a>
 </li>
         </ul></li>
-        <li><a href="reference/fairseq2.gang.html#fairseq2.gang.maybe_get_current_gangs">maybe_get_current_gangs() (in module fairseq2.gang)</a>
-</li>
         <li><a href="reference/fairseq2.nn.incremental_state.html#fairseq2.nn.IncrementalStateBag.maybe_get_state">maybe_get_state() (fairseq2.nn.IncrementalStateBag method)</a>
 </li>
         <li><a href="reference/fairseq2.recipe.optim.html#fairseq2.recipe.optim.maybe_raise_param_group_length_error">maybe_raise_param_group_length_error() (in module fairseq2.recipe.optim)</a>
@@ -906,14 +918,12 @@
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ReduceOperation.MEAN">MEAN (fairseq2.gang.ReduceOperation attribute)</a>
 </li>
         <li><a href="reference/fairseq2.device.html#fairseq2.device.CudaContext.memory_stats">memory_stats() (fairseq2.device.CudaContext method)</a>
-
-        <ul>
-          <li><a href="reference/fairseq2.device.html#fairseq2.device.StandardCudaContext.memory_stats">(fairseq2.device.StandardCudaContext method)</a>
 </li>
-        </ul></li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ReduceOperation.MIN">MIN (fairseq2.gang.ReduceOperation attribute)</a>
 </li>
         <li><a href="reference/fairseq2.nn.batch_layout.html#fairseq2.nn.BatchLayout.min_seq_len">min_seq_len (fairseq2.nn.BatchLayout property)</a>
+</li>
+        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoadOptions.mmap">mmap (fairseq2.model_checkpoint.ModelCheckpointLoadOptions attribute)</a>
 </li>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.model_dim">model_dim (fairseq2.models.llama.LLaMAConfig attribute)</a>
 
@@ -923,11 +933,11 @@
         </ul></li>
         <li><a href="reference/fairseq2.models.html#fairseq2.models.ModelArchitectureNotKnownError">ModelArchitectureNotKnownError (class in fairseq2.models)</a>
 </li>
+        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoader">ModelCheckpointLoader (class in fairseq2.model_checkpoint)</a>
+</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointError">ModelCheckpointError (class in fairseq2.model_checkpoint)</a>
-</li>
-        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoader">ModelCheckpointLoader (class in fairseq2.model_checkpoint)</a>
+        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoadOptions">ModelCheckpointLoadOptions (class in fairseq2.model_checkpoint)</a>
 </li>
         <li><a href="reference/fairseq2.models.html#fairseq2.models.ModelFamilyNotKnownError">ModelFamilyNotKnownError (class in fairseq2.models)</a>
 </li>
@@ -952,6 +962,8 @@
           <li><a href="reference/fairseq2.nn.html#module-fairseq2">fairseq2</a>
 </li>
           <li><a href="reference/assets.html#module-fairseq2.assets">fairseq2.assets</a>
+</li>
+          <li><a href="reference/fairseq2.data_type.html#module-fairseq2.data_type">fairseq2.data_type</a>
 </li>
           <li><a href="reference/fairseq2.device.html#module-fairseq2.device">fairseq2.device</a>
 </li>
@@ -978,8 +990,6 @@
   <h2>N</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.NativeModelCheckpointLoader">NativeModelCheckpointLoader (class in fairseq2.model_checkpoint)</a>
-</li>
         <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade.no_sync">no_sync() (fairseq2.nn.data_parallel.DataParallelFacade method)</a>
 </li>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.num_attn_heads">num_attn_heads (fairseq2.models.llama.LLaMAConfig attribute)</a>
@@ -1086,8 +1096,6 @@
   <h2>R</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="reference/fairseq2.gang.html#fairseq2.gang.raise_operational_gang_error">raise_operational_gang_error() (in module fairseq2.gang)</a>
-</li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.FakeGang.rank">rank (fairseq2.gang.FakeGang property)</a>
 
         <ul>
@@ -1135,14 +1143,12 @@
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.device.html#fairseq2.device.CudaContext.reset_peak_memory_stats">reset_peak_memory_stats() (fairseq2.device.CudaContext method)</a>
-
-        <ul>
-          <li><a href="reference/fairseq2.device.html#fairseq2.device.StandardCudaContext.reset_peak_memory_stats">(fairseq2.device.StandardCudaContext method)</a>
 </li>
-        </ul></li>
         <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.reshard_tensor">reshard_tensor() (in module fairseq2.model_checkpoint)</a>
 </li>
         <li><a href="reference/fairseq2.nn.residual.html#fairseq2.nn.ResidualConnect">ResidualConnect (class in fairseq2.nn)</a>
+</li>
+        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoadOptions.restrict">restrict (fairseq2.model_checkpoint.ModelCheckpointLoadOptions attribute)</a>
 </li>
         <li><a href="reference/fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationError.result">result (fairseq2.utils.validation.ValidationError attribute)</a>
 </li>
@@ -1168,8 +1174,6 @@
   <h2>S</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.SafetensorsCheckpointLoader">SafetensorsCheckpointLoader (class in fairseq2.model_checkpoint)</a>
-</li>
         <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.save_hugging_face_model">save_hugging_face_model() (in module fairseq2.models.hg)</a>
 </li>
         <li><a href="reference/fairseq2.nn.residual.html#fairseq2.nn.ScaledResidualConnect">ScaledResidualConnect (class in fairseq2.nn)</a>
@@ -1186,6 +1190,26 @@
 </li>
         <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.set_data_parallel_facade">set_data_parallel_facade() (in module fairseq2.nn.data_parallel)</a>
 </li>
+        <li><a href="reference/fairseq2.gang.html#fairseq2.gang.set_default_gangs">set_default_gangs() (in module fairseq2.gang)</a>
+</li>
+        <li><a href="reference/fairseq2.device.html#fairseq2.device.DeviceContext.set_device">set_device() (fairseq2.device.DeviceContext method)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.device.html#fairseq2.device.set_device">(in module fairseq2.device)</a>
+</li>
+        </ul></li>
+        <li><a href="reference/fairseq2.data_type.html#fairseq2.data_type.DataTypeContext.set_dtype">set_dtype() (fairseq2.data_type.DataTypeContext method)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.data_type.html#fairseq2.data_type.set_dtype">(in module fairseq2.data_type)</a>
+</li>
+        </ul></li>
+        <li><a href="reference/fairseq2.gang.html#fairseq2.gang.GangContext.set_gangs">set_gangs() (fairseq2.gang.GangContext method)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.gang.html#fairseq2.gang.set_gangs">(in module fairseq2.gang)</a>
+</li>
+        </ul></li>
         <li><a href="reference/fairseq2.nn.incremental_state.html#fairseq2.nn.IncrementalStateBag.set_state">set_state() (fairseq2.nn.IncrementalStateBag method)</a>
 </li>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.shard_embed_dim">shard_embed_dim (fairseq2.models.llama.LLaMAConfig attribute)</a>
@@ -1204,17 +1228,15 @@
           <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ProcessGroupGang.size">(fairseq2.gang.ProcessGroupGang property)</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.nn.incremental_state.html#fairseq2.nn.IncrementalState.size_bytes">size_bytes() (fairseq2.nn.IncrementalState method)</a>
 
         <ul>
           <li><a href="reference/fairseq2.nn.incremental_state.html#fairseq2.nn.IncrementalStateBag.size_bytes">(fairseq2.nn.IncrementalStateBag method)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMATokenizerConfig.split_regex">split_regex (fairseq2.models.llama.LLaMATokenizerConfig attribute)</a>
-</li>
-        <li><a href="reference/fairseq2.device.html#fairseq2.device.StandardCudaContext">StandardCudaContext (class in fairseq2.device)</a>
 </li>
         <li><a href="reference/fairseq2.nn.embedding.html#fairseq2.nn.StandardEmbedding">StandardEmbedding (class in fairseq2.nn)</a>
 </li>
@@ -1223,6 +1245,8 @@
         <li><a href="reference/fairseq2.utils.validation.html#fairseq2.utils.validation.StandardObjectValidator">StandardObjectValidator (class in fairseq2.utils.validation)</a>
 </li>
         <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade.state_dict">state_dict() (fairseq2.nn.data_parallel.DataParallelFacade method)</a>
+</li>
+        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoadOptions.state_dict_converter">state_dict_converter (fairseq2.model_checkpoint.ModelCheckpointLoadOptions attribute)</a>
 </li>
         <li><a href="reference/fairseq2.nn.incremental_state.html#fairseq2.nn.IncrementalStateBag.step_nr">step_nr (fairseq2.nn.IncrementalStateBag property)</a>
 </li>
@@ -1234,18 +1258,8 @@
 </li>
         <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade.summon_full_parameters">summon_full_parameters() (fairseq2.nn.data_parallel.DataParallelFacade method)</a>
 </li>
-        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.BasicModelCheckpointLoader.supports_path">supports_path() (fairseq2.model_checkpoint.BasicModelCheckpointLoader method)</a>
-
-        <ul>
-          <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.DelegatingModelCheckpointLoader.supports_path">(fairseq2.model_checkpoint.DelegatingModelCheckpointLoader method)</a>
+        <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoader.supports_path">supports_path() (fairseq2.model_checkpoint.ModelCheckpointLoader method)</a>
 </li>
-          <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoader.supports_path">(fairseq2.model_checkpoint.ModelCheckpointLoader method)</a>
-</li>
-          <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.NativeModelCheckpointLoader.supports_path">(fairseq2.model_checkpoint.NativeModelCheckpointLoader method)</a>
-</li>
-          <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.SafetensorsCheckpointLoader.supports_path">(fairseq2.model_checkpoint.SafetensorsCheckpointLoader method)</a>
-</li>
-        </ul></li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.FakeGang.supports_process_group">supports_process_group (fairseq2.gang.FakeGang property)</a>
 
         <ul>
@@ -1400,7 +1414,7 @@
       
     </aside>
   </div>
-</div><script src="_static/documentation_options.js?v=a76e1523"></script>
+</div><script src="_static/documentation_options.js?v=9d98ccbd"></script>
     <script src="_static/doctools.js?v=9a2dae69"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/scripts/furo.js?v=5fa4622c"></script>

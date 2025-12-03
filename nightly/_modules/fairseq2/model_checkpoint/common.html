@@ -239,6 +239,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.data.html">fairseq2.data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.data.tokenizers.html">fairseq2.data.tokenizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.data.tokenizers.hub.html">fairseq2.data.tokenizers.hub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.data_type.html">fairseq2.data_type</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.datasets.html">fairseq2.datasets</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.datasets.hub.html">fairseq2.datasets.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/fairseq2.device.html">fairseq2.device</a></li>
@@ -314,14 +315,10 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.sharder</span><span class="w"> </span><span class="kn">import</span> <span class="n">ShardSpec</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.warn</span><span class="w"> </span><span class="kn">import</span> <span class="n">_warn_deprecated</span>
 
 
 <div class="viewcode-block" id="reshard_tensor">
@@ -332,8 +329,7 @@
     <span class="n">source_shard_sizes</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
     <span class="n">target_shard_sizes</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
     <span class="n">target_shard_ranks</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
-    <span class="n">shard_specs</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ShardSpec</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">shard_dims</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">shard_dims</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Reshards a parameter tensor from a distributed source configuration to a</span>
@@ -344,9 +340,7 @@
 <span class="sd">    loading checkpoints from one distributed configuration (e.g. 4-way tensor</span>
 <span class="sd">    parallelism) to a different target configuration (e.g. 8-way tensor</span>
 <span class="sd">    parallelism). It efficiently concatenates and slices tensors to produce the</span>
-<span class="sd">    correct shards for the target rank. The existing implementations such as</span>
-<span class="sd">    :class:`NativeModelCheckpointLoader` may be inspected to see how ``reshard_tensor``</span>
-<span class="sd">    is used in practice.</span>
+<span class="sd">    correct shards for the target rank.</span>
 
 <span class="sd">    The resharding process involves:</span>
 
@@ -370,35 +364,35 @@
 <span class="sd">    ``target_shard_ranks`` specifies the ranks of the current process in the</span>
 <span class="sd">    target configuration in the form of ``(tp_rank, dp_rank)``.</span>
 
-<span class="sd">    If ``shard_dims`` is provided, it specifies the mapping from parameter names</span>
-<span class="sd">    to dimensions along which parameters should be sharded for tensor parallelism.</span>
-<span class="sd">    Omitted for replicated tensors. See :func:`~fairseq2.nn.get_sharding_dims`</span>
-<span class="sd">    for more information.</span>
-
-<span class="sd">    ``shard_specs`` is deprecated and will be removed in v0.12; please use</span>
-<span class="sd">    ``shard_dims`` instead.</span>
+<span class="sd">    ``shard_dims`` specifies the mapping from parameter names to dimensions</span>
+<span class="sd">    along which parameters should be sharded for tensor parallelism. Omitted for</span>
+<span class="sd">    replicated tensors. See :func:`~fairseq2.nn.get_sharding_dims` for more</span>
+<span class="sd">    information.</span>
 
 <span class="sd">    Returns the resharded tensor for the target rank and configuration.</span>
 
 <span class="sd">    .. code:: python</span>
 <span class="sd">        :caption: Resharding from 2-way TP to 4-way TP</span>
 
-<span class="sd">        # Resharding from 2-way TP to 4-way TP</span>
-<span class="sd">        source_splits = [[tensor_tp0_dp0], [tensor_tp1_dp0]]  # 2 TP shards, 1 DP shard each</span>
+<span class="sd">        param_name = &quot;model.weight&quot;</span>
+
+<span class="sd">        # 2 TP shards with 1 DP shard each.</span>
+<span class="sd">        source_splits = [[tensor_tp0_dp0], [tensor_tp1_dp0]]</span>
+
 <span class="sd">        source_shard_sizes = (2, 1)  # 2-way TP, 1-way DP</span>
 <span class="sd">        target_shard_sizes = (4, 1)  # 4-way TP, 1-way DP</span>
+
 <span class="sd">        target_shard_ranks = (2, 0)  # Want shard for TP rank 2</span>
 
 <span class="sd">        # For a tensor with TP dim=0, this will concatenate the 2 source shards</span>
 <span class="sd">        # and slice out the portion corresponding to TP rank 2 in 4-way setup</span>
 <span class="sd">        resharded = reshard_tensor(</span>
-<span class="sd">            &quot;model.weight&quot;,</span>
+<span class="sd">            param_name,</span>
 <span class="sd">            source_splits,</span>
 <span class="sd">            source_shard_sizes,</span>
 <span class="sd">            target_shard_sizes,</span>
 <span class="sd">            target_shard_ranks,</span>
-<span class="sd">            None,  # deprecated</span>
-<span class="sd">            {&quot;model.weight&quot;: 0}</span>
+<span class="sd">            shard_dims={param_name: 0},</span>
 <span class="sd">        )</span>
 
 <span class="sd">    .. note::</span>
@@ -406,16 +400,6 @@
 <span class="sd">        This function deletes intermediate tensors during the resharding process</span>
 <span class="sd">        to minimize peak memory usage.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">shard_specs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">shard_dims</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;`shard_specs` and `shard_dims` must not be specified at the same time.&quot;</span>
-            <span class="p">)</span>
-
-        <span class="n">_warn_deprecated</span><span class="p">(</span>
-            <span class="s2">&quot;`shard_specs` parameter of `ModelCheckpointLoader` is deprecated and will be removed in fairseq2 v0.12. See src/fairseq2/sharder.py for details.&quot;</span>
-        <span class="p">)</span>
-
     <span class="n">source_tp_size</span><span class="p">,</span> <span class="n">source_dp_size</span> <span class="o">=</span> <span class="n">source_shard_sizes</span>
     <span class="n">target_tp_size</span><span class="p">,</span> <span class="n">target_dp_size</span> <span class="o">=</span> <span class="n">target_shard_sizes</span>
 
@@ -431,10 +415,10 @@
 
         <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">source_dp_splits</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
-    <span class="n">tp_dim</span> <span class="o">=</span> <span class="n">_get_tp_dim</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">shard_specs</span><span class="p">,</span> <span class="n">shard_dims</span><span class="p">)</span>
+    <span class="n">tp_dim</span> <span class="o">=</span> <span class="n">shard_dims</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
     <span class="c1"># We assume that non-tensor parallel parameters are always replicated.</span>
-    <span class="k">if</span> <span class="n">tp_dim</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">tp_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">source_dp_splits</span> <span class="o">=</span> <span class="n">source_splits</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
         <span class="k">if</span> <span class="n">source_dp_size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
@@ -492,32 +476,6 @@
         <span class="n">dim</span><span class="o">=</span><span class="n">tp_dim</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">first_target_idx</span> <span class="o">-</span> <span class="n">first_source_idx</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">target_tp_dim_size</span>
     <span class="p">)</span></div>
 
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_get_tp_dim</span><span class="p">(</span>
-    <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="n">shard_specs</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ShardSpec</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">shard_dims</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-    <span class="k">if</span> <span class="n">shard_dims</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">dim</span> <span class="o">=</span> <span class="n">shard_dims</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">dim</span>
-
-    <span class="k">if</span> <span class="n">shard_specs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
-
-    <span class="n">offset</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">rfind</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">offset</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">module_name</span> <span class="o">=</span> <span class="n">key</span><span class="p">[:</span><span class="n">offset</span><span class="p">]</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">module_name</span> <span class="o">=</span> <span class="n">key</span>
-
-    <span class="k">for</span> <span class="n">pattern</span><span class="p">,</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">shard_specs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">module_name</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">spec</span><span class="o">.</span><span class="n">dim</span>
-
-    <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
 </pre></div>
         </article>
       </div>
@@ -554,7 +512,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=a76e1523"></script>
+</div><script src="../../../_static/documentation_options.js?v=9d98ccbd"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

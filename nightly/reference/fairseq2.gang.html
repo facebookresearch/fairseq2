@@ -240,6 +240,7 @@
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.data.html">fairseq2.data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.data.tokenizers.html">fairseq2.data.tokenizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.data.tokenizers.hub.html">fairseq2.data.tokenizers.hub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.data_type.html">fairseq2.data_type</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.datasets.html">fairseq2.datasets</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.datasets.hub.html">fairseq2.datasets.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.device.html">fairseq2.device</a></li>
@@ -320,8 +321,8 @@ operations such as all-reduce, broadcast, and other distributed primitives.</p>
 distributed environments (using PyTorch’s distributed backend) and simulated
 environments for testing and single-process scenarios.</p>
 <p>See <a class="reference internal" href="../concepts/gang.html"><span class="doc">What is a Gang?</span></a> for more information.</p>
-<section id="classes">
-<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">¶</a></h2>
+<section id="abcs">
+<h2>ABCs<a class="headerlink" href="#abcs" title="Link to this heading">¶</a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.gang.Gang">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.gang.</span></span><span class="sig-name descname"><span class="pre">Gang</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/gang.html#Gang"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.Gang" title="Link to this definition">¶</a></dt>
@@ -336,9 +337,9 @@ environments for testing and single-process scenarios.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">ranks</span></code> contains duplicates, or has one or more
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – <code class="docutils literal notranslate"><span class="pre">ranks</span></code> contains duplicates, or has one or more
 out of range values.</p></li>
-<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p></li>
 </ul>
 </dd>
@@ -362,7 +363,7 @@ error such as a network communication failure.</p></li>
 PyTorch’s distributed operations and collective communication functions.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>NotSupportedError</strong> – If the gang implementation does not support
+<dd class="field-odd"><p><strong>NotSupportedError</strong> – Gang implementation does not support
 conversion to a ProcessGroup (e.g. <a class="reference internal" href="#fairseq2.gang.FakeGang" title="fairseq2.gang.FakeGang"><code class="xref py py-class docutils literal notranslate"><span class="pre">FakeGang</span></code></a>).</p>
 </dd>
 </dl>
@@ -377,7 +378,7 @@ gang reach this synchronization point. Used for ensuring a consistent
 state across all processes before proceeding.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p>
 </dd>
 </dl>
@@ -392,7 +393,7 @@ operation and distributes the result to all processes. The input tensor
 is modified in-place to contain the reduction result.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p>
 </dd>
 </dl>
@@ -424,7 +425,7 @@ tensor. The output tensor must have shape <code class="docutils literal notransl
 and be contiguous in memory.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p>
 </dd>
 </dl>
@@ -456,7 +457,7 @@ instead of concatenating them into a single tensor. <code class="docutils litera
 must be a pre-allocated list with length equal to <code class="docutils literal notranslate"><span class="pre">gang.size</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p>
 </dd>
 </dl>
@@ -473,8 +474,8 @@ contain the broadcasted data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">source_rank</span></code> is out of valid range.</p></li>
-<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – <code class="docutils literal notranslate"><span class="pre">source_rank</span></code> is out of valid range.</p></li>
+<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p></li>
 </ul>
 </dd>
@@ -492,8 +493,8 @@ Each process must provide lists of equal sizes.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">source_rank</span></code> is out of valid range.</p></li>
-<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – <code class="docutils literal notranslate"><span class="pre">source_rank</span></code> is out of valid range.</p></li>
+<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p></li>
 </ul>
 </dd>
@@ -523,6 +524,30 @@ error such as a network communication failure.</p></li>
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.gang.GangContext">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.gang.</span></span><span class="sig-name descname"><span class="pre">GangContext</span></span><a class="reference internal" href="../_modules/fairseq2/gang.html#GangContext"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.GangContext" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<p>Provides methods to get and set the current gangs of the calling thread.</p>
+<p>This interface can be used as an alternative to the corresponding standalone
+functions in object-oriented code.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.gang.GangContext.get_current_gangs">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_current_gangs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.9)"><span class="pre">device</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><span class="pre">Gangs</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/gang.html#GangContext.get_current_gangs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.GangContext.get_current_gangs" title="Link to this definition">¶</a></dt>
+<dd><p>See <a class="reference internal" href="#fairseq2.gang.get_current_gangs" title="fairseq2.gang.get_current_gangs"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_current_gangs()</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.gang.GangContext.set_gangs">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">set_gangs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gangs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><span class="pre">Gangs</span></a></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/contextlib.html#contextlib.AbstractContextManager" title="(in Python v3.14)"><span class="pre">AbstractContextManager</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/gang.html#GangContext.set_gangs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.GangContext.set_gangs" title="Link to this definition">¶</a></dt>
+<dd><p>See <a class="reference internal" href="#fairseq2.gang.set_gangs" title="fairseq2.gang.set_gangs"><code class="xref py py-func docutils literal notranslate"><span class="pre">set_gangs()</span></code></a>.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">¶</a></h2>
+<dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.gang.ProcessGroupGang">
 <em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.gang.</span></span><span class="sig-name descname"><span class="pre">ProcessGroupGang</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_pg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/distributed._dist2.html#torch.distributed._dist2.ProcessGroup" title="(in PyTorch v2.9)"><span class="pre">ProcessGroup</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">_device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.9)"><span class="pre">device</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/gang.html#ProcessGroupGang"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.ProcessGroupGang" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#fairseq2.gang.Gang" title="fairseq2.gang.Gang"><code class="xref py py-class docutils literal notranslate"><span class="pre">Gang</span></code></a></p>
@@ -544,12 +569,11 @@ supported by the underlying backend.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">device</span></code> is not of type <code class="docutils literal notranslate"><span class="pre">cpu</span></code> or <code class="docutils literal notranslate"><span class="pre">cuda</span></code>.</p></li>
-<li><p><strong>NotSupportedError</strong> – If <code class="docutils literal notranslate"><span class="pre">torch.distributed</span></code> is not available.</p></li>
-<li><p><strong>InvalidOperationError</strong> – If the root process group is already
-initialized.</p></li>
-<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the underlying process group fails to initialize
-due to an unexpected error such as a network communication failure.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – <code class="docutils literal notranslate"><span class="pre">device</span></code> is not of type <code class="docutils literal notranslate"><span class="pre">cpu</span></code> or <code class="docutils literal notranslate"><span class="pre">cuda</span></code>.</p></li>
+<li><p><strong>NotSupportedError</strong> – <code class="docutils literal notranslate"><span class="pre">torch.distributed</span></code> is not available.</p></li>
+<li><p><strong>InvalidOperationError</strong> – Root process group is already initialized.</p></li>
+<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Underlying process group failed to initialize due to
+an unexpected error such as a network communication failure.</p></li>
 </ul>
 </dd>
 </dl>
@@ -570,9 +594,9 @@ due to an unexpected error such as a network communication failure.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">ranks</span></code> contains duplicates, or has one or more
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – <code class="docutils literal notranslate"><span class="pre">ranks</span></code> contains duplicates, or has one or more
 out of range values.</p></li>
-<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p></li>
 </ul>
 </dd>
@@ -596,7 +620,7 @@ error such as a network communication failure.</p></li>
 PyTorch’s distributed operations and collective communication functions.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>NotSupportedError</strong> – If the gang implementation does not support
+<dd class="field-odd"><p><strong>NotSupportedError</strong> – Gang implementation does not support
 conversion to a ProcessGroup (e.g. <a class="reference internal" href="#fairseq2.gang.FakeGang" title="fairseq2.gang.FakeGang"><code class="xref py py-class docutils literal notranslate"><span class="pre">FakeGang</span></code></a>).</p>
 </dd>
 </dl>
@@ -611,7 +635,7 @@ gang reach this synchronization point. Used for ensuring a consistent
 state across all processes before proceeding.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p>
 </dd>
 </dl>
@@ -626,7 +650,7 @@ operation and distributes the result to all processes. The input tensor
 is modified in-place to contain the reduction result.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p>
 </dd>
 </dl>
@@ -658,7 +682,7 @@ tensor. The output tensor must have shape <code class="docutils literal notransl
 and be contiguous in memory.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p>
 </dd>
 </dl>
@@ -690,7 +714,7 @@ instead of concatenating them into a single tensor. <code class="docutils litera
 must be a pre-allocated list with length equal to <code class="docutils literal notranslate"><span class="pre">gang.size</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p>
 </dd>
 </dl>
@@ -707,8 +731,8 @@ contain the broadcasted data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">source_rank</span></code> is out of valid range.</p></li>
-<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – <code class="docutils literal notranslate"><span class="pre">source_rank</span></code> is out of valid range.</p></li>
+<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p></li>
 </ul>
 </dd>
@@ -726,8 +750,8 @@ Each process must provide lists of equal sizes.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">source_rank</span></code> is out of valid range.</p></li>
-<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – <code class="docutils literal notranslate"><span class="pre">source_rank</span></code> is out of valid range.</p></li>
+<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p></li>
 </ul>
 </dd>
@@ -796,9 +820,9 @@ execution. All collective operations are no-ops.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">ranks</span></code> contains duplicates, or has one or more
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – <code class="docutils literal notranslate"><span class="pre">ranks</span></code> contains duplicates, or has one or more
 out of range values.</p></li>
-<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p></li>
 </ul>
 </dd>
@@ -822,7 +846,7 @@ error such as a network communication failure.</p></li>
 PyTorch’s distributed operations and collective communication functions.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>NotSupportedError</strong> – If the gang implementation does not support
+<dd class="field-odd"><p><strong>NotSupportedError</strong> – Gang implementation does not support
 conversion to a ProcessGroup (e.g. <a class="reference internal" href="#fairseq2.gang.FakeGang" title="fairseq2.gang.FakeGang"><code class="xref py py-class docutils literal notranslate"><span class="pre">FakeGang</span></code></a>).</p>
 </dd>
 </dl>
@@ -837,7 +861,7 @@ gang reach this synchronization point. Used for ensuring a consistent
 state across all processes before proceeding.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p>
 </dd>
 </dl>
@@ -852,7 +876,7 @@ operation and distributes the result to all processes. The input tensor
 is modified in-place to contain the reduction result.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p>
 </dd>
 </dl>
@@ -884,7 +908,7 @@ tensor. The output tensor must have shape <code class="docutils literal notransl
 and be contiguous in memory.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p>
 </dd>
 </dl>
@@ -916,7 +940,7 @@ instead of concatenating them into a single tensor. <code class="docutils litera
 must be a pre-allocated list with length equal to <code class="docutils literal notranslate"><span class="pre">gang.size</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p>
 </dd>
 </dl>
@@ -933,8 +957,8 @@ contain the broadcasted data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">source_rank</span></code> is out of valid range.</p></li>
-<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – <code class="docutils literal notranslate"><span class="pre">source_rank</span></code> is out of valid range.</p></li>
+<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p></li>
 </ul>
 </dd>
@@ -952,8 +976,8 @@ Each process must provide lists of equal sizes.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">source_rank</span></code> is out of valid range.</p></li>
-<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – If the collective operation fails due to an unexpected
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – <code class="docutils literal notranslate"><span class="pre">source_rank</span></code> is out of valid range.</p></li>
+<li><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected
 error such as a network communication failure.</p></li>
 </ul>
 </dd>
@@ -1033,6 +1057,11 @@ will be handled by <a class="reference internal" href="#fairseq2.gang.Gangs.rdp"
 <span class="sig-name descname"><span class="pre">pp</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fairseq2.gang.Gang" title="fairseq2.gang.Gang"><span class="pre">Gang</span></a></em><a class="headerlink" href="#fairseq2.gang.Gangs.pp" title="Link to this definition">¶</a></dt>
 <dd><p>The pipeline parallel gang.</p>
 </dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="fairseq2.gang.Gangs.device">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">device</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.9)"><span class="pre">device</span></a></em><a class="headerlink" href="#fairseq2.gang.Gangs.device" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.gang.Gangs.close">
@@ -1172,33 +1201,60 @@ strategy and passed to a <a class="reference internal" href="#fairseq2.gang.Gang
 </dd></dl>
 
 </section>
-<section id="utilities">
-<h2>Utilities<a class="headerlink" href="#utilities" title="Link to this heading">¶</a></h2>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h2>
 <dl class="py function">
-<dt class="sig sig-object py" id="fairseq2.gang.maybe_get_current_gangs">
-<span class="sig-prename descclassname"><span class="pre">fairseq2.gang.</span></span><span class="sig-name descname"><span class="pre">maybe_get_current_gangs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><span class="pre">Gangs</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/gang.html#maybe_get_current_gangs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.maybe_get_current_gangs" title="Link to this definition">¶</a></dt>
-<dd><p>Returns the current gangs to use for collective operations.</p>
-<p>By default, this function returns <code class="docutils literal notranslate"><span class="pre">None</span></code>. The current gangs of the calling
-thread can be set by using <a class="reference internal" href="#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><code class="xref py py-class docutils literal notranslate"><span class="pre">Gangs</span></code></a> as a context manager:</p>
-<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gangs</span>
+<dt class="sig sig-object py" id="fairseq2.gang.get_current_gangs">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.gang.</span></span><span class="sig-name descname"><span class="pre">get_current_gangs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.9)"><span class="pre">device</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><span class="pre">Gangs</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/gang.html#get_current_gangs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.get_current_gangs" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the current gangs of the calling thread.</p>
+<p>The gangs are assigned per device. If <code class="docutils literal notranslate"><span class="pre">device</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code>, the device
+returned from <code class="xref py py-func docutils literal notranslate"><span class="pre">get_current_device()</span></code> will be used.</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gangs</span><span class="p">,</span> <span class="n">get_current_gangs</span><span class="p">,</span> <span class="n">get_default_gangs</span>
 
-<span class="n">gangs</span> <span class="o">=</span> <span class="n">Gangs</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="n">gangs</span> <span class="o">=</span> <span class="n">get_default_gangs</span><span class="p">()</span>
 
 <span class="k">with</span> <span class="n">gangs</span><span class="p">:</span>
-    <span class="n">current_gangs</span> <span class="o">=</span> <span class="n">maybe_get_current_gangs</span><span class="p">()</span>
+    <span class="n">current_gangs</span> <span class="o">=</span> <span class="n">get_current_gangs</span><span class="p">()</span>
 
     <span class="k">assert</span> <span class="n">current_gangs</span> <span class="ow">is</span> <span class="n">gangs</span>
 
-<span class="n">current_gangs</span> <span class="o">=</span> <span class="n">maybe_get_current_gangs</span><span class="p">()</span>
+<span class="n">current_gangs</span> <span class="o">=</span> <span class="n">get_current_gangs</span><span class="p">()</span>
 
-<span class="k">assert</span> <span class="n">current_gangs</span> <span class="ow">is</span> <span class="kc">None</span>
+<span class="k">assert</span> <span class="n">current_gangs</span> <span class="ow">is</span> <span class="n">default_gangs</span>
 </pre></div>
 </div>
-<p>Within fairseq2, this function is used by model factories to retrieve the
-current gangs and shard the constructed models accordingly. The current gangs
-are set internally by fairseq2 before calling the factories.</p>
-<p>Note that the return value of this function is thread specific. Individual
-threads may have their own set of current gangs.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.gang.get_default_gangs">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.gang.</span></span><span class="sig-name descname"><span class="pre">get_default_gangs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.9)"><span class="pre">device</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><span class="pre">Gangs</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/gang.html#get_default_gangs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.get_default_gangs" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the default gangs of the process.</p>
+<p>The default gangs are assigned per device. If <code class="docutils literal notranslate"><span class="pre">device</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code>, the
+device returned from <code class="xref py py-func docutils literal notranslate"><span class="pre">get_current_device()</span></code> will be used.</p>
+<p>If no gangs was previously set for <code class="docutils literal notranslate"><span class="pre">device</span></code>, the function will return fake
+gangs (i.e. <a class="reference internal" href="#fairseq2.gang.FakeGang" title="fairseq2.gang.FakeGang"><code class="xref py py-class docutils literal notranslate"><span class="pre">FakeGang</span></code></a>) with a world size of 1.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.gang.set_default_gangs">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.gang.</span></span><span class="sig-name descname"><span class="pre">set_default_gangs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gangs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><span class="pre">Gangs</span></a></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/gang.html#set_default_gangs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.set_default_gangs" title="Link to this definition">¶</a></dt>
+<dd><p>Changes the default gangs of the process to the specified gangs.</p>
+<p>The default gangs are assigned per device. Calling this function will set
+the default gangs for the gangs’ device (i.e. <code class="docutils literal notranslate"><span class="pre">gangs.device</span></code>).</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">meta</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>, in addition to gangs’ device, the gangs will also
+be set as the default gangs of the meta device.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.gang.set_gangs">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.gang.</span></span><span class="sig-name descname"><span class="pre">set_gangs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gangs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><span class="pre">Gangs</span></a></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/contextlib.html#contextlib.AbstractContextManager" title="(in Python v3.14)"><span class="pre">AbstractContextManager</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/gang.html#set_gangs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.set_gangs" title="Link to this definition">¶</a></dt>
+<dd><p>Changes the gangs of the calling thread to the specified gangs.</p>
+<p>The gangs are assigned per device. Calling this function will set the gangs
+for the gangs’ device (i.e. <code class="docutils literal notranslate"><span class="pre">gangs.device</span></code>).</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">meta</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>, in addition to gangs’ device, the gangs will also
+be set as the gangs of the meta device.</p>
+<p>This function acts as a context manager, ensuring that within its scope, any
+<a class="reference internal" href="#fairseq2.gang.get_current_gangs" title="fairseq2.gang.get_current_gangs"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_current_gangs()</span></code></a> call will return the specified gangs.</p>
 </dd></dl>
 
 <dl class="py function">
@@ -1221,6 +1277,12 @@ rank.</p>
 </pre></div>
 </div>
 </div>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected error
+such as a network communication failure.</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -1241,6 +1303,12 @@ rank.</p>
 </pre></div>
 </div>
 </div>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><strong>GangError</strong></a> – Collective operation failed due to an unexpected error
+such as a network communication failure.</p>
+</dd>
+</dl>
 </dd></dl>
 
 </section>
@@ -1251,12 +1319,6 @@ rank.</p>
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.gang.</span></span><span class="sig-name descname"><span class="pre">GangError</span></span><a class="reference internal" href="../_modules/fairseq2/gang.html#GangError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.GangError" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
 <p>Raised when a collective communication error occurs.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="fairseq2.gang.raise_operational_gang_error">
-<span class="sig-prename descclassname"><span class="pre">fairseq2.gang.</span></span><span class="sig-name descname"><span class="pre">raise_operational_gang_error</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cause</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fairseq2.gang.GangError" title="fairseq2.gang.GangError"><span class="pre">GangError</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.NoReturn" title="(in Python v3.14)"><span class="pre">NoReturn</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/gang.html#raise_operational_gang_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.raise_operational_gang_error" title="Link to this definition">¶</a></dt>
-<dd><p>Raises an <code class="xref py py-class docutils literal notranslate"><span class="pre">OperationalError</span></code> caused by a collective communication error.</p>
 </dd></dl>
 
 </section>
@@ -1322,7 +1384,7 @@ rank.</p>
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">fairseq2.gang</a><ul>
-<li><a class="reference internal" href="#classes">Classes</a><ul>
+<li><a class="reference internal" href="#abcs">ABCs</a><ul>
 <li><a class="reference internal" href="#fairseq2.gang.Gang"><code class="docutils literal notranslate"><span class="pre">Gang</span></code></a><ul>
 <li><a class="reference internal" href="#fairseq2.gang.Gang.create_gang"><code class="docutils literal notranslate"><span class="pre">Gang.create_gang()</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.gang.Gang.as_process_group"><code class="docutils literal notranslate"><span class="pre">Gang.as_process_group()</span></code></a></li>
@@ -1338,6 +1400,14 @@ rank.</p>
 <li><a class="reference internal" href="#fairseq2.gang.Gang.supports_process_group"><code class="docutils literal notranslate"><span class="pre">Gang.supports_process_group</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#fairseq2.gang.GangContext"><code class="docutils literal notranslate"><span class="pre">GangContext</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.gang.GangContext.get_current_gangs"><code class="docutils literal notranslate"><span class="pre">GangContext.get_current_gangs()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.gang.GangContext.set_gangs"><code class="docutils literal notranslate"><span class="pre">GangContext.set_gangs()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#classes">Classes</a><ul>
 <li><a class="reference internal" href="#fairseq2.gang.ProcessGroupGang"><code class="docutils literal notranslate"><span class="pre">ProcessGroupGang</span></code></a><ul>
 <li><a class="reference internal" href="#fairseq2.gang.ProcessGroupGang.create_default_process_group"><code class="docutils literal notranslate"><span class="pre">ProcessGroupGang.create_default_process_group()</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.gang.ProcessGroupGang.close"><code class="docutils literal notranslate"><span class="pre">ProcessGroupGang.close()</span></code></a></li>
@@ -1378,6 +1448,7 @@ rank.</p>
 <li><a class="reference internal" href="#fairseq2.gang.Gangs.sdp"><code class="docutils literal notranslate"><span class="pre">Gangs.sdp</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.gang.Gangs.tp"><code class="docutils literal notranslate"><span class="pre">Gangs.tp</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.gang.Gangs.pp"><code class="docutils literal notranslate"><span class="pre">Gangs.pp</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.gang.Gangs.device"><code class="docutils literal notranslate"><span class="pre">Gangs.device</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.gang.Gangs.close"><code class="docutils literal notranslate"><span class="pre">Gangs.close()</span></code></a></li>
 </ul>
 </li>
@@ -1400,15 +1471,17 @@ rank.</p>
 <li><a class="reference internal" href="#fairseq2.gang.create_fake_gangs"><code class="docutils literal notranslate"><span class="pre">create_fake_gangs()</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#utilities">Utilities</a><ul>
-<li><a class="reference internal" href="#fairseq2.gang.maybe_get_current_gangs"><code class="docutils literal notranslate"><span class="pre">maybe_get_current_gangs()</span></code></a></li>
+<li><a class="reference internal" href="#functions">Functions</a><ul>
+<li><a class="reference internal" href="#fairseq2.gang.get_current_gangs"><code class="docutils literal notranslate"><span class="pre">get_current_gangs()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.gang.get_default_gangs"><code class="docutils literal notranslate"><span class="pre">get_default_gangs()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.gang.set_default_gangs"><code class="docutils literal notranslate"><span class="pre">set_default_gangs()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.gang.set_gangs"><code class="docutils literal notranslate"><span class="pre">set_gangs()</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.gang.broadcast_flag"><code class="docutils literal notranslate"><span class="pre">broadcast_flag()</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.gang.all_sum"><code class="docutils literal notranslate"><span class="pre">all_sum()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#exceptions">Exceptions</a><ul>
 <li><a class="reference internal" href="#fairseq2.gang.GangError"><code class="docutils literal notranslate"><span class="pre">GangError</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.gang.raise_operational_gang_error"><code class="docutils literal notranslate"><span class="pre">raise_operational_gang_error()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -1422,7 +1495,7 @@ rank.</p>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=a76e1523"></script>
+</div><script src="../_static/documentation_options.js?v=9d98ccbd"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
