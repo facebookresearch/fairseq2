@@ -150,6 +150,9 @@ class WandbRecorderHandler(MetricRecorderHandler):
         run_id = self._get_run_id(output_dir, config)
 
         try:
+            # Increase timeout for fairwandb.org which can be slow
+            settings = wandb.Settings(init_timeout=1200)  # 20 minutes
+
             run = wandb.init(
                 entity=config.entity,
                 project=config.project,
@@ -160,6 +163,7 @@ class WandbRecorderHandler(MetricRecorderHandler):
                 group=config.group,
                 job_type=config.job_type,
                 resume=config.resume_mode,
+                settings=settings,
             )
         except (RuntimeError, ValueError) as ex:
             raise MetricRecordError(
