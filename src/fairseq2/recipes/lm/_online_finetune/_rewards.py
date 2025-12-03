@@ -1078,9 +1078,16 @@ class PplDerivedVerifier(VLLMOutputReward):
             assert proc_name in self.vllm_input_proc_dict
         assert self.reward_agg in self.reward_agg_fn_dict
 
-    def _tokenize(self, input_str, max_length=None):
-        return self.tokenizer.encode(
-            input_str, add_special_tokens=False, max_length=max_length
+    def _tokenize(self, input_str, add_special_tokens=False, max_length=None):
+        return (
+            self.tokenizer.encode(input_str, add_special_tokens=add_special_tokens)
+            if max_length is None
+            else self.tokenizer.encode(
+                input_str,
+                add_special_tokens=add_special_tokens,
+                max_length=max_length,
+                truncation=True,
+            )
         )
 
     def _concat_w_maybe_ws(self, left_text, right_text):
@@ -1104,7 +1111,8 @@ class PplDerivedVerifier(VLLMOutputReward):
 
         # input tokens
         input_tokens_list = [
-            [] if input_text == "" else self._tokenize(input_text)
+            # TODO(lidli): check for qwen model
+            self._tokenize(input_text, add_special_tokens=True)
             for input_text in input_text_list
         ]
         # target tokens
@@ -1133,6 +1141,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         for input_text, target_text, input_tokens, target_tokens in zip(
             input_text_list, target_text_list, input_tokens_list, target_tokens_list
         ):
+            # maybe add space between input and target texts
             if (
                 maybe_add_whitespace
                 and (not input_text[-1].isspace())
