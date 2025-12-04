@@ -443,7 +443,7 @@ def compute_token_level_entropy(logits: torch.Tensor, target_mask: torch.Tensor)
         # Compute expected logits: E[logits] = sum(softmax(logits) * logits)
         # Process in smaller chunks to avoid OOM
         batch_size, seq_len, vocab_size = logits_clamped.shape
-        chunk_size = 128  # Process 128 positions at a time
+        chunk_size = 64  # Process 64 positions at a time
 
         expected_logits = torch.zeros(batch_size, seq_len, device=logits.device)
         for i in range(0, seq_len, chunk_size):
