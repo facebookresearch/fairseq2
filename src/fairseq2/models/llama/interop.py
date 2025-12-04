@@ -6,13 +6,15 @@
 
 from __future__ import annotations
 
-from typing import Final, cast
+from typing import Final, cast, final
 
 from torch import Tensor
+from typing_extensions import override
 
-from fairseq2.models.family import HuggingFaceExport
+from fairseq2.models.hg import HuggingFaceConfig, HuggingFaceConverter
 from fairseq2.models.llama.config import LLaMAConfig
 from fairseq2.models.utils.checkpoint import convert_state_dict, create_reverse_key_map
+from fairseq2.utils.config import cast_config_type
 
 
 def convert_to_ref_llama_state_dict(
@@ -121,98 +123,92 @@ def convert_llama_state_dict(
     return state_dict
 
 
-def export_llama(
-    state_dict: dict[str, object], config: LLaMAConfig
-) -> HuggingFaceExport:
-    hg_state_dict = _convert_to_hg_state_dict(state_dict, config)
+@final
+class _LLaMAHuggingFaceConverter(HuggingFaceConverter):
+    @override
+    def to_hg_config(self, config: object) -> HuggingFaceConfig:
+        config = cast_config_type(config, LLaMAConfig)
 
-    hg_config = _convert_to_hg_config(config)
+        multiplier = config.ffn_inner_dim_multiplier
 
-    return HuggingFaceExport(
-        hg_state_dict,
-        hg_config,
-        config_kls_name="LlamaConfig",
-        arch="LlamaForCausalLM",
-    )
+        multiple_of = config.ffn_inner_dim_multiple_of
 
+        intermediate_size = multiple_of * ((int(multiplier * int(8 * config.model_dim / 3)) + multiple_of - 1) // multiple_of)  # fmt: skip
 
-def _convert_to_hg_state_dict(
-    state_dict: dict[str, object], config: LLaMAConfig
-) -> dict[str, object]:
-    head_dim = config.model_dim // config.num_attn_heads
+        if config.use_scaled_rope:
+            rope_scale = {
+                "factor": config.rope_scale.factor,
+                "low_freq_factor": config.rope_scale.frequency_factors[0],
+                "high_freq_factor": config.rope_scale.frequency_factors[1],
+                "original_max_position_embeddings": config.rope_scale.original_context_length,
+                "rope_type": "llama3",
+            }
+        else:
+            rope_scale = None
 
-    def permute_rotary(w: Tensor, num_heads: int) -> Tensor:
-        # (H, M) -> (H_d, D / 2, 2, M)
-        w = w.view(num_heads, head_dim // 2, 2, config.model_dim)
+        if config.vocab_size == 32_000:  # LLaMA 1 and 2
+            bos_idx = 1
+            eos_idx = 2
+        else:
+            bos_idx = 128_000
+            eos_idx = 128_001
 
-        # (H_d, D / 2, 2, M) -> (H_d, 2, D / 2, m)
-        w = w.transpose(1, 2)
-
-        # (H_d, 2, D / 2, M) -> (H, M)
-        return w.reshape(-1, config.model_dim)
-
-    for idx in range(config.num_layers):
-        q_key = f"decoder.layers.{idx}.self_attn.q_proj.weight"
-        k_key = f"decoder.layers.{idx}.self_attn.k_proj.weight"
-
-        q_proj = cast(Tensor, state_dict[q_key])
-        k_proj = cast(Tensor, state_dict[k_key])
-
-        q_proj = permute_rotary(q_proj, config.num_attn_heads)
-        k_proj = permute_rotary(k_proj, config.num_key_value_heads)
-
-        state_dict[q_key] = q_proj
-        state_dict[k_key] = k_proj
-
-    key_map = create_reverse_key_map(_HG_KEY_MAP)
-
-    hg_state_dict = convert_state_dict(state_dict, key_map)
-
-    if config.tied_embeddings:
-        del hg_state_dict["lm_head.weight"]
-
-    return hg_state_dict
-
-
-def _convert_to_hg_config(config: LLaMAConfig) -> dict[str, object]:
-    multiplier = config.ffn_inner_dim_multiplier
-
-    multiple_of = config.ffn_inner_dim_multiple_of
-
-    intermediate_size = multiple_of * ((int(multiplier * int(8 * config.model_dim / 3)) + multiple_of - 1) // multiple_of)  # fmt: skip
-
-    if config.use_scaled_rope:
-        rope_scale = {
-            "factor": config.rope_scale.factor,
-            "low_freq_factor": config.rope_scale.frequency_factors[0],
-            "high_freq_factor": config.rope_scale.frequency_factors[1],
-            "original_max_position_embeddings": config.rope_scale.original_context_length,
-            "rope_type": "llama3",
+        data = {
+            "bos_token_id": bos_idx,
+            "eos_token_id": eos_idx,
+            "hidden_size": config.model_dim,
+            "intermediate_size": intermediate_size,
+            "max_position_embeddings": config.max_seq_len,
+            "model_type": "llama",
+            "num_attention_heads": config.num_attn_heads,
+            "num_hidden_layers": config.num_layers,
+            "num_key_value_heads": config.num_key_value_heads,
+            "rms_norm_eps": 1e-5,
+            "rope_scaling": rope_scale,
+            "rope_theta": config.rope_theta,
+            "tie_word_embeddings": config.tied_embeddings,
+            "vocab_size": config.vocab_size,
+            "head_dim": config.model_dim // config.num_attn_heads,
         }
-    else:
-        rope_scale = None
 
-    if config.vocab_size == 32_000:  # LLaMA 1 and 2
-        bos_idx = 1
-        eos_idx = 2
-    else:
-        bos_idx = 128_000
-        eos_idx = 128_001
+        return HuggingFaceConfig(data, kls_name="LlamaConfig", arch="LlamaForCausalLM")
 
-    return {
-        "bos_token_id": bos_idx,
-        "eos_token_id": eos_idx,
-        "hidden_size": config.model_dim,
-        "intermediate_size": intermediate_size,
-        "max_position_embeddings": config.max_seq_len,
-        "model_type": "llama",
-        "num_attention_heads": config.num_attn_heads,
-        "num_hidden_layers": config.num_layers,
-        "num_key_value_heads": config.num_key_value_heads,
-        "rms_norm_eps": 1e-5,
-        "rope_scaling": rope_scale,
-        "rope_theta": config.rope_theta,
-        "tie_word_embeddings": config.tied_embeddings,
-        "vocab_size": config.vocab_size,
-        "head_dim": config.model_dim // config.num_attn_heads,
-    }
+    @override
+    def to_hg_state_dict(
+        self, state_dict: dict[str, object], config: object
+    ) -> dict[str, object]:
+        config = cast_config_type(config, LLaMAConfig)
+
+        head_dim = config.model_dim // config.num_attn_heads
+
+        def permute_rotary(w: Tensor, num_heads: int) -> Tensor:
+            # (H, M) -> (H_d, D / 2, 2, M)
+            w = w.view(num_heads, head_dim // 2, 2, config.model_dim)
+
+            # (H_d, D / 2, 2, M) -> (H_d, 2, D / 2, m)
+            w = w.transpose(1, 2)
+
+            # (H_d, 2, D / 2, M) -> (H, M)
+            return w.reshape(-1, config.model_dim)
+
+        for idx in range(config.num_layers):
+            q_key = f"decoder.layers.{idx}.self_attn.q_proj.weight"
+            k_key = f"decoder.layers.{idx}.self_attn.k_proj.weight"
+
+            q_proj = cast(Tensor, state_dict[q_key])
+            k_proj = cast(Tensor, state_dict[k_key])
+
+            q_proj = permute_rotary(q_proj, config.num_attn_heads)
+            k_proj = permute_rotary(k_proj, config.num_key_value_heads)
+
+            state_dict[q_key] = q_proj
+            state_dict[k_key] = k_proj
+
+        key_map = create_reverse_key_map(_HG_KEY_MAP)
+
+        hg_state_dict = convert_state_dict(state_dict, key_map)
+
+        if config.tied_embeddings:
+            del hg_state_dict["lm_head.weight"]
+
+        return hg_state_dict

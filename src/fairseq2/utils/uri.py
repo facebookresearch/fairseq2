@@ -6,10 +6,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from pathlib import Path
 from typing import final
-from urllib.parse import ParseResult, unquote, urlparse, urlunparse
+from urllib.parse import ParseResult, urlparse, urlunparse
 
 from fairseq2.error import InternalError, NotSupportedError
 
@@ -28,48 +27,7 @@ class Uri:
         if not result.scheme:
             raise UriFormatError(f"{s} does not have a URI scheme.")
 
-        params = cls._parse_params(s, result.params)
-
-        return Uri(result, params)
-
-    @staticmethod
-    def _parse_params(s: str, params: str) -> dict[str, str]:
-        output: dict[str, str] = {}
-
-        params = params.strip()
-        if not params:
-            return output
-
-        def unquote_and_strip(idx: int, p: str) -> str:
-            try:
-                p = unquote(p)
-            except (UnicodeEncodeError, ValueError) as ex:
-                raise UriFormatError(
-                    f"Path parameters of {s} are expected to be valid quoted URI strings, but parameter at index {idx} cannot be unquoted."
-                ) from ex
-
-            return p.strip()
-
-        pairs = params.split(";")
-
-        for idx, param in enumerate(pairs):
-            kv = param.split("=")
-            if len(kv) != 2:
-                raise UriFormatError(
-                    f"Path parameters of {s} are expected to be semi-colon separated key-value pairs, but parameter at index {idx} is {param}."
-                )
-
-            key, value = kv
-
-            key = unquote_and_strip(idx, key)
-            if not key:
-                raise UriFormatError(
-                    f"Path parameter keys of {s} are expected to be non-empty, but parameter key at index {idx} is empty."
-                )
-
-            output[key] = unquote_and_strip(idx, value)
-
-        return output
+        return Uri(result)
 
     @staticmethod
     def maybe_parse(s: str) -> Uri | None:
@@ -88,9 +46,8 @@ class Uri:
 
         return uri
 
-    def __init__(self, _result: ParseResult, _params: dict[str, str]) -> None:
+    def __init__(self, _result: ParseResult) -> None:
         self._result = _result
-        self._params = _params
 
     @property
     def scheme(self) -> str:
@@ -109,22 +66,12 @@ class Uri:
         return self._result.params
 
     @property
-    def parsed_params(self) -> Mapping[str, str]:
-        return self._params
-
-    @property
     def query(self) -> str:
         return self._result.query
 
     @property
     def fragment(self) -> str:
         return self._result.fragment
-
-    def strip_params(self) -> Uri:
-        """Returns a copy of this URI with path parameters removed."""
-        result = self._result._replace(params="")
-
-        return Uri(result, {})
 
     def to_path(self) -> Path:
         if self.scheme != "file":

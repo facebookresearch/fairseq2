@@ -7,19 +7,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any, final
+from typing import final
 
 from torch import Tensor
 from typing_extensions import override
+from wandb import Run as WandbRun
 
 from fairseq2.error import OperationalError, raise_operational_system_error
 from fairseq2.metrics.recorders.descriptor import MetricDescriptorRegistry
 from fairseq2.metrics.recorders.recorder import MetricRecorder
-
-
-class WandbClient:
-    def __init__(self, run: Any) -> None:
-        self.run = run
 
 
 @final
@@ -27,13 +23,13 @@ class WandbRecorder(MetricRecorder):
     """Records metric values to Weights & Biases."""
 
     def __init__(
-        self, client: WandbClient, metric_descriptors: MetricDescriptorRegistry
+        self, run: WandbRun, metric_descriptors: MetricDescriptorRegistry
     ) -> None:
         """
         In order to use W&B, run `wandb login` from the command line and enter
         the API key when prompted.
         """
-        self._run = client.run
+        self._run = run
         self._metric_descriptors = metric_descriptors
 
     @override

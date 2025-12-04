@@ -7,10 +7,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from contextlib import nullcontext
-from typing import Literal, Protocol, cast, final, runtime_checkable
+from typing import Literal, Protocol, final
 
-from torch import Tensor
 from torch.nn import Module
 from torch.nn.parallel import DistributedDataParallel as DDPModule
 from typing_extensions import override
@@ -20,52 +18,37 @@ from fairseq2.data_type import DataType
 from fairseq2.error import InternalError
 from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
 from fairseq2.logging import log
-from fairseq2.models import ModelFamily
-from fairseq2.nn.fsdp import (
-    FSDP1Module,
-    FSDP2Module,
-    FSDPApplier,
-    FSDPWrapper,
-    fsdp1_load_local_state_dict,
-    fsdp1_local_state_dict,
-    fsdp1_summon_full_parameters,
-    fsdp2_load_local_state_dict,
-    fsdp2_local_state_dict,
-    fsdp2_no_sync,
-    fsdp2_summon_full_parameters,
-)
-from fairseq2.nn.utils.grad import clip_grad_norm
-from fairseq2.nn.utils.module import load_state_dict, to_device
+from fairseq2.nn.fsdp import FSDPApplier, FSDPWrapper
+from fairseq2.nn.utils.module import to_device
 from fairseq2.recipe.config import TrainerSection
 from fairseq2.recipe.error import FSDPNotSupportedError
-from fairseq2.recipe.model import RecipeModel
+from fairseq2.recipe.internal.model import _ModelHolder
 from fairseq2.runtime.lookup import Lookup
-from fairseq2.typing import ContextManager
 
 
-class _DPModelWrapper(ABC):
+class _DataParallelModelWrapper(ABC):
     @abstractmethod
-    def wrap(self, model: RecipeModel) -> RecipeModel: ...
+    def wrap(self, model_holder: _ModelHolder) -> Module: ...
 
 
 @final
-class _DelegatingDPModelWrapper(_DPModelWrapper):
+class _DelegatingDPModelWrapper(_DataParallelModelWrapper):
     def __init__(
         self,
         section: TrainerSection,
         gangs: Gangs,
-        dp_wrappers: Lookup[_DPModelWrapper],
+        dp_wrappers: Lookup[_DataParallelModelWrapper],
     ) -> None:
         self._section = section
         self._gangs = gangs
         self._dp_wrappers = dp_wrappers
 
     @override
-    def wrap(self, model: RecipeModel) -> RecipeModel:
+    def wrap(self, model_holder: _ModelHolder) -> Module:
         if self._gangs.dp.size == 1:
-            to_device(model.module, self._gangs.root.device)
+            to_device(model_holder.model, self._gangs.device)
 
-            return model
+            return model_holder.model
 
         data_parallelism = self._section.data_parallelism
 
@@ -79,10 +62,9 @@ class _DelegatingDPModelWrapper(_DPModelWrapper):
         if wrapper is None:
             raise InternalError(f"`section.data_parallelism` is '{data_parallelism}'.")
 
-        return wrapper.wrap(model)
+        return wrapper.wrap(model_holder)
 
 
-@runtime_checkable
 class _DDPFactory(Protocol):
     def __call__(
         self, module: Module, gangs: Gangs, *, find_unused_parameters: bool
@@ -90,7 +72,7 @@ class _DDPFactory(Protocol):
 
 
 @final
-class _DDPModelWrapper(_DPModelWrapper):
+class _DDPModelWrapper(_DataParallelModelWrapper):
     def __init__(
         self, ddp_factory: _DDPFactory, gangs: Gangs, static_graph: bool
     ) -> None:
@@ -99,15 +81,15 @@ class _DDPModelWrapper(_DPModelWrapper):
         self._static_graph = static_graph
 
     @override
-    def wrap(self, model: RecipeModel) -> RecipeModel:
+    def wrap(self, model_holder: _ModelHolder) -> Module:
         log.info("Wrapping model with DDP and broadcasting to all processes.")
 
         # We do not set DDP's `static_graph` parameter. Unfortunately, support for
         # that feature is finicky in DDP. `find_unused_parameters` is still useful
         # though and can have measurable impact on performance.
         try:
-            module = self._ddp_factory(
-                model.base_module,
+            dp_model = self._ddp_factory(
+                model_holder.model,
                 self._gangs,
                 find_unused_parameters=not self._static_graph,
             )
@@ -116,70 +98,9 @@ class _DDPModelWrapper(_DPModelWrapper):
 
         log.info("Model wrapped with DDP and broadcasted.")
 
-        return _DDPModel(module, model.config, model.family, model.newly_initialized)
+        return dp_model
 
 
-@final
-class _DDPModel(RecipeModel):
-    def __init__(
-        self,
-        ddp_module: DDPModule,
-        config: object,
-        family: ModelFamily,
-        newly_initialized: bool,
-    ) -> None:
-        self._ddp_module = ddp_module
-        self._config = config
-        self._family = family
-        self._newly_initialized = newly_initialized
-
-    @override
-    def state_dict(self) -> dict[str, object]:
-        return self._ddp_module.module.state_dict()  # type: ignore[no-any-return]
-
-    @override
-    def load_state_dict(self, state_dict: dict[str, object]) -> None:
-        load_state_dict(self._ddp_module.module, state_dict)
-
-    @override
-    def no_sync(self) -> ContextManager[None]:
-        return self._ddp_module.no_sync()
-
-    @override
-    def clip_grad_norm(self, max_norm: float | None) -> Tensor:
-        return clip_grad_norm(self._ddp_module, max_norm)
-
-    @override
-    def summon_full_parameters(self) -> ContextManager[None]:
-        return nullcontext()
-
-    @property
-    @override
-    def module(self) -> Module:
-        return self._ddp_module
-
-    @property
-    @override
-    def base_module(self) -> Module:
-        return self._ddp_module.module  # type: ignore[no-any-return]
-
-    @property
-    @override
-    def config(self) -> object:
-        return self._config
-
-    @property
-    @override
-    def family(self) -> ModelFamily:
-        return self._family
-
-    @property
-    @override
-    def newly_initialized(self) -> bool:
-        return self._newly_initialized
-
-
-@runtime_checkable
 class _FSDPFactory(Protocol):
     def __call__(
         self,
@@ -197,7 +118,7 @@ class _FSDPFactory(Protocol):
 
 
 @final
-class _FSDPModelWrapper(_DPModelWrapper):
+class _FSDPModelWrapper(_DataParallelModelWrapper):
     def __init__(
         self,
         fsdp_factory: _FSDPFactory,
@@ -211,8 +132,8 @@ class _FSDPModelWrapper(_DPModelWrapper):
         self._gangs = gangs
 
     @override
-    def wrap(self, model: RecipeModel) -> RecipeModel:
-        if not model.family.supports_fsdp:
+    def wrap(self, model_holder: _ModelHolder) -> Module:
+        if not model_holder.family.supports_fsdp:
             raise FSDPNotSupportedError()
 
         fsdp_config = self._section.fsdp
@@ -221,7 +142,9 @@ class _FSDPModelWrapper(_DPModelWrapper):
             if fsdp_config.granularity == "model":
                 return wrapper(module, reshard_after_forward=False)
 
-            return model.family.apply_fsdp(module, fsdp_config.granularity, wrapper)
+            return model_holder.family.apply_fsdp(
+                module, fsdp_config.granularity, wrapper
+            )
 
         if self._section.mixed_precision.mode == "static":
             mp_dtype = self._section.mixed_precision.dtype
@@ -237,8 +160,8 @@ class _FSDPModelWrapper(_DPModelWrapper):
                 log.info("Wrapping model with FSDP1 and broadcasting to all processes.")  # fmt: skip
 
             try:
-                module = self._fsdp_factory(
-                    model.base_module,
+                dp_model = self._fsdp_factory(
+                    model_holder.model,
                     self._gangs,
                     apply_fsdp,
                     version="v1",
@@ -251,16 +174,10 @@ class _FSDPModelWrapper(_DPModelWrapper):
             except GangError as ex:
                 raise_operational_gang_error(ex)
 
-            fsdp1 = cast(FSDP1Module, module)
-
             if has_checkpoint:
                 log.info("Model wrapped with FSDP1.")
             else:
                 log.info("Model wrapped with FSDP1 and broadcasted.")
-
-            return _FSDP1Model(
-                fsdp1, model.config, model.family, model.newly_initialized
-            )
         else:
             if has_checkpoint:
                 log.info("Wrapping model with FSDP2.")  # fmt: skip
@@ -268,8 +185,8 @@ class _FSDPModelWrapper(_DPModelWrapper):
                 log.info("Wrapping model with FSDP2 and broadcasting to all processes.")  # fmt: skip
 
             try:
-                module = self._fsdp_factory(
-                    model.base_module,
+                dp_model = self._fsdp_factory(
+                    model_holder.model,
                     self._gangs,
                     apply_fsdp,
                     version="v2",
@@ -282,133 +199,9 @@ class _FSDPModelWrapper(_DPModelWrapper):
             except GangError as ex:
                 raise_operational_gang_error(ex)
 
-            fsdp2 = cast(FSDP2Module, module)
-
             if has_checkpoint:
                 log.info("Model wrapped with FSDP2.")
             else:
                 log.info("Model wrapped with FSDP2 and broadcasted.")
 
-            return _FSDP2Model(
-                fsdp2, model.config, model.family, model.newly_initialized
-            )
-
-
-@final
-class _FSDP1Model(RecipeModel):
-    def __init__(
-        self,
-        fsdp1_module: FSDP1Module,
-        config: object,
-        family: ModelFamily,
-        newly_initialized: bool,
-    ) -> None:
-        self._fsdp1_module = fsdp1_module
-        self._config = config
-        self._family = family
-        self._newly_initialized = newly_initialized
-
-    @override
-    def state_dict(self) -> dict[str, object]:
-        return fsdp1_local_state_dict(self._fsdp1_module)
-
-    @override
-    def load_state_dict(self, state_dict: dict[str, object]) -> None:
-        fsdp1_load_local_state_dict(self._fsdp1_module, state_dict)
-
-    @override
-    def no_sync(self) -> ContextManager[None]:
-        return self._fsdp1_module.no_sync()
-
-    @override
-    def clip_grad_norm(self, max_norm: float | None) -> Tensor:
-        return clip_grad_norm(self._fsdp1_module, max_norm)
-
-    @override
-    def summon_full_parameters(self) -> ContextManager[None]:
-        return fsdp1_summon_full_parameters(self._fsdp1_module)
-
-    @property
-    @override
-    def module(self) -> Module:
-        return self._fsdp1_module
-
-    @property
-    @override
-    def base_module(self) -> Module:
-        return self._fsdp1_module.module
-
-    @property
-    @override
-    def config(self) -> object:
-        return self._config
-
-    @property
-    @override
-    def family(self) -> ModelFamily:
-        return self._family
-
-    @property
-    @override
-    def newly_initialized(self) -> bool:
-        return self._newly_initialized
-
-
-@final
-class _FSDP2Model(RecipeModel):
-    def __init__(
-        self,
-        fsdp2_module: FSDP2Module,
-        config: object,
-        family: ModelFamily,
-        newly_initialized: bool,
-    ) -> None:
-        self._fsdp2_module = fsdp2_module
-        self._config = config
-        self._family = family
-        self._newly_initialized = newly_initialized
-
-    @override
-    def state_dict(self) -> dict[str, object]:
-        return fsdp2_local_state_dict(self._fsdp2_module)
-
-    @override
-    def load_state_dict(self, state_dict: dict[str, object]) -> None:
-        fsdp2_load_local_state_dict(self._fsdp2_module, state_dict)
-
-    @override
-    def no_sync(self) -> ContextManager[None]:
-        return fsdp2_no_sync(self._fsdp2_module)
-
-    @override
-    def clip_grad_norm(self, max_norm: float | None) -> Tensor:
-        return clip_grad_norm(self._fsdp2_module, max_norm)
-
-    @override
-    def summon_full_parameters(self) -> ContextManager[None]:
-        return fsdp2_summon_full_parameters(self._fsdp2_module)
-
-    @property
-    @override
-    def module(self) -> Module:
-        return self._fsdp2_module
-
-    @property
-    @override
-    def base_module(self) -> Module:
-        return self._fsdp2_module
-
-    @property
-    @override
-    def config(self) -> object:
-        return self._config
-
-    @property
-    @override
-    def family(self) -> ModelFamily:
-        return self._family
-
-    @property
-    @override
-    def newly_initialized(self) -> bool:
-        return self._newly_initialized
+        return dp_model

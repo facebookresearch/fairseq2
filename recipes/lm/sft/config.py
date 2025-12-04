@@ -13,7 +13,6 @@ from fairseq2.recipe.config import (
     COSINE_ANNEALING_LR,
     AdamWConfig,
     CommonSection,
-    CompileOptions,
     CosineAnnealingLRConfig,
     DatasetSection,
     GangSection,
@@ -26,73 +25,34 @@ from fairseq2.recipe.config import (
     TrainerSection,
 )
 
-from .dataset import LM_SFT_PADDED_DATASET, LMSFTDatasetConfig
-
-
-@dataclass(kw_only=True)
-class LMSFTDatasetSection(DatasetSection):
-    path: str | None = None
-
-    train_split: str = "sft_train"
-
-    valid_split: str | None = None
-
-    source_encode_mode: str = "prompt"
-    """The encode mode for the prompt, determines what special tokens to add."""
-
-    target_encode_mode: str = "prompt_response"
-    """The encode mode for the target, determines what special tokens to add."""
-
-    chat_mode: bool = False
-    """If True, dataset jsonl must have 'chat' field with openai-like messages List[Dict] entries"""
-
-    min_seq_len: int = 1
-    """The minimum sequence length."""
-
-    max_seq_len: int = 8192
-    """The maximum sequence length. NOTE: longer sequences are dropped from the training."""
-
-    max_num_tokens: int = 8192 * 2
-    """The maximum number of tokens per batch. NOTE: this is excluding padding tokens!"""
-
-    batch_size: int | None = None
-    """
-    If not ``None``, ignores ``max_num_tokens`` and each batch will have
-    ``batch_size`` examples.
-    """
-
-    max_num_valid_tokens: int | None = None
-    """The maximum number of tokens per validation batch."""
-
-    example_shuffle_window: int = 10_000
-    """The size of the sliding window for shuffling examples."""
-
-    batch_shuffle_window: int = 0
-    """The size of the sliding window for shuffling batches."""
-
-    prefetch: int = 4
-    """The number of batches to prefetch in background."""
-
-    extras: dict[str, object] = field(default_factory=dict)
-    """The dataset-specific extra options."""
+from .dataset import LM_SFT_DATASET, LMSFTDatasetConfig, LMSFTDataSource
 
 
 @dataclass(kw_only=True)
 class LMSFTConfig:
     model: ModelSection = field(
-        default_factory=lambda: ModelSection(
-            family="llama",
-            name="llama3_2_1b",
-            compile=False,
-            compile_options=CompileOptions(fullgraph=True, dynamic=False),
+        default_factory=lambda: ModelSection(name="llama3_2_1b")
+    )
+
+    dataset: LMSFTDatasetSection = field(
+        default_factory=lambda: LMSFTDatasetSection(
+            family=LM_SFT_DATASET,
+            config_overrides=LMSFTDatasetConfig(
+                sources={
+                    "train": [
+                        LMSFTDataSource(
+                            path="hg://facebook/fairseq2-lm-gsm8k",
+                            split="sft_train",
+                            weight=1.0,
+                        ),
+                    ],
+                },
+            ),
         )
     )
 
     tokenizer: TokenizerSection = field(
-        default_factory=lambda: TokenizerSection(
-            family="llama",
-            name="llama3_2_1b",
-        )
+        default_factory=lambda: TokenizerSection(name="llama3_2_1b_instruct")
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
@@ -138,11 +98,45 @@ class LMSFTConfig:
         )
     )
 
-    dataset: LMSFTDatasetSection = field(
-        default_factory=lambda: LMSFTDatasetSection(
-            family=LM_SFT_PADDED_DATASET,
-            train_split="sft_train",
-            batch_size=16,
-            config_overrides=LMSFTDatasetConfig(path="hg://facebook/fairseq2-lm-gsm8k"),
-        )
-    )
+
+@dataclass(kw_only=True)
+class LMSFTDatasetSection(DatasetSection):
+    train_split: str = "sft_train"
+
+    valid_split: str | None = None
+
+    source_encode_mode: str = "prompt"
+    """The encode mode for the prompt, determines what special tokens to add."""
+
+    target_encode_mode: str = "prompt_response"
+    """The encode mode for the target, determines what special tokens to add."""
+
+    chat_mode: bool = False
+    """If True, dataset jsonl must have 'chat' field with openai-like messages List[Dict] entries"""
+
+    min_seq_len: int = 1
+    """The minimum sequence length."""
+
+    max_seq_len: int = 8192
+    """The maximum sequence length. NOTE: longer sequences are dropped from the training."""
+
+    max_num_tokens: int = 8192 * 2
+    """The maximum number of tokens per batch. NOTE: this is excluding padding tokens!"""
+
+    batch_size: int | None = None
+    """
+    If not ``None``, ignores ``max_num_tokens`` and each batch will have
+    ``batch_size`` examples.
+    """
+
+    max_num_valid_tokens: int | None = None
+    """The maximum number of tokens per validation batch."""
+
+    example_shuffle_window: int = 10_000
+    """The size of the sliding window for shuffling examples."""
+
+    batch_shuffle_window: int = 0
+    """The size of the sliding window for shuffling batches."""
+
+    prefetch: int = 4
+    """The number of batches to prefetch in background."""

@@ -12,23 +12,13 @@ from typing import TYPE_CHECKING, Any, final
 
 import torch
 from torch import Tensor
+from transformers import AutoTokenizer, PreTrainedTokenizer
 from typing_extensions import override
-
-try:
-    from transformers import (  # type: ignore[import-not-found, attr-defined]
-        AutoTokenizer,
-        PreTrainedTokenizer,
-    )
-except ImportError:
-    _has_hg_transformers = False
-else:
-    _has_hg_transformers = True
 
 from fairseq2.data.tokenizers.family import TokenizerModelError
 from fairseq2.data.tokenizers.tokenizer import TokenDecoder, TokenEncoder
 from fairseq2.data.tokenizers.vocab_info import VocabularyInfo
 from fairseq2.device import Device
-from fairseq2.error import OperationalError
 from fairseq2.utils.tensor import to_tensor
 
 if TYPE_CHECKING:
@@ -79,11 +69,6 @@ else:
         boh_token: str | None = None,
         eoh_token: str | None = None,
     ) -> HuggingFaceTokenModel:
-        if not _has_hg_transformers:
-            raise OperationalError(
-                "Hugging Face Transformers is not found. Use `pip install transformers`."
-            )
-
         try:
             tok = AutoTokenizer.from_pretrained(path)
         except RuntimeError as ex:

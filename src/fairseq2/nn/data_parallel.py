@@ -9,13 +9,13 @@ from __future__ import annotations
 import weakref
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
-from typing import Final, cast, final
+from typing import Final, final
 
 from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
-from fairseq2.error import InvalidOperationError
+from fairseq2.error import InternalError
 from fairseq2.nn.ddp import DDPModule
 from fairseq2.nn.fsdp import (
     FSDP1Module,
@@ -88,79 +88,128 @@ class _NoopDataParallelFacade(DataParallelFacade):
 @final
 class _DDPFacade(DataParallelFacade):
     def __init__(self, module: DDPModule) -> None:
-        self._module = cast(DDPModule, weakref.proxy(module))
+        self._weak_module = weakref.ref(module)
 
     @override
     def state_dict(self) -> dict[str, object]:
-        return self._module.module.state_dict()  # type: ignore[no-any-return]
+        module = self._get_module()
+
+        return module.module.state_dict()  # type: ignore[no-any-return]
 
     @override
     def load_state_dict(self, state_dict: dict[str, object]) -> None:
-        load_state_dict(self._module.module, state_dict)
+        module = self._get_module()
+
+        load_state_dict(module.module, state_dict)
 
     @override
     def no_sync(self) -> ContextManager[None]:
-        return self._module.no_sync()
+        module = self._get_module()
+
+        return module.no_sync()
 
     @override
     def clip_grad_norm(self, max_norm: float | None) -> Tensor:
-        return clip_grad_norm(self._module, max_norm)
+        module = self._get_module()
+
+        return clip_grad_norm(module, max_norm)
 
     @override
     def summon_full_parameters(self) -> ContextManager[None]:
         return nullcontext()
 
+    def _get_module(self) -> DDPModule:
+        module = self._weak_module()
+        if module is None:
+            raise InternalError("`module` has already been deallocated.")
+
+        return module
+
 
 @final
 class _FSDP1Facade(DataParallelFacade):
     def __init__(self, module: FSDP1Module) -> None:
-        self._module = cast(FSDP1Module, weakref.proxy(module))
+        self._weak_module = weakref.ref(module)
 
     @override
     def state_dict(self) -> dict[str, object]:
-        return fsdp1_local_state_dict(self._module)
+        module = self._get_module()
+
+        return fsdp1_local_state_dict(module)
 
     @override
     def load_state_dict(self, state_dict: dict[str, object]) -> None:
-        fsdp1_load_local_state_dict(self._module, state_dict)
+        module = self._get_module()
+
+        fsdp1_load_local_state_dict(module, state_dict)
 
     @override
     def no_sync(self) -> ContextManager[None]:
-        return self._module.no_sync()
+        module = self._get_module()
+
+        return module.no_sync()
 
     @override
     def clip_grad_norm(self, max_norm: float | None) -> Tensor:
-        return clip_grad_norm(self._module, max_norm)
+        module = self._get_module()
+
+        return clip_grad_norm(module, max_norm)
 
     @override
     def summon_full_parameters(self) -> ContextManager[None]:
-        return fsdp1_summon_full_parameters(self._module)
+        module = self._get_module()
+
+        return fsdp1_summon_full_parameters(module)
+
+    def _get_module(self) -> FSDP1Module:
+        module = self._weak_module()
+        if module is None:
+            raise InternalError("`module` has already been deallocated.")
+
+        return module
 
 
 @final
 class _FSDP2Facade(DataParallelFacade):
     def __init__(self, module: FSDP2Module) -> None:
-        self._module = cast(FSDP2Module, weakref.proxy(module))
+        self._weak_module = weakref.ref(module)
 
     @override
     def state_dict(self) -> dict[str, object]:
-        return fsdp2_local_state_dict(self._module)
+        module = self._get_module()
+
+        return fsdp2_local_state_dict(module)
 
     @override
     def load_state_dict(self, state_dict: dict[str, object]) -> None:
-        fsdp2_load_local_state_dict(self._module, state_dict)
+        module = self._get_module()
+
+        fsdp2_load_local_state_dict(module, state_dict)
 
     @override
     def no_sync(self) -> ContextManager[None]:
-        return fsdp2_no_sync(self._module)
+        module = self._get_module()
+
+        return fsdp2_no_sync(module)
 
     @override
     def clip_grad_norm(self, max_norm: float | None) -> Tensor:
-        return clip_grad_norm(self._module, max_norm)
+        module = self._get_module()
+
+        return clip_grad_norm(module, max_norm)
 
     @override
     def summon_full_parameters(self) -> ContextManager[None]:
-        return fsdp2_summon_full_parameters(self._module)
+        module = self._get_module()
+
+        return fsdp2_summon_full_parameters(module)
+
+    def _get_module(self) -> FSDP2Module:
+        module = self._weak_module()
+        if module is None:
+            raise InternalError("`module` has already been deallocated.")
+
+        return module
 
 
 _FACADE_KEY: Final = "__fs2_dp_facade__"
@@ -169,13 +218,7 @@ _FACADE_KEY: Final = "__fs2_dp_facade__"
 def set_data_parallel_facade(module: Module, facade: DataParallelFacade) -> None:
     """
     Associates ``facade`` with the specified module.
-
-    :raises InvalidOperationError: if the module has already a facade associated
-        with it.
     """
-    if hasattr(module, _FACADE_KEY):
-        raise InvalidOperationError("`module` has already data parallelism.")
-
     setattr(module, _FACADE_KEY, facade)
 
 
@@ -191,17 +234,20 @@ def get_data_parallel_facade(module: Module) -> DataParallelFacade:
     will return a no-op implementation.
     """
     facade = getattr(module, _FACADE_KEY, None)
-    if facade is None:
-        match module:
-            case DDPModule():
-                facade = _DDPFacade(module)
-            case FSDP1Module():
-                facade = _FSDP1Facade(module)
-            case FSDP2Module():
-                facade = _FSDP2Facade(module)
-            case _:
-                facade = _NoopDataParallelFacade(module)
 
-        setattr(module, _FACADE_KEY, facade)
+    if facade is not None:
+        if not isinstance(facade, DataParallelFacade):
+            raise InternalError(f"{_FACADE_KEY} is of type `{type(facade)}`.")
 
-    return facade
+        return facade
+
+    if isinstance(module, DDPModule):
+        return _DDPFacade(module)
+
+    if isinstance(module, FSDP1Module):
+        return _FSDP1Facade(module)
+
+    if isinstance(module, FSDP2Module):
+        return _FSDP2Facade(module)
+
+    return _NoopDataParallelFacade(module)

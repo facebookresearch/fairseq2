@@ -16,7 +16,8 @@ from typing import final
 from typing_extensions import override
 
 from fairseq2.error import InternalError
-from fairseq2.recipe.config import CommonSection, RecipeConfig
+from fairseq2.recipe.config import CommonSection
+from fairseq2.recipe.internal.config import _RecipeConfigHolder
 from fairseq2.utils.structured import StructureError, ValueConverter
 from fairseq2.utils.validation import ValidationError
 from fairseq2.world_info import WorldInfo
@@ -33,12 +34,12 @@ class _StandardSweepTagGenerator(_SweepTagGenerator):
         self,
         section: CommonSection,
         world_info: WorldInfo,
-        config: RecipeConfig,
+        config_holder: _RecipeConfigHolder,
         value_converter: ValueConverter,
     ) -> None:
         self._section = section
         self._world_info = world_info
-        self._config = config
+        self._config_holder = config_holder
         self._value_converter = value_converter
 
     @override
@@ -46,10 +47,10 @@ class _StandardSweepTagGenerator(_SweepTagGenerator):
         if self._section.no_sweep_dir:
             return None
 
-        untyped_config = self._config.as_(object)
-
         try:
-            unstructured_config = self._value_converter.unstructure(untyped_config)
+            unstructured_config = self._value_converter.unstructure(
+                self._config_holder.config
+            )
         except StructureError as ex:
             raise InternalError(
                 "`self._config` cannot be converted to an unstructured form."

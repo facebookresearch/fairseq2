@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing_extensions import override
 
-from fairseq2.gang import Gangs, maybe_get_current_gangs
 from fairseq2.models.llama import LLaMAFactory
 from fairseq2.models.llama4.config import Llama4Config
 from fairseq2.models.llama4.moe import MoE
@@ -33,16 +32,14 @@ from fairseq2.nn import (
 
 
 def create_llama4_model(config: Llama4Config) -> TransformerLM:
-    gangs = maybe_get_current_gangs()
-
-    return Llama4Factory(config, gangs).create_model()
+    return Llama4Factory(config).create_model()
 
 
 class Llama4Factory(LLaMAFactory):
     _config: Llama4Config
 
-    def __init__(self, config: Llama4Config, gangs: Gangs | None = None) -> None:
-        super().__init__(config, gangs=None)
+    def __init__(self, config: Llama4Config) -> None:
+        super().__init__(config)
         # TODO(mgleize): for now we zero out _gangs here,
         # until the L4 sharder is updated to the new sharding API.
         self._config = config

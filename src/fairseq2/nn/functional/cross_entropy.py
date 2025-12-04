@@ -41,6 +41,8 @@ def cross_entropy(
         # (N, S) -> (N x S)
         targets = targets.flatten()
 
+    loss_mask: Tensor | None
+
     # For numerical stability run in single precision.
     # (S, T) -> (S, T)
     log_probs = log_softmax(logits, dim=-1, dtype=torch.float32)
@@ -75,7 +77,12 @@ def cross_entropy(
             return loss.sum()
 
         if reduction == "mean":
-            return loss.mean()
+            if pad_idx is None:
+                loss_mask = target_mask
+            else:
+                loss_mask = target_mask & targets.ne(pad_idx)
+
+            return loss.sum() / loss_mask.sum()
 
         if reduction == "none":
             if batch_size is not None:
@@ -131,12 +138,30 @@ def cross_entropy(
         if smooth_loss is not None:
             smooth_loss = smooth_loss.sum()
     elif reduction == "mean":
-        # ()
-        loss = loss.mean()
+        if target_mask is not None:
+            if pad_idx is None:
+                loss_mask = target_mask
+            else:
+                loss_mask = target_mask & targets.ne(pad_idx)
+        elif pad_idx is not None:
+            loss_mask = targets.ne(pad_idx)
+        else:
+            loss_mask = None
 
-        # ()
-        if smooth_loss is not None:
-            smooth_loss = smooth_loss.mean()
+        if loss_mask is None:
+            # ()
+            loss = loss.mean()
+
+            # ()
+            if smooth_loss is not None:
+                smooth_loss = smooth_loss.mean()
+        else:
+            # ()
+            loss = loss.sum() / loss_mask.sum()
+
+            # ()
+            if smooth_loss is not None:
+                smooth_loss = smooth_loss.sum() / loss_mask.sum()
     elif reduction != "none":
         raise ValueError(
             f"`reduction` must be 'sum', 'mean' or 'none', but is '{reduction}' instead."

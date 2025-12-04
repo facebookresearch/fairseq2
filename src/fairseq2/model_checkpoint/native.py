@@ -16,19 +16,18 @@ from typing_extensions import override
 
 from fairseq2.device import CPU
 from fairseq2.file_system import FileSystem, raise_if_not_exists
-from fairseq2.gang import Gangs
-from fairseq2.io import TensorFileError, TensorLoader
+from fairseq2.gang import GangContext
+from fairseq2.io import CorruptFileError, TensorFileLoader, TensorFileLoadOptions
 from fairseq2.model_checkpoint.common import reshard_tensor
 from fairseq2.model_checkpoint.loader import (
-    ModelCheckpointError,
+    CorruptModelCheckpointError,
     ModelCheckpointLoader,
-    StateDictConverter,
+    ModelCheckpointLoadOptions,
 )
-from fairseq2.sharder import ShardSpec
 
 
 @final
-class NativeModelCheckpointLoader(ModelCheckpointLoader):
+class _NativeModelCheckpointLoader(ModelCheckpointLoader):
     """
     Loads native fairseq2 checkpoints.
 
@@ -36,35 +35,41 @@ class NativeModelCheckpointLoader(ModelCheckpointLoader):
     model checkpoints in distributed configurations.
     """
 
-    def __init__(self, file_system: FileSystem, tensor_loader: TensorLoader) -> None:
+    def __init__(
+        self,
+        file_system: FileSystem,
+        tensor_file_loader: TensorFileLoader,
+        gang_context: GangContext,
+    ) -> None:
         self._file_system = file_system
-        self._tensor_loader = tensor_loader
+        self._tensor_file_loader = tensor_file_loader
+        self._gang_context = gang_context
 
     @override
     def lazy_load(
         self,
         path: Path,
-        gangs: Gangs,
-        *,
-        mmap: bool = False,
-        restrict: bool = True,
-        state_dict_converter: StateDictConverter | None = None,
-        shard_specs: Mapping[str, ShardSpec] | None = None,
-        shard_dims: Mapping[str, int] | None = None,
+        shard_dims: Mapping[str, int],
+        options: ModelCheckpointLoadOptions | None = None,
     ) -> Iterator[tuple[str, Tensor]]:
+        if options is None:
+            options = ModelCheckpointLoadOptions()
+
         raise_if_not_exists(self._file_system, path)
 
         is_dir = self._file_system.is_dir(path)
         if not is_dir:
-            msg = f"{path} does not point to a fairseq2 checkpoint."
+            message = f"{path} does not point to a fairseq2 checkpoint."
 
-            raise ModelCheckpointError(path, msg)
+            raise CorruptModelCheckpointError(path, message)
 
         pp_files = self._get_checkpoint_files(path)
 
         pp_size = len(pp_files)
         tp_size = len(pp_files[0])
         dp_size = len(pp_files[0][0])
+
+        gangs = options.gangs or self._gang_context.get_current_gangs()
 
         source_shard_sizes = (tp_size, dp_size)
 
@@ -82,6 +87,10 @@ class NativeModelCheckpointLoader(ModelCheckpointLoader):
                 target_shard_sizes = (1, gangs.sdp.size)
                 target_shard_ranks = (0, gangs.sdp.rank)
 
+        load_options = TensorFileLoadOptions(
+            map_location=CPU, mmap=options.mmap, restrict=options.restrict
+        )
+
         # Load the checkpoint files.
         pp_shards = []
 
@@ -93,16 +102,16 @@ class NativeModelCheckpointLoader(ModelCheckpointLoader):
 
                 for dp_file in dp_files:
                     try:
-                        dp_shard = self._tensor_loader.load(
-                            dp_file, map_location=CPU, mmap=mmap, restrict=restrict
+                        dp_shard = self._tensor_file_loader.load(dp_file, load_options)
+                    except CorruptFileError as ex:
+                        message = (
+                            f"{dp_file} cannot e loaded as a PyTorch checkpoint file."
                         )
-                    except TensorFileError as ex:
-                        msg = f"{dp_file} is not a valid checkpoint file."
 
-                        raise ModelCheckpointError(path, msg) from ex
+                        raise CorruptModelCheckpointError(path, message) from ex
 
-                    if state_dict_converter is not None:
-                        dp_shard = state_dict_converter(dp_shard)
+                    if options.state_dict_converter is not None:
+                        dp_shard = options.state_dict_converter(dp_shard)
 
                     dp_shards.append(dp_shard)
 
@@ -131,9 +140,9 @@ class NativeModelCheckpointLoader(ModelCheckpointLoader):
                             break  # data parallel sharding can be uneven.
 
                         if not isinstance(dp_split, Tensor):
-                            msg = f"{key} in {path} is not a `{Tensor}`."
+                            message = f"{key} in {path} is not a `{Tensor}`."
 
-                            raise ModelCheckpointError(path, msg)
+                            raise CorruptModelCheckpointError(path, message)
 
                         dp_splits.append(dp_split)
 
@@ -152,7 +161,6 @@ class NativeModelCheckpointLoader(ModelCheckpointLoader):
                     source_shard_sizes,
                     target_shard_sizes,
                     target_shard_ranks,
-                    shard_specs,
                     shard_dims,
                 )
 
@@ -195,24 +203,24 @@ class NativeModelCheckpointLoader(ModelCheckpointLoader):
             pp_files.append(tp_files)
 
         if not pp_files or not pp_files[0] or not pp_files[0][0]:
-            msg = f"{path} does not contain any tensor files."
+            message = f"{path} directory does not contain any PyTorch checkpoint files."
 
-            raise ModelCheckpointError(path, msg)
+            raise CorruptModelCheckpointError(path, message)
 
         tp_size = len(pp_files[0])
         dp_size = len(pp_files[0][0])
 
         for pp_idx, tp_files in enumerate(pp_files):
             if len(tp_files) != tp_size:
-                msg = f"Number of tensor parallel shards is expected to be {tp_size}, but the pipeline parallel shard at index {pp_idx} has {len(tp_files)} tensor parallel shards."
+                message = f"Number of tensor parallel shards is expected to be {tp_size}, but the pipeline parallel shard at index {pp_idx} has {len(tp_files)} tensor parallel shards."
 
-                raise ModelCheckpointError(path, msg)
+                raise CorruptModelCheckpointError(path, message)
 
             for tp_idx, dp_files in enumerate(tp_files):
                 if len(dp_files) != dp_size:
-                    msg = f"Number of data parallel shards is expected to be {dp_size}, but the tensor parallel shard at index {pp_idx}.{tp_idx} has {len(dp_files)} data parallel shards."
+                    message = f"Number of data parallel shards is expected to be {dp_size}, but the tensor parallel shard at index {pp_idx}.{tp_idx} has {len(dp_files)} data parallel shards."
 
-                    raise ModelCheckpointError(path, msg)
+                    raise CorruptModelCheckpointError(path, message)
 
         return pp_files
 

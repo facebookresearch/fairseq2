@@ -7,8 +7,10 @@
 from __future__ import annotations
 
 import logging
-from logging import Logger, getLogger
+from logging import INFO, Formatter, Logger, NullHandler, StreamHandler, getLogger
 from typing import Any, Final, final
+
+from fairseq2.utils.env import StandardEnvironment, get_rank
 
 
 @final
@@ -61,8 +63,50 @@ class LogWriter:
 
 
 def get_log_writer(name: str | None = None) -> LogWriter:
-    """Return a :class:`LogWriter` for the logger with the specified name."""
+    """Returns the :class:`LogWriter` for the specified name."""
     return LogWriter(getLogger(name))
 
 
 log = get_log_writer("fairseq2")
+
+
+def configure_logging(no_rich: bool = False) -> None:
+    logger = getLogger()
+
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+
+        handler.close()
+
+    env = StandardEnvironment()
+
+    rank = get_rank(env)
+    if rank is None or rank == 0:
+        datefmt = "%Y-%m-%d %H:%M:%S"
+
+        if no_rich:
+            handler = StreamHandler()
+
+            console_formatter = Formatter(
+                "%(asctime)s %(levelname)s: %(name)s - %(message)s", datefmt
+            )
+        else:
+            from rich.logging import RichHandler
+
+            from fairseq2.utils.rich import get_error_console
+
+            console = get_error_console()
+
+            handler = RichHandler(console=console, show_path=False, keywords=[])
+
+            console_formatter = Formatter("%(name)s - %(message)s", datefmt)
+
+        handler.setFormatter(console_formatter)
+    else:
+        handler = NullHandler()
+
+    logger.addHandler(handler)
+
+    logger.setLevel(INFO)
+
+    logger.propagate = False

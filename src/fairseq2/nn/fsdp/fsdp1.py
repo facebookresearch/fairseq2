@@ -99,7 +99,7 @@ def to_fsdp1(
 
             skip_init = True
 
-        param_initializer = FSDPParameterInitializer(gangs.dp.device, skip_init)
+        param_initializer = FSDPParameterInitializer(gangs.device, skip_init)
 
     # Set up the data types for mixed precision training.
     if mixed_precision_dtype is None:
@@ -140,7 +140,7 @@ def to_fsdp1(
                 backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
                 mixed_precision=mp,
                 param_init_fn=param_initializer,
-                device_id=gangs.dp.device,
+                device_id=gangs.device,
                 sync_module_states=broadcast_state,
                 forward_prefetch=False,
                 limit_all_gathers=True,

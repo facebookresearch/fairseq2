@@ -6,10 +6,10 @@
 
 from __future__ import annotations
 
-from fairseq2.recipe.cli import train_main
+from fairseq2.recipe.cli import main
 
 from .recipe import LMTrainRecipe
 
 recipe = LMTrainRecipe()
 
-train_main(recipe)
+main(recipe)

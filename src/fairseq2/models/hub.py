@@ -19,7 +19,7 @@ from fairseq2.data_type import DataType
 from fairseq2.device import CPU, Device, get_current_device
 from fairseq2.error import InternalError
 from fairseq2.gang import Gangs, create_fake_gangs
-from fairseq2.models.family import ModelFamily
+from fairseq2.models.family import ModelFamily, ModelFamilyNotKnownError
 from fairseq2.runtime.dependency import get_dependency_resolver
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.utils.warn import _warn_deprecated, _warn_progress_deprecated
@@ -182,6 +182,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         device: Device | None = None,
         dtype: DataType | None = None,
         meta: bool = False,
+        init_rank0_only: bool = False,
     ) -> ModelT:
         """
         Creates a new model instance with the specified configuration.
@@ -211,6 +212,12 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         for memory-efficient initialization. Only supported if the model family
         supports meta device.
 
+        If ``init_rank0_only`` is ``True``, and the model supports meta
+        initialization, the model will be initialized only on the coordinator
+        process of the data parallel gang. On all other processes, it will be
+        initialized on the meta device. This parameter has no effect if the
+        model does not support meta initialization.
+
         .. code:: python
 
             from fairseq2.models.qwen import QwenConfig, get_qwen_model_hub
@@ -231,7 +238,9 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         if dtype is None:
             dtype = torch.get_default_dtype()
 
-        model = self._family.create_new_model(config, gangs, dtype, meta)
+        model = self._family.create_new_model(
+            config, gangs, dtype, meta, init_rank0_only
+        )
 
         return cast(ModelT, model)
 
@@ -243,6 +252,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         gangs: Gangs | None = None,
         dtype: DataType | None = None,
         config: ModelConfigT | None = None,
+        load_rank0_only: bool = False,
         mmap: bool = False,
         progress: bool | None = None,
     ) -> ModelT: ...
@@ -255,6 +265,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         device: Device | None = None,
         dtype: DataType | None = None,
         config: ModelConfigT | None = None,
+        load_rank0_only: bool = False,
         mmap: bool = False,
         progress: bool | None = None,
     ) -> ModelT: ...
@@ -267,6 +278,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         device: Device | None = None,
         dtype: DataType | None = None,
         config: ModelConfigT | None = None,
+        load_rank0_only: bool = False,
         mmap: bool = False,
         progress: bool | None = None,
     ) -> ModelT:
@@ -302,6 +314,14 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         the card. Typically used to perform slight adjustments to the model
         configuration such as tuning dropout probabilities without changing the
         architecture.
+
+        If ``load_rank0_only`` is ``False``, the model will be loaded on the
+        coordinator process of the data parallel gang and then broadcast to all
+        other processes in the gang. If it is ``True``, the model will be loaded
+        only on the coordinator process. On other processes, the model will be
+        initialized without loading weights, either on the meta device or on the
+        gang's device, depending on whether the model supports meta
+        initialization.
 
         If ``mmap`` is ``True``, the model checkpoint will be memory-mapped. This
         can reduce memory usage but may cause slower load times on some systems.
@@ -355,7 +375,9 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         if dtype is None:
             dtype = torch.get_default_dtype()
 
-        model = self._family.load_model(card, gangs, dtype, config, mmap, progress=True)
+        model = self._family.load_model(
+            card, gangs, dtype, config, load_rank0_only, mmap
+        )
 
         return cast(ModelT, model)
 
@@ -367,6 +389,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         *,
         gangs: Gangs | None = None,
         dtype: DataType | None = None,
+        load_rank0_only: bool = False,
         mmap: bool = False,
         restrict: bool | None = None,
         progress: bool | None = None,
@@ -380,6 +403,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         *,
         device: Device | None = None,
         dtype: DataType | None = None,
+        load_rank0_only: bool = False,
         mmap: bool = False,
         restrict: bool | None = None,
         progress: bool | None = None,
@@ -393,6 +417,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         gangs: Gangs | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
+        load_rank0_only: bool = False,
         mmap: bool = False,
         restrict: bool | None = None,
         progress: bool | None = None,
@@ -422,6 +447,14 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         If ``dtype`` is provided, it will be used as the default data type of
         the model parameters and buffers; otherwise, the data type returned from
         :func:`torch.get_default_dtype` will be used.
+
+        If ``load_rank0_only`` is ``False``, the model will be loaded on the
+        coordinator process of the data parallel gang and then broadcast to all
+        other processes in the gang. If it is ``True``, the model will be loaded
+        only on the coordinator process. On other processes, the model will be
+        initialized without loading weights, either on the meta device or on the
+        gang's device, depending on whether the model supports meta
+        initialization.
 
         If ``mmap`` is ``True``, the model checkpoint will be memory-mapped. This
         can reduce memory usage but may cause slower load times on some systems.
@@ -460,7 +493,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
             dtype = torch.get_default_dtype()
 
         model = self._family.load_custom_model(
-            path, config, gangs, dtype, mmap, restrict, progress=True
+            path, config, gangs, dtype, load_rank0_only, mmap, restrict
         )
 
         return cast(ModelT, model)
@@ -551,7 +584,7 @@ class ModelHubAccessor(Generic[ModelT, ModelConfigT]):
 
         name = self._family_name
 
-        family = resolver.resolve_optional(ModelFamily, key=name)
+        family = resolver.maybe_resolve(ModelFamily, key=name)
         if family is None:
             raise ModelFamilyNotKnownError(name)
 
@@ -573,15 +606,6 @@ class ModelNotKnownError(Exception):
 
     def __init__(self, name: str) -> None:
         super().__init__(f"{name} is not a known model.")
-
-        self.name = name
-
-
-class ModelFamilyNotKnownError(Exception):
-    """Raised when a requested model family is not registered."""
-
-    def __init__(self, name: str) -> None:
-        super().__init__(f"{name} is not a known model family.")
 
         self.name = name
 
@@ -616,6 +640,7 @@ def load_model(
     gangs: Gangs | None = None,
     dtype: DataType | None = None,
     config: object | None = None,
+    load_rank0_only: bool = False,
     mmap: bool = False,
     progress: bool | None = None,
 ) -> Module: ...
@@ -628,6 +653,7 @@ def load_model(
     device: Device | None = None,
     dtype: DataType | None = None,
     config: object | None = None,
+    load_rank0_only: bool = False,
     mmap: bool = False,
     progress: bool | None = None,
 ) -> Module: ...
@@ -640,6 +666,7 @@ def load_model(
     device: Device | None = None,
     dtype: DataType | None = None,
     config: object | None = None,
+    load_rank0_only: bool = False,
     mmap: bool = False,
     progress: bool | None = None,
 ) -> Module:
@@ -689,6 +716,14 @@ def load_model(
     configuration such as tuning dropout probabilities without changing the
     architecture.
 
+    If ``load_rank0_only`` is ``False``, the model will be loaded on the
+    coordinator process of the data parallel gang and then broadcast to all
+    other processes in the gang. If it is ``True``, the model will be loaded
+    only on the coordinator process. On other processes, the model will be
+    initialized without loading weights, either on the meta device or on the
+    gang's device, depending on whether the model supports meta
+    initialization.
+
     If ``mmap`` is ``True``, the model checkpoint will be memory-mapped. This
     can reduce memory usage but may cause slower load times on some systems.
 
@@ -717,11 +752,13 @@ def load_model(
 
     :raises ValueError: If both ``gangs`` and ``device`` are provided.
     """
+    _warn_progress_deprecated(progress)
+
     resolver = get_dependency_resolver()
 
     global_loader = resolver.resolve(GlobalModelLoader)
 
-    return global_loader.load(card, gangs, device, dtype, config, mmap, progress)
+    return global_loader.load(card, gangs, device, dtype, config, load_rank0_only, mmap)
 
 
 @final
@@ -746,12 +783,10 @@ class GlobalModelLoader:
         device: Device | None,
         dtype: DataType | None,
         config: object | None,
+        load_rank0_only: bool,
         mmap: bool,
-        progress: bool | None,
     ) -> Module:
         """See :func:`load_model`."""
-        _warn_progress_deprecated(progress)
-
         gangs = _get_effective_gangs(gangs, device)
 
         if isinstance(card, str):
@@ -775,7 +810,7 @@ class GlobalModelLoader:
         if dtype is None:
             dtype = torch.get_default_dtype()
 
-        return family.load_model(card, gangs, dtype, config, mmap, progress=True)
+        return family.load_model(card, gangs, dtype, config, load_rank0_only, mmap)
 
 
 def _get_effective_gangs(gangs: Gangs | None, device: Device | None) -> Gangs:

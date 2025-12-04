@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from types import NoneType
 
+from torch.nn import Module
+
 from fairseq2.generation import Seq2SeqGenerator, SequenceGenerator
 from fairseq2.generation.beam_search import (
     BeamSearchAlgorithm,
@@ -23,7 +25,11 @@ from fairseq2.recipe.internal.beam_search import (
     _BeamSearchSeq2SeqGeneratorFactory,
     _BeamSearchSequenceGeneratorFactory,
 )
-from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
+from fairseq2.runtime.dependency import (
+    DependencyContainer,
+    DependencyResolver,
+    wire_object,
+)
 
 
 def _register_beam_search(container: DependencyContainer) -> None:
@@ -31,9 +37,9 @@ def _register_beam_search(container: DependencyContainer) -> None:
     def create_seq_generator(
         resolver: DependencyResolver, config: BeamSearchConfig
     ) -> SequenceGenerator:
-        gen_factory = resolver.resolve(_BeamSearchSequenceGeneratorFactory)
+        generator_factory = resolver.resolve(_BeamSearchSequenceGeneratorFactory)
 
-        return gen_factory.create(config)
+        return generator_factory.create(config)
 
     register_component(
         container,
@@ -43,15 +49,24 @@ def _register_beam_search(container: DependencyContainer) -> None:
         factory=create_seq_generator,
     )
 
-    container.register_type(_BeamSearchSequenceGeneratorFactory)
+    def create_seq_generator_factory(
+        resolver: DependencyResolver,
+    ) -> _BeamSearchSequenceGeneratorFactory:
+        model = resolver.resolve(Module, key="model")
+
+        return wire_object(resolver, _BeamSearchSequenceGeneratorFactory, model=model)
+
+    container.register(
+        _BeamSearchSequenceGeneratorFactory, create_seq_generator_factory
+    )
 
     # Seq2Seq
     def create_seq2seq_generator(
         resolver: DependencyResolver, config: BeamSearchConfig
     ) -> Seq2SeqGenerator:
-        gen_factory = resolver.resolve(_BeamSearchSeq2SeqGeneratorFactory)
+        generator_factory = resolver.resolve(_BeamSearchSeq2SeqGeneratorFactory)
 
-        return gen_factory.create(config)
+        return generator_factory.create(config)
 
     register_component(
         container,
@@ -61,7 +76,16 @@ def _register_beam_search(container: DependencyContainer) -> None:
         factory=create_seq2seq_generator,
     )
 
-    container.register_type(_BeamSearchSeq2SeqGeneratorFactory)
+    def create_seq2seq_generator_factory(
+        resolver: DependencyResolver,
+    ) -> _BeamSearchSeq2SeqGeneratorFactory:
+        model = resolver.resolve(Module, key="model")
+
+        return wire_object(resolver, _BeamSearchSeq2SeqGeneratorFactory, model=model)
+
+    container.register(
+        _BeamSearchSeq2SeqGeneratorFactory, create_seq2seq_generator_factory
+    )
 
     # Standard Algorithm
     def create_standard_beam_search_algorithm(

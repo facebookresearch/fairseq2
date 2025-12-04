@@ -7,19 +7,22 @@
 from __future__ import annotations
 
 from fairseq2.logging import log
-from fairseq2.models.transformer_lm import TransformerLM
+from fairseq2.models.clm import CausalLM
 from fairseq2.nn import Embedding
 from fairseq2.recipe import RecipeContext
 from fairseq2.recipe.error import RecipeError
-from fairseq2.recipe.model import RecipeModel
 
 
-def check_vocab_info(context: RecipeContext) -> None:
-    embed = maybe_get_embed(context.model)
+def check_model_vocabulary(context: RecipeContext) -> None:
+    model = context.get_model_as(CausalLM)
+
+    embed = _maybe_get_embed(model)
     if embed is None:
-        raise RecipeError("Model must be a text-only Transformer language model.")
+        raise RecipeError("Model must be a text-only causal language model.")
 
-    vocab_info = context.default_tokenizer.vocab_info
+    tokenizer = context.get_tokenizer()
+
+    vocab_info = tokenizer.vocab_info
 
     if embed.num_embeddings > vocab_info.size:
         log.warning("Vocabulary size of the tokenizer ({}) is less than the number of embeddings in the model ({}). If this is not intentional (e.g. padding for efficient GPU utilization), check your job configuration.", vocab_info.size, embed.num_embeddings)  # fmt: skip
@@ -35,12 +38,9 @@ def check_vocab_info(context: RecipeContext) -> None:
         )
 
 
-def maybe_get_embed(model: RecipeModel) -> Embedding | None:
-    if not isinstance(model.base_module, TransformerLM):
-        return None
-
+def _maybe_get_embed(model: CausalLM) -> Embedding | None:
     try:
-        embed = model.base_module.decoder_frontend.embed
+        embed = model.decoder_frontend.embed  # type: ignore[union-attr]
     except AttributeError:
         return None
 

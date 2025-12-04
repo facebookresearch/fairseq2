@@ -6,14 +6,29 @@
 
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from itertools import chain
 from pathlib import Path
-from typing import final
+from re import Match
+from typing import TypeVar, final
 
 from typing_extensions import override
+
+from fairseq2.utils.env import Environment
+
+ConfigT = TypeVar("ConfigT")
+
+
+def cast_config_type(config: object, expected_kls: type[ConfigT]) -> ConfigT:
+    if not isinstance(config, expected_kls):
+        raise TypeError(
+            f"`config` must be of type `{expected_kls}`, but is of type `{type(config)}` instead."
+        )
+
+    return config
 
 
 class ConfigMerger(ABC):
@@ -182,3 +197,33 @@ class ReplacePathDirective(ConfigDirective):
     @override
     def execute(self, value: str, unstructured_config: object) -> object:
         return value.replace("${dir}", self._config_path)
+
+
+@final
+class ReplaceEnvDirective(ConfigDirective):
+    """
+    Replaces directives of the form ``${env:VAR}`` or ``${env:VAR:default}``
+    with the corresponding environment variable, or the default value if the
+    environment variable is not set.
+    """
+
+    def __init__(self, env: Environment) -> None:
+        pattern = re.compile(r"\$\{env:([A-Za-z_][A-Za-z0-9_]*)(?::([^}]*))?\}")
+
+        self._env = env
+        self._pattern = pattern
+
+    @override
+    def execute(self, value: str, unstructure_config: object) -> object:
+        return self._pattern.sub(self._replace, value)
+
+    def _replace(self, match: Match[str]) -> str:
+        var_name = match.group(1)
+
+        value = self._env.maybe_get(var_name)
+        if value is None:
+            value = match.group(2)
+            if value is None:
+                value = ""
+
+        return value

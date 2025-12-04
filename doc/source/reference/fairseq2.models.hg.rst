@@ -1,5 +1,4 @@
 fairseq2.models.hg
-==================
 
 The :mod:`fairseq2.models.hg` module provides seamless integration with HuggingFace Transformers models within the fairseq2 framework. This module allows you to load and use any HuggingFace model with fairseq2's training and inference pipelines.
 
@@ -191,3 +190,21 @@ Module Structure
    fairseq2.models.hg.factory
    fairseq2.models.hg.hub
    fairseq2.models.hg.tokenizer
+fairseq2.models.hg
+
+.. automodule:: fairseq2.models.hg
+    :no-members:
+
+ABCs
+====
+
+.. autoclass:: HuggingFaceConverter
+
+Classes
+
+.. autoclass:: HuggingFaceConfig
+
+Functions
+
+.. autofunction:: get_hugging_face_converter
+.. autofunction:: save_hugging_face_model

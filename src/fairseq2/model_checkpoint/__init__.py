@@ -13,7 +13,7 @@ The loaders support:
 
 - Memory-efficient lazy loading to avoid loading entire checkpoints into
   memory at once if the underlying format allows it. In particular relevant for
-  large checkpoints that may not fit entirely in memory.
+  large checkpoints that may not fit entirely into memory.
 - On-the-fly tensor resharding across different distributed configurations.
 - Optional memory mapping for reduced memory footprint.
 - State dict conversion for format compatibility.
@@ -22,40 +22,46 @@ The loaders support:
 .. code:: python
     :caption: Example Usage
 
-    from fairseq2.model_checkpoint import DelegatingModelCheckpointLoader
+    from fairseq2.model_checkpoint import get_model_checkpoint_loader
+    from fairseq2.nn import get_shard_dims
 
-    gangs = ...  # Setup gangs
+    model = ... # PyTorch Module
 
-    # Delegates model loading to the appropriate loader based on the checkpoint
-    # format.
-    loader = DelegatingModelCheckpointLoader()
+    checkpoint_path = ...  # Checkpoint file
 
-    checkpoint_path = ...  # Path to checkpoint file
+    # Get shard dimensions of each parameter of the model.
+    shard_dims = get_shard_dims(model)
 
-    # Load checkpoint parameters lazily
-    for key, tensor in loader.lazy_load(checkpoint_path, gangs):
-        # Process tensor without loading entire checkpoint
+    # Load checkpoint.
+    for key, tensor in loader.lazy_load(checkpoint_path, shard_dims):
+        # Process each tensor lazily without loading entire checkpoint.
 """
 
 from __future__ import annotations
 
 from fairseq2.model_checkpoint.basic import (
-    BasicModelCheckpointLoader as BasicModelCheckpointLoader,
+    _BasicModelCheckpointLoader as _BasicModelCheckpointLoader,
 )
 from fairseq2.model_checkpoint.common import reshard_tensor as reshard_tensor
 from fairseq2.model_checkpoint.delegating import (
-    DelegatingModelCheckpointLoader as DelegatingModelCheckpointLoader,
+    _DelegatingModelCheckpointLoader as _DelegatingModelCheckpointLoader,
 )
 from fairseq2.model_checkpoint.loader import (
-    ModelCheckpointError as ModelCheckpointError,
+    CorruptModelCheckpointError as CorruptModelCheckpointError,
 )
 from fairseq2.model_checkpoint.loader import (
     ModelCheckpointLoader as ModelCheckpointLoader,
 )
+from fairseq2.model_checkpoint.loader import (
+    ModelCheckpointLoadOptions as ModelCheckpointLoadOptions,
+)
 from fairseq2.model_checkpoint.loader import StateDictConverter as StateDictConverter
+from fairseq2.model_checkpoint.loader import (
+    get_model_checkpoint_loader as get_model_checkpoint_loader,
+)
 from fairseq2.model_checkpoint.native import (
-    NativeModelCheckpointLoader as NativeModelCheckpointLoader,
+    _NativeModelCheckpointLoader as _NativeModelCheckpointLoader,
 )
 from fairseq2.model_checkpoint.safetensors import (
-    SafetensorsCheckpointLoader as SafetensorsCheckpointLoader,
+    _SafetensorsCheckpointLoader as _SafetensorsCheckpointLoader,
 )

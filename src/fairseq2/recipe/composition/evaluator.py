@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from fairseq2.recipe.evaluator import Evaluator
-from fairseq2.recipe.internal.evaluator import _RecipeEvaluatorFactory
+from fairseq2.evaluator import Evaluator
+from fairseq2.recipe.internal.evaluator import _EvaluatorFactory
 from fairseq2.runtime.dependency import (
     DependencyContainer,
     DependencyResolver,
@@ -18,14 +18,10 @@ from fairseq2.runtime.dependency import (
 
 
 def _register_evaluator_factory(container: DependencyContainer) -> None:
-    def create_evaluator_factory(
-        resolver: DependencyResolver,
-    ) -> _RecipeEvaluatorFactory:
+    def create_evaluator_factory(resolver: DependencyResolver) -> _EvaluatorFactory:
         def create_evaluator(**kwargs: Any) -> Evaluator:
             return wire_object(resolver, Evaluator, **kwargs)
 
-        return wire_object(
-            resolver, _RecipeEvaluatorFactory, inner_factory=create_evaluator
-        )
+        return wire_object(resolver, _EvaluatorFactory, base_factory=create_evaluator)
 
-    container.register(_RecipeEvaluatorFactory, create_evaluator_factory)
+    container.register(_EvaluatorFactory, create_evaluator_factory)

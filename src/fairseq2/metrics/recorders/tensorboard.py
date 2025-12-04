@@ -11,14 +11,8 @@ from pathlib import Path
 from typing import final
 
 from torch import Tensor
+from torch.utils.tensorboard import SummaryWriter
 from typing_extensions import override
-
-try:
-    from torch.utils.tensorboard import SummaryWriter  # type: ignore[attr-defined]
-except ImportError:
-    _has_tensorboard = False
-else:
-    _has_tensorboard = True
 
 from fairseq2.error import OperationalError, raise_operational_system_error
 from fairseq2.metrics.recorders.descriptor import MetricDescriptorRegistry
@@ -36,11 +30,6 @@ class TensorBoardRecorder(MetricRecorder):
         :param output_dir:
             The base directory under which to store the TensorBoard files.
         """
-        if not _has_tensorboard:
-            raise OperationalError(
-                "tensorboard is not found. Use `pip install tensorboard`."
-            )
-
         tb_dir = output_dir.joinpath("tb")
 
         self._output_dir = tb_dir

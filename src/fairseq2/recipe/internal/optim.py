@@ -8,18 +8,18 @@ from __future__ import annotations
 
 from typing import final
 
+from torch.nn import Module
 from torch.optim import Adafactor, AdamW, Optimizer
 
 from fairseq2.gang import Gangs
 from fairseq2.recipe.component import ComponentManager, ComponentNotKnownError
 from fairseq2.recipe.config import AdafactorConfig, AdamWConfig, OptimizerSection
 from fairseq2.recipe.error import OptimizerNotKnownError
-from fairseq2.recipe.model import RecipeModel
 from fairseq2.recipe.optim import prepare_parameter_groups
 
 
 @final
-class _RecipeOptimizerFactory:
+class _OptimizerFactory:
     def __init__(
         self,
         section: OptimizerSection,
@@ -43,7 +43,7 @@ class _RecipeOptimizerFactory:
 
 @final
 class _AdamWFactory:
-    def __init__(self, model: RecipeModel) -> None:
+    def __init__(self, model: Module) -> None:
         self._model = model
 
     def create(self, config: AdamWConfig) -> Optimizer:
@@ -74,7 +74,7 @@ class _AdamWFactory:
 
 @final
 class _AdafactorFactory:
-    def __init__(self, model: RecipeModel) -> None:
+    def __init__(self, model: Module) -> None:
         self._model = model
 
     def create(self, config: AdafactorConfig) -> Optimizer:

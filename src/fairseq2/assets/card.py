@@ -134,6 +134,13 @@ class AssetCardError(Exception):
         self.name = name
 
 
+class AssetCardNotValidError(Exception):
+    def __init__(self, name: str, message: str) -> None:
+        super().__init__(message)
+
+        self.name = name
+
+
 class AssetConfigLoader(ABC):
     @abstractmethod
     def load(self, card: AssetCard, base_config: object, config_key: str) -> object: ...

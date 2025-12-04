@@ -9,12 +9,15 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Collection, Hashable, Iterable, Iterator, Sequence
+from functools import partial
 from inspect import Parameter, signature
+from types import NoneType, UnionType
 from typing import (
     Any,
     Final,
     Protocol,
     TypeVar,
+    Union,
     cast,
     final,
     get_args,
@@ -36,7 +39,7 @@ class DependencyResolver(ABC):
     def resolve(self, kls: type[T], *, key: Hashable | None = None) -> T: ...
 
     @abstractmethod
-    def resolve_optional(
+    def maybe_resolve(
         self, kls: type[T], *, key: Hashable | None = None
     ) -> T | None: ...
 
@@ -64,6 +67,18 @@ class DependencyNotFoundError(Exception):
         self.key = key
 
 
+class DependencyCycleError(Exception):
+    def __init__(self, cycle: Sequence[tuple[type, Hashable | None]]) -> None:
+        super().__init__("Dependency cycle detected.")
+
+        self.cycle = cycle
+
+    def __str__(self) -> str:
+        s = " -> ".join(str(t) if k is None else f"{t} ({k})" for t, k in self.cycle)
+
+        return f"Dependency cycle detected. {s}"
+
+
 T_co = TypeVar("T_co", covariant=True)
 
 
@@ -75,7 +90,7 @@ class DependencyProvider(Protocol[T_co]):
 class DependencyContainer(DependencyResolver):
     def __init__(self) -> None:
         self._registrations: dict[Hashable, _DependencyRegistration] = {}
-        self._keys: dict[type[object], list[Hashable]] = defaultdict(list)
+        self._keys: dict[type, list[Hashable]] = defaultdict(list)
         self._collection_container = DependencyCollectionContainer(self)
         self._frozen = False
 
@@ -87,7 +102,7 @@ class DependencyContainer(DependencyResolver):
         key: Hashable | None = None,
         singleton: bool = False,
     ) -> None:
-        self._do_register(kls, key, _DependencyRegistration(provider, singleton))
+        self._do_register(kls, key, _DependencyRegistration(provider, key, singleton))
 
     def register_type(
         self,
@@ -107,12 +122,14 @@ class DependencyContainer(DependencyResolver):
         def create_instance(resolver: DependencyResolver) -> T:
             return wire_object(self, sub_kls)
 
-        self._do_register(kls, key, _DependencyRegistration(create_instance, singleton))
+        self._do_register(
+            kls, key, _DependencyRegistration(create_instance, key, singleton)
+        )
 
     def register_instance(
         self, kls: type[T], obj: T, *, key: Hashable | None = None
     ) -> None:
-        self._do_register(kls, key, _DependencyRegistration.for_(obj))
+        self._do_register(kls, key, _DependencyRegistration.for_(obj, key))
 
     def _do_register(
         self,
@@ -161,9 +178,7 @@ class DependencyContainer(DependencyResolver):
         return obj
 
     @override
-    def resolve_optional(
-        self, kls: type[T], *, key: Hashable | None = None
-    ) -> T | None:
+    def maybe_resolve(self, kls: type[T], *, key: Hashable | None = None) -> T | None:
         try:
             return self.resolve(kls, key=key)
         except DependencyNotFoundError as ex:
@@ -191,7 +206,7 @@ class DependencyCollectionContainer(DependencyCollectionResolver):
     def __init__(self, container: DependencyContainer) -> None:
         self._container = container
         self._registrations: dict[Hashable, list[_DependencyRegistration]] = defaultdict(list)  # fmt: skip
-        self._keys: dict[type[object], list[Hashable]] = defaultdict(list)
+        self._keys: dict[type, list[Hashable]] = defaultdict(list)
 
     def register(
         self,
@@ -201,7 +216,7 @@ class DependencyCollectionContainer(DependencyCollectionResolver):
         key: Hashable | None = None,
         singleton: bool = False,
     ) -> None:
-        self._do_register(kls, key, _DependencyRegistration(provider, singleton))
+        self._do_register(kls, key, _DependencyRegistration(provider, key, singleton))
 
     def register_type(
         self,
@@ -221,12 +236,14 @@ class DependencyCollectionContainer(DependencyCollectionResolver):
         def create_instance(resolver: DependencyResolver) -> T:
             return wire_object(self._container, sub_kls)
 
-        self._do_register(kls, key, _DependencyRegistration(create_instance, singleton))
+        self._do_register(
+            kls, key, _DependencyRegistration(create_instance, key, singleton)
+        )
 
     def register_instance(
         self, kls: type[T], obj: T, *, key: Hashable | None = None
     ) -> None:
-        self._do_register(kls, key, _DependencyRegistration.for_(obj))
+        self._do_register(kls, key, _DependencyRegistration.for_(obj, key))
 
     def _do_register(
         self,
@@ -289,19 +306,38 @@ _NOT_SET: Final = object()
 
 class _DependencyRegistration:
     @staticmethod
-    def for_(obj: object) -> _DependencyRegistration:
-        return _DependencyRegistration(provider=lambda resolver: obj)
+    def for_(obj: object, key: Hashable | None) -> _DependencyRegistration:
+        return _DependencyRegistration(lambda resolver: obj, key, singleton=False)
 
     def __init__(
-        self, provider: DependencyProvider[object], singleton: bool = False
+        self,
+        provider: DependencyProvider[object],
+        key: Hashable | None,
+        singleton: bool,
     ) -> None:
         self.obj = _NOT_SET
         self.provider = provider
+        self.key = key
         self.singleton = singleton
+        self.in_call = False
 
     def get_instance(self, kls: type[T], resolver: DependencyResolver) -> T | None:
         if self.obj is _NOT_SET:
-            obj = self.provider(resolver)
+            if self.in_call:
+                raise DependencyCycleError(cycle=[(kls, self.key)])
+
+            self.in_call = True
+
+            try:
+                obj = self.provider(resolver)
+            except DependencyCycleError as ex:
+                cycle = [(kls, self.key)]
+
+                cycle.extend(ex.cycle)
+
+                raise DependencyCycleError(cycle) from None
+            finally:
+                self.in_call = False
 
             if self.singleton:
                 self.obj = obj
@@ -324,7 +360,7 @@ class DependencyLookup(Lookup[T]):
 
     @override
     def maybe_get(self, key: Hashable) -> T | None:
-        return self._resolver.resolve_optional(self._kls, key=key)
+        return self._resolver.maybe_resolve(self._kls, key=key)
 
     @override
     def iter_keys(self) -> Iterator[Hashable]:
@@ -352,40 +388,40 @@ def get_dependency_resolver() -> DependencyResolver:
 
 
 def wire_object(resolver: DependencyResolver, wire_kls: type[T], /, **kwargs: Any) -> T:
-    obj = _create_auto_wired_instance(wire_kls, resolver, dict(kwargs))
+    obj = _create_wired_instance(wire_kls, resolver, dict(kwargs))
 
     return cast(T, obj)
 
 
 class AutoWireError(Exception):
-    def __init__(self, kls: type[object], msg: str) -> None:
-        super().__init__(msg)
+    def __init__(self, kls: type[object], reason: str) -> None:
+        super().__init__(f"`{kls}` cannot be auto-wired. {reason}")
 
         self.kls = kls
+        self.reason = reason
 
 
-def _create_auto_wired_instance(
+def _create_wired_instance(
     kls: type[object], resolver: DependencyResolver, custom_kwargs: dict[str, object]
 ) -> object:
+    def wire_error(reason: str) -> Exception:
+        return AutoWireError(kls, reason)
+
     init_method = getattr(kls, "__init__", None)
     if init_method is None:
-        msg = f"`{kls}` must have an `__init__()` method for auto-wiring."
-
-        raise AutoWireError(kls, msg)
+        raise wire_error("Must have an `__init__()` for auto-wiring.")
 
     try:
         sig = signature(init_method)
     except (TypeError, ValueError) as ex:
-        msg = f"Signature of `{init_method}` cannot be inspected."
-
-        raise AutoWireError(kls, msg) from ex
+        raise wire_error("Signature of `__init__()` cannot be inspected.") from ex
 
     try:
         type_hints = get_type_hints(init_method)
     except (TypeError, ValueError, NameError) as ex:
-        msg = f"Type annotations of `{init_method}` cannot be inspected."
-
-        raise AutoWireError(kls, msg) from ex
+        raise wire_error(
+            "Type annotations of `__init__()` cannot be inspected."
+        ) from ex
 
     kwargs: dict[str, object] = {}
 
@@ -394,9 +430,7 @@ def _create_auto_wired_instance(
             continue
 
         if param.kind == Parameter.POSITIONAL_ONLY:
-            msg = f"`{init_method}` has one or more positional-only parameters."
-
-            raise AutoWireError(kls, msg)
+            raise wire_error("`__init__()` has one or more positional-only parameters.")
 
         if param.kind in (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD):
             continue
@@ -404,9 +438,9 @@ def _create_auto_wired_instance(
         try:
             param_type = type_hints[param_name]
         except KeyError:
-            msg = f"`{param_name}` parameter of `{init_method}` has no type annotation."
-
-            raise AutoWireError(kls, msg) from None
+            raise wire_error(
+                f"`{param_name}` parameter has no type annotation."
+            ) from None
 
         arg: Any
 
@@ -416,82 +450,148 @@ def _create_auto_wired_instance(
             arg = _NOT_SET
 
         if arg is _NOT_SET:
-            param_origin_type = get_origin(param_type)
 
-            if param_origin_type in (Iterable, Collection, Sequence, Lookup, Lazy):
+            def non_type_param_error() -> Exception:
+                return wire_error(
+                    f"Type annotation of the `{param_name}` parameter does not represent a `type`."
+                )
+
+            def get_element_kls() -> type | None:
                 param_type_args = get_args(param_type)
                 if len(param_type_args) != 1:
-                    msg = f"`{param_name}` parameter of `{init_method}` cannot be auto-wired. Its type annotation has no element type expression."
+                    raise wire_error(
+                        f"Type annotation of the `{param_name}` parameter has no valid element type expression."
+                    )
 
-                    raise AutoWireError(kls, msg)
-
-                element_type = param_type_args[0]
-                if not isinstance(element_type, type):
+                element_kls = param_type_args[0]
+                if not isinstance(element_kls, type):
                     if param.default != Parameter.empty:
-                        continue
+                        return None
 
-                    msg = f"`{param_name}` parameter of `{init_method}` cannot be auto-wired. The element type expression in its type annotation does not represent a `type`."
+                    raise wire_error(
+                        f"Element type expression of the `{param_name}` parameter does not represent a `type`."
+                    )
 
-                    raise AutoWireError(kls, msg)
+                return element_kls
 
-                if param_origin_type is Lookup:
-                    arg = DependencyLookup(resolver, element_type)
-                elif param_origin_type is Lazy:
-                    arg = Lazy(factory=lambda: resolver.resolve(element_type))
-                else:
-                    arg = resolver.collection.resolve(element_type)
-
-                    if param_origin_type is not Iterable:
-                        arg = list(arg)
-            elif param_origin_type is Callable:
+            def get_return_kls() -> type | None:
                 param_type_args = get_args(param_type)
                 if len(param_type_args) != 2:
-                    msg = f"`{param_name}` parameter of `{init_method}` cannot be auto-wired. Its type annotation has no signature expression."
-
-                    raise AutoWireError(kls, msg)
+                    raise wire_error(
+                        f"Type annotation of the `{param_name}` parameter has no valid signature expression."
+                    )
 
                 if len(param_type_args[0]) > 0:
                     if param.default != Parameter.empty:
-                        continue
+                        return None
 
-                    msg = f"`{param_name}` parameter of `{init_method}` cannot be auto-wired. Its type annotation has one or more parameter type expressions."
+                    raise wire_error(
+                        f"Type annotation of the `{param_name}` parameter has one or more parameter type expressions."
+                    )
 
-                    raise AutoWireError(kls, msg)
-
-                return_type = param_type_args[1]
-                if not isinstance(return_type, type):
+                return_kls = param_type_args[1]
+                if not isinstance(return_kls, type):
                     if param.default != Parameter.empty:
-                        continue
+                        return None
 
-                    msg = f"`{param_name}` parameter of `{init_method}` cannot be auto-wired. The return type expression in its type annotation does not represent a `type`."
+                    raise wire_error(
+                        f"Return type expression of the `{param_name}` parameter does not represent a `type`."
+                    )
 
-                    raise AutoWireError(kls, msg)
+                return return_kls
 
-                arg = lambda: resolver.resolve(return_type)
-            else:
+            def get_optional_kls() -> type | None:
+                param_type_args = get_args(param_type)
+                if len(param_type_args) != 2:
+                    raise non_type_param_error()
+
+                if param_type_args[0] is NoneType:
+                    element_kls = param_type_args[1]
+                elif param_type_args[1] is NoneType:
+                    element_kls = param_type_args[0]
+                else:
+                    if param.default != Parameter.empty:
+                        return None
+
+                    raise non_type_param_error()
+
+                if not isinstance(element_kls, type):
+                    if param.default != Parameter.empty:
+                        return None
+
+                    raise non_type_param_error()
+
+                return element_kls
+
+            def get_param_kls() -> type | None:
                 if not isinstance(param_type, type):
                     if param.default != Parameter.empty:
-                        continue
+                        return None
 
-                    msg = f"`{param_name}` parameter of `{init_method}` cannot be auto-wired. Its type annotation does not represent a `type`."
+                    raise non_type_param_error()
 
-                    raise AutoWireError(kls, msg)
+                return param_type
 
-                if param_type is DependencyResolver:
+            param_origin_type = get_origin(param_type)
+
+            if param_origin_type is Iterable:
+                element_kls = get_element_kls()
+                if element_kls is None:
+                    continue
+
+                arg = resolver.collection.resolve(element_kls)
+            elif param_origin_type in (Collection, Sequence):
+                element_kls = get_element_kls()
+                if element_kls is None:
+                    continue
+
+                arg = resolver.collection.resolve(element_kls)
+
+                arg = list(arg)
+            elif param_origin_type is Lookup:
+                element_kls = get_element_kls()
+                if element_kls is None:
+                    continue
+
+                arg = DependencyLookup(resolver, element_kls)
+            elif param_origin_type is Lazy:
+                element_kls = get_element_kls()
+                if element_kls is None:
+                    continue
+
+                arg = Lazy(factory=partial(lambda e: resolver.resolve(e), element_kls))
+            elif param_origin_type is Callable:
+                return_kls = get_return_kls()
+                if return_kls is None:
+                    continue
+
+                arg = partial(lambda r: resolver.resolve(r), return_kls)
+            elif param_origin_type in (Union, UnionType):
+                element_kls = get_optional_kls()
+                if element_kls is None:
+                    continue
+
+                arg = resolver.maybe_resolve(element_kls)
+            else:
+                param_kls = get_param_kls()
+                if param_kls is None:
+                    continue
+
+                if param_kls is DependencyResolver:
                     arg = resolver
                 elif param.default != Parameter.empty:
-                    arg = resolver.resolve_optional(param_type)
+                    arg = resolver.maybe_resolve(param_kls)
                     if arg is None:
                         arg = _NOT_SET
                 else:
-                    arg = resolver.resolve(param_type)
+                    arg = resolver.resolve(param_kls)
 
         if arg is not _NOT_SET:
             kwargs[param_name] = arg
 
     if custom_kwargs:
-        msg = f"`kwargs` has one or more extra arguments not used by `{kls}`. Extra arguments: {custom_kwargs}"
-
-        raise AutoWireError(kls, msg)
+        raise wire_error(
+            f"`kwargs` has one or more extra arguments not used. Extra arguments: {custom_kwargs}"
+        )
 
     return kls(**kwargs)

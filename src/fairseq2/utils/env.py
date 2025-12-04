@@ -8,23 +8,36 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
-from typing import final
+from collections.abc import Iterable, Iterator
+from typing import final, overload
 
 from typing_extensions import override
 
 
-class Environment(ABC):
+class Environment(ABC, Iterable[tuple[str, str]]):
     @abstractmethod
     def get(self, name: str) -> str: ...
 
-    @abstractmethod
+    @overload
     def maybe_get(self, name: str) -> str | None: ...
+
+    @overload
+    def maybe_get(self, name: str, default: str) -> str: ...
+
+    @abstractmethod
+    def maybe_get(self, name: str, default: str | None = None) -> str | None: ...
 
     @abstractmethod
     def set(self, name: str, value: str) -> None: ...
 
     @abstractmethod
     def has(self, name: str) -> bool: ...
+
+    @abstractmethod
+    def to_dict(self) -> dict[str, str]: ...
+
+    @abstractmethod
+    def __iter__(self) -> Iterator[tuple[str, str]]: ...
 
 
 @final
@@ -33,9 +46,15 @@ class StandardEnvironment(Environment):
     def get(self, name: str) -> str:
         return os.environ[name]
 
+    @overload
+    def maybe_get(self, name: str) -> str | None: ...
+
+    @overload
+    def maybe_get(self, name: str, default: str) -> str: ...
+
     @override
-    def maybe_get(self, name: str) -> str | None:
-        return os.environ.get(name)
+    def maybe_get(self, name: str, default: str | None = None) -> str | None:
+        return os.environ.get(name, default)
 
     @override
     def set(self, name: str, value: str) -> None:
@@ -44,6 +63,14 @@ class StandardEnvironment(Environment):
     @override
     def has(self, name: str) -> bool:
         return name in os.environ
+
+    @override
+    def to_dict(self) -> dict[str, str]:
+        return dict(os.environ)
+
+    @override
+    def __iter__(self) -> Iterator[tuple[str, str]]:
+        return iter(os.environ.items())
 
 
 class EnvironmentVariableError(Exception):

@@ -7,13 +7,14 @@
 name: s2t_transformer_mustc_asr_de_s
 model_family: s2t_transformer
 model_arch: small
-model_config_override:
+model_config_overrides:
   target_vocab_size: 5000
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_asr_transformer_s.pt"
 restrict: false
-tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_asr_vocab_unigram5000.zip;path=spm_unigram_5000.model"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_asr_vocab_unigram5000.zip"
+tokenizer_path: "spm_unigram_5000.model"
 tokenizer_family: s2t_transformer
-tokenizer_config_override:
+tokenizer_config_overrides:
   task: transcription
   target_langs: [en]
   default_target_lang: en
@@ -23,13 +24,14 @@ tokenizer_config_override:
 name: s2t_transformer_mustc_asr_es_s
 model_family: s2t_transformer
 model_arch: small
-model_config_override:
+model_config_overrides:
   target_vocab_size: 5000
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_es_asr_transformer_s.pt"
 restrict: false
-tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_es_asr_vocab_unigram5000.zip;path=spm_unigram_5000.model"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_es_asr_vocab_unigram5000.zip"
+tokenizer_path: "spm_unigram_5000.model"
 tokenizer_family: s2t_transformer
-tokenizer_config_override:
+tokenizer_config_overrides:
   task: transcription
   target_langs: [en]
   default_target_lang: en
@@ -41,9 +43,10 @@ model_family: s2t_transformer
 model_arch: medium
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_joint_asr_transformer_m.pt"
 restrict: false
-tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_joint_asr_vocab_unigram10000.zip;path=spm_unigram_10000.model"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_joint_asr_vocab_unigram10000.zip"
+tokenizer_path: "spm_unigram_10000.model"
 tokenizer_family: s2t_transformer
-tokenizer_config_override:
+tokenizer_config_overrides:
   task: transcription
   target_langs: [en]
   default_target_lang: en
@@ -53,13 +56,14 @@ tokenizer_config_override:
 name: s2t_transformer_mustc_st_de_s
 model_family: s2t_transformer
 model_arch: small
-model_config_override:
+model_config_overrides:
   target_vocab_size: 8000
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_st_transformer_s.pt"
 restrict: false
-tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_st_vocab_unigram8000.zip;path=spm_unigram_8000.model"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_st_vocab_unigram8000.zip"
+tokenizer_path: "spm_unigram_8000.model"
 tokenizer_family: s2t_transformer
-tokenizer_config_override:
+tokenizer_config_overrides:
   task: translation
   target_langs: [de]
   default_target_lang: de
@@ -71,9 +75,10 @@ model_family: s2t_transformer
 model_arch: medium
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_multilingual_st_transformer_m.pt"
 restrict: false
-tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_multilingual_st_vocab_unigram10000.zip;path=spm_unigram_10000.model"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_multilingual_st_vocab_unigram10000.zip"
+tokenizer_path: "spm_unigram_10000.model"
 tokenizer_family: s2t_transformer
-tokenizer_config_override:
+tokenizer_config_overrides:
   task: translation
   target_langs: [de, es, fr, it, nl, pt, ro, ru]
   default_target_lang: de

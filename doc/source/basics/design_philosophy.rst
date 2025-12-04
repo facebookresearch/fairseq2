@@ -87,7 +87,7 @@ Core Components
 The dependency injection system is built around several key abstractions:
 
 .. autoclass:: DependencyResolver
-   :members: resolve, resolve_optional, iter_keys
+   :members: resolve, iter_keys
    :noindex:
 
 .. autoclass:: DependencyContainer

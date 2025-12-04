@@ -29,9 +29,9 @@ def _register_sampling(container: DependencyContainer) -> None:
     def create_seq_generator(
         resolver: DependencyResolver, config: SamplingConfig
     ) -> SequenceGenerator:
-        gen_factory = resolver.resolve(_SamplingSequenceGeneratorFactory)
+        generator_factory = resolver.resolve(_SamplingSequenceGeneratorFactory)
 
-        return gen_factory.create(config)
+        return generator_factory.create(config)
 
     register_component(
         container,
@@ -47,9 +47,9 @@ def _register_sampling(container: DependencyContainer) -> None:
     def create_seq2seq_generator(
         resolver: DependencyResolver, config: SamplingConfig
     ) -> Seq2SeqGenerator:
-        gen_factory = resolver.resolve(_SamplingSeq2SeqGeneratorFactory)
+        generator_factory = resolver.resolve(_SamplingSeq2SeqGeneratorFactory)
 
-        return gen_factory.create(config)
+        return generator_factory.create(config)
 
     register_component(
         container,

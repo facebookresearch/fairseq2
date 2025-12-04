@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from fairseq2.recipe.config import CommonSection, RecipeConfig
+from fairseq2.recipe.config import CommonSection
+from fairseq2.recipe.internal.config import _RecipeConfigHolder
 from fairseq2.recipe.internal.sweep_tag import _StandardSweepTagGenerator
 from fairseq2.utils.structured import StandardValueConverter
 from fairseq2.utils.validation import ValidationError
@@ -33,7 +34,7 @@ class TestSweepTagGenerator:
         value_converter = StandardValueConverter()
 
         generator = _StandardSweepTagGenerator(
-            section, world_info, RecipeConfig(config), value_converter
+            section, world_info, _RecipeConfigHolder(config), value_converter
         )
 
         tag = generator.maybe_generate()
@@ -57,7 +58,7 @@ class TestSweepTagGenerator:
         value_converter = StandardValueConverter()
 
         generator = _StandardSweepTagGenerator(
-            section, world_info, RecipeConfig(config), value_converter
+            section, world_info, _RecipeConfigHolder(config), value_converter
         )
 
         tag = generator.maybe_generate()
@@ -83,7 +84,7 @@ class TestSweepTagGenerator:
         value_converter = StandardValueConverter()
 
         generator = _StandardSweepTagGenerator(
-            section, world_info, RecipeConfig(config), value_converter
+            section, world_info, _RecipeConfigHolder(config), value_converter
         )
 
         tag = generator.maybe_generate()
@@ -100,7 +101,7 @@ class TestSweepTagGenerator:
         value_converter = StandardValueConverter()
 
         generator = _StandardSweepTagGenerator(
-            section, world_info, RecipeConfig(config), value_converter
+            section, world_info, _RecipeConfigHolder(config), value_converter
         )
 
         with pytest.raises(
@@ -118,7 +119,7 @@ class TestSweepTagGenerator:
         value_converter = StandardValueConverter()
 
         generator = _StandardSweepTagGenerator(
-            section, world_info, RecipeConfig(config), value_converter
+            section, world_info, _RecipeConfigHolder(config), value_converter
         )
 
         with pytest.raises(

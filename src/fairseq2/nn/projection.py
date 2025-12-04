@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import TYPE_CHECKING, final
+from typing import TYPE_CHECKING, cast, final
 
 import torch
 import torch.nn as nn
@@ -19,12 +19,13 @@ from torch.nn.functional import linear
 from typing_extensions import override
 
 from fairseq2.data_type import DataType
-from fairseq2.device import META_DEVICE, Device
+from fairseq2.device import META_DEVICE, Device, get_current_device
 from fairseq2.error import InternalError
-from fairseq2.gang import Gang
+from fairseq2.gang import Gang, Gangs, get_current_gangs
 from fairseq2.nn.sharded import Sharded
 from fairseq2.nn.utils.module import get_name_or_self, to_empty
 from fairseq2.ops.tensor_parallel import gather, reduce, reduce_on_backward, scatter
+from fairseq2.utils.warn import _warn_deprecated
 
 
 class Projection(Module, ABC):
@@ -102,10 +103,7 @@ class Linear(Projection):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        if self.init_fn is not None:
-            self.init_fn(self)
-        else:
-            _init_uniform(self.weight, self.bias)
+        _init_linear(self)
 
     @override
     def forward(self, x: Tensor) -> Tensor:
@@ -132,70 +130,101 @@ class ColumnShardedLinear(Projection, Sharded):
 
     @staticmethod
     def from_linear(
-        linear: Linear, gang: Gang, *, gather_output: bool = True
+        linear: Linear,
+        gang: Gang | None = None,
+        *,
+        gangs: Gangs | None = None,
+        gather_output: bool = True,
     ) -> ColumnShardedLinear:
         """
         Creates a :class:`ColumnShardedLinear` by sharding ``linear`` over its
-        output dimension using ``gang``.
+        output dimension using ``gangs.tp``.
+
+        If ``gangs`` is ``None``, acts like a regular :class:`Linear` module.
 
         If ``gather_output`` is ``True``, the sharded outputs of all ranks will
         be gathered into a single tensor.
         """
+        if gang is not None:
+            _warn_deprecated(
+                "`gang` parameter of `ColumnShardedLinear.from_linear` is deprecated and will be removed in v0.14. Please use the `gangs` parameter instead."
+            )
+
+            if gangs is not None:
+                raise ValueError(
+                    "`gang` and `gangs` cannot be provided at the same time."
+                )
+        else:
+            if gangs is None:
+                gangs = get_current_gangs(linear.weight.device)
+
+            gang = gangs.tp
+
         device = linear.weight.device
 
         if device != gang.device and device.type != "meta":
             raise ValueError(
-                f"Device of `linear` must match `gang.device` or must be of type `meta`, but is `{device}` instead."
+                f"Device of `linear` must match `gangs.device` or must be of type `meta`, but is `{device}` instead."
             )
 
         sharded_linear = ColumnShardedLinear(
-            gang,
             linear.input_dim,
             linear.output_dim,
             bias=linear.bias is not None,
             gather_output=gather_output,
             init_fn=linear.init_fn,
+            gangs=gangs,
             device=META_DEVICE,
             dtype=linear.weight.dtype,
+            _tp_gang=gang,
         )
 
         if device.type != "meta":
             to_empty(sharded_linear, device)
 
-        sharded_linear._copy_weight(linear)
+        sharded_linear._copy_from_linear(linear)
 
         return sharded_linear
 
     def __init__(
         self,
-        gang: Gang,
         input_dim: int,
         output_dim: int,
         bias: bool,
         *,
         gather_output: bool = True,
         init_fn: Callable[[Linear], None] | None = None,
+        gangs: Gangs | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
+        _tp_gang: Gang | None = None,
     ) -> None:
         super().__init__(input_dim, output_dim)
 
-        if output_dim % gang.size != 0:
+        if gangs is None:
+            gangs = get_current_gangs(device)
+
+        tp_gang = gangs.tp if _tp_gang is None else _tp_gang
+
+        if output_dim % tp_gang.size != 0:
             raise ValueError(
-                f"`output_dim` must be a multiple of `gang.size` ({gang.size}), but is {output_dim} instead."
+                f"`output_dim` must be a multiple of `gangs.tp.size` ({tp_gang.size}), but is {output_dim} instead."
             )
 
-        self.gang = gang
+        self.tp_gang = tp_gang
 
-        self.sharded_output_dim = output_dim // gang.size
+        self.sharded = tp_gang.size > 1
+
+        self.sharded_output_dim = output_dim // tp_gang.size
 
         self.gather_output = gather_output
 
         if device is None:
-            device = gang.device
-        elif device != gang.device and device.type != "meta":
+            device = get_current_device()
+
+        if device.type != "meta" and device != tp_gang.device:
             raise ValueError(
-                "`device` must match `gang.device` or must be of type `meta`."
+                "`device` must match `gangs.device` or must be of type `meta`."
             )
 
         weight = torch.empty(
@@ -220,15 +249,18 @@ class ColumnShardedLinear(Projection, Sharded):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        linear = self._linear_like(self.gang.device)
+        if self.sharded:
+            linear = self._linear_like(self.tp_gang.device)
 
-        self._copy_weight(linear)
+            self._copy_from_linear(linear)
+        else:
+            _init_linear(self)
 
-    def _copy_weight(self, linear: Linear) -> None:
+    def _copy_from_linear(self, linear: Linear) -> None:
         with torch.no_grad():
             weight_shards = linear.weight.split(self.sharded_output_dim, dim=0)
 
-            weight = weight_shards[self.gang.rank]
+            weight = weight_shards[self.tp_gang.rank]
 
             self.weight.copy_(weight, non_blocking=True)
 
@@ -239,18 +271,21 @@ class ColumnShardedLinear(Projection, Sharded):
             with torch.no_grad():
                 bias_shards = linear.bias.split(self.sharded_output_dim, dim=0)
 
-                bias = bias_shards[self.gang.rank]
+                bias = bias_shards[self.tp_gang.rank]
 
                 self.bias.copy_(bias, non_blocking=True)
 
     @override
     def forward(self, x: Tensor) -> Tensor:
-        x = reduce_on_backward(x, self.gang)
+        if not self.sharded:
+            return linear(x, self.weight, self.bias)
+
+        x = reduce_on_backward(x, self.tp_gang)
 
         x = linear(x, self.weight, self.bias)
 
         if self.gather_output:
-            x = gather(x, self.gang, dim=-1)
+            x = gather(x, self.tp_gang, dim=-1)
 
         return x
 
@@ -258,10 +293,13 @@ class ColumnShardedLinear(Projection, Sharded):
         """Unshards this instance to a :class:`Linear`."""
         linear = self._linear_like(device=META_DEVICE)
 
-        to_empty(linear, device or self.gang.device)
+        to_empty(linear, device or self.tp_gang.device)
 
         with torch.no_grad():
-            weight = gather(self.weight, self.gang, dim=0)
+            if self.sharded:
+                weight = gather(self.weight, self.tp_gang, dim=0)
+            else:
+                weight = self.weight
 
             linear.weight.copy_(weight, non_blocking=True)
 
@@ -270,7 +308,10 @@ class ColumnShardedLinear(Projection, Sharded):
                 raise InternalError("`linear.bias` is `None`.")
 
             with torch.no_grad():
-                bias = gather(self.bias, self.gang, dim=0)
+                if self.sharded:
+                    bias = gather(self.bias, self.tp_gang, dim=0)
+                else:
+                    bias = self.bias
 
                 linear.bias.copy_(bias, non_blocking=True)
 
@@ -304,8 +345,8 @@ class ColumnShardedLinear(Projection, Sharded):
             s = f"output_dim={self.sharded_output_dim}"
 
         s = (
-            f"tp_rank={self.gang.rank}, "
-            f"tp_size={self.gang.size}, "
+            f"tp_rank={self.tp_gang.rank}, "
+            f"tp_size={self.tp_gang.size}, "
             f"input_dim={self.input_dim}, "
             f"{s}, "
             f"gather_output={self.gather_output}, "
@@ -327,14 +368,17 @@ class RowShardedLinear(Projection, Sharded):
     @staticmethod
     def from_linear(
         linear: Linear,
-        gang: Gang,
+        gang: Gang | None = None,
         *,
+        gangs: Gangs | None = None,
         scatter_input: bool = False,
         reduce_output: bool = True,
     ) -> RowShardedLinear:
         """
         Creates a :class:`RowShardedLinear` by sharding ``linear`` over its
-        input dimension using ``gang``.
+        input dimension using ``gangs.tp``.
+
+        If ``gangs`` is ``None``, acts like a regular :class:`Linear` module.
 
         If ``scatter_input`` is ``True``, the inputs on all ranks are considered
         already sharded and won't be scattered.
@@ -342,6 +386,21 @@ class RowShardedLinear(Projection, Sharded):
         If ``reduce_output`` is ``True``, the outputs of all ranks will be
         all-reduced into a single tensor.
         """
+        if gang is not None:
+            _warn_deprecated(
+                "`gang` parameter of `RowShardedLinear.from_linear` is deprecated and will be removed in v0.14. Please use the `gangs` parameter instead."
+            )
+
+            if gangs is not None:
+                raise ValueError(
+                    "`gang` and `gangs` cannot be provided at the same time."
+                )
+        else:
+            if gangs is None:
+                gangs = get_current_gangs(linear.weight.device)
+
+            gang = gangs.tp
+
         device = linear.weight.device
 
         if device != gang.device and device.type != "meta":
@@ -350,27 +409,27 @@ class RowShardedLinear(Projection, Sharded):
             )
 
         sharded_linear = RowShardedLinear(
-            gang,
             linear.input_dim,
             linear.output_dim,
             bias=linear.bias is not None,
             scatter_input=scatter_input,
             reduce_output=reduce_output,
             init_fn=linear.init_fn,
+            gangs=gangs,
             device=META_DEVICE,
             dtype=linear.weight.dtype,
+            _tp_gang=gang,
         )
 
         if device.type != "meta":
             to_empty(sharded_linear, device)
 
-        sharded_linear._copy_weight(linear)
+        sharded_linear._copy_from_linear(linear)
 
         return sharded_linear
 
     def __init__(
         self,
-        gang: Gang,
         input_dim: int,
         output_dim: int,
         bias: bool,
@@ -378,28 +437,38 @@ class RowShardedLinear(Projection, Sharded):
         scatter_input: bool = True,
         reduce_output: bool = True,
         init_fn: Callable[[Linear], None] | None = None,
+        gangs: Gangs | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
+        _tp_gang: Gang | None = None,
     ) -> None:
         super().__init__(input_dim, output_dim)
 
-        if input_dim % gang.size != 0:
+        if gangs is None:
+            gangs = get_current_gangs(device)
+
+        tp_gang = gangs.tp if _tp_gang is None else _tp_gang
+
+        if input_dim % tp_gang.size != 0:
             raise ValueError(
-                f"`input_dim` must be a multiple of `gang.size` ({gang.size}), but is {input_dim} instead."
+                f"`input_dim` must be a multiple of `gangs.tp.size` ({tp_gang.size}), but is {input_dim} instead."
             )
 
-        self.gang = gang
+        self.tp_gang = tp_gang
 
-        self.sharded_input_dim = input_dim // gang.size
+        self.sharded = tp_gang.size > 1
+
+        self.sharded_input_dim = input_dim // tp_gang.size
 
         self.scatter_input = scatter_input
         self.reduce_output = reduce_output
 
         if device is None:
-            device = gang.device
-        elif device != gang.device and device.type != "meta":
+            device = get_current_device()
+
+        if device.type != "meta" and device != tp_gang.device:
             raise ValueError(
-                "`device` must match `gang.device` or must be of type `meta`."
+                "`device` must match `gangs.device` or must be of type `meta`."
             )
 
         weight = torch.empty(
@@ -422,15 +491,18 @@ class RowShardedLinear(Projection, Sharded):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        linear = self._linear_like(self.gang.device)
+        if self.sharded:
+            linear = self._linear_like(self.tp_gang.device)
 
-        self._copy_weight(linear)
+            self._copy_from_linear(linear)
+        else:
+            _init_linear(self)
 
-    def _copy_weight(self, linear: Linear) -> None:
+    def _copy_from_linear(self, linear: Linear) -> None:
         with torch.no_grad():
             weight_shards = linear.weight.split(self.sharded_input_dim, dim=1)
 
-            weight = weight_shards[self.gang.rank]
+            weight = weight_shards[self.tp_gang.rank]
 
             self.weight.copy_(weight, non_blocking=True)
 
@@ -443,13 +515,16 @@ class RowShardedLinear(Projection, Sharded):
 
     @override
     def forward(self, x: Tensor) -> Tensor:
+        if not self.sharded:
+            return linear(x, self.weight, self.bias)
+
         if self.scatter_input:
-            x = scatter(x, self.gang, dim=-1)
+            x = scatter(x, self.tp_gang, dim=-1)
 
         x = linear(x, self.weight)
 
         if self.reduce_output:
-            x = reduce(x, self.gang)
+            x = reduce(x, self.tp_gang)
 
         if self.bias is not None:
             x = x + self.bias
@@ -460,10 +535,13 @@ class RowShardedLinear(Projection, Sharded):
         """Unshards this instance to a :class:`Linear`."""
         linear = self._linear_like(device=META_DEVICE)
 
-        to_empty(linear, device or self.gang.device)
+        to_empty(linear, device or self.tp_gang.device)
 
         with torch.no_grad():
-            weight = gather(self.weight, self.gang, dim=1)
+            if self.sharded:
+                weight = gather(self.weight, self.tp_gang, dim=1)
+            else:
+                weight = self.weight
 
             linear.weight.copy_(weight, non_blocking=True)
 
@@ -501,8 +579,8 @@ class RowShardedLinear(Projection, Sharded):
             s = f"input_dim={self.sharded_input_dim}"
 
         s = (
-            f"tp_rank={self.gang.rank}, "
-            f"tp_size={self.gang.size}, "
+            f"tp_rank={self.tp_gang.rank}, "
+            f"tp_size={self.tp_gang.size}, "
             f"{s}, "
             f"scatter_input={self.scatter_input}, "
             f"reduce_output={self.reduce_output}, "
@@ -546,6 +624,15 @@ class IdentityProjection(Projection):
     @override
     def forward(self, x: Tensor) -> Tensor:
         return x
+
+
+def _init_linear(proj: Projection) -> None:
+    m = cast(Linear, proj)
+
+    if m.init_fn is not None:
+        m.init_fn(m)
+    else:
+        _init_uniform(m.weight, m.bias)
 
 
 def _init_uniform(weight: Tensor, bias: Tensor | None) -> None:
