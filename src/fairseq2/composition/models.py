@@ -29,7 +29,6 @@ from fairseq2.models.hg import (
     create_hg_model,
     register_hg_configs,
 )
-from fairseq2.models.hg import HuggingFaceConverter, _LegacyHuggingFaceConverter
 from fairseq2.models.jepa import (
     JEPA_FAMILY,
     JepaConfig,

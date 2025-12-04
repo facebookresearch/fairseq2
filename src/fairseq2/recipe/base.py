@@ -143,8 +143,6 @@ class RecipeContext:
         if section_name == "model":
             raise InvalidOperationError("`section_name` must not be 'model'.")
 
-    def bootstrap_model(self, section_name: str) -> RecipeModel:
-        """Todo"""
         section = _get_config_section(
             self._resolver, section_name, ReferenceModelSection
         )
