@@ -41,6 +41,8 @@ from fairseq2.recipes.lm._online_finetune._common import (
     get_vllm_logprobs,
     log_rollouts,
     update_avg_reward,
+    update_mean_tok_cov,
+    update_cov_clip_ratio,
     update_avg_reward_len_norm,
     update_avg_rollout_length,
     update_avg_think_rollout_length,
@@ -209,6 +211,13 @@ def prepare_grpo_batch(
     )
 
     return grpo_batch
+
+
+def masked_mean(x, mask, eps=1e-8):
+    # mask: boolean tensor with same shape as x
+    masked_x = x * mask
+    denom = mask.sum().clamp_min(eps)
+    return masked_x.sum() / denom
 
 
 @final
@@ -497,7 +506,12 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             ref_logps = None
 
         _grpo_objective, total_tokens, tis_imp_ratio = self._compute_grpo_objective(
-            model_logps, vllm_logps, ref_logps, grpo_batch.rewards, grpo_target_batch
+            model_logps,
+            vllm_logps,
+            ref_logps,
+            grpo_batch.rewards,
+            grpo_target_batch,
+            metric_bag,
         )
 
         grpo_loss = -_grpo_objective + max_entropy_regularizer
@@ -559,6 +573,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         ref_logps,
         advantages: Tensor,  # outcome based only for now
         target_batch: SequenceBatch,
+        metric_bag,
     ) -> tuple[Tensor, Tensor, Tensor]:
 
         batch_size = advantages.size(0)
@@ -604,6 +619,45 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             per_token_loss = per_token_scaled_advantage
 
         target_mask = target_batch.target_mask.view(batch_size, num_rollouts, -1)
+        if self._config.loss_config.cov_clip_ratio > 0:
+            cov = (
+                advantages[:, :, None]
+                - masked_mean(advantages[:, :, None].detach(), target_mask)
+            ) * (model_logps - masked_mean(model_logps.detach(), target_mask))
+            mean_cov: Tensor = masked_mean(cov, target_mask)
+            log.info(f"mean_cov={mean_cov.item()}")
+            update_mean_tok_cov(metric_bag, mean_cov)
+
+            cov[target_mask == 0] = -torch.inf
+            log.info(f"max_cov={cov.max().item()}")
+
+            num_tok_clipped = max(
+                int(self._config.loss_config.cov_clip_ratio * target_mask.sum().item()),
+                1,
+            )
+            high_cov_idx = torch.nonzero(
+                (cov < self._config.loss_config.cov_clip_high)
+                & (cov > self._config.loss_config.cov_clip_low)
+                & (target_mask > 0)
+            )
+            if len(high_cov_idx) > 0:
+                perm = torch.randperm(len(high_cov_idx))
+                high_cov_idx = high_cov_idx[
+                    perm[: min(num_tok_clipped, len(high_cov_idx))]
+                ]
+            else:
+                high_cov_idx = torch.empty((0, 3), device=cov.device, dtype=torch.long)
+            high_cov_mask = torch.ones_like(model_logps)
+            high_cov_mask[
+                high_cov_idx[:, 0], high_cov_idx[:, 1], high_cov_idx[:, 2]
+            ] = 0
+            log.info(
+                f"num clipped={(torch.numel(high_cov_mask) - torch.count_nonzero(high_cov_mask)).item()}"
+            )
+            cov_cliped_ratio = masked_mean((high_cov_mask == 0).float(), target_mask)
+            log.info(f"{cov_cliped_ratio=}")
+            update_cov_clip_ratio(metric_bag, cov_cliped_ratio)
+            per_token_loss = per_token_loss * high_cov_mask
 
         total_tokens = target_mask.sum().item()
 
@@ -680,6 +734,10 @@ class GrpoLossConfig:
 
     tis_imp_ratio_low: Optional[float] = None
     """1 - epson_low for importance sampling ratio lower bound clip. If None, no such clip is applied."""
+
+    cov_clip_ratio: float = 0
+    cov_clip_high: float = 5
+    cov_clip_low: float = 1
 
 
 @dataclass(kw_only=True)

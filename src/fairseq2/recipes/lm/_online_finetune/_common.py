@@ -651,6 +651,16 @@ def update_avg_think_rollout_length(metric_bag: MetricBag, avg_think_rollout_len
 
 
 @torch.inference_mode()
+def update_mean_tok_cov(metric_bag: MetricBag, mean_tok_cov):
+    metric_bag.get(Mean, "mean_tok_cov").update(mean_tok_cov, weight=1)
+
+
+@torch.inference_mode()
+def update_cov_clip_ratio(metric_bag: MetricBag, cov_clip_ratio):
+    metric_bag.get(Mean, "cov_clip_ratio").update(cov_clip_ratio, weight=1)
+
+
+@torch.inference_mode()
 def update_avg_reward_len_norm(metric_bag: MetricBag, avg_reward_len_norm):
     metric_bag.get(Mean, "avg_reward_len_norm").update(avg_reward_len_norm, weight=1)
 
