@@ -1568,14 +1568,15 @@ class PplDerivedVerifier(VLLMOutputReward):
                     fs2_log.debug(f"rollout stop_reason {i}.{j} = {output.stop_reason}")
 
     def _process_rm_inputs(self, key: str, proc_inputs):
-        result = (
-            []
-            if key is None
-            else self.vllm_input_proc_dict[self.vllm_proc_name_dict[key]](proc_inputs)
-        )  # list of tuples of tokens and input_len
-        rm_vllm_tokens, input_lens = zip(*result)
-        rm_vllm_tokens: list[List[int]] = list(rm_vllm_tokens)
-        input_lens: list[int] = list(input_lens)
+        if self.vllm_proc_name_dict[key] is None:
+            rm_vllm_tokens, input_lens = [], []
+        else:
+            result = self.vllm_input_proc_dict[self.vllm_proc_name_dict[key]](
+                proc_inputs
+            )  # list of tuples of tokens and input_len
+            rm_vllm_tokens, input_lens = zip(*result)
+            rm_vllm_tokens: list[List[int]] = list(rm_vllm_tokens)
+            input_lens: list[int] = list(input_lens)
         fs2_log.debug(f"{key}_rm_vllm_tokens={rm_vllm_tokens}")
         fs2_log.debug(f"{key}_input_lens={input_lens}")
         return rm_vllm_tokens, input_lens
