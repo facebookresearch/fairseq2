@@ -15,7 +15,7 @@ from fairseq2.utils.device_stat import NOOP_DEVICE_STAT_TRACKER, DeviceStatTrack
 
 
 @final
-class _RecipeDeviceStatTrackerProvider:
+class _DeviceStatTrackerProvider:
     def __init__(self, gangs: Gangs, trackers: Lookup[DeviceStatTracker]) -> None:
         self._gangs = gangs
         self._trackers = trackers

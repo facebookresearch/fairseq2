@@ -7,7 +7,7 @@
 name: jepa_vitl16
 model_family: jepa
 model_arch: large
-model_config_override:
+model_config_overrides:
   encoder_config:
     input_dims: [16, 224, 224]
     patch_dims: [2, 16, 16]
@@ -19,7 +19,7 @@ checkpoint: "https://dl.fbaipublicfiles.com/jepa/vitl16/vitl16.pth.tar"
 name: jepa_vith16
 model_family: jepa
 model_arch: huge
-model_config_override:
+model_config_overrides:
   encoder_config:
     input_dims: [16, 224, 224]
     patch_dims: [2, 16, 16]
@@ -31,7 +31,7 @@ checkpoint: "https://dl.fbaipublicfiles.com/jepa/vith16/vith16.pth.tar"
 name: jepa_vith16_384
 model_family: jepa
 model_arch: huge
-model_config_override:
+model_config_overrides:
   encoder_config:
     input_dims: [16, 384, 384]
     patch_dims: [2, 16, 16]

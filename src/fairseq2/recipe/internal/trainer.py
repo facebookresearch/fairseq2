@@ -7,17 +7,15 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Protocol, Sequence, final
+from typing import Sequence, final
 
 import torch
 from torch.optim import Optimizer
 
-from fairseq2.checkpoint import (
-    NOOP_CHECKPOINT_HG_EXPORTER,
-    CheckpointHGExporter,
-    OutOfProcCheckpointHGExporter,
-)
+from fairseq2.checkpoint import NOOP_HG_EXPORTER, HuggingFaceExporter
 from fairseq2.datasets import DataReader
+from fairseq2.early_stopper import NOOP_EARLY_STOPPER
+from fairseq2.evaluator import EvalUnit
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
 from fairseq2.metrics.recorders import (
@@ -25,6 +23,7 @@ from fairseq2.metrics.recorders import (
     MetricDescriptor,
     MetricDescriptorRegistry,
 )
+from fairseq2.models.hg import HuggingFaceConverter
 from fairseq2.optim.fp16_loss_scaler import (
     NOOP_FP16_LOSS_SCALER,
     Float16LossScaler,
@@ -42,36 +41,32 @@ from fairseq2.recipe.error import (
     ManualGradScalingNotSupportedError,
     MetricNotKnownError,
 )
-from fairseq2.recipe.evaluator import EvalUnit
-from fairseq2.recipe.model import RecipeModel
-from fairseq2.recipe.trainer import BatchT, Trainer, TrainUnit
-from fairseq2.recipe.validator import NOOP_VALIDATOR, StandardValidator, Validator
+from fairseq2.recipe.internal.model import _ModelHolder
+from fairseq2.runtime.lookup import Lookup
+from fairseq2.trainer import BatchT, Trainer, TrainUnit
 from fairseq2.utils.gc import (
     NOOP_GARBAGE_COLLECTOR,
     GarbageCollector,
     StandardGarbageCollector,
 )
-
-
-class _TrainerFactory(Protocol):
-    def __call__(self, **kwargs: Any) -> Trainer: ...
+from fairseq2.validator import NOOP_VALIDATOR, StandardValidator, Validator
 
 
 @final
-class _RecipeTrainerFactory:
+class _TrainerFactory:
     def __init__(
         self,
         section: TrainerSection,
         regime_section: RegimeSection,
         common_section: CommonSection,
         gangs: Gangs,
-        inner_factory: _TrainerFactory,
+        base_factory: Callable[..., Trainer],
     ) -> None:
         self._section = section
         self._regime_section = regime_section
         self._common_section = common_section
         self._gangs = gangs
-        self._inner_factory = inner_factory
+        self._base_factory = base_factory
 
     def create(
         self,
@@ -93,12 +88,12 @@ class _RecipeTrainerFactory:
         else:
             amp = mp_config.mode == "auto"
 
-        if self._gangs.root.device.type == "cpu":
+        if self._gangs.device.type == "cpu":
             log.warning("Based on the environment setup, training will be run on CPU. If this is not intentional, check your job configuration (e.g. pass `--gpus-per-node` on Slurm).")  # fmt: skip
 
         seed = self._common_section.seed + 3
 
-        return self._inner_factory(
+        return self._base_factory(
             unit=unit,
             data_reader=data_reader,
             amp=amp,
@@ -116,6 +111,7 @@ class _RecipeTrainerFactory:
             validate_every_n_steps=regime_section.validate_every_n_steps,
             validate_after_n_data_epochs=regime_section.validate_after_n_data_epochs,
             validate_every_n_data_epochs=regime_section.validate_every_n_data_epochs,
+            early_stopper=NOOP_EARLY_STOPPER,
             checkpoint_after_n_steps=regime_section.checkpoint_after_n_steps,
             checkpoint_every_n_steps=regime_section.checkpoint_every_n_steps,
             checkpoint_after_n_data_epochs=regime_section.checkpoint_after_n_data_epochs,
@@ -131,18 +127,14 @@ class _RecipeTrainerFactory:
         )
 
 
-class _StandardValidatorFactory(Protocol):
-    def __call__(self, **kwargs: Any) -> StandardValidator: ...
-
-
 @final
-class _RecipeValidatorFactory:
+class _ValidatorFactory:
     def __init__(
         self,
         section: TrainerSection,
         common_section: CommonSection,
         gangs: Gangs,
-        standard_factory: _StandardValidatorFactory,
+        standard_factory: Callable[..., StandardValidator],
     ) -> None:
         self._section = section
         self._common_section = common_section
@@ -184,7 +176,7 @@ class _RecipeValidatorFactory:
 
 
 @final
-class _RecipeFloat16LossScalerFactory:
+class _Float16LossScalerFactory:
     def __init__(
         self,
         section: TrainerSection,
@@ -229,29 +221,32 @@ class _RecipeFloat16LossScalerFactory:
 
 
 @final
-class _RecipeCheckpointHGExporterFactory:
+class _HuggingFaceExporterFactory:
     def __init__(
         self,
         section: RegimeSection,
-        model: RecipeModel,
-        default_factory: Callable[[], OutOfProcCheckpointHGExporter],
+        model_holder: _ModelHolder,
+        default_factory: Callable[[], HuggingFaceExporter],
+        hg_converters: Lookup[HuggingFaceConverter],
     ) -> None:
         self._section = section
-        self._model = model
+        self._model_holder = model_holder
         self._default_factory = default_factory
+        self._hg_converter = hg_converters
 
-    def create(self) -> CheckpointHGExporter:
+    def create(self) -> HuggingFaceExporter:
         if not self._section.export_hugging_face:
-            return NOOP_CHECKPOINT_HG_EXPORTER
+            return NOOP_HG_EXPORTER
 
-        if not self._model.family.supports_hugging_face:
+        hg_converter = self._hg_converter.maybe_get(self._model_holder.family.name)
+        if hg_converter is None:
             raise HuggingFaceNotSupportedError()
 
         return self._default_factory()
 
 
 @final
-class _MaybeScoreMetricDescriptorProvider:
+class _MaybeScoreMetricProvider:
     def __init__(
         self, section: RegimeSection, metric_descriptors: MetricDescriptorRegistry
     ) -> None:
@@ -271,7 +266,7 @@ class _MaybeScoreMetricDescriptorProvider:
 
 
 @final
-class _RecipeGarbageCollectorFactory:
+class _GarbageCollectorFactory:
     def __init__(self, section: TrainerSection) -> None:
         self._section = section
 

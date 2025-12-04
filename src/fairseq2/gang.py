@@ -18,14 +18,17 @@ See :doc:`/concepts/gang` for more information.
 from __future__ import annotations
 
 import os
-import threading
 import warnings
-from abc import abstractmethod
-from collections.abc import Sequence
+from abc import ABC, abstractmethod
+from collections import defaultdict
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import Enum
-from typing import Any, NoReturn, cast, final
+from threading import Lock
+from typing import Any, MutableMapping, NoReturn, final
+from weakref import WeakValueDictionary
 
 import torch
 import torch.distributed as dist
@@ -33,7 +36,7 @@ from torch import Tensor
 from torch.distributed import Backend, ProcessGroup, ReduceOp
 from typing_extensions import override
 
-from fairseq2.device import Device
+from fairseq2.device import CPU, META_DEVICE, Device, DeviceContext
 from fairseq2.error import (
     InternalError,
     InvalidOperationError,
@@ -42,7 +45,11 @@ from fairseq2.error import (
 )
 from fairseq2.logging import log
 from fairseq2.runtime.closable import Closable
+from fairseq2.runtime.dependency import get_dependency_resolver
+from fairseq2.typing import ContextManager
 from fairseq2.utils.tensor import to_tensor
+from fairseq2.utils.threading import ThreadLocalStorage
+from fairseq2.utils.warn import _warn_deprecated
 
 
 class Gang(Closable):
@@ -57,10 +64,10 @@ class Gang(Closable):
 
         Returns ``None`` if the current process is not included in ``ranks``.
 
-        :raises ValueError: If ``ranks`` contains duplicates, or has one or more
+        :raises ValueError: ``ranks`` contains duplicates, or has one or more
             out of range values.
 
-        :raises GangError: If the collective operation fails due to an unexpected
+        :raises GangError: Collective operation failed due to an unexpected
             error such as a network communication failure.
 
         .. code:: python
@@ -79,7 +86,7 @@ class Gang(Closable):
         Returns this gang as a PyTorch ProcessGroup that can be used with
         PyTorch's distributed operations and collective communication functions.
 
-        :raises NotSupportedError: If the gang implementation does not support
+        :raises NotSupportedError: Gang implementation does not support
             conversion to a ProcessGroup (e.g. :class:`FakeGang`).
         """
 
@@ -92,7 +99,7 @@ class Gang(Closable):
         gang reach this synchronization point. Used for ensuring a consistent
         state across all processes before proceeding.
 
-        :raises GangError: If the collective operation fails due to an unexpected
+        :raises GangError: Collective operation failed due to an unexpected
             error such as a network communication failure.
         """
 
@@ -105,7 +112,7 @@ class Gang(Closable):
         operation and distributes the result to all processes. The input tensor
         is modified in-place to contain the reduction result.
 
-        :raises GangError: If the collective operation fails due to an unexpected
+        :raises GangError: Collective operation failed due to an unexpected
             error such as a network communication failure.
 
         .. code:: python
@@ -134,7 +141,7 @@ class Gang(Closable):
         tensor. The output tensor must have shape ``[gang.size, *input_tensor.shape]``
         and be contiguous in memory.
 
-        :raises GangError: If the collective operation fails due to an unexpected
+        :raises GangError: Collective operation failed due to an unexpected
             error such as a network communication failure.
 
         .. code:: python
@@ -165,7 +172,7 @@ class Gang(Closable):
         instead of concatenating them into a single tensor. ``output_tensors``
         must be a pre-allocated list with length equal to ``gang.size``.
 
-        :raises GangError: If the collective operation fails due to an unexpected
+        :raises GangError: Collective operation failed due to an unexpected
             error such as a network communication failure.
         """
 
@@ -180,9 +187,9 @@ class Gang(Closable):
 
         ``source_rank`` must be in range [0, gang.size).
 
-        :raises ValueError: If ``source_rank`` is out of valid range.
+        :raises ValueError: ``source_rank`` is out of valid range.
 
-        :raises GangError: If the collective operation fails due to an unexpected
+        :raises GangError: Collective operation failed due to an unexpected
             error such as a network communication failure.
         """
 
@@ -197,9 +204,9 @@ class Gang(Closable):
 
         ``source_rank`` must be in range [0, gang.size).
 
-        :raises ValueError: If ``source_rank`` is out of valid range.
+        :raises ValueError: ``source_rank`` is out of valid range.
 
-        :raises GangError: If the collective operation fails due to an unexpected
+        :raises GangError: Collective operation failed due to an unexpected
             error such as a network communication failure.
         """
 
@@ -238,9 +245,6 @@ class GangError(Exception):
 
 
 def raise_operational_gang_error(cause: GangError) -> NoReturn:
-    """
-    Raises an :class:`OperationalError` caused by a collective communication error.
-    """
     raise OperationalError("A collective communication error occurred.") from cause
 
 
@@ -280,7 +284,7 @@ class FakeGang(Gang):
             )
 
         if device.type == "meta":
-            raise ValueError("`device` must be a real device.")
+            raise ValueError("`device` must not be of type `meta`.")
 
         self._rank = rank
         self._size = size
@@ -422,15 +426,14 @@ class ProcessGroupGang(Gang):
         will be performed on high-priority channels (e.g. CUDA streams) if
         supported by the underlying backend.
 
-        :raises ValueError: If ``device`` is not of type ``cpu`` or ``cuda``.
+        :raises ValueError: ``device`` is not of type ``cpu`` or ``cuda``.
 
-        :raises NotSupportedError: If ``torch.distributed`` is not available.
+        :raises NotSupportedError: ``torch.distributed`` is not available.
 
-        :raises InvalidOperationError: If the root process group is already
-            initialized.
+        :raises InvalidOperationError: Root process group is already initialized.
 
-        :raises GangError: If the underlying process group fails to initialize
-            due to an unexpected error such as a network communication failure.
+        :raises GangError: Underlying process group failed to initialize due to
+            an unexpected error such as a network communication failure.
         """
         if log.is_enabled_for_debug():
             os.environ["TORCH_DISTRIBUTED_DEBUG"] = "INFO"
@@ -441,9 +444,7 @@ class ProcessGroupGang(Gang):
             raise NotSupportedError("torch.distributed is not available.")
 
         if dist.is_initialized():
-            raise InvalidOperationError(
-                "The root process group is already initialized."
-            )
+            raise InvalidOperationError("Root process group is already initialized.")
 
         backend: str | None
 
@@ -496,7 +497,7 @@ class ProcessGroupGang(Gang):
 
         pg = dist.group.WORLD
         if pg is None:
-            raise OperationalError(
+            raise InternalError(
                 "Root process group is not available after initialization."
             )
 
@@ -693,56 +694,214 @@ class Gangs(Closable):
                     "Coordinator process of the root gang (i.e. `root.rank == 0`) must be rank 0 in all parallel gangs."
                 )
 
+    @property
+    def device(self) -> Device:
+        return self.root.device
+
     def __enter__(self) -> None:
-        _thread_local.current_gangs.append(self)
+        resolver = get_dependency_resolver()
+
+        resolver.resolve(_GangManager).set_gangs(self)
 
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
-        _thread_local.current_gangs.pop()
+        resolver = get_dependency_resolver()
+
+        resolver.resolve(_GangManager).pop_gangs(self.device)
 
     def close(self) -> None:
         """Destroys all gangs."""
         self.root.close()
 
 
-_thread_local = threading.local()
-
-# Holds the stack of current thread-local gangs.
-_thread_local.current_gangs = []
-
-
-def maybe_get_current_gangs() -> Gangs | None:
+def get_default_gangs(device: Device | None = None) -> Gangs:
     """
-    Returns the current gangs to use for collective operations.
+    Returns the default gangs of the process.
 
-    By default, this function returns ``None``. The current gangs of the calling
-    thread can be set by using :class:`Gangs` as a context manager:
+    The default gangs are assigned per device. If ``device`` is ``None``, the
+    device returned from :func:`get_current_device` will be used.
+
+    If no gangs was previously set for ``device``, the function will return fake
+    gangs (i.e. :class:`FakeGang`) with a world size of 1.
+    """
+    resolver = get_dependency_resolver()
+
+    return resolver.resolve(_GangManager).get_default_gangs(device)
+
+
+def set_default_gangs(gangs: Gangs, *, meta: bool = False) -> None:
+    """
+    Changes the default gangs of the process to the specified gangs.
+
+    The default gangs are assigned per device. Calling this function will set
+    the default gangs for the gangs' device (i.e. ``gangs.device``).
+
+    If ``meta`` is ``True``, in addition to gangs' device, the gangs will also
+    be set as the default gangs of the meta device.
+    """
+    resolver = get_dependency_resolver()
+
+    resolver.resolve(_GangManager).set_default_gangs(gangs, meta)
+
+
+def set_gangs(gangs: Gangs, *, meta: bool = False) -> ContextManager[None]:
+    """
+    Changes the gangs of the calling thread to the specified gangs.
+
+    The gangs are assigned per device. Calling this function will set the gangs
+    for the gangs' device (i.e. ``gangs.device``).
+
+    If ``meta`` is ``True``, in addition to gangs' device, the gangs will also
+    be set as the gangs of the meta device.
+
+    This function acts as a context manager, ensuring that within its scope, any
+    :func:`get_current_gangs` call will return the specified gangs.
+    """
+    resolver = get_dependency_resolver()
+
+    return resolver.resolve(GangContext).set_gangs(gangs, meta=meta)
+
+
+def get_current_gangs(device: Device | None = None) -> Gangs:
+    """
+    Returns the current gangs of the calling thread.
+
+    The gangs are assigned per device. If ``device`` is ``None``, the device
+    returned from :func:`get_current_device` will be used.
 
     .. code::
 
-        from fairseq2.gang import Gangs
+        from fairseq2.gang import Gangs, get_current_gangs, get_default_gangs
 
-        gangs = Gangs(...)
+        gangs = get_default_gangs()
 
         with gangs:
-            current_gangs = maybe_get_current_gangs()
+            current_gangs = get_current_gangs()
 
             assert current_gangs is gangs
 
-        current_gangs = maybe_get_current_gangs()
+        current_gangs = get_current_gangs()
 
-        assert current_gangs is None
-
-    Within fairseq2, this function is used by model factories to retrieve the
-    current gangs and shard the constructed models accordingly. The current gangs
-    are set internally by fairseq2 before calling the factories.
-
-    Note that the return value of this function is thread specific. Individual
-    threads may have their own set of current gangs.
+        assert current_gangs is default_gangs
     """
-    if _thread_local.current_gangs:
-        return cast(Gangs, _thread_local.current_gangs[-1])
+    resolver = get_dependency_resolver()
 
-    return None
+    return resolver.resolve(GangContext).get_current_gangs(device)
+
+
+def maybe_get_current_gangs() -> Gangs | None:
+    _warn_deprecated(
+        "`maybe_get_current_gangs` is deprecated and will be removed in v0.9. Usee `get_current_gangs` instead."
+    )
+
+    return get_current_gangs()
+
+
+class GangContext(ABC):
+    """
+    Provides methods to get and set the current gangs of the calling thread.
+
+    This interface can be used as an alternative to the corresponding standalone
+    functions in object-oriented code.
+    """
+
+    @abstractmethod
+    def get_current_gangs(self, device: Device | None = None) -> Gangs:
+        """See :func:`get_current_gangs`."""
+
+    @abstractmethod
+    def set_gangs(self, gangs: Gangs, *, meta: bool = False) -> ContextManager[None]:
+        """See :func:`set_gangs`."""
+
+
+@final
+class _StandardGangContext(GangContext):
+    def __init__(self, gang_manager: _GangManager) -> None:
+        self._gang_manager = gang_manager
+
+    @override
+    def get_current_gangs(self, device: Device | None = None) -> Gangs:
+        return self._gang_manager.get_current_gangs(device)
+
+    @override
+    @contextmanager
+    def set_gangs(self, gangs: Gangs, *, meta: bool = False) -> Iterator[None]:
+        self._gang_manager.set_gangs(gangs, meta)
+
+        try:
+            yield
+        finally:
+            self._gang_manager.pop_gangs(gangs.device, meta)
+
+
+@final
+class _GangManager:
+    def __init__(self, device_context: DeviceContext, tls: ThreadLocalStorage) -> None:
+        self._default_gangs: dict[Device, Gangs] = {}
+        self._lock = Lock()
+        self._fake_gangs: MutableMapping[Device, Gangs] = WeakValueDictionary()
+        self._device_context = device_context
+        self._tls = tls
+
+    def set_default_gangs(self, gangs: Gangs, meta: bool) -> None:
+        with self._lock:
+            self._default_gangs[gangs.device] = gangs
+
+            if meta:
+                self._default_gangs[META_DEVICE] = gangs
+
+    def get_default_gangs(self, device: Device | None) -> Gangs:
+        if device is None:
+            device = self._device_context.get_current_device()
+
+        with self._lock:
+            gangs = self._default_gangs.get(device)
+            if gangs is None:
+                gangs = self._get_singleton_fake_gangs(device)
+
+        return gangs
+
+    def _get_singleton_fake_gangs(self, device: Device) -> Gangs:
+        if device.type == "meta":
+            device = CPU
+
+        gangs = self._fake_gangs.get(device)
+        if gangs is None:
+            gangs = create_fake_gangs(device)
+
+            self._fake_gangs[device] = gangs
+
+        return gangs
+
+    def get_current_gangs(self, device: Device | None) -> Gangs:
+        if device is None:
+            device = self._device_context.get_current_device()
+
+        stacks = self._get_gang_stacks()
+
+        stack = stacks[device]
+        if stack:
+            return stack[-1]
+
+        return self.get_default_gangs(device)
+
+    def set_gangs(self, gangs: Gangs, meta: bool = False) -> None:
+        stacks = self._get_gang_stacks()
+
+        stacks[gangs.device].append(gangs)
+
+        if meta:
+            stacks[META_DEVICE].append(gangs)
+
+    def pop_gangs(self, device: Device, meta: bool = False) -> None:
+        stacks = self._get_gang_stacks()
+
+        stacks[device].pop()
+
+        if meta:
+            stacks[META_DEVICE].pop()
+
+    def _get_gang_stacks(self) -> MutableMapping[Device, list[Gangs]]:
+        return self._tls.get("gang_stacks", default_factory=lambda: defaultdict(list))
 
 
 def create_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
@@ -911,7 +1070,7 @@ def create_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs
     .. __: https://dev-discuss.pytorch.org/t/rfc-c10d-a-new-pytorch-api-split-group-to-create-a-process-group-through-ncclcommsplit/2233
     """
     if intra_node_size is None:
-        fake_gang = FakeGang(gangs.root.device)
+        fake_gang = FakeGang(gangs.device)
 
         return Gangs(
             root=gangs.root,
@@ -1071,6 +1230,9 @@ def broadcast_flag(gang: Gang, flag: bool, source_rank: int = 0) -> bool:
         if should_continue:
             # All processes execute this together
             continue_processing()
+
+    :raises GangError: Collective operation failed due to an unexpected error
+        such as a network communication failure.
     """
     flag_pt = to_tensor(flag, device=gang.device)
 
@@ -1096,6 +1258,9 @@ def all_sum(gang: Gang, value: float | int) -> Tensor:
 
         # Now `total_loss` contains the sum from all processes
         average_loss = total_loss / gang.size
+
+    :raises GangError: Collective operation failed due to an unexpected error
+        such as a network communication failure.
     """
     value_pt = to_tensor(value, device=gang.device)
 

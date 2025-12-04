@@ -8,7 +8,7 @@ name: nllb-200
 model_family: nllb
 tokenizer: "https://tinyurl.com/flores200sacrebleuspm"
 tokenizer_family: nllb
-tokenizer_config_override:
+tokenizer_config_overrides:
   default_lang: eng_Latn
   langs:
     - ace_Arab

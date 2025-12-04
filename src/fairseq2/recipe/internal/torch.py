@@ -6,10 +6,12 @@
 
 from __future__ import annotations
 
+import random
 import warnings
 from pathlib import Path
 from typing import final
 
+import numpy as np
 import torch
 
 from fairseq2.device import Device
@@ -26,6 +28,7 @@ from fairseq2.recipe.config import CommonSection
 from fairseq2.utils.env import Environment
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.threading import get_num_threads
+from fairseq2.utils.version import torch_greater_or_equal
 from fairseq2.world_info import WorldInfo
 
 
@@ -67,7 +70,13 @@ class _TorchConfigurer:
         )
 
     def _set_seed(self) -> None:
-        self._rng_bag.manual_seed(self._section.seed)
+        seed = self._section.seed
+
+        random.seed(seed)
+
+        np.random.seed(seed)
+
+        self._rng_bag.manual_seed(seed)
 
         log.info("Random number generator seed set to {}.", self._section.seed)
 
@@ -125,11 +134,16 @@ class _TorchConfigurer:
 
         torch_config = self._section.torch
 
-        # Matrix Multiplication
-        torch.backends.cuda.matmul.allow_tf32 = torch_config.allow_tf32
+        if torch_greater_or_equal(2, 9):
+            precision = "tf32" if torch_config.allow_tf32 else "ieee"
 
-        # Convolution
-        torch.backends.cudnn.allow_tf32 = torch_config.allow_tf32
+            torch.backends.fp32_precision = precision  # type: ignore[attr-defined]
+        else:
+            # Matrix Multiplication
+            torch.backends.cuda.matmul.allow_tf32 = torch_config.allow_tf32
+
+            # Convolution
+            torch.backends.cudnn.allow_tf32 = torch_config.allow_tf32
 
         # Reduced Precision GEMM
         torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = (

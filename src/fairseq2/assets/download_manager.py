@@ -6,14 +6,12 @@
 
 from __future__ import annotations
 
-import os
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Iterator, Set
-from contextlib import ExitStack
+from collections.abc import Generator, Sequence, Set
+from contextlib import ExitStack, contextmanager
 from hashlib import sha1
 from pathlib import Path
-from shutil import rmtree
 from tarfile import TarFile, is_tarfile
 from tempfile import NamedTemporaryFile
 from typing import Final, final
@@ -23,14 +21,16 @@ from urllib.request import Request, urlopen
 from zipfile import BadZipFile, ZipFile
 
 from huggingface_hub import snapshot_download
+from huggingface_hub.constants import HF_HUB_CACHE
 from huggingface_hub.errors import HfHubHTTPError
-from typing_extensions import override
+from typing_extensions import NoReturn, override
 
-from fairseq2.error import NotSupportedError
-from fairseq2.logging import log
+from fairseq2.error import InternalError, NotSupportedError
+from fairseq2.file_system import FileSystem, _flush_nfs_lookup_cache
 from fairseq2.runtime.dependency import get_dependency_resolver
 from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.uri import Uri
+from fairseq2.utils.warn import _warn_deprecated
 
 
 def get_asset_download_manager() -> AssetDownloadManager:
@@ -42,24 +42,32 @@ class AssetDownloadManager(ABC):
     def download_model(
         self,
         uri: Uri,
-        model_name: str,
+        model_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
         """
-        Downloads the model checkpoint at ``uri`` to the asset cache directory.
+        Downloads the model checkpoint at the specified URI to the asset cache
+        directory.
 
         Returns the path to the downloaded model checkpoint.
 
         If ``force`` is ``True``, the model checkpoint will be downloaded even
         if it is already in cache.
 
+        If ``local_only`` is ``True``, the cached path of the model checkpoint
+        will be returned. If not cached, an :class:`AssetDownloadError` will be
+        raised.
+
+        ``model_name`` is deprecated and will be removed in v0.13.
+
         ``progress`` is deprecated and will be removed in v0.13. Use
         ``FAIRSEQ2_NO_PROGRESS=1`` environment variable or ``no_progress``
         parameter of :func:`init_fairseq` to disable progress bars.
 
-        :raises AssetDownloadError: If the download operation fails due to a
+        :raises AssetDownloadError: The download operation failed due to a
             network or server error.
         """
 
@@ -67,24 +75,31 @@ class AssetDownloadManager(ABC):
     def download_tokenizer(
         self,
         uri: Uri,
-        tokenizer_name: str,
+        tokenizer_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
         """
-        Downloads the tokenizer at ``uri`` to the asset cache directory.
+        Downloads the tokenizer at the specified URI to the asset cache
+        directory.
 
         Returns the path to the downloaded tokenizer.
 
         If ``force`` is ``True``, the tokenizer will be downloaded even if it is
         already in cache.
 
+        If ``local_only`` is ``True``, the cached path of the tokenizer will be
+        returned. If not cached, an :class:`AssetDownloadError` will be raised.
+
+        ``tokenizer_name`` is deprecated and will be removed in v0.13.
+
         ``progress`` is deprecated and will be removed in v0.13. Use
         ``FAIRSEQ2_NO_PROGRESS=1`` environment variable or ``no_progress``
         parameter of :func:`init_fairseq` to disable progress bars.
 
-        :raises AssetDownloadError: If the download operation fails due to a
+        :raises AssetDownloadError: The download operation failed due to a
             network or server error.
         """
 
@@ -92,102 +107,127 @@ class AssetDownloadManager(ABC):
     def download_dataset(
         self,
         uri: Uri,
-        dataset_name: str,
+        dataset_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
         """
-        Downloads the dataset at ``uri`` to the asset cache directory.
+        Downloads the dataset at the specified URI to the asset cache directory.
 
         Returns the path to the downloaded dataset.
 
         If ``force`` is ``True``, the dataset will be downloaded even if it is
         already in cache.
 
+        If ``local_only`` is ``True``, the cached path of the dataset will be
+        returned. If not cached, an :class:`AssetDownloadError` will be raised.
+
+        ``dataset_name`` is deprecated and will be removed in v0.13.
+
         ``progress`` is deprecated and will be removed in v0.13. Use
         ``FAIRSEQ2_NO_PROGRESS=1`` environment variable or ``no_progress``
         parameter of :func:`init_fairseq` to disable progress bars.
 
-        :raises AssetDownloadError: If the download operation fails due to a
+        :raises AssetDownloadError: The download operation failed due to a
             network or server error.
         """
 
     @property
     @abstractmethod
-    def supported_schemes(self) -> Set[str]: ...
+    def supported_schemes(self) -> Set[str]:
+        """URI schemes supported by this download manager."""
 
 
 class AssetDownloadError(Exception):
-    def __init__(self, asset_name: str, asset_kind: str, message: str) -> None:
-        super().__init__(message)
+    def __init__(self, uri: Uri, reason: str) -> None:
+        super().__init__(f"Download of {uri} failed. {reason}")
 
-        self.asset_name = asset_name
-        self.asset_kind = asset_kind
+        self.uri = uri
 
 
 @final
 class DelegatingAssetDownloadManager(AssetDownloadManager):
-    def __init__(self, managers: Iterable[AssetDownloadManager]) -> None:
-        self._managers = {}
-        self._schemes: set[str] = set()
+    def __init__(self, managers: Sequence[AssetDownloadManager]) -> None:
+        scheme_to_manager: dict[str, AssetDownloadManager] = {}
+
+        schemes: set[str] = set()
 
         for manager in managers:
             for scheme in manager.supported_schemes:
-                if scheme in self._schemes:
+                if scheme in schemes:
                     raise ValueError(
                         f"`managers` must support disjoint set of schemes, but {scheme} scheme is supported by more than one download manager."
                     )
 
-                self._managers[scheme] = manager
+                scheme_to_manager[scheme] = manager
 
-            self._schemes.update(manager.supported_schemes)
+            schemes.update(manager.supported_schemes)
+
+        self._managers = managers
+        self._scheme_to_manager = scheme_to_manager
+        self._schemes = schemes
 
     @override
     def download_model(
         self,
         uri: Uri,
-        model_name: str,
+        model_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
+        if model_name:
+            _warn_deprecated(
+                "`model_name` parameter is deprecated and will be removed in v0.13"
+            )
+
         manager = self._get_download_manager(uri)
 
-        return manager.download_model(uri, model_name, force=force, progress=progress)
+        return manager.download_model(uri, "", force=force, local_only=local_only)
 
     @override
     def download_tokenizer(
         self,
         uri: Uri,
-        tokenizer_name: str,
+        tokenizer_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
+        if tokenizer_name:
+            _warn_deprecated(
+                "`tokenizer_name` parameter is deprecated and will be removed in v0.13"
+            )
+
         manager = self._get_download_manager(uri)
 
-        return manager.download_tokenizer(
-            uri, tokenizer_name, force=force, progress=progress
-        )
+        return manager.download_tokenizer(uri, "", force=force, local_only=local_only)
 
     @override
     def download_dataset(
         self,
         uri: Uri,
-        dataset_name: str,
+        dataset_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
+        if dataset_name:
+            _warn_deprecated(
+                "`dataset_name` parameter is deprecated and will be removed in v0.13"
+            )
+
         manager = self._get_download_manager(uri)
 
-        return manager.download_dataset(
-            uri, dataset_name, force=force, progress=progress
-        )
+        return manager.download_dataset(uri, "", force=force, local_only=local_only)
 
     def _get_download_manager(self, uri: Uri) -> AssetDownloadManager:
-        manager = self._managers.get(uri.scheme)
+        manager = self._scheme_to_manager.get(uri.scheme)
         if manager is None:
             raise NotSupportedError(
                 f"`uri.scheme` must be a supported URI scheme, but is {uri.scheme} instead."
@@ -209,9 +249,10 @@ class LocalAssetDownloadManager(AssetDownloadManager):
     def download_model(
         self,
         uri: Uri,
-        model_name: str,
+        model_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
         return self._to_path(uri)
@@ -220,9 +261,10 @@ class LocalAssetDownloadManager(AssetDownloadManager):
     def download_tokenizer(
         self,
         uri: Uri,
-        tokenizer_name: str,
+        tokenizer_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
         return self._to_path(uri)
@@ -231,9 +273,10 @@ class LocalAssetDownloadManager(AssetDownloadManager):
     def download_dataset(
         self,
         uri: Uri,
-        dataset_name: str,
+        dataset_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
         return self._to_path(uri)
@@ -245,14 +288,7 @@ class LocalAssetDownloadManager(AssetDownloadManager):
                 f"`uri.scheme` must be a supported URI scheme, but is {uri.scheme} instead."
             )
 
-        s = str(uri)
-
-        try:
-            return Path(s[5:])
-        except ValueError:
-            raise ValueError(
-                f"`uri` must represent a pathname, but is '{uri}' instead."
-            ) from None
+        return uri.to_path()
 
     @property
     @override
@@ -264,28 +300,27 @@ class LocalAssetDownloadManager(AssetDownloadManager):
 class HuggingFaceHub(AssetDownloadManager):
     _SCHEMES: Final = {"hg"}
 
+    def __init__(self, file_system: FileSystem) -> None:
+        self._file_system = file_system
+
     @override
     def download_model(
         self,
         uri: Uri,
-        model_name: str,
+        model_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
-        repo_id = self._get_repo_id(uri)
-
-        try:
+        with self._handle_download(uri) as repo_id:
             path = snapshot_download(
                 repo_id=repo_id,
                 repo_type="model",
                 allow_patterns=["*.safetensors*", "*.pt"],
                 force_download=force,
+                local_files_only=local_only,
             )
-        except HfHubHTTPError as ex:
-            msg = f"{model_name} model cannot be downloaded from Hugging Face Hub."
-
-            raise AssetDownloadError(model_name, "model", msg) from ex
 
         return Path(path)
 
@@ -293,24 +328,20 @@ class HuggingFaceHub(AssetDownloadManager):
     def download_tokenizer(
         self,
         uri: Uri,
-        tokenizer_name: str,
+        tokenizer_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
-        repo_id = self._get_repo_id(uri)
-
-        try:
+        with self._handle_download(uri) as repo_id:
             path = snapshot_download(
                 repo_id=repo_id,
                 repo_type="model",
                 allow_patterns="tokenizer*.json",
                 force_download=force,
+                local_files_only=local_only,
             )
-        except HfHubHTTPError as ex:
-            msg = f"{tokenizer_name} tokenizer cannot be downloaded from Hugging Face Hub."
-
-            raise AssetDownloadError(tokenizer_name, "tokenizer", msg) from ex
 
         return Path(path)
 
@@ -318,23 +349,45 @@ class HuggingFaceHub(AssetDownloadManager):
     def download_dataset(
         self,
         uri: Uri,
-        dataset_name: str,
+        dataset_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
+        with self._handle_download(uri) as repo_id:
+            path = snapshot_download(
+                repo_id=repo_id,
+                repo_type="dataset",
+                force_download=force,
+                local_files_only=local_only,
+            )
+
+        return Path(path)
+
+    @contextmanager
+    def _handle_download(self, uri: Uri) -> Generator[str, None, None]:
         repo_id = self._get_repo_id(uri)
 
         try:
-            path = snapshot_download(
-                repo_id=repo_id, repo_type="dataset", force_download=force
-            )
+            cache_dir = Path(HF_HUB_CACHE)
+        except ValueError:
+            raise InternalError(f"{HF_HUB_CACHE} is not a valid directory.")
+
+        _flush_nfs_lookup_cache(cache_dir)
+
+        try:
+            yield repo_id
         except HfHubHTTPError as ex:
-            msg = f"{dataset_name} dataset cannot be downloaded from Hugging Face Hub."
+            self._raise_download_error(uri, ex)
 
-            raise AssetDownloadError(dataset_name, "dataset", msg) from ex
+        _flush_nfs_lookup_cache(cache_dir)
 
-        return Path(path)
+    @staticmethod
+    def _raise_download_error(uri: Uri, cause: Exception) -> NoReturn:
+        reason = "Hugging Face Hub returned an error."
+
+        raise AssetDownloadError(uri, reason) from cause
 
     @staticmethod
     def _get_repo_id(uri: Uri) -> str:
@@ -357,57 +410,68 @@ class HuggingFaceHub(AssetDownloadManager):
 class StandardAssetDownloadManager(AssetDownloadManager):
     _SCHEMES: Final = {"http", "https"}
 
-    def __init__(self, cache_dir: Path, progress_reporter: ProgressReporter) -> None:
+    def __init__(
+        self,
+        cache_dir: Path,
+        file_system: FileSystem,
+        progress_reporter: ProgressReporter,
+        download_progress_reporter: ProgressReporter,
+    ) -> None:
         self._cache_dir = cache_dir
+        self._file_system = file_system
         self._progress_reporter = progress_reporter
+        self._download_progress_reporter = download_progress_reporter
 
     @override
     def download_model(
         self,
         uri: Uri,
-        model_name: str,
+        model_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
-        kind = "model"
-
-        op = _AssetDownloadOp(
-            self._cache_dir, uri, model_name, kind, force, self._progress_reporter
-        )
-
-        return op.run()
+        return self._download_asset(uri, force, local_only)
 
     @override
     def download_tokenizer(
         self,
         uri: Uri,
-        tokenizer_name: str,
+        tokenizer_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
-        kind = "tokenizer"
-
-        op = _AssetDownloadOp(
-            self._cache_dir, uri, tokenizer_name, kind, force, self._progress_reporter
-        )
-
-        return op.run()
+        return self._download_asset(uri, force, local_only)
 
     @override
     def download_dataset(
         self,
         uri: Uri,
-        dataset_name: str,
+        dataset_name: str = "",
         *,
         force: bool = False,
+        local_only: bool = False,
         progress: bool = True,
     ) -> Path:
-        kind = "dataset"
+        return self._download_asset(uri, force, local_only)
 
-        op = _AssetDownloadOp(
-            self._cache_dir, uri, dataset_name, kind, force, self._progress_reporter
+    def _download_asset(self, uri: Uri, force: bool, local_only: bool) -> Path:
+        if uri.scheme not in self._SCHEMES:
+            raise NotSupportedError(
+                f"`uri.scheme` must be a supported URI scheme, but is {uri.scheme} instead."
+            )
+
+        op = _AssetDownloadOperation(
+            self._cache_dir,
+            uri,
+            force,
+            local_only,
+            self._file_system,
+            self._progress_reporter,
+            self._download_progress_reporter,
         )
 
         return op.run()
@@ -418,153 +482,108 @@ class StandardAssetDownloadManager(AssetDownloadManager):
         return self._SCHEMES
 
 
-class _AssetDownloadOp:
+@final
+class _AssetDownloadOperation:
     def __init__(
         self,
         cache_dir: Path,
         uri: Uri,
-        asset_name: str,
-        kind: str,
         force: bool,
+        local_only: bool,
+        file_system: FileSystem,
         progress_reporter: ProgressReporter,
+        download_progress_reporter: ProgressReporter,
     ) -> None:
+        h = self._get_uri_hash(uri)
+
+        asset_dir = cache_dir.joinpath(h)
+
         self._cache_dir = cache_dir
-        self._uri = str(uri)
-        self._uri_params: dict[str, str] = {}
-        self._asset_dir: Path | None = None
-        self._asset_name = asset_name
-        self._asset_kind = kind
+        self._uri = uri
+        self._asset_dir = asset_dir
         self._force = force
+        self._local_only = local_only
+        self._file_system = file_system
         self._progress_reporter = progress_reporter
+        self._download_progress_reporter = download_progress_reporter
+
+    @staticmethod
+    def _get_uri_hash(uri: Uri) -> str:
+        h = sha1(str(uri).encode()).hexdigest()
+
+        return h[:24]
 
     def run(self) -> Path:
-        self._process_uri()
-
-        self._check_if_gated_asset()
-
-        if (asset_path := self._try_uri_as_path()) is not None:
-            return asset_path
-
-        self._resolve_asset_dirname()
-
-        self._prepare_op()
-
-        self._download_asset()
-
-        self._ensure_asset_extracted()
-
-        return self._get_final_asset_path()
-
-    def _process_uri(self) -> None:
-        uri = self._uri
+        _flush_nfs_lookup_cache(self._asset_dir)
 
         try:
-            if not _starts_with_scheme(uri):
-                uri = Path(uri).as_uri()  # Normalize.
+            if not self._local_only:
+                if self._force:
+                    self._clean_cached_asset()
 
-            parsed_uri = urlparse(uri)
-        except ValueError:
-            raise ValueError(
-                f"`uri` must be a URI or an absolute pathname, but is '{uri}' instead."
-            ) from None
+                self._download_asset()
 
-        if parsed_uri.params:
-            for param in parsed_uri.params.split(";"):
-                key_value_pair = param.split("=")
-                if len(key_value_pair) != 2:
-                    raise ValueError(
-                        f"`uri` must be a URI or an absolute pathname, but is '{uri}' instead."
-                    )
+                self._ensure_asset_extracted()
 
-                key, value = key_value_pair
+            path = self._retrieve_asset_path()
+        except OSError as ex:
+            self._raise_download_error("A system error occurred.", ex)
 
-                key = unquote(key).strip()
-                if len(key) == 0:
-                    raise ValueError(
-                        f"`uri` must be a URI or an absolute pathname, but is '{uri}' instead."
-                    )
+        _flush_nfs_lookup_cache(self._asset_dir)
 
-                self._uri_params[key.lower()] = unquote(value).strip()
+        return path
 
-        self._uri = parsed_uri._replace(params="").geturl()
-
-    def _check_if_gated_asset(self) -> None:
-        if self._uri_params.get("gated", "false").strip().lower() == "true":
-            msg = f"{self._asset_name} is gated. Please visit {self._uri} to learn how to get access."
-
-            raise AssetDownloadError(self._asset_name, self._asset_kind, msg)
-
-    def _try_uri_as_path(self) -> Path | None:
-        if self._uri.startswith("file://"):
-            return Path(unquote(self._uri[7:]))
-
-        return None
-
-    def _resolve_asset_dirname(self) -> None:
-        h = sha1(self._uri.encode()).hexdigest()
-
-        h = h[:24]
-
-        self._asset_dir = self._cache_dir.joinpath(h)
-
-    def _prepare_op(self) -> None:
+    def _clean_cached_asset(self) -> None:
         asset_dir = self._asset_dir
 
-        assert asset_dir is not None
+        try:
+            self._file_system.remove_directory(asset_dir)
+        except FileNotFoundError:
+            pass
 
-        if self._force:
-            if asset_dir.exists():
-                log.info("Ignoring the cached {}. `force` is set to `True`.", self._asset_name)  # fmt: skip
+        download_dir = asset_dir.with_suffix(".download")
 
-                rmtree(asset_dir)
+        try:
+            self._file_system.remove_directory(download_dir)
+        except FileNotFoundError:
+            pass
 
-            download_dir = asset_dir.with_suffix(".download")
-            if download_dir.exists():
-                rmtree(download_dir)
+        tmp_download_dir = asset_dir.with_suffix(".download.tmp")
 
-            download_dir = asset_dir.with_suffix(".download.tmp")
-            if download_dir.exists():
-                rmtree(download_dir)
-        else:
-            if asset_dir.exists():
-                # Touch the asset directory so that we can maintain an LRU list
-                # for cache cleanup.
-                try:
-                    asset_dir.touch()
-                except OSError:
-                    pass
-
-                log.info("Using the cached {}. Set `force` to `True` to download again.", self._asset_name)  # fmt: skip
+        try:
+            self._file_system.remove_directory(tmp_download_dir)
+        except FileNotFoundError:
+            pass
 
     def _download_asset(self) -> None:
-        assert self._asset_dir is not None
+        asset_dir = self._asset_dir
 
-        download_dir = self._asset_dir.with_suffix(".download")
+        if self._file_system.exists(asset_dir):
+            return
 
-        # Check if we have already downloaded the asset in a previous call.
-        if self._asset_dir.exists() or download_dir.exists():
+        download_dir = asset_dir.with_suffix(".download")
+
+        if self._file_system.exists(download_dir):
             return
 
         succeeded = False
 
-        with ExitStack() as cleanup_stack:
-            tmp_dir = self._asset_dir.with_suffix(".download.tmp")
+        with ExitStack() as exit_stack:
+            tmp_download_dir = asset_dir.with_suffix(".download.tmp")
 
-            tmp_dir.mkdir(parents=True, exist_ok=True)
+            self._file_system.make_directory(tmp_download_dir)
 
             def remove_tmp_dir() -> None:
                 if not succeeded:
                     try:
-                        rmtree(tmp_dir)
+                        self._file_system.remove_directory(tmp_download_dir)
                     except OSError:
                         pass
 
-            cleanup_stack.callback(remove_tmp_dir)
-
-            log.info("Downloading {}...", self._asset_name)
+            exit_stack.callback(remove_tmp_dir)
 
             request = Request(
-                self._uri,
+                str(self._uri),
                 # Most hosting providers return 403 if the user-agent is not a
                 # well-known string. Act like Firefox.
                 headers={
@@ -573,72 +592,73 @@ class _AssetDownloadOp:
             )
 
             try:
-                response = cleanup_stack.enter_context(urlopen(request))
+                response = urlopen(request)
             except URLError as ex:
-                msg = "Download failed."
-
-                raise AssetDownloadError(
-                    self._asset_name, self._asset_kind, msg
-                ) from ex
+                self._raise_download_error("Address is not reachable.", ex)
             except HTTPError as ex:
-                msg = f"Download failed with HTTP error code {ex.code}."
+                self._raise_download_error(
+                    f"Server returned HTTP error code {ex.code}."
+                )
 
-                raise AssetDownloadError(
-                    self._asset_name, self._asset_kind, msg
-                ) from None
+            exit_stack.enter_context(response)
 
             headers = response.info()
 
-            try:
-                size = int(headers["Content-Length"])
-            except TypeError:
-                size = None
+            total_size = None
 
-            fp = cleanup_stack.enter_context(
-                NamedTemporaryFile(delete=False, dir=tmp_dir)
-            )
+            content_length = headers.get("Content-Length")
+            if content_length is not None:
+                try:
+                    total_size = int(content_length)
+                except ValueError:
+                    pass
+
+            fp = NamedTemporaryFile(delete=False, dir=tmp_download_dir)
+
+            exit_stack.enter_context(fp)
 
             num_bytes_read = 0
 
-            cleanup_stack.enter_context(self._progress_reporter)
+            exit_stack.enter_context(self._download_progress_reporter)
 
-            task = self._progress_reporter.create_task("download", total=size)
+            task = self._download_progress_reporter.create_task(
+                "download", total=total_size
+            )
 
-            cleanup_stack.enter_context(task)
+            exit_stack.enter_context(task)
 
             while True:
                 try:
                     buffer = response.read(1024 * 8)
                 except HTTPError as ex:
-                    msg = f"Download failed with HTTP error code {ex.code}."
-
-                    raise AssetDownloadError(
-                        self._asset_name, self._asset_kind, msg
-                    ) from None
+                    self._raise_download_error(
+                        f"Server returned HTTP error code {ex.code}."
+                    )
 
                 buffer_len = len(buffer)
                 if buffer_len == 0:
                     break
 
-                if size is not None:
+                if total_size is not None:
                     num_bytes_read += buffer_len
-                    if num_bytes_read > size:
-                        msg = f"The number of bytes sent by the server exceeded the expected size of {size:,} bytes."
-
-                        raise AssetDownloadError(
-                            self._asset_name, self._asset_kind, msg
+                    if num_bytes_read > total_size:
+                        self._raise_download_error(
+                            f"Number of bytes sent by the server exceeds the expected size of {total_size:,} bytes."
                         )
 
                 fp.write(buffer)
 
                 task.step(buffer_len)
 
-            if size is not None and num_bytes_read < size:
-                msg = f"The server sent {num_bytes_read:,} bytes which is less than the expected size of {size:,} bytes."
-
-                raise AssetDownloadError(self._asset_name, self._asset_kind, msg)
+            if total_size is not None:
+                if num_bytes_read < total_size:
+                    self._raise_download_error(
+                        f"Server sent {num_bytes_read:,} bytes which is less than the expected size of {total_size:,} bytes."
+                    )
 
             fp.close()
+
+            tmp_file = Path(fp.name)
 
             filename = None
 
@@ -650,125 +670,116 @@ class _AssetDownloadOp:
 
             if filename is None:
                 try:
-                    filename = Path(urlparse(response.geturl()).path).name
-
-                    filename = unquote(filename)
+                    filename = unquote(Path(urlparse(response.geturl()).path).name)
                 except ValueError:
                     filename = "asset"
 
-            asset_file = tmp_dir.joinpath(filename)
+            download_file = tmp_download_dir.joinpath(filename)
 
-            os.replace(fp.name, asset_file)
+            self._file_system.move(tmp_file, download_file)
 
-            tmp_dir.replace(download_dir)
+            self._file_system.move(tmp_download_dir, download_dir)
 
             succeeded = True
-
-            log.info("Download complete.")
 
     def _ensure_asset_extracted(self) -> None:
         asset_dir = self._asset_dir
 
-        assert asset_dir is not None
-
         download_dir = asset_dir.with_suffix(".download")
 
-        # Check if we have already extracted the asset.
-        if not download_dir.exists():
+        if not self._file_system.exists(download_dir):
             return
 
-        asset_dir.mkdir(parents=True, exist_ok=True)
+        self._file_system.make_directory(asset_dir)
 
-        def iter_dir() -> Iterator[Path]:
-            for path in download_dir.iterdir():
-                yield path
+        it = download_dir.iterdir()
 
-        for asset_path in iter_dir():
-            # There are various file types (e.g. PyTorch tensor files) that
-            # internally use the zip format. To be on the safe side we only
-            # extract files that have the '.zip' suffix.
-            if asset_path.suffix == ".zip":
-                log.info("Extracting {}...", self._asset_name)
+        try:
+            download_file = next(it)
+        except StopIteration:
+            return
 
-                try:
-                    with ZipFile(asset_path) as zip_fp:
-                        zip_fp.extractall(path=asset_dir)
-                except (KeyError, OSError, BadZipFile) as ex:
-                    msg = f"{asset_path} cannot be extracted."
+        # There are various file types (e.g. PyTorch tensor files) that
+        # internally use the zip format. To be on the safe side we only
+        # extract files that have the .zip suffix.
+        if download_file.suffix == ".zip":
+            with self._progress_reporter:
+                task = self._progress_reporter.create_task(
+                    "extract", total=None, start=False
+                )
 
-                    raise AssetDownloadError(
-                        self._asset_name, self._asset_kind, msg
-                    ) from ex
+                with task:
+                    try:
+                        with ZipFile(download_file) as zip_fp:
+                            zip_fp.extractall(path=asset_dir)
+                    except (KeyError, OSError, EOFError, BadZipFile) as ex:
+                        self._raise_download_error(
+                            f"{download_file} cannot be extracted.", ex
+                        )
 
-                try:
-                    asset_path.unlink()
-                except OSError:
-                    pass
+                    try:
+                        self._file_system.remove(download_file)
+                    except OSError:
+                        pass
+        elif is_tarfile(download_file):
+            with self._progress_reporter:
+                task = self._progress_reporter.create_task(
+                    "extract", total=None, start=False
+                )
 
-                log.info("Extraction complete.")
-            elif is_tarfile(asset_path):
-                log.info("Extracting {}...", self._asset_name)
+                with task:
+                    try:
+                        with TarFile(download_file) as tar_fp:
+                            tar_fp.extractall(path=asset_dir)
+                    except (KeyError, OSError, EOFError) as ex:
+                        self._raise_download_error(
+                            f"{download_file} cannot be extracted.", ex
+                        )
 
-                try:
-                    with TarFile(asset_path) as tar_fp:
-                        tar_fp.extractall(path=asset_dir)
-                except (KeyError, OSError) as ex:
-                    msg = f"{asset_path} cannot be extracted."
+                    try:
+                        self._file_system.remove(download_file)
+                    except OSError:
+                        pass
+        else:
+            asset_path = asset_dir.joinpath(download_file.name)
 
-                    raise AssetDownloadError(
-                        self._asset_name, self._asset_kind, msg
-                    ) from ex
+            self._file_system.move(download_file, asset_path)
 
-                try:
-                    asset_path.unlink()
-                except OSError:
-                    pass
+        self._file_system.remove_directory(download_dir)
 
-                log.info("Extraction complete.")
-            else:
-                asset_path.replace(asset_dir.joinpath(asset_path.name))
-
-        rmtree(download_dir)
-
-    def _get_final_asset_path(self) -> Path:
+    def _retrieve_asset_path(self) -> Path:
         asset_dir = self._asset_dir
 
-        assert asset_dir is not None and asset_dir.exists()
+        if not self._file_system.exists(asset_dir):
+            if self._local_only:
+                reason = "Asset is not cached, but `local_only` is `True`."
+            else:
+                reason = f"{asset_dir} asset directory is not found."
 
-        asset_path = None
+            self._raise_download_error(reason)
 
-        asset_pathname = self._uri_params.get("path")
-        if asset_pathname:
-            asset_path = asset_dir.joinpath(asset_pathname).resolve()
+        it = asset_dir.iterdir()
 
-            try:
-                asset_path.relative_to(asset_dir)
-            except ValueError:
-                msg = "path parameter of the URI points to a path outside of the asset cache directory."
-
-                raise AssetDownloadError(
-                    self._asset_name, self._asset_kind, msg
-                ) from None
-
-            return asset_path
+        try:
+            path = next(it)
+        except StopIteration:
+            self._raise_download_error(f"{asset_dir} asset directory is empty.")
 
         # If we have a single file under the asset directory, return the path of
         # the file; otherwise, return the path of the directory.
-        for path in asset_dir.iterdir():
-            if asset_path is not None or not path.is_file():
-                asset_path = asset_dir
+        try:
+            next(it)
+        except StopIteration:
+            pass
+        else:
+            return asset_dir
 
-                break
+        if self._file_system.is_file(path):
+            return path
 
-            asset_path = path
+        return asset_dir
 
-        assert asset_path is not None
-
-        return asset_path
-
-
-_SCHEME_REGEX: Final = re.compile("^[a-zA-Z0-9]+://")
-
-
-def _starts_with_scheme(s: str) -> bool:
-    return re.match(_SCHEME_REGEX, s) is not None
+    def _raise_download_error(
+        self, msg: str, cause: Exception | None = None
+    ) -> NoReturn:
+        raise AssetDownloadError(self._uri, msg) from cause

@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from fairseq2.data.data_pipeline import DataPipeline, DataPipelineError, read_sequence
@@ -253,3 +254,25 @@ class TestSampleOp:
             assert list(pipeline) == [3, 4, 7, 8, 9, 10, 11, 12]
 
             pipeline.reset(reset_rng=True)
+
+    def test_op_works_with_many_pipelines_when_allow_repeats_false(self) -> None:
+        """Test edge case with many pipelines where only lowest-weight ones remain."""
+
+        nb_pipelines = 21
+        pipeline_weights = np.random.RandomState(0).rand(nb_pipelines).tolist()
+        pipeline_sizes = (
+            np.random.RandomState(0).randint(0, 100_000, nb_pipelines).tolist()
+        )
+        pipelines = []
+        for size in pipeline_sizes:
+            pipeline_items = list(range(size))
+            pipelines.append(read_sequence(pipeline_items).and_return())
+
+        builder = DataPipeline.sample(
+            pipelines, pipeline_weights, seed=123, allow_repeats=False
+        )
+        pipeline = builder.and_return()
+
+        expected_total_size = np.sum(pipeline_sizes)
+        actual_sampled_size = len(list(pipeline))
+        assert actual_sampled_size == expected_total_size

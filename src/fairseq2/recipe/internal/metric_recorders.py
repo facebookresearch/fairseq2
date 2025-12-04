@@ -8,40 +8,33 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from importlib.util import find_spec
 from pathlib import Path
-from typing import Any, Protocol, final, runtime_checkable
+from typing import final
 
 from typing_extensions import override
-
-try:
-    import wandb  # type: ignore[import-not-found]
-except ImportError:
-    _has_wandb = False
-else:
-    _has_wandb = True
+from wandb import Run as WandbRun
+from wandb.errors import UsageError as WandbUsageError
 
 from fairseq2.error import raise_operational_system_error
 from fairseq2.file_system import FileMode, FileSystem
 from fairseq2.gang import Gangs
-from fairseq2.logging import log
 from fairseq2.metrics.recorders import (
     NOOP_METRIC_RECORDER,
-    CompositeMetricRecorder,
     MetricRecorder,
     TensorBoardRecorder,
-    WandbClient,
     WandbRecorder,
 )
-from fairseq2.recipe.config import CommonSection, RecipeConfig
+from fairseq2.recipe.config import CommonSection
 from fairseq2.recipe.error import WandbInitializationError
+from fairseq2.recipe.internal.config import _RecipeConfigHolder
+from fairseq2.utils.env import Environment
 from fairseq2.utils.structured import ValueConverter
 
 
 @final
-class _RecipeMetricRecorderFactory:
+class _MetricRecorderFactory:
     def __init__(
-        self, gangs: Gangs, default_factory: Callable[[], CompositeMetricRecorder]
+        self, gangs: Gangs, default_factory: Callable[[], MetricRecorder]
     ) -> None:
         self._gangs = gangs
         self._default_factory = default_factory
@@ -67,12 +60,6 @@ class _MaybeTensorBoardRecorderFactory:
         if not tb_config.enabled:
             return None
 
-        spec = find_spec("torch.utils.tensorboard")
-        if spec is None:
-            log.warning("tensorboard is not found. Use `pip install tensorboard`.")
-
-            return None
-
         return self._factory()
 
 
@@ -90,69 +77,57 @@ class _MaybeWandbRecorderFactory:
         if not wandb_config.enabled:
             return None
 
-        if not _has_wandb:
-            log.warning("wandb is not found. Use `pip install wandb`.")
-
-            return None
-
         return self._factory()
 
 
 @final
-class _RecipeWandbClientFactory:
+class _MaybeWandbRunFactory:
     def __init__(
         self,
         section: CommonSection,
         output_dir: Path,
-        config: RecipeConfig,
+        env: Environment,
+        config_holder: _RecipeConfigHolder,
         value_converter: ValueConverter,
-        initializer: _WandbInitializer,
+        initializer: Callable[..., WandbRun],
         run_id_manager: _WandbRunIdManager,
     ) -> None:
         self._section = section
         self._output_dir = output_dir
-        self._config = config
+        self._env = env
+        self._config_holder = config_holder
         self._value_converter = value_converter
         self._initializer = initializer
         self._run_id_manager = run_id_manager
 
-    def create(self) -> WandbClient:
-        untyped_config = self._config.as_(object)
+    def maybe_create(self) -> WandbRun | None:
+        wandb_config = self._section.metric_recorders.wandb
+        if not wandb_config.enabled:
+            return None
 
-        unstructured_config = self._value_converter.unstructure(untyped_config)
+        run_id = self._run_id_manager.get_id()
+
+        unstructured_config = self._value_converter.unstructure(
+            self._config_holder.config
+        )
 
         if not isinstance(unstructured_config, dict):
             unstructured_config = None
 
-        id_ = self._run_id_manager.get_id()
-
-        wandb_config = self._section.metric_recorders.wandb
-
         try:
-            run = self._initializer(
+            return self._initializer(
                 entity=wandb_config.entity,
                 project=wandb_config.project,
                 dir=self._output_dir,
-                id=id_,
+                id=run_id,
                 name=wandb_config.run_name,
                 config=unstructured_config,
                 group=wandb_config.group,
                 job_type=wandb_config.job_type,
                 resume=wandb_config.resume_mode,
             )
-        except (RuntimeError, ValueError) as ex:
+        except (RuntimeError, ValueError, WandbUsageError) as ex:
             raise WandbInitializationError() from ex
-
-        return WandbClient(run)
-
-
-@runtime_checkable
-class _WandbInitializer(Protocol):
-    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
-
-
-def _init_wandb(*args: Any, **kwargs: Any) -> Any:
-    return wandb.init(*args, **kwargs)
 
 
 class _WandbRunIdManager(ABC):
@@ -165,11 +140,13 @@ class _StandardWandbRunIdManager(_WandbRunIdManager):
     def __init__(
         self,
         section: CommonSection,
+        env: Environment,
         file_system: FileSystem,
-        id_generator: _WandbIdGenerator,
+        id_generator: Callable[[], str],
         save_dir: Path,
     ) -> None:
         self._section = section
+        self._env = env
         self._file_system = file_system
         self._id_generator = id_generator
         self._save_dir = save_dir
@@ -179,7 +156,11 @@ class _StandardWandbRunIdManager(_WandbRunIdManager):
         run_id = self._section.metric_recorders.wandb.run_id
 
         if run_id is None:
-            return self._id_generator()
+            run_id = self._env.maybe_get("WANDB_RUN_ID")
+            if run_id is None:
+                run_id = self._id_generator()
+
+            return run_id
 
         if run_id != "persistent":
             return run_id
@@ -215,12 +196,3 @@ class _StandardWandbRunIdManager(_WandbRunIdManager):
                 fp.close()
 
         return run_id
-
-
-@runtime_checkable
-class _WandbIdGenerator(Protocol):
-    def __call__(self) -> str: ...
-
-
-def _generate_wandb_id() -> str:
-    return wandb.util.generate_id()

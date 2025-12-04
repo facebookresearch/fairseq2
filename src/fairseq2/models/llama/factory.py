@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-from fairseq2.gang import Gangs, maybe_get_current_gangs
+from fairseq2.error import NotSupportedError
 from fairseq2.models.llama.config import LLaMAConfig, LLaMARoPEScaleConfig
 from fairseq2.models.transformer import (
     CausalAttentionBias,
@@ -50,15 +50,12 @@ from fairseq2.utils.tensor import to_tensor
 
 
 def create_llama_model(config: LLaMAConfig) -> TransformerLM:
-    gangs = maybe_get_current_gangs()
-
-    return LLaMAFactory(config, gangs).create_model()
+    return LLaMAFactory(config).create_model()
 
 
 class LLaMAFactory:
-    def __init__(self, config: LLaMAConfig, gangs: Gangs | None = None) -> None:
+    def __init__(self, config: LLaMAConfig) -> None:
         self._config = config
-        self._gangs = gangs
 
     def create_model(self) -> TransformerLM:
         config = self._config
@@ -92,19 +89,14 @@ class LLaMAFactory:
 
             _init_truncated_normal(embed.weight, bias=None, std=std)
 
-        embed = StandardEmbedding(
-            config.vocab_size, config.model_dim, config.pad_idx, init_fn=init_embed
-        )
-
-        gangs = self._gangs
-
-        if gangs is not None and gangs.tp.size > 1:
-            if not config.shard_embed_dim:
-                return VocabShardedEmbedding.from_embedding(embed, gangs.tp)
-
-            return ShardedEmbedding.from_embedding(embed, gangs.tp)
-
-        return embed
+        if config.shard_embed_dim:
+            return ShardedEmbedding(
+                config.vocab_size, config.model_dim, config.pad_idx, init_fn=init_embed
+            )
+        else:
+            return VocabShardedEmbedding(
+                config.vocab_size, config.model_dim, config.pad_idx, init_fn=init_embed
+            )
 
     def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
         config = self._config
@@ -206,7 +198,6 @@ class LLaMAFactory:
             pos_encoder=pos_encoder,
             output_proj_init_fn=init_projection,
             bias=False,
-            gangs=self._gangs,
         )
 
     def create_ffn(self, layer_idx: int) -> FeedForwardNetwork:
@@ -232,16 +223,20 @@ class LLaMAFactory:
             inner_dim_scale=config.ffn_inner_dim_scale,
             inner_dim_to_multiple=config.ffn_inner_dim_multiple_of,
             proj_init_fn=init_projection,
-            gangs=self._gangs,
         )
 
     def create_final_projection(self, embed: Embedding) -> Projection:
         config = self._config
 
         if config.tied_embeddings:
-            if not isinstance(embed, StandardEmbedding):
+            if not isinstance(embed, VocabShardedEmbedding):
                 raise TypeError(
-                    f"`embed` is expected to be of type `{StandardEmbedding}` when `config.tied_embeddings` is `True`, but is of type `{type(embed)}` instead."
+                    f"`embed` is expected to be of type `{VocabShardedEmbedding}` when `config.tied_embeddings` is `True`, but is of type `{type(embed)}` instead."
+                )
+
+            if embed.tp_gang.size > 1:
+                raise NotSupportedError(
+                    "Tied embeddings are not supported when tensor parallelism is enabled."
                 )
 
             return TiedProjection(embed.weight, bias=None)
@@ -255,16 +250,12 @@ class LLaMAFactory:
 
             _init_truncated_normal(proj.weight, proj.bias, std=std)
 
-        final_proj = Linear(
-            config.model_dim, config.vocab_size, bias=False, init_fn=init_projection
+        return ColumnShardedLinear(
+            config.model_dim,
+            config.vocab_size,
+            bias=False,
+            init_fn=init_projection,
         )
-
-        gangs = self._gangs
-
-        if gangs is not None and gangs.tp.size > 1:
-            return ColumnShardedLinear.from_linear(final_proj, gangs.tp)
-
-        return final_proj
 
     def create_layer_norm(self) -> LayerNorm:
         config = self._config

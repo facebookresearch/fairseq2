@@ -16,11 +16,12 @@ from torch import Tensor
 from torch.profiler import record_function
 from typing_extensions import override
 
-from fairseq2.checkpoint import CheckpointManager
+from fairseq2.checkpoint import CheckpointManager, HuggingFaceExporter
 from fairseq2.data_type import DataType
 from fairseq2.datasets import DataReader
 from fairseq2.device import CPU, SupportsDeviceTransfer
 from fairseq2.error import InternalError, InvalidOperationError
+from fairseq2.evaluator import EvalUnit
 from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
 from fairseq2.logging import log
 from fairseq2.metrics import MetricBag, sync_and_compute_metrics
@@ -31,7 +32,6 @@ from fairseq2.metrics.recorders import (
     MetricRecorder,
 )
 from fairseq2.profilers import Profiler
-from fairseq2.recipe.evaluator import EvalUnit
 from fairseq2.typing import ContextManager
 from fairseq2.utils.device_stat import DeviceStatTracker
 from fairseq2.utils.progress import ProgressReporter
@@ -42,6 +42,8 @@ BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
 
 
 class Validator(ABC):
+    """Validates a machine learning model during training."""
+
     @abstractmethod
     def run(self, train_step_nr: int) -> float | None: ...
 
@@ -75,6 +77,7 @@ class StandardValidator(Validator):
         amp_dtype: DataType,
         score_metric_descriptor: MetricDescriptor,
         checkpoint_manager: CheckpointManager,
+        hg_exporter: HuggingFaceExporter,
         metric_recorder: MetricRecorder,
         profiler: Profiler,
         device_stat_tracker: DeviceStatTracker,
@@ -82,17 +85,6 @@ class StandardValidator(Validator):
         progress_reporter: ProgressReporter,
         seed: int,
     ) -> None:
-        """
-        :param units: The evaluation units.
-        :param data_readers: The data readers of ``units``.
-        :param wall_watch: The stopwatch to track process wall-time.
-        :param amp: If ``True``, enables ``torch.amp``.
-        :param score_metric_descriptor: The descriptor of the metric to use for
-            score calculation.
-        :param seed: The random number generator seed.
-        """
-        self._step_nr = 0
-
         if len(units) == 0:
             raise ValueError("`units` must contain at least one validation unit.")
 
@@ -101,46 +93,30 @@ class StandardValidator(Validator):
                 f"Number of data readers in `data_readers` must match the number of units in `units` ({len(units)}), but is {len(data_readers)} instead."
             )
 
+        rng_bag = RngBag.from_device_defaults(CPU, gangs.device)
+
         self._units = units
-
         self._data_readers = data_readers
-
         self._gangs = gangs
-
         self._amp = amp
-
         self._amp_dtype = amp_dtype
-
         self._score_metric_descriptor = score_metric_descriptor
-
         self._checkpoint_manager = checkpoint_manager
-
-        self._rng_bag = RngBag.from_device_defaults(CPU, gangs.root.device)
-
+        self._hg_exporter = hg_exporter
+        self._rng_bag = rng_bag
         self._metric_recorder = metric_recorder
-
         self._profiler = profiler
-
         self._device_stat_tracker = device_stat_tracker
-
         self._data_watch = Stopwatch()
-
-        self._compute_watch = Stopwatch(device=self._gangs.root.device)
-
+        self._compute_watch = Stopwatch(device=gangs.device)
         self._lapse_watch = Stopwatch()
-
         self._wall_watch = wall_watch
-
         self._progress_reporter = progress_reporter
-
         self._seed = seed
-
+        self._step_nr = 0
         self._num_batches_read = 0
-
         self._has_run = False
-
         self._best_score = -torch.inf
-
         self._best_step_nr = -1
 
     @override
@@ -197,9 +173,7 @@ class StandardValidator(Validator):
     def _run_unit(
         self, train_step_nr: int, unit: EvalUnit[Any], data_reader: DataReader[Any]
     ) -> float | None:
-        unit.model.module.eval()
-
-        metric_bag = MetricBag(device=self._gangs.root.device)
+        metric_bag = MetricBag(device=self._gangs.device)
 
         unit.prepare_metric_bag(metric_bag)
 
@@ -214,6 +188,8 @@ class StandardValidator(Validator):
 
             while not eod:
                 self._checkpoint_manager.maybe_complete_save_operation()
+
+                self._hg_exporter.maybe_complete_operation()
 
                 batches = self._read_next_batches(unit, data_reader)
                 if batches is None:
@@ -265,7 +241,7 @@ class StandardValidator(Validator):
             for batch_nr in range(num_batches):
                 batch = batches.pop()
 
-                batch.to(self._gangs.root.device, non_blocking=True)
+                batch.to(self._gangs.device, non_blocking=True)
 
                 with record_function(f"step_{self._step_nr}_{batch_nr}"):
                     self._call_unit(unit, batch, metric_bag)
@@ -286,9 +262,9 @@ class StandardValidator(Validator):
         if not self._amp or self._amp_dtype == torch.float32:
             return nullcontext()
 
-        device_type = self._gangs.root.device.type
-
-        return torch.autocast(device_type=device_type, dtype=self._amp_dtype)
+        return torch.autocast(
+            device_type=self._gangs.device.type, dtype=self._amp_dtype
+        )
 
     def _publish_metrics(
         self, train_step_nr: int, unit: EvalUnit[Any], metric_bag: MetricBag

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from fairseq2.assets.card import AssetCard as AssetCard
 from fairseq2.assets.card import AssetCardError as AssetCardError
+from fairseq2.assets.card import AssetCardNotValidError as AssetCardNotValidError
 from fairseq2.assets.card import AssetConfigLoader as AssetConfigLoader
 from fairseq2.assets.card import StandardAssetConfigLoader as StandardAssetConfigLoader
 from fairseq2.assets.dirs import AssetDirectoryAccessor as AssetDirectoryAccessor

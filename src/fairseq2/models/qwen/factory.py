@@ -9,7 +9,7 @@ from __future__ import annotations
 import torch.nn as nn
 from torch import Tensor
 
-from fairseq2.gang import Gangs, maybe_get_current_gangs
+from fairseq2.error import NotSupportedError
 from fairseq2.models.qwen.config import QwenConfig
 from fairseq2.models.transformer import (
     CausalAttentionBias,
@@ -37,23 +37,20 @@ from fairseq2.nn import (
     PositionEncoder,
     Projection,
     RMSNorm,
-    ShardedEmbedding,
     StandardEmbedding,
     TiedProjection,
+    VocabShardedEmbedding,
 )
 from fairseq2.nn.position_encoder import ReferenceRotaryEncoder
 
 
 def create_qwen_model(config: QwenConfig) -> TransformerLM:
-    gangs = maybe_get_current_gangs()
-
-    return QwenFactory(config, gangs).create_model()
+    return QwenFactory(config).create_model()
 
 
 class QwenFactory:
-    def __init__(self, config: QwenConfig, gangs: Gangs | None = None) -> None:
+    def __init__(self, config: QwenConfig) -> None:
         self._config = config
-        self._gangs = gangs
 
     def create_model(self) -> TransformerLM:
         config = self._config
@@ -87,16 +84,9 @@ class QwenFactory:
 
             _init_truncated_normal(embed.weight, bias=None, std=std)
 
-        embed = StandardEmbedding(
+        return VocabShardedEmbedding(
             config.vocab_size, config.model_dim, init_fn=init_embed
         )
-
-        gangs = self._gangs
-
-        if gangs is not None and gangs.tp.size > 1:
-            return ShardedEmbedding.from_embedding(embed, gangs.tp)
-
-        return embed
 
     def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
         config = self._config
@@ -205,7 +195,6 @@ class QwenFactory:
             pos_encoder=pos_encoder,
             output_proj_init_fn=init_projection,
             output_proj_bias=False,
-            gangs=self._gangs,
         )
 
     def create_ffn(self, layer_idx: int) -> FeedForwardNetwork:
@@ -226,16 +215,20 @@ class QwenFactory:
             bias=False,
             inner_dim_scale=1.0,
             proj_init_fn=init_projection,
-            gangs=self._gangs,
         )
 
     def create_final_projection(self, embed: Embedding) -> Projection:
         config = self._config
 
         if config.tied_embeddings:
-            if not isinstance(embed, StandardEmbedding):
+            if not isinstance(embed, VocabShardedEmbedding):
                 raise TypeError(
-                    f"`embed` is expected to be of type `{StandardEmbedding}` when `config.tied_embeddings` is set, but is of type `{type(embed)}` instead."
+                    f"`embed` is expected to be of type `{VocabShardedEmbedding}` when `config.tied_embeddings` is `True`, but is of type `{type(embed)}` instead."
+                )
+
+            if embed.tp_gang.size > 1:
+                raise NotSupportedError(
+                    "Tied embeddings are not supported when tensor parallelism is enabled."
                 )
 
             return TiedProjection(embed.weight, bias=None)
@@ -247,16 +240,9 @@ class QwenFactory:
 
             _init_truncated_normal(proj.weight, proj.bias, std=std)
 
-        final_proj = Linear(
+        return ColumnShardedLinear(
             config.model_dim, config.vocab_size, bias=False, init_fn=init_projection
         )
-
-        gangs = self._gangs
-
-        if gangs is not None and gangs.tp.size > 1:
-            return ColumnShardedLinear.from_linear(final_proj, gangs.tp)
-
-        return final_proj
 
     def create_layer_norm(self, dim: int | None = None) -> LayerNorm:
         config = self._config

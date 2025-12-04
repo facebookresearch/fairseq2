@@ -11,7 +11,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Any, Protocol, TypeVar, final
+from typing import Any, Final, Protocol, TypeVar, final
 
 import torch
 from torch import Tensor
@@ -21,10 +21,12 @@ from typing_extensions import override
 from fairseq2.assets import (
     AssetCard,
     AssetCardError,
+    AssetCardNotValidError,
     AssetConfigLoader,
     AssetDownloadManager,
+    AssetStore,
 )
-from fairseq2.data_type import DataType, default_dtype
+from fairseq2.data_type import DataType, set_dtype
 from fairseq2.device import META_DEVICE
 from fairseq2.error import (
     InternalError,
@@ -32,24 +34,36 @@ from fairseq2.error import (
     raise_operational_system_error,
 )
 from fairseq2.file_system import FileSystem, raise_if_not_exists
-from fairseq2.gang import Gangs
-from fairseq2.model_checkpoint import ModelCheckpointError, ModelCheckpointLoader
+from fairseq2.gang import GangError, Gangs, raise_operational_gang_error, set_gangs
+from fairseq2.model_checkpoint import (
+    CorruptModelCheckpointError,
+    ModelCheckpointLoader,
+    ModelCheckpointLoadOptions,
+)
 from fairseq2.models.utils.checkpoint import (
     ModelCheckpointMismatchError,
     set_model_state,
 )
 from fairseq2.nn import get_shard_dims
 from fairseq2.nn.fsdp import FSDPWrapper, load_with_sdp_gang
-from fairseq2.nn.utils.module import reset_non_persistent_buffers, to_empty
+from fairseq2.nn.utils.module import (
+    broadcast_module,
+    reset_non_persistent_buffers,
+    to_empty,
+)
+from fairseq2.runtime.dependency import DependencyLookup, get_dependency_resolver
 from fairseq2.runtime.lookup import Lookup
 from fairseq2.sharder import ModelSharder, ShardSpec, ShardSpecError
 from fairseq2.utils.progress import ProgressReporter
+from fairseq2.utils.uri import Uri
+from fairseq2.utils.validation import ObjectValidator, ValidationError
 from fairseq2.utils.warn import _warn_deprecated
 
 
+# TODO: Will be deleted in v0.9
 @dataclass
 class HuggingFaceExport:
-    state_dict: Mapping[str, object]
+    state_dict: dict[str, object]
     config: Mapping[str, object]
     config_kls_name: str
     arch: str | Sequence[str]
@@ -67,7 +81,12 @@ class ModelFamily(ABC):
 
     @abstractmethod
     def create_new_model(
-        self, config: object, gangs: Gangs, dtype: DataType, meta: bool
+        self,
+        config: object,
+        gangs: Gangs,
+        dtype: DataType,
+        meta: bool,
+        init_rank0_only: bool,
     ) -> Module: ...
 
     @abstractmethod
@@ -77,8 +96,8 @@ class ModelFamily(ABC):
         gangs: Gangs,
         dtype: DataType,
         config: object | None,
+        load_rank0_only: bool,
         mmap: bool,
-        progress: bool,
     ) -> Module: ...
 
     @abstractmethod
@@ -88,9 +107,9 @@ class ModelFamily(ABC):
         config: object,
         gangs: Gangs,
         dtype: DataType,
+        load_rank0_only: bool,
         mmap: bool,
         restrict: bool | None,
-        progress: bool,
     ) -> Module: ...
 
     @abstractmethod
@@ -113,11 +132,6 @@ class ModelFamily(ABC):
 
     @abstractmethod
     def apply_layerwise_ac(self, model: Module, every_nth_layer: int) -> Module: ...
-
-    @abstractmethod
-    def convert_to_hugging_face(
-        self, state_dict: dict[str, object], config: object
-    ) -> HuggingFaceExport: ...
 
     @property
     @abstractmethod
@@ -151,21 +165,90 @@ class ModelFamily(ABC):
     @abstractmethod
     def supports_layerwise_ac(self) -> bool: ...
 
-    @property
-    @abstractmethod
-    def supports_hugging_face(self) -> bool: ...
+
+class ModelGatedError(Exception):
+    def __init__(self, name: str, info_url: str | None) -> None:
+        super().__init__(
+            f"{name} is a gated model and cannot be loaded. See {info_url} for details."
+        )
+
+        self.name = name
+        self.info_url = info_url
 
 
-def get_model_family(card: AssetCard, families: Lookup[ModelFamily]) -> ModelFamily:
-    family_name = card.field("model_family").as_(str)
+def get_model_family_name(card: AssetCard | str) -> str:
+    """
+    Returns the family name of the model in the specified card.
+
+    :raises AssetCardError: The card is erroneous and cannot be read.
+
+    :raises AssetCardNotFoundError: ``card`` is of type ``str`` and no card with
+        that name exists.
+
+    :raises AssetCardNotValidError: The card is missing a model definition (i.e.
+        `model_family` field).
+
+    :raises ModelFamilyNotKnownError: The family of the model is not known,
+        meaning has no registered :class:`ModelFamily`.
+    """
+    resolver = get_dependency_resolver()
+
+    if isinstance(card, str):
+        card = resolver.resolve(AssetStore).retrieve_card(card)
+
+    families = DependencyLookup(resolver, ModelFamily)
+
+    family = _maybe_get_model_family(card, families)
+    if family is None:
+        message = f"{card.name} asset card is missing a model definition (i.e. `model_family` field)."
+
+        raise AssetCardNotValidError(card.name, message)
+
+    return family.name
+
+
+def maybe_get_model_family_name(card: AssetCard | str) -> str | None:
+    """
+    Returns the family name of the model in the specified card, if one is
+    defined; otherwise, returns ``None``.
+
+    :raises AssetCardError: The card is erroneous and cannot be read.
+
+    :raises AssetCardNotFoundError: ``card`` is of type ``str`` and no card with
+        that name exists.
+
+    :raises ModelFamilyNotKnownError: The family of the model is not known,
+        meaning has no registered :class:`ModelFamily`.
+    """
+    try:
+        return get_model_family_name(card)
+    except AssetCardNotValidError:
+        return None
+
+
+def _maybe_get_model_family(
+    card: AssetCard, families: Lookup[ModelFamily]
+) -> ModelFamily | None:
+    field = card.maybe_get_field("model_family")
+    if field is None:
+        return None
+
+    family_name = field.as_(str)
 
     family = families.maybe_get(family_name)
     if family is None:
-        msg = f"family field of the {card.name} asset card is expected to be a supported model family, but is {family_name} instead."
-
-        raise AssetCardError(card.name, msg)
+        raise ModelFamilyNotKnownError(family_name)
 
     return family
+
+
+class ModelFamilyNotKnownError(Exception):
+    """Raised when a requested model family is not registered."""
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"{name} is not a known model family.")
+
+        self.name = name
 
 
 ModelT_co = TypeVar("ModelT_co", bound=Module, covariant=True)
@@ -217,6 +300,12 @@ ModelConfigT = TypeVar("ModelConfigT")
 
 @final
 class StandardModelFamily(ModelFamily):
+    _CONFIG_KEYS: Final = (
+        "model_config_overrides",
+        "model_config_override",
+        "model_config",
+    )
+
     def __init__(
         self,
         name: str,
@@ -224,6 +313,7 @@ class StandardModelFamily(ModelFamily):
         configs: Lookup[ModelConfigT],
         factory: ModelFactory[ModelConfigT, ModelT],
         file_system: FileSystem,
+        validator: ObjectValidator,
         asset_download_manager: AssetDownloadManager,
         asset_config_loader: AssetConfigLoader,
         checkpoint_loader: ModelCheckpointLoader,
@@ -235,7 +325,6 @@ class StandardModelFamily(ModelFamily):
         compiler: ModelCompiler[ModelT] | None,
         fsdp_applier: ModelFSDPApplier[ModelT] | None,
         layerwise_ac_applier: LayerwiseACApplier[ModelT] | None,
-        hg_exporter: HuggingFaceExporter[ModelConfigT] | None,
         progress_reporter: ProgressReporter,
     ) -> None:
         if shard_specs is not None:
@@ -248,6 +337,7 @@ class StandardModelFamily(ModelFamily):
         self._configs: Lookup[object] = configs
         self._factory: ModelFactory[Any, Module] = factory
         self._file_system = file_system
+        self._validator = validator
         self._asset_download_manager = asset_download_manager
         self._asset_config_loader = asset_config_loader
         self._checkpoint_loader = checkpoint_loader
@@ -259,7 +349,6 @@ class StandardModelFamily(ModelFamily):
         self._compiler: ModelCompiler[Any] | None = compiler
         self._fsdp_applier: ModelFSDPApplier[Any] | None = fsdp_applier
         self._layerwise_ac_applier: LayerwiseACApplier[Any] | None = layerwise_ac_applier  # fmt: skip
-        self._hg_exporter: HuggingFaceExporter[Any] | None = hg_exporter
         self._progress_reporter = progress_reporter
 
     @override
@@ -296,27 +385,62 @@ class StandardModelFamily(ModelFamily):
 
                 raise AssetCardError(name, msg) from None
 
-        # legacy
-        base_config = self._asset_config_loader.load(
-            card, base_config, config_key="model_config"
-        )
+        for key in self._CONFIG_KEYS:
+            config = self._asset_config_loader.load(card, base_config, config_key=key)
 
-        base_config = self._asset_config_loader.load(
-            card, base_config, config_key="model_config_override"
-        )
+            if config is not base_config:
+                try:
+                    self._validator.validate(config)
+                except ValidationError as ex:
+                    msg = f"{key} field of the {name} asset card is not a valid {self._name} model configuration."
+
+                    raise AssetCardError(name, msg) from ex
+
+                return config
 
         return base_config
 
     @override
     def create_new_model(
-        self, config: object, gangs: Gangs, dtype: DataType, meta: bool
+        self,
+        config: object,
+        gangs: Gangs,
+        dtype: DataType,
+        meta: bool,
+        init_rank0_only: bool,
     ) -> Module:
         if not isinstance(config, self._configs.kls):
             raise TypeError(
                 f"`config` must be of type `{self._configs.kls}`, but is of type `{type(config)}` instead."
             )
 
-        return self._do_create_model(config, gangs, dtype, meta)
+        if meta and not self._supports_meta:
+            raise NotSupportedError(
+                f"{self._name} model family does not support meta device initialization."
+            )
+
+        if gangs.dp.rank == 0:
+            model = self._do_create_model(config, gangs, dtype, meta)
+        else:
+            model = self._do_create_model(config, gangs, dtype, self._supports_meta)
+
+        if meta:
+            return model
+
+        try:
+            gangs.root.barrier()
+
+            if not init_rank0_only and self._supports_meta:
+                broadcast_module(model, gangs.dp)
+
+                if gangs.dp.rank != 0:
+                    reset_non_persistent_buffers(model)
+
+                gangs.root.barrier()
+        except GangError as ex:
+            raise_operational_gang_error(ex)
+
+        return model
 
     @override
     def load_model(
@@ -325,36 +449,59 @@ class StandardModelFamily(ModelFamily):
         gangs: Gangs,
         dtype: DataType,
         config: object | None,
+        load_rank0_only: bool,
         mmap: bool,
-        progress: bool,
     ) -> Module:
-        name = card.name
-
-        uri = card.field("checkpoint").as_uri()
-
-        if uri.scheme not in self._asset_download_manager.supported_schemes:
-            msg = f"checkpoint URI scheme of the {name} asset card is expected to be a supported scheme, but is {uri.scheme} instead."
-
-            raise AssetCardError(name, msg)
-
-        path = self._asset_download_manager.download_model(uri, name)
-
-        # Handle legacy paths with format specifiers.
-        if "shard_idx" in path.name:
-            path = path.parent
-
-        # Load the configuration.
         if config is None:
             config = self.get_model_config(card)
-
-            has_custom_config = False
         else:
             if not isinstance(config, self._configs.kls):
                 raise TypeError(
                     f"`config` must be of type `{self._configs.kls}`, but is of type `{type(config)}` instead."
                 )
 
-            has_custom_config = True
+        name = card.name
+
+        uri_field = card.maybe_get_field("checkpoint")
+        if uri_field is None:
+            uri_field = card.maybe_get_field("url")
+            if uri_field is not None:
+                url = uri_field.as_(str)
+            else:
+                url = None
+
+            raise ModelGatedError(name, url)
+
+        uri = uri_field.as_uri()
+
+        if uri.scheme not in self._asset_download_manager.supported_schemes:
+            msg = f"checkpoint URI scheme of the {name} asset card is expected to be a supported scheme, but is {uri.scheme} instead."
+
+            raise AssetCardError(name, msg)
+
+        cached_path = self._download_model(uri, gangs)
+
+        sub_path_field = card.maybe_get_field("checkpoint_path")
+        if sub_path_field is not None:
+            sub_pathname = sub_path_field.as_(str)
+
+            path = cached_path.joinpath(sub_pathname)
+
+            try:
+                path = self._file_system.resolve(path)
+            except OSError as ex:
+                raise_operational_system_error(ex)
+
+            if not path.is_relative_to(cached_path):
+                msg = f"checkpoint_path field of the {name} asset card points to a path that is not relative to the download directory."
+
+                raise AssetCardError(name, msg)
+        else:
+            path = cached_path
+
+        # Handle legacy paths with format specifiers.
+        if "shard_idx" in path.name:
+            path = path.parent
 
         restrict_field = card.maybe_get_field("restrict")
         if restrict_field is not None:
@@ -363,19 +510,14 @@ class StandardModelFamily(ModelFamily):
             restrict = self._restrict
 
         try:
-            return self._do_load_model(path, config, gangs, dtype, mmap, restrict)
-        except ValueError as ex:
-            if has_custom_config:
-                raise
-
-            msg = f"model_config field of the {name} asset card is not a valid {self._name} model configuration."
-
-            raise AssetCardError(name, msg) from ex
-        except ModelCheckpointError as ex:
+            return self._do_load_model(
+                path, config, gangs, dtype, load_rank0_only, mmap, restrict
+            )
+        except CorruptModelCheckpointError as ex:
             msg = f"Model checkpoint of the {name} asset card is erroneous."
 
             if uri.scheme != "file":
-                msg = f"{msg} Make sure that it is downloaded correctly and, if not, clean your asset cache directory at {path.parent}."
+                msg = f"{msg} Make sure that it is downloaded correctly and, if not, delete your cached version at {path}."
 
             raise AssetCardError(name, msg) from ex
         except FileNotFoundError as ex:
@@ -395,16 +537,18 @@ class StandardModelFamily(ModelFamily):
         config: object,
         gangs: Gangs,
         dtype: DataType,
+        load_rank0_only: bool,
         mmap: bool,
         restrict: bool | None,
-        progress: bool,
     ) -> Module:
         if not isinstance(config, self._configs.kls):
             raise TypeError(
                 f"`config` must be of type `{self._configs.kls}`, but is of type `{type(config)}` instead."
             )
 
-        return self._do_load_model(path, config, gangs, dtype, mmap, restrict)
+        return self._do_load_model(
+            path, config, gangs, dtype, load_rank0_only, mmap, restrict
+        )
 
     def _do_load_model(
         self,
@@ -412,6 +556,7 @@ class StandardModelFamily(ModelFamily):
         config: object,
         gangs: Gangs,
         dtype: DataType,
+        load_rank0_only: bool,
         mmap: bool,
         restrict: bool | None,
     ) -> Module:
@@ -419,33 +564,59 @@ class StandardModelFamily(ModelFamily):
 
         model = self._do_create_model(config, gangs, dtype, self._supports_meta)
 
-        if self._supports_meta:
-            # The parameters of the model will be overwritten by the checkpoint,
-            # so there is no need to redundantly initialize them.
-            to_empty(model, device=gangs.root.device)
+        if gangs.dp.rank == 0:
+            if self._supports_meta:
+                # The parameters of the model will be overwritten by the checkpoint,
+                # so there is no need to redundantly initialize them.
+                to_empty(model, device=gangs.root.device)
 
-        if self._shard_specs is None:
-            shard_dims = get_shard_dims(model)
-        else:
-            shard_dims = None
+            if self._shard_specs is None:
+                shard_dims = get_shard_dims(model)
+            else:
+                shard_dims = None
 
-        checkpoint = self._do_iter_checkpoint(
-            path, config, shard_dims, gangs, mmap, restrict
-        )
+            checkpoint = self._do_iter_checkpoint(
+                path, config, shard_dims, gangs, mmap, restrict
+            )
 
-        try:
-            set_model_state(model, checkpoint, self._progress_reporter)
-        except ModelCheckpointMismatchError as ex:
-            msg = f"Checkpoint at {path} is not compatible with the {self._name} model."
+            try:
+                set_model_state(model, checkpoint, self._progress_reporter)
+            except ModelCheckpointMismatchError as ex:
+                msg = f"Checkpoint at {path} is not compatible with the {self._name} model."
 
-            raise ModelCheckpointError(path, msg) from ex
+                raise CorruptModelCheckpointError(path, msg) from ex
 
-        if self._supports_meta:
-            # Non-persistent buffers are not included in the checkpoint, so we
-            # have to explicitly initialize them.
-            reset_non_persistent_buffers(model)
+            if self._supports_meta:
+                # Non-persistent buffers are not included in the checkpoint, so we
+                # have to explicitly initialize them.
+                reset_non_persistent_buffers(model)
+
+        gangs.root.barrier()
+
+        if not load_rank0_only:
+            broadcast_module(model, gangs.dp)
+
+            if self._supports_meta:
+                if gangs.dp.rank != 0:
+                    reset_non_persistent_buffers(model)
+
+                gangs.root.barrier()
 
         return model
+
+    def _download_model(self, uri: Uri, gangs: Gangs) -> Path:
+        if uri.scheme == "file":
+            return uri.to_path()
+
+        try:
+            if gangs.root.rank == 0:
+                self._asset_download_manager.download_model(uri)
+
+            gangs.root.barrier()
+
+            return self._asset_download_manager.download_model(uri, local_only=True)
+        except GangError as ex:
+            raise_operational_gang_error(ex)
 
     @override
     def iter_checkpoint(
@@ -504,38 +675,30 @@ class StandardModelFamily(ModelFamily):
         else:
             state_dict_converter = partial(self._state_dict_converter, config=config)
 
-        if self._shard_specs is None:
-            shard_specs = None
-        else:
-            shard_specs = self._shard_specs(config)
+        if shard_dims is None:
+            if self._shard_specs is None:
+                shard_dims = {}
+            else:
+                shard_dims = {k: v.dim for k, v in self._shard_specs(config).items()}
+
+        load_options = ModelCheckpointLoadOptions(
+            gangs=gangs,
+            mmap=mmap,
+            restrict=restrict,
+            state_dict_converter=state_dict_converter,
+        )
 
         with load_with_sdp_gang(gangs):  # Required for ShardedTensor
-            yield from self._checkpoint_loader.lazy_load(
-                path,
-                gangs,
-                mmap=mmap,
-                restrict=restrict,
-                state_dict_converter=state_dict_converter,
-                shard_specs=shard_specs,
-                shard_dims=shard_dims,
-            )
+            yield from self._checkpoint_loader.lazy_load(path, shard_dims, load_options)
 
     def _do_create_model(
         self, config: object, gangs: Gangs, dtype: DataType, meta: bool
     ) -> Module:
-        if meta:
-            if not self._supports_meta:
-                raise NotSupportedError(
-                    f"{self._name} model family does not support meta device initialization."
-                )
-
-            device = META_DEVICE
-        else:
-            device = gangs.root.device
+        device = META_DEVICE if meta else gangs.root.device
 
         try:
-            with device, gangs:
-                with default_dtype(dtype):
+            with device:
+                with set_gangs(gangs, meta=True), set_dtype(dtype):
                     model = self._factory(config)
         except NotImplementedError as ex:
             if "'Meta' backend" not in str(ex):
@@ -600,22 +763,6 @@ class StandardModelFamily(ModelFamily):
 
         return self._layerwise_ac_applier(model, every_nth_layer)
 
-    @override
-    def convert_to_hugging_face(
-        self, state_dict: dict[str, object], config: object
-    ) -> HuggingFaceExport:
-        if self._hg_exporter is None:
-            raise NotSupportedError(
-                f"{self._name} model family does not support Hugging Face."
-            )
-
-        if not isinstance(config, self._configs.kls):
-            raise TypeError(
-                f"`config` must be of type `{self._configs.kls}`, but is of type `{type(config)}` instead."
-            )
-
-        return self._hg_exporter(state_dict, config)
-
     @property
     @override
     def name(self) -> str:
@@ -659,8 +806,3 @@ class StandardModelFamily(ModelFamily):
     @override
     def supports_layerwise_ac(self) -> bool:
         return self._layerwise_ac_applier is not None
-
-    @property
-    @override
-    def supports_hugging_face(self) -> bool:
-        return self._hg_exporter is not None

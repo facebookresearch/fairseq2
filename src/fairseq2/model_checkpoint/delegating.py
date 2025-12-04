@@ -14,17 +14,15 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.file_system import FileSystem, raise_if_not_exists
-from fairseq2.gang import Gangs
 from fairseq2.model_checkpoint.loader import (
-    ModelCheckpointError,
+    CorruptModelCheckpointError,
     ModelCheckpointLoader,
-    StateDictConverter,
+    ModelCheckpointLoadOptions,
 )
-from fairseq2.sharder import ShardSpec
 
 
 @final
-class DelegatingModelCheckpointLoader(ModelCheckpointLoader):
+class _DelegatingModelCheckpointLoader(ModelCheckpointLoader):
     """
     Delegates loading to format-specific checkpoint loaders.
 
@@ -48,31 +46,21 @@ class DelegatingModelCheckpointLoader(ModelCheckpointLoader):
     def lazy_load(
         self,
         path: Path,
-        gangs: Gangs,
-        *,
-        mmap: bool = False,
-        restrict: bool = True,
-        state_dict_converter: StateDictConverter | None = None,
-        shard_specs: Mapping[str, ShardSpec] | None = None,
-        shard_dims: Mapping[str, int] | None = None,
+        shard_dims: Mapping[str, int],
+        options: ModelCheckpointLoadOptions | None = None,
     ) -> Iterator[tuple[str, Tensor]]:
+        if options is None:
+            options = ModelCheckpointLoadOptions()
+
         raise_if_not_exists(self._file_system, path)
 
         for loader in self._loaders:
             if loader.supports_path(path):
-                return loader.lazy_load(
-                    path,
-                    gangs,
-                    mmap=mmap,
-                    restrict=restrict,
-                    state_dict_converter=state_dict_converter,
-                    shard_specs=shard_specs,
-                    shard_dims=shard_dims,
-                )
+                return loader.lazy_load(path, shard_dims, options)
 
-        msg = f"{path} does not point to any known checkpoints."
+        message = f"{path} does not point to any known checkpoints."
 
-        raise ModelCheckpointError(path, msg)
+        raise CorruptModelCheckpointError(path, message)
 
     @override
     def supports_path(self, path: Path) -> bool:

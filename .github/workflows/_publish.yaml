@@ -48,7 +48,7 @@ jobs:
     name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
     strategy:
       matrix:
-        torch: ['2.9.0']
+        torch: ['2.9.1']
         py: ['3.10', '3.11', '3.12']
         variant: ['cpu', 'cu126', 'cu128']
       max-parallel: 1
@@ -64,7 +64,7 @@ jobs:
     name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, macos-arm64)
     strategy:
       matrix:
-        torch: ['2.9.0']
+        torch: ['2.9.1']
         py: ['3.10', '3.11', '3.12']
       max-parallel: 1
     uses: ./.github/workflows/_publish_s3.yaml
@@ -87,7 +87,7 @@ jobs:
     uses: ./.github/workflows/_publish_pypi.yaml
     strategy:
       matrix:
-        torch: ['2.9.0']
+        torch: ['2.9.1']
         py: ['3.10', '3.11', '3.12']
         # Only the variant that corresponds to the PyPI PyTorch package must be
         # included here. NEVER specify more than one variant as that will cause
@@ -108,7 +108,7 @@ jobs:
     uses: ./.github/workflows/_publish_pypi.yaml
     strategy:
       matrix:
-        torch: ['2.9.0']
+        torch: ['2.9.1']
         py: ['3.10', '3.11', '3.12']
       max-parallel: 1
     with:

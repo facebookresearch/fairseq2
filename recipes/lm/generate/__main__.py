@@ -6,10 +6,10 @@
 
 from __future__ import annotations
 
-from fairseq2.recipe.cli import generate_main
+from fairseq2.recipe.cli import main
 
-from .recipe import TextGenRecipe
+from .recipe import LMGenerateRecipe
 
-recipe = TextGenRecipe()
+recipe = LMGenerateRecipe()
 
-generate_main(recipe)
+main(recipe)

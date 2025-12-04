@@ -14,7 +14,7 @@ from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 def _register_profilers(container: DependencyContainer) -> None:
     container.register_type(Profiler, CompositeProfiler)
 
-    # Torch Profiler or None
+    # Torch Profiler
     def maybe_create_torch_profiler(resolver: DependencyResolver) -> Profiler | None:
         profiler_factory = resolver.resolve(_MaybeTorchProfilerFactory)
 

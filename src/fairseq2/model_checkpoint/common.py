@@ -6,14 +6,10 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping
 
 import torch
 from torch import Tensor
-
-from fairseq2.sharder import ShardSpec
-from fairseq2.utils.warn import _warn_deprecated
 
 
 def reshard_tensor(
@@ -22,8 +18,7 @@ def reshard_tensor(
     source_shard_sizes: tuple[int, int],
     target_shard_sizes: tuple[int, int],
     target_shard_ranks: tuple[int, int],
-    shard_specs: Mapping[str, ShardSpec] | None,
-    shard_dims: Mapping[str, int] | None = None,
+    shard_dims: Mapping[str, int],
 ) -> Tensor:
     """
     Reshards a parameter tensor from a distributed source configuration to a
@@ -34,9 +29,7 @@ def reshard_tensor(
     loading checkpoints from one distributed configuration (e.g. 4-way tensor
     parallelism) to a different target configuration (e.g. 8-way tensor
     parallelism). It efficiently concatenates and slices tensors to produce the
-    correct shards for the target rank. The existing implementations such as
-    :class:`NativeModelCheckpointLoader` may be inspected to see how ``reshard_tensor``
-    is used in practice.
+    correct shards for the target rank.
 
     The resharding process involves:
 
@@ -60,35 +53,35 @@ def reshard_tensor(
     ``target_shard_ranks`` specifies the ranks of the current process in the
     target configuration in the form of ``(tp_rank, dp_rank)``.
 
-    If ``shard_dims`` is provided, it specifies the mapping from parameter names
-    to dimensions along which parameters should be sharded for tensor parallelism.
-    Omitted for replicated tensors. See :func:`~fairseq2.nn.get_sharding_dims`
-    for more information.
-
-    ``shard_specs`` is deprecated and will be removed in v0.12; please use
-    ``shard_dims`` instead.
+    ``shard_dims`` specifies the mapping from parameter names to dimensions
+    along which parameters should be sharded for tensor parallelism. Omitted for
+    replicated tensors. See :func:`~fairseq2.nn.get_sharding_dims` for more
+    information.
 
     Returns the resharded tensor for the target rank and configuration.
 
     .. code:: python
         :caption: Resharding from 2-way TP to 4-way TP
 
-        # Resharding from 2-way TP to 4-way TP
-        source_splits = [[tensor_tp0_dp0], [tensor_tp1_dp0]]  # 2 TP shards, 1 DP shard each
+        param_name = "model.weight"
+
+        # 2 TP shards with 1 DP shard each.
+        source_splits = [[tensor_tp0_dp0], [tensor_tp1_dp0]]
+
         source_shard_sizes = (2, 1)  # 2-way TP, 1-way DP
         target_shard_sizes = (4, 1)  # 4-way TP, 1-way DP
+
         target_shard_ranks = (2, 0)  # Want shard for TP rank 2
 
         # For a tensor with TP dim=0, this will concatenate the 2 source shards
         # and slice out the portion corresponding to TP rank 2 in 4-way setup
         resharded = reshard_tensor(
-            "model.weight",
+            param_name,
             source_splits,
             source_shard_sizes,
             target_shard_sizes,
             target_shard_ranks,
-            None,  # deprecated
-            {"model.weight": 0}
+            shard_dims={param_name: 0},
         )
 
     .. note::
@@ -96,16 +89,6 @@ def reshard_tensor(
         This function deletes intermediate tensors during the resharding process
         to minimize peak memory usage.
     """
-    if shard_specs is not None:
-        if shard_dims is not None:
-            raise ValueError(
-                "`shard_specs` and `shard_dims` must not be specified at the same time."
-            )
-
-        _warn_deprecated(
-            "`shard_specs` parameter of `ModelCheckpointLoader` is deprecated and will be removed in fairseq2 v0.12. See src/fairseq2/sharder.py for details."
-        )
-
     source_tp_size, source_dp_size = source_shard_sizes
     target_tp_size, target_dp_size = target_shard_sizes
 
@@ -121,10 +104,10 @@ def reshard_tensor(
 
         return torch.cat(source_dp_splits, dim=0)
 
-    tp_dim = _get_tp_dim(key, shard_specs, shard_dims)
+    tp_dim = shard_dims.get(key, None)
 
     # We assume that non-tensor parallel parameters are always replicated.
-    if tp_dim == -1:
+    if tp_dim is None:
         source_dp_splits = source_splits[0]
 
         if source_dp_size == 1:
@@ -181,29 +164,3 @@ def reshard_tensor(
     return tensor.narrow(
         dim=tp_dim, start=first_target_idx - first_source_idx, length=target_tp_dim_size
     )
-
-
-def _get_tp_dim(
-    key: str,
-    shard_specs: Mapping[str, ShardSpec] | None,
-    shard_dims: Mapping[str, int] | None,
-) -> int:
-    if shard_dims is not None:
-        dim = shard_dims.get(key)
-        if dim is not None:
-            return dim
-
-    if shard_specs is None:
-        return -1
-
-    offset = key.rfind(".")
-    if offset >= 0:
-        module_name = key[:offset]
-    else:
-        module_name = key
-
-    for pattern, spec in shard_specs.items():
-        if re.match(pattern, module_name):
-            return spec.dim
-
-    return -1
