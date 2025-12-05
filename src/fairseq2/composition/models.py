@@ -22,7 +22,13 @@ from fairseq2.models import (
     ShardSpecsProvider,
     StandardModelFamily,
 )
-from fairseq2.models.hg import HuggingFaceConverter, _LegacyHuggingFaceConverter
+from fairseq2.models.hg import (
+    HG_FAMILY,
+    HuggingFaceModelConfig,
+    apply_fsdp_to_hg_transformer_lm,
+    create_hg_model,
+    register_hg_configs,
+)
 from fairseq2.models.jepa import (
     JEPA_FAMILY,
     JepaConfig,
@@ -394,3 +400,24 @@ def _register_model_families(container: DependencyContainer) -> None:
     )
 
     register_wav2vec2_asr_configs(container)
+
+    # HuggingFace
+    hg_kls: type[Module] | type[PreTrainedModel]
+    try:
+        from transformers import PreTrainedModel
+
+        hg_kls = PreTrainedModel
+    except ImportError:
+        hg_kls = Module
+
+    register_model_family(
+        container,
+        HG_FAMILY,
+        kls=hg_kls,
+        config_kls=HuggingFaceModelConfig,
+        fsdp_applier=apply_fsdp_to_hg_transformer_lm,
+        factory=create_hg_model,
+        supports_meta=False,  # HF models don't support meta device initialization
+    )
+
+    register_hg_configs(container)
