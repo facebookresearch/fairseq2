@@ -1061,6 +1061,7 @@ class PplDerivedVerifier(VLLMOutputReward):
             "cap_pref_0p05_weight_0p02_1": self._cap_pref_0p05_weight_0p02_1,
             "cap_pref_0p08_weight_0p1_1": self._cap_pref_0p08_weight_0p1_1,
             "cap_pref_0p15_weight_0p2_1": self._cap_pref_0p15_weight_0p2_1,
+            "cap_pref_0p5_weight_0p2_1": self._cap_pref_0p5_weight_0p2_1,
             "cap_pref_1_weight_0p2_1": self._cap_pref_1_weight_0p2_1,
             "weight_0p05_1": self._weight_0p05_1,
             "sum": (lambda x, y: x + y),
@@ -1327,6 +1328,9 @@ class PplDerivedVerifier(VLLMOutputReward):
 
     def _cap_pref_0p15_weight_0p2_1(self, pref_r, suffix_r):
         return min(0.15, pref_r) * 0.2 + suffix_r
+
+    def _cap_pref_0p5_weight_0p2_1(self, pref_r, suffix_r):
+        return min(0.5, pref_r) * 0.2 + suffix_r
 
     def _cap_pref_1_weight_0p2_1(self, pref_r, suffix_r):
         return min(1.0, pref_r) * 0.2 + suffix_r
