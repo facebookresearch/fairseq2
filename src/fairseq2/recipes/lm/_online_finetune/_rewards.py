@@ -1069,7 +1069,13 @@ class PplDerivedVerifier(VLLMOutputReward):
 
     def __post_init__(self):
         # validate the input flag correctness.
-        assert self.reward_type in ["logp_ratio", "logp", "ppl_ratio", "ppl"]
+        assert self.reward_type in [
+            "logp_ratio",
+            "logp",
+            "ppl_ratio",
+            "ppl",
+            "logp_rank",
+        ]
         assert "suffix_target" in self.vllm_proc_name_dict
         for key, proc_name in self.vllm_proc_name_dict.items():
             assert key in {
@@ -1440,26 +1446,43 @@ class PplDerivedVerifier(VLLMOutputReward):
     def _cal_reward_diff(
         self, base_rewards: List[float], target_rewards: List[float], num_rollouts: int
     ) -> list[float]:
-        if len(base_rewards) == 0:
-            # rewards are not comparative in this case. And if both base and
-            # target rewards are empty return zero rewards.
-            return ([0] * num_rollouts) if target_rewards == [] else target_rewards
-        else:
-            # we avoid redundant computation earlier.
-            if len(base_rewards) == 1:
-                base_rewards = base_rewards * len(target_rewards)
-            if len(base_rewards) == len(target_rewards):
+        # rewards are not comparative in this case.
+        if base_rewards == []:
+            if target_rewards == []:
+                # If both base and arget rewards are empty return zero rewards.
+                return [0] * num_rollouts
+
+            base_rewards = [0] * num_rollouts
+
+        # we avoid redundant computation earlier.
+        if len(base_rewards) == 1:
+            base_rewards = base_rewards * len(target_rewards)
+
+        if len(base_rewards) == len(target_rewards):
+            if self.reward_type.endswith("ratio"):
+                # take abs in case the reward is (-ppl)
                 return [
-                    (
-                        # take abs in case the reward is (-ppl)
-                        (target_rw - base_rw) / abs(base_rw)
-                        if self.reward_type.endswith("ratio")
-                        else (target_rw - base_rw)
-                    )
+                    (target_rw - base_rw) / abs(base_rw)
                     for base_rw, target_rw in zip(base_rewards, target_rewards)
                 ]
-            else:
-                raise Exception(f"bad values: {base_rewards=}, {target_rewards=}")
+
+            scores: list[float] = [
+                target_rw - base_rw
+                for base_rw, target_rw in zip(base_rewards, target_rewards)
+            ]
+            if self.reward_type.endswith("rank"):
+                # lower raw score -> lower index -> lower final score
+                rank_map = {
+                    score: rank
+                    for rank, score in enumerate(sorted(set(scores)), start=1)
+                }
+                return [
+                    rank_map[score] / len(rank_map) for score in scores
+                ]  # rank_i/total_ranks as the score
+
+            return scores
+        else:
+            raise Exception(f"bad values: {base_rewards=}, {target_rewards=}")
 
     def aggregate_rewards(
         self,
