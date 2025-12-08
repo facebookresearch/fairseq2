@@ -68,6 +68,13 @@ from fairseq2.models.nllb import (
     create_nllb_model,
     register_nllb_configs,
 )
+from fairseq2.models.opt import (
+    OPT_FAMILY,
+    OPTConfig,
+    convert_opt_state_dict,
+    create_opt_model,
+    register_opt_configs,
+)
 from fairseq2.models.qwen import (
     QWEN_FAMILY,
     QwenConfig,
@@ -307,6 +314,21 @@ def _register_model_families(container: DependencyContainer) -> None:
     )
 
     register_nllb_configs(container)
+
+    # OPT
+    register_model_family(
+        container,
+        OPT_FAMILY,
+        kls=TransformerLM,
+        config_kls=OPTConfig,
+        factory=create_opt_model,
+        state_dict_converter=convert_opt_state_dict,
+        compiler=compile_transformer_lm,
+        fsdp_applier=apply_fsdp_to_transformer_lm,
+        layerwise_ac_applier=apply_ac_to_transformer_lm,
+    )
+
+    register_opt_configs(container)
 
     # Qwen
     register_model_family(
