@@ -35,7 +35,7 @@ from fairseq2.world_info import WorldInfo
 
 
 @final
-class _RecipeGangsFactory:
+class _GangsFactory:
     def __init__(
         self, section: GangSection, world_info: WorldInfo, device: Device
     ) -> None:
@@ -88,7 +88,7 @@ class _RecipeGangsFactory:
 
 
 @final
-class _RecipeFSDPGangsFactory:
+class _FSDPGangsFactory:
     def __init__(self, section: TrainerSection, world_info: WorldInfo) -> None:
         self._section = section
         self._world_info = world_info
@@ -139,16 +139,3 @@ def _warmup_gangs(gangs: Gangs) -> None:
         raise_operational_gang_error(ex)
 
     log.info("Gangs warmed up.")
-
-
-def _log_ranks(gangs: Gangs) -> None:
-    s = (
-        f"World: {gangs.root.rank}/{gangs.root.size} | "
-        f"Data: {gangs.dp.rank}/{gangs.dp.size} | "
-        f"Data (Replicated): {gangs.rdp.rank}/{gangs.rdp.size} | "
-        f"Data (Sharded): {gangs.sdp.rank}/{gangs.sdp.size} | "
-        f"Tensor: {gangs.tp.rank}/{gangs.tp.size} | "
-        f"Pipeline: {gangs.pp.rank}/{gangs.pp.size}"
-    )
-
-    log.info("Process Ranks - {}", s)

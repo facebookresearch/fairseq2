@@ -136,7 +136,7 @@ setup(
         "install_cmake": install_cmake,
     },
     name="fairseq2n",
-    version="0.7.0",
+    version="0.8.0.dev0",
     description="FAIR Sequence Modeling Toolkit (Native)",
     long_description="https://github.com/facebookresearch/fairseq2",
     long_description_content_type="text/plain",
@@ -161,6 +161,7 @@ setup(
     zip_safe=False,
     python_requires=">=3.10",
     install_requires=[
+        "numpy~=2.2",
         # We use the tbb package as a fallback in case the system does not
         # provide Intel oneTBB.
         "tbb>=2021.8;platform_machine=='x86_64'",

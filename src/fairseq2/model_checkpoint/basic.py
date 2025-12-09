@@ -15,48 +15,55 @@ from typing_extensions import override
 
 from fairseq2.device import CPU
 from fairseq2.file_system import FileSystem
-from fairseq2.gang import Gangs
-from fairseq2.io import TensorFileError, TensorLoader
+from fairseq2.gang import GangContext
+from fairseq2.io import CorruptFileError, TensorFileLoader, TensorFileLoadOptions
 from fairseq2.model_checkpoint.common import reshard_tensor
 from fairseq2.model_checkpoint.loader import (
-    ModelCheckpointError,
+    CorruptModelCheckpointError,
     ModelCheckpointLoader,
-    StateDictConverter,
+    ModelCheckpointLoadOptions,
 )
-from fairseq2.sharder import ShardSpec
 
 
 @final
-class BasicModelCheckpointLoader(ModelCheckpointLoader):
+class _BasicModelCheckpointLoader(ModelCheckpointLoader):
     """Loads single-file PyTorch checkpoints (.pt, .pth, .bin)."""
 
-    def __init__(self, file_system: FileSystem, tensor_loader: TensorLoader) -> None:
+    def __init__(
+        self,
+        file_system: FileSystem,
+        tensor_file_loader: TensorFileLoader,
+        gang_context: GangContext,
+    ) -> None:
         self._file_system = file_system
-        self._tensor_loader = tensor_loader
+        self._tensor_file_loader = tensor_file_loader
+        self._gang_context = gang_context
 
     @override
     def lazy_load(
         self,
         path: Path,
-        gangs: Gangs,
-        *,
-        mmap: bool = False,
-        restrict: bool = True,
-        state_dict_converter: StateDictConverter | None = None,
-        shard_specs: Mapping[str, ShardSpec] | None = None,
-        shard_dims: Mapping[str, int] | None = None,
+        shard_dims: Mapping[str, int],
+        options: ModelCheckpointLoadOptions | None = None,
     ) -> Iterator[tuple[str, Tensor]]:
+        if options is None:
+            options = ModelCheckpointLoadOptions()
+
+        load_options = TensorFileLoadOptions(
+            map_location=CPU, mmap=options.mmap, restrict=options.restrict
+        )
+
         try:
-            checkpoint = self._tensor_loader.load(
-                path, map_location=CPU, mmap=mmap, restrict=restrict
-            )
-        except TensorFileError as ex:
-            msg = f"{path} is not a valid checkpoint file."
+            checkpoint = self._tensor_file_loader.load(path, load_options)
+        except CorruptFileError as ex:
+            message = f"{path} cannot be loaded as a PyTorch checkpoint file."
 
-            raise ModelCheckpointError(path, msg) from ex
+            raise CorruptModelCheckpointError(path, message) from ex
 
-        if state_dict_converter is not None:
-            checkpoint = state_dict_converter(checkpoint)
+        if options.state_dict_converter is not None:
+            checkpoint = options.state_dict_converter(checkpoint)
+
+        gangs = options.gangs or self._gang_context.get_current_gangs()
 
         source_shard_sizes = (1, 1)
 
@@ -67,9 +74,9 @@ class BasicModelCheckpointLoader(ModelCheckpointLoader):
 
         for key, tensor in checkpoint.items():
             if not isinstance(tensor, Tensor):
-                msg = f"{key} in {path} is not a `{Tensor}`."
+                message = f"{key} in {path} is not a `{Tensor}`."
 
-                raise ModelCheckpointError(path, msg)
+                raise CorruptModelCheckpointError(path, message)
 
             if tensor in memo:  # Yield shared tensors only once.
                 continue
@@ -84,7 +91,6 @@ class BasicModelCheckpointLoader(ModelCheckpointLoader):
                 source_shard_sizes,
                 target_shard_sizes,
                 target_shard_ranks,
-                shard_specs,
                 shard_dims,
             )
 

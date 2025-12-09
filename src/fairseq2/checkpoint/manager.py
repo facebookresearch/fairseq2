@@ -11,7 +11,6 @@ from collections.abc import Callable
 from concurrent.futures import Future
 from copy import deepcopy
 from dataclasses import dataclass
-from os import scandir
 from pathlib import Path
 from pickle import PickleError
 from typing import Any, Protocol, final
@@ -23,18 +22,19 @@ from typing_extensions import override
 
 from fairseq2.device import CPU
 from fairseq2.error import (
-    InternalError,
     OperationalError,
     StateDictError,
     raise_operational_system_error,
 )
-from fairseq2.file_system import FileMode, FileSystem
+from fairseq2.file_system import FileMode, FileSystem, _flush_nfs_lookup_cache
 from fairseq2.gang import GangError, Gangs, all_sum, raise_operational_gang_error
 from fairseq2.io import (
-    TensorDataNotValidError,
-    TensorDumper,
-    TensorFileError,
-    TensorLoader,
+    CorruptFileError,
+    DataNotPicklableError,
+    TensorFileDumper,
+    TensorFileDumpOptions,
+    TensorFileLoader,
+    TensorFileLoadOptions,
 )
 from fairseq2.nn.fsdp import load_with_sdp_gang
 from fairseq2.runtime.closable import Closable
@@ -161,18 +161,19 @@ class StandardCheckpointManager(CheckpointManager):
         output_dir: Path,
         gangs: Gangs,
         file_system: FileSystem,
-        tensor_loader: TensorLoader,
-        tensor_dumper: TensorDumper,
+        tensor_file_loader: TensorFileLoader,
+        tensor_file_dumper: TensorFileDumper,
         thread_pool: ThreadPool,
     ) -> None:
-        self._checkpoint_dir = output_dir.joinpath("checkpoints")
+        checkpoint_dir = output_dir.joinpath("checkpoints")
+
+        self._checkpoint_dir = checkpoint_dir
         self._gangs = gangs
         self._file_system = file_system
-        self._tensor_loader = tensor_loader
-        self._tensor_dumper = tensor_dumper
+        self._tensor_file_loader = tensor_file_loader
+        self._tensor_file_dumper = tensor_file_dumper
         self._thread_pool = thread_pool
         self._save_op: Future[Callable[[], None]] | None = None
-        self._step_nr: int | None = None
 
     @override
     def save_checkpoint(
@@ -232,11 +233,6 @@ class StandardCheckpointManager(CheckpointManager):
         if self._save_op is None:
             return None
 
-        if self._step_nr is None:
-            raise InternalError(
-                "An asynchronous save operation is in progress, but `step_nr` is `None`."
-            )
-
         gangs = self._gangs
 
         if blocking:
@@ -248,21 +244,19 @@ class StandardCheckpointManager(CheckpointManager):
                 raise_operational_gang_error(ex)
         else:
             try:
-                if self._save_op.running():
-                    num_completed = all_sum(gangs.root, 0)
+                if self._save_op.done():
+                    num_done = all_sum(gangs.root, 1)
                 else:
-                    num_completed = all_sum(gangs.root, 1)
+                    num_done = all_sum(gangs.root, 0)
             except GangError as ex:
                 raise_operational_gang_error(ex)
 
-            if num_completed != gangs.root.size:
+            if num_done != gangs.root.size:
                 return False
 
             committer = self._save_op.result()
 
         self._save_op = None
-
-        self._step_nr = None
 
         committer()
 
@@ -426,13 +420,9 @@ class StandardCheckpointManager(CheckpointManager):
 
             committer()
         else:
-            self._step_nr = step_nr
-
             try:
                 self._save_op = self._thread_pool.queue(save)
             except RuntimeError as ex:
-                self._step_nr = None
-
                 raise OperationalError("A thread pool queue operation failed.") from ex
 
     def _copy_state_dict_to_host(
@@ -457,14 +447,16 @@ class StandardCheckpointManager(CheckpointManager):
             # `torch.load(..., weights_only=True)` cannot unpickle objects
             # serialized with v5. See:
             #   https://github.com/pytorch/pytorch/issues/118092
-            protocol = 2 if record.kind == "model" else 5
+            dump_options = TensorFileDumpOptions(
+                pickle_protocol=2 if record.kind == "model" else 5
+            )
 
             try:
-                self._tensor_dumper.dump(
-                    record.state_dict, record.file, pickle_protocol=protocol
+                self._tensor_file_dumper.dump(
+                    record.state_dict, record.file, dump_options
                 )
-            except TensorDataNotValidError as ex:
-                msg = f"`{record.kind}` checkpoint must contain primitive and pickeable objects only."
+            except DataNotPicklableError as ex:
+                msg = f"`{record.kind}` checkpoint must contain pickeable objects only."
 
                 raise CheckpointStateNotValidError(step_nr, record.kind, msg) from ex
             except OSError as ex:
@@ -500,7 +492,7 @@ class StandardCheckpointManager(CheckpointManager):
         gangs = self._gangs
 
         if gangs.root.rank == 0:
-            self._flush_nfs_lookup_cache()
+            _flush_nfs_lookup_cache(self._checkpoint_dir)
 
         try:
             gangs.root.barrier()
@@ -508,31 +500,7 @@ class StandardCheckpointManager(CheckpointManager):
             raise_operational_gang_error(ex)
 
         if gangs.root.rank != 0:
-            self._flush_nfs_lookup_cache()
-
-    def _flush_nfs_lookup_cache(self) -> None:
-        path = self._checkpoint_dir
-
-        # Use the `opendir`/`readdir`/`closedir` trick to drop all cached NFS
-        # LOOKUP results.
-        while path != path.parent:
-            try:
-                it = scandir(path)
-            except FileNotFoundError:
-                path = path.parent
-
-                continue
-            except OSError:
-                break
-
-            try:
-                next(it)
-            except StopIteration:
-                pass
-            finally:
-                it.close()
-
-            break
+            _flush_nfs_lookup_cache(self._checkpoint_dir)
 
     @override
     def save_score(self, step_nr: int, score: float) -> None:
@@ -638,14 +606,14 @@ class StandardCheckpointManager(CheckpointManager):
     ) -> dict[str, object]:
         gangs = self._gangs
 
+        load_options = TensorFileLoadOptions(map_location=CPU, restrict=kind == "model")
+
         with load_with_sdp_gang(gangs):  # Required for `ShardedTensor`.
             file = self._checkpoint_dir.joinpath(f"step_{step_nr}/{pathname}")
 
             try:
-                return self._tensor_loader.load(
-                    file, map_location=CPU, restrict=kind == "model"
-                )
-            except TensorFileError as ex:
+                return self._tensor_file_loader.load(file, load_options)
+            except CorruptFileError as ex:
                 msg = f"{file} of step {step_nr} is not a valid checkpoint file."
 
                 raise CheckpointError(step_nr, kind, msg) from ex
@@ -689,7 +657,7 @@ class StandardCheckpointManager(CheckpointManager):
                 try:
                     if keep_model:
                         for path in self._file_system.glob(step_dir, pattern="*"):
-                            if path.name == "model" or path.name == "hg":
+                            if path.stem in ("model", "hg", "hook"):
                                 continue
 
                             if self._file_system.is_dir(path):

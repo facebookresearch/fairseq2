@@ -195,47 +195,6 @@ Iterate over checkpoint tensors without loading the full model:
     for name, tensor in hub.iter_checkpoint(checkpoint_path, config):
         print(f"Parameter: {name}, Shape: {tensor.shape}")
 
-Error Handling
---------------
-
-Common Exceptions
-~~~~~~~~~~~~~~~~~
-
-.. autoexception:: ModelNotKnownError
-    :show-inheritance:
-
-    Raised when a requested model name is not found in the asset store.
-
-.. autoexception:: ModelFamilyNotKnownError
-    :show-inheritance:
-
-    Raised when a model family is not registered or available.
-
-.. autoexception:: ModelArchitectureNotKnownError
-    :show-inheritance:
-
-    Raised when a requested architecture is not available in the model family.
-
-Example Error Handling
-~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-    from fairseq2.models.hub import load_model, ModelNotKnownError, ModelArchitectureNotKnownError
-    from fairseq2.models.qwen import get_qwen_model_hub
-
-    try:
-        model = load_model("nonexistent_model")
-    except ModelNotKnownError as e:
-        print(f"Model not found: {e.name}")
-
-    try:
-        hub = get_qwen_model_hub()
-        config = hub.get_arch_config("invalid_arch")
-    except ModelArchitectureNotKnownError as e:
-        print(f"Architecture not found: {e.arch}")
-        print(f"Available architectures: {hub.get_archs()}")
-
 See Also
 --------
 

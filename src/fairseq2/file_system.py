@@ -12,7 +12,7 @@ from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from enum import Enum
 from errno import ENOENT
-from os import strerror
+from os import scandir, strerror
 from pathlib import Path
 from shutil import copytree, rmtree
 from tempfile import TemporaryDirectory
@@ -180,3 +180,26 @@ def raise_if_not_exists(file_system: FileSystem, path: Path) -> None:
     """Raises a :class:`FileNotFoundError` if ``path`` does not exist."""
     if not file_system.exists(path):
         raise FileNotFoundError(ENOENT, strerror(ENOENT), path)
+
+
+def _flush_nfs_lookup_cache(path: Path) -> None:
+    # Use the `opendir`/`readdir`/`closedir` trick to drop all cached NFS
+    # LOOKUP results.
+    while path != path.parent:
+        try:
+            it = scandir(path)
+        except FileNotFoundError:
+            path = path.parent
+
+            continue
+        except OSError:
+            break
+
+        try:
+            next(it)
+        except StopIteration:
+            pass
+        finally:
+            it.close()
+
+        break

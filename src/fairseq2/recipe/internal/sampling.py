@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import final
 
+from torch.nn import Module
+
 from fairseq2.data.tokenizers import Tokenizer
 from fairseq2.generation import Seq2SeqGenerator, SequenceGenerator
 from fairseq2.generation.sampling import (
@@ -19,15 +21,14 @@ from fairseq2.models.clm import CausalLM
 from fairseq2.models.seq2seq import Seq2SeqModel
 from fairseq2.recipe.component import ComponentManager, ComponentNotKnownError
 from fairseq2.recipe.config import SamplingConfig
-from fairseq2.recipe.error import SamplerNotKnownError
-from fairseq2.recipe.model import RecipeModel
+from fairseq2.recipe.error import SamplerNotKnownError, raise_model_type_not_valid_error
 
 
 @final
 class _SamplingSequenceGeneratorFactory:
     def __init__(
         self,
-        model: RecipeModel,
+        model: Module,
         tokenizer: Tokenizer,
         component_manager: ComponentManager,
     ) -> None:
@@ -43,11 +44,8 @@ class _SamplingSequenceGeneratorFactory:
         except ComponentNotKnownError:
             raise SamplerNotKnownError(config.sampler.name) from None
 
-        module = self._model.base_module
-        if not isinstance(module, CausalLM):
-            raise TypeError(
-                f"`model.base_module` is expected to be of type `{CausalLM}`, but is of type `{type(module)}` instead."
-            )
+        if not isinstance(self._model, CausalLM):
+            raise_model_type_not_valid_error(self._model, CausalLM)
 
         max_gen_len = config.max_gen_len
 
@@ -55,7 +53,7 @@ class _SamplingSequenceGeneratorFactory:
             max_gen_len = max_gen_len[1]
 
         return SamplingSequenceGenerator(
-            module,
+            self._model,
             self._tokenizer.vocab_info,
             sampler,
             min_gen_len=config.min_gen_len,
@@ -76,7 +74,7 @@ class _SamplingSequenceGeneratorFactory:
 class _SamplingSeq2SeqGeneratorFactory:
     def __init__(
         self,
-        model: RecipeModel,
+        model: Module,
         tokenizer: Tokenizer,
         component_manager: ComponentManager,
     ) -> None:
@@ -92,11 +90,8 @@ class _SamplingSeq2SeqGeneratorFactory:
         except ComponentNotKnownError:
             raise SamplerNotKnownError(config.sampler.name) from None
 
-        module = self._model.base_module
-        if not isinstance(module, Seq2SeqModel):
-            raise TypeError(
-                f"`model.base_module` is expected to be of type `{Seq2SeqModel}`, but is of type `{type(module)}` instead."
-            )
+        if not isinstance(self._model, Seq2SeqModel):
+            raise_model_type_not_valid_error(self._model, Seq2SeqModel)
 
         max_gen_len = config.max_gen_len
 
@@ -104,7 +99,7 @@ class _SamplingSeq2SeqGeneratorFactory:
             max_gen_len = (0.0, max_gen_len)
 
         return SamplingSeq2SeqGenerator(
-            module,
+            self._model,
             self._tokenizer.vocab_info,
             sampler,
             min_gen_len=config.min_gen_len,

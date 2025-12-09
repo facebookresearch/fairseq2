@@ -15,7 +15,7 @@ from fairseq2.recipe.error import SequenceGeneratorNotKnownError
 
 
 @final
-class _RecipeSequenceGeneratorFactory:
+class _SequenceGeneratorFactory:
     def __init__(
         self, section: SequenceGeneratorSection, component_manager: ComponentManager
     ) -> None:
@@ -34,7 +34,7 @@ class _RecipeSequenceGeneratorFactory:
 
 
 @final
-class _RecipeSeq2SeqGeneratorFactory:
+class _Seq2SeqGeneratorFactory:
     def __init__(
         self, section: Seq2SeqGeneratorSection, component_manager: ComponentManager
     ) -> None:

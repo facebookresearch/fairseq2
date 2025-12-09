@@ -178,7 +178,7 @@ def build_batching_loop_over_one_table(
         try:
             return table.take(ind)
         except Exception as e:
-            log.warn(f"Unexpected error : \n {str(e)} \n {table} \n {ind}")
+            log.warning(f"Unexpected error : \n {str(e)} \n {table} \n {ind}")
             return None
 
     return (

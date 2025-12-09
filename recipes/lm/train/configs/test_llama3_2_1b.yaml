@@ -1,0 +1,143 @@
+model:
+  name: null
+  path: null
+  family: llama
+  arch: llama3_2_1b
+  config_overrides:
+    num_layers: 4
+  dtype: float32
+  mmap: false
+  compile: true
+  compile_options:
+    fullgraph: true
+    dynamic: false
+    mode: default
+    backend: inductor
+    backend_options: null
+dataset:
+  name: null
+  family: lm_train
+  config_overrides:
+    sources:
+      - path: /checkpoint/comem/balioglu/datasets/fineweb_edu_shuffled
+        weight: 1.0
+  max_seq_len: 4096  # 8192
+  max_num_tokens: 16384
+  prefetch: 4
+  sync_ranks: false
+tokenizer:
+  name: llama3
+  path: null
+  family: null
+  config_overrides: null
+gang:
+  tensor_parallel_size: 1
+  timeout: 15
+  high_priority: true
+trainer:
+  data_parallelism: fsdp
+  fsdp:
+    version: v2
+    granularity: layer
+    hybrid: false
+    reshard_after_forward: true
+    fp32_reduce: true
+  mixed_precision:
+    mode: static
+    dtype: bfloat16
+  grad_accumulation:
+    num_batches: 1
+    no_sync: false
+  activation_checkpointing:
+    mode: off
+    every_nth_layer: 1
+  max_grad_norm: 1.0
+  fp16_loss_scale:
+  - 128.0
+  - 0.0001
+  gc_every_n_steps: 1000
+  grad_check: false
+  anomaly_detection: false
+optimizer:
+  name: adamw
+  config:
+    lr: 0.0003
+    betas:
+    - 0.9
+    - 0.95
+    eps: 1e-08
+    weight_decay: 0.1
+    amsgrad: false
+    maximize: false
+    capturable: false
+    differentiable: false
+    impl: fused
+    groups: []
+lr_scheduler:
+  name: cosine_annealing
+  config:
+    cycle_len: null
+    num_warmup_steps: 2000
+    cycle_mul: 1.0
+    lr_mul: 1.0
+    start_lr: 1e-30
+    final_lr: null
+    final_lr_scale: 0.01
+regime:
+  num_steps: 520000  #48000
+  num_data_epochs: null
+  validate_at_start: false
+  validate_after_n_steps: 0
+  validate_every_n_steps: 4000
+  validate_after_n_data_epochs: 0
+  validate_every_n_data_epochs: null
+  score_metric: null
+  checkpoint_after_n_steps: 0
+  checkpoint_every_n_steps: 2000 #1000
+  checkpoint_after_n_data_epochs: 0
+  checkpoint_every_n_data_epochs: null
+  save_model_only: all_but_last
+  export_hugging_face: true
+  keep_last_n_checkpoints: 3
+  keep_best_n_checkpoints: null
+  keep_checkpoint_every_n_steps: 10000 #4000
+  publish_metrics_after_n_steps: 0
+  publish_metrics_every_n_steps: 10
+  publish_metrics_after_n_data_epochs: 0
+  publish_metrics_every_n_data_epochs: null
+common:
+  torch:
+    num_threads: null
+    allow_tf32: true
+    fp16_reduced_precision: true
+    bf16_reduced_precision: true
+    default_sdpa: flash2
+    compiled_region_activation_memory_budget: 0.9
+  metric_recorders:
+    tensorboard:
+      enabled: true
+    wandb:
+      enabled: true
+      entity: null
+      project: ab-playground-1B_fineweb_edu_60B
+      run_id: persistent
+      run_name: null
+      group: null
+      job_type: null
+      resume_mode: null
+  profilers:
+    torch:
+      enabled: false
+      skip_n_steps: 4
+      wait_n_steps: 0
+      num_warmup_steps: 1
+      num_active_steps: 4
+      repeat: 1
+  assets:
+    extra_paths: []
+    prev_checkpoint_dir: null
+  seed: 2
+  debug: false
+  cluster: auto
+  no_sweep_dir: false
+  sweep_format: ws_{world_size}.{hash}

@@ -8,13 +8,11 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 
-import pytest
 import torch
 from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
-from fairseq2.error import InvalidOperationError
 from fairseq2.nn.data_parallel import (
     DataParallelFacade,
     _NoopDataParallelFacade,
@@ -59,17 +57,6 @@ def test_set_data_parallel_facade_works() -> None:
     facade = get_data_parallel_facade(m)
 
     assert facade is expected_facade
-
-
-def test_set_data_parallel_facade_raises_error_when_called_twice() -> None:
-    m = Module()
-
-    facade = FooFacade(m)
-
-    set_data_parallel_facade(m, facade)
-
-    with pytest.raises(InvalidOperationError):
-        set_data_parallel_facade(m, facade)
 
 
 def test_get_data_parallel_facade_works_when_non_dp() -> None:

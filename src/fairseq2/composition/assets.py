@@ -86,7 +86,7 @@ def _register_asset(container: DependencyContainer) -> None:
     container.register_type(AssetDirectoryAccessor, StandardAssetDirectoryAccessor)
 
     # Store
-    def create_asset_store(resolver: DependencyResolver) -> AssetStore:
+    def load_asset_store(resolver: DependencyResolver) -> AssetStore:
         sources = resolver.collection.resolve(AssetMetadataSource)
 
         def load_providers() -> Iterator[AssetMetadataProvider]:
@@ -97,14 +97,16 @@ def _register_asset(container: DependencyContainer) -> None:
 
         env = env_detector.detect()
 
+        metadata_providers = load_providers()
+
         return wire_object(
             resolver,
             StandardAssetStore,
-            metadata_providers=load_providers(),
+            metadata_providers=metadata_providers,
             default_env=env,
         )
 
-    container.register(AssetStore, create_asset_store, singleton=True)
+    container.register(AssetStore, load_asset_store, singleton=True)
 
     container.register_type(AssetEnvironmentDetector)
 
@@ -135,13 +137,18 @@ def _register_asset(container: DependencyContainer) -> None:
 
         cache_dir = dirs.get_cache_dir()
 
-        progress_reporter = resolver.resolve(ProgressReporter, key="download_reporter")
+        progress_reporter = resolver.resolve(ProgressReporter)
+
+        download_progress_reporter = resolver.resolve(
+            ProgressReporter, key="download_reporter"
+        )
 
         return wire_object(
             resolver,
             StandardAssetDownloadManager,
             cache_dir=cache_dir,
             progress_reporter=progress_reporter,
+            download_progress_reporter=download_progress_reporter,
         )
 
     container.collection.register(

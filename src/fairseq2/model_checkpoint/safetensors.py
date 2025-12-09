@@ -16,19 +16,18 @@ from typing_extensions import override
 from fairseq2.device import CPU
 from fairseq2.error import InternalError
 from fairseq2.file_system import FileSystem
-from fairseq2.gang import Gangs
-from fairseq2.io import SafetensorsLoader, TensorFileError
+from fairseq2.gang import GangContext
+from fairseq2.io import CorruptFileError, SafetensorsLoader, SafetensorsLoadOptions
 from fairseq2.model_checkpoint.common import reshard_tensor
 from fairseq2.model_checkpoint.loader import (
-    ModelCheckpointError,
+    CorruptModelCheckpointError,
     ModelCheckpointLoader,
-    StateDictConverter,
+    ModelCheckpointLoadOptions,
 )
-from fairseq2.sharder import ShardSpec
 
 
 @final
-class SafetensorsCheckpointLoader(ModelCheckpointLoader):
+class _SafetensorsCheckpointLoader(ModelCheckpointLoader):
     """
     Loads Safetensors checkpoints.
 
@@ -38,53 +37,59 @@ class SafetensorsCheckpointLoader(ModelCheckpointLoader):
     """
 
     def __init__(
-        self, file_system: FileSystem, safetensors_loader: SafetensorsLoader
+        self,
+        file_system: FileSystem,
+        safetensors_loader: SafetensorsLoader,
+        gang_context: GangContext,
     ) -> None:
         self._file_system = file_system
         self._safetensors_loader = safetensors_loader
+        self._gang_context = gang_context
 
     @override
     def lazy_load(
         self,
         path: Path,
-        gangs: Gangs,
-        *,
-        mmap: bool = False,
-        restrict: bool = True,
-        state_dict_converter: StateDictConverter | None = None,
-        shard_specs: Mapping[str, ShardSpec] | None = None,
-        shard_dims: Mapping[str, int] | None = None,
+        shard_dims: Mapping[str, int],
+        options: ModelCheckpointLoadOptions | None = None,
     ) -> Iterator[tuple[str, Tensor]]:
+        if options is None:
+            options = ModelCheckpointLoadOptions()
+
         is_dir = self._file_system.is_dir(path)
         if is_dir:
             files = list(self._file_system.glob(path, "*.safetensors"))
             if not files:
-                msg = f"No checkpoint files found under {path}."
+                message = f"{path} directory does not contain any Safetensors checkpoint files."
 
-                raise ModelCheckpointError(path, msg)
+                raise CorruptModelCheckpointError(path, message)
         else:
             files = [path]
 
         checkpoint = {}
 
+        load_options = SafetensorsLoadOptions(device=CPU, mmap=options.mmap)
+
         for file in files:
             try:
-                st_shard = self._safetensors_loader.load(file, device=CPU, mmap=mmap)
-            except TensorFileError as ex:
-                msg = f"{file} is not a valid checkpoint file."
+                shard = self._safetensors_loader.load(file, load_options)
+            except CorruptFileError as ex:
+                message = f"{file} cannot be loaded as a Safetensors checkpoint file."
 
-                raise ModelCheckpointError(path, msg) from ex
+                raise CorruptModelCheckpointError(path, message) from ex
 
-            for key, value in st_shard.items():
+            for key, value in shard.items():
                 if key in checkpoint:
-                    msg = f"{path} has more than one checkpoint file with key {key}."
+                    message = f"{path} directory has more than one checkpoint file with key {key}."
 
-                    raise ModelCheckpointError(path, msg)
+                    raise CorruptModelCheckpointError(path, message)
 
                 checkpoint[key] = value
 
-        if state_dict_converter is not None:
-            checkpoint = state_dict_converter(checkpoint)
+        if options.state_dict_converter is not None:
+            checkpoint = options.state_dict_converter(checkpoint)
+
+        gangs = options.gangs or self._gang_context.get_current_gangs()
 
         source_shard_sizes = (1, 1)
 
@@ -110,7 +115,6 @@ class SafetensorsCheckpointLoader(ModelCheckpointLoader):
                 source_shard_sizes,
                 target_shard_sizes,
                 target_shard_ranks,
-                shard_specs,
                 shard_dims,
             )
 

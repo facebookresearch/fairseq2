@@ -10,16 +10,22 @@ import os
 import platform
 import socket
 from abc import ABC, abstractmethod
-from typing import final
+from dataclasses import dataclass
+from typing import cast, final
 
 import fairseq2n
 import psutil
 import torch
 from rich.pretty import pretty_repr
+from torch import Tensor
+from torch.distributed.tensor import DTensor
+from torch.nn import Module
 from typing_extensions import override
 
 import fairseq2
+from fairseq2.data.tokenizers import Tokenizer
 from fairseq2.device import Device
+from fairseq2.gang import Gangs
 from fairseq2.logging import log
 from fairseq2.metrics import format_as_byte_size
 from fairseq2.utils.structured import ValueConverter
@@ -211,3 +217,113 @@ class _StandardLogHelper(_LogHelper):
         unstructured_config = self._value_converter.unstructure(config)
 
         log.info("{}: {}", title, pretty_repr(unstructured_config, max_width=88))
+
+
+def _log_ranks(gangs: Gangs) -> None:
+    s = (
+        f"World: {gangs.root.rank}/{gangs.root.size} | "
+        f"Data: {gangs.dp.rank}/{gangs.dp.size} | "
+        f"Data (Replicated): {gangs.rdp.rank}/{gangs.rdp.size} | "
+        f"Data (Sharded): {gangs.sdp.rank}/{gangs.sdp.size} | "
+        f"Tensor: {gangs.tp.rank}/{gangs.tp.size} | "
+        f"Pipeline: {gangs.pp.rank}/{gangs.pp.size}"
+    )
+
+    log.info("Process Ranks - {}", s)
+
+
+def _log_model(model: Module, gangs: Gangs) -> None:
+    if not log.is_enabled_for_info():
+        return
+
+    info = _get_module_size_info(model)
+
+    s = (
+        f"Parameter Size: {info.param_size:,} | "
+        f"Parameter Size (bytes): {format_as_byte_size(info.param_size_bytes)} | "
+        f"Trainable Parameter Size: {info.trainable_param_size:,} | "
+        f"Trainable Parameter Size (bytes): {format_as_byte_size(info.trainable_param_size_bytes)} | "
+        f"Buffer Size: {info.buffer_size:,} | "
+        f"Buffer Size (bytes): {format_as_byte_size(info.buffer_size_bytes)} | "
+        f"Total Size: {info.total_size:,} | "
+        f"Total Size (bytes): {format_as_byte_size(info.total_size_bytes)}"
+    )
+
+    log.info("Model (rank {}) - {}\n{}", gangs.root.rank, s, model)
+
+
+def _get_module_size_info(module: Module) -> _ModuleSizeInfo:
+    def get_numel(tensor: Tensor) -> int:
+        if isinstance(tensor, DTensor):
+            return cast(DTensor, tensor.detach()).to_local().numel()  # type: ignore[no-any-return]
+
+        return tensor.numel()
+
+    info = _ModuleSizeInfo()
+
+    param: Tensor | None
+
+    for param in module.parameters():
+        if param is None:
+            continue
+
+        numel = get_numel(param)
+
+        size_bytes = numel * param.element_size()
+
+        info.param_size += numel
+        info.param_size_bytes += size_bytes
+
+        if param.requires_grad:
+            info.trainable_param_size += numel
+            info.trainable_param_size_bytes += size_bytes
+
+        info.total_size += numel
+        info.total_size_bytes += size_bytes
+
+    for buffer in module.buffers():
+        if buffer is None:
+            continue
+
+        numel = buffer.numel()
+
+        size_bytes = numel * buffer.element_size()
+
+        info.buffer_size += numel
+        info.buffer_size_bytes += size_bytes
+
+        info.total_size += numel
+        info.total_size_bytes += size_bytes
+
+    return info
+
+
+@dataclass(kw_only=True)
+class _ModuleSizeInfo:
+    param_size: int = 0
+    param_size_bytes: int = 0
+    trainable_param_size: int = 0
+    trainable_param_size_bytes: int = 0
+    buffer_size: int = 0
+    buffer_size_bytes: int = 0
+    total_size: int = 0
+    total_size_bytes: int = 0
+
+
+def _log_tokenizer(tokenizer: Tokenizer) -> None:
+    if not log.is_enabled_for_info():
+        return
+
+    vi = tokenizer.vocab_info
+
+    s = (
+        f"Size: {vi.size:,} | "
+        f"UNK: {vi.unk_idx} | "
+        f"BOS: {vi.bos_idx} | "
+        f"EOS: {vi.eos_idx} | "
+        f"PAD: {vi.pad_idx} | "
+        f"BOH: {vi.boh_idx} | "
+        f"EOH: {vi.eoh_idx}"
+    )
+
+    log.info("Tokenizer - {}", s)

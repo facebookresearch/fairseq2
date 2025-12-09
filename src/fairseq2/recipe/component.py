@@ -59,7 +59,7 @@ class ComponentManager(ABC):
 
     @abstractmethod
     def structure_component_config(
-        self, kls: type[object], name: str, config: object
+        self, kls: type[object], name: str, unstructured_config: object
     ) -> object: ...
 
 
@@ -94,7 +94,7 @@ class _StandardComponentManager(ComponentManager):
 
     @override
     def structure_component_config(
-        self, kls: type[object], name: str, config: object
+        self, kls: type[object], name: str, unstructured_config: object
     ) -> object:
         key = (kls, name)
 
@@ -106,7 +106,7 @@ class _StandardComponentManager(ComponentManager):
 
             raise
 
-        return self._value_converter.structure(config, entry.config_kls)
+        return self._value_converter.structure(unstructured_config, entry.config_kls)
 
 
 class ComponentNotKnownError(Exception):

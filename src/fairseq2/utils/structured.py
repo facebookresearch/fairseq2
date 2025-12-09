@@ -219,7 +219,7 @@ class StandardValueConverter(ValueConverter):
             extra_keys = ", ".join(sorted(values.keys()))
 
             raise StructureError(
-                f"Value must contain only keys corresponding to the fields of `{kls}`, but it contains extra keys {extra_keys}."
+                f"Value must contain only keys corresponding to the fields of `{kls}`, but it contains extra key(s) {extra_keys}."
             )
 
         try:

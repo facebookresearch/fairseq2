@@ -6,28 +6,25 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, final
+from collections.abc import Callable
+from typing import final
 
 from fairseq2.datasets import DataReader
+from fairseq2.generator import BatchT, Generator, GeneratorUnit
 from fairseq2.recipe.config import CommonSection, GeneratorSection
-from fairseq2.recipe.generator import BatchT, Generator, GeneratorUnit
-
-
-class _GeneratorFactory(Protocol):
-    def __call__(self, **kwargs: Any) -> Generator: ...
 
 
 @final
-class _RecipeGeneratorFactory:
+class _GeneratorFactory:
     def __init__(
         self,
         section: GeneratorSection,
         common_section: CommonSection,
-        inner_factory: _GeneratorFactory,
+        base_factory: Callable[..., Generator],
     ) -> None:
         self._section = section
         self._common_section = common_section
-        self._inner_factory = inner_factory
+        self._base_factory = base_factory
 
     def create(
         self, unit: GeneratorUnit[BatchT], data_reader: DataReader[BatchT]
@@ -36,7 +33,7 @@ class _RecipeGeneratorFactory:
 
         section = self._section
 
-        return self._inner_factory(
+        return self._base_factory(
             unit=unit,
             data_reader=data_reader,
             amp=section.amp,

@@ -96,36 +96,6 @@ QwenConfig
         hub = get_qwen_model_hub()
         config = hub.get_arch_config("qwen25_7b")
 
-
-Model Factory
--------------
-
-QwenFactory
-~~~~~~~~~~~
-
-.. autoclass:: QwenFactory
-    :members:
-    :show-inheritance:
-
-    Factory class for creating Qwen models. Handles model instantiation and checkpoint loading.
-
-create_qwen_model
-~~~~~~~~~~~~~~~~~
-
-.. autofunction:: create_qwen_model
-
-    Creates a Qwen model instance with the specified configuration.
-
-    .. code-block:: python
-
-        from fairseq2.models.qwen import create_qwen_model, QwenConfig
-
-        config = QwenConfig()
-        config.model_dim = 2048
-        config.num_layers = 24
-
-        model = create_qwen_model(config)
-
 Tokenizer
 ---------
 
@@ -162,51 +132,6 @@ get_qwen_tokenizer_hub
 
         # Load tokenizer through hub
         tokenizer = tokenizer_hub.load_tokenizer("qwen25_7b")
-
-Interoperability
-----------------
-
-convert_qwen_state_dict
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autofunction:: convert_qwen_state_dict
-
-    Converts Qwen model state dictionaries between different formats (e.g., from Hugging Face format).
-
-    .. code-block:: python
-
-        from fairseq2.models.qwen import convert_qwen_state_dict
-        import torch
-
-        # Load checkpoint from Hugging Face format
-        hf_state_dict = torch.load("qwen_hf_checkpoint.pt")
-
-        # Convert to fairseq2 format
-        fs2_state_dict = convert_qwen_state_dict(hf_state_dict)
-
-export_qwen
-~~~~~~~~~~~
-
-.. autofunction:: export_qwen
-
-    Exports fairseq2 Qwen models to other formats for interoperability.
-
-Sharding
---------
-
-get_qwen_shard_specs
-~~~~~~~~~~~~~~~~~~~~
-
-.. autofunction:: get_qwen_shard_specs
-
-    Returns sharding specifications for distributed training and inference of Qwen models.
-
-    .. code-block:: python
-
-        from fairseq2.models.qwen import get_qwen_shard_specs, QwenConfig
-
-        config = QwenConfig()
-        shard_specs = get_qwen_shard_specs(config)
 
 Constants
 ---------

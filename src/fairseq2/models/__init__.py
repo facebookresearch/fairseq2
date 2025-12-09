@@ -12,16 +12,21 @@ from fairseq2.models.family import LayerwiseACApplier as LayerwiseACApplier
 from fairseq2.models.family import ModelCompiler as ModelCompiler
 from fairseq2.models.family import ModelFactory as ModelFactory
 from fairseq2.models.family import ModelFamily as ModelFamily
+from fairseq2.models.family import ModelFamilyNotKnownError as ModelFamilyNotKnownError
 from fairseq2.models.family import ModelFSDPApplier as ModelFSDPApplier
+from fairseq2.models.family import ModelGatedError as ModelGatedError
 from fairseq2.models.family import ModelStateDictConverter as ModelStateDictConverter
 from fairseq2.models.family import ShardSpecsProvider as ShardSpecsProvider
 from fairseq2.models.family import StandardModelFamily as StandardModelFamily
-from fairseq2.models.family import get_model_family as get_model_family
+from fairseq2.models.family import _maybe_get_model_family as _maybe_get_model_family
+from fairseq2.models.family import get_model_family_name as get_model_family_name
+from fairseq2.models.family import (
+    maybe_get_model_family_name as maybe_get_model_family_name,
+)
 from fairseq2.models.hub import GlobalModelLoader as GlobalModelLoader
 from fairseq2.models.hub import (
     ModelArchitectureNotKnownError as ModelArchitectureNotKnownError,
 )
-from fairseq2.models.hub import ModelFamilyNotKnownError as ModelFamilyNotKnownError
 from fairseq2.models.hub import ModelHub as ModelHub
 from fairseq2.models.hub import ModelHubAccessor as ModelHubAccessor
 from fairseq2.models.hub import ModelNotKnownError as ModelNotKnownError

@@ -29,6 +29,7 @@ from fairseq2.models.hg import (
     create_hg_model,
     register_hg_configs,
 )
+from fairseq2.models.utils.hg import HuggingFaceConverter, _LegacyHuggingFaceConverter
 from fairseq2.models.jepa import (
     JEPA_FAMILY,
     JepaConfig,
@@ -47,9 +48,9 @@ from fairseq2.models.jepa.classifier import (
 from fairseq2.models.llama import (
     LLAMA_FAMILY,
     LLaMAConfig,
+    _LLaMAHuggingFaceConverter,
     convert_llama_state_dict,
     create_llama_model,
-    export_llama,
     register_llama_configs,
 )
 from fairseq2.models.llama4 import (
@@ -77,9 +78,9 @@ from fairseq2.models.nllb import (
 from fairseq2.models.qwen import (
     QWEN_FAMILY,
     QwenConfig,
+    _QwenHuggingFaceConverter,
     convert_qwen_state_dict,
     create_qwen_model,
-    export_qwen,
     register_qwen_configs,
 )
 from fairseq2.models.s2t_conformer import (
@@ -141,6 +142,7 @@ from fairseq2.runtime.dependency import (
     DependencyResolver,
     wire_object,
 )
+from fairseq2.utils.warn import _warn_deprecated
 
 ModelT_co = TypeVar("ModelT_co", bound=Module, covariant=True)
 
@@ -175,6 +177,15 @@ def register_model_family(
     layerwise_ac_applier: LayerwiseACApplier[ModelT] | None = None,
     hg_exporter: HuggingFaceExporter[ModelConfigT] | None = None,
 ) -> None:
+    if hg_exporter is not None:
+        _warn_deprecated(
+            "`hg_exporter` is deprecated and will be removed in v0.9. Use `fairseq2.models.hg.HuggingFaceConverter` instead."
+        )
+
+        hg_converter = _LegacyHuggingFaceConverter(hg_exporter)
+
+        container.register_instance(HuggingFaceConverter, hg_converter, key=name)
+
     if advanced_factory is not None:
         if factory is not None:
             raise ValueError(
@@ -211,7 +222,6 @@ def register_model_family(
             compiler=compiler,
             fsdp_applier=fsdp_applier,
             layerwise_ac_applier=layerwise_ac_applier,
-            hg_exporter=hg_exporter,
         )
 
     container.register(ModelFamily, create_family, key=name)
@@ -252,10 +262,13 @@ def _register_model_families(container: DependencyContainer) -> None:
         compiler=compile_transformer_lm,
         fsdp_applier=apply_fsdp_to_transformer_lm,
         layerwise_ac_applier=apply_ac_to_transformer_lm,
-        hg_exporter=export_llama,
     )
 
     register_llama_configs(container)
+
+    container.register_type(
+        HuggingFaceConverter, _LLaMAHuggingFaceConverter, key=LLAMA_FAMILY
+    )
 
     # Llama 4
     register_model_family(
@@ -269,7 +282,6 @@ def _register_model_families(container: DependencyContainer) -> None:
         compiler=compile_transformer_lm,
         fsdp_applier=apply_fsdp_to_transformer_lm,
         layerwise_ac_applier=apply_ac_to_transformer_lm,
-        hg_exporter=None,  # export not yet implemented
     )
 
     register_llama4_configs(container)
@@ -314,10 +326,13 @@ def _register_model_families(container: DependencyContainer) -> None:
         compiler=compile_transformer_lm,
         fsdp_applier=apply_fsdp_to_transformer_lm,
         layerwise_ac_applier=apply_ac_to_transformer_lm,
-        hg_exporter=export_qwen,
     )
 
     register_qwen_configs(container)
+
+    container.register_type(
+        HuggingFaceConverter, _QwenHuggingFaceConverter, key=QWEN_FAMILY
+    )
 
     # S2T Conformer
     register_model_family(
