@@ -1065,6 +1065,7 @@ class PplDerivedVerifier(VLLMOutputReward):
             "cap_pref_1_weight_0p2_1": self._cap_pref_1_weight_0p2_1,
             "weight_0p05_1": self._weight_0p05_1,
             "sum": (lambda x, y: x + y),
+            "sum_floor_0": (lambda x, y: x + max(y, 0)),
         }
 
     def __post_init__(self):
