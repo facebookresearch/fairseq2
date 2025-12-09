@@ -27,6 +27,7 @@ from fairseq2.models.hg.factory import (
     create_hg_model,
     register_hg_model_class,
 )
+from fairseq2.gang import Gangs, get_default_gangs, get_current_gangs
 
 class TestRegisterHgModelClass:
     """Test the register_hg_model_class function."""
@@ -106,10 +107,9 @@ class TestCreateHgModel:
         config = HuggingFaceModelConfig(hf_name="gpt2")
         result = create_hg_model(config)
 
-        mock_factory_class.assert_called_once_with(config, None)
+        mock_factory_class.assert_called_once_with(config)
         mock_factory.create_model.assert_called_once()
         assert result is mock_model
-
 
 class TestHgFactory:
     """Test the HgFactory class."""
@@ -117,6 +117,10 @@ class TestHgFactory:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.config = HuggingFaceModelConfig(hf_name="gpt2")
+        self.root_gangs_object = get_default_gangs()
+        with self.root_gangs_object:
+            self.gangs = get_current_gangs()
+        self.gangs = get_current_gangs()
         self.factory = HgFactory(self.config, None)
 
     @patch("fairseq2.models.hg.factory._has_transformers", False)
@@ -181,7 +185,7 @@ class TestHgFactory:
         if torch.cuda.is_available() and torch.cuda.device_count() > 1:
             from fairseq2.assets import get_asset_store
             from fairseq2.device import get_default_device
-            from fairseq2.gang import Gang, Gangs, ProcessGroupGang, create_parallel_gangs, maybe_get_current_gangs
+            from fairseq2.gang import Gang, Gangs, ProcessGroupGang, create_parallel_gangs
             from fairseq2.models.hg import get_hg_model_hub
             import torch.distributed as dist
 

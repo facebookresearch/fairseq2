@@ -50,7 +50,8 @@ from fairseq2.gang import (
     Gangs,
     ProcessGroupGang,
     create_parallel_gangs,
-    maybe_get_current_gangs,
+    get_default_gangs,
+    get_current_gangs,
 )
 from fairseq2.logging import log
 from fairseq2.models.hg.attention import (
@@ -187,9 +188,15 @@ def create_hg_model(config: HuggingFaceModelConfig) -> Any:
     :raises: NotSupportedError: If transformers library is not available
     """
 
-    gangs = maybe_get_current_gangs()
+    if torch.cuda.is_available():
+        default_gangs = get_default_gangs()
+        with default_gangs:
+            gangs = get_current_gangs()
 
-    return HgFactory(config, gangs).create_model()
+        gangs = get_current_gangs()
+        return HgFactory(config, gangs).create_model()
+    else:
+        return HgFactory(config).create_model()
 
 
 class HgFactory:
@@ -204,7 +211,7 @@ class HgFactory:
         config: The HuggingFace model configuration
     """
 
-    def __init__(self, config: HuggingFaceModelConfig, gangs: Gangs) -> None:
+    def __init__(self, config: HuggingFaceModelConfig, gangs: Gangs | None = None) -> None:
         """Initialize the factory with configuration."""
         self._config = config
         self._gangs = gangs
