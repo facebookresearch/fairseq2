@@ -43,6 +43,9 @@ class VllmSyncSection:
     sync_ref_model_every_n_steps: int = -1
     """How often to sync the reference model with the policy. -1 disables syncing."""
 
+    sync_reward_model_every_n_steps: int = -1
+    """How often to sync the reward model with the policy. -1 disables syncing."""
+
 
 @contextlib.contextmanager
 def _mute_output():
