@@ -63,6 +63,7 @@ from fairseq2.models.hg.config import HuggingFaceModelConfig
 from fairseq2.nn import ColumnShardedLinear, Linear, RowShardedLinear
 from fairseq2.nn.embedding import StandardEmbedding, VocabShardedEmbedding
 from fairseq2.utils.uri import Uri
+from fairseq2.file_system import LocalFileSystem
 
 try:
     from transformers import (
@@ -548,7 +549,7 @@ def _get_model_path(config: HuggingFaceModelConfig) -> Path:
     if uri is None or uri.scheme != "hg":
         raise ValueError(f"Invalid HuggingFace model URI: {config.hf_name}")
 
-    hf_hub = HuggingFaceHub()
+    hf_hub = HuggingFaceHub(LocalFileSystem())
     path = hf_hub.download_model(uri, config.hf_name)
 
     return path

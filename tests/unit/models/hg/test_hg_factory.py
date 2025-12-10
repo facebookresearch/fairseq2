@@ -185,7 +185,7 @@ class TestHgFactory:
         if torch.cuda.is_available() and torch.cuda.device_count() > 1:
             from fairseq2.assets import get_asset_store
             from fairseq2.device import get_default_device
-            from fairseq2.gang import Gang, Gangs, ProcessGroupGang, create_parallel_gangs
+            from fairseq2.gang import Gang, Gangs, ProcessGroupGang, create_parallel_gangs, maybe_get_current_gangs
             from fairseq2.models.hg import get_hg_model_hub
             import torch.distributed as dist
 
