@@ -54,7 +54,7 @@ Modules:
     hub: Integration with fairseq2's model hub system
     tokenizer: HuggingFace tokenizer integration
 
-For detailed documentation, see: :doc:`/reference/api/fairseq2.models.hg`
+For detailed documentation, see: :doc:`/reference/fairseq2.models.hg`
 """
 
 from __future__ import annotations

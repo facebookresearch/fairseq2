@@ -201,15 +201,15 @@ fairseq2.models.hg
 ABCs
 ====
 
-.. autoclass:: HuggingFaceConverter
+.. autoclass:: fairseq2.models.utils.hg.HuggingFaceConverter
 
 Classes
 =======
 
-.. autoclass:: HuggingFaceConfig
+.. autoclass:: fairseq2.models.utils.hg.HuggingFaceConfig
 
 Functions
 =========
 
-.. autofunction:: get_hugging_face_converter
-.. autofunction:: save_hugging_face_model
+.. autofunction:: fairseq2.models.utils.hg.get_hugging_face_converter
+.. autofunction:: fairseq2.models.utils.hg.save_hugging_face_model
