@@ -17,7 +17,7 @@ from fairseq2.nn.fsdp import FSDPWrapper
 
 
 def get_transformer_cls_names_to_wrap(
-    model,
+    model: PreTrainedModel,
     transformer_cls_names_to_wrap: Optional[list[str]] = None,
 ) -> list[str]:
     no_split_modules = getattr(model, "_no_split_modules", None)
@@ -30,7 +30,7 @@ def get_transformer_cls_names_to_wrap(
 
 
 def replace_layers(
-    model, transformer_cls_to_wrap: set[str], wrapper: FSDPWrapper
+    model: PreTrainedModel, transformer_cls_to_wrap: set[str], wrapper: FSDPWrapper
 ) -> None:
     for name, module in model.named_children():
         if len(list(module.children())) > 0:
