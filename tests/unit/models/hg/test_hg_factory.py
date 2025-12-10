@@ -121,7 +121,7 @@ class TestHgFactory:
         with self.root_gangs_object:
             self.gangs = get_current_gangs()
         self.gangs = get_current_gangs()
-        self.factory = HgFactory(self.config, None)
+        self.factory = HgFactory(self.config)
 
     @patch("fairseq2.models.hg.factory._has_transformers", False)
     def test_create_model_no_transformers(self) -> None:
@@ -153,7 +153,7 @@ class TestHgFactory:
 
         mock_auto_config.from_pretrained.assert_called_once_with("gpt2")
         mock_get_info.assert_called_once_with("GPT2Config", self.config)
-        mock_load_auto.assert_called_once_with("gpt2", self.config, mock_hf_config, None)
+        mock_load_auto.assert_called_once_with("gpt2", self.config, mock_hf_config)
         assert result is mock_model
 
     @patch("fairseq2.models.hg.factory._has_transformers", True)
@@ -196,7 +196,7 @@ class TestHgFactory:
 
             card = get_asset_store().retrieve_card("hg_qwen25_omni_3b")
             dist.barrier()
-            model = get_hg_model_hub().load_model(card, gangs=gangs)
+            model = get_hg_model_hub().load_model(card, None)
             dist.barrier()
             gangs.close()
 
