@@ -191,7 +191,7 @@ Module Structure
    fairseq2.models.hg.factory
    fairseq2.models.hg.hub
    fairseq2.models.hg.tokenizer
-=======
+
 ==================
 fairseq2.models.hg
 ==================
