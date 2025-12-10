@@ -1101,7 +1101,12 @@ class PplDerivedVerifier(VLLMOutputReward):
         )
 
     def _concat_w_maybe_ws(self, left_text, right_text):
-        if (not left_text[-1].isspace()) and (not right_text[0].isspace()):
+        if (
+            left_text != ""
+            and (not left_text[-1].isspace())
+            and right_text != ""
+            and (not right_text[0].isspace())
+        ):
             return left_text + " " + right_text
         return left_text + right_text
 
@@ -1154,7 +1159,9 @@ class PplDerivedVerifier(VLLMOutputReward):
             # maybe add space between input and target texts
             if (
                 maybe_add_whitespace
+                and input_text != ""
                 and (not input_text[-1].isspace())
+                and target_text != ""
                 and (not target_text[0].isspace())
             ):
                 input_tokens = input_tokens + self._tokenize(" ")
