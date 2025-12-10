@@ -54,11 +54,6 @@ from fairseq2.gang import (
     get_current_gangs,
 )
 from fairseq2.logging import log
-from fairseq2.models.hg.attention import (
-    QwenOmniMultiheadAttention,
-    QwenOmniMultiheadAttentionRotaryEmbed,
-    QwenOmniMultiheadDiTAttention,
-)
 from fairseq2.models.hg.config import HuggingFaceModelConfig
 from fairseq2.nn import ColumnShardedLinear, Linear, RowShardedLinear
 from fairseq2.nn.embedding import StandardEmbedding, VocabShardedEmbedding
