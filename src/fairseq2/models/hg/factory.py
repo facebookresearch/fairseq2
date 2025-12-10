@@ -70,6 +70,7 @@ try:
         PreTrainedModel,
         PreTrainedTokenizer,
     )
+    from transformers.models.qwen2_5_omni.modeling_qwen2_5_omni import Qwen2_5OmniForConditionalGeneration
     from transformers.models.qwen2_5_omni.modeling_qwen2_5_omni import (
         DiTAttention,
         Qwen2_5OmniAttention,
@@ -251,7 +252,7 @@ class HgFactory:
             if model_info:
                 return _load_special_model(name, config, model_info, gangs)
             else:
-                return _load_auto_model(name, config, hf_config, gangs)
+                return _load_auto_model(name, config, hf_config)
 
         except Exception as ex:
             if "not found" in str(ex).lower() or "404" in str(ex):
@@ -290,7 +291,11 @@ def _get_model_info(
     return None
 
 
-def _replace_layer(obj: object, path: str, value: object) -> None:
+def _replace_layer(
+        layers_indexable: Qwen2_5OmniForConditionalGeneration,
+        path: str,
+        value: object
+    ) -> None:
     """Replace a potentially indexed, nested object atrribute
     by parsing an object path string
 
@@ -304,15 +309,15 @@ def _replace_layer(obj: object, path: str, value: object) -> None:
     for i, part in enumerate(parts[:-1]):
         # If the part is an integer, treat as index
         if part.isdigit():
-            obj = obj[int(part)]
+            layers_indexable = layers_indexable[int(part)] # type: ignore
         else:
-            obj = getattr(obj, part)
+            layers_indexable = getattr(layers_indexable, part)
     # Handle trailing indices if present
     last = parts[-1]
     if last.isdigit():
-        obj[int(last)] = value
+        layers_indexable[int(last)] = value # type: ignore
     else:
-        setattr(obj, last, value)
+        setattr(layers_indexable, last, value)
 
 
 def _simple_shard_qwen_omni_model(
@@ -381,8 +386,9 @@ def _load_special_model(
     name: str,
     config: HuggingFaceModelConfig,
     model_info: Dict[str, str],
-    gangs: Gang | None = None,
+    gangs: Gangs | None = None,
 ) -> Any:
+    from transformers.models.qwen2_5_omni.modeling_qwen2_5_omni import Qwen2_5OmniForConditionalGeneration
     """Load a model using special/custom classes."""
 
     log.info(f"Loading special model '{name}' using custom classes")

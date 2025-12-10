@@ -12,6 +12,8 @@ src/equiv_fs2.py
 src/github_private_tests/
 src/qwen_omni_arch.txt
 src/replace_mha.py
+src/hg_load_test.py
+src/launch.bash
 
 # Byte-Compiled Modules
 __pycache__/
