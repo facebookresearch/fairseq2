@@ -43,6 +43,7 @@ from tqdm.auto import tqdm
 from fairseq2.assets import HuggingFaceHub
 from fairseq2.device import get_default_device
 from fairseq2.error import NotSupportedError, OperationalError
+from fairseq2.file_system import LocalFileSystem
 from fairseq2.gang import (
     FakeGang,
     Gang,
@@ -50,15 +51,14 @@ from fairseq2.gang import (
     Gangs,
     ProcessGroupGang,
     create_parallel_gangs,
-    get_default_gangs,
     get_current_gangs,
+    get_default_gangs,
 )
 from fairseq2.logging import log
 from fairseq2.models.hg.config import HuggingFaceModelConfig
 from fairseq2.nn import ColumnShardedLinear, Linear, RowShardedLinear
 from fairseq2.nn.embedding import StandardEmbedding, VocabShardedEmbedding
 from fairseq2.utils.uri import Uri
-from fairseq2.file_system import LocalFileSystem
 
 try:
     from transformers import (
@@ -70,11 +70,11 @@ try:
         PreTrainedModel,
         PreTrainedTokenizer,
     )
-    from transformers.models.qwen2_5_omni.modeling_qwen2_5_omni import Qwen2_5OmniForConditionalGeneration
     from transformers.models.qwen2_5_omni.modeling_qwen2_5_omni import (
         DiTAttention,
         Qwen2_5OmniAttention,
         Qwen2_5OmniAudioAttention,
+        Qwen2_5OmniForConditionalGeneration,
     )
 except ImportError:
     _has_transformers = False
@@ -208,7 +208,9 @@ class HgFactory:
         config: The HuggingFace model configuration
     """
 
-    def __init__(self, config: HuggingFaceModelConfig, gangs: Gangs | None = None) -> None:
+    def __init__(
+        self, config: HuggingFaceModelConfig, gangs: Gangs | None = None
+    ) -> None:
         """Initialize the factory with configuration."""
         self._config = config
         self._gangs = gangs
@@ -292,10 +294,8 @@ def _get_model_info(
 
 
 def _replace_layer(
-        layers_indexable: Qwen2_5OmniForConditionalGeneration,
-        path: str,
-        value: object
-    ) -> None:
+    layers_indexable: Qwen2_5OmniForConditionalGeneration, path: str, value: object
+) -> None:
     """Replace a potentially indexed, nested object atrribute
     by parsing an object path string
 
@@ -309,13 +309,13 @@ def _replace_layer(
     for i, part in enumerate(parts[:-1]):
         # If the part is an integer, treat as index
         if part.isdigit():
-            layers_indexable = layers_indexable[int(part)] # type: ignore
+            layers_indexable = layers_indexable[int(part)]  # type: ignore
         else:
             layers_indexable = getattr(layers_indexable, part)
     # Handle trailing indices if present
     last = parts[-1]
     if last.isdigit():
-        layers_indexable[int(last)] = value # type: ignore
+        layers_indexable[int(last)] = value  # type: ignore
     else:
         setattr(layers_indexable, last, value)
 
@@ -388,7 +388,10 @@ def _load_special_model(
     model_info: Dict[str, str],
     gangs: Gangs | None = None,
 ) -> Any:
-    from transformers.models.qwen2_5_omni.modeling_qwen2_5_omni import Qwen2_5OmniForConditionalGeneration
+    from transformers.models.qwen2_5_omni.modeling_qwen2_5_omni import (
+        Qwen2_5OmniForConditionalGeneration,
+    )
+
     """Load a model using special/custom classes."""
 
     log.info(f"Loading special model '{name}' using custom classes")

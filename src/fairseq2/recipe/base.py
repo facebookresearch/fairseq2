@@ -79,7 +79,7 @@ class RecipeContext:
     """
     Represents the underlying framework of a machine learning workflow
     """
-    
+
     def __init__(self, resolver: DependencyResolver) -> None:
         self._resolver = resolver
 

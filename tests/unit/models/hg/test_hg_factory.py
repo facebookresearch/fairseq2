@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 
+from fairseq2.gang import Gangs, get_current_gangs, get_default_gangs
 from fairseq2.models.hg.config import HuggingFaceModelConfig
 from fairseq2.models.hg.factory import (
     HgFactory,
@@ -27,7 +28,7 @@ from fairseq2.models.hg.factory import (
     create_hg_model,
     register_hg_model_class,
 )
-from fairseq2.gang import Gangs, get_default_gangs, get_current_gangs
+
 
 class TestRegisterHgModelClass:
     """Test the register_hg_model_class function."""
@@ -111,6 +112,7 @@ class TestCreateHgModel:
         mock_factory.create_model.assert_called_once()
         assert result is mock_model
 
+
 class TestHgFactory:
     """Test the HgFactory class."""
 
@@ -178,16 +180,25 @@ class TestHgFactory:
 
         result = self.factory.create_model()
 
-        mock_load_special.assert_called_once_with("gpt2", self.config, mock_model_info, None)
+        mock_load_special.assert_called_once_with(
+            "gpt2", self.config, mock_model_info, None
+        )
         assert result is mock_model
 
     def test_create_model_special_model_with_gangs(self) -> None:
         if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+            import torch.distributed as dist
+
             from fairseq2.assets import get_asset_store
             from fairseq2.device import get_default_device
-            from fairseq2.gang import Gang, Gangs, ProcessGroupGang, create_parallel_gangs, maybe_get_current_gangs
+            from fairseq2.gang import (
+                Gang,
+                Gangs,
+                ProcessGroupGang,
+                create_parallel_gangs,
+                maybe_get_current_gangs,
+            )
             from fairseq2.models.hg import get_hg_model_hub
-            import torch.distributed as dist
 
             world_size = torch.cuda.device_count()
             device = get_default_device()
@@ -534,6 +545,7 @@ class TestImportClassFromTransformers:
         assert "TestClass" in str(exc_info.value)
         assert "not found" in str(exc_info.value)
 
+
 def main():
     """
     Hardware dependent test:
@@ -547,6 +559,7 @@ def main():
     if torch.cuda.is_available() and torch.cuda.device_count() > 1:
         mg_factory = TestHgFactory()
         mg_factory.test_create_model_special_model_with_gangs()
+
 
 if __name__ == "__main__":
     main()

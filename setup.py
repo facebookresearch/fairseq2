@@ -83,7 +83,7 @@ setup(
             "transformers>=4.56.1",
             "qwen-omni-utils~=0.0.8",
             "tqdm>=4.27",
-            "types-tqdm"
+            "types-tqdm",
         ],
     },
 )

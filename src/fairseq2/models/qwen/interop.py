@@ -10,9 +10,9 @@ from typing import Final, final
 
 from typing_extensions import override
 
-from fairseq2.models.utils.hg import HuggingFaceConfig, HuggingFaceConverter
 from fairseq2.models.qwen.config import QwenConfig
 from fairseq2.models.utils.checkpoint import convert_state_dict, create_reverse_key_map
+from fairseq2.models.utils.hg import HuggingFaceConfig, HuggingFaceConverter
 from fairseq2.utils.config import cast_config_type
 
 _HG_KEY_MAP: Final = {
