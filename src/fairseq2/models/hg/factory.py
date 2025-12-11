@@ -244,8 +244,7 @@ class HgFactory:
             config_class_name = hf_config.__class__.__name__
 
             log.info(
-                f"Loading HuggingFace model '{name}' with config "
-                f"{config_class_name}"
+                f"Loading HuggingFace model '{name}' with config {config_class_name}"
             )
 
             # Check if this is a special case model
@@ -346,7 +345,6 @@ def _simple_shard_qwen_omni_model(
     gang = gangs.tp
 
     for name, module in model.named_modules():
-
         # Place attention heads on a single device
         if (
             isinstance(module, Qwen2_5OmniAudioAttention)

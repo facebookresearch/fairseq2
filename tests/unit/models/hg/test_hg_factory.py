@@ -545,8 +545,7 @@ class TestImportClassFromTransformers:
         assert "TestClass" in str(exc_info.value)
         assert "not found" in str(exc_info.value)
 
-
-def main():
+if __name__ == "__main__":
     """
     Hardware dependent test:
     If more than one GPU is present, model sharding with tp
@@ -559,7 +558,3 @@ def main():
     if torch.cuda.is_available() and torch.cuda.device_count() > 1:
         mg_factory = TestHgFactory()
         mg_factory.test_create_model_special_model_with_gangs()
-
-
-if __name__ == "__main__":
-    main()

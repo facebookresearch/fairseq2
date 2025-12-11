@@ -17,7 +17,7 @@ from fairseq2.nn.fsdp import FSDPWrapper
 
 
 def get_transformer_cls_names_to_wrap(
-    model: PreTrainedModel,
+    model: Module,
     transformer_cls_names_to_wrap: Optional[list[str]] = None,
 ) -> list[str]:
     no_split_modules = getattr(model, "_no_split_modules", None)
