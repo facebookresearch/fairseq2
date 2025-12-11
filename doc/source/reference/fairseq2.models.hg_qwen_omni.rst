@@ -1,7 +1,7 @@
 fairseq2.models.hg
 ==================
 
-The :mod:`fairseq2.models.hg` module provides seamless integration with HuggingFace Transformers models within the fairseq2 framework. This module allows you to load and use any HuggingFace model with fairseq2's training and inference pipelines.
+The :mod:`fairseq2.models.hg_qwen_omni` module provides seamless integration with HuggingFace Transformers models within the fairseq2 framework. This module allows you to load and use any HuggingFace model with fairseq2's training and inference pipelines.
 
 API Reference
 -------------
@@ -9,28 +9,28 @@ API Reference
 High-Level API
 ~~~~~~~~~~~~~~
 
-.. autofunction:: fairseq2.models.hg.load_hg_model_simple
+.. autofunction:: fairseq2.models.hg_qwen_omni.load_hg_model_simple
 
-.. autofunction:: fairseq2.models.hg.load_hg_tokenizer_simple
+.. autofunction:: fairseq2.models.hg_qwen_omni.load_hg_tokenizer_simple
 
 Convenience Functions
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. autofunction:: fairseq2.models.hg.load_causal_lm
+.. autofunction:: fairseq2.models.hg_qwen_omni.load_causal_lm
 
-.. autofunction:: fairseq2.models.hg.load_seq2seq_lm
+.. autofunction:: fairseq2.models.hg_qwen_omni.load_seq2seq_lm
 
-.. autofunction:: fairseq2.models.hg.load_multimodal_model
+.. autofunction:: fairseq2.models.hg_qwen_omni.load_multimodal_model
 
 Configuration
 ~~~~~~~~~~~~~
 
-.. autoclass:: fairseq2.models.hg.HuggingFaceModelConfig
+.. autoclass:: fairseq2.models.hg_qwen_omni.HuggingFaceModelConfig
     :members:
     :undoc-members:
     :show-inheritance:
 
-.. autoclass:: fairseq2.models.hg.HgTokenizerConfig
+.. autoclass:: fairseq2.models.hg_qwen_omni.HgTokenizerConfig
     :members:
     :undoc-members:
     :show-inheritance:
@@ -38,31 +38,31 @@ Configuration
 Factory Functions
 ~~~~~~~~~~~~~~~~~
 
-.. autofunction:: fairseq2.models.hg.create_hg_model
+.. autofunction:: fairseq2.models.hg_qwen_omni.create_hg_model
 
-.. autofunction:: fairseq2.models.hg.register_hg_model_class
+.. autofunction:: fairseq2.models.hg_qwen_omni.register_hg_model_class
 
 Tokenizer Classes
 ~~~~~~~~~~~~~~~~~
 
-.. autoclass:: fairseq2.models.hg.HgTokenizer
+.. autoclass:: fairseq2.models.hg_qwen_omni.HgTokenizer
     :members:
     :undoc-members:
     :show-inheritance:
 
-.. autofunction:: fairseq2.models.hg.load_hg_tokenizer
+.. autofunction:: fairseq2.models.hg_qwen_omni.load_hg_tokenizer
 
 Hub Integration
 ~~~~~~~~~~~~~~~
 
-.. autofunction:: fairseq2.models.hg.get_hg_model_hub
+.. autofunction:: fairseq2.models.hg_qwen_omni.get_hg_model_hub
 
-.. autofunction:: fairseq2.models.hg.get_hg_tokenizer_hub
+.. autofunction:: fairseq2.models.hg_qwen_omni.get_hg_tokenizer_hub
 
 Exceptions
 ~~~~~~~~~~
 
-.. autoexception:: fairseq2.models.hg.HuggingFaceModelError
+.. autoexception:: fairseq2.models.hg_qwen_omni.HuggingFaceModelError
     :members:
     :undoc-members:
 
@@ -77,7 +77,7 @@ Use DialoGPT for conversational AI:
 
 .. code-block:: python
 
-    from fairseq2.models.hg import load_causal_lm, load_hg_tokenizer_simple
+    from fairseq2.models.hg_qwen_omni import load_causal_lm, load_hg_tokenizer_simple
     import torch
 
     # Load DialoGPT model
@@ -108,7 +108,7 @@ Use T5 for translation and summarization:
 
 .. code-block:: python
 
-    from fairseq2.models.hg import load_seq2seq_lm, load_hg_tokenizer_simple
+    from fairseq2.models.hg_qwen_omni import load_seq2seq_lm, load_hg_tokenizer_simple
     import torch
 
     # Load T5 model
@@ -133,7 +133,7 @@ Register custom models not supported by Auto classes:
 
 .. code-block:: python
 
-    from fairseq2.models.hg import register_hg_model_class, load_hg_model_simple
+    from fairseq2.models.hg_qwen_omni import register_hg_model_class, load_hg_model_simple
 
     # Register a custom model class
     register_hg_model_class(
@@ -157,7 +157,7 @@ Load models/tokenizers using the fairseq2 hub system:
 
 .. code-block:: python
 
-    from fairseq2.models.hg import get_hg_model_hub, get_hg_tokenizer_hub
+    from fairseq2.models.hg_qwen_omni import get_hg_model_hub, get_hg_tokenizer_hub
 
     name = "hg_qwen25_omni_3b"
 
@@ -186,11 +186,11 @@ Module Structure
    :toctree: generated/
    :nosignatures:
 
-   fairseq2.models.hg.api
-   fairseq2.models.hg.config
-   fairseq2.models.hg.factory
-   fairseq2.models.hg.hub
-   fairseq2.models.hg.tokenizer
+   fairseq2.models.hg_qwen_omni.api
+   fairseq2.models.hg_qwen_omni.config
+   fairseq2.models.hg_qwen_omni.factory
+   fairseq2.models.hg_qwen_omni.hub
+   fairseq2.models.hg_qwen_omni.tokenizer
 
 ABCs
 ====

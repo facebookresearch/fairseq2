@@ -18,7 +18,7 @@ from fairseq2.data.tokenizers import (
 )
 from fairseq2.data.tokenizers.char import CHAR_TOKENIZER_FAMILY, load_char_tokenizer
 from fairseq2.error import InternalError
-from fairseq2.models.hg import (
+from fairseq2.models.hg_qwen_omni import (
     HG_FAMILY,
     HgTokenizer,
     HgTokenizerConfig,

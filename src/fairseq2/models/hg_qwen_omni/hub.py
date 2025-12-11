@@ -17,7 +17,7 @@ Hub Accessors:
 Example:
     Load a model through the hub system::
 
-        from fairseq2.models.hg.hub import get_hg_model_hub
+        from fairseq2.models.hg_qwen_omni.hub import get_hg_model_hub
 
         model_hub = get_hg_model_hub()
         model = model_hub.load_model("hg_qwen25_omni_3b")
@@ -28,8 +28,8 @@ from __future__ import annotations
 from transformers import PreTrainedModel
 
 from fairseq2.data.tokenizers import TokenizerHubAccessor
-from fairseq2.models.hg.config import HG_FAMILY, HuggingFaceModelConfig
-from fairseq2.models.hg.tokenizer import HgTokenizer, HgTokenizerConfig
+from fairseq2.models.hg_qwen_omni.config import HG_FAMILY, HuggingFaceModelConfig
+from fairseq2.models.hg_qwen_omni.tokenizer import HgTokenizer, HgTokenizerConfig
 from fairseq2.models.hub import ModelHubAccessor
 
 get_hg_model_hub = ModelHubAccessor(

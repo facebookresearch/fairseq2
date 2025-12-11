@@ -47,7 +47,7 @@ from fairseq2.gang import (
     get_default_gangs,
 )
 from fairseq2.logging import log
-from fairseq2.models.hg.config import HuggingFaceModelConfig
+from fairseq2.models.hg_qwen_omni.config import HuggingFaceModelConfig
 from fairseq2.nn import Linear
 from fairseq2.utils.uri import Uri
 

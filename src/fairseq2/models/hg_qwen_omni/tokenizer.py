@@ -21,7 +21,7 @@ Functions:
 Example:
     Load a GPT-2 tokenizer::
 
-        from fairseq2.models.hg.tokenizer import (
+        from fairseq2.models.hg_qwen_omni.tokenizer import (
             load_hg_tokenizer,
             HgTokenizerConfig,
         )

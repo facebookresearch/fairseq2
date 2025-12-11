@@ -22,7 +22,7 @@ from fairseq2.models import (
     ShardSpecsProvider,
     StandardModelFamily,
 )
-from fairseq2.models.hg import (
+from fairseq2.models.hg_qwen_omni import (
     HG_FAMILY,
     HuggingFaceModelConfig,
     apply_fsdp_to_hg_transformer_lm,
@@ -179,7 +179,7 @@ def register_model_family(
 ) -> None:
     if hg_exporter is not None:
         _warn_deprecated(
-            "`hg_exporter` is deprecated and will be removed in v0.9. Use `fairseq2.models.hg.HuggingFaceConverter` instead."
+            "`hg_exporter` is deprecated and will be removed in v0.9. Use `fairseq2.models.hg_qwen_omni.HuggingFaceConverter` instead."
         )
 
         hg_converter = _LegacyHuggingFaceConverter(hg_exporter)

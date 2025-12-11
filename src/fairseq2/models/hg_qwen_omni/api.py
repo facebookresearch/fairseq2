@@ -22,7 +22,7 @@ Key Functions:
 Example:
     Basic usage for loading a GPT-2 model::
 
-        from fairseq2.models.hg import (
+        from fairseq2.models.hg_qwen_omni import (
             load_hg_model_simple,
             load_hg_tokenizer_simple,
         )
@@ -36,9 +36,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from fairseq2.models.hg.config import HuggingFaceModelConfig
-from fairseq2.models.hg.factory import create_hg_model
-from fairseq2.models.hg.tokenizer import (
+from fairseq2.models.hg_qwen_omni.config import HuggingFaceModelConfig
+from fairseq2.models.hg_qwen_omni.factory import create_hg_model
+from fairseq2.models.hg_qwen_omni.tokenizer import (
     HgTokenizer,
     HgTokenizerConfig,
     load_hg_tokenizer,

@@ -14,8 +14,8 @@ import pytest
 import torch
 
 from fairseq2.gang import get_current_gangs, get_default_gangs
-from fairseq2.models.hg.config import HuggingFaceModelConfig
-from fairseq2.models.hg.factory import (
+from fairseq2.models.hg_qwen_omni.config import HuggingFaceModelConfig
+from fairseq2.models.hg_qwen_omni.factory import (
     HgFactory,
     HuggingFaceModelError,
     _get_auto_model_class,
@@ -33,7 +33,7 @@ from fairseq2.models.hg.factory import (
 class TestRegisterHgModelClass:
     """Test the register_hg_model_class function."""
 
-    @patch("fairseq2.models.hg.factory._has_transformers", True)
+    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
     def test_register_model_class_with_strings(self) -> None:
         """Test registering model class with string names."""
         register_hg_model_class(
@@ -44,7 +44,7 @@ class TestRegisterHgModelClass:
         )
 
         # Import the registry to check
-        from fairseq2.models.hg.factory import _USER_REGISTRY
+        from fairseq2.models.hg_qwen_omni.factory import _USER_REGISTRY
 
         assert "TestConfig" in _USER_REGISTRY
         entry = _USER_REGISTRY["TestConfig"]
@@ -52,7 +52,7 @@ class TestRegisterHgModelClass:
         assert entry["tokenizer_class"] == "TestTokenizer"
         assert entry["processor_class"] == "TestProcessor"
 
-    @patch("fairseq2.models.hg.factory._has_transformers", True)
+    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
     def test_register_model_class_with_types(self) -> None:
         """Test registering model class with actual types."""
         # Use string names instead of actual classes to avoid type issues
@@ -62,14 +62,14 @@ class TestRegisterHgModelClass:
             tokenizer_class="MockTokenizer",
         )
 
-        from fairseq2.models.hg.factory import _USER_REGISTRY
+        from fairseq2.models.hg_qwen_omni.factory import _USER_REGISTRY
 
         assert "TestConfig2" in _USER_REGISTRY
         entry = _USER_REGISTRY["TestConfig2"]
         assert entry["model_class"] == "MockModel"
         assert entry["tokenizer_class"] == "MockTokenizer"
 
-    @patch("fairseq2.models.hg.factory._has_transformers", True)
+    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
     def test_register_model_class_minimal(self) -> None:
         """Test registering model class with minimal params."""
         register_hg_model_class(
@@ -77,7 +77,7 @@ class TestRegisterHgModelClass:
             model_class="MinimalModel",
         )
 
-        from fairseq2.models.hg.factory import _USER_REGISTRY
+        from fairseq2.models.hg_qwen_omni.factory import _USER_REGISTRY
 
         assert "TestConfig3" in _USER_REGISTRY
         entry = _USER_REGISTRY["TestConfig3"]
@@ -85,7 +85,7 @@ class TestRegisterHgModelClass:
         assert "tokenizer_class" not in entry
         assert "processor_class" not in entry
 
-    @patch("fairseq2.models.hg.factory._has_transformers", False)
+    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", False)
     def test_register_model_class_no_transformers(self) -> None:
         """Test error when transformers is not available."""
         with pytest.raises(Exception) as exc_info:
@@ -97,7 +97,7 @@ class TestRegisterHgModelClass:
 class TestCreateHgModel:
     """Test the create_hg_model function."""
 
-    @patch("fairseq2.models.hg.factory.HgFactory")
+    @patch("fairseq2.models.hg_qwen_omni.factory.HgFactory")
     def test_create_hg_model(self, mock_factory_class: MagicMock) -> None:
         """Test create_hg_model delegates to HgFactory."""
         mock_factory = MagicMock()
@@ -125,7 +125,7 @@ class TestHgFactory:
         self.gangs = get_current_gangs()
         self.factory = HgFactory(self.config)
 
-    @patch("fairseq2.models.hg.factory._has_transformers", False)
+    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", False)
     def test_create_model_no_transformers(self) -> None:
         """Test error when transformers is not available."""
         with pytest.raises(Exception) as exc_info:
@@ -133,10 +133,10 @@ class TestHgFactory:
 
         assert "transformers" in str(exc_info.value).lower()
 
-    @patch("fairseq2.models.hg.factory._has_transformers", True)
-    @patch("fairseq2.models.hg.factory.AutoConfig")
-    @patch("fairseq2.models.hg.factory._get_model_info")
-    @patch("fairseq2.models.hg.factory._load_auto_model")
+    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
+    @patch("fairseq2.models.hg_qwen_omni.factory.AutoConfig")
+    @patch("fairseq2.models.hg_qwen_omni.factory._get_model_info")
+    @patch("fairseq2.models.hg_qwen_omni.factory._load_auto_model")
     def test_create_model_auto_model(
         self,
         mock_load_auto: MagicMock,
@@ -158,10 +158,10 @@ class TestHgFactory:
         mock_load_auto.assert_called_once_with("gpt2", self.config, mock_hf_config)
         assert result is mock_model
 
-    @patch("fairseq2.models.hg.factory._has_transformers", True)
-    @patch("fairseq2.models.hg.factory.AutoConfig")
-    @patch("fairseq2.models.hg.factory._get_model_info")
-    @patch("fairseq2.models.hg.factory._load_special_model")
+    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
+    @patch("fairseq2.models.hg_qwen_omni.factory.AutoConfig")
+    @patch("fairseq2.models.hg_qwen_omni.factory._get_model_info")
+    @patch("fairseq2.models.hg_qwen_omni.factory._load_special_model")
     def test_create_model_special_model(
         self,
         mock_load_special: MagicMock,
@@ -195,7 +195,7 @@ class TestHgFactory:
                 ProcessGroupGang,
                 create_parallel_gangs,
             )
-            from fairseq2.models.hg import get_hg_model_hub
+            from fairseq2.models.hg_qwen_omni import get_hg_model_hub
 
             world_size = torch.cuda.device_count()
             device = get_default_device()
@@ -208,8 +208,8 @@ class TestHgFactory:
             dist.barrier()
             gangs.close()
 
-    @patch("fairseq2.models.hg.factory._has_transformers", True)
-    @patch("fairseq2.models.hg.factory.AutoConfig")
+    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
+    @patch("fairseq2.models.hg_qwen_omni.factory.AutoConfig")
     def test_create_model_not_found_error(self, mock_auto_config: MagicMock) -> None:
         """Test error handling for model not found."""
         error = Exception("404 Not Found")
@@ -221,8 +221,8 @@ class TestHgFactory:
         assert exc_info.value.model_name == "gpt2"
         assert "not found" in str(exc_info.value).lower()
 
-    @patch("fairseq2.models.hg.factory._has_transformers", True)
-    @patch("fairseq2.models.hg.factory.AutoConfig")
+    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
+    @patch("fairseq2.models.hg_qwen_omni.factory.AutoConfig")
     def test_create_model_generic_error(self, mock_auto_config: MagicMock) -> None:
         """Test error handling for generic errors."""
         error = Exception("Generic error")
@@ -240,7 +240,7 @@ class TestUtilityFunctions:
 
     def test_get_model_info_user_registry(self) -> None:
         """Test _get_model_info with user registry."""
-        from fairseq2.models.hg.factory import _USER_REGISTRY
+        from fairseq2.models.hg_qwen_omni.factory import _USER_REGISTRY
 
         # Add test entry
         _USER_REGISTRY["TestConfig"] = {"model_class": "TestModel"}
@@ -283,8 +283,8 @@ class TestUtilityFunctions:
 
         assert result is None
 
-    @patch("fairseq2.models.hg.factory._has_transformers", True)
-    @patch("fairseq2.models.hg.factory.AutoModelForCausalLM")
+    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
+    @patch("fairseq2.models.hg_qwen_omni.factory.AutoModelForCausalLM")
     def test_get_auto_model_class_causal_lm(self, mock_auto_causal: MagicMock) -> None:
         """Test _get_auto_model_class for causal LM."""
         config = HuggingFaceModelConfig(hf_name="test", model_type="causal_lm")
@@ -293,8 +293,8 @@ class TestUtilityFunctions:
 
         assert result is mock_auto_causal
 
-    @patch("fairseq2.models.hg.factory._has_transformers", True)
-    @patch("fairseq2.models.hg.factory.AutoModelForSeq2SeqLM")
+    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
+    @patch("fairseq2.models.hg_qwen_omni.factory.AutoModelForSeq2SeqLM")
     def test_get_auto_model_class_seq2seq_lm(
         self, mock_auto_seq2seq: MagicMock
     ) -> None:
@@ -305,8 +305,8 @@ class TestUtilityFunctions:
 
         assert result is mock_auto_seq2seq
 
-    @patch("fairseq2.models.hg.factory._has_transformers", True)
-    @patch("fairseq2.models.hg.factory.AutoModel")
+    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
+    @patch("fairseq2.models.hg_qwen_omni.factory.AutoModel")
     def test_get_auto_model_class_auto(self, mock_auto: MagicMock) -> None:
         """Test _get_auto_model_class for auto."""
         config = HuggingFaceModelConfig(hf_name="test", model_type="auto")
@@ -315,8 +315,8 @@ class TestUtilityFunctions:
 
         assert result is mock_auto
 
-    @patch("fairseq2.models.hg.factory._has_transformers", True)
-    @patch("fairseq2.models.hg.factory.AutoModelForSeq2SeqLM")
+    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
+    @patch("fairseq2.models.hg_qwen_omni.factory.AutoModelForSeq2SeqLM")
     def test_get_auto_model_class_encoder_decoder(
         self, mock_auto_seq2seq: MagicMock
     ) -> None:
@@ -328,8 +328,8 @@ class TestUtilityFunctions:
 
         assert result is mock_auto_seq2seq
 
-    @patch("fairseq2.models.hg.factory._has_transformers", True)
-    @patch("fairseq2.models.hg.factory.AutoModelForCausalLM")
+    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
+    @patch("fairseq2.models.hg_qwen_omni.factory.AutoModelForCausalLM")
     def test_get_auto_model_class_decoder_only(
         self, mock_auto_causal: MagicMock
     ) -> None:
@@ -345,9 +345,9 @@ class TestUtilityFunctions:
 class TestPrepareLoadKwargs:
     """Test the _prepare_load_kwargs function."""
 
-    @patch("fairseq2.models.hg.factory._get_model_path")
-    @patch("fairseq2.models.hg.factory._set_dtype_kwargs")
-    @patch("fairseq2.models.hg.factory._set_device_kwargs")
+    @patch("fairseq2.models.hg_qwen_omni.factory._get_model_path")
+    @patch("fairseq2.models.hg_qwen_omni.factory._set_dtype_kwargs")
+    @patch("fairseq2.models.hg_qwen_omni.factory._set_device_kwargs")
     def test_prepare_load_kwargs_basic(
         self,
         mock_set_device: MagicMock,
@@ -375,9 +375,9 @@ class TestPrepareLoadKwargs:
         mock_set_dtype.assert_called_once_with(config, result)
         mock_set_device.assert_called_once_with(config, result)
 
-    @patch("fairseq2.models.hg.factory._get_model_path")
-    @patch("fairseq2.models.hg.factory._set_dtype_kwargs")
-    @patch("fairseq2.models.hg.factory._set_device_kwargs")
+    @patch("fairseq2.models.hg_qwen_omni.factory._get_model_path")
+    @patch("fairseq2.models.hg_qwen_omni.factory._set_dtype_kwargs")
+    @patch("fairseq2.models.hg_qwen_omni.factory._set_device_kwargs")
     def test_prepare_load_kwargs_with_trust_remote_code(
         self,
         mock_set_device: MagicMock,
@@ -392,9 +392,9 @@ class TestPrepareLoadKwargs:
 
         assert result["trust_remote_code"] is True
 
-    @patch("fairseq2.models.hg.factory._get_model_path")
-    @patch("fairseq2.models.hg.factory._set_dtype_kwargs")
-    @patch("fairseq2.models.hg.factory._set_device_kwargs")
+    @patch("fairseq2.models.hg_qwen_omni.factory._get_model_path")
+    @patch("fairseq2.models.hg_qwen_omni.factory._set_dtype_kwargs")
+    @patch("fairseq2.models.hg_qwen_omni.factory._set_device_kwargs")
     def test_prepare_load_kwargs_with_additional_kwargs(
         self,
         mock_set_device: MagicMock,
@@ -491,8 +491,8 @@ class TestSetDeviceKwargs:
 class TestGetModelPath:
     """Test the _get_model_path function."""
 
-    @patch("fairseq2.models.hg.factory.HuggingFaceHub")
-    @patch("fairseq2.models.hg.factory.Uri.maybe_parse")
+    @patch("fairseq2.models.hg_qwen_omni.factory.HuggingFaceHub")
+    @patch("fairseq2.models.hg_qwen_omni.factory.Uri.maybe_parse")
     def test_get_model_path(
         self, mock_uri_parse: MagicMock, mock_hub_class: MagicMock
     ) -> None:
@@ -516,7 +516,7 @@ class TestGetModelPath:
 class TestImportClassFromTransformers:
     """Test the _import_class_from_transformers function."""
 
-    @patch("fairseq2.models.hg.factory.importlib.import_module")
+    @patch("fairseq2.models.hg_qwen_omni.factory.importlib.import_module")
     def test_import_class_success(self, mock_import: MagicMock) -> None:
         """Test successful class import."""
         mock_module = MagicMock()
@@ -529,7 +529,7 @@ class TestImportClassFromTransformers:
         mock_import.assert_called_once_with("transformers")
         assert result is mock_class
 
-    @patch("fairseq2.models.hg.factory.importlib.import_module")
+    @patch("fairseq2.models.hg_qwen_omni.factory.importlib.import_module")
     def test_import_class_not_found(self, mock_import: MagicMock) -> None:
         """Test class not found error."""
         mock_module = MagicMock()

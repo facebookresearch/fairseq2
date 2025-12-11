@@ -15,7 +15,7 @@ from torch import Tensor
 
 from fairseq2.data.tokenizers import VocabularyInfo
 from fairseq2.device import CPU
-from fairseq2.models.hg.tokenizer import (
+from fairseq2.models.hg_qwen_omni.tokenizer import (
     HgTokenizer,
     HgTokenizerConfig,
     load_hg_tokenizer,
@@ -89,7 +89,7 @@ class TestHgTokenizer:
         assert self.tokenizer._encoder is None
         assert self.tokenizer._decoder is None
 
-    @patch("fairseq2.models.hg.tokenizer.HuggingFaceTokenEncoder")
+    @patch("fairseq2.models.hg_qwen_omni.tokenizer.HuggingFaceTokenEncoder")
     def test_create_encoder(self, mock_encoder_class: MagicMock) -> None:
         """Test encoder creation."""
         mock_encoder = MagicMock()
@@ -103,7 +103,7 @@ class TestHgTokenizer:
         assert encoder is mock_encoder
         assert self.tokenizer._encoder is mock_encoder
 
-    @patch("fairseq2.models.hg.tokenizer.HuggingFaceTokenEncoder")
+    @patch("fairseq2.models.hg_qwen_omni.tokenizer.HuggingFaceTokenEncoder")
     def test_create_encoder_with_device(self, mock_encoder_class: MagicMock) -> None:
         """Test encoder creation with device."""
         mock_encoder = MagicMock()
@@ -116,7 +116,7 @@ class TestHgTokenizer:
         )
         assert encoder is mock_encoder
 
-    @patch("fairseq2.models.hg.tokenizer.HuggingFaceTokenEncoder")
+    @patch("fairseq2.models.hg_qwen_omni.tokenizer.HuggingFaceTokenEncoder")
     def test_create_raw_encoder(self, mock_encoder_class: MagicMock) -> None:
         """Test raw encoder creation."""
         mock_encoder = MagicMock()
@@ -139,7 +139,7 @@ class TestHgTokenizer:
 
         assert encoder is mock_encoder
 
-    @patch("fairseq2.models.hg.tokenizer.HuggingFaceTokenDecoder")
+    @patch("fairseq2.models.hg_qwen_omni.tokenizer.HuggingFaceTokenDecoder")
     def test_create_decoder(self, mock_decoder_class: MagicMock) -> None:
         """Test decoder creation."""
         mock_decoder = MagicMock()
@@ -153,7 +153,7 @@ class TestHgTokenizer:
         assert decoder is mock_decoder
         assert self.tokenizer._decoder is mock_decoder
 
-    @patch("fairseq2.models.hg.tokenizer.HuggingFaceTokenDecoder")
+    @patch("fairseq2.models.hg_qwen_omni.tokenizer.HuggingFaceTokenDecoder")
     def test_create_decoder_skip_special_tokens(
         self, mock_decoder_class: MagicMock
     ) -> None:
@@ -265,7 +265,7 @@ class TestHgTokenizer:
 class TestLoadHgTokenizer:
     """Test the load_hg_tokenizer function."""
 
-    @patch("fairseq2.models.hg.tokenizer.load_hg_token_model")
+    @patch("fairseq2.models.hg_qwen_omni.tokenizer.load_hg_token_model")
     def test_load_hg_tokenizer_basic(self, mock_load_model: MagicMock) -> None:
         """Test basic tokenizer loading."""
         mock_model = MagicMock()
@@ -287,7 +287,7 @@ class TestLoadHgTokenizer:
         assert isinstance(result, HgTokenizer)
         assert result._model is mock_model
 
-    @patch("fairseq2.models.hg.tokenizer.load_hg_token_model")
+    @patch("fairseq2.models.hg_qwen_omni.tokenizer.load_hg_token_model")
     def test_load_hg_tokenizer_with_tokens(self, mock_load_model: MagicMock) -> None:
         """Test tokenizer loading with custom tokens."""
         mock_model = MagicMock()
@@ -316,7 +316,7 @@ class TestLoadHgTokenizer:
         assert isinstance(result, HgTokenizer)
         assert result._model is mock_model
 
-    @patch("fairseq2.models.hg.tokenizer.load_hg_token_model")
+    @patch("fairseq2.models.hg_qwen_omni.tokenizer.load_hg_token_model")
     def test_load_hg_tokenizer_propagates_errors(
         self, mock_load_model: MagicMock
     ) -> None:
