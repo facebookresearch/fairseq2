@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 
-from fairseq2.gang import Gangs, get_current_gangs, get_default_gangs
+from fairseq2.gang import get_current_gangs, get_default_gangs
 from fairseq2.models.hg.config import HuggingFaceModelConfig
 from fairseq2.models.hg.factory import (
     HgFactory,
@@ -192,11 +192,8 @@ class TestHgFactory:
             from fairseq2.assets import get_asset_store
             from fairseq2.device import get_default_device
             from fairseq2.gang import (
-                Gang,
-                Gangs,
                 ProcessGroupGang,
                 create_parallel_gangs,
-                maybe_get_current_gangs,
             )
             from fairseq2.models.hg import get_hg_model_hub
 
@@ -207,7 +204,7 @@ class TestHgFactory:
 
             card = get_asset_store().retrieve_card("hg_qwen25_omni_3b")
             dist.barrier()
-            model = get_hg_model_hub().load_model(card)
+            get_hg_model_hub().load_model(card, gangs=gangs)
             dist.barrier()
             gangs.close()
 
@@ -557,4 +554,5 @@ if __name__ == "__main__":
 
     if torch.cuda.is_available() and torch.cuda.device_count() > 1:
         mg_factory = TestHgFactory()
+        mg_factory.setup_method()
         mg_factory.test_create_model_special_model_with_gangs()

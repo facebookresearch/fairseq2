@@ -31,13 +31,10 @@ import copy
 import importlib
 import os
 import re
-import urllib
 from pathlib import Path
 from typing import Any, Dict, Type
 
 import torch
-import torch.distributed as dist
-import torch.nn as nn
 from tqdm.auto import tqdm
 
 from fairseq2.assets import HuggingFaceHub
@@ -45,19 +42,13 @@ from fairseq2.device import get_default_device
 from fairseq2.error import NotSupportedError, OperationalError
 from fairseq2.file_system import LocalFileSystem
 from fairseq2.gang import (
-    FakeGang,
-    Gang,
-    GangError,
     Gangs,
-    ProcessGroupGang,
-    create_parallel_gangs,
     get_current_gangs,
     get_default_gangs,
 )
 from fairseq2.logging import log
 from fairseq2.models.hg.config import HuggingFaceModelConfig
-from fairseq2.nn import ColumnShardedLinear, Linear, RowShardedLinear
-from fairseq2.nn.embedding import StandardEmbedding, VocabShardedEmbedding
+from fairseq2.nn import Linear
 from fairseq2.utils.uri import Uri
 
 try:
@@ -335,8 +326,6 @@ def _simple_shard_qwen_omni_model(
 
     qkv_pattern_c = re.compile("[.]q_|[.]k_|[.]v_|_[qkv]$|[.][qkv]$")
     out_pattern_c = re.compile("out|[.]o_|_o$|[.]o$|[.]proj$")
-    col_ffn_pattern_c = re.compile("ff.*[02]|fc[1]|mlp.*[01]|[.]gate_|[.]down_")
-    row_ffn_pattern_c = re.compile("ff.*[13]|up_|fc2|mlp.*[2]")
 
     fs_model = copy.copy(model)
 
@@ -386,9 +375,6 @@ def _load_special_model(
     model_info: Dict[str, str],
     gangs: Gangs | None = None,
 ) -> Any:
-    from transformers.models.qwen2_5_omni.modeling_qwen2_5_omni import (
-        Qwen2_5OmniForConditionalGeneration,
-    )
 
     """Load a model using special/custom classes."""
 

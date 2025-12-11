@@ -11,7 +11,6 @@ from __future__ import annotations
 from typing import Optional
 
 from torch.nn import Module
-from transformers import PreTrainedModel
 
 from fairseq2.nn.fsdp import FSDPWrapper
 
