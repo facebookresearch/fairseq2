@@ -542,6 +542,7 @@ class TestImportClassFromTransformers:
         assert "TestClass" in str(exc_info.value)
         assert "not found" in str(exc_info.value)
 
+
 if __name__ == "__main__":
     """
     Hardware dependent test:

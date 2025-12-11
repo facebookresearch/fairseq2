@@ -375,7 +375,6 @@ def _load_special_model(
     model_info: Dict[str, str],
     gangs: Gangs | None = None,
 ) -> Any:
-
     """Load a model using special/custom classes."""
 
     log.info(f"Loading special model '{name}' using custom classes")
