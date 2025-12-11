@@ -60,15 +60,27 @@ For detailed documentation, see: :doc:`/reference/fairseq2.models.hg_qwen_omni
 from __future__ import annotations
 
 from fairseq2.models.hg_qwen_omni.api import load_causal_lm as load_causal_lm
-from fairseq2.models.hg_qwen_omni.api import load_hg_model_simple as load_hg_model_simple
-from fairseq2.models.hg_qwen_omni.api import load_hg_tokenizer_simple as load_hg_tokenizer_simple
-from fairseq2.models.hg_qwen_omni.api import load_multimodal_model as load_multimodal_model
+from fairseq2.models.hg_qwen_omni.api import (
+    load_hg_model_simple as load_hg_model_simple,
+)
+from fairseq2.models.hg_qwen_omni.api import (
+    load_hg_tokenizer_simple as load_hg_tokenizer_simple,
+)
+from fairseq2.models.hg_qwen_omni.api import (
+    load_multimodal_model as load_multimodal_model,
+)
 from fairseq2.models.hg_qwen_omni.api import load_seq2seq_lm as load_seq2seq_lm
 from fairseq2.models.hg_qwen_omni.config import HG_FAMILY as HG_FAMILY
-from fairseq2.models.hg_qwen_omni.config import HuggingFaceModelConfig as HuggingFaceModelConfig
-from fairseq2.models.hg_qwen_omni.config import register_hg_configs as register_hg_configs
+from fairseq2.models.hg_qwen_omni.config import (
+    HuggingFaceModelConfig as HuggingFaceModelConfig,
+)
+from fairseq2.models.hg_qwen_omni.config import (
+    register_hg_configs as register_hg_configs,
+)
 from fairseq2.models.hg_qwen_omni.factory import HgFactory as HgFactory
-from fairseq2.models.hg_qwen_omni.factory import HuggingFaceModelError as HuggingFaceModelError
+from fairseq2.models.hg_qwen_omni.factory import (
+    HuggingFaceModelError as HuggingFaceModelError,
+)
 from fairseq2.models.hg_qwen_omni.factory import create_hg_model as create_hg_model
 from fairseq2.models.hg_qwen_omni.factory import (
     register_hg_model_class as register_hg_model_class,
@@ -77,7 +89,13 @@ from fairseq2.models.hg_qwen_omni.fsdp import (
     apply_fsdp_to_hg_transformer_lm as apply_fsdp_to_hg_transformer_lm,
 )
 from fairseq2.models.hg_qwen_omni.hub import get_hg_model_hub as get_hg_model_hub
-from fairseq2.models.hg_qwen_omni.hub import get_hg_tokenizer_hub as get_hg_tokenizer_hub
+from fairseq2.models.hg_qwen_omni.hub import (
+    get_hg_tokenizer_hub as get_hg_tokenizer_hub,
+)
 from fairseq2.models.hg_qwen_omni.tokenizer import HgTokenizer as HgTokenizer
-from fairseq2.models.hg_qwen_omni.tokenizer import HgTokenizerConfig as HgTokenizerConfig
-from fairseq2.models.hg_qwen_omni.tokenizer import load_hg_tokenizer as load_hg_tokenizer
+from fairseq2.models.hg_qwen_omni.tokenizer import (
+    HgTokenizerConfig as HgTokenizerConfig,
+)
+from fairseq2.models.hg_qwen_omni.tokenizer import (
+    load_hg_tokenizer as load_hg_tokenizer,
+)
