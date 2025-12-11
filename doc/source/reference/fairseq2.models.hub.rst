@@ -41,19 +41,20 @@ Core Classes
 ModelHub
 ~~~~~~~~
 
-.. autoclass:: ModelHub
+.. autoclass:: fairseq2.models.ModelHub
    :no-members:
+   :no-inherited-members:
 
     The main hub class that provides access to all model operations for a specific family.
 
     **Key Methods:**
 
-    * :meth:`~ModelHub.get_archs` - List available architectures
-    * :meth:`~ModelHub.get_arch_config` - Get architecture configuration
-    * :meth:`~ModelHub.create_new_model` - Create newly initialized model
-    * :meth:`~ModelHub.load_model` - Load model from asset card
-    * :meth:`~ModelHub.load_custom_model` - Load model from custom checkpoint
-    * :meth:`~ModelHub.iter_cards` - Iterate over available model cards
+    * :meth:`ModelHub.get_archs` - List available architectures
+    * :meth:`ModelHub.get_arch_config` - Get architecture configuration
+    * :meth:`ModelHub.create_new_model` - Create newly initialized model
+    * :meth:`ModelHub.load_model` - Load model from asset card
+    * :meth:`ModelHub.load_custom_model` - Load model from custom checkpoint
+    * :meth:`ModelHub.iter_cards` - Iterate over available model cards
 
 ModelHubAccessor
 ~~~~~~~~~~~~~~~~
