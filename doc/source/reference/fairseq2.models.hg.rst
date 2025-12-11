@@ -192,12 +192,6 @@ Module Structure
    fairseq2.models.hg.hub
    fairseq2.models.hg.tokenizer
 
-fairseq2.models.hg
-==================
-
-.. automodule:: fairseq2.models.hg
-    :no-members:
-
 ABCs
 ====
 

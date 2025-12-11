@@ -42,8 +42,7 @@ ModelHub
 ~~~~~~~~
 
 .. autoclass:: ModelHub
-    :members:
-    :show-inheritance:
+   :no-members:
 
     The main hub class that provides access to all model operations for a specific family.
 
