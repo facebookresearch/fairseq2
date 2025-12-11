@@ -30,7 +30,7 @@ def get_transformer_cls_names_to_wrap(
 
 
 def replace_layers(
-    model: PreTrainedModel, transformer_cls_to_wrap: set[str], wrapper: FSDPWrapper
+    model: Module, transformer_cls_to_wrap: set[str], wrapper: FSDPWrapper
 ) -> None:
     for name, module in model.named_children():
         if len(list(module.children())) > 0:
@@ -40,7 +40,7 @@ def replace_layers(
 
 
 def apply_fsdp_to_hg_transformer_lm(
-    model: PreTrainedModel, granularity: str, wrapper: FSDPWrapper
+    model: Module, granularity: str, wrapper: FSDPWrapper
 ) -> Module:
     transformer_cls_names_to_wrap = get_transformer_cls_names_to_wrap(
         model,
