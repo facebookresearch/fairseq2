@@ -823,6 +823,9 @@ class GrpoFinetuneConfig:
     vllm_reward_model_actor_name: str | None = None
     """Optional name of the Ray vLLM actor used as a reward model."""
 
+    vllm_base_reward_model_actor_name: str | None = None
+    """Optional name of the Ray vLLM actor used as a reward model."""
+
     vllm_reference_model_actor_name: str | None = None
     """Optional name of the Ray vLLM actor used as a reference model."""
 
@@ -886,15 +889,20 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
                 raise ValueError(
                     f"reward model actor must have update process group if we sync weights"
                 )
+        vllm_base_reward_model = vllm_actors.get(
+            config.vllm_base_reward_model_actor_name, None
+        )
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         reward_name = config.reward.name
         reward_handler = reward_registry.get(reward_name)
         reward = reward_handler.create(
             reward_model=vllm_reward_model,
+            base_reward_model=vllm_base_reward_model,
             reward_name=reward_name,
             reward_config=config.reward.config,
             gangs=gangs,
             context=self._context,
+            separate_base_rm=config.vllm_base_reward_model_actor_name is not None,
         )
 
         # sync models here before we start training
