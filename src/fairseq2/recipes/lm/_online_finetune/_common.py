@@ -491,6 +491,12 @@ def log_rollouts(prompt_batch: PromptBatch, rollouts, split_name, num_rollouts=1
         rollout_text = rollout.text
         log.info(f"{split_name} Rollout: {rollout_text}")
 
+    if "suffix" in prompt_batch.meta_info:
+        suffix = prompt_batch.meta_info.get("suffix")[0]
+    else:
+        prompt = "DUMMY SUFFIX"
+    log.info(f"{split_name} Suffix: {suffix}")
+
 
 def get_rollout_lengths(rollouts: List[SequenceData]):
     """Get the lengths of the rollouts."""
