@@ -23,7 +23,7 @@ from fairseq2.metrics.recorders import (
     MetricDescriptor,
     MetricDescriptorRegistry,
 )
-from fairseq2.models.hg import HuggingFaceConverter
+from fairseq2.models.utils.hg import HuggingFaceConverter
 from fairseq2.optim.fp16_loss_scaler import (
     NOOP_FP16_LOSS_SCALER,
     Float16LossScaler,

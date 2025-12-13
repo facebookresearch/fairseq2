@@ -22,7 +22,13 @@ from fairseq2.models import (
     ShardSpecsProvider,
     StandardModelFamily,
 )
-from fairseq2.models.hg import HuggingFaceConverter, _LegacyHuggingFaceConverter
+from fairseq2.models.hg_qwen_omni import (
+    HG_FAMILY,
+    HuggingFaceModelConfig,
+    apply_fsdp_to_hg_transformer_lm,
+    create_hg_model,
+    register_hg_configs,
+)
 from fairseq2.models.jepa import (
     JEPA_FAMILY,
     JepaConfig,
@@ -101,6 +107,7 @@ from fairseq2.models.transformer_lm import (
     apply_fsdp_to_transformer_lm,
     compile_transformer_lm,
 )
+from fairseq2.models.utils.hg import HuggingFaceConverter, _LegacyHuggingFaceConverter
 from fairseq2.models.w2vbert import (
     W2VBERT_FAMILY,
     W2VBertConfig,
@@ -172,7 +179,7 @@ def register_model_family(
 ) -> None:
     if hg_exporter is not None:
         _warn_deprecated(
-            "`hg_exporter` is deprecated and will be removed in v0.9. Use `fairseq2.models.hg.HuggingFaceConverter` instead."
+            "`hg_exporter` is deprecated and will be removed in v0.9. Use `fairseq2.models.hg_qwen_omni.HuggingFaceConverter` instead."
         )
 
         hg_converter = _LegacyHuggingFaceConverter(hg_exporter)
@@ -394,3 +401,24 @@ def _register_model_families(container: DependencyContainer) -> None:
     )
 
     register_wav2vec2_asr_configs(container)
+
+    # HuggingFace
+    hg_kls: type[Module] | type[PreTrainedModel]
+    try:
+        from transformers import PreTrainedModel
+
+        hg_kls = PreTrainedModel
+    except ImportError:
+        hg_kls = Module
+
+    register_model_family(
+        container,
+        HG_FAMILY,
+        kls=hg_kls,
+        config_kls=HuggingFaceModelConfig,
+        fsdp_applier=apply_fsdp_to_hg_transformer_lm,
+        factory=create_hg_model,
+        supports_meta=False,  # HF models don't support meta device initialization
+    )
+
+    register_hg_configs(container)

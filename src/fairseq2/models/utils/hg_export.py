@@ -49,7 +49,7 @@ from fairseq2.models import (
     ModelGatedError,
     _maybe_get_model_family,
 )
-from fairseq2.models.hg import (
+from fairseq2.models.utils.hg import (
     HuggingFaceConfig,
     HuggingFaceConverter,
     _LegacyHuggingFaceConverter,

@@ -11,9 +11,9 @@ from typing import Final, cast, final
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.models.hg import HuggingFaceConfig, HuggingFaceConverter
 from fairseq2.models.llama.config import LLaMAConfig
 from fairseq2.models.utils.checkpoint import convert_state_dict, create_reverse_key_map
+from fairseq2.models.utils.hg import HuggingFaceConfig, HuggingFaceConverter
 from fairseq2.utils.config import cast_config_type
 
 

@@ -67,7 +67,7 @@ class HuggingFaceConverter(ABC):
 
     .. code:: python
 
-        from fairseq2.models.hg import HuggingFaceConverter
+        from fairseq2.models.hg_qwen_omni import HuggingFaceConverter
         from fairseq2.runtime.dependency import DependencyContainer, register_model_family
 
         class MyModelConverter(HuggingFaceConverter):

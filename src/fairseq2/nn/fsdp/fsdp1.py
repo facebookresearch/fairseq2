@@ -189,10 +189,12 @@ def fsdp1_local_state_dict(module: FSDP1Module) -> dict[str, object]:
         for name, item in module.state_dict().items():
             if isinstance(item, ShardedTensor):
                 local_shards = item.local_shards()
-                if not local_shards:
-                    continue  # means the tensor is sharded unevenly.
+                if local_shards:
+                    item = item.local_tensor().detach()
+                else:  # means the tensor is sharded unevenly.
+                    # still keep the empty tensor in the state_dict
+                    item = Tensor(item.local_shards())
 
-                item = item.local_tensor().detach()
             elif isinstance(item, Tensor):
                 item = item.detach()
 
@@ -217,7 +219,11 @@ def fsdp1_load_local_state_dict(
         for key, value in module.state_dict().items():
             if isinstance(value, ShardedTensor):
                 input_value = state_dict.get(key)
-                if isinstance(input_value, Tensor):
+                local_shards = value.local_shards()
+                if not local_shards:
+                    print(f"empty local_shards, setting {key} and ignoring state_dict")
+                    state_dict[key] = value
+                elif isinstance(input_value, Tensor):
                     value.local_tensor().detach().copy_(input_value)
 
                     state_dict[key] = value
