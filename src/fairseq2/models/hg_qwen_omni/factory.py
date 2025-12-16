@@ -48,8 +48,9 @@ from fairseq2.gang import (
 )
 from fairseq2.logging import log
 from fairseq2.models.hg_qwen_omni.config import HuggingFaceModelConfig
-from fairseq2.nn import Linear
+from fairseq2.nn import Linear, RowShardedLinear, ColumnShardedLinear
 from fairseq2.utils.uri import Uri
+from fairseq2.ops.tensor_parallel import gather, reduce
 
 try:
     from transformers import (
@@ -309,6 +310,107 @@ def _replace_layer(
     else:
         setattr(layers_indexable, last, value)
 
+def make_all_gather_forward_hook(gang):
+    def all_gather_forward_hook(module, input, output):
+        # Perform all_gather on standard linear input before
+        # passing to ColumnShardedLinear
+        """
+        input_tensor = input_tensor[0]
+        # Prepare output tensor for all gathered tensors
+        output_shape = (gang.size, ) + input_tensor.shape
+        output_tensor = torch.empty(output_shape, dtype=input_tensor.dtype, device=input_tensor.device)
+        # Perform all-gather
+        gang.all_gather(output_tensor, input_tensor)
+        # Return the gathered tensor to be used as input to the module
+        return (output_tensor,)
+        """
+        input_tensor = input[0]
+        return gather(input_tensor, gang, dim=-1)
+    return all_gather_forward_hook
+
+def make_all_reduce_forward_hook(gang):
+    def all_reduce_forward_hook(module, input, output):
+        input_tensor = input[0]
+        return reduce(input_tensor, gang)
+    return all_reduce_forward_hook
+
+def _tp_shard_qwen_omni_model(
+    model: Qwen2_5OmniForConditionalGeneration, gangs: Gangs
+) -> Qwen2_5OmniForConditionalGeneration:
+    """
+    Shard a QwenOmni HuggingFace checkpoint for tensor parallelism,
+    using an optimized row/column sharded process
+
+    :param model: The model to shard
+
+    :param gangs: The gangs to use when sharding
+
+    :returns: The sharded model with row/column sharded layers
+    """
+
+    qkv_pattern_c = re.compile("[.]q_|[.]k_|[.]v_|_[qkv]$|[.][qkv]$")
+    out_pattern_c = re.compile("out|[.]o_|_o$|[.]o$|[.]proj$")
+    col_ffn_pattern_c = re.compile("ff.*[02]|fc[1]|mlp.*[01]|[.]gate_|[.]down_")
+    row_ffn_pattern_c = re.compile("ff.*[13]|up_|fc2|mlp.*[2]")
+
+    fs_model = copy.copy(model)
+
+    progress_bar = tqdm(total=len(list(model.modules())))
+
+    gang = gangs.tp
+
+    # This checks to see if all gather is required, e.g.
+    # did the previous layer have a standard linear layer
+    # that needs to be gathered before column
+    prev_linear = False
+    prev_column = False
+    prev_row = False
+    
+    for name, module in model.named_modules():
+        if isinstance(module, torch.nn.Linear):
+            output_dim, input_dim, bias, dtype = module.out_features, module.in_features, module.bias is not None, module.weight.dtype
+            fs_proj = Linear(input_dim=input_dim, output_dim=output_dim, bias=bias, dtype=dtype, device=gangs.device)
+            state_dict = module.state_dict()
+            fs_proj.load_state_dict(state_dict)
+            if qkv_pattern_c.search(name):
+                if prev_linear or prev_column:
+                    hook = make_all_gather_forward_hook(gang)
+                    sharded_proj.register_forward_hook(hook)
+                sharded_proj = ColumnShardedLinear.from_linear(fs_proj, gangs=gangs)
+                prev_column = True
+                prev_row = False
+                prev_linear = False
+            elif out_pattern_c.search(name):
+                sharded_proj = RowShardedLinear.from_linear(fs_proj, gangs=gangs)
+                prev_row = True
+                prev_column = False
+                prev_linear = False
+            elif col_ffn_pattern_c.search(name):
+                sharded_proj = ColumnShardedLinear.from_linear(fs_proj, gangs=gangs)
+                if prev_linear or prev_column:
+                    hook = make_all_gather_forward_hook(gang)
+                    sharded_proj.register_forward_hook(hook)
+                prev_row = False
+                prev_linear = False
+                prev_column = True
+            elif row_ffn_pattern_c.search(name):
+                sharded_proj = RowShardedLinear.from_linear(fs_proj, gangs=gangs)
+                prev_row = True
+                prev_column = False
+                prev_linear = False
+            else:
+                sharded_proj = fs_proj
+                if prev_row:
+                    hook = make_all_reduce_forward_hook(gang)
+                    sharded_proj.register_forward_hook(hook)
+                prev_linear = True
+                prev_column = False
+                prev_row = False
+            _replace_layer(fs_model, name, sharded_proj)
+
+        progress_bar.update(1)
+
+    return fs_model
 
 def _simple_shard_qwen_omni_model(
     model: Qwen2_5OmniForConditionalGeneration, gangs: Gangs
@@ -414,8 +516,12 @@ def _load_special_model(
     # Shard the model according to available gangs
     if gangs is not None and gangs.tp.size > 1:
         try:
-            print(f"Sharding model with {gangs.tp.size} gangs...")
-            model = _simple_shard_qwen_omni_model(model, gangs)
+            # if shard == "row_col":
+            print(f"TP sharding model (row/column optimized) with {gangs.tp.size} gangs...")
+            model = _tp_shard_qwen_omni_model(model, gangs)
+            # else:
+                # print(f"Simple sharding model with {gangs.tp.size} gangs...")
+                # model = _simple_shard_qwen_omni_model(model, gangs)
             print("Model successfully sharded!")
 
         except Exception as e:

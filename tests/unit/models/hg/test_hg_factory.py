@@ -200,7 +200,7 @@ class TestHgFactory:
             world_size = torch.cuda.device_count()
             device = get_default_device()
             root_gang = ProcessGroupGang.create_default_process_group(device)
-            gangs = create_parallel_gangs(root_gang, tp_size=world_size)
+            gangs = create_parallel_gangs(root_gang, tp_size=world_size//2)
 
             card = get_asset_store().retrieve_card("hg_qwen25_omni_3b")
             dist.barrier()
