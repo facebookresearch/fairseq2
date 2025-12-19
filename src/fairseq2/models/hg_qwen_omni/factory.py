@@ -325,14 +325,32 @@ def make_all_gather_forward_hook(gang):
         return (output_tensor,)
         """
         input_tensor = input[0]
-        return gather(input_tensor, gang, dim=-1)
+        gathered = gather(input_tensor, gang, dim=-1)
+        return output
     return all_gather_forward_hook
 
 def make_all_reduce_forward_hook(gang):
     def all_reduce_forward_hook(module, input, output):
         input_tensor = input[0]
-        return reduce(input_tensor, gang)
+        print(f"Before reduce: {input_tensor.shape}")
+        input_tensor = reduce(input_tensor, gang)
+        print(f"After reduce: {input_tensor.shape}")
+        output = torch.matmul(input_tensor, module.weight)
+        return output
     return all_reduce_forward_hook
+
+def transpose_hook(module, input, output):
+    input_tensor = input[0]
+    print(f"Prev module: {prev_layer} layer shape: ({prev_layer.output_dim}, {prev_layer.input_dim}")
+    print(f"Module: {module}, Input shape: {input_tensor.shape}, Output shape: {output.shape}")
+    if prev_layer.output_dim != module.weight.shape[0]:
+        print("Transposing!")
+        transposed_weight = module.weight.t()
+        print(f"Transposed shape: {transposed_weight.shape}")
+        output = torch.matmul(input_tensor, transposed_weight)
+    else:
+        output = torch.matmul(input_tensor, module.weight)
+    return output
 
 def _tp_shard_qwen_omni_model(
     model: Qwen2_5OmniForConditionalGeneration, gangs: Gangs
@@ -347,9 +365,9 @@ def _tp_shard_qwen_omni_model(
 
     :returns: The sharded model with row/column sharded layers
     """
-
+ 
     qkv_pattern_c = re.compile("[.]q_|[.]k_|[.]v_|_[qkv]$|[.][qkv]$")
-    out_pattern_c = re.compile("out|[.]o_|_o$|[.]o$|[.]proj$")
+    out_pattern_c = re.compile(".*attn.*out|[.]o_|_o$|[.]o$|.*attn.*proj$")
     col_ffn_pattern_c = re.compile("ff.*[02]|fc[1]|mlp.*[01]|[.]gate_|[.]down_")
     row_ffn_pattern_c = re.compile("ff.*[13]|up_|fc2|mlp.*[2]")
 
@@ -365,6 +383,8 @@ def _tp_shard_qwen_omni_model(
     prev_linear = False
     prev_column = False
     prev_row = False
+
+    global prev_layer
     
     for name, module in model.named_modules():
         if isinstance(module, torch.nn.Linear):
@@ -373,39 +393,41 @@ def _tp_shard_qwen_omni_model(
             state_dict = module.state_dict()
             fs_proj.load_state_dict(state_dict)
             if qkv_pattern_c.search(name):
-                if prev_linear or prev_column:
-                    hook = make_all_gather_forward_hook(gang)
-                    sharded_proj.register_forward_hook(hook)
-                sharded_proj = ColumnShardedLinear.from_linear(fs_proj, gangs=gangs)
+                # if prev_linear or prev_column:
+                    # hook = make_all_gather_forward_hook(gang)
+                    # sharded_proj.register_forward_hook(hook)
+                sharded_proj = ColumnShardedLinear.from_linear(fs_proj, gangs=gangs, gather_output=False)
                 prev_column = True
                 prev_row = False
                 prev_linear = False
             elif out_pattern_c.search(name):
-                sharded_proj = RowShardedLinear.from_linear(fs_proj, gangs=gangs)
+                sharded_proj = RowShardedLinear.from_linear(fs_proj, gangs=gangs, scatter_input=False, reduce_output=True)
                 prev_row = True
                 prev_column = False
                 prev_linear = False
             elif col_ffn_pattern_c.search(name):
-                sharded_proj = ColumnShardedLinear.from_linear(fs_proj, gangs=gangs)
-                if prev_linear or prev_column:
-                    hook = make_all_gather_forward_hook(gang)
-                    sharded_proj.register_forward_hook(hook)
+                sharded_proj = ColumnShardedLinear.from_linear(fs_proj, gangs=gangs, gather_output=False)
+                # if prev_linear or prev_column:
+                    # hook = make_all_gather_forward_hook(gang)
+                    # sharded_proj.register_forward_hook(hook)
                 prev_row = False
                 prev_linear = False
                 prev_column = True
             elif row_ffn_pattern_c.search(name):
-                sharded_proj = RowShardedLinear.from_linear(fs_proj, gangs=gangs)
+                sharded_proj = RowShardedLinear.from_linear(fs_proj, gangs=gangs, scatter_input=False, reduce_output=True)
                 prev_row = True
                 prev_column = False
                 prev_linear = False
             else:
                 sharded_proj = fs_proj
-                if prev_row:
-                    hook = make_all_reduce_forward_hook(gang)
-                    sharded_proj.register_forward_hook(hook)
+                # if prev_column:
+                hook = make_all_reduce_forward_hook(gang)
+                sharded_proj.register_forward_hook(hook)
                 prev_linear = True
                 prev_column = False
                 prev_row = False
+            prev_layer = sharded_proj
+            sharded_proj.register_forward_hook(transpose_hook)
             _replace_layer(fs_model, name, sharded_proj)
 
         progress_bar.update(1)
