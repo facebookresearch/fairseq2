@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+import numpy as np
 import torch
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets.preference import PreferenceBatch
@@ -987,6 +988,9 @@ class PplDerivedVerifierHandler(VLLMOutputRewardHandler):
                 "vllm_proc_name_dict", None
             ),
             reward_agg=reward_config.additional_fields.get("reward_agg", "sum"),
+            gt_logp_mask_percentile=reward_config.additional_fields.get(
+                "gt_logp_mask_percentile", None
+            ),
         )
 
     @property
@@ -1018,6 +1022,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         reason_end_wrap_key="reason_end_wrap",
         vllm_proc_name_dict=None,
         reward_agg="sum",
+        gt_logp_mask_percentile=None,
     ):
         self.prompt_key = prompt_key
         self.answer_key = answer_key
@@ -1035,6 +1040,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         self.enable_human_friendly_log = False
         self.vllm_proc_name_dict = vllm_proc_name_dict
         self.reward_agg = reward_agg
+        self.gt_logp_mask_percentile = gt_logp_mask_percentile
 
         self._dummy_prefix_w_think_tag = "Water in a pan reaches 100°C, but the pan is still left on the heat, so eventually all of the water turns to water vapor. Calculate the energy needed to evaporate the 1.2 kg of water contained by the pan. Use a value of 2258 kJ/kg for the specific latent heat of vaporization of water. Give your answer to 2 significant figures. <think>"
         self._dummy_suffix = "04:11 ### Video Transcript Water in a pan reaches 100 degrees Celsius. But the pan is still left on the heat. So eventually, all of the water turns to water vapor. Calculate the energy needed to evaporate the 1.2 kilograms of water contained by the pan. Use a value of 2258 kilojoules per kilogram for the specific latent heat of vaporization of water. Give your answer to two significant figures. Alright. So this is a long question. So we should start by underlining all the important"
@@ -1433,12 +1439,41 @@ class PplDerivedVerifier(VLLMOutputReward):
         ]
         return text_tokens, n_input_tokens
 
-    def extract_scores(self, prompt_logprobs: List[Any], prompt_len: int) -> float:
+    def select_low_base_logps_toks(
+        self, talking_rollout, prompt_len, percentile, min_keep=10
+    ):
+        completion_logprobs_vals = [
+            list(d.values())[0].logprob
+            for d in talking_rollout.prompt_logprobs[prompt_len:]
+        ]
+        logps_np = np.asarray(completion_logprobs_vals)
+
+        cutoff = np.percentile(logps_np, percentile)
+        mask = logps_np <= cutoff
+
+        if mask.sum() < min_keep:
+            top_idx = np.argsort(logps_np)[:min_keep]
+            mask = np.zeros_like(logps_np, dtype=bool)
+            mask[top_idx] = True
+        log.debug(f"gt {mask=}")
+        return mask
+
+    def extract_scores(
+        self,
+        prompt_logprobs: List[Any],
+        prompt_len: int,
+        gt_tok_mask=None,
+    ) -> float:
         completion_logprobs = prompt_logprobs[prompt_len:]
         assert completion_logprobs[0] is not None
         completion_logprobs_vals = [
             list(d.values())[0].logprob for d in completion_logprobs
         ]
+        if gt_tok_mask is not None:
+            # apply mask on the gp tokens
+            completion_logprobs_vals = np.asarray(completion_logprobs_vals)[
+                gt_tok_mask
+            ].tolist()
         tokens = [list(item.keys())[0] for item in completion_logprobs]
         fs2_log.debug(f"completion tokens={tokens}")
         fs2_log.debug(f"{completion_logprobs_vals=}")
@@ -1467,17 +1502,19 @@ class PplDerivedVerifier(VLLMOutputReward):
             base_rewards = base_rewards * len(target_rewards)
 
         if len(base_rewards) == len(target_rewards):
+            # ratio
             if self.reward_type.endswith("ratio"):
                 # take abs in case the reward is (-ppl)
                 return [
                     (target_rw - base_rw) / abs(base_rw)
                     for base_rw, target_rw in zip(base_rewards, target_rewards)
                 ]
-
+            # just diff
             scores: list[float] = [
                 target_rw - base_rw
                 for base_rw, target_rw in zip(base_rewards, target_rewards)
             ]
+            # rank
             if self.reward_type.endswith("rank"):
                 # lower raw score -> lower index -> lower final score
                 rank_map = {
@@ -1722,8 +1759,29 @@ class PplDerivedVerifier(VLLMOutputReward):
         )
         fs2_log.debug(f"rm {rollouts=}")
 
+        gt_tok_mask = None
+        if self.gt_logp_mask_percentile is not None:
+            start_idx, end_idx = rm_compo_ranges[
+                "suffix_base"
+            ]  # NOTE: we are using the prefix, suffix seq to compute the gt entropies.
+            talking_rollouts = rollouts[start_idx:end_idx]
+            talking_input_tok_lens = all_input_tok_lens[start_idx:end_idx]
+            assert (
+                len(talking_rollouts) == len(talking_input_tok_lens)
+                and len(talking_input_tok_lens) == 1
+            )
+
+            gt_tok_mask = self.select_low_base_logps_toks(
+                talking_rollouts[0],
+                talking_input_tok_lens[0],
+                percentile=self.gt_logp_mask_percentile,
+                min_keep=10,
+            )
+
         flat_scores: list[float] = [
-            self.extract_scores(rollout.prompt_logprobs, prompt_len=input_len)
+            self.extract_scores(
+                rollout.prompt_logprobs, prompt_len=input_len, gt_tok_mask=gt_tok_mask
+            )
             for rollout, input_len in zip(rollouts, all_input_tok_lens)
         ]
         fs2_log.info(f"{flat_scores=}")
