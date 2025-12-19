@@ -1455,6 +1455,9 @@ class PplDerivedVerifier(VLLMOutputReward):
             top_idx = np.argsort(logps_np)[:min_keep]
             mask = np.zeros_like(logps_np, dtype=bool)
             mask[top_idx] = True
+
+        # the first gt token is always selected
+        mask[0] = True
         log.debug(f"gt {mask=}")
         return mask
 
