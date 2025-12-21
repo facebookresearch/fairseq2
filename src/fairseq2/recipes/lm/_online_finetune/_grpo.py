@@ -227,24 +227,25 @@ def top_percentile_mask(
     assert 0 <= percentile <= 100
     assert min_kept >= 1
 
-    masked_vals = vals[mask]
-    if masked_vals.numel() == 0:
-        raise RuntimeError("no elements in mask")
+    with torch.no_grad():
+        masked_vals = vals[mask]
+        if masked_vals.numel() == 0:
+            raise RuntimeError("no elements in mask")
 
-    # percentile is bottom-p cutoff → keep top (100-p)%
-    threshold = torch.quantile(masked_vals, percentile / 100.0)
-    log.info(f"entropy {threshold=}, {masked_vals.max()=}, {masked_vals.min()=}")
-    keep = mask & (vals >= threshold)
+        # percentile is bottom-p cutoff → keep top (100-p)%
+        threshold = torch.quantile(masked_vals, percentile / 100.0)
+        log.info(f"entropy {threshold=}, {masked_vals.max()=}, {masked_vals.min()=}")
+        keep = mask & (vals >= threshold)
 
-    # ensure minimum kept
-    num_kept = keep.sum().item()
-    if num_kept < min_kept:
-        k = min(min_kept, masked_vals.numel())
+        # ensure minimum kept
+        num_kept = keep.sum().item()
+        if num_kept < min_kept:
+            k = min(min_kept, masked_vals.numel())
 
-        # kth largest → threshold
-        kth = torch.kthvalue(masked_vals, masked_vals.numel() - k + 1).values
+            # kth largest → threshold
+            kth = torch.kthvalue(masked_vals, masked_vals.numel() - k + 1).values
 
-        keep = mask & (vals >= kth)
+            keep = mask & (vals >= kth)
 
     return keep
 
