@@ -962,6 +962,8 @@ class PplDerivedVerifierHandler(VLLMOutputRewardHandler):
         reward_config: object,
         gangs: Gangs,
         context,
+        base_reward_model: Any = None,
+        separate_base_rm: bool = False,
     ) -> VLLMOutputReward:
         assert (
             reward_config.tokenizer is not None
@@ -991,6 +993,8 @@ class PplDerivedVerifierHandler(VLLMOutputRewardHandler):
             gt_logp_mask_percentile=reward_config.additional_fields.get(
                 "gt_logp_mask_percentile", None
             ),
+            base_reward_model=base_reward_model,
+            separate_base_rm=separate_base_rm,
         )
 
     @property
@@ -1023,6 +1027,8 @@ class PplDerivedVerifier(VLLMOutputReward):
         vllm_proc_name_dict=None,
         reward_agg="sum",
         gt_logp_mask_percentile=None,
+        base_reward_model=None,
+        separate_base_rm=False,
     ):
         self.prompt_key = prompt_key
         self.answer_key = answer_key
@@ -1044,6 +1050,8 @@ class PplDerivedVerifier(VLLMOutputReward):
 
         self._dummy_prefix_w_think_tag = "Water in a pan reaches 100°C, but the pan is still left on the heat, so eventually all of the water turns to water vapor. Calculate the energy needed to evaporate the 1.2 kg of water contained by the pan. Use a value of 2258 kJ/kg for the specific latent heat of vaporization of water. Give your answer to 2 significant figures. <think>"
         self._dummy_suffix = "04:11 ### Video Transcript Water in a pan reaches 100 degrees Celsius. But the pan is still left on the heat. So eventually, all of the water turns to water vapor. Calculate the energy needed to evaporate the 1.2 kilograms of water contained by the pan. Use a value of 2258 kilojoules per kilogram for the specific latent heat of vaporization of water. Give your answer to two significant figures. Alright. So this is a long question. So we should start by underlining all the important"
+        self.base_reward_model = base_reward_model
+        self.separate_base_rm = separate_base_rm
 
         self.vllm_input_proc_dict = {
             # -------- prefix related --------
@@ -1664,6 +1672,43 @@ class PplDerivedVerifier(VLLMOutputReward):
         fs2_log.debug(f"{key}_input_lens={input_lens}")
         return rm_vllm_tokens, input_lens
 
+    def _collect_segments_from_all(self, all_data, range_dict, keys):
+        collected_data = []
+        index_range_dict = {}
+        for key in keys:
+            start_idx, end_idx = range_dict[key]
+            i = len(collected_data)
+            collected_data.extend(all_data[start_idx:end_idx])
+            index_range_dict[key] = [i, len(collected_data)]
+        return collected_data, index_range_dict
+
+    def _construct_segments_dict(self, results, index_range_dict, keys):
+        results_dict = {}
+        for key in keys:
+            start_idx, end_idx = index_range_dict[key]
+            results_dict[key] = results[start_idx:end_idx]
+        return results_dict
+
+    def _dispatch_vllm(
+        self, all_rm_vllm_tokens, rm_compo_ranges, keys, vllm_model, rm_sampling_params
+    ):
+        curr_rm_vllm_tokens, curr_index_range_dict = self._collect_segments_from_all(
+            all_rm_vllm_tokens,
+            rm_compo_ranges,
+            keys,
+        )
+
+        rollouts: None = generate_rollouts(
+            curr_rm_vllm_tokens,
+            dp_gang=self._gangs.dp,
+            vllm_model=vllm_model,
+            sampling_params=SamplingParams(**rm_sampling_params),
+        )
+        rollout_dict = self._construct_segments_dict(
+            rollouts, curr_index_range_dict, keys
+        )
+        return rollout_dict
+
     @override
     def process_rollouts(
         self,
@@ -1753,13 +1798,43 @@ class PplDerivedVerifier(VLLMOutputReward):
         # if self._gangs.root.rank == 0:
         #     breakpoint()
         # self._gangs.root.barrier()
+        if self.separate_base_rm:
+            # dispatch and collect rollouts from base and main rm.
+            main_rm_keys: list[str] = ["prefix_base", "prefix_target", "suffix_target"]
+            main_rm_rollout_dict = self._dispatch_vllm(
+                all_rm_vllm_tokens,
+                rm_compo_ranges,
+                main_rm_keys,
+                self.reward_model,
+                rm_sampling_params,
+            )
+            fs2_log.debug(f"{main_rm_rollout_dict=}")
+            # NOTE: currently only "suffix_base" is assigned to base rm when there is a base rm along side main rm
+            # NOTE: we assume base rm and main rm use the same tokenizer
+            base_rm_keys: list[str] = ["suffix_base"]
+            base_rm_rollout_dict = self._dispatch_vllm(
+                all_rm_vllm_tokens,
+                rm_compo_ranges,
+                base_rm_keys,
+                self.base_reward_model,
+                rm_sampling_params,
+            )
+            fs2_log.debug(f"{base_rm_rollout_dict=}")
+            all_rm_rollout_dict = {**main_rm_rollout_dict, **base_rm_rollout_dict}
 
-        rollouts = generate_rollouts(
-            all_rm_vllm_tokens,
-            dp_gang=self._gangs.dp,
-            vllm_model=self.reward_model,
-            sampling_params=SamplingParams(**rm_sampling_params),
-        )
+            rollouts = [None] * len(all_rm_vllm_tokens)
+            # NOTE: rm_compo_key_list comes from the order of rm_compo_key_list
+            for key in rm_compo_key_list:
+                start_idx, end_idx = rm_compo_ranges[key]
+                rollouts[start_idx:end_idx] = all_rm_rollout_dict[key]
+        else:
+            rollouts = generate_rollouts(
+                all_rm_vllm_tokens,
+                dp_gang=self._gangs.dp,
+                vllm_model=self.reward_model,
+                sampling_params=SamplingParams(**rm_sampling_params),
+            )
+
         fs2_log.debug(f"rm {rollouts=}")
 
         gt_tok_mask = None
