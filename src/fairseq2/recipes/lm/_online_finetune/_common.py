@@ -470,7 +470,7 @@ def compute_token_level_entropy(logits: torch.Tensor, target_mask: torch.Tensor)
     target_counts = torch.clamp(target_counts, min=1e-8)
     entropy_per_seq = entropy_target_only.sum(dim=-1) / target_counts
 
-    return entropy_per_seq
+    return entropy, entropy_per_seq
 
 
 def log_rollouts(prompt_batch: PromptBatch, rollouts, split_name, num_rollouts=1):

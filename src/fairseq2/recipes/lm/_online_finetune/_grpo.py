@@ -220,6 +220,35 @@ def masked_mean(x, mask, eps=1e-8):
     return masked_x.sum() / denom
 
 
+def top_percentile_mask(
+    vals: torch.Tensor, mask: torch.Tensor, percentile: float, min_kept: int = 50
+):
+    assert vals.shape == mask.shape
+    assert 0 <= percentile <= 100
+    assert min_kept >= 1
+
+    masked_vals = vals[mask]
+    if masked_vals.numel() == 0:
+        raise RuntimeError("no elements in mask")
+
+    # percentile is bottom-p cutoff → keep top (100-p)%
+    threshold = torch.quantile(masked_vals, percentile / 100.0)
+    log.info(f"entropy {threshold=}, {masked_vals.max()=}, {masked_vals.min()=}")
+    keep = mask & (vals >= threshold)
+
+    # ensure minimum kept
+    num_kept = keep.sum().item()
+    if num_kept < min_kept:
+        k = min(min_kept, masked_vals.numel())
+
+        # kth largest → threshold
+        kth = torch.kthvalue(masked_vals, masked_vals.numel() - k + 1).values
+
+        keep = mask & (vals >= kth)
+
+    return keep
+
+
 @final
 class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     """Represents the language model DPO-finetuning unit with online generations. Paper: https://arxiv.org/abs/2305.18290."""
@@ -487,9 +516,19 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 "Ensure rollout slicing aligns with forward_group_size and group_size."
             )
 
-        tgt_logit_entropy = compute_token_level_entropy(
+        tok_entropies, tgt_logit_entropy = compute_token_level_entropy(
             grpo_model_logits, grpo_target_batch.target_mask
         )  # [Batch x Rollouts, 1]
+
+        high_entropy_rollout_tok_mask = None
+        if self._config.loss_config.rollout_token_mask_entropy_percentile is not None:
+            rollout_tok_mask = grpo_target_batch.target_mask
+            log.debug(f"{tok_entropies.shape=}, {rollout_tok_mask.shape=}")
+            high_entropy_rollout_tok_mask = top_percentile_mask(
+                tok_entropies,
+                rollout_tok_mask,
+                self._config.loss_config.rollout_token_mask_entropy_percentile,
+            )
 
         max_entropy_regularizer = (
             -tgt_logit_entropy.sum()
@@ -521,6 +560,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             grpo_batch.rewards,
             grpo_target_batch,
             metric_bag,
+            high_entropy_rollout_tok_mask,
         )
 
         grpo_loss = -_grpo_objective + max_entropy_regularizer
@@ -583,6 +623,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         advantages: Tensor,  # outcome based only for now
         target_batch: SequenceBatch,
         metric_bag,
+        high_entropy_rollout_tok_mask: Optional[torch.Tensor] = None,
     ) -> tuple[Tensor, Tensor, Tensor]:
 
         batch_size = advantages.size(0)
@@ -628,6 +669,18 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             per_token_loss = per_token_scaled_advantage
 
         target_mask = target_batch.target_mask.view(batch_size, num_rollouts, -1)
+        if high_entropy_rollout_tok_mask is not None:
+            high_entropy_rollout_tok_mask = high_entropy_rollout_tok_mask.view(
+                batch_size, num_rollouts, -1
+            )
+            assert high_entropy_rollout_tok_mask.shape == target_mask.shape
+            assert torch.all(
+                high_entropy_rollout_tok_mask.logical_and(target_mask)
+                == high_entropy_rollout_tok_mask
+            )
+            kept_ratio = high_entropy_rollout_tok_mask.sum() / target_mask.sum()
+            log.info(f"ratio of tokens with loss: {kept_ratio}")
+            target_mask = high_entropy_rollout_tok_mask
         if self._config.loss_config.cov_clip_ratio > 0:
             cov = (
                 advantages[:, :, None]
@@ -747,6 +800,8 @@ class GrpoLossConfig:
     cov_clip_ratio: float = 0
     cov_clip_high: float = 5
     cov_clip_low: float = 1
+
+    rollout_token_mask_entropy_percentile: Optional[float] = None
 
 
 @dataclass(kw_only=True)
