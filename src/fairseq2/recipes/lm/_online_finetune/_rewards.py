@@ -1095,6 +1095,7 @@ class PplDerivedVerifier(VLLMOutputReward):
             "ppl_ratio",
             "ppl",
             "logp_rank",
+            "per_token_logp_rank",
         ]
         assert "suffix_target" in self.vllm_proc_name_dict
         for key, proc_name in self.vllm_proc_name_dict.items():
@@ -1493,6 +1494,8 @@ class PplDerivedVerifier(VLLMOutputReward):
         tokens = [list(item.keys())[0] for item in completion_logprobs]
         fs2_log.debug(f"completion tokens={tokens}")
         fs2_log.debug(f"{completion_logprobs_vals=}")
+        if self.reward_type.startswith("per_token_logp"):
+            return completion_logprobs_vals
         mean_logp = sum(completion_logprobs_vals) / len(completion_logprobs_vals)
         if self.reward_type.startswith("logp"):
             return mean_logp
@@ -1503,7 +1506,10 @@ class PplDerivedVerifier(VLLMOutputReward):
             raise NotImplementedError
 
     def _cal_reward_diff(
-        self, base_rewards: List[float], target_rewards: List[float], num_rollouts: int
+        self,
+        base_rewards: List[float] | List[List[float]],
+        target_rewards: List[float] | List[List[float]],
+        num_rollouts: int,
     ) -> list[float]:
         # rewards are not comparative in this case.
         if base_rewards == []:
@@ -1511,56 +1517,61 @@ class PplDerivedVerifier(VLLMOutputReward):
                 # If both base and arget rewards are empty return zero rewards.
                 return [0] * num_rollouts
 
-            base_rewards = [0] * num_rollouts
+            base_rewards = np.zeros_like(target_rewards).tolist()
 
         # we avoid redundant computation earlier.
         if len(base_rewards) == 1:
             base_rewards = base_rewards * len(target_rewards)
 
-        if len(base_rewards) == len(target_rewards):
-            # ratio
-            if self.reward_type.endswith("ratio"):
-                # take abs in case the reward is (-ppl)
-                return [
-                    (target_rw - base_rw) / abs(base_rw)
-                    for base_rw, target_rw in zip(base_rewards, target_rewards)
-                ]
-            # just diff
-            scores: list[float] = [
-                target_rw - base_rw
-                for base_rw, target_rw in zip(base_rewards, target_rewards)
-            ]
-            # rank
-            if self.reward_type.endswith("rank"):
-                # lower raw score -> lower index -> lower final score
-                rank_map = {
-                    score: rank
-                    for rank, score in enumerate(sorted(set(scores)), start=1)
-                }
-                return [
-                    rank_map[score] / len(rank_map) for score in scores
-                ]  # rank_i/total_ranks as the score
-
-            return scores
-        else:
+        if len(base_rewards) != len(target_rewards):
             raise Exception(f"bad values: {base_rewards=}, {target_rewards=}")
+
+        base = np.asarray(base_rewards, dtype=float)
+        target = np.asarray(target_rewards, dtype=float)
+
+        if base.ndim == 1:
+            base = base[:, None]  # (N, 1)
+        if target.ndim == 1:
+            target = target[:, None]  # (N, 1)
+
+        scores = target - base
+        # ratio
+        if self.reward_type.endswith("ratio"):
+            # take abs in case the reward is (-ppl)
+            scores = scores / np.abs(base)
+        # rank
+        if self.reward_type.endswith("rank"):
+            ranked = np.empty_like(scores)
+
+            for j in range(scores.shape[1]):  # iterate over columns
+                col = scores[:, j]
+                uniq, inv = np.unique(col, return_inverse=True)
+                ranked[:, j] = (inv + 1) / len(uniq)
+
+            scores = ranked
+
+        return scores.mean(axis=1).tolist()
 
     def aggregate_rewards(
         self,
-        rewards: List[float],
+        rewards: List[float] | List[List[float]],
         rm_compo_ranges: Dict[str, List[int]],
         num_rollouts: int,
     ) -> list[float]:
         prefix_base_start, prefix_base_end = rm_compo_ranges["prefix_base"]
-        prefix_base_rewards: list[float] = rewards[prefix_base_start:prefix_base_end]
+        prefix_base_rewards: list[float] | List[List[float]] = rewards[
+            prefix_base_start:prefix_base_end
+        ]
         prefix_target_start, prefix_target_end = rm_compo_ranges["prefix_target"]
-        prefix_target_rewards: list[float] = rewards[
+        prefix_target_rewards: list[float] | List[List[float]] = rewards[
             prefix_target_start:prefix_target_end
         ]
         suffix_base_start, suffix_base_end = rm_compo_ranges["suffix_base"]
-        suffix_base_rewards: list[float] = rewards[suffix_base_start:suffix_base_end]
+        suffix_base_rewards: list[float] | List[List[float]] = rewards[
+            suffix_base_start:suffix_base_end
+        ]
         suffix_target_start, suffix_target_end = rm_compo_ranges["suffix_target"]
-        suffix_target_rewards: list[float] = rewards[
+        suffix_target_rewards: list[float] | List[List[float]] = rewards[
             suffix_target_start:suffix_target_end
         ]
 
@@ -1861,7 +1872,7 @@ class PplDerivedVerifier(VLLMOutputReward):
                 min_keep=10,
             )
 
-        flat_scores: list[float] = [
+        flat_scores: list[float] | List[List[float]] = [
             self.extract_scores(
                 rollout.prompt_logprobs, prompt_len=input_len, gt_tok_mask=gt_tok_mask
             )
@@ -1872,7 +1883,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
         score_split_sz: int = len(flat_scores) // B
         assert len(flat_scores) % B == 0
-        batch_scores: list[list[float]] = [
+        batch_scores: list[list[float]] | List[List[List[float]]] = [
             flat_scores[i * score_split_sz : (i + 1) * score_split_sz] for i in range(B)
         ]  # B, # of raw scores in batch
         batch_rewards: list[list[float]] = [
