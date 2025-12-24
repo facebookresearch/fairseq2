@@ -993,6 +993,9 @@ class PplDerivedVerifierHandler(VLLMOutputRewardHandler):
             gt_logp_mask_percentile=reward_config.additional_fields.get(
                 "gt_logp_mask_percentile", None
             ),
+            multiply_format_reward=reward_config.additional_fields.get(
+                "multiply_format_reward", False
+            ),
             base_reward_model=base_reward_model,
             separate_base_rm=separate_base_rm,
         )
@@ -1029,6 +1032,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         gt_logp_mask_percentile=None,
         base_reward_model=None,
         separate_base_rm=False,
+        multiply_format_reward=False,
     ):
         self.prompt_key = prompt_key
         self.answer_key = answer_key
@@ -1052,6 +1056,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         self._dummy_suffix = "04:11 ### Video Transcript Water in a pan reaches 100 degrees Celsius. But the pan is still left on the heat. So eventually, all of the water turns to water vapor. Calculate the energy needed to evaporate the 1.2 kilograms of water contained by the pan. Use a value of 2258 kilojoules per kilogram for the specific latent heat of vaporization of water. Give your answer to two significant figures. Alright. So this is a long question. So we should start by underlining all the important"
         self.base_reward_model = base_reward_model
         self.separate_base_rm = separate_base_rm
+        self.multiply_format_reward = multiply_format_reward
 
         self.vllm_input_proc_dict = {
             # -------- prefix related --------
@@ -1886,6 +1891,15 @@ class PplDerivedVerifier(VLLMOutputReward):
                 rollouts,
             )
 
+        if self.multiply_format_reward:
+            format_rewards: list[int] = [
+                [0 if ("<think>" in text) else 1 for text in texts]
+                for texts in batch_text
+            ]
+            batch_rewards = [
+                [f_rw * reward for f_rw, reward in zip(f_rws, rewards)]
+                for f_rws, rewards in zip(format_rewards, batch_rewards)
+            ]
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
