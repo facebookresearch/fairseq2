@@ -997,6 +997,15 @@ class PplDerivedVerifierHandler(VLLMOutputRewardHandler):
             multiply_format_reward=reward_config.additional_fields.get(
                 "multiply_format_reward", False
             ),
+            tok_score_diff_floor=reward_config.additional_fields.get(
+                "tok_score_diff_floor", None
+            ),
+            tok_score_diff_ceil=reward_config.additional_fields.get(
+                "tok_score_diff_ceil", None
+            ),
+            use_tok_win_reward=reward_config.additional_fields.get(
+                "use_tok_win_reward", False
+            ),
             base_reward_model=base_reward_model,
             separate_base_rm=separate_base_rm,
         )
@@ -1034,6 +1043,9 @@ class PplDerivedVerifier(VLLMOutputReward):
         base_reward_model=None,
         separate_base_rm=False,
         multiply_format_reward=False,
+        tok_score_diff_floor=None,
+        tok_score_diff_ceil=None,
+        use_tok_win_reward=False,
     ):
         self.prompt_key = prompt_key
         self.answer_key = answer_key
@@ -1058,6 +1070,10 @@ class PplDerivedVerifier(VLLMOutputReward):
         self.base_reward_model = base_reward_model
         self.separate_base_rm = separate_base_rm
         self.multiply_format_reward = multiply_format_reward
+
+        self.tok_score_diff_floor = tok_score_diff_floor
+        self.tok_score_diff_ceil = tok_score_diff_ceil
+        self.use_tok_win_reward = use_tok_win_reward
 
         self.vllm_input_proc_dict = {
             # -------- prefix related --------
@@ -1097,6 +1113,7 @@ class PplDerivedVerifier(VLLMOutputReward):
             "ppl",
             "logp_rank",
             "per_token_logp_rank",
+            "per_token_logp",
         ]
         assert "suffix_target" in self.vllm_proc_name_dict
         for key, proc_name in self.vllm_proc_name_dict.items():
@@ -1108,6 +1125,10 @@ class PplDerivedVerifier(VLLMOutputReward):
             }
             assert proc_name in self.vllm_input_proc_dict
         assert self.reward_agg in self.reward_agg_fn_dict
+        assert (self.tok_score_diff_floor is None) == (
+            self.tok_score_diff_ceil is None
+        ) and self.tok_score_diff_floor < self.tok_score_diff_ceil
+        assert (self.tok_score_diff_floor is None) or (not self.use_tok_win_reward)
 
     def _tokenize(self, input_str, add_special_tokens=False, max_length=None):
         return (
@@ -1540,6 +1561,15 @@ class PplDerivedVerifier(VLLMOutputReward):
         if metric_bag is not None:
             mean_scores = torch.tensor(scores).float().mean()
             update_avg_raw_reward(metric_bag, mean_scores)
+
+        if (self.tok_score_diff_floor is not None) and (
+            self.tok_score_diff_ceil is not None
+        ):
+            scores = np.clip(
+                scores, self.tok_score_diff_floor, self.tok_score_diff_ceil
+            )
+        if self.use_tok_win_reward:
+            scores = np.sign(scores)
 
         # ratio
         if self.reward_type.endswith("ratio"):
