@@ -1896,6 +1896,7 @@ class PplDerivedVerifier(VLLMOutputReward):
                 [0 if ("<think>" in text) else 1 for text in texts]
                 for texts in batch_text
             ]
+            log.info(f"{format_rewards=}")
             batch_rewards = [
                 [f_rw * reward for f_rw, reward in zip(f_rws, rewards)]
                 for f_rws, rewards in zip(format_rewards, batch_rewards)
