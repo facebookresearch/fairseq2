@@ -430,7 +430,9 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             if self._config.loss_config.log_rollouts:
                 log_rollouts(prompt_batch, rollouts, "Train")
 
-            reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
+            reward_output = self._reward.process_rollouts(
+                rollouts, prompt_batch, metric_bag
+            )
             self._rollout_bag.save(rollouts, reward_output)
 
         else:

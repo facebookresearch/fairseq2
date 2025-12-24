@@ -643,6 +643,11 @@ def update_avg_reward(metric_bag: MetricBag, avg_reward):
 
 
 @torch.inference_mode()
+def update_avg_raw_reward(metric_bag: MetricBag, avg_raw_reward):
+    metric_bag.get(Mean, "avg_raw_reward").update(avg_raw_reward, weight=1)
+
+
+@torch.inference_mode()
 def update_std_reward(metric_bag: MetricBag, std_reward):
     metric_bag.get(Mean, "std_reward").update(std_reward, weight=1)
 

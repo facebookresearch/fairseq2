@@ -34,6 +34,7 @@ from fairseq2.recipes.lm._online_finetune._generative_judge import (
 from transformers import AutoTokenizer
 from typing_extensions import override
 from vllm import CompletionOutput, LLM, RequestOutput, SamplingParams
+from fairseq2.recipes.lm._online_finetune._common import update_avg_raw_reward
 
 log = logging.getLogger(__name__)
 # fs2_log._logger.setLevel(logging.DEBUG)
@@ -1510,6 +1511,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         base_rewards: List[float] | List[List[float]],
         target_rewards: List[float] | List[List[float]],
         num_rollouts: int,
+        metric_bag=None,
     ) -> list[float]:
         # rewards are not comparative in this case.
         if base_rewards == []:
@@ -1535,6 +1537,10 @@ class PplDerivedVerifier(VLLMOutputReward):
             target = target[:, None]  # (N, 1)
 
         scores = target - base
+        if metric_bag is not None:
+            mean_scores = torch.tensor(scores).float().mean()
+            update_avg_raw_reward(metric_bag, mean_scores)
+
         # ratio
         if self.reward_type.endswith("ratio"):
             # take abs in case the reward is (-ppl)
@@ -1557,6 +1563,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         rewards: List[float] | List[List[float]],
         rm_compo_ranges: Dict[str, List[int]],
         num_rollouts: int,
+        metric_bag,
     ) -> list[float]:
         prefix_base_start, prefix_base_end = rm_compo_ranges["prefix_base"]
         prefix_base_rewards: list[float] | List[List[float]] = rewards[
@@ -1579,8 +1586,9 @@ class PplDerivedVerifier(VLLMOutputReward):
             prefix_base_rewards, prefix_target_rewards, num_rollouts
         )
         fs2_log.info(f"{prefix_rel_reward_diffs=}")
+        # NOTE: we are only logging raw diff rewards on suffix for now.
         suffix_rel_reward_diffs: list[float] = self._cal_reward_diff(
-            suffix_base_rewards, suffix_target_rewards, num_rollouts
+            suffix_base_rewards, suffix_target_rewards, num_rollouts, metric_bag
         )
         fs2_log.info(f"{suffix_rel_reward_diffs=}")
         agg_func = self.reward_agg_fn_dict[self.reward_agg]
@@ -1730,6 +1738,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         self,
         vllm_outputs: list[RequestOutput],
         prompt_batch: PromptBatch,
+        metric_bag,
     ):
         all_input_tok_lens = []
         rm_vllm_inputs = []
@@ -1887,7 +1896,7 @@ class PplDerivedVerifier(VLLMOutputReward):
             flat_scores[i * score_split_sz : (i + 1) * score_split_sz] for i in range(B)
         ]  # B, # of raw scores in batch
         batch_rewards: list[list[float]] = [
-            self.aggregate_rewards(scores, rm_compo_ranges, R)
+            self.aggregate_rewards(scores, rm_compo_ranges, R, metric_bag)
             for scores in batch_scores
         ]
         fs2_log.info(f"{batch_rewards=}")
