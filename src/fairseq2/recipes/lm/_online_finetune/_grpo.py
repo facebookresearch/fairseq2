@@ -66,6 +66,8 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
+# torch.set_printoptions(profile="full")
+
 
 @dataclass
 class GRPOBatch:
@@ -220,34 +222,106 @@ def masked_mean(x, mask, eps=1e-8):
     return masked_x.sum() / denom
 
 
+def _percentile_mask(
+    vals: torch.Tensor,
+    mask: torch.Tensor,
+    percentile: float,
+    largest: bool,
+    min_kept: int,
+    name: str,
+):
+    assert min_kept >= 0
+    masked_vals = vals[mask]
+    if masked_vals.numel() == 0:
+        return torch.zeros_like(mask, dtype=torch.bool)
+
+    # top percentile% for largest and bottom (100 - percentile)% when not largest.
+    q = (percentile / 100.0) if largest else (1.0 - percentile / 100.0)
+    threshold = torch.quantile(masked_vals, q)
+    log.info(
+        f"{name}: entropy {threshold=}, {masked_vals.max()=}, {masked_vals.min()=}"
+    )
+    keep = mask & ((vals >= threshold) if largest else (vals <= threshold))
+
+    # ensure minimum kept
+    num_kept = keep.sum().item()
+    if num_kept < min_kept:
+        k = min(min_kept, masked_vals.numel())
+        if largest:
+            kth = torch.kthvalue(masked_vals, masked_vals.numel() - k + 1).values
+            keep = mask & (vals >= kth)
+        else:
+            kth = torch.kthvalue(masked_vals, k).values
+            keep = mask & (vals <= kth)
+
+    return keep
+
+
 def top_percentile_mask(
-    vals: torch.Tensor, mask: torch.Tensor, percentile: float, min_kept: int = 50
+    vals: torch.Tensor,
+    mask: torch.Tensor,
+    percentile: float,
+    min_kept: int = 50,
+    positive_mask: torch.Tensor | None = None,
 ):
     assert vals.shape == mask.shape
     assert 0 <= percentile <= 100
     assert min_kept >= 1
+    if positive_mask is not None:
+        assert positive_mask.shape[0] == vals.shape[0]
+        assert positive_mask.dtype == torch.bool
 
     with torch.no_grad():
-        masked_vals = vals[mask]
-        if masked_vals.numel() == 0:
+        if mask.sum().item() == 0:
             raise RuntimeError("no elements in mask")
+        if positive_mask is None:
+            return _percentile_mask(
+                vals, mask, percentile, largest=True, min_kept=min_kept, name="overall"
+            )
 
-        # percentile is bottom-p cutoff → keep top (100-p)%
-        threshold = torch.quantile(masked_vals, percentile / 100.0)
-        log.info(f"entropy {threshold=}, {masked_vals.max()=}, {masked_vals.min()=}")
-        keep = mask & (vals >= threshold)
+        keep = torch.zeros_like(mask, dtype=torch.bool)
+        pos_mask = positive_mask.view(-1, *([1] * (vals.ndim - 1)))
 
-        # ensure minimum kept
-        num_kept = keep.sum().item()
-        if num_kept < min_kept:
-            k = min(min_kept, masked_vals.numel())
+        pos_sel = mask & pos_mask
+        neg_sel = mask & (~pos_mask)
 
-            # kth largest → threshold
-            kth = torch.kthvalue(masked_vals, masked_vals.numel() - k + 1).values
+        # compute min_kept proportionally
+        num_pos = pos_sel.sum().item()
+        num_neg = neg_sel.sum().item()
+        total = num_pos + num_neg
 
-            keep = mask & (vals >= kth)
+        min_kept_pos = round(min_kept * num_pos / total)
+        min_kept_pos = min(min_kept_pos, min_kept - 1)
+        min_kept_pos = max(min_kept_pos, 1)
+        min_kept_neg = min_kept - min_kept_pos
 
-    return keep
+        # positive: top percentile
+        if num_pos > 0:
+            keep |= _percentile_mask(
+                vals,
+                pos_sel,
+                percentile,
+                largest=True,
+                min_kept=min_kept_pos,
+                name="positive",
+            )
+
+        # negative: bottom percentile
+        if num_neg > 0:
+            keep |= _percentile_mask(
+                vals,
+                neg_sel,
+                percentile,
+                largest=False,
+                min_kept=min_kept_neg,
+                name="negative",
+            )
+        log.debug(f"{vals=}")
+        log.debug(f"{positive_mask=}")
+        log.debug(f"{min_kept_pos=}, {min_kept_neg=}")
+        log.debug(f"{keep=}")
+
+        return keep
 
 
 @final
@@ -527,10 +601,23 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         if self._config.loss_config.rollout_token_mask_entropy_percentile is not None:
             rollout_tok_mask = grpo_target_batch.target_mask
             log.debug(f"{tok_entropies.shape=}, {rollout_tok_mask.shape=}")
+
+            reward_positive_mask = None
+            if self._config.loss_config.penalize_low_entropy_at_negative:
+                reward_positive_mask = (
+                    torch.tensor(
+                        reward_output["rewards"], device=self._gangs.dp.device
+                    ).flatten()
+                    > 0
+                )  # (Batch x Rollouts,)
+            log.debug(f"{reward_positive_mask=}")
+            log.debug(f"{rollout_tok_mask=}")
+
             high_entropy_rollout_tok_mask = top_percentile_mask(
                 tok_entropies,
                 rollout_tok_mask,
                 self._config.loss_config.rollout_token_mask_entropy_percentile,
+                positive_mask=reward_positive_mask,
             )
 
         max_entropy_regularizer = (
@@ -805,6 +892,8 @@ class GrpoLossConfig:
     cov_clip_low: float = 1
 
     rollout_token_mask_entropy_percentile: Optional[float] = None
+
+    penalize_low_entropy_at_negative: bool = False
 
 
 @dataclass(kw_only=True)
