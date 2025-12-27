@@ -997,6 +997,7 @@ class PplDerivedVerifierHandler(VLLMOutputRewardHandler):
             multiply_format_reward=reward_config.additional_fields.get(
                 "multiply_format_reward", False
             ),
+            format_penalty=reward_config.additional_fields.get("format_penalty", 0.0),
             tok_score_diff_floor=reward_config.additional_fields.get(
                 "tok_score_diff_floor", None
             ),
@@ -1043,6 +1044,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         base_reward_model=None,
         separate_base_rm=False,
         multiply_format_reward=False,
+        format_penalty=0.0,
         tok_score_diff_floor=None,
         tok_score_diff_ceil=None,
         use_tok_win_reward=False,
@@ -1070,6 +1072,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         self.base_reward_model = base_reward_model
         self.separate_base_rm = separate_base_rm
         self.multiply_format_reward = multiply_format_reward
+        self.format_penalty = format_penalty
 
         self.tok_score_diff_floor = tok_score_diff_floor
         self.tok_score_diff_ceil = tok_score_diff_ceil
@@ -1951,6 +1954,17 @@ class PplDerivedVerifier(VLLMOutputReward):
                 [f_rw * reward for f_rw, reward in zip(f_rws, rewards)]
                 for f_rws, rewards in zip(format_rewards, batch_rewards)
             ]
+        if self.format_penalty < 0:
+            format_rewards: list[float] = [
+                [self.format_penalty if ("<think>" in text) else 0 for text in texts]
+                for texts in batch_text
+            ]
+            log.info(f"{format_rewards=}")
+            batch_rewards = [
+                [f_rw + reward for f_rw, reward in zip(f_rws, rewards)]
+                for f_rws, rewards in zip(format_rewards, batch_rewards)
+            ]
+            log.info(f"after fmt penalty: {batch_rewards=}")
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
