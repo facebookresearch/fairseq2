@@ -994,6 +994,9 @@ class PplDerivedVerifierHandler(VLLMOutputRewardHandler):
             gt_logp_mask_percentile=reward_config.additional_fields.get(
                 "gt_logp_mask_percentile", None
             ),
+            gt_logp_unmasked_weight=reward_config.additional_fields.get(
+                "gt_logp_unmasked_weight", 0.0
+            ),
             multiply_format_reward=reward_config.additional_fields.get(
                 "multiply_format_reward", False
             ),
@@ -1041,6 +1044,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         vllm_proc_name_dict=None,
         reward_agg="sum",
         gt_logp_mask_percentile=None,
+        gt_logp_unmasked_weight=0.0,
         base_reward_model=None,
         separate_base_rm=False,
         multiply_format_reward=False,
@@ -1066,6 +1070,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         self.vllm_proc_name_dict = vllm_proc_name_dict
         self.reward_agg = reward_agg
         self.gt_logp_mask_percentile = gt_logp_mask_percentile
+        self.gt_logp_unmasked_weight = gt_logp_unmasked_weight
 
         self._dummy_prefix_w_think_tag = "Water in a pan reaches 100°C, but the pan is still left on the heat, so eventually all of the water turns to water vapor. Calculate the energy needed to evaporate the 1.2 kg of water contained by the pan. Use a value of 2258 kJ/kg for the specific latent heat of vaporization of water. Give your answer to 2 significant figures. <think>"
         self._dummy_suffix = "04:11 ### Video Transcript Water in a pan reaches 100 degrees Celsius. But the pan is still left on the heat. So eventually, all of the water turns to water vapor. Calculate the energy needed to evaporate the 1.2 kilograms of water contained by the pan. Use a value of 2258 kilojoules per kilogram for the specific latent heat of vaporization of water. Give your answer to two significant figures. Alright. So this is a long question. So we should start by underlining all the important"
@@ -1132,6 +1137,7 @@ class PplDerivedVerifier(VLLMOutputReward):
             self.tok_score_diff_ceil is None
         ) and self.tok_score_diff_floor < self.tok_score_diff_ceil
         assert (self.tok_score_diff_floor is None) or (not self.use_tok_win_reward)
+        assert self.gt_logp_unmasked_weight >= 0 and self.gt_logp_unmasked_weight <= 1
 
     def _tokenize(self, input_str, add_special_tokens=False, max_length=None):
         return (
@@ -1505,6 +1511,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         prompt_logprobs: List[Any],
         prompt_len: int,
         gt_tok_mask=None,
+        gt_logp_unmasked_weight=0.0,
     ) -> float:
         completion_logprobs = prompt_logprobs[prompt_len:]
         assert completion_logprobs[0] is not None
@@ -1513,9 +1520,16 @@ class PplDerivedVerifier(VLLMOutputReward):
         ]
         if gt_tok_mask is not None:
             # apply mask on the gp tokens
-            completion_logprobs_vals = np.asarray(completion_logprobs_vals)[
-                gt_tok_mask
-            ].tolist()
+            if gt_logp_unmasked_weight == 0.0:
+                completion_logprobs_vals = np.asarray(completion_logprobs_vals)[
+                    gt_tok_mask
+                ].tolist()
+            else:
+                completion_logprobs_vals_np = np.asarray(completion_logprobs_vals)
+                completion_logprobs_vals_np[~gt_tok_mask] = (
+                    completion_logprobs_vals_np[~gt_tok_mask] * gt_logp_unmasked_weight
+                )
+                completion_logprobs_vals = completion_logprobs_vals_np.tolist()
         tokens = [list(item.keys())[0] for item in completion_logprobs]
         fs2_log.debug(f"completion tokens={tokens}")
         fs2_log.debug(f"{completion_logprobs_vals=}")
@@ -1916,7 +1930,10 @@ class PplDerivedVerifier(VLLMOutputReward):
 
         flat_scores: list[float] | List[List[float]] = [
             self.extract_scores(
-                rollout.prompt_logprobs, prompt_len=input_len, gt_tok_mask=gt_tok_mask
+                rollout.prompt_logprobs,
+                prompt_len=input_len,
+                gt_tok_mask=gt_tok_mask,
+                gt_logp_unmasked_weight=self.gt_logp_unmasked_weight,
             )
             for rollout, input_len in zip(rollouts, all_input_tok_lens)
         ]
