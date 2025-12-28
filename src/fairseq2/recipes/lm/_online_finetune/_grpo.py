@@ -263,63 +263,86 @@ def top_percentile_mask(
     percentile: float,
     min_kept: int = 50,
     positive_mask: torch.Tensor | None = None,
+    random_frac: float = 0.0,
 ):
     assert vals.shape == mask.shape
     assert 0 <= percentile <= 100
     assert min_kept >= 1
+    assert 0.0 <= random_frac <= 1.0
+
     if positive_mask is not None:
         assert positive_mask.shape[0] == vals.shape[0]
         assert positive_mask.dtype == torch.bool
 
     with torch.no_grad():
-        if mask.sum().item() == 0:
+        num_masked = mask.sum().item()
+        if num_masked == 0:
             raise RuntimeError("no elements in mask")
         if positive_mask is None:
-            return _percentile_mask(
+            keep = _percentile_mask(
                 vals, mask, percentile, largest=True, min_kept=min_kept, name="overall"
             )
+        else:
+            keep = torch.zeros_like(mask, dtype=torch.bool)
+            pos_mask = positive_mask.view(-1, *([1] * (vals.ndim - 1)))
 
-        keep = torch.zeros_like(mask, dtype=torch.bool)
-        pos_mask = positive_mask.view(-1, *([1] * (vals.ndim - 1)))
+            pos_sel = mask & pos_mask
+            neg_sel = mask & (~pos_mask)
 
-        pos_sel = mask & pos_mask
-        neg_sel = mask & (~pos_mask)
+            # compute min_kept proportionally
+            num_pos = pos_sel.sum().item()
+            num_neg = neg_sel.sum().item()
+            total = num_pos + num_neg
 
-        # compute min_kept proportionally
-        num_pos = pos_sel.sum().item()
-        num_neg = neg_sel.sum().item()
-        total = num_pos + num_neg
+            min_kept_pos = round(min_kept * num_pos / total)
+            min_kept_pos = min(min_kept_pos, min_kept - 1)
+            min_kept_pos = max(min_kept_pos, 1)
+            min_kept_neg = min_kept - min_kept_pos
 
-        min_kept_pos = round(min_kept * num_pos / total)
-        min_kept_pos = min(min_kept_pos, min_kept - 1)
-        min_kept_pos = max(min_kept_pos, 1)
-        min_kept_neg = min_kept - min_kept_pos
+            # positive: top percentile
+            if num_pos > 0:
+                keep |= _percentile_mask(
+                    vals,
+                    pos_sel,
+                    percentile,
+                    largest=True,
+                    min_kept=min_kept_pos,
+                    name="positive",
+                )
 
-        # positive: top percentile
-        if num_pos > 0:
-            keep |= _percentile_mask(
-                vals,
-                pos_sel,
-                percentile,
-                largest=True,
-                min_kept=min_kept_pos,
-                name="positive",
-            )
+            # negative: bottom percentile
+            if num_neg > 0:
+                keep |= _percentile_mask(
+                    vals,
+                    neg_sel,
+                    percentile,
+                    largest=False,
+                    min_kept=min_kept_neg,
+                    name="negative",
+                )
+            log.debug(f"{vals=}")
+            log.debug(f"{positive_mask=}")
+            log.debug(f"{min_kept_pos=}, {min_kept_neg=}")
+            log.debug(f"{keep=}")
 
-        # negative: bottom percentile
-        if num_neg > 0:
-            keep |= _percentile_mask(
-                vals,
-                neg_sel,
-                percentile,
-                largest=False,
-                min_kept=min_kept_neg,
-                name="negative",
-            )
-        log.debug(f"{vals=}")
-        log.debug(f"{positive_mask=}")
-        log.debug(f"{min_kept_pos=}, {min_kept_neg=}")
-        log.debug(f"{keep=}")
+        # Add random
+        if random_frac > 0.0:
+            candidate = mask & (~keep)
+            num_candidates = candidate.sum().item()
+
+            if num_candidates > 0:
+                num_random = max(1, int(round(random_frac * num_candidates)))
+                num_random = min(num_random, num_candidates)
+
+                flat_mask_idx = candidate.view(-1).nonzero(as_tuple=False).squeeze(1)
+                rand_perm = torch.randperm(flat_mask_idx.numel(), device=vals.device)
+                rand_idx = flat_mask_idx[rand_perm[:num_random]]
+
+                random_keep = torch.zeros_like(mask, dtype=torch.bool).view(-1)
+                random_keep[rand_idx] = True
+                random_keep = random_keep.view_as(mask)
+
+                keep |= random_keep
 
         return keep
 
@@ -618,6 +641,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 rollout_tok_mask,
                 self._config.loss_config.rollout_token_mask_entropy_percentile,
                 positive_mask=reward_positive_mask,
+                random_frac=self._config.loss_config.rollout_token_mask_rand_frac,
             )
 
         max_entropy_regularizer = (
@@ -892,6 +916,7 @@ class GrpoLossConfig:
     cov_clip_low: float = 1
 
     rollout_token_mask_entropy_percentile: Optional[float] = None
+    rollout_token_mask_rand_frac: float = 0.0
 
     penalize_low_entropy_at_negative: bool = False
 
