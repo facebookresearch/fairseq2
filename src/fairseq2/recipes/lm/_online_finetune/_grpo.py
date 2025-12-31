@@ -493,6 +493,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                     self._reward_model,
                     self._step_nr,
                     self._config.vllm_sync.sync_reward_model_every_n_steps,
+                    logging_tag="rm",
                 )
 
             rollouts = generate_rollouts(

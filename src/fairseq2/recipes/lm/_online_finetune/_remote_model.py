@@ -193,7 +193,7 @@ def should_sync(
     if trainer_step_nr < remote_model_step:
         raise RuntimeError(f"trainer step can not be less than remote model step")
 
-    if trainer_step_nr % sync_every_n_steps == 0:
+    if (trainer_step_nr - 1) % sync_every_n_steps == 0:
         return True
 
 
@@ -204,6 +204,7 @@ def maybe_sync_model(
     trainer_step_nr: int,
     sync_every_n_steps: int,
     force_sync: bool = False,
+    logging_tag=None,
 ):
 
     if gangs.dp.rank == 0:
@@ -228,6 +229,8 @@ def maybe_sync_model(
     if _should_sync:
         with model.summon_full_parameters():
             if gangs.dp.rank == 0 and remote_model is not None:
+                if logging_tag is not None:
+                    log.info(f"syncing {logging_tag} @ step {trainer_step_nr}")
                 remote_model.sync_weights_with_vllm(
                     model=model,
                     trainer_step_nr=trainer_step_nr,
