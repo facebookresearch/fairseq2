@@ -43,6 +43,12 @@ from fairseq2.recipes.lm._online_finetune._generative_judge import (
     GeneralVerifierExtractorHandler as GeneralVerifierExtractorHandler,
 )
 from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    PrincipiaExtractor as PrincipiaExtractor,
+)
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    PrincipiaExtractorHandler as PrincipiaExtractorHandler,
+)
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
     J1PairwiseScoreExtractor as J1PairwiseScoreExtractor,
 )
 from fairseq2.recipes.lm._online_finetune._generative_judge import (

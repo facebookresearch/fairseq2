@@ -21,6 +21,7 @@ from fairseq2.recipes.lm import (  # GroupDpoFinetuneUnitHandler,
     GenerativePointwiseVerifierHandler,
     GrpoFinetuneUnitHandler,
     GSM8kVerifierHandler,
+    PrincipiaExtractorHandler,
     J1PairwiseScoreExtractorHandler,
     J1KwiseScoreExtractorHandler,
     J1PointwiseExtractorHandler,
@@ -141,6 +142,9 @@ def _register_online_finetune_units(context: RuntimeContext) -> None:
 
     # Generative judgment extractors
     registry = context.get_registry(JudgmentExtractorHandler)
+    
+    handler = PrincipiaExtractorHandler()
+    registry.register(handler.name, handler)
 
     handler = J1PointwiseExtractorHandler()
     registry.register(handler.name, handler)

@@ -19,6 +19,52 @@ Below are the user's question and the assistant's response:
 [The End of the Assistant's Answer]
 """
 
+# POINTWISE_J1_PROMPT = """
+# You are given a user question and a response from an AI assistant. Your task is to act as an impartial judge and evaluate how well the response fulfills the user's instructions. In order to do so, you will first chunk the response into steps and then assign a score to each chunk or step indepdendently. Assign a score of 1 if a chunk is correct, and 0 if not.
+
+# Chunking Principles:
+# 1. Unified purpose: A chunk should serve a single, clear objective. For example: setting up an initial equation, executing a self-contained calculation (like integration by parts), or stating a final/intermediate conclusion. All content within the chunk must directly serve this one core goal.
+
+# 2. Logical Cohesion: All lines within a chunk must form a continuous and uninterrupted logical flow. A new chunk should begin as soon as the focus or purpose of the reasoning shifts.
+
+# 3. Clear Transition: A new chunk must begin when the problem-solving process enters a new phase. This includes transitioning from ”solving for a variable” to "verifying the answer," or inserting an "explanatory side-note" into the main workflow.
+
+# Format rules:
+# 1. Use <chunk>...</chunk> to mark the beginning and end of each step. Do not copy the chunk, just summarize it in one sentence.
+# 2. After identifying the chunk, provide your evaluation of the chunk within <think>...</think> tags.
+# 3. Finally, assign a score of 1 or 0 to each chunk, enclosed within <score>...</score> tags.
+
+# Below are the user's question and the assistant's response:
+
+# [User Question]
+# {instruction}
+
+# [The Start of the Assistant's Answer]
+# {response}
+# [The End of the Assistant's Answer]
+# """
+
+# POINTWISE_J1_PROMPT = """
+# You are given a user question and a response from an AI assistant. Your task is to act as an impartial judge and evaluate how well the response fulfills the user's instructions. You will be shown multiple responses to the same prompt, but only one at a time. Evaluate each response independently.
+
+# Think carefully about how to assess the quality of the response, and enclose your reasoning within <think> and </think> tags. Your reasoning should include your evaluation criteria, a clear understanding of what an ideal response would look like for this particular question, and a concrete example of such an ideal or reference answer if possible. Then compare the assistant's response to your ideal or reference answer, explaining how it aligns with or deviates from your expectations. Be specific and avoid vague or overly general judgments. Remain as objective as possible.
+
+# Finally, assign the assistant's response a score from 0 to 10, using either an integer or a decimal with up to 0.1 precision. A higher score should indicate a higher-quality response. Enclose the score within <score> and </score> tags.
+
+# Format your output like this:
+# <think> your_thinking_process </think>  
+# <score> your_score </score>
+
+# Below are the user's question and the assistant's response:
+
+# [User Question]
+# {instruction}
+
+# [The Start of the Assistant's Answer]
+# {response}
+# [The End of the Assistant's Answer]
+# """
+
 # Uncomment this for non-verifiable prompt
 
 # POINTWISE_J1_PROMPT = """
@@ -194,6 +240,20 @@ Below are the user's question, reference answer, responses and the parsed versio
 
 {parsed_responses}
 """
+
+PRINCIPIA_JUDGE_PROMPT = """### Question: {instruction}
+
+### Ground Truth Answer: {ground_truth}
+
+### Candidate: {candidate}
+
+### Guidelines: For the above question, please verify if the candidate is equivalent with the ground truth answer or not.
+DO NOT ATTEMPT TO SOLVE the question by yourself; instead focus on checking if the two candidates are equivalent.
+If the two candidates are equivalent, output "Final Judgment: Yes <End of Judgment>". If not, output "Final Judgment: No <End of Judgment>". Most importantly, DO NOT MAKE a judgment first. Instead, first reason about whether the candidates are equivalent or not based on the specified rules above (read through all of them, not only one), and then output the final judgment.
+
+### Reasoning:
+"""
+
 
 
 import re
@@ -377,6 +437,94 @@ class GeneralVerifierExtractor(JudgmentExtractor):
             avg_score += score
 
         return round(avg_score / len(judgments), 4)
+    
+class PrincipiaExtractorHandler(JudgmentExtractorHandler):
+    def __init__(self):
+        pass
+
+    @override
+    def create(self, tokenizer):
+        return PrincipiaExtractor(tokenizer)
+
+    @property
+    @override
+    def name(self):
+        return "principia_extractor"
+
+    @property
+    @override
+    def config_kls(self):
+        return None
+
+
+class PrincipiaExtractor(JudgmentExtractor):
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
+
+    @override
+    def prompt(self):
+        return PRINCIPIA_JUDGE_PROMPT
+
+    @override
+    def format_prompt(self, prompt_text, rollout_text, reference_answer):
+        boxed_answer = self.extract_boxed_answer(rollout_text)
+        prompt_template = self.prompt()
+        content = (
+            prompt_template.format(instruction=prompt_text, ground_truth=reference_answer, candidate=boxed_answer)
+        )
+
+        wrapped_text = [{"role": "user", "content": content}]
+        chat_str = self.tokenizer.apply_chat_template(
+            wrapped_text, tokenize=False, add_generation_prompt=True
+        )
+        log.info(f"Judge input = {chat_str}")
+        return chat_str
+    
+    def extract_boxed_answer(self, response):
+        """
+        Extract content from the last \\boxed{} in the response.
+        Handles nested braces correctly and returns only the last boxed item.
+        """
+        pattern = r"\\boxed\s*\{"
+        all_answers = []
+
+        # Find all \boxed{} occurrences
+        for match in re.finditer(pattern, response):
+            start_idx = match.end()
+            brace_count = 1
+            idx = start_idx
+
+            while idx < len(response) and brace_count > 0:
+                if response[idx] == "{":
+                    brace_count += 1
+                elif response[idx] == "}":
+                    brace_count -= 1
+                idx += 1
+
+            if brace_count == 0:
+                all_answers.append(response[start_idx : idx - 1])
+
+        # Return the last boxed answer, or None if no valid boxed content found
+        return all_answers[-1] if all_answers else ""
+
+    @override
+    def extract(self, generation):
+        pattern = r"Final\s+Judgment[:\s]*\s*(Yes|No)"
+        match = re.search(pattern, generation, re.IGNORECASE)
+
+        if match:
+            judgment = match.group(1).capitalize()
+            return 1.0 if judgment == "Yes" else 0.0
+
+        return 0.0
+
+    @override
+    def aggregate(self, judgments):
+        avg_score = 0.0
+        for score in judgments:
+            avg_score += score
+
+        return round(avg_score / len(judgments), 4)
 
 
 class J1PointwiseExtractorHandler(JudgmentExtractorHandler):
@@ -435,9 +583,13 @@ class J1PointwiseExtractor(JudgmentExtractor):
         matches = re.findall(
             r"<score>\s*([0-9]+(?:\.[0-9])?)\s*(?:/10)?\s*</score>", generation
         )
-        if matches and float(matches[-1].strip()) > 10.0:
-            log.info(f"Judge output = {generation}")
-        return float(matches[-1].strip()) if matches else 0.0
+        avg_score = 0.0
+        if matches:
+            for match in matches:
+                avg_score += float(match.strip())
+            return round(avg_score / len(matches), 4)
+        else:
+            return 0.0
 
     @override
     def aggregate(self, judgments):

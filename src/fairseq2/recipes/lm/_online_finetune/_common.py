@@ -363,6 +363,54 @@ def combine_prompts_responses_for_scoring(
 
     return responses
 
+def get_vllm_logprobs(
+    vllm_outputs: List[RequestOutput],
+    gangs,
+    rollout_start_end: tuple[int, int] | None = None,
+):
+    """Compute per-token logprobs for selected continuations across a list of requests.
+
+    For each RequestOutput (one prompt) and each of its sampled continuations we
+    concatenate the prompt logprobs (skipping the first entry) with the generation
+    logprobs. All resulting sequences are then right-padded with 0.0 to the global
+    maximum length and stacked into a single tensor.
+
+    Parameters
+    ----------
+    vllm_outputs:
+        List of vLLM RequestOutput objects (one per prompt).
+    gangs:
+        Fairseq2 gangs object (unused, kept for parity/extensibility).
+    rollout_start_end:
+        Optional (start, end) slice specifying which continuation indices to include
+        per prompt (used for micro-batching when forward_group_size < group_size).
+
+    Returns
+    -------
+    Tensor
+        Shape ``(num_selected_continuations, max_seq_len)`` with 0.0 padding.
+    """
+    sequences: List[Tensor] = []
+    for request in vllm_outputs:
+        prompt_logprobs = [
+            list(d.values())[0].logprob for d in request.prompt_logprobs[1:]
+        ]
+        outputs = request.outputs
+        if rollout_start_end is not None:  # micro-batching
+            s, e = rollout_start_end
+            outputs = outputs[s:e]
+        for output in outputs:
+            gen_logprobs = [list(d.values())[0].logprob for d in output.logprobs]
+            seq = torch.tensor(prompt_logprobs + gen_logprobs)
+            sequences.append(seq)
+
+    max_len = max(t.size(0) for t in sequences)
+    padded = torch.zeros(len(sequences), max_len)
+    for i, t in enumerate(sequences):
+        padded[i, : t.size(0)] = t
+
+    return padded
+
 
 def convert_vllm_output_to_ref_score(vllm_outputs: List[RequestOutput], gangs):
     ref_scores = []
@@ -417,6 +465,33 @@ def get_rollout_lengths(rollouts: List[SequenceData]):
     return rollout_lengths
 
 
+def compute_reward_agreement_metrics(rewards: Tensor) -> dict[str, Tensor]:
+    """Compute metrics for reward agreement across rollouts.
+
+    Args:
+        rewards: Tensor of shape [Batch, Rollouts] containing binary rewards (0 or 1)
+
+    Returns:
+        Dictionary containing:
+            - 'frac_all_correct': Fraction of prompts where all rollouts got reward=1
+            - 'frac_all_incorrect': Fraction of prompts where all rollouts got reward=0
+    """
+    # Check if all rollouts for each prompt have reward=1
+    all_correct = (rewards == 1).all(dim=1)  # [Batch]
+
+    # Check if all rollouts for each prompt have reward=0
+    all_incorrect = (rewards == 0).all(dim=1)  # [Batch]
+
+    # Compute fractions
+    frac_all_correct = all_correct.float().mean()
+    frac_all_incorrect = all_incorrect.float().mean()
+
+    return {
+        'frac_all_correct': frac_all_correct,
+        'frac_all_incorrect': frac_all_incorrect
+    }
+
+
 def strip_think_tokens(rollouts: List[SequenceData]):
     count_stripped, count_not_stripped, total_count, think_present = 0, 0, 0, 0
     for sample in rollouts:
@@ -437,24 +512,6 @@ def strip_think_tokens(rollouts: List[SequenceData]):
     log.info(f"Think present: {think_present}")
     log.info(f"Count stripped: {count_stripped/total_count}")
     log.info(f"Count not stripped: {count_not_stripped/total_count}")
-
-    return rollouts
-
-def get_failed_to_parse_answers(reward_output: dict, batch_size: int):
-    if "answers" in reward_output:
-        log.info(f"Answers: {reward_output['answers']}")
-        failed_to_parse = sum(answer is None for rollouts in reward_output["answers"] for answer in rollouts)
-        return failed_to_parse/batch_size
-    else:
-        return 0.0
-    
-def strip_for_octothinker(rollouts: List[SequenceData]):
-    for sample in rollouts:
-        for rollout in sample.outputs:
-            rollout_text = rollout.text
-            if "\nUser:" in rollout_text:
-                rollout_text = rollout_text[:rollout_text.find("\nUser:")]
-            rollout.text = rollout_text
 
     return rollouts
 
@@ -547,23 +604,25 @@ def update_num_dummy_batches(
 @torch.inference_mode()
 def update_avg_reward(metric_bag: MetricBag, avg_reward):
     metric_bag.get(Mean, "avg_reward").update(avg_reward, weight=1)
-    
-@torch.inference_mode()
-def update_avg_second_reward(metric_bag: MetricBag, avg_reward):
-    metric_bag.get(Mean, "avg_second_reward").update(avg_reward, weight=1)
-    
+
 @torch.inference_mode()
 def update_reward_matches(metric_bag: MetricBag, reward_matches):
     metric_bag.get(Mean, "reward_matches").update(reward_matches, weight=1)
 
 
 @torch.inference_mode()
+def update_frac_all_correct(metric_bag: MetricBag, frac_all_correct):
+    metric_bag.get(Mean, "frac_all_correct").update(frac_all_correct, weight=1)
+
+
+@torch.inference_mode()
+def update_frac_all_incorrect(metric_bag: MetricBag, frac_all_incorrect):
+    metric_bag.get(Mean, "frac_all_incorrect").update(frac_all_incorrect, weight=1)
+
+
+@torch.inference_mode()
 def update_std_reward(metric_bag: MetricBag, std_reward):
     metric_bag.get(Mean, "std_reward").update(std_reward, weight=1)
-    
-@torch.inference_mode()
-def update_failed_to_parse_answers(metric_bag: MetricBag, failed_to_parse_answers):
-    metric_bag.get(Mean, "failed_to_parse_answers").update(failed_to_parse_answers, weight=1)
 
 
 @torch.inference_mode()

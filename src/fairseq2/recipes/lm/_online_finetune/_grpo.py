@@ -33,24 +33,24 @@ from fairseq2.recipes.lm._online_finetune._common import (
     VllmSyncSection,
     collate_with_target_mask,
     compute_reference_logps,
+    compute_reward_agreement_metrics,
     compute_token_level_entropy,
-    strip_for_octothinker,
     generate_rollouts,
     get_rollout_lengths,
+    get_vllm_logprobs,
     log_rollouts,
-    get_failed_to_parse_answers,
     strip_think_tokens,
     update_avg_reward,
-    update_avg_second_reward,
     update_reward_matches,
     update_avg_reward_len_norm,
     update_avg_rollout_length,
     update_batch_metrics,
+    update_frac_all_correct,
+    update_frac_all_incorrect,
     update_grpo_batch_metrics,
     update_grpo_loss,
     update_logit_entropy,
-    update_std_reward,
-    update_failed_to_parse_answers
+    update_std_reward
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_model import (
@@ -81,6 +81,7 @@ def prepare_grpo_batch(
     reward_output: dict,
     gangs: Gang,
     rollout_start_end: tuple[int],
+    adv_std_normalization: bool,
 ):
 
     prompt_rollouts = []
@@ -111,9 +112,12 @@ def prepare_grpo_batch(
     # gangs.root.barrier()
 
     rewards = torch.tensor(rewards, device=gangs.dp.device).float()  # [Batch, Rollouts]
-    rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (
-        rewards.std(dim=1, keepdim=True) + 1e-6
-    )  # small epsilon to compensate 0 std
+
+    rewards_normalized = rewards - rewards.mean(dim=1, keepdim=True)
+    if adv_std_normalization:  # normalize advantages with std
+        rewards_normalized = rewards_normalized / (
+            rewards.std(dim=1, keepdim=True) + 1e-6
+        )  # small epsilon to compensate 0 std
 
     rewards_normalized = rewards_normalized[
         :, rollout_start_end[0] : rollout_start_end[1]
@@ -143,7 +147,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     _config: GrpoFinetuneConfig
     _model_update_group: PyNcclCommunicator
     _reward: VLLMOutputReward
-    _second_reward: VLLMOutputReward
     _display_name: str
     _rollout_bag: StatefulRolloutBag
 
@@ -154,7 +157,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         vllm_model: RemoteVllmModel,
         vllm_actors: List[Union[RemoteVllmModel, RemoteHFModel]],
         reward,
-        second_reward,
         gangs: Gangs,
         config: GrpoFinetuneConfig,
     ) -> None:
@@ -166,7 +168,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._vllm_model = vllm_model
         self._gangs = gangs
         self._reward = reward
-        self._second_reward = second_reward
         self._rollout_bag = StatefulRolloutBag(
             max_bag_steps=int(
                 config.loss_config.group_size / config.loss_config.forward_group_size
@@ -194,6 +195,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     def validate_reward(
         self, prompt_batch: PromptBatch, metric_bag
     ) -> tuple[Tensor, int]:
+        log.info("Inside validation")
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
             for (
@@ -219,8 +221,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )
         if self._config.reward.config.strip_thinking:
             rollouts = strip_think_tokens(rollouts)
-        else:
-            rollouts = strip_for_octothinker(rollouts)
 
         log.info("After stripping")
         if self._config.loss_config.log_rollouts:
@@ -231,16 +231,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         log.info(f"Rewards: {reward_output['rewards']}")
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         std_reward = torch.tensor(reward_output["rewards"]).float().std()
-        failed_to_parse_answers = get_failed_to_parse_answers(reward_output, prompt_batch.batch_size)
-        
-        second_reward_output = self._second_reward.process_rollouts(rollouts, prompt_batch)
-        log.info(f"Second Rewards: {second_reward_output['rewards']}")
-        avg_second_reward = torch.tensor(second_reward_output["rewards"]).float().mean()
-        update_avg_second_reward(metric_bag, avg_second_reward)
-        
-        reward_matches = (torch.tensor(reward_output["rewards"]) == torch.tensor(second_reward_output["rewards"])).all(dim=1).float().mean()
-        log.info(f"Reward matches: {reward_matches}")
-        update_reward_matches(metric_bag, reward_matches)
 
         rollout_lengths = get_rollout_lengths(rollouts)
         avg_rollout_length = torch.tensor(rollout_lengths).float().mean()
@@ -252,7 +242,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         update_avg_reward(metric_bag, avg_reward)
         update_batch_metrics(metric_bag, prompt_batch, train=False)
         update_std_reward(metric_bag, std_reward)
-        update_failed_to_parse_answers(metric_bag, failed_to_parse_answers)
         # returning dummy loss since trainer expects it
         return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
 
@@ -292,14 +281,12 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 dp_gang=self._gangs.dp,
                 vllm_model=self._vllm_model,
             )
-            # if self._config.loss_config.log_rollouts:
-            #     log_rollouts(prompt_batch, rollouts, "Train")
+            if self._config.loss_config.log_rollouts:
+                log_rollouts(prompt_batch, rollouts, "Train")
 
             if self._config.reward.config.strip_thinking:
                 rollouts = strip_think_tokens(rollouts)
-            else:
-                rollouts = strip_for_octothinker(rollouts)
-            log.info("After stripping")
+            
             if self._config.loss_config.log_rollouts:
                 log_rollouts(prompt_batch, rollouts, "Train")
             reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
@@ -316,6 +303,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             rollout_start_end=self._rollout_bag.get_rollout_start_end(
                 self._config.loss_config.forward_group_size
             ),
+            adv_std_normalization=self._config.loss_config.adv_std_normalization,
         )
 
         # grpo_batch, reward_output = self._reward.prepare_grpo_batch(prompt_batch, rollouts)  # loss_zeroer is used when entire batch has no valid prefrence pair
@@ -333,7 +321,20 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             grpo_input_batch_seqs, grpo_input_batch_seqs_layout
         )
 
-        logps = self._gather_lprobs(grpo_model_logits, grpo_target_batch)
+        model_logps = self._gather_lprobs(grpo_model_logits, grpo_target_batch)
+        rollout_window = self._rollout_bag.get_rollout_start_end(
+            self._config.loss_config.forward_group_size
+        )
+        vllm_logps = get_vllm_logprobs(
+            rollouts, self._gangs, rollout_start_end=rollout_window
+        ).to(model_logps.device)
+
+        if vllm_logps.size(0) != model_logps.size(0):
+            raise RuntimeError(
+                "Mismatch between vLLM and model logprobs row counts after slicing: "
+                f"model={model_logps.size(0)}, vllm={vllm_logps.size(0)}. "
+                "Ensure rollout slicing aligns with forward_group_size and group_size."
+            )
 
         tgt_logit_entropy = compute_token_level_entropy(
             grpo_model_logits, grpo_target_batch.target_mask
@@ -349,16 +350,21 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             prompt_rollout_seqs,
             prompt_rollout_layout,
         ) = grpo_batch.prompt_rollouts.as_input()
-        ref_logps = compute_reference_logps(
-            self._gangs,
-            self._reference_model,
-            prompt_rollout_seqs,
-            prompt_rollout_layout,
-            grpo_batch.prompt_lengths,
-        )
 
-        _grpo_objective = self._compute_grpo_objective(
-            logps, ref_logps, grpo_batch.rewards, grpo_target_batch
+        # if beta > 0, compute reference logprobs
+        if self._config.loss_config.beta > 0:
+            ref_logps = compute_reference_logps(
+                self._gangs,
+                self._reference_model,
+                prompt_rollout_seqs,
+                prompt_rollout_layout,
+                grpo_batch.prompt_lengths,
+            )
+        else:
+            ref_logps = None
+
+        _grpo_objective, total_tokens = self._compute_grpo_objective(
+            model_logps, vllm_logps, ref_logps, grpo_batch.rewards, grpo_target_batch
         )
 
         grpo_loss = -_grpo_objective + max_entropy_regularizer
@@ -381,16 +387,27 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             grpo_batch.prompt_rollouts,
         )
 
-        avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
-        std_reward = torch.tensor(reward_output["rewards"]).float().std()
+        rewards_tensor = torch.tensor(reward_output["rewards"]).float()
+        avg_reward = rewards_tensor.mean()
+        log.info(f"Train Rewards: {reward_output['rewards']}")
+        std_reward = rewards_tensor.std()
+
+        # Compute reward agreement metrics
+        reward_agreement = compute_reward_agreement_metrics(rewards_tensor)
+        log.info(f"Fraction all correct: {reward_agreement['frac_all_correct']:.4f}")
+        log.info(f"Fraction all incorrect: {reward_agreement['frac_all_incorrect']:.4f}")
 
         update_std_reward(metric_bag, std_reward)
         update_avg_reward(metric_bag, avg_reward)
-        
-        failed_to_parse_answers = get_failed_to_parse_answers(reward_output, prompt_batch.batch_size)
-        update_failed_to_parse_answers(metric_bag, failed_to_parse_answers)
+        update_frac_all_correct(metric_bag, reward_agreement['frac_all_correct'])
+        update_frac_all_incorrect(metric_bag, reward_agreement['frac_all_incorrect'])
 
         loss = grpo_loss
+        
+        if self._config.loss_config.loss_token_mean:
+            return loss, total_tokens
+        else:
+            return loss, prompt_batch.batch_size
 
         return loss, prompt_batch.batch_size
 
@@ -405,7 +422,8 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
     def _compute_grpo_objective(
         self,
-        logps,
+        model_logps,
+        vllm_logps,
         ref_logps,
         advantages: Tensor,  # outcome based only for now
         target_batch: SequenceBatch,
@@ -413,25 +431,41 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         batch_size = advantages.size(0)
         num_rollouts = advantages.size(1)
-        logps = logps.view(batch_size, num_rollouts, -1)
-        ref_logps = ref_logps.view(batch_size, num_rollouts, -1)
+        model_logps = model_logps.view(batch_size, num_rollouts, -1)
+        vllm_logps = vllm_logps.view(batch_size, num_rollouts, -1)
 
-        # kl penalty
-        kl = (ref_logps - logps).exp() - (ref_logps - logps) - 1.0
+        per_token_scaled_advantage = (
+            model_logps - model_logps.detach()
+        ).exp() * advantages[:, :, None]
 
-        per_token_scaled_advantage = (logps - logps.detach()).exp() * advantages[
-            :, :, None
-        ]
-        # per_token_scaled_advantage = logps * advantages[:,:,None]
+        if self._config.loss_config.tis_imp_ratio_cap > 0:
+            tis_imp_ratio = torch.exp(model_logps - vllm_logps)
+            tis_imp_ratio = torch.clamp(
+                tis_imp_ratio, max=self._config.loss_config.tis_imp_ratio_cap
+            )
+            per_token_scaled_advantage = per_token_scaled_advantage * tis_imp_ratio
 
-        per_token_loss = per_token_scaled_advantage - self._config.loss_config.beta * kl
+        if self._config.loss_config.beta > 0:
+            ref_logps = ref_logps.view(batch_size, num_rollouts, -1)
+
+            # kl penalty
+            kl = (ref_logps - model_logps).exp() - (ref_logps - model_logps) - 1.0
+            per_token_loss = (
+                per_token_scaled_advantage - self._config.loss_config.beta * kl
+            )
+        else:
+            per_token_loss = per_token_scaled_advantage
 
         target_mask = target_batch.target_mask.view(batch_size, num_rollouts, -1)
+
+        total_tokens = target_mask.sum().item()
 
         if self._config.loss_config.length_normalization:
             per_seq_loss = (
                 (per_token_loss * target_mask).sum(dim=-1) / target_mask.sum(dim=-1)
             ).mean(dim=1)
+        elif self._config.loss_config.loss_token_mean:
+            per_seq_loss = per_token_loss * target_mask
         else:
             per_seq_loss = ((per_token_loss * target_mask).sum(dim=-1)).mean(dim=1)
 
@@ -441,7 +475,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         # self._gangs.root.barrier()
 
-        return per_seq_loss.sum()
+        return per_seq_loss.sum(), total_tokens
 
     @override
     def set_step_nr(self, step_nr: int) -> None:
@@ -482,11 +516,20 @@ class GrpoLossConfig:
     length_normalization: bool = True
     """If True, normalize loss by sequence length. If False, use sequence-level loss."""
 
+    adv_std_normalization: bool = True
+    """If True, normalize advantages with standard deviation."""
+
     log_rollouts: bool = False
     """Log sample rollouts during training/validation."""
 
+    loss_token_mean: bool = False
+    """If True, average loss over tokens. If False, sum over tokens."""
+
     validation_vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
     """VLLM sampling params for validation. If empty, training params will be used."""
+
+    tis_imp_ratio_cap: float = 2.0
+    """Maximum cap for the truncated importance sampling ratio. If <= 0, no cap is applied."""
 
 
 @dataclass(kw_only=True)
@@ -506,9 +549,6 @@ class GrpoFinetuneConfig:
 
     vllm_reward_model_actor_name: str | None = None
     """Optional name of the Ray vLLM actor used as a reward model."""
-    
-    vllm_second_reward_model_actor_name: str | None = None
-    """Optional name of the Ray vLLM actor used as a reward model."""
 
     vllm_reference_model_actor_name: str | None = None
     """Optional name of the Ray vLLM actor used as a reference model."""
@@ -517,10 +557,6 @@ class GrpoFinetuneConfig:
         default_factory=lambda: RewardSection(name="gsm8k_verifier")
     )
     """Configuration for the reward function that evaluates generated rollouts."""
-    
-    second_reward: RewardSection = field(
-        default_factory=lambda: RewardSection(name="gsm8k_verifier")
-    )
 
     vllm_sync: VllmSyncSection = field(default_factory=lambda: VllmSyncSection())
 
@@ -547,7 +583,7 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         log.info(f"GRPO loss config:\n{config}")
 
         reference_model = vllm_actors[config.vllm_reference_model_actor_name]
-        if config.vllm_sync.sync_ref_model_every_n_steps != -1:
+        if reference_model and config.vllm_sync.sync_ref_model_every_n_steps != -1:
             if reference_model and reference_model.update_process_groups is None:
                 raise ValueError(
                     f"Reference model actor must have update process group if we sync weights"
@@ -560,7 +596,6 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
                 vllm_model.sampling_params.n = config.loss_config.group_size
 
         vllm_reward_model = vllm_actors.get(config.vllm_reward_model_actor_name, None)
-        vllm_second_reward_model = vllm_actors.get(config.vllm_second_reward_model_actor_name, None)
         
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         reward_name = config.reward.name
@@ -569,16 +604,6 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             reward_model=vllm_reward_model,
             reward_name=reward_name,
             reward_config=config.reward.config,
-            gangs=gangs,
-            context=self._context,
-        )
-        
-        second_reward_name = config.second_reward.name
-        second_reward_handler = reward_registry.get(second_reward_name)
-        second_reward = second_reward_handler.create(
-            reward_model=vllm_second_reward_model,
-            reward_name=second_reward_name,
-            reward_config=config.second_reward.config,
             gangs=gangs,
             context=self._context,
         )
@@ -592,7 +617,7 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         log.info("GRPO setup complete.")
 
         return GrpoFinetuneUnit(
-            model, reference_model, vllm_model, vllm_actors, reward, second_reward, gangs, config
+            model, reference_model, vllm_model, vllm_actors, reward, gangs, config
         )
 
     @property
