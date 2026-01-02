@@ -43,10 +43,22 @@ from fairseq2.recipes.lm._online_finetune._generative_judge import (
     GeneralVerifierExtractorHandler as GeneralVerifierExtractorHandler,
 )
 from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    PrincipiaExtractor as PrincipiaExtractor,
+)
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    PrincipiaExtractorHandler as PrincipiaExtractorHandler,
+)
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
     J1PairwiseScoreExtractor as J1PairwiseScoreExtractor,
 )
 from fairseq2.recipes.lm._online_finetune._generative_judge import (
     J1PairwiseScoreExtractorHandler as J1PairwiseScoreExtractorHandler,
+)
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    J1KwiseScoreExtractor as J1KwiseScoreExtractor,
+)
+from fairseq2.recipes.lm._online_finetune._generative_judge import (
+    J1KwiseScoreExtractorHandler as J1KwiseScoreExtractorHandler,
 )
 from fairseq2.recipes.lm._online_finetune._generative_judge import (
     J1PointwiseExtractor as J1PointwiseExtractor,
@@ -89,6 +101,12 @@ from fairseq2.recipes.lm._online_finetune._remote_model import (
     NoEnvGeneralVerifierPipeline as NoEnvGeneralVerifierPipeline,
 )
 from fairseq2.recipes.lm._online_finetune._remote_model import (
+    NoEnvAceMathRMPipeline as NoEnvAceMathRMPipeline,
+)
+from fairseq2.recipes.lm._online_finetune._remote_model import (
+    NoEnvSkyworkRMPipeline as NoEnvSkyworkRMPipeline,
+)
+from fairseq2.recipes.lm._online_finetune._remote_model import (
     RemoteModelHandler as RemoteModelHandler,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
@@ -96,6 +114,18 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
     AtheneVerifierHandler as AtheneVerifierHandler,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    SkyworkVerifier as SkyworkVerifier,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    SkyworkVerifierHandler as SkyworkVerifierHandler,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    AceMathVerifier as AceMathVerifier,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    AceMathVerifierHandler as AceMathVerifierHandler,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
     GenerativePairwiseVerifier as GenerativePairwiseVerifier,
@@ -108,6 +138,12 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
     GenerativePointwiseVerifierHandler as GenerativePointwiseVerifierHandler,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    GenerativeKwiseVerifier as GenerativeKwiseVerifier,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    GenerativeKwiseVerifierHandler as GenerativeKwiseVerifierHandler,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import GSM8kVerifier as GSM8kVerifier
 from fairseq2.recipes.lm._online_finetune._rewards import (

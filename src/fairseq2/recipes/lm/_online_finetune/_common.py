@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import re
 from dataclasses import dataclass
 from typing import List, cast
 
@@ -87,9 +88,13 @@ def collate_with_target_mask(
 
     seq_data = cast(SequenceData, collater(to_collate))
 
+    seq_lens = seq_data["seqs"]["seq_lens"]
+    assert isinstance(seq_lens, Tensor) or isinstance(seq_lens, list)
+    if isinstance(seq_lens, Tensor):
+        seq_lens = seq_lens.tolist()
     batch = SequenceBatch(
         seq_data["seqs"]["seqs"],
-        seq_data["seqs"]["seq_lens"],
+        seq_lens,
         target_mask=seq_data["target_loss_mask"]["seqs"],
     )
     batch.to(device)
@@ -358,6 +363,54 @@ def combine_prompts_responses_for_scoring(
 
     return responses
 
+def get_vllm_logprobs(
+    vllm_outputs: List[RequestOutput],
+    gangs,
+    rollout_start_end: tuple[int, int] | None = None,
+):
+    """Compute per-token logprobs for selected continuations across a list of requests.
+
+    For each RequestOutput (one prompt) and each of its sampled continuations we
+    concatenate the prompt logprobs (skipping the first entry) with the generation
+    logprobs. All resulting sequences are then right-padded with 0.0 to the global
+    maximum length and stacked into a single tensor.
+
+    Parameters
+    ----------
+    vllm_outputs:
+        List of vLLM RequestOutput objects (one per prompt).
+    gangs:
+        Fairseq2 gangs object (unused, kept for parity/extensibility).
+    rollout_start_end:
+        Optional (start, end) slice specifying which continuation indices to include
+        per prompt (used for micro-batching when forward_group_size < group_size).
+
+    Returns
+    -------
+    Tensor
+        Shape ``(num_selected_continuations, max_seq_len)`` with 0.0 padding.
+    """
+    sequences: List[Tensor] = []
+    for request in vllm_outputs:
+        prompt_logprobs = [
+            list(d.values())[0].logprob for d in request.prompt_logprobs[1:]
+        ]
+        outputs = request.outputs
+        if rollout_start_end is not None:  # micro-batching
+            s, e = rollout_start_end
+            outputs = outputs[s:e]
+        for output in outputs:
+            gen_logprobs = [list(d.values())[0].logprob for d in output.logprobs]
+            seq = torch.tensor(prompt_logprobs + gen_logprobs)
+            sequences.append(seq)
+
+    max_len = max(t.size(0) for t in sequences)
+    padded = torch.zeros(len(sequences), max_len)
+    for i, t in enumerate(sequences):
+        padded[i, : t.size(0)] = t
+
+    return padded
+
 
 def get_vllm_logprobs(
     vllm_outputs: List[RequestOutput],
@@ -438,6 +491,8 @@ def log_rollouts(prompt_batch: PromptBatch, rollouts, split_name, num_rollouts=1
         prompt = prompt_batch.meta_info.get("prompt_raw")[0]
     elif "raw_prompt" in prompt_batch.meta_info:
         prompt = prompt_batch.meta_info.get("raw_prompt")[0]
+    elif "problem" in prompt_batch.meta_info:
+        prompt = prompt_batch.meta_info.get("problem")[0]
     else:
         # raw text prompt doesn't exist for this dataset
         prompt = "DUMMY PROMPT"
@@ -457,6 +512,57 @@ def get_rollout_lengths(rollouts: List[SequenceData]):
             token_ids_len = len(token_ids)
             rollout_lengths.append(token_ids_len)
     return rollout_lengths
+
+
+def compute_reward_agreement_metrics(rewards: Tensor) -> dict[str, Tensor]:
+    """Compute metrics for reward agreement across rollouts.
+
+    Args:
+        rewards: Tensor of shape [Batch, Rollouts] containing binary rewards (0 or 1)
+
+    Returns:
+        Dictionary containing:
+            - 'frac_all_correct': Fraction of prompts where all rollouts got reward=1
+            - 'frac_all_incorrect': Fraction of prompts where all rollouts got reward=0
+    """
+    # Check if all rollouts for each prompt have reward=1
+    all_correct = (rewards == 1).all(dim=1)  # [Batch]
+
+    # Check if all rollouts for each prompt have reward=0
+    all_incorrect = (rewards == 0).all(dim=1)  # [Batch]
+
+    # Compute fractions
+    frac_all_correct = all_correct.float().mean()
+    frac_all_incorrect = all_incorrect.float().mean()
+
+    return {
+        'frac_all_correct': frac_all_correct,
+        'frac_all_incorrect': frac_all_incorrect
+    }
+
+
+def strip_think_tokens(rollouts: List[SequenceData]):
+    count_stripped, count_not_stripped, total_count, think_present = 0, 0, 0, 0
+    for sample in rollouts:
+        for rollout in sample.outputs:
+            rollout_text = rollout.text
+            if "<think>" in rollout_text:
+                think_present += 1
+            if rollout.finish_reason == "length":
+                count_not_stripped += 1
+            if rollout.finish_reason == "stop":
+                count_stripped += 1
+            total_count += 1
+            rollout.text = re.sub(
+                r"<think>.*?</think>", "", rollout_text, flags=re.DOTALL
+            ).strip()
+
+    log.info(f"Total count: {total_count}")
+    log.info(f"Think present: {think_present}")
+    log.info(f"Count stripped: {count_stripped/total_count}")
+    log.info(f"Count not stripped: {count_not_stripped/total_count}")
+
+    return rollouts
 
 
 class StatefulRolloutBag:
@@ -547,6 +653,20 @@ def update_num_dummy_batches(
 @torch.inference_mode()
 def update_avg_reward(metric_bag: MetricBag, avg_reward):
     metric_bag.get(Mean, "avg_reward").update(avg_reward, weight=1)
+
+@torch.inference_mode()
+def update_reward_matches(metric_bag: MetricBag, reward_matches):
+    metric_bag.get(Mean, "reward_matches").update(reward_matches, weight=1)
+
+
+@torch.inference_mode()
+def update_frac_all_correct(metric_bag: MetricBag, frac_all_correct):
+    metric_bag.get(Mean, "frac_all_correct").update(frac_all_correct, weight=1)
+
+
+@torch.inference_mode()
+def update_frac_all_incorrect(metric_bag: MetricBag, frac_all_incorrect):
+    metric_bag.get(Mean, "frac_all_incorrect").update(frac_all_incorrect, weight=1)
 
 
 @torch.inference_mode()

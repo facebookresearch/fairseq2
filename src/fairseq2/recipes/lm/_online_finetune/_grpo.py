@@ -33,19 +33,24 @@ from fairseq2.recipes.lm._online_finetune._common import (
     VllmSyncSection,
     collate_with_target_mask,
     compute_reference_logps,
+    compute_reward_agreement_metrics,
     compute_token_level_entropy,
     generate_rollouts,
     get_rollout_lengths,
     get_vllm_logprobs,
     log_rollouts,
+    strip_think_tokens,
     update_avg_reward,
+    update_reward_matches,
     update_avg_reward_len_norm,
     update_avg_rollout_length,
     update_batch_metrics,
+    update_frac_all_correct,
+    update_frac_all_incorrect,
     update_grpo_batch_metrics,
     update_grpo_loss,
     update_logit_entropy,
-    update_std_reward,
+    update_std_reward
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_model import (
@@ -190,17 +195,22 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     def validate_reward(
         self, prompt_batch: PromptBatch, metric_bag
     ) -> tuple[Tensor, int]:
+        log.info("Inside validation")
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
-            # For a pairwise RM, need to sample at least two judgments
-            policy_sampling_params.n = (
-                2 if self._reward.reward_name == "generative_pairwise_verifier" else 1
-            )
             for (
                 k,
                 v,
             ) in self._config.loss_config.validation_vllm_sampling_params.items():
                 policy_sampling_params.__setattr__(k, v)
+
+            # For a pairwise RM, need to sample at least two rollouts
+            if self._reward.reward_name == "generative_pairwise_verifier":
+                policy_sampling_params.n = 2
+            elif self._reward.reward_name == "generative_kwise_verifier":
+                policy_sampling_params.n = self._config.reward.config.k
+            else:
+                policy_sampling_params.n = 1
         else:
             policy_sampling_params = None
         rollouts = generate_rollouts(
@@ -209,8 +219,14 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             vllm_model=self._vllm_model,
             sampling_params=policy_sampling_params,
         )
+        if self._config.reward.config.strip_thinking:
+            rollouts = strip_think_tokens(rollouts)
+
+        log.info("After stripping")
         if self._config.loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Valid")
+        log.info(f"Sampling params: {len(rollouts[0].outputs)}")
+        log.info(f"Rollouts: {len(rollouts[0].outputs)}")
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
         log.info(f"Rewards: {reward_output['rewards']}")
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
@@ -268,6 +284,11 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             if self._config.loss_config.log_rollouts:
                 log_rollouts(prompt_batch, rollouts, "Train")
 
+            if self._config.reward.config.strip_thinking:
+                rollouts = strip_think_tokens(rollouts)
+            
+            if self._config.loss_config.log_rollouts:
+                log_rollouts(prompt_batch, rollouts, "Train")
             reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
             self._rollout_bag.save(rollouts, reward_output)
 
@@ -366,13 +387,27 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             grpo_batch.prompt_rollouts,
         )
 
-        avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
-        std_reward = torch.tensor(reward_output["rewards"]).float().std()
+        rewards_tensor = torch.tensor(reward_output["rewards"]).float()
+        avg_reward = rewards_tensor.mean()
+        log.info(f"Train Rewards: {reward_output['rewards']}")
+        std_reward = rewards_tensor.std()
+
+        # Compute reward agreement metrics
+        reward_agreement = compute_reward_agreement_metrics(rewards_tensor)
+        log.info(f"Fraction all correct: {reward_agreement['frac_all_correct']:.4f}")
+        log.info(f"Fraction all incorrect: {reward_agreement['frac_all_incorrect']:.4f}")
 
         update_std_reward(metric_bag, std_reward)
         update_avg_reward(metric_bag, avg_reward)
+        update_frac_all_correct(metric_bag, reward_agreement['frac_all_correct'])
+        update_frac_all_incorrect(metric_bag, reward_agreement['frac_all_incorrect'])
 
         loss = grpo_loss
+        
+        if self._config.loss_config.loss_token_mean:
+            return loss, total_tokens
+        else:
+            return loss, prompt_batch.batch_size
 
         if self._config.loss_config.loss_token_mean:
             return loss, total_tokens
@@ -564,6 +599,7 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
                 vllm_model.sampling_params.n = config.loss_config.group_size
 
         vllm_reward_model = vllm_actors.get(config.vllm_reward_model_actor_name, None)
+        
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         reward_name = config.reward.name
         reward_handler = reward_registry.get(reward_name)
