@@ -1012,6 +1012,9 @@ class PplDerivedVerifierHandler(VLLMOutputRewardHandler):
             ),
             base_reward_model=base_reward_model,
             separate_base_rm=separate_base_rm,
+            base_rm_for_gt_mask_only=reward_config.additional_fields.get(
+                "base_rm_for_gt_mask_only", False
+            ),
         )
 
     @property
@@ -1052,6 +1055,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         tok_score_diff_floor=None,
         tok_score_diff_ceil=None,
         use_tok_win_reward=False,
+        base_rm_for_gt_mask_only=False,
     ):
         self.prompt_key = prompt_key
         self.answer_key = answer_key
@@ -1076,6 +1080,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         self._dummy_suffix = "04:11 ### Video Transcript Water in a pan reaches 100 degrees Celsius. But the pan is still left on the heat. So eventually, all of the water turns to water vapor. Calculate the energy needed to evaporate the 1.2 kilograms of water contained by the pan. Use a value of 2258 kilojoules per kilogram for the specific latent heat of vaporization of water. Give your answer to two significant figures. Alright. So this is a long question. So we should start by underlining all the important"
         self.base_reward_model = base_reward_model
         self.separate_base_rm = separate_base_rm
+        self.base_rm_for_gt_mask_only = base_rm_for_gt_mask_only
         self.multiply_format_reward = multiply_format_reward
         self.format_penalty = format_penalty
 
@@ -1138,6 +1143,10 @@ class PplDerivedVerifier(VLLMOutputReward):
         ) and self.tok_score_diff_floor < self.tok_score_diff_ceil
         assert (self.tok_score_diff_floor is None) or (not self.use_tok_win_reward)
         assert self.gt_logp_unmasked_weight >= 0 and self.gt_logp_unmasked_weight <= 1
+        if self.base_rm_for_gt_mask_only:
+            assert (
+                self.separate_base_rm
+            ), "must have separate base rm when enabling base_rm_for_gt_mask_only"
 
     def _tokenize(self, input_str, add_special_tokens=False, max_length=None):
         return (
@@ -1870,7 +1879,7 @@ class PplDerivedVerifier(VLLMOutputReward):
         # if self._gangs.root.rank == 0:
         #     breakpoint()
         # self._gangs.root.barrier()
-        if self.separate_base_rm:
+        if self.separate_base_rm and (not self.base_rm_for_gt_mask_only):
             # dispatch and collect rollouts from base and main rm.
             main_rm_keys: list[str] = ["prefix_base", "prefix_target", "suffix_target"]
             main_rm_rollout_dict = self._dispatch_vllm(
@@ -1907,6 +1916,17 @@ class PplDerivedVerifier(VLLMOutputReward):
                 sampling_params=SamplingParams(**rm_sampling_params),
             )
 
+        base_rollouts_for_gt_mask = None
+        if self.base_rm_for_gt_mask_only:
+            base_rollouts_for_gt_mask = self._dispatch_vllm(
+                all_rm_vllm_tokens,
+                rm_compo_ranges,
+                ["suffix_base"],
+                self.base_reward_model,
+                rm_sampling_params,
+            )["suffix_base"]
+            fs2_log.debug(f"{base_rollouts_for_gt_mask=}")
+
         fs2_log.debug(f"rm {rollouts=}")
 
         gt_tok_mask = None
@@ -1914,12 +1934,16 @@ class PplDerivedVerifier(VLLMOutputReward):
             start_idx, end_idx = rm_compo_ranges[
                 "suffix_base"
             ]  # NOTE: we are using the prefix, suffix seq to compute the gt entropies.
-            talking_rollouts = rollouts[start_idx:end_idx]
+            talking_rollouts = (
+                rollouts[start_idx:end_idx]
+                if base_rollouts_for_gt_mask is None
+                else base_rollouts_for_gt_mask
+            )
             talking_input_tok_lens = all_input_tok_lens[start_idx:end_idx]
             assert (
                 len(talking_rollouts) == len(talking_input_tok_lens)
                 and len(talking_input_tok_lens) == 1
-            )
+            ), f"{len(talking_rollouts)=}, {len(talking_input_tok_lens)=}"
 
             gt_tok_mask = self.select_low_base_logps_toks(
                 talking_rollouts[0],
