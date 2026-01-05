@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Any, Dict, Type
 
 import torch
+import torch.distributed as dist
 from tqdm.auto import tqdm
 
 from fairseq2.assets import HuggingFaceHub
@@ -309,35 +310,28 @@ def _replace_layer(
         layers_indexable[int(last)] = value  # type: ignore
     else:
         setattr(layers_indexable, last, value)
+        
+def all_gather_forward_hook(module, input, output):
+    # Perform all_gather on standard linear input before
+    # passing to ColumnShardedLinear
+    input_tensor = input_tensor[0]
+    # Prepare output tensor for all gathered tensors
+    global_group = dist.group.WORLD                                                                                                                                 
+    dist.all_gather(output, group=global_group)
+    output_shape = (world_size, ) + input_tensor.shape
+    print(output_shape)
+    output_tensor = torch.empty(output_shape, dtype=input_tensor.dtype, device=input_tensor.device)
+    # Return the gathered tensor to be used as input to the module
+    return output_tensor
 
-def make_all_gather_forward_hook(gang):
-    def all_gather_forward_hook(module, input, output):
-        # Perform all_gather on standard linear input before
-        # passing to ColumnShardedLinear
-        """
-        input_tensor = input_tensor[0]
-        # Prepare output tensor for all gathered tensors
-        output_shape = (gang.size, ) + input_tensor.shape
-        output_tensor = torch.empty(output_shape, dtype=input_tensor.dtype, device=input_tensor.device)
-        # Perform all-gather
-        gang.all_gather(output_tensor, input_tensor)
-        # Return the gathered tensor to be used as input to the module
-        return (output_tensor,)
-        """
-        input_tensor = input[0]
-        gathered = gather(input_tensor, gang, dim=-1)
-        return output
-    return all_gather_forward_hook
-
-def make_all_reduce_forward_hook(gang):
-    def all_reduce_forward_hook(module, input, output):
-        input_tensor = input[0]
-        print(f"Before reduce: {input_tensor.shape}")
-        input_tensor = reduce(input_tensor, gang)
-        print(f"After reduce: {input_tensor.shape}")
-        output = torch.matmul(input_tensor, module.weight)
-        return output
-    return all_reduce_forward_hook
+def all_reduce_forward_hook(module, input, output):
+    input_tensor = input[0]
+    print(f"Before reduce: {input_tensor.shape}")
+    dist.all_reduce(tensor, op=dist.ReduceOp.SUM, group=gangs.tp.process_group)
+    input_tensor = reduce(input_tensor, gang)
+    print(f"After reduce: {input_tensor.shape}")
+    output = torch.matmul(input_tensor, module.weight)
+    return output
 
 def transpose_hook(module, input, output):
     input_tensor = input[0]
@@ -350,6 +344,14 @@ def transpose_hook(module, input, output):
         output = torch.matmul(input_tensor, transposed_weight)
     else:
         output = torch.matmul(input_tensor, module.weight)
+    return output
+
+def gather_tensor_hook(module, input, output):
+    print(input.shape)
+    
+
+def print_hook(module, input, output):
+    print(module)
     return output
 
 def _tp_shard_qwen_omni_model(
@@ -367,7 +369,8 @@ def _tp_shard_qwen_omni_model(
     """
  
     qkv_pattern_c = re.compile("[.]q_|[.]k_|[.]v_|_[qkv]$|[.][qkv]$")
-    out_pattern_c = re.compile(".*attn.*out|[.]o_|_o$|[.]o$|.*attn.*proj$")
+    out_pattern_c = re.compile(".*attn.*out.*|[.]o_|_o$|[.]o$|.*attn.*proj$")
+    gather_needed_c = re.compile(".*patch_embed.*")
     col_ffn_pattern_c = re.compile("ff.*[02]|fc[1]|mlp.*[01]|[.]gate_|[.]down_")
     row_ffn_pattern_c = re.compile("ff.*[13]|up_|fc2|mlp.*[2]")
 
@@ -384,29 +387,43 @@ def _tp_shard_qwen_omni_model(
     prev_column = False
     prev_row = False
 
-    global prev_layer
+    prev_layer = None
     
     for name, module in model.named_modules():
         if isinstance(module, torch.nn.Linear):
+            # Get the current layer's dimensions and dtype
             output_dim, input_dim, bias, dtype = module.out_features, module.in_features, module.bias is not None, module.weight.dtype
-            fs_proj = Linear(input_dim=input_dim, output_dim=output_dim, bias=bias, dtype=dtype, device=gangs.device)
+            # Get the current layer's state_dict
             state_dict = module.state_dict()
+            # Copy over layer weights
+            fs_proj = Linear(input_dim=input_dim, output_dim=output_dim, bias=bias, dtype=dtype, device=gangs.device)
             fs_proj.load_state_dict(state_dict)
+            fs_state_dict = fs_proj.state_dict()
+            # Check for size mismatch (row/col)
+            if prev_layer and prev_layer.input_dim != output_dim:
+                for weight_name, weight in fs_state_dict.items():
+                    if weight.ndim > 1:
+                        transposed_weight = weight.t()
+                        fs_state_dict[weight_name] = transposed_weight.to(weight.device)
             if qkv_pattern_c.search(name):
                 # if prev_linear or prev_column:
                     # hook = make_all_gather_forward_hook(gang)
                     # sharded_proj.register_forward_hook(hook)
-                sharded_proj = ColumnShardedLinear.from_linear(fs_proj, gangs=gangs, gather_output=False)
+                sharded_proj = ColumnShardedLinear.from_linear(fs_proj, gangs=gangs, gather_output=True)
                 prev_column = True
                 prev_row = False
                 prev_linear = False
             elif out_pattern_c.search(name):
-                sharded_proj = RowShardedLinear.from_linear(fs_proj, gangs=gangs, scatter_input=False, reduce_output=True)
+                sharded_proj = RowShardedLinear.from_linear(fs_proj, gangs=gangs, scatter_input=True, reduce_output=True)
+                if gather_needed_c.search(name):
+                    print("gather needed")
+                    hook = make_all_gather_forward_hook(gang)
+                    sharded_proj.register_forward_hook(hook)
                 prev_row = True
                 prev_column = False
                 prev_linear = False
             elif col_ffn_pattern_c.search(name):
-                sharded_proj = ColumnShardedLinear.from_linear(fs_proj, gangs=gangs, gather_output=False)
+                sharded_proj = ColumnShardedLinear.from_linear(fs_proj, gangs=gangs, gather_output=True)
                 # if prev_linear or prev_column:
                     # hook = make_all_gather_forward_hook(gang)
                     # sharded_proj.register_forward_hook(hook)
@@ -414,20 +431,19 @@ def _tp_shard_qwen_omni_model(
                 prev_linear = False
                 prev_column = True
             elif row_ffn_pattern_c.search(name):
-                sharded_proj = RowShardedLinear.from_linear(fs_proj, gangs=gangs, scatter_input=False, reduce_output=True)
+                sharded_proj = RowShardedLinear.from_linear(fs_proj, gangs=gangs, scatter_input=True, reduce_output=True)
                 prev_row = True
                 prev_column = False
                 prev_linear = False
             else:
                 sharded_proj = fs_proj
                 # if prev_column:
-                hook = make_all_reduce_forward_hook(gang)
-                sharded_proj.register_forward_hook(hook)
                 prev_linear = True
                 prev_column = False
                 prev_row = False
             prev_layer = sharded_proj
-            sharded_proj.register_forward_hook(transpose_hook)
+            # if gather_needed_c.search(name):
+                # sharded_proj.register_forward_hook(all_gather_forward_hook)
             _replace_layer(fs_model, name, sharded_proj)
 
         progress_bar.update(1)

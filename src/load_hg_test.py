@@ -30,6 +30,7 @@ def main():
         card = get_asset_store().retrieve_card("hg_qwen25_omni_3b")
         root_gang.barrier()
         model = get_hg_model_hub().load_model(card, gangs=gangs)
+        model.half()
         # Let model load
         root_gang.barrier()
 
