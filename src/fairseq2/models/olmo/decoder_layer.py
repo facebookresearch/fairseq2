@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""OLMO2-specific decoder layer with custom OLMO2 Post-Norm order."""
+"""OLMO-specific decoder layer with custom OLMO Post-Norm order."""
 
 from __future__ import annotations
 
@@ -29,16 +29,16 @@ from fairseq2.nn import (
 )
 
 
-class OLMO2TransformerLMDecoderLayer(TransformerLMDecoderLayer):
-    """OLMO2 Transformer Decoder Layer with custom Post-Norm order.
+class OLMOTransformerLMDecoderLayer(TransformerLMDecoderLayer):
+    """OLMO Transformer Decoder Layer with custom Post-Norm order.
 
     The key difference from StandardTransformerLMDecoderLayer is the order
     of operations in Post-Norm:
     - Standard Post-Norm: Attention/FFN -> Add Residual -> Norm
-    - OLMO2 Post-Norm: Attention/FFN -> Norm -> Add Residual
+    - OLMO Post-Norm: Attention/FFN -> Norm -> Add Residual
     - Pre-Norm (e.g. LLAMA): Norm -> Attention/FFN -> Add Residual
 
-    This matches the HuggingFace OLMO2 implementation where normalization
+    This matches the HuggingFace OLMO implementation where normalization
     is applied to the output before adding the residual connection.
     """
 
