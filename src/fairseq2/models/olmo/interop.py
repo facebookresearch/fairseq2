@@ -8,8 +8,11 @@ from __future__ import annotations
 
 from typing import Final, cast
 
-from fairseq2.models.olmo2.config import OLMO2Config
+from torch import Tensor
+
+from fairseq2.models.olmo.config import OLMOConfig
 from fairseq2.models.utils.checkpoint import convert_state_dict
+
 
 _HG_KEY_MAP: Final = {
     # fmt: off
@@ -17,8 +20,8 @@ _HG_KEY_MAP: Final = {
     r"^model\.layers\.([0-9]+)\.self_attn\.k_proj\.":                r"decoder.layers.\1.self_attn.k_proj.",
     r"^model\.layers\.([0-9]+)\.self_attn\.v_proj\.":                r"decoder.layers.\1.self_attn.v_proj.",
     r"^model\.layers\.([0-9]+)\.self_attn\.o_proj\.":                r"decoder.layers.\1.self_attn.output_proj.",
-    r"^model\.layers\.([0-9]+)\.self_attn\.q_norm\.":                 r"decoder.layers.\1.self_attn.q_norm.",  # OLMO2 Q/K Norm
-    r"^model\.layers\.([0-9]+)\.self_attn\.k_norm\.":                 r"decoder.layers.\1.self_attn.k_norm.",  # OLMO2 Q/K Norm
+    r"^model\.layers\.([0-9]+)\.self_attn\.q_norm\.":                 r"decoder.layers.\1.self_attn.q_norm.",  # OLMO Q/K Norm
+    r"^model\.layers\.([0-9]+)\.self_attn\.k_norm\.":                 r"decoder.layers.\1.self_attn.k_norm.",  # OLMO Q/K Norm
     r"^model\.layers\.([0-9]+)\.post_attention_layernorm\.":         r"decoder.layers.\1.self_attn_layer_norm.",  # Post-Norm after attention
     r"^model\.layers\.([0-9]+)\.post_feedforward_layernorm\.":      r"decoder.layers.\1.ffn_layer_norm.",  # Post-Norm after FFN
     r"^model\.layers\.([0-9]+)\.mlp\.gate_proj\.":                    r"decoder.layers.\1.ffn.gate_proj.",
@@ -31,12 +34,12 @@ _HG_KEY_MAP: Final = {
 }
 
 
-def convert_olmo2_state_dict(
-    state_dict: dict[str, object], config: OLMO2Config
+def convert_olmo_state_dict(
+    state_dict: dict[str, object], config: OLMOConfig
 ) -> dict[str, object]:
-    """Convert OLMO2 state dictionary from HuggingFace format to fairseq2 format.
+    """Convert OLMO state dictionary from HuggingFace format to fairseq2 format.
 
-    OLMO2 uses Post-Norm architecture, so:
+    OLMO uses Post-Norm architecture, so:
     - No input_layernorm (Pre-Norm)
     - Has post_attention_layernorm (after attention)
     - Has post_feedforward_layernorm (after FFN)
@@ -49,7 +52,7 @@ def convert_olmo2_state_dict(
         pass
 
     if "model.embed_tokens.weight" in state_dict:  # HuggingFace format
-        # Note: OLMO2 may need RoPE weight permutation similar to LLaMA
+        # Note: OLMO may need RoPE weight permutation similar to LLaMA
         # This depends on the actual checkpoint format. For now, we'll check
         # if weights need permutation by comparing shapes.
 

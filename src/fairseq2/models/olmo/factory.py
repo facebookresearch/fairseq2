@@ -6,14 +6,16 @@
 
 from __future__ import annotations
 
+import torch
 import torch.nn as nn
 from torch import Tensor
 
 from fairseq2.gang import Gangs, maybe_get_current_gangs
-from fairseq2.models.olmo2.attention import OLMO2MultiheadAttention
-from fairseq2.models.olmo2.config import OLMO2Config
-from fairseq2.models.olmo2.decoder_layer import OLMO2TransformerLMDecoderLayer
-from fairseq2.models.olmo2.normalization import OLMO2RMSNorm
+from fairseq2.models.olmo.attention import OLMOMultiheadAttention
+from fairseq2.models.olmo.config import OLMOConfig
+from fairseq2.models.olmo.decoder_layer import OLMOTransformerLMDecoderLayer
+from fairseq2.models.olmo.normalization import OLMORMSNorm
+from fairseq2.models.olmo.yarn_rope import YaRNRotaryEncoder
 from fairseq2.models.transformer import (
     CausalAttentionBias,
     FeedForwardNetwork,
@@ -44,27 +46,87 @@ from fairseq2.nn import (
 from fairseq2.nn.position_encoder import ReferenceRotaryEncoder
 
 
-def create_olmo2_model(config: OLMO2Config) -> TransformerLM:
-    """Create an OLMO2 model instance."""
+def create_olmo_model(config: OLMOConfig) -> TransformerLM:
+    """Create an OLMO model instance (supports OLMO2 and OLMO3)."""
     gangs = maybe_get_current_gangs()
 
-    return OLMO2Factory(config, gangs).create_model()
+    return OLMOFactory(config, gangs).create_model()
 
 
-class OLMO2Factory:
-    """Factory for creating OLMO2 models.
+class OLMOFactory:
+    """Factory for creating OLMO models (OLMO2 and OLMO3).
 
-    OLMO2 is based on LLaMA architecture with the following differences:
-    - Olmo2RMSNorm: multiply weight, then convert back to input dtype
+    OLMO models are based on LLaMA architecture with the following differences:
+    - OLMORMSNorm: multiply weight, then convert back to input dtype
     - Add Q/K Norm in attention layers.
-    - Use Olmo2 Post-Norm in decoder layer: Attention/FFN -> Norm -> Add Residual
-    - Use MHA instead of GQA. OLMO2-32B model use GQA.
-    - Use a HuggingFace-style RoPE module for OLMO2 with rotate_half
+    - Use OLMO Post-Norm in decoder layer: Attention/FFN -> Norm -> Add Residual
+    - OLMO2: MHA for most models, GQA for 32B
+    - OLMO3: Hybrid sliding window + full attention, MHA for 7B, GQA for 32B
+    - Use a HuggingFace-style RoPE module with rotate_half
     """
 
-    def __init__(self, config: OLMO2Config, gangs: Gangs | None = None) -> None:
+    def __init__(self, config: OLMOConfig, gangs: Gangs | None = None) -> None:
         self._config = config
         self._gangs = gangs
+        
+        # Auto-generate layer_types if not specified but sliding_window is set
+        if config.sliding_window is not None and config.layer_types is None:
+            self._config.layer_types = self._generate_layer_types()
+        
+        # Create shared RoPE encoder (HuggingFace approach: one encoder for all layers)
+        self._shared_rope_encoder = self.create_rope_encoder()
+    
+    def _generate_layer_types(self) -> list[str]:
+        """Generate layer types for OLMO3 hybrid attention pattern.
+        
+        Pattern: 3 sliding window layers, 1 full attention layer, repeating.
+        Final layer always uses full attention.
+        
+        Returns:
+            List of layer types ('sliding_attention' or 'full_attention')
+        """
+        config = self._config
+        layer_types = []
+        
+        for i in range(config.num_layers):
+            # Final layer always uses full attention
+            if i == config.num_layers - 1:
+                layer_types.append("full_attention")
+            # Every 4th layer (indices 3, 7, 11, ...) uses full attention
+            elif (i + 1) % 4 == 0:
+                layer_types.append("full_attention")
+            # Other layers use sliding window attention
+            else:
+                layer_types.append("sliding_attention")
+        
+        return layer_types
+    
+    def _is_sliding_window_layer(self, layer_idx: int) -> bool:
+        """Determine if a layer uses sliding window attention.
+        
+        Args:
+            layer_idx: Index of the layer (0-based)
+            
+        Returns:
+            True if layer uses sliding window attention, False for full attention
+        """
+        config = self._config
+        
+        # If no sliding window configured, all layers use full attention
+        if config.sliding_window is None:
+            return False
+        
+        # Use explicitly specified layer_types if available
+        if config.layer_types is not None:
+            return config.layer_types[layer_idx] == "sliding_attention"
+        
+        # This should not happen after __init__ auto-generation, but keep as fallback
+        # Final layer always uses full attention
+        if layer_idx == config.num_layers - 1:
+            return False
+        
+        # Every 4th layer uses full attention
+        return (layer_idx + 1) % 4 != 0
 
     def create_model(self) -> TransformerLM:
         config = self._config
@@ -126,11 +188,13 @@ class OLMO2Factory:
     def create_decoder(self) -> TransformerLMDecoder:
         config = self._config
 
-        rope_encoder = self.create_rope_encoder()
+        # Create shared RoPE encoder once (used by all layers, HuggingFace approach)
+        rope_encoder = self._shared_rope_encoder
 
         layers = []
 
         for idx in range(config.num_layers):
+            # All layers share the same RoPE encoder
             layer = self.create_decoder_layer(idx, rope_encoder)
 
             layers.append(layer)
@@ -140,11 +204,29 @@ class OLMO2Factory:
         return StandardTransformerLMDecoder(layers, layer_norm)
 
     def create_rope_encoder(self) -> PositionEncoder:
-        """Create rotary encoder for OLMO2."""
+        """Create shared rotary encoder for OLMO models.
+        
+        For OLMO2: Creates standard RoPE encoder.
+        For OLMO3 with YaRN: Creates YaRN-scaled RoPE encoder.
+        
+        Note: HuggingFace uses ONE shared RoPE encoder for ALL layers, not per-layer encoders.
+        
+        Returns:
+            PositionEncoder instance (shared across all decoder layers)
+        """
         config = self._config
-
         head_dim = config.model_dim // config.num_attn_heads
-
+        
+        # OLMO3 long-context models use YaRN scaling
+        if config.yarn_scale_config is not None:
+            return YaRNRotaryEncoder(
+                head_dim,
+                config.max_seq_len,  # Extended length (e.g., 65536 for long-context)
+                theta=config.rope_theta,
+                yarn_config=config.yarn_scale_config,
+            )
+        
+        # Standard RoPE for OLMO2 and OLMO3 base models (non-long-context)
         return ReferenceRotaryEncoder(
             head_dim,
             config.max_seq_len,
@@ -154,9 +236,9 @@ class OLMO2Factory:
     def create_decoder_layer(
         self, layer_idx: int, rope_encoder: PositionEncoder
     ) -> TransformerLMDecoderLayer:
-        """Create decoder layer with OLMO2-specific Post-Norm architecture.
+        """Create decoder layer with OLMO-specific Post-Norm architecture.
 
-        OLMO2 uses a unique Post-Norm ordering:
+        OLMO models use a unique Post-Norm ordering:
         Attention/FFN -> Norm -> Add Residual
 
         This differs from standard Post-Norm which does:
@@ -172,7 +254,7 @@ class OLMO2Factory:
 
         ffn_layer_norm = self.create_layer_norm()
 
-        return OLMO2TransformerLMDecoderLayer(
+        return OLMOTransformerLMDecoderLayer(
             self_attn,
             self_attn_layer_norm,
             ffn,
@@ -186,12 +268,24 @@ class OLMO2Factory:
         """Create self-attention layer with Q/K Norm and HuggingFace-style RoPE.
 
         Compared to LLaMA,
-        1) OLMO2 adds Q/K Norm after Q and K projections.
+        1) OLMO adds Q/K Norm after Q and K projections.
         2) Uses HuggingFace-style RoPE (rotate_half) and keep dtypes of cos and sin.
+        
+        For OLMO3:
+        3) Supports sliding window attention for specific layers based on layer_idx.
         """
         config = self._config
 
-        attn_bias = CausalAttentionBias()
+        # Determine attention type for this layer (OLMO3 hybrid attention)
+        is_sliding_window = self._is_sliding_window_layer(layer_idx)
+        
+        if is_sliding_window and config.sliding_window is not None:
+            # Create sliding window causal attention bias
+            attn_bias = CausalAttentionBias(attn_window_len=config.sliding_window)
+        else:
+            # Full causal attention
+            attn_bias = CausalAttentionBias()
+            
         sdpa = create_default_sdpa(attn_bias)
 
         init_std = config.init_std
@@ -203,22 +297,20 @@ class OLMO2Factory:
             _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
 
         head_dim = config.model_dim // config.num_attn_heads
-        # OLMO2 uses Q/K norm on the full projection dimension (num_heads * head_dim)
-        # This differs from Qwen which uses norm on just head_dim
         q_norm = self.create_layer_norm(config.num_attn_heads * head_dim)
         k_norm = self.create_layer_norm(config.num_key_value_heads * head_dim)
 
-        return OLMO2MultiheadAttention(
+        return OLMOMultiheadAttention(
             config.model_dim,
             config.num_attn_heads,
             sdpa,
             num_key_value_heads=config.num_key_value_heads,
             qkv_proj_init_fn=init_projection,
-            q_norm=q_norm,
-            k_norm=k_norm,
-            pos_encoder=rope_encoder,
+            rope_encoder=rope_encoder,
             output_proj_init_fn=init_projection,
             bias=False,
+            q_norm=q_norm,
+            k_norm=k_norm,
             gangs=self._gangs,
         )
 
@@ -280,8 +372,8 @@ class OLMO2Factory:
         return final_proj
 
     def create_layer_norm(self, dim: int | None = None) -> LayerNorm:
-        """Create OLMO2RMSNorm.
-        OLMO2 RMS norm differs from Llama RMS norm in the order of operations:
+        """Create OLMORMSNorm.
+        OLMO RMS norm differs from Llama RMS norm in the order of operations:
         - Weight and hidden states are multiplied before converting back to the input dtype.
         """
         config = self._config
@@ -289,7 +381,7 @@ class OLMO2Factory:
         if dim is None:
             dim = config.model_dim
 
-        return OLMO2RMSNorm(
+        return OLMORMSNorm(
             dim,
             bias=False,
             eps=config.rms_norm_eps,
@@ -299,7 +391,6 @@ class OLMO2Factory:
     def get_std_scale_factor(self, layer_idx: int) -> float:
         config = self._config
 
-        n: int
         match config.init_std_scale:
             case "layer":
                 n = layer_idx
@@ -312,7 +403,7 @@ class OLMO2Factory:
                     f"`config.init_std_scale` must be 'none', 'layer', or 'stack', but is '{config.init_std_scale}' instead."
                 )
 
-        return float((2 * (n + 1)) ** 0.5)
+        return (2 * (n + 1)) ** 0.5
 
 
 def _init_truncated_normal(
