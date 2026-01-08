@@ -45,6 +45,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     update_cov_clip_ratio,
     update_avg_reward_len_norm,
     update_avg_rollout_length,
+    update_avg_formated_rollout_length,
     update_avg_think_rollout_length,
     update_batch_metrics,
     update_grpo_batch_metrics,
@@ -686,12 +687,24 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         for prompt_rollouts in reward_output["tokens"]:
             lengths = [len(r) for r in prompt_rollouts]  # lengths per the same prompt
             rollouts_lengths.append(lengths)
-        rollouts_lengths = (
+        rollouts_lengths_tensor = (
             torch.tensor(rollouts_lengths, device=self._gangs.dp.device)
             .float()
             .mean(dim=1)
         )  # [Batch]
-        update_avg_rollout_length(metric_bag, rollouts_lengths)
+        update_avg_rollout_length(metric_bag, rollouts_lengths_tensor)
+
+        formated_lengths = [
+            length
+            for texts, lengths in zip(reward_output["text"], rollouts_lengths)
+            for text, length in zip(texts, lengths)
+            if ("<think>" not in text)
+        ]
+        formated_lengths_tensor = torch.tensor(
+            formated_lengths, device=self._gangs.dp.device
+        ).float()
+        log.info(f"{formated_lengths_tensor=}")
+        update_avg_formated_rollout_length(metric_bag, formated_lengths_tensor)
 
         # Calculate average think rollout length (tokens before </think>)
         think_rollout_lengths = get_think_rollout_lengths(rollouts)

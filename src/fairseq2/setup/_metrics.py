@@ -92,6 +92,7 @@ def _register_metric_descriptors(context: RuntimeContext) -> None:
     register("chosen_lengths",     "Chosen Sequence Length",              70, format_as_float)
     register("rejected_lengths",   "Rejected Sequence Length",            70, format_as_float)
     register("avg_rollout_length", "Average Rollout Length",              70, format_as_float)
+    register("avg_formated_rollout_length", "Average Formated Rollout Length", 70, format_as_float)
     register("avg_think_rollout_length", "Average Think Rollout Length",  70, format_as_float)
 
     # Memory

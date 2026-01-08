@@ -658,6 +658,13 @@ def update_avg_rollout_length(metric_bag: MetricBag, avg_rollout_length):
 
 
 @torch.inference_mode()
+def update_avg_formated_rollout_length(metric_bag: MetricBag, formated_rollout_lengths):
+    metric_bag.get(Mean, "avg_formated_rollout_length").update(
+        formated_rollout_lengths.mean(), weight=formated_rollout_lengths.shape[0]
+    )
+
+
+@torch.inference_mode()
 def update_avg_think_rollout_length(metric_bag: MetricBag, avg_think_rollout_length):
     metric_bag.get(Mean, "avg_think_rollout_length").update(
         avg_think_rollout_length, weight=1
