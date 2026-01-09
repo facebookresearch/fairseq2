@@ -21,8 +21,6 @@ class YaRNScaleConfig:
     """YaRN (Yet another RoPE extensioN) scaling configuration for long-context models.
     
     YaRN is applied to extend the context length of OLMO3 models from 8K to 65K.
-    In OLMO3, YaRN scaling is selectively applied only to full-attention layers,
-    while sliding window attention layers use regular RoPE.
     
     Reference: https://arxiv.org/abs/2309.00071
     """
@@ -33,11 +31,20 @@ class YaRNScaleConfig:
     original_max_seq_len: int = 8192
     """Original sequence length before YaRN extension."""
 
+    beta_fast: float = 32.0
+    """Parameter to set the boundary for extrapolation (high frequency). Default: 32."""
+
+    beta_slow: float = 1.0
+    """Parameter to set the boundary for interpolation (low frequency). Default: 1."""
+
     mscale: float = 1.0
     """Multiplier for attention scaling to maintain training stability."""
 
     mscale_all_dim: float = 0.0
     """Dimension-wise scaling parameter for YaRN."""
+
+    truncate: bool = True
+    """If True, truncate correction range bounds to integers using floor/ceil. Default: True."""
 
 @dataclass(kw_only=True)
 class OLMOConfig(LLaMAConfig):
