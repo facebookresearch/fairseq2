@@ -12,7 +12,7 @@ from torch import Tensor
 
 from fairseq2.gang import Gangs, maybe_get_current_gangs
 from fairseq2.models.olmo.attention import OLMOMultiheadAttention
-from fairseq2.models.olmo.config import OLMOConfig
+from fairseq2.models.olmo.config import OLMOConfig, YaRNScaleConfig
 from fairseq2.models.olmo.decoder_layer import OLMOTransformerLMDecoderLayer
 from fairseq2.models.olmo.normalization import OLMORMSNorm
 from fairseq2.models.olmo.yarn_rope import YaRNRotaryEncoder
@@ -219,11 +219,18 @@ class OLMOFactory:
         
         # OLMO3 long-context models use YaRN scaling
         if config.yarn_scale_config is not None:
+            yarn_cfg = config.yarn_scale_config
             return YaRNRotaryEncoder(
                 head_dim,
                 config.max_seq_len,  # Extended length (e.g., 65536 for long-context)
                 theta=config.rope_theta,
-                yarn_config=config.yarn_scale_config,
+                scale_factor=yarn_cfg.scale_factor,
+                original_max_seq_len=yarn_cfg.original_max_seq_len,
+                beta_fast=yarn_cfg.beta_fast,
+                beta_slow=yarn_cfg.beta_slow,
+                mscale=yarn_cfg.mscale,
+                mscale_all_dim=yarn_cfg.mscale_all_dim,
+                truncate=yarn_cfg.truncate,
             )
         
         # Standard RoPE for OLMO2 and OLMO3 base models (non-long-context)
