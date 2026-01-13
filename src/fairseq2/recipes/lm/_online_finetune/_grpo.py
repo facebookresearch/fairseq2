@@ -37,15 +37,19 @@ from fairseq2.recipes.lm._online_finetune._common import (
     compute_token_level_entropy,
     generate_rollouts,
     get_rollout_lengths,
+    get_positive_reward_rollout_lengths,
     get_think_rollout_lengths,
     get_vllm_logprobs,
     log_rollouts,
     update_avg_reward,
+    update_avg_reward_formatted,
+    update_avg_reward_misformatted,
     update_mean_tok_cov,
     update_cov_clip_ratio,
     update_avg_reward_len_norm,
     update_avg_rollout_length,
     update_avg_formated_rollout_length,
+    update_avg_positive_reward_rollout_lengths,
     update_avg_think_rollout_length,
     update_batch_metrics,
     update_grpo_batch_metrics,
@@ -694,17 +698,40 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )  # [Batch]
         update_avg_rollout_length(metric_bag, rollouts_lengths_tensor)
 
-        formated_lengths = [
-            length
-            for texts, lengths in zip(reward_output["text"], rollouts_lengths)
-            for text, length in zip(texts, lengths)
-            if ("<think>" not in text)
-        ]
-        formated_lengths_tensor = torch.tensor(
-            formated_lengths, device=self._gangs.dp.device
-        ).float()
-        log.info(f"{formated_lengths_tensor=}")
-        update_avg_formated_rollout_length(metric_bag, formated_lengths_tensor)
+        lengths_formatted, rewards_formatted, rewards_misformatted = [], [], []
+        for texts, rewards, lengths in zip(
+            reward_output["text"], reward_output["rewards"], rollouts_lengths
+        ):
+            for text, reward, length in zip(texts, rewards, lengths):
+                if "<think>" in text:
+                    rewards_misformatted.append(reward)
+                else:
+                    lengths_formatted.append(length)
+                    rewards_formatted.append(reward)
+
+        update_avg_formated_rollout_length(
+            metric_bag,
+            torch.tensor(lengths_formatted, device=self._gangs.dp.device).float(),
+        )
+
+        update_avg_reward_formatted(
+            metric_bag,
+            torch.tensor(rewards_formatted, device=self._gangs.dp.device).float(),
+        )
+        update_avg_reward_misformatted(
+            metric_bag,
+            torch.tensor(rewards_misformatted, device=self._gangs.dp.device).float(),
+        )
+
+        positive_reward_rollout_lengths = get_positive_reward_rollout_lengths(
+            rollouts, reward_output["rewards"]
+        )
+        update_avg_positive_reward_rollout_lengths(
+            metric_bag,
+            torch.tensor(
+                positive_reward_rollout_lengths, device=self._gangs.dp.device
+            ).float(),
+        )
 
         # Calculate average think rollout length (tokens before </think>)
         think_rollout_lengths = get_think_rollout_lengths(rollouts)

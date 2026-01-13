@@ -512,6 +512,18 @@ def get_rollout_lengths(rollouts: List[SequenceData]):
     return rollout_lengths
 
 
+def get_positive_reward_rollout_lengths(rollouts: List[SequenceData], batch_rewards):
+    """Get the lengths of the rollouts."""
+    rollout_lengths = []
+    for rollout, rewards in zip(rollouts, batch_rewards):
+        for sample, reward in zip(rollout.outputs, rewards):
+            if reward > 0:
+                token_ids = sample.token_ids
+                token_ids_len = len(token_ids)
+                rollout_lengths.append(token_ids_len)
+    return rollout_lengths
+
+
 def get_think_rollout_lengths(rollouts: List[SequenceData]):
     """Get the lengths of tokens before the </think> tag in rollouts.
 
@@ -643,6 +655,22 @@ def update_avg_reward(metric_bag: MetricBag, avg_reward):
 
 
 @torch.inference_mode()
+def update_avg_reward_formatted(metric_bag: MetricBag, rewards_formated):
+    metric_bag.get(Mean, "avg_reward_formatted").update(
+        (rewards_formated.mean() if rewards_formated.numel() > 0 else 0),
+        weight=rewards_formated.numel(),
+    )
+
+
+@torch.inference_mode()
+def update_avg_reward_misformatted(metric_bag: MetricBag, rewards_misformated):
+    metric_bag.get(Mean, "avg_reward_misformatted").update(
+        (rewards_misformated.mean() if rewards_misformated.numel() > 0 else 0),
+        weight=rewards_misformated.numel(),
+    )
+
+
+@torch.inference_mode()
 def update_avg_raw_reward(metric_bag: MetricBag, avg_raw_reward):
     metric_bag.get(Mean, "avg_raw_reward").update(avg_raw_reward, weight=1)
 
@@ -661,6 +689,20 @@ def update_avg_rollout_length(metric_bag: MetricBag, avg_rollout_length):
 def update_avg_formated_rollout_length(metric_bag: MetricBag, formated_rollout_lengths):
     metric_bag.get(Mean, "avg_formated_rollout_length").update(
         formated_rollout_lengths.mean(), weight=formated_rollout_lengths.shape[0]
+    )
+
+
+@torch.inference_mode()
+def update_avg_positive_reward_rollout_lengths(
+    metric_bag: MetricBag, positive_reward_rollout_lengths
+):
+    metric_bag.get(Mean, "avg_positive_reward_rollout_lengths").update(
+        (
+            positive_reward_rollout_lengths.mean()
+            if positive_reward_rollout_lengths.numel() > 0
+            else 0
+        ),
+        weight=positive_reward_rollout_lengths.numel(),
     )
 
 

@@ -82,6 +82,8 @@ def _register_metric_descriptors(context: RuntimeContext) -> None:
     register("mean_tok_cov",       "Mean Token Cov",                       0, format_as_float)
     register("cov_clip_ratio",     "Token Clip by Cov Ratio",              0, format_as_float)
     register("avg_reward",         "Reward",                               1, format_as_float)
+    register("avg_reward_formatted", "Formatted rollout Reward",           1, format_as_float)
+    register("avg_reward_misformatted", "Misformatted rollout Reward",     1, format_as_float)
     register("avg_raw_reward",     "Raw Reward",                           1, format_as_float)
     register("std_reward",         "StdDev Reward",                        1, format_as_float)
     register("avg_reward_len_norm","Length Normalized Reward",             1, format_as_float)
@@ -93,6 +95,7 @@ def _register_metric_descriptors(context: RuntimeContext) -> None:
     register("rejected_lengths",   "Rejected Sequence Length",            70, format_as_float)
     register("avg_rollout_length", "Average Rollout Length",              70, format_as_float)
     register("avg_formated_rollout_length", "Average Formated Rollout Length", 70, format_as_float)
+    register("avg_positive_reward_rollout_lengths", "Average Positive Reward Rollout Length", 70, format_as_float)
     register("avg_think_rollout_length", "Average Think Rollout Length",  70, format_as_float)
 
     # Memory
