@@ -35,6 +35,12 @@ from fairseq2.models.nllb import (
     NllbTokenizerConfig,
     load_nllb_tokenizer,
 )
+from fairseq2.models.olmo2 import (
+    OLMO2_FAMILY,
+    OlmoTokenizer,
+    OlmoTokenizerConfig,
+    load_olmo_tokenizer,
+)
 from fairseq2.models.qwen import (
     QWEN_FAMILY,
     QwenTokenizer,
@@ -161,6 +167,15 @@ def _register_tokenizer_families(container: DependencyContainer) -> None:
         kls=NllbTokenizer,
         config_kls=NllbTokenizerConfig,
         loader=load_nllb_tokenizer,
+    )
+
+    # OLMo2
+    register_tokenizer_family(
+        container,
+        OLMO2_FAMILY,
+        kls=OlmoTokenizer,
+        config_kls=OlmoTokenizerConfig,
+        loader=load_olmo_tokenizer,
     )
 
     # S2T Transformer

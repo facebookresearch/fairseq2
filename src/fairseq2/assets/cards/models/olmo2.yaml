@@ -1,0 +1,33 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: olmo2
+model_family: olmo2
+checkpoint: "hg://allenai/OLMo-2-0425-1B"
+tokenizer: "hg://allenai/OLMo-2-0425-1B"
+tokenizer_family: olmo2
+
+---
+
+name: olmo2-0425-1b
+base: olmo2
+model_arch: olmo2-0425-1b
+
+---
+
+name: olmo2-1124-7b
+base: olmo2
+model_arch: olmo2-1124-7b
+checkpoint: "hg://allenai/OLMo-2-1124-7B"
+tokenizer: "hg://allenai/OLMo-2-1124-7B"
+
+---
+
+name: olmo2-1124-13b
+base: olmo2
+model_arch: olmo2-1124-13b
+checkpoint: "hg://allenai/OLMo-2-1124-13B"
+tokenizer: "hg://allenai/OLMo-2-1124-13B"
