@@ -352,7 +352,7 @@ class TestMapOp:
     def test_op_saves_and_restores_its_state_non_deterministic(self, num_parallel_calls: int) -> None:  # fmt: skip
 
         def fn(d: int) -> int:
-            time.sleep(0.05 if d == 5 else 0.0)
+            time.sleep(0.5 if d == 5 else 0.0)
             return d
 
         seq = list(range(1, 10))

@@ -18,6 +18,12 @@ from fairseq2.data.tokenizers import (
 )
 from fairseq2.data.tokenizers.char import CHAR_TOKENIZER_FAMILY, load_char_tokenizer
 from fairseq2.error import InternalError
+from fairseq2.models.hg_qwen_omni import (
+    HG_FAMILY,
+    HgTokenizer,
+    HgTokenizerConfig,
+    load_hg_tokenizer,
+)
 from fairseq2.models.llama import (
     LLAMA_FAMILY,
     LLaMATokenizerConfig,
@@ -170,4 +176,13 @@ def _register_tokenizer_families(container: DependencyContainer) -> None:
         kls=S2TTransformerTokenizer,
         config_kls=S2TTransformerTokenizerConfig,
         loader=load_s2t_transformer_tokenizer,
+    )
+
+    # HuggingFace
+    register_tokenizer_family(
+        container,
+        HG_FAMILY,
+        kls=HgTokenizer,
+        config_kls=HgTokenizerConfig,
+        loader=load_hg_tokenizer,
     )

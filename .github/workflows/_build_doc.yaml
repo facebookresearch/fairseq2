@@ -64,7 +64,7 @@ jobs:
           pip install --editable native/python
       - name: Install fairseq2
         run: |
-          pip install --editable .
+          pip install --editable ".[hg]"
       - name: Generate documentation
         working-directory: doc
         run: |

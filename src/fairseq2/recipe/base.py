@@ -4,6 +4,16 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+"""
+A `Recipe` represents a runnable workflow that helps orchestrate actions
+regularly performed with models, such as training, evaluation, or generation.
+This module provides `Recipe` implementations that help support the complete
+machine learning lifecycle, including setup, cleanup, inference, and logging,
+and unifies execution logic into one standardized, cohesive process. The
+`Recipe` module also includes command-line interface (CLI) APIs for running
+workflows directly from the command line.
+"""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -66,6 +76,10 @@ TokenizerT = TypeVar("TokenizerT", bound=Tokenizer)
 
 @final
 class RecipeContext:
+    """
+    Represents the underlying framework of a machine learning workflow
+    """
+
     def __init__(self, resolver: DependencyResolver) -> None:
         self._resolver = resolver
 

@@ -78,20 +78,25 @@ else:
 
         vocab_size = len(tok)
 
-        def maybe_index(token: str | None) -> int | None:
+        def maybe_index(token: str | None, token_type: str | None) -> int | None:
+            """Get token index from explicit token or tokenizer's default."""
             if token:
                 return tok.convert_tokens_to_ids(token)
+
+            if token_type:
+                token_id_attr = f"{token_type}_token_id"
+                return getattr(tok, token_id_attr, None)
 
             return None
 
         vocab_info = VocabularyInfo(
             vocab_size,
-            unk_idx=maybe_index(unk_token),
-            bos_idx=maybe_index(bos_token),
-            eos_idx=maybe_index(eos_token),
-            pad_idx=maybe_index(pad_token),
-            boh_idx=maybe_index(boh_token),
-            eoh_idx=maybe_index(eoh_token),
+            unk_idx=maybe_index(unk_token, token_type="unk"),
+            bos_idx=maybe_index(bos_token, token_type="bos"),
+            eos_idx=maybe_index(eos_token, token_type="eos"),
+            pad_idx=maybe_index(pad_token, token_type="pad"),
+            boh_idx=maybe_index(boh_token, token_type="boh"),
+            eoh_idx=maybe_index(eoh_token, token_type="eoh"),
         )
 
         return HuggingFaceTokenModel(tok, vocab_info)

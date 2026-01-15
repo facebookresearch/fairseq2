@@ -317,7 +317,7 @@ class HuggingFaceHub(AssetDownloadManager):
             path = snapshot_download(
                 repo_id=repo_id,
                 repo_type="model",
-                allow_patterns="*.safetensors",
+                allow_patterns=["*.safetensors*", "*.pt"],
                 force_download=force,
                 local_files_only=local_only,
             )
