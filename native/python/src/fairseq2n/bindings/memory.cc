@@ -21,6 +21,13 @@ namespace fairseq2n {
 namespace detail {
 namespace {
 
+memory_block
+deepcopy(const memory_block &self, const py::dict &)
+{
+    return copy_memory(self);
+}
+
+
 std::size_t
 compute_buffer_size(const py::buffer_info &info)
 {
@@ -81,6 +88,8 @@ def_memory(py::module_ &base_module)
         .def(py::init(&memory_block_from_buffer), py::arg("buffer"), py::arg("copy") = false)
 
         .def("__len__", &memory_block::size)
+
+        .def("__deepcopy__", &deepcopy)
 
         .def_buffer(
             [](const memory_block &self)

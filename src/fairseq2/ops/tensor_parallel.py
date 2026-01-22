@@ -115,7 +115,7 @@ def _do_scatter(x: Tensor, gang: Gang, dim: int) -> Tensor:
 
     if dim_size % gang.size != 0:
         raise ValueError(
-            f"The size of the dimension {dim} of `x` must be a multiple of `gang.size` ({gang.size}), but is {dim_size} instead."
+            f"Size of dimension {dim} of `x` must be a multiple of `gang.size` ({gang.size}), but is {dim_size} instead."
         )
 
     splits = x.split(dim_size // gang.size, dim=dim)

@@ -5,4 +5,4 @@
 # LICENSE file in the root directory of this source tree.
 
 name: librilight_asr_10h
-dataset_family: generic_asr
+dataset_family: wav2vec2_asr

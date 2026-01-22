@@ -7,13 +7,10 @@
 from __future__ import annotations
 
 import logging
-from logging import Logger, getLogger
+from logging import INFO, Formatter, Logger, NullHandler, StreamHandler, getLogger
 from typing import Any, Final, final
 
-
-def get_log_writer(name: str | None = None) -> LogWriter:
-    """Return a :class:`LogWriter` for the logger with the specified name."""
-    return LogWriter(getLogger(name))
+from fairseq2.utils.env import StandardEnvironment, get_rank
 
 
 @final
@@ -22,41 +19,26 @@ class LogWriter:
 
     _NO_HIGHLIGHT: Final = {"highlighter": None}
 
-    _logger: Logger
-
     def __init__(self, logger: Logger) -> None:
-        """
-        :param logger:
-            The logger to write to.
-        """
         self._logger = logger
 
     def debug(self, message: str, *args: Any) -> None:
-        """Log a message with level ``DEBUG``."""
-        self._write(logging.DEBUG, message, args)
+        self._log(logging.DEBUG, message, args)
 
     def info(self, message: str, *args: Any) -> None:
-        """Log a message with level ``INFO``."""
-        self._write(logging.INFO, message, args)
+        self._log(logging.INFO, message, args)
 
     def warning(self, message: str, *args: Any) -> None:
-        """Log a message with level ``WARNING``."""
-        self._write(logging.WARNING, message, args)
+        self._log(logging.WARNING, message, args)
 
-    def error(self, message: str, *args: Any, ex: BaseException | None = None) -> None:
-        """Log a message with level ``ERROR``."""
-        self._write(logging.ERROR, message, args, exc_info=ex or False)
+    def error(self, message: str, *args: Any) -> None:
+        self._log(logging.ERROR, message, args)
 
     def exception(self, message: str, *args: Any) -> None:
-        """Log a message with level ``ERROR``."""
-        self._write(logging.ERROR, message, args, exc_info=True)
+        self._log(logging.ERROR, message, args, exc_info=True)
 
-    def _write(
-        self,
-        level: int,
-        message: str,
-        args: tuple[Any, ...],
-        exc_info: bool | BaseException = False,
+    def _log(
+        self, level: int, message: str, args: tuple[Any, ...], exc_info: bool = False
     ) -> None:
         if args:
             if not self._logger.isEnabledFor(level):
@@ -67,7 +49,6 @@ class LogWriter:
         self._logger.log(level, message, exc_info=exc_info, extra=self._NO_HIGHLIGHT)
 
     def is_enabled_for(self, level: int) -> bool:
-        """Return ``True`` if the writer is enabled for ``level``."""
         return self._logger.isEnabledFor(level)
 
     def is_enabled_for_debug(self) -> bool:
@@ -76,12 +57,56 @@ class LogWriter:
     def is_enabled_for_info(self) -> bool:
         return self._logger.isEnabledFor(logging.INFO)
 
-    def is_enabled_for_error(self) -> bool:
-        return self._logger.isEnabledFor(logging.ERROR)
+    @property
+    def logger(self) -> Logger:
+        return self._logger
+
+
+def get_log_writer(name: str | None = None) -> LogWriter:
+    """Returns the :class:`LogWriter` for the specified name."""
+    return LogWriter(getLogger(name))
 
 
 log = get_log_writer("fairseq2")
 
 
-class LoggingSetupError(Exception):
-    pass
+def configure_logging(no_rich: bool = False) -> None:
+    logger = getLogger()
+
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+
+        handler.close()
+
+    env = StandardEnvironment()
+
+    rank = get_rank(env)
+    if rank is None or rank == 0:
+        datefmt = "%Y-%m-%d %H:%M:%S"
+
+        if no_rich:
+            handler = StreamHandler()
+
+            console_formatter = Formatter(
+                "%(asctime)s %(levelname)s: %(name)s - %(message)s", datefmt
+            )
+        else:
+            from rich.logging import RichHandler
+
+            from fairseq2.utils.rich import get_error_console
+
+            console = get_error_console()
+
+            handler = RichHandler(console=console, show_path=False, keywords=[])
+
+            console_formatter = Formatter("%(name)s - %(message)s", datefmt)
+
+        handler.setFormatter(console_formatter)
+    else:
+        handler = NullHandler()
+
+    logger.addHandler(handler)
+
+    logger.setLevel(INFO)
+
+    logger.propagate = False

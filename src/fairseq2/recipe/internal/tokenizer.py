@@ -1,0 +1,153 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import final
+
+from fairseq2.assets import AssetCardError, AssetStore
+from fairseq2.data.tokenizers import (
+    Tokenizer,
+    TokenizerFamily,
+    TokenizerFamilyNotKnownError,
+    TokenizerNotKnownError,
+    _maybe_get_tokenizer_family,
+    resolve_tokenizer_reference,
+)
+from fairseq2.error import InternalError, raise_operational_system_error
+from fairseq2.gang import Gangs
+from fairseq2.logging import log
+from fairseq2.recipe.config import TokenizerSection
+from fairseq2.recipe.error import TokenizerModelNotFoundError
+from fairseq2.recipe.internal.asset_config import _AssetConfigOverrider
+from fairseq2.recipe.internal.log import _log_tokenizer, _LogHelper
+from fairseq2.runtime.lookup import Lookup
+
+
+@dataclass
+class _TokenizerHolder:
+    tokenizer: Tokenizer
+    family: TokenizerFamily
+    config: object
+
+
+@final
+class _TokenizerLoader:
+    def __init__(
+        self,
+        families: Lookup[TokenizerFamily],
+        asset_store: AssetStore,
+        asset_config_overrider: _AssetConfigOverrider,
+        gangs: Gangs,
+        log_helper: _LogHelper,
+    ) -> None:
+        self._families = families
+        self._asset_store = asset_store
+        self._asset_config_overrider = asset_config_overrider
+        self._gangs = gangs
+        self._log_helper = log_helper
+
+    def load(self, section_name: str, section: TokenizerSection) -> _TokenizerHolder:
+        if section.path is not None:
+            if section.name is not None:
+                log.warning("Both `{0}.name` and `{0}.path` are specified. `{0}.path` takes precedence.", section_name)  # fmt: skip
+
+            return self._load_custom_tokenizer(section_name, section)
+
+        if section.name is not None:
+            if section.family is not None:
+                log.warning("`{0}.family` will be ignored since `{0}.name` is specified.", section_name)  # fmt: skip
+
+            return self._load_tokenizer(section_name, section)
+
+        raise InternalError("`section.name` and `section.path` are both `None`.")
+
+    def _load_tokenizer(
+        self, section_name: str, section: TokenizerSection
+    ) -> _TokenizerHolder:
+        name = section.name
+        if name is None:
+            raise InternalError("`section.name` is `None`.")
+
+        card = self._asset_store.maybe_retrieve_card(name)
+        if card is None:
+            raise TokenizerNotKnownError(name)
+
+        card = resolve_tokenizer_reference(self._asset_store, card)
+
+        family = _maybe_get_tokenizer_family(card, self._families)
+        if family is None:
+            msg = f"{card.name} asset card does not represent a tokenizer."
+
+            raise AssetCardError(card.name, msg)
+
+        config = family.get_tokenizer_config(card)
+
+        config = self._asset_config_overrider.apply_overrides(
+            section_name, config, section.config_overrides
+        )
+
+        if section_name == "tokenizer":
+            log.info("Loading {} tokenizer.", name)
+        else:
+            log.info("Loading {} tokenizer specified in `{}` section.", name, section_name)  # fmt: skip
+
+        self._log_helper.log_config("Tokenizer Config", config)
+
+        tokenizer = family.load_tokenizer(card, self._gangs, config)
+
+        log.info("Tokenizer loaded.")
+
+        _log_tokenizer(tokenizer)
+
+        return _TokenizerHolder(tokenizer, family, config)
+
+    def _load_custom_tokenizer(
+        self, section_name: str, section: TokenizerSection
+    ) -> _TokenizerHolder:
+        path = section.path
+        if path is None:
+            raise InternalError("`section.path` is `None`.")
+
+        family_name = section.family
+        if family_name is None:
+            raise InternalError("`section.family` is `None`.")
+
+        family = self._families.maybe_get(family_name)
+        if family is None:
+            raise TokenizerFamilyNotKnownError(family_name)
+
+        try:
+            config = family.config_kls()
+        except TypeError as ex:
+            raise InternalError(
+                f"Default configuration of the {family_name} tokenizer family cannot be constructed."
+            ) from ex
+
+        config = self._asset_config_overrider.apply_overrides(
+            section_name, config, section.config_overrides
+        )
+
+        if section_name == "tokenizer":
+            log.info("Loading tokenizer.")
+        else:
+            log.info("Loading tokenizer specified in `{}` section.", section_name)
+
+        self._log_helper.log_config("Tokenizer Config", config)
+
+        try:
+            tokenizer = family.load_custom_tokenizer(path, config, self._gangs)
+        except FileNotFoundError as ex:
+            raise TokenizerModelNotFoundError(path) from ex
+        except OSError as ex:
+            raise_operational_system_error(ex)
+
+        log.info("Tokenizer loaded.")
+
+        _log_tokenizer(tokenizer)
+
+        return _TokenizerHolder(tokenizer, family, config)

@@ -170,6 +170,19 @@ sample_data_source::random_pipeline_index()
             rptr = mptr;
     }
 
+    // Binary search finds an index where cumsum[idx] >= sample.
+    // When allow_repeats_ is false, exhausted pipelines have cumsum[idx] == cumsum[idx-1].
+    // Skip forward to find the next active pipeline that "owns" this probability mass.
+    if (!allow_repeats_) { 
+        while (is_epoch_done_[lptr]) {
+            lptr++;
+            // Should never happen since at least one pipeline is active 
+            // (guaranteed by are_all_done() check in next())
+            // and the buffer has the size of pipelines so we don't risk to overflow
+            assert(lptr < buffer_.size());
+        }
+    }
+
     return lptr;
 }
 

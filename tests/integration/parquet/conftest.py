@@ -3,10 +3,12 @@ import tempfile
 from pathlib import Path
 from typing import Generator, List
 
-import pyarrow as pa
+import pytest
+
+pa = pytest.importorskip("pyarrow")
+
 import pyarrow.dataset as ds
 import pyarrow.parquet as pq
-import pytest
 
 from fairseq2.data.parquet.fragment_loading.builder import SafeFragment
 

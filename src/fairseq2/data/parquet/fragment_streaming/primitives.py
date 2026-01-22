@@ -17,7 +17,7 @@ import pyarrow.parquet as pq
 import torch
 from pyarrow.dataset import get_partition_keys
 
-from fairseq2.data import (
+from fairseq2.data.data_pipeline import (
     DataPipelineBuilder,
     read_iterator,
     read_sequence,

@@ -11,9 +11,12 @@ from pathlib import Path
 from typing import Generator, List, Optional
 
 import numpy as np
+import pytest
+
+pa = pytest.importorskip("pyarrow")
+
 import pyarrow as pa
 import pyarrow.parquet as pq
-import pytest
 
 
 def get_random_table(size: int, seed: int = 123) -> pa.Table:

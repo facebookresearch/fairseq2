@@ -18,8 +18,6 @@ from fairseq2.nn import BatchLayout, IncrementalStateBag
 class CausalLM(Module, ABC):
     """Represents a causal language model."""
 
-    max_seq_len: int
-
     def __init__(self, max_seq_len: int) -> None:
         super().__init__()
 

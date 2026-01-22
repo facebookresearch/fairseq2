@@ -32,9 +32,6 @@ YamlError: TypeAlias = YAMLError
 
 @final
 class RuamelYamlLoader(YamlLoader):
-    _yaml: YAML
-    _file_system: FileSystem
-
     def __init__(self, file_system: FileSystem) -> None:
         self._yaml = YAML(typ="safe", pure=True)
 
@@ -57,9 +54,6 @@ class RuamelYamlLoader(YamlLoader):
 
 @final
 class RuamelYamlDumper(YamlDumper):
-    _yaml: YAML
-    _file_system: FileSystem
-
     def __init__(self, file_system: FileSystem) -> None:
         self._yaml = YAML(typ="safe", pure=True)
 
@@ -79,9 +73,3 @@ class RuamelYamlDumper(YamlDumper):
                 fp.close()
         else:
             self._yaml.dump(obj, output)
-
-
-def read_yaml(s: str) -> object:
-    yaml = YAML(typ="safe", pure=True)
-
-    return yaml.load(s)

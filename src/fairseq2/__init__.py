@@ -6,63 +6,52 @@
 
 from __future__ import annotations
 
-__version__ = "0.5.0.dev0"
+from collections.abc import Callable
 
 import fairseq2n  # Report any fairseq2n initialization error eagerly.
 
-# isort: split
+import fairseq2.runtime.dependency
+from fairseq2.error import InvalidOperationError
+from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 
-from fairseq2.context import RuntimeContext
-from fairseq2.error import InternalError
-from fairseq2.utils.progress import ProgressReporter
-
-_default_context: RuntimeContext | None = None
-
-_setting_up: bool = False
+__version__ = "0.8.0.dev0"
 
 
-def setup_fairseq2(progress_reporter: ProgressReporter | None = None) -> RuntimeContext:
+_in_call: bool = False
+
+
+def init_fairseq2(
+    *,
+    extras: Callable[[DependencyContainer], None] | None = None,
+    no_progress: bool | None = None,
+) -> DependencyResolver:
     """
-    Sets up fairseq2.
-
-    As part of the initialization, this function also registers extensions
-    with via setuptools' `entry-point`__ mechanism. See
-    :doc:`/basics/runtime_extensions` for more information.
-
-    .. important::
-
-        This function must be called before using any of the fairseq2 APIs.
-
-    .. __: https://setuptools.pypa.io/en/latest/userguide/entry_point.html
+    If ``no_progress`` is ``True``, all progress bars will be disabled. If
+    ``None``, ``FAIRSEQ2_NO_PROGRESS`` environment variable will be checked
+    instead and progress bars will be disabled if it exists.
     """
-    from fairseq2.setup import setup_library
+    from fairseq2.composition import _register_library
 
-    global _default_context
-    global _setting_up
+    global _in_call
 
-    if _default_context is not None:
-        return _default_context
+    if fairseq2.runtime.dependency._resolver is not None:
+        raise InvalidOperationError("`init_fairseq2()` is already called.")
 
-    if _setting_up:
-        raise RuntimeError("`setup_fairseq2()` cannot be called recursively.")
+    if _in_call:
+        raise InvalidOperationError("`init_fairseq2()` cannot be called recursively.")
 
-    _setting_up = True
+    _in_call = True
+
+    container = DependencyContainer()
 
     try:
-        context = setup_library(progress_reporter)
+        _register_library(container, no_progress=no_progress)
+
+        if extras is not None:
+            extras(container)
     finally:
-        _setting_up = False
+        _in_call = False
 
-    _default_context = context
+    fairseq2.runtime.dependency._resolver = container
 
-    return context
-
-
-def get_runtime_context() -> RuntimeContext:
-    if _default_context is None:
-        setup_fairseq2()
-
-    if _default_context is None:
-        raise InternalError("fairseq2 is not initialized.")
-
-    return _default_context
+    return container

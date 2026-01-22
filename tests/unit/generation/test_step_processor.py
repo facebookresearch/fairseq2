@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import torch
 
-from fairseq2.generation import NGramRepeatBlockProcessor
+from fairseq2.generation.step_processor import NGramRepeatBlockProcessor
 from tests.common import assert_close, device
 
 

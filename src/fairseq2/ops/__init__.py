@@ -6,5 +6,5 @@
 
 from __future__ import annotations
 
-from fairseq2.ops._shape import repeat_interleave as repeat_interleave
-from fairseq2.ops._shape import unsqueeze as unsqueeze
+from fairseq2.ops.shape import repeat_interleave as repeat_interleave
+from fairseq2.ops.shape import unsqueeze as unsqueeze

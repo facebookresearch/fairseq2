@@ -17,7 +17,11 @@ using namespace fairseq2n::detail;
 // Taken from <torch/bindings/autograd/python_variable.h>
 struct THPVariable {
     PyObject_HEAD
+    #if TORCH_VERSION_MAJOR < 2 || (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR < 10)
     at::MaybeOwned<at::Tensor> cdata;
+    #else
+    at::Tensor cdata;
+    #endif
 };
 
 extern PyObject *THPVariableClass;
@@ -64,8 +68,11 @@ type_caster<at::Tensor>::load(handle src, bool)
     PyObject *ptr = src.ptr();
 
     if (isinstance<at::Tensor>(ptr)) {
+        #if TORCH_VERSION_MAJOR < 2 || (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR < 10)
         value = *reinterpret_cast<THPVariable *>(ptr)->cdata;
-
+        #else
+        value = reinterpret_cast<THPVariable *>(ptr)->cdata;
+        #endif
         return true;
     }
 

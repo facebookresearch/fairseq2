@@ -14,7 +14,7 @@ from typing import ClassVar, Final
 import pytest
 import torch
 
-from fairseq2.data.text.tokenizers.sentencepiece import (
+from fairseq2.data.tokenizers.sentencepiece import (
     SentencePieceDecoder,
     SentencePieceEncoder,
     SentencePieceModel,

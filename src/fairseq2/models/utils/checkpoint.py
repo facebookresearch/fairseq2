@@ -16,7 +16,7 @@ from torch.nn import Module
 from fairseq2.utils.progress import ProgressReporter
 
 
-def load_checkpoint(
+def set_model_state(
     model: Module,
     checkpoint: Iterable[tuple[str, Tensor]],
     progress_reporter: ProgressReporter,
@@ -83,72 +83,71 @@ def load_checkpoint(
 
             s = ", ".join(missing_keys)
 
-            errors.append(f"The following keys are missing in the checkpoint: {s}")
+            errors.append(f"Following keys are missing in the checkpoint: {s}")
 
     if unexpected_keys:
         s = ", ".join(unexpected_keys)
 
-        errors.append(f"The following keys in the checkpoint are unexpected: {s}")
+        errors.append(f"Following keys in the checkpoint are unexpected: {s}")
 
     if errors:
-        raise ValueError(" ".join(errors))
+        raise ModelCheckpointMismatchError(" ".join(errors))
 
 
-def convert_checkpoint(
-    checkpoint: dict[str, object], key_map: Mapping[str, str]
+class ModelCheckpointMismatchError(Exception):
+    pass
+
+
+def convert_state_dict(
+    state_dict: dict[str, object], key_map: Mapping[str, str]
 ) -> dict[str, object]:
     """
-    Converts a checkpoint.
+    Converts a state dictionary.
 
     :param key_map: A map of regex patterns to update model keys.
     """
-    converted_checkpoint = {}
+    converted_state_dict = {}
 
     def get_converted_key(key: str) -> str:
         for pattern, replacement in key_map.items():
-            if (converted_key := re.sub(pattern, replacement, key)) != key:
+            converted_key = re.sub(pattern, replacement, key)
+            if converted_key != key:
                 return converted_key
 
         return key
 
-    for key in checkpoint.keys():
+    for key in state_dict.keys():
         converted_key = get_converted_key(key)
 
-        converted_checkpoint[converted_key] = checkpoint[key]
+        converted_state_dict[converted_key] = state_dict[key]
 
-    return converted_checkpoint
+    return converted_state_dict
 
 
-def convert_fairseq_checkpoint(
-    checkpoint: dict[str, object], key_map: Mapping[str, str]
+def convert_fairseq_state_dict(
+    state_dict: dict[str, object], key_map: Mapping[str, str]
 ) -> dict[str, object]:
-    """
-    Converts a fairseq checkpoint to fairseq2.
-
-    :param checkpoint: The original fairseq checkpoint.
-    :param key_map: A map of regex patterns to fairseq2 model keys.
-    """
-    fs2_checkpoint = convert_checkpoint(checkpoint, key_map)
+    fs2_state_dict = convert_state_dict(state_dict, key_map)
 
     try:
-        del fs2_checkpoint["encoder.version"]
+        del fs2_state_dict["encoder.version"]
     except KeyError:
         pass
     try:
-        del fs2_checkpoint["decoder.version"]
+        del fs2_state_dict["decoder.version"]
     except KeyError:
         pass
 
     try:
-        del fs2_checkpoint["encoder.embed_positions._float_tensor"]
+        del fs2_state_dict["encoder.embed_positions._float_tensor"]
     except KeyError:
         pass
     try:
-        del fs2_checkpoint["decoder.embed_positions._float_tensor"]
+        del fs2_state_dict["decoder.embed_positions._float_tensor"]
     except KeyError:
         pass
 
-    return fs2_checkpoint
+    return fs2_state_dict
 
 
 def create_reverse_key_map(key_map: dict[str, str]) -> dict[str, str]:

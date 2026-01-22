@@ -11,7 +11,7 @@ from array import array
 
 import pytest
 
-from fairseq2.data import MemoryBlock
+from fairseq2.data._memory import MemoryBlock
 
 
 class TestMemoryBlock:

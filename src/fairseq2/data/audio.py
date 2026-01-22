@@ -12,7 +12,7 @@ from fairseq2n import DOC_MODE
 from torch import Tensor
 from typing_extensions import NotRequired
 
-from fairseq2.data import MemoryBlock
+from fairseq2.data._memory import MemoryBlock
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 

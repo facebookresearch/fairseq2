@@ -29,10 +29,10 @@ git submodule update --init --recursive
 
 ## 2. Set up a Python Virtual Environment
 In simplest case, you can run the following command to create an empty Python
-virtual environment (shown for Python 3.8):
+virtual environment (shown for Python 3.12):
 
 ```sh
-python3.8 -m venv ~/myvenv
+python3.12 -m venv ~/myvenv
 ```
 
 And, activate it:

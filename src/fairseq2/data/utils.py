@@ -3,7 +3,7 @@ from typing import TypeVar
 
 from typing_extensions import Self, TypeAlias
 
-from fairseq2.data import DataPipelineBuilder, read_iterator
+from fairseq2.data.data_pipeline import DataPipelineBuilder, read_iterator
 
 T = TypeVar("T")
 
