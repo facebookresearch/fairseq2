@@ -22,6 +22,9 @@ from fairseq2.assets.download_manager import (
 from fairseq2.assets.download_manager import (
     DelegatingAssetDownloadManager as DelegatingAssetDownloadManager,
 )
+from fairseq2.assets.download_manager import (
+    FsspecAssetDownloadManager as FsspecAssetDownloadManager,
+)
 from fairseq2.assets.download_manager import HuggingFaceHub as HuggingFaceHub
 from fairseq2.assets.download_manager import (
     LocalAssetDownloadManager as LocalAssetDownloadManager,

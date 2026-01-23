@@ -28,6 +28,11 @@ from typing_extensions import NoReturn, override
 from fairseq2.error import InternalError, NotSupportedError
 from fairseq2.file_system import FileSystem, _flush_nfs_lookup_cache
 from fairseq2.runtime.dependency import get_dependency_resolver
+
+try:
+    from fsspec.registry import available_protocols
+except ImportError:
+    available_protocols = lambda: []  # noqa: E731
 from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.uri import Uri
 from fairseq2.utils.warn import _warn_deprecated
@@ -294,6 +299,77 @@ class LocalAssetDownloadManager(AssetDownloadManager):
     @override
     def supported_schemes(self) -> Set[str]:
         return self._SCHEMES
+
+
+@final
+class FsspecAssetDownloadManager(AssetDownloadManager):
+    """
+    Asset download manager that supports fsspec-compatible URI schemes (e.g., s3://, gs://).
+
+    This manager doesn't actually download files - it returns the path directly,
+    relying on GlobalFileSystem to handle remote file access transparently.
+    """
+
+    # Schemes already handled by other managers - we exclude these to avoid conflicts
+    _EXCLUDED_SCHEMES: Final = {"file", "hg", "http", "https"}
+
+    def __init__(self) -> None:
+        # Get all available fsspec protocols, excluding those handled by other managers
+        self._schemes: set[str] = {
+            protocol
+            for protocol in available_protocols()
+            if protocol not in self._EXCLUDED_SCHEMES
+        }
+
+    @override
+    def download_model(
+        self,
+        uri: Uri,
+        model_name: str = "",
+        *,
+        force: bool = False,
+        local_only: bool = False,
+        progress: bool = True,
+    ) -> Path:
+        return self._to_path(uri)
+
+    @override
+    def download_tokenizer(
+        self,
+        uri: Uri,
+        tokenizer_name: str = "",
+        *,
+        force: bool = False,
+        local_only: bool = False,
+        progress: bool = True,
+    ) -> Path:
+        return self._to_path(uri)
+
+    @override
+    def download_dataset(
+        self,
+        uri: Uri,
+        dataset_name: str = "",
+        *,
+        force: bool = False,
+        local_only: bool = False,
+        progress: bool = True,
+    ) -> Path:
+        return self._to_path(uri)
+
+    def _to_path(self, uri: Uri) -> Path:
+        if uri.scheme not in self._schemes:
+            raise NotSupportedError(
+                f"`uri.scheme` must be a supported URI scheme, but is {uri.scheme} instead."
+            )
+
+        # Return the full URI as a Path - GlobalFileSystem will handle the remote access
+        return Path(str(uri))
+
+    @property
+    @override
+    def supported_schemes(self) -> Set[str]:
+        return self._schemes
 
 
 @final

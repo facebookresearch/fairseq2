@@ -121,12 +121,24 @@ class _TorchTensorFileLoader(TensorFileLoader):
             )
 
             try:
-                data: dict[str, object] = torch.load(
-                    file,
-                    options.map_location,  # type: ignore[arg-type]
-                    weights_only=options.restrict,
-                    mmap=options.mmap,
-                )
+                # For non-local filesystems (e.g., S3), open the file using
+                # the filesystem's open() method and pass the file handle
+                # to torch.load. For local filesystems, pass the path directly
+                # to support mmap.
+                if self._file_system.is_local or options.mmap:
+                    data: dict[str, object] = torch.load(
+                        file,
+                        options.map_location,  # type: ignore[arg-type]
+                        weights_only=options.restrict,
+                        mmap=options.mmap,
+                    )
+                else:
+                    with self._file_system.open(file) as fp:
+                        data = torch.load(
+                            fp,
+                            options.map_location,  # type: ignore[arg-type]
+                            weights_only=options.restrict,
+                        )
             except (RuntimeError, PickleError, EOFError) as ex:
                 raise CorruptFileError(file) from ex
 
@@ -212,13 +224,16 @@ class _HuggingFaceSafetensorsLoader(SafetensorsLoader):
         data = {}
 
         try:
-            if options.mmap:
+            # mmap only works with local filesystems
+            if options.mmap and self._file_system.is_local:
                 with safetensors.safe_open(
                     file, framework="pt", device=str(device)
                 ) as f:
                     for key in f.keys():
                         data[key] = f.get_tensor(key)
             else:
+                # For non-local filesystems (e.g., S3), or when mmap is disabled,
+                # use the filesystem's open() method
                 fp = self._file_system.open(file, mode=FileMode.READ)
 
                 with fp:
