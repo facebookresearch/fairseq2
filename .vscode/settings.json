@@ -1,0 +1,19 @@
+{
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/*/**": true,
+        "**/.hg/store/**": true,
+        "**/.buckd/**": true,
+        "**/buck-out/**": true,
+        "**/.lsp.buckd/**": true,
+        "**/.lsp-buck-out/**": true,
+        "**/.*lsp.buckd/**": true,
+        "**/.*lsp-buck-out/**": true,
+        "**/.vscode-remote/**": true,
+        "**/.meta-vscode/**": true,
+        "**/.vscode-fb-insiders/**": true,
+        "**/.vscode-fb-stable/**": true,
+        "**/.vscode-fb-dev/**": true
+    }
+}
