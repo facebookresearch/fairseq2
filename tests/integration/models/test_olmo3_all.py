@@ -4,67 +4,56 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+"""Integration tests for all OLMO3 model variants."""
+
 from typing import Any
 
 import pytest
 import torch
 from fairseq2.data.tokenizers import Tokenizer, load_tokenizer
-from fairseq2.models.olmo import get_olmo2_model_hub
+from fairseq2.models.olmo import get_olmo3_model_hub
 from fairseq2.models.transformer_lm import TransformerLM
 from fairseq2.nn import BatchLayout
 from tests import common
 
 transformers = pytest.importorskip("transformers")
 
-
-MODEL_NAME = "olmo2-0425-1b"
-LOCAL_MODEL_PATH = "/datasets/pretrained-llms/OLMo-2-0425-1B"
+# List of OLMO3 models to test: (model_name, local_path)
+OLMO3_MODELS = [
+    ("olmo3-7b", "/datasets/pretrained-llms/Olmo-3-1025-7B"),
+    # ("olmo3-32b", "/datasets/pretrained-llms/Olmo-3-1125-32B"),  # OOM
+]
 
 
 @pytest.fixture(scope="module")
-def hf_model() -> Any:
-    """Load the HuggingFace OLMO2 model."""
-    model = transformers.AutoModelForCausalLM.from_pretrained(
-        LOCAL_MODEL_PATH,
+def hub():
+    """Get the OLMO3 model hub."""
+    return get_olmo3_model_hub()
+
+
+@pytest.mark.parametrize("model_name,local_path", OLMO3_MODELS)
+def test_consistency(model_name: str, local_path: str, hub: Any) -> None:
+    """Test end-to-end inference consistency between fairseq2 and HuggingFace."""
+    # Load HuggingFace model
+    hf_model = transformers.AutoModelForCausalLM.from_pretrained(
+        local_path,
         torch_dtype=torch.float32,
     )
-    model.to(common.device)
-    model.eval()
-    return model
+    hf_model.to(common.device)
+    hf_model.eval()
 
+    # Load HuggingFace tokenizer
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained(local_path)
 
-@pytest.fixture(scope="module")
-def hf_tokenizer() -> Any:
-    """Load the HuggingFace OLMO2 tokenizer."""
-    return transformers.AutoTokenizer.from_pretrained(LOCAL_MODEL_PATH)
-
-
-@pytest.fixture(scope="module")
-def fs2_model() -> TransformerLM:
-    """Load the fairseq2 OLMO2 model."""
-    hub = get_olmo2_model_hub()
-    model = hub.load_model(
-        MODEL_NAME, device=common.device, dtype=torch.float32
+    # Load fairseq2 model
+    fs2_model: TransformerLM = hub.load_model(
+        model_name, device=common.device, dtype=torch.float32
     )
-    model.eval()
-    return model
+    fs2_model.eval()
 
+    # Load fairseq2 tokenizer
+    fs2_tokenizer: Tokenizer = load_tokenizer(model_name)
 
-@pytest.fixture(scope="module")
-def fs2_tokenizer() -> Tokenizer:
-    """Load the fairseq2 OLMO tokenizer."""
-    return load_tokenizer(MODEL_NAME)
-
-
-def test_consistency(
-    fs2_model: TransformerLM,
-    fs2_tokenizer: Tokenizer,
-    hf_model: Any,
-    hf_tokenizer: Any,
-) -> None:
-    """
-    Test end-to-end inference consistency between fairseq2 and HuggingFace.
-    """
     test_texts = [
         "The capital of Germany is",
         "Once upon a time",
@@ -89,3 +78,8 @@ def test_consistency(
             hf_logits = hf_model(input_ids=hf_token_ids).logits.float()
 
         common.assert_close(fs2_logits, hf_logits, atol=1e-4, rtol=1e-5)
+
+    # Clean up to free memory
+    del hf_model
+    del fs2_model
+    torch.cuda.empty_cache() if torch.cuda.is_available() else None

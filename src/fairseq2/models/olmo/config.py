@@ -19,9 +19,9 @@ OLMO_FAMILY: Final = "olmo"
 @dataclass
 class YaRNScaleConfig:
     """YaRN (Yet another RoPE extensioN) scaling configuration for long-context models.
-    
+
     YaRN is applied to extend the context length of OLMO3 models from 8K to 65K.
-    
+
     Reference: https://arxiv.org/abs/2309.00071
     """
 
@@ -52,10 +52,10 @@ class OLMOConfig(LLaMAConfig):
 
     This configuration supports both OLMO2 and OLMO3 architectures.
     The default values correspond to the allenai/OLMo-2-0425-1B model base architecture.
-    
+
     OLMO2: Standard causal attention, 4K context
     OLMO3: Hybrid sliding window + full attention, 8K-65K context
-    
+
     References:
     - OLMO2: https://arxiv.org/abs/2501.00656
     - HuggingFace: https://huggingface.co/allenai/OLMo-2-0425-1B
@@ -152,33 +152,33 @@ class OLMOConfig(LLaMAConfig):
 
     sliding_window: int | None = None
     """Sliding window size for local attention (OLMO3 only).
-    
+
     If set, enables hybrid attention pattern where most layers use sliding
     window attention with this window size. Every 4th layer uses full global
     attention. The final layer always uses full global attention.
-    
+
     OLMO3 uses sliding_window=4096 for efficient long-context processing.
     If None, all layers use full causal attention (OLMO2 behavior).
     """
 
     layer_types: list[Literal["sliding_attention", "full_attention"]] | None = None
     """Per-layer attention type configuration (OLMO3 only).
-    
+
     Explicitly specifies whether each layer uses 'sliding_attention' or
     'full_attention'. If None and sliding_window is set, automatically
     generates the pattern: 3 sliding window layers, 1 full attention layer,
     with the final layer always using full attention.
-    
+
     Length must match num_layers if specified.
     """
 
     yarn_scale_config: YaRNScaleConfig | None = None
     """YaRN scaling configuration for long-context models (OLMO3 only).
-    
+
     Enables YaRN (Yet another RoPE extensioN) scaling to extend context
     length from 8K to 65K. In OLMO3, YaRN scaling is selectively applied
     only to full-attention layers; sliding window layers use regular RoPE.
-    
+
     If None, uses standard RoPE without scaling (default for OLMO2/3 base models).
     """
 
@@ -227,7 +227,7 @@ def register_olmo_configs(container: DependencyContainer) -> None:
     @arch("olmo2_32b")
     def olmo_2_32b() -> OLMOConfig:
         """OLMO2 32B model configuration with GQA.
-        
+
         Uses Grouped Query Attention (GQA) for efficiency.
         """
         config = OLMOConfig()
@@ -243,108 +243,84 @@ def register_olmo_configs(container: DependencyContainer) -> None:
         return config
 
     # OLMO3 Model Configurations
-    # OLMO3 extends OLMO2 with sliding window attention and support for
-    # long-context variants using YaRN scaling
+    # OLMO3 extends OLMO2 with sliding window attention and YaRN scaling
+    # All OLMO3 models use YaRN RoPE for full attention layers
 
     @arch("olmo3_7b")
     def olmo3_7b() -> OLMOConfig:
-        """OLMO3 7B model configuration with hybrid attention.
-        
+        """OLMO3 7B model configuration with hybrid attention and YaRN.
+
         Uses Multi-Head Attention (MHA) with a hybrid pattern:
-        - 3 out of 4 layers use sliding window attention (window=4096)
-        - Every 4th layer uses full global attention
-        - Final layer always uses full global attention
-        
-        Max sequence length: 8,192 tokens
+        - 3 out of 4 layers use sliding window attention (window=4096) with standard RoPE
+        - Every 4th layer uses full global attention with YaRN RoPE
+        - Final layer always uses full global attention with YaRN RoPE
+
+        Max sequence length: 65,536 tokens
         """
         config = OLMOConfig()
-        
+
+        # OLMO3 has different vocabulary size
+        config.vocab_size = 100_278
+
         # Model dimensions (same as OLMO2 7B)
         config.model_dim = 4096
         config.ffn_inner_dim = 11008
         config.num_layers = 32
         config.num_attn_heads = 32
         config.num_key_value_heads = 32  # MHA
-        
-        # OLMO3-specific: Extended context and sliding window
-        config.max_seq_len = 8192
-        config.sliding_window = 4096
-        # layer_types will be auto-generated based on sliding_window
-        
-        return config
 
-    @arch("olmo3_7b_long")
-    def olmo3_7b_long() -> OLMOConfig:
-        """OLMO3 7B long-context model with YaRN scaling.
-        
-        Extends OLMO3 7B to support 65,536 token context using YaRN scaling.
-        YaRN is applied only to full-attention layers; sliding window layers
-        use standard RoPE.
-        
-        Max sequence length: 65,536 tokens
-        """
-        config = olmo3_7b()
-        
-        # Extended context with YaRN scaling
+        # OLMO3-specific: Extended context and sliding window
         config.max_seq_len = 65536
+        config.sliding_window = 4096
+
+        # YaRN scaling for full attention layers
+        # Note: sliding window layers use standard RoPE
         config.yarn_scale_config = YaRNScaleConfig(
             scale_factor=8.0,  # 65536 / 8192
             original_max_seq_len=8192,
             mscale=1.0,
             mscale_all_dim=0.0,
         )
-        
+
         return config
 
     @arch("olmo3_32b")
     def olmo3_32b() -> OLMOConfig:
-        """OLMO3 32B model configuration with GQA.
-        
+        """OLMO3 32B model configuration with GQA and YaRN.
+
         Uses Grouped Query Attention (GQA) with 8 key-value heads for efficiency.
         Features enhanced MLP with 5.4x expansion ratio (vs 4x in smaller models).
-        
+
         Uses hybrid attention pattern:
-        - 3 out of 4 layers use sliding window attention (window=4096)
-        - Every 4th layer uses full global attention
-        - Final layer always uses full global attention
-        
-        Max sequence length: 8,192 tokens
+        - 3 out of 4 layers use sliding window attention (window=4096) with standard RoPE
+        - Every 4th layer uses full global attention with YaRN RoPE
+        - Final layer always uses full global attention with YaRN RoPE
+
+        Max sequence length: 65,536 tokens
         """
         config = OLMOConfig()
-        
+
+        # OLMO3 has different vocabulary size
+        config.vocab_size = 100_278
+
         # Model dimensions
         config.model_dim = 5120
         config.ffn_inner_dim = 27648  # 5.4x expansion (5120 * 5.4 ≈ 27648)
-        config.num_layers = 40
+        config.num_layers = 64  # OLMO3 32B has 64 layers
         config.num_attn_heads = 40
         config.num_key_value_heads = 8  # GQA for efficiency
-        
-        # OLMO3-specific: Extended context and sliding window
-        config.max_seq_len = 8192
-        config.sliding_window = 4096
-        # layer_types will be auto-generated based on sliding_window
-        
-        return config
 
-    @arch("olmo3_32b_long")
-    def olmo3_32b_long() -> OLMOConfig:
-        """OLMO3 32B long-context model with YaRN scaling.
-        
-        Extends OLMO3 32B to support 65,536 token context using YaRN scaling.
-        YaRN is applied only to full-attention layers; sliding window layers
-        use standard RoPE.
-        
-        Max sequence length: 65,536 tokens
-        """
-        config = olmo3_32b()
-        
-        # Extended context with YaRN scaling
+        # OLMO3-specific: Extended context and sliding window
         config.max_seq_len = 65536
+        config.sliding_window = 4096
+
+        # YaRN scaling for full attention layers
+        # Note: sliding window layers use standard RoPE
         config.yarn_scale_config = YaRNScaleConfig(
             scale_factor=8.0,  # 65536 / 8192
             original_max_seq_len=8192,
             mscale=1.0,
             mscale_all_dim=0.0,
         )
-        
+
         return config
