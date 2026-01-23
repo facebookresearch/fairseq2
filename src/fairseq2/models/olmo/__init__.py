@@ -20,6 +20,9 @@ from fairseq2.models.olmo.hub import get_olmo_model_hub as get_olmo_model_hub
 from fairseq2.models.olmo.interop import (
     convert_olmo_state_dict as convert_olmo_state_dict,
 )
+from fairseq2.models.olmo.tokenizer import OlmoTokenizer as OlmoTokenizer
+from fairseq2.models.olmo.tokenizer import OlmoTokenizerConfig as OlmoTokenizerConfig
+from fairseq2.models.olmo.tokenizer import load_olmo_tokenizer as load_olmo_tokenizer
 
 # Backward compatibility aliases for OLMO2
 OLMO2_FAMILY = OLMO_FAMILY
@@ -30,3 +33,10 @@ create_olmo2_model = create_olmo_model
 register_olmo2_configs = register_olmo_configs
 get_olmo2_model_hub = get_olmo_model_hub
 convert_olmo2_state_dict = convert_olmo_state_dict
+
+# Backward compatibility aliases for OLMO3
+OLMO3_FAMILY = OLMO_FAMILY
+OLMO3Config = OLMOConfig
+get_olmo3_model_hub = get_olmo_model_hub
+create_olmo3_model = create_olmo_model
+convert_olmo3_state_dict = convert_olmo_state_dict

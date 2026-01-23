@@ -17,7 +17,7 @@ from typing_extensions import override
 from fairseq2.device import Device
 from fairseq2.nn import BatchLayout, IncrementalStateBag
 from fairseq2.nn.position_encoder import ReferenceRotaryEncoder
-from fairseq2.nn.utils.module import unsqueeze
+from fairseq2.ops import unsqueeze
 
 
 class YaRNRotaryEncoder(ReferenceRotaryEncoder):  # type: ignore[misc]
@@ -70,10 +70,8 @@ class YaRNRotaryEncoder(ReferenceRotaryEncoder):  # type: ignore[misc]
             truncate: If True, truncate correction range bounds to integers (default: True).
             device: The device to use for initialization.
         """
-        # Initialize parent class
-        super().__init__(encoding_dim, max_seq_len, theta=theta, device=device)
-
-        # Store YaRN-specific parameters
+        # Store YaRN-specific parameters BEFORE calling super().__init__()
+        # because parent's __init__ calls reset_non_persistent_buffers() which needs these
         self.scale_factor = scale_factor
         self.original_max_seq_len = original_max_seq_len
         self.beta_fast = beta_fast
@@ -82,8 +80,11 @@ class YaRNRotaryEncoder(ReferenceRotaryEncoder):  # type: ignore[misc]
         self.mscale_all_dim = mscale_all_dim
         self.truncate = truncate
 
-        # Compute attention scaling factor
+        # Compute attention scaling factor (needed before parent init)
         self.attention_scaling = self._compute_attention_scaling()
+
+        # Initialize parent class (this will call reset_non_persistent_buffers)
+        super().__init__(encoding_dim, max_seq_len, theta=theta, device=device)
 
     def _compute_attention_scaling(self) -> float:
         """Compute attention scaling factor (mscale) for YaRN."""

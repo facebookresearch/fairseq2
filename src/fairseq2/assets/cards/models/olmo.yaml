@@ -1,0 +1,82 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+# OLMO2 Base Configuration
+name: olmo2
+model_family: olmo
+checkpoint: "/datasets/pretrained-llms/OLMo-2-0425-1B"
+tokenizer: "/datasets/pretrained-llms/OLMo-2-0425-1B"
+tokenizer_family: olmo
+
+---
+
+# OLMO2 0425 1B Model
+name: olmo2-0425-1b
+base: olmo2
+model_arch: olmo2_1b
+
+---
+
+# OLMO2 1124 7B Model
+name: olmo2-1124-7b
+base: olmo2
+model_arch: olmo2_7b
+checkpoint: "/datasets/pretrained-llms/OLMo-2-1124-7B"
+tokenizer: "/datasets/pretrained-llms/OLMo-2-1124-7B"
+
+---
+
+# OLMO2 1124 13B Model
+name: olmo2-1124-13b
+base: olmo2
+model_arch: olmo2_13b
+checkpoint: "/datasets/pretrained-llms/OLMo-2-1124-13B"
+tokenizer: "/datasets/pretrained-llms/OLMo-2-1124-13B"
+
+---
+
+# OLMO3 Base Configuration
+name: olmo3
+model_family: olmo
+checkpoint: "/datasets/pretrained-llms/Olmo-3-1025-7B"
+tokenizer: "/datasets/pretrained-llms/Olmo-3-1025-7B"
+tokenizer_family: olmo
+
+---
+
+# OLMO3 7B Model (1025 release)
+name: olmo3-7b
+base: olmo3
+model_arch: olmo3_7b
+checkpoint: "/datasets/pretrained-llms/Olmo-3-1025-7B"
+tokenizer: "/datasets/pretrained-llms/Olmo-3-1025-7B"
+
+---
+
+# OLMO3 32B Model (1125 release)
+name: olmo3-32b
+base: olmo3
+model_arch: olmo3_32b
+checkpoint: "/datasets/pretrained-llms/Olmo-3-1125-32B"
+tokenizer: "/datasets/pretrained-llms/Olmo-3-1125-32B"
+
+---
+
+# OLMO3.1 32B Think Model
+name: olmo3.1-32b-think
+base: olmo3
+model_arch: olmo3_32b
+checkpoint: "/datasets/pretrained-llms/Olmo-3.1-32B-Think"
+tokenizer: "/datasets/pretrained-llms/Olmo-3.1-32B-Think"
+
+---
+
+# OLMO3 7B Think Model
+name: olmo3-7b-think
+base: olmo3
+model_arch: olmo3_7b
+checkpoint: "/datasets/pretrained-llms/Olmo-3-7B-Think"
+tokenizer: "/datasets/pretrained-llms/Olmo-3-7B-Think"
