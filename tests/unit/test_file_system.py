@@ -20,7 +20,7 @@ class TestFSspecFileSystem(unittest.TestCase):
     """Tests for FSspecFileSystem wrapper around fsspec."""
 
     def setUp(self) -> None:
-        import fsspec.implementations.local as fs_local
+        import fsspec.implementations.local as fs_local  # type: ignore[import-untyped]
 
         self.fsspec_fs = fs_local.LocalFileSystem()
         self.fs = FSspecFileSystem(self.fsspec_fs, "")
@@ -215,7 +215,7 @@ class TestFSspecFileSystemWithPrefix(unittest.TestCase):
     """Tests for FSspecFileSystem with URI prefix handling."""
 
     def setUp(self) -> None:
-        import fsspec.implementations.local as fs_local
+        import fsspec.implementations.local as fs_local  # type: ignore[import-untyped]
 
         self.fsspec_fs = fs_local.LocalFileSystem()
         self.prefix = "file://"
