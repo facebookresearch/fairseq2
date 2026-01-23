@@ -122,7 +122,7 @@ class FSspecFileSystem(FileSystem):
 
         assert isinstance(path, (str, Path))
         path_str = str(path)
-        if self.is_local:
+        if not self.__prefix:
             return path_str
         if path_str.startswith(self.__prefix):
             return path_str[len(self.__prefix) :].lstrip("/")
@@ -144,6 +144,8 @@ class FSspecFileSystem(FileSystem):
 
         assert isinstance(path, (str, Path))
         path_str = str(path)
+        if not self.__prefix:
+            return path_str
         if not path_str.startswith(self.__prefix):
             return self.__prefix + path_str
         else:
@@ -212,21 +214,39 @@ class FSspecFileSystem(FileSystem):
         self.__fsspec.rmdir(self.get_short_uri(path))
 
     @override
-    def glob(self, path: Path, pattern: str) -> Iterable[Path]:
+    def glob(self, path: Path, pattern: str) -> Iterator[Path]:
         paths = self.__fsspec.glob(self.get_short_uri(path.joinpath(pattern)))
-        return [Path(self.get_long_uri(p)) for p in paths]  # type: ignore
+        return iter([Path(self.get_long_uri(p)) for p in paths])  # type: ignore
 
     @override
     def walk_directory(
         self, path: Path, *, on_error: Callable[[OSError], None] | None
-    ) -> Iterable[tuple[str, Sequence[str]]]:
+    ) -> Iterator[tuple[str, Sequence[str]]]:
         results = self.__fsspec.walk(self.get_short_uri(path), on_error=on_error)  # type: ignore
         for dir_pathname, _, filenames in results:
             yield self.get_long_uri(dir_pathname), self.get_long_uri(filenames)  # type: ignore
 
     @override
+    @contextmanager
+    def tmp_directory(self, base_dir: Path) -> Iterator[Path]:
+        if self.is_local:
+            with TemporaryDirectory(dir=base_dir) as dirname:
+                yield Path(dirname)
+        else:
+            import uuid
+
+            tmp_path = base_dir / f"tmp_{uuid.uuid4().hex}"
+            self.make_directory(tmp_path)
+            try:
+                yield tmp_path
+            finally:
+                try:
+                    self.__fsspec.rm(self.get_short_uri(tmp_path), recursive=True)
+                except Exception:
+                    pass
+
+    @override
     def resolve(self, path: Path) -> Path:
-        # Use expanduser if available, otherwise just convert to string and back
         if self.is_local:
             return path.expanduser().resolve()
         raise NotImplementedError("resolve is not implemented for this filesystem")
@@ -288,7 +308,7 @@ class FileSystemRegistry:
             # Check if all paths resolve to the same filesystem type
             for p in path[1:]:
                 other_fs = cls.resolve_filesystem(p)
-                if type(other_fs) != type(fs):
+                if type(other_fs) is not type(fs):
                     raise ValueError(
                         f"Paths in the sequence resolve to different filesystem types: {type(fs)} and {type(other_fs)}"
                     )
@@ -322,11 +342,22 @@ def _register_filesystems(context: Any) -> None:
             storage_options = all_storage_options.get(protocol, {})
 
         try:
-            fsspec = filesystem(protocol, **storage_options)
+            fsspec_instance = filesystem(protocol, **storage_options)
             prefix = f"{protocol}://"
+
+            def make_pattern_check(
+                pref: str,
+            ) -> Callable[[ExtenedPath], bool]:
+                return lambda p: str(p).startswith(pref)
+
+            def make_fs_factory(
+                fs: fsspec.AbstractFileSystem, pref: str
+            ) -> Callable[[], FileSystem]:
+                return lambda: FSspecFileSystem(fs, pref)
+
             FileSystemRegistry.register(
-                lambda p: str(p).startswith(prefix),
-                lambda: FSspecFileSystem(fsspec, prefix),
+                make_pattern_check(prefix),
+                make_fs_factory(fsspec_instance, prefix),
             )
             activated_protocol.append(protocol)
         except Exception:
@@ -381,14 +412,18 @@ class GlobalFileSystem(FileSystem):
         path_fs_resolver(path).remove_directory(path)
 
     @override
-    def glob(self, path: Path, pattern: str) -> Iterable[Path]:
+    def glob(self, path: Path, pattern: str) -> Iterator[Path]:
         return path_fs_resolver(path).glob(path, pattern)
 
     @override
     def walk_directory(
         self, path: Path, *, on_error: Callable[[OSError], None] | None
-    ) -> Iterable[tuple[str, Sequence[str]]]:
+    ) -> Iterator[tuple[str, Sequence[str]]]:
         return path_fs_resolver(path).walk_directory(path, on_error=on_error)
+
+    @override
+    def tmp_directory(self, base_dir: Path) -> ContextManager[Path]:
+        return path_fs_resolver(base_dir).tmp_directory(base_dir)
 
     @override
     def resolve(self, path: Path) -> Path:
@@ -503,6 +538,9 @@ def raise_if_not_exists(file_system: FileSystem, path: Path) -> None:
     """Raises a :class:`FileNotFoundError` if ``path`` does not exist."""
     if not file_system.exists(path):
         raise FileNotFoundError(ENOENT, strerror(ENOENT), path)
+
+
+LocalFileSystem = NativeLocalFileSystem
 
 
 def _flush_nfs_lookup_cache(path: Path) -> None:
