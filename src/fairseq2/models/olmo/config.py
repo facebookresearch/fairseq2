@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Final, Literal
 
 from fairseq2.models.llama import LLaMAConfig
@@ -45,6 +45,7 @@ class YaRNScaleConfig:
 
     truncate: bool = True
     """If True, truncate correction range bounds to integers using floor/ceil. Default: True."""
+
 
 @dataclass(kw_only=True)
 class OLMOConfig(LLaMAConfig):
@@ -129,8 +130,7 @@ class OLMOConfig(LLaMAConfig):
     dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""
 
-
-    #TODO check the init_std == initializer_range?
+    # TODO check the init_std == initializer_range?
     init_std: float | None = None
     """
     If not ``None``, the standard deviation to initialize input embeddings and
@@ -146,7 +146,7 @@ class OLMOConfig(LLaMAConfig):
     the decoder.
     """
 
-    #TODO check if it is used in olmo
+    # TODO check if it is used in olmo
     # shard_embed_dim: bool = False
     """If ``True``, shards the embedding dimension for tensor parallelism."""
 

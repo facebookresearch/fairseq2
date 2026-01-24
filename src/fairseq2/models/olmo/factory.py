@@ -6,13 +6,14 @@
 
 from __future__ import annotations
 
-import torch
+from typing import Literal
+
 import torch.nn as nn
 from torch import Tensor
 
 from fairseq2.gang import Gangs, maybe_get_current_gangs
 from fairseq2.models.olmo.attention import OLMOMultiheadAttention
-from fairseq2.models.olmo.config import OLMOConfig, YaRNScaleConfig
+from fairseq2.models.olmo.config import OLMOConfig
 from fairseq2.models.olmo.decoder_layer import OLMOTransformerLMDecoderLayer
 from fairseq2.models.olmo.normalization import OLMORMSNorm
 from fairseq2.models.olmo.yarn_rope import YaRNRotaryEncoder
@@ -79,12 +80,16 @@ class OLMOFactory:
             # Sliding window layers use standard RoPE
             # Full attention layers use YaRN RoPE (if yarn_scale_config is set)
             self._sliding_rope_encoder = self._create_standard_rope_encoder()
-            self._full_attention_rope_encoder = self._create_full_attention_rope_encoder()
+            self._full_attention_rope_encoder = (
+                self._create_full_attention_rope_encoder()
+            )
         else:
             # OLMO2: Single shared RoPE encoder for all layers
             self._shared_rope_encoder = self._create_standard_rope_encoder()
 
-    def _generate_layer_types(self) -> list[str]:
+    def _generate_layer_types(
+        self,
+    ) -> list[Literal["sliding_attention", "full_attention"]]:
         """Generate layer types for OLMO3 hybrid attention pattern.
 
         Pattern: 3 sliding window layers, 1 full attention layer, repeating.
@@ -94,7 +99,7 @@ class OLMOFactory:
             List of layer types ('sliding_attention' or 'full_attention')
         """
         config = self._config
-        layer_types = []
+        layer_types: list[Literal["sliding_attention", "full_attention"]] = []
 
         for i in range(config.num_layers):
             # Final layer always uses full attention
@@ -430,6 +435,7 @@ class OLMOFactory:
     def get_std_scale_factor(self, layer_idx: int) -> float:
         config = self._config
 
+        n: int
         match config.init_std_scale:
             case "layer":
                 n = layer_idx
@@ -442,7 +448,7 @@ class OLMOFactory:
                     f"`config.init_std_scale` must be 'none', 'layer', or 'stack', but is '{config.init_std_scale}' instead."
                 )
 
-        return (2 * (n + 1)) ** 0.5
+        return float((2 * (n + 1)) ** 0.5)
 
 
 def _init_truncated_normal(

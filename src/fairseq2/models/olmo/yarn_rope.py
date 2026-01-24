@@ -88,6 +88,7 @@ class YaRNRotaryEncoder(ReferenceRotaryEncoder):  # type: ignore[misc]
 
     def _compute_attention_scaling(self) -> float:
         """Compute attention scaling factor (mscale) for YaRN."""
+
         def get_mscale(scale: float, mscale_val: float = 1.0) -> float:
             if scale <= 1:
                 return 1.0
@@ -149,12 +150,19 @@ class YaRNRotaryEncoder(ReferenceRotaryEncoder):  # type: ignore[misc]
         beta_slow = self.beta_slow
 
         # Helper functions (matches HuggingFace)
-        def find_correction_dim(num_rot: float, d: int, b: float, max_pos: int) -> float:
+        def find_correction_dim(
+            num_rot: float, d: int, b: float, max_pos: int
+        ) -> float:
             """Inverse dimension formula to find dimension based on rotations."""
             return (d * math.log(max_pos / (num_rot * 2 * math.pi))) / (2 * math.log(b))
 
         def find_correction_range(
-            low_rot: float, high_rot: float, d: int, b: float, max_pos: int, truncate: bool
+            low_rot: float,
+            high_rot: float,
+            d: int,
+            b: float,
+            max_pos: int,
+            truncate: bool,
         ) -> tuple[float, float]:
             """Find dimension range bounds based on rotations."""
             low = find_correction_dim(low_rot, d, b, max_pos)
@@ -168,16 +176,22 @@ class YaRNRotaryEncoder(ReferenceRotaryEncoder):  # type: ignore[misc]
             """Create linear ramp from 0 to 1 over dimension range."""
             if min_val == max_val:
                 max_val += 0.001  # Prevent singularity
-            linear = (torch.arange(d, dtype=torch.float32, device=dev) - min_val) / (max_val - min_val)
+            linear = (torch.arange(d, dtype=torch.float32, device=dev) - min_val) / (
+                max_val - min_val
+            )
             return torch.clamp(linear, 0, 1)
 
         # Compute base frequencies
-        pos_freqs = base ** (torch.arange(0, dim, 2, dtype=torch.float32, device=device) / dim)
+        pos_freqs = base ** (
+            torch.arange(0, dim, 2, dtype=torch.float32, device=device) / dim
+        )
         inv_freq_extrapolation = 1.0 / pos_freqs  # High freq: no scaling
         inv_freq_interpolation = 1.0 / (factor * pos_freqs)  # Low freq: scaled
 
         # Find correction range using truncate parameter
-        low, high = find_correction_range(beta_fast, beta_slow, dim, base, original_max_seq_len, self.truncate)
+        low, high = find_correction_range(
+            beta_fast, beta_slow, dim, base, original_max_seq_len, self.truncate
+        )
 
         # Compute blend factor (ramp from 0 to 1) - directly on the correct device
         ramp = 1 - linear_ramp(low, high, dim // 2, device)

@@ -12,6 +12,8 @@ from collections.abc import Callable
 
 from torch import Tensor
 
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.gang import Gangs
 from fairseq2.models.transformer import StandardMultiheadAttention
 from fairseq2.models.transformer.attention_bias import AttentionBiasCache
@@ -24,11 +26,9 @@ from fairseq2.nn import (
     PositionEncoder,
     Projection,
 )
-from fairseq2.data_type import DataType
-from fairseq2.device import Device
 
 
-class OLMOMultiheadAttention(StandardMultiheadAttention):
+class OLMOMultiheadAttention(StandardMultiheadAttention):  # type: ignore[misc]
     """OLMO Multi-head Attention with Q/K normalization and reference rotary encoding."""
 
     rope_encoder: PositionEncoder | None
@@ -53,7 +53,7 @@ class OLMOMultiheadAttention(StandardMultiheadAttention):
         output_proj_init_fn: Callable[[Linear], None] | None = None,
         bias: bool = True,
         output_proj_bias: bool | None = None,
-        state_factory=None,
+        state_factory: object = None,  # type: ignore[assignment]
         gangs: Gangs | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
@@ -77,12 +77,12 @@ class OLMOMultiheadAttention(StandardMultiheadAttention):
             qkv_proj_init_fn=qkv_proj_init_fn,
             q_norm=q_norm,
             k_norm=k_norm,
-            pos_encoder=None,  
+            pos_encoder=None,
             output_proj=output_proj,
             output_proj_init_fn=output_proj_init_fn,
             bias=bias,
             output_proj_bias=output_proj_bias,
-            state_factory=state_factory,
+            state_factory=state_factory,  # type: ignore[arg-type]
             gangs=gangs,
             device=device,
             dtype=dtype,

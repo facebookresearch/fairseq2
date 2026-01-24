@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import Parameter
-from typing_extensions import override, final
+from typing_extensions import final, override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
