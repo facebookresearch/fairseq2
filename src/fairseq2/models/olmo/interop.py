@@ -8,11 +8,8 @@ from __future__ import annotations
 
 from typing import Final, cast
 
-from torch import Tensor
-
 from fairseq2.models.olmo.config import OLMOConfig
 from fairseq2.models.utils.checkpoint import convert_state_dict
-
 
 _HG_KEY_MAP: Final = {
     # fmt: off
