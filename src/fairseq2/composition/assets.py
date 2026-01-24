@@ -20,7 +20,6 @@ from fairseq2.assets import (
     DelegatingAssetDownloadManager,
     FileAssetMetadataLoader,
     FileAssetMetadataSource,
-    FsspecAssetDownloadManager,
     HuggingFaceHub,
     InMemoryAssetMetadataSource,
     LocalAssetDownloadManager,
@@ -130,7 +129,6 @@ def _register_asset(container: DependencyContainer) -> None:
 
     container.collection.register_type(AssetDownloadManager, LocalAssetDownloadManager)
     container.collection.register_type(AssetDownloadManager, HuggingFaceHub)
-    container.collection.register_type(AssetDownloadManager, FsspecAssetDownloadManager)
 
     def create_standard_asset_download_manager(
         resolver: DependencyResolver,

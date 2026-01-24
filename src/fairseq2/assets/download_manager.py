@@ -248,78 +248,25 @@ class DelegatingAssetDownloadManager(AssetDownloadManager):
 
 @final
 class LocalAssetDownloadManager(AssetDownloadManager):
-    _SCHEMES: Final = {"file"}
-
-    @override
-    def download_model(
-        self,
-        uri: Uri,
-        model_name: str = "",
-        *,
-        force: bool = False,
-        local_only: bool = False,
-        progress: bool = True,
-    ) -> Path:
-        return self._to_path(uri)
-
-    @override
-    def download_tokenizer(
-        self,
-        uri: Uri,
-        tokenizer_name: str = "",
-        *,
-        force: bool = False,
-        local_only: bool = False,
-        progress: bool = True,
-    ) -> Path:
-        return self._to_path(uri)
-
-    @override
-    def download_dataset(
-        self,
-        uri: Uri,
-        dataset_name: str = "",
-        *,
-        force: bool = False,
-        local_only: bool = False,
-        progress: bool = True,
-    ) -> Path:
-        return self._to_path(uri)
-
-    @staticmethod
-    def _to_path(uri: Uri) -> Path:
-        if uri.scheme != "file":
-            raise NotSupportedError(
-                f"`uri.scheme` must be a supported URI scheme, but is {uri.scheme} instead."
-            )
-
-        return uri.to_path()
-
-    @property
-    @override
-    def supported_schemes(self) -> Set[str]:
-        return self._SCHEMES
-
-
-@final
-class FsspecAssetDownloadManager(AssetDownloadManager):
     """
-    Asset download manager that supports fsspec-compatible URI schemes (e.g., s3://, gs://).
+    Asset download manager for local files and fsspec-compatible URI schemes.
 
-    This manager doesn't actually download files - it returns the path directly,
+    For local files (file:// scheme), it returns the local path directly.
+    For fsspec schemes (s3://, gs://, etc.), it returns the URI as a Path,
     relying on GlobalFileSystem to handle remote file access transparently.
     """
 
-    # Schemes already handled by other managers - we exclude these to avoid conflicts
-    _EXCLUDED_SCHEMES: Final = {"file", "hg", "http", "https"}
+    # Schemes handled by other managers - we exclude these
+    _EXCLUDED_SCHEMES: Final = {"hg", "http", "https"}
 
     def __init__(self) -> None:
-        # Get all available fsspec protocols, excluding those handled by other managers
-        self._schemes: set[str] = {
+        # Start with 'file' scheme, then add all fsspec protocols
+        self._schemes: set[str] = {"file"}
+        self._schemes.update(
             protocol
             for protocol in available_protocols()
             if protocol not in self._EXCLUDED_SCHEMES
-        }
+        )
 
     @override
     def download_model(
@@ -363,7 +310,12 @@ class FsspecAssetDownloadManager(AssetDownloadManager):
                 f"`uri.scheme` must be a supported URI scheme, but is {uri.scheme} instead."
             )
 
-        # Return the full URI as a Path - GlobalFileSystem will handle the remote access
+        # For local files, use uri.to_path() to strip the file:// prefix
+        if uri.scheme == "file":
+            return uri.to_path()
+
+        # For remote schemes (s3://, gs://, etc.), return the full URI as Path
+        # GlobalFileSystem will handle the remote access
         return Path(str(uri))
 
     @property

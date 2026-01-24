@@ -333,8 +333,29 @@ class FileSystemRegistry:
 
 
 def _register_filesystems(context: Any) -> None:
+    # Protocols to skip - either problematic or not needed
+    # ftp: Has cleanup issues (__del__ AttributeError)
+    # sftp: Requires SSH connection
+    # ssh: Requires SSH connection
+    # smb: Requires SMB/CIFS connection
+    # hdfs: Requires Hadoop
+    # arrow_hdfs: Requires Hadoop
+    # webhdfs: Requires Hadoop
+    SKIP_PROTOCOLS = {
+        "ftp",
+        "sftp",
+        "ssh",
+        "smb",
+        "hdfs",
+        "arrow_hdfs",
+        "webhdfs",
+    }
+
     activated_protocol = []
     for protocol in available_protocols():
+        if protocol in SKIP_PROTOCOLS:
+            continue
+
         # FIXME: to propagate different credentials from the context
         storage_options: Dict[str, Any] = {}
         if hasattr(context, "storage_options"):

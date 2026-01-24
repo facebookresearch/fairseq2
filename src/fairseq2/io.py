@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import io
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
@@ -121,8 +122,9 @@ class _TorchTensorFileLoader(TensorFileLoader):
             )
 
             try:
-                # For non-local filesystems (e.g., S3), open the file using
-                # the filesystem's open() method and pass the file handle
+                # For non-local filesystems (e.g., S3), read the file into
+                # a BytesIO buffer first, then load from the buffer.
+                # This is faster than passing the remote file handle directly
                 # to torch.load. For local filesystems, pass the path directly
                 # to support mmap.
                 if self._file_system.is_local or options.mmap:
@@ -134,11 +136,12 @@ class _TorchTensorFileLoader(TensorFileLoader):
                     )
                 else:
                     with self._file_system.open(file) as fp:
-                        data = torch.load(
-                            fp,
-                            options.map_location,  # type: ignore[arg-type]
-                            weights_only=options.restrict,
-                        )
+                        buffer = io.BytesIO(fp.read())
+                    data = torch.load(
+                        buffer,
+                        options.map_location,  # type: ignore[arg-type]
+                        weights_only=options.restrict,
+                    )
             except (RuntimeError, PickleError, EOFError) as ex:
                 raise CorruptFileError(file) from ex
 
