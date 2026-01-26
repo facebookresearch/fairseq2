@@ -90,7 +90,22 @@ class FileSystem(ABC):
 
     @property
     @abstractmethod
-    def is_local(self) -> bool: ...
+    def is_local(self) -> bool:
+        """Returns True if this filesystem only handles local paths.
+
+        For filesystems that can handle both local and remote paths (like
+        GlobalFileSystem), this returns False. Use is_local_path(path) to
+        check if a specific path is local.
+        """
+        ...
+
+    def is_local_path(self, path: Path) -> bool:  # noqa: ARG002
+        """Check if a specific path is on a local filesystem.
+
+        This method can be overridden by filesystems that handle both local
+        and remote paths. The default implementation returns self.is_local.
+        """
+        return self.is_local
 
 
 ExtenedPath: TypeAlias = str | Path | Sequence[str | Path]
@@ -484,6 +499,11 @@ class GlobalFileSystem(FileSystem):
     @override
     def is_local(self) -> bool:
         return False
+
+    @override
+    def is_local_path(self, path: Path) -> bool:
+        """Check if a specific path is on a local filesystem."""
+        return path_fs_resolver(path).is_local
 
 
 @final

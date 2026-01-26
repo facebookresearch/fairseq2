@@ -487,7 +487,7 @@ class StandardCheckpointManager(CheckpointManager):
 
     def _sync_distributed_writes(self) -> None:
         gangs = self._gangs
-        is_local = self._file_system.is_local
+        is_local = self._file_system.is_local_path(self._checkpoint_dir)
 
         # Rank 0 flushes NFS cache first (only needed for local/NFS)
         if gangs.root.rank == 0 and is_local:

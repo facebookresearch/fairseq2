@@ -127,8 +127,7 @@ class _TorchTensorFileLoader(TensorFileLoader):
                 # This is faster than passing the remote file handle directly
                 # to torch.load. For local filesystems, pass the path directly
                 # to support mmap.
-                # XXX: can is_local be correctly defined ?
-                if self._file_system.is_local and options.mmap:
+                if self._file_system.is_local_path(file) and options.mmap:
                     data: dict[str, object] = torch.load(
                         file,
                         options.map_location,  # type: ignore[arg-type]
@@ -228,7 +227,7 @@ class _HuggingFaceSafetensorsLoader(SafetensorsLoader):
 
         try:
             # mmap only works with local filesystems
-            if options.mmap and self._file_system.is_local:
+            if options.mmap and self._file_system.is_local_path(file):
                 with safetensors.safe_open(
                     file, framework="pt", device=str(device)
                 ) as f:
