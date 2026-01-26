@@ -136,8 +136,7 @@ class _TorchTensorFileLoader(TensorFileLoader):
                         mmap=options.mmap,
                     )
                 else:
-                    with self._file_system.open(file) as fp:
-                        buffer = io.BytesIO(fp.read())
+                    buffer = io.BytesIO(self._file_system.cat(file))
                     data = torch.load(
                         buffer,
                         options.map_location,  # type: ignore[arg-type]
@@ -237,13 +236,8 @@ class _HuggingFaceSafetensorsLoader(SafetensorsLoader):
                         data[key] = f.get_tensor(key)
             else:
                 # For non-local filesystems (e.g., S3), or when mmap is disabled,
-                # use the filesystem's open() method
-                fp = self._file_system.open(file, mode=FileMode.READ)
-
-                with fp:
-                    bits = fp.read()
-
-                tensors = safetensors.torch.load(bits)
+                # use the filesystem's cat() method to read the file into memory
+                tensors = safetensors.torch.load(self._file_system.cat(file))
 
                 for key, tensor in tensors.items():
                     data[key] = tensor.to(device)

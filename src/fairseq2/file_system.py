@@ -49,6 +49,11 @@ class FileSystem(ABC):
     def open(self, path: Path, mode: FileMode = FileMode.READ) -> BinaryIO: ...
 
     @abstractmethod
+    def cat(self, path: Path) -> bytes:
+        """Read the contents of a file and return as bytes."""
+        ...
+
+    @abstractmethod
     def open_text(self, path: Path, mode: FileMode = FileMode.READ) -> TextIO: ...
 
     @abstractmethod
@@ -185,6 +190,10 @@ class FSspecFileSystem(FileSystem):
             TextIO,
             self.__fsspec.open(self.get_short_uri(path), mode_str, encoding="utf-8"),
         )
+
+    @override
+    def cat(self, path: Path) -> bytes:
+        return self.__fsspec.cat(self.get_short_uri(path))
 
     @override
     def move(self, old_path: Path, new_path: Path) -> None:
@@ -409,6 +418,10 @@ class GlobalFileSystem(FileSystem):
         return path_fs_resolver(path).open_text(path, mode)
 
     @override
+    def cat(self, path: Path) -> bytes:
+        return path_fs_resolver(path).cat(path)
+
+    @override
     def exists(self, path: Path) -> bool:
         return path_fs_resolver(path).exists(path)
 
@@ -503,6 +516,10 @@ class NativeLocalFileSystem(FileSystem):
         fp = path.open(m, encoding="utf-8")
 
         return cast(TextIO, fp)
+
+    @override
+    def cat(self, path: Path) -> bytes:
+        return path.read_bytes()
 
     @override
     def exists(self, path: Path) -> bool:
