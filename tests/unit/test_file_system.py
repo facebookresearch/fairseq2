@@ -301,7 +301,8 @@ class TestNativeLocalFileSystemEquivalence(unittest.TestCase):
             self.fsspec_fs.is_file(file_path), self.native_fs.is_file(file_path)
         )
         self.assertEqual(
-            self.fsspec_fs.is_file(self.temp_path), self.native_fs.is_file(self.temp_path)
+            self.fsspec_fs.is_file(self.temp_path),
+            self.native_fs.is_file(self.temp_path),
         )
         self.assertEqual(
             self.fsspec_fs.is_file(self.temp_path / "nonexistent"),
@@ -360,9 +361,7 @@ class TestNativeLocalFileSystemEquivalence(unittest.TestCase):
         file_path = self.temp_path / "test.txt"
         file_path.write_bytes(b"test content")
 
-        self.assertEqual(
-            self.fsspec_fs.cat(file_path), self.native_fs.cat(file_path)
-        )
+        self.assertEqual(self.fsspec_fs.cat(file_path), self.native_fs.cat(file_path))
 
     def test_open_text_read_equivalent(self) -> None:
         file_path = self.temp_path / "test.txt"
@@ -380,8 +379,12 @@ class TestNativeLocalFileSystemEquivalence(unittest.TestCase):
         (self.temp_path / "file2.txt").write_text("2")
         (self.temp_path / "file.py").write_text("3")
 
-        result1 = sorted([Path(p).name for p in self.fsspec_fs.glob(self.temp_path, "*.txt")])
-        result2 = sorted([Path(p).name for p in self.native_fs.glob(self.temp_path, "*.txt")])
+        result1 = sorted(
+            [Path(p).name for p in self.fsspec_fs.glob(self.temp_path, "*.txt")]
+        )
+        result2 = sorted(
+            [Path(p).name for p in self.native_fs.glob(self.temp_path, "*.txt")]
+        )
 
         self.assertEqual(result1, result2)
 
