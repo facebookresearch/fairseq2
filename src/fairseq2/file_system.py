@@ -193,7 +193,7 @@ class FSspecFileSystem(FileSystem):
 
     @override
     def cat(self, path: Path) -> bytes:
-        return self.__fsspec.cat(self.get_short_uri(path))
+        return cast(bytes, self.__fsspec.cat(self.get_short_uri(path)))
 
     @override
     def move(self, old_path: Path, new_path: Path) -> None:
