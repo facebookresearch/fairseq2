@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import atexit
 import tempfile
 from logging import DEBUG, FileHandler, Formatter
 from pathlib import Path
@@ -39,8 +38,6 @@ class _DistributedLogConfigurer:
         self._file_system = file_system
         # For remote output dirs, logs are written locally
         self._local_log_dir: Path | None = None
-        self._is_remote = False
-        self._file_handler: FileHandler | None = None
 
     def configure(self) -> None:
         self._configure_logger()
@@ -48,10 +45,6 @@ class _DistributedLogConfigurer:
         self._configure_aten_logging()
 
         self._configure_nccl_logging()
-
-        # Register cleanup to sync logs on exit
-        if self._is_remote:
-            atexit.register(self._sync_logs_to_remote)
 
         if self._local_log_dir is not None:
             log.info(
@@ -72,7 +65,6 @@ class _DistributedLogConfigurer:
             return self._output_dir
 
         # For remote filesystems, use a local directory for logs
-        self._is_remote = True
         if self._local_log_dir is None:
             # Create a local log directory based on output_dir name
             output_name = str(self._output_dir).replace("://", "_").replace("/", "_")
@@ -82,38 +74,6 @@ class _DistributedLogConfigurer:
             self._local_log_dir.mkdir(parents=True, exist_ok=True)
 
         return self._local_log_dir
-
-    def _sync_logs_to_remote(self) -> None:
-        """Sync local log files to remote storage."""
-        if not self._is_remote or self._local_log_dir is None:
-            return
-
-        # Close file handler first to flush all data
-        if self._file_handler is not None:
-            self._file_handler.close()
-
-        remote_logs_dir = self._output_dir / "logs"
-
-        try:
-            # Copy all log files from local to remote
-            local_logs_dir = self._local_log_dir / "logs"
-            if local_logs_dir.exists():
-                for local_path in local_logs_dir.rglob("*"):
-                    if local_path.is_file():
-                        rel_path = local_path.relative_to(local_logs_dir)
-                        remote_path = remote_logs_dir.joinpath(rel_path)
-
-                        # Read local file and write to remote
-                        with open(local_path, "rb") as f:
-                            data = f.read()
-
-                        self._file_system.make_directory(remote_path.parent)
-                        with self._file_system.open_for_write(remote_path) as f:
-                            f.write(data)
-
-                log.info("Synced logs to remote: {}", remote_logs_dir)
-        except Exception as e:
-            log.warning("Failed to sync logs to remote: {}", e)
 
     def _configure_logger(self) -> None:
         logger = log.logger
@@ -135,7 +95,7 @@ class _DistributedLogConfigurer:
             raise_operational_system_error(ex)
 
         try:
-            self._file_handler = FileHandler(log_file)
+            handler = FileHandler(log_file)
         except OSError as ex:
             raise_operational_system_error(ex)
 
@@ -143,9 +103,9 @@ class _DistributedLogConfigurer:
 
         file_formatter = Formatter(fmt, datefmt="%Y-%m-%d %H:%M:%S")
 
-        self._file_handler.setFormatter(file_formatter)
+        handler.setFormatter(file_formatter)
 
-        logger.addHandler(self._file_handler)
+        logger.addHandler(handler)
 
         if self._section.debug:
             logger.setLevel(DEBUG)

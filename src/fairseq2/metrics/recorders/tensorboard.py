@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-import shutil
-import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import final
@@ -17,7 +15,6 @@ from torch.utils.tensorboard import SummaryWriter
 from typing_extensions import override
 
 from fairseq2.error import OperationalError, raise_operational_system_error
-from fairseq2.file_system import get_file_system
 from fairseq2.metrics.recorders.descriptor import MetricDescriptorRegistry
 from fairseq2.metrics.recorders.recorder import MetricRecorder
 
@@ -33,20 +30,11 @@ class TensorBoardRecorder(MetricRecorder):
         :param output_dir:
             The base directory under which to store the TensorBoard files.
         """
-        self._remote_output_dir = output_dir.joinpath("tb")
+        tb_dir = output_dir.joinpath("tb")
+
+        self._output_dir = tb_dir
         self._metric_descriptors = metric_descriptors
         self._writers: dict[str, SummaryWriter] = {}
-        self._file_system = get_file_system()
-
-        # For remote filesystems, use a local temp directory
-        if self._file_system.is_local_path(output_dir):
-            self._local_output_dir = self._remote_output_dir
-            self._is_remote = False
-        else:
-            # Create local temp directory for TensorBoard files
-            self._temp_dir = tempfile.mkdtemp(prefix="fairseq2_tb_")
-            self._local_output_dir = Path(self._temp_dir)
-            self._is_remote = True
 
     @override
     def record_metric_values(
@@ -98,7 +86,7 @@ class TensorBoardRecorder(MetricRecorder):
     def _get_writer(self, category: str) -> SummaryWriter:
         writer = self._writers.get(category)
         if writer is None:
-            path = self._local_output_dir.joinpath(category)
+            path = self._output_dir.joinpath(category)
 
             writer = SummaryWriter(path)
 
@@ -106,36 +94,9 @@ class TensorBoardRecorder(MetricRecorder):
 
         return writer
 
-    def _sync_to_remote(self) -> None:
-        """Sync local TensorBoard files to remote storage."""
-        if not self._is_remote:
-            return
-
-        # Copy all files from local to remote
-        for local_path in self._local_output_dir.rglob("*"):
-            if local_path.is_file():
-                rel_path = local_path.relative_to(self._local_output_dir)
-                remote_path = self._remote_output_dir.joinpath(rel_path)
-
-                # Read local file and write to remote
-                with open(local_path, "rb") as f:
-                    data = f.read()
-
-                self._file_system.make_directory(remote_path.parent)
-                with self._file_system.open_for_write(remote_path) as f:
-                    f.write(data)
-
     @override
     def close(self) -> None:
         for writer in self._writers.values():
             writer.close()
 
         self._writers.clear()
-
-        # Sync to remote if needed
-        if self._is_remote:
-            try:
-                self._sync_to_remote()
-            finally:
-                # Clean up temp directory
-                shutil.rmtree(self._temp_dir, ignore_errors=True)
