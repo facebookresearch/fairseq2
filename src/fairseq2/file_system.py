@@ -108,7 +108,7 @@ class FileSystem(ABC):
         return self.is_local
 
 
-ExtenedPath: TypeAlias = str | Path | Sequence[str | Path]
+PathOrPaths: TypeAlias = str | Path | Sequence[str | Path]
 
 
 @final
@@ -120,20 +120,20 @@ class FSspecFileSystem(FileSystem):
     >>> fs = FSspecFileSystem(fs)
     """
 
-    __fsspec: fsspec.AbstractFileSystem
-    __prefix: str
+    _fsspec: fsspec.AbstractFileSystem
+    _prefix: str
 
     def __init__(self, fs: fsspec.AbstractFileSystem, prefix: str) -> None:
-        self.__fsspec = fs
-        self.__prefix = prefix
+        self._fsspec = fs
+        self._prefix = prefix
 
     def _normalize_uri_path(self, path_str: str) -> str:
         """
         Handle the case where pathlib.Path normalizes scheme:// to scheme:/
         by reconstructing the double slash for known URI schemes.
         """
-        if self.__prefix and "://" in self.__prefix:
-            scheme = self.__prefix.split("://")[0]
+        if self._prefix and "://" in self._prefix:
+            scheme = self._prefix.split("://")[0]
             # Check if path looks like a URI with single slash (normalized by pathlib)
             if path_str.startswith(f"{scheme}:/") and not path_str.startswith(
                 f"{scheme}://"
@@ -142,7 +142,7 @@ class FSspecFileSystem(FileSystem):
                 return f"{scheme}://{path_str[len(scheme) + 2:]}"
         return path_str
 
-    def get_short_uri(self, path: ExtenedPath) -> str | list[str]:
+    def get_short_uri(self, path: PathOrPaths) -> str | list[str]:
         """
         Removes prefix from paths and ensures they exist.
 
@@ -158,14 +158,14 @@ class FSspecFileSystem(FileSystem):
         assert isinstance(path, (str, Path))
         path_str = self._normalize_uri_path(str(path))
 
-        if not self.__prefix:
+        if not self._prefix:
             return path_str
-        if path_str.startswith(self.__prefix):
-            return path_str[len(self.__prefix) :].lstrip("/")
+        if path_str.startswith(self._prefix):
+            return path_str[len(self._prefix) :].lstrip("/")
         else:
-            raise ValueError(f"Path {path} does not start with prefix {self.__prefix}")
+            raise ValueError(f"Path {path} does not start with prefix {self._prefix}")
 
-    def get_long_uri(self, path: ExtenedPath) -> str | list[str]:
+    def get_long_uri(self, path: PathOrPaths) -> str | list[str]:
         """
         Adds prefix to paths to create full URIs.
 
@@ -181,24 +181,24 @@ class FSspecFileSystem(FileSystem):
         assert isinstance(path, (str, Path))
         path_str = self._normalize_uri_path(str(path))
 
-        if not self.__prefix:
+        if not self._prefix:
             return path_str
-        if not path_str.startswith(self.__prefix):
-            return self.__prefix + path_str
+        if not path_str.startswith(self._prefix):
+            return self._prefix + path_str
         else:
-            raise ValueError(f"Path {path} already starts with prefix {self.__prefix}")
+            raise ValueError(f"Path {path} already starts with prefix {self._prefix}")
 
     @override
     def is_file(self, path: Path) -> bool:
-        return bool(self.__fsspec.isfile(self.get_short_uri(path)))
+        return bool(self._fsspec.isfile(self.get_short_uri(path)))
 
     @override
     def is_dir(self, path: Path) -> bool:
-        return bool(self.__fsspec.isdir(self.get_short_uri(path)))
+        return bool(self._fsspec.isdir(self.get_short_uri(path)))
 
     @override
     def exists(self, path: Path) -> bool:
-        return bool(self.__fsspec.exists(self.get_short_uri(path)))
+        return bool(self._fsspec.exists(self.get_short_uri(path)))
 
     @override
     def open(self, path: Path, mode: FileMode = FileMode.READ) -> BinaryIO:
@@ -208,7 +208,7 @@ class FSspecFileSystem(FileSystem):
         elif mode == FileMode.APPEND:
             mode_str = "ab"
 
-        return cast(BinaryIO, self.__fsspec.open(self.get_short_uri(path), mode_str))
+        return cast(BinaryIO, self._fsspec.open(self.get_short_uri(path), mode_str))
 
     @override
     def open_text(self, path: Path, mode: FileMode = FileMode.READ) -> TextIO:
@@ -220,31 +220,31 @@ class FSspecFileSystem(FileSystem):
 
         return cast(
             TextIO,
-            self.__fsspec.open(self.get_short_uri(path), mode_str, encoding="utf-8"),
+            self._fsspec.open(self.get_short_uri(path), mode_str, encoding="utf-8"),
         )
 
     @override
     def cat(self, path: Path) -> bytes:
-        return cast(bytes, self.__fsspec.cat(self.get_short_uri(path)))
+        return cast(bytes, self._fsspec.cat(self.get_short_uri(path)))
 
     @override
     def move(self, old_path: Path, new_path: Path) -> None:
-        self.__fsspec.mv(
+        self._fsspec.mv(
             self.get_short_uri(old_path), self.get_short_uri(new_path), recursive=True
         )
 
     @override
     def remove(self, path: Path) -> None:
         # only one file !
-        self.__fsspec.rm(self.get_short_uri(path), recursive=False)
+        self._fsspec.rm(self.get_short_uri(path), recursive=False)
 
     @override
     def make_directory(self, path: Path) -> None:
-        self.__fsspec.makedirs(self.get_short_uri(path), exist_ok=True)
+        self._fsspec.makedirs(self.get_short_uri(path), exist_ok=True)
 
     @override
     def copy_directory(self, source_path: Path, target_path: Path) -> None:
-        self.__fsspec.copy(
+        self._fsspec.copy(
             self.get_short_uri(source_path),
             self.get_short_uri(target_path),
             recursive=True,
@@ -252,18 +252,20 @@ class FSspecFileSystem(FileSystem):
 
     @override
     def remove_directory(self, path: Path) -> None:
-        self.__fsspec.rmdir(self.get_short_uri(path))
+        # For S3/remote filesystems, rmdir only removes empty directories
+        # Use rm with recursive=True to delete directory and all contents
+        self._fsspec.rm(self.get_short_uri(path), recursive=True)
 
     @override
     def glob(self, path: Path, pattern: str) -> Iterator[Path]:
-        paths = self.__fsspec.glob(self.get_short_uri(path.joinpath(pattern)))
+        paths = self._fsspec.glob(self.get_short_uri(path.joinpath(pattern)))
         return iter([Path(self.get_long_uri(p)) for p in paths])  # type: ignore
 
     @override
     def walk_directory(
         self, path: Path, *, on_error: Callable[[OSError], None] | None
     ) -> Iterator[tuple[str, Sequence[str]]]:
-        results = self.__fsspec.walk(self.get_short_uri(path), on_error=on_error)  # type: ignore
+        results = self._fsspec.walk(self.get_short_uri(path), on_error=on_error)  # type: ignore
         for dir_pathname, _, filenames in results:
             yield self.get_long_uri(dir_pathname), self.get_long_uri(filenames)  # type: ignore
 
@@ -282,7 +284,7 @@ class FSspecFileSystem(FileSystem):
                 yield tmp_path
             finally:
                 try:
-                    self.__fsspec.rm(self.get_short_uri(tmp_path), recursive=True)
+                    self._fsspec.rm(self.get_short_uri(tmp_path), recursive=True)
                 except Exception:
                     pass
 
@@ -296,7 +298,7 @@ class FSspecFileSystem(FileSystem):
     @override
     def is_local(self) -> bool:
         try:
-            return isinstance(self.__fsspec, fs_local.LocalFileSystem)  # type: ignore
+            return isinstance(self._fsspec, fs_local.LocalFileSystem)  # type: ignore
         except ImportError:
             return False
 
@@ -306,7 +308,7 @@ class FileSystemRegistry:
     Registry for resolving FileSystem instances based on path patterns.
     """
 
-    _resolvers: List[Tuple[Callable[[ExtenedPath], bool], Callable[[], FileSystem]]] = (
+    _resolvers: List[Tuple[Callable[[PathOrPaths], bool], Callable[[], FileSystem]]] = (
         []
     )
     _fs_cache: Dict[Any, FileSystem] = {}
@@ -315,7 +317,7 @@ class FileSystemRegistry:
     @classmethod
     def register(
         cls,
-        pattern_check: Callable[[ExtenedPath], bool],
+        pattern_check: Callable[[PathOrPaths], bool],
         fs_factory: Callable[[], FileSystem],
     ) -> None:
         """
@@ -328,7 +330,7 @@ class FileSystemRegistry:
         cls._resolvers.append((pattern_check, fs_factory))
 
     @classmethod
-    def resolve_filesystem(cls, path: ExtenedPath) -> FileSystem:
+    def resolve_filesystem(cls, path: PathOrPaths) -> FileSystem:
         """
         Resolve a FileSystem instance from a path.
 
@@ -373,28 +375,49 @@ class FileSystemRegistry:
         return cls._local_fs
 
 
+def _register_omnilingual_s3_filesystem() -> None:
+    """Register custom S3 filesystem with omnilingual AWS profile for specific bucket access."""
+    try:
+        from stopes.wrapped_s3fs import get_s3_filesystem_with_reconnection
+    except ImportError:
+        log.debug(
+            "stopes.wrapped_s3fs not available, skipping omnilingual S3 registration"
+        )
+        return
+
+    profile_name = "omnilingual-nouserdata--use2-az3--x-s3-rw"
+    bucket_pattern = "omnilingual-nouserdata--use2-az3--x-s3"
+
+    try:
+        pa_s3_fs = get_s3_filesystem_with_reconnection(
+            profile=profile_name, as_fsspec=True
+        )
+
+        def s3_pattern_check(path: PathOrPaths) -> bool:
+            path_str = str(path)
+            return path_str.startswith("s3:/") and bucket_pattern in path_str
+
+        wrapped_fs = FSspecFileSystem(pa_s3_fs, "s3://")
+        FileSystemRegistry.register(s3_pattern_check, lambda: wrapped_fs)
+        log.info(
+            f"Registered S3 filesystem for {bucket_pattern} with profile {profile_name}"
+        )
+    except Exception as e:
+        log.debug(f"Failed to register omnilingual S3 filesystem: {e}")
+
+
 def _register_filesystems(context: Any) -> None:
     # Protocols to skip - either problematic or not needed
     # ftp: Has cleanup issues (__del__ AttributeError)
-    # sftp: Requires SSH connection
-    # ssh: Requires SSH connection
-    # smb: Requires SMB/CIFS connection
-    # hdfs: Requires Hadoop
-    # arrow_hdfs: Requires Hadoop
-    # webhdfs: Requires Hadoop
-    SKIP_PROTOCOLS = {
-        "ftp",
-        "sftp",
-        "ssh",
-        "smb",
-        "hdfs",
-        "arrow_hdfs",
-        "webhdfs",
-    }
+    # Only register protocols that have been tested and verified to work correctly.
+    # - file/local: Local filesystem (both are aliases in fsspec)
+    # - s3: Amazon S3 storage
+    # Please extened if needed !
+    TESTED_PROTOCOLS = {"file", "local", "s3"}
 
     activated_protocol = []
     for protocol in available_protocols():
-        if protocol in SKIP_PROTOCOLS:
+        if protocol not in TESTED_PROTOCOLS:
             continue
 
         # FIXME: to propagate different credentials from the context
@@ -409,7 +432,7 @@ def _register_filesystems(context: Any) -> None:
 
             def make_pattern_check(
                 pref: str,
-            ) -> Callable[[ExtenedPath], bool]:
+            ) -> Callable[[PathOrPaths], bool]:
                 return lambda p: str(p).startswith(pref)
 
             def make_fs_factory(
