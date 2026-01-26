@@ -266,18 +266,32 @@ class _HuggingFaceExportCommand:
             hg_state_dict = hg_converter.to_hg_state_dict(state_dict, config)
 
         try:
-            with self._file_system.tmp_directory(save_dir.parent) as tmp_dir:
-                tmp_save_dir = tmp_dir.joinpath(save_dir.name)
+            is_local = self._file_system.is_local_path(save_dir)
 
+            if is_local:
+                # Local filesystem: use atomic tmp directory + move pattern
+                with self._file_system.tmp_directory(save_dir.parent) as tmp_dir:
+                    tmp_save_dir = tmp_dir.joinpath(save_dir.name)
+
+                    with self._progress_reporter:
+                        progress_task = self._progress_reporter.create_task(
+                            name="export", total=None, start=False
+                        )
+
+                        with progress_task:
+                            self._hg_saver(tmp_save_dir, hg_state_dict, hg_config)
+
+                    self._file_system.move(tmp_save_dir, save_dir)
+            else:
+                # Remote filesystem (e.g., S3): write directly to final location
+                # since atomic renames are not supported
                 with self._progress_reporter:
                     progress_task = self._progress_reporter.create_task(
                         name="export", total=None, start=False
                     )
 
                     with progress_task:
-                        self._hg_saver(tmp_save_dir, hg_state_dict, hg_config)
-
-                self._file_system.move(tmp_save_dir, save_dir)
+                        self._hg_saver(save_dir, hg_state_dict, hg_config)
         except OSError as ex:
             raise_operational_system_error(ex)
 
