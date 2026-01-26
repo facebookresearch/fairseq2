@@ -139,12 +139,10 @@ class OutOfProcHuggingFaceExporter(HuggingFaceExporter):
                         )
 
                         result = self._process_runner.run_text(
-                            cmd, stdout=out_fp, stderr=err_fp, env={}
+                            cmd, stdout=out_fp, stderr=err_fp
                         )
                 else:
-                    result = self._process_runner.run_text(
-                        cmd, capture_output=True, env={}
-                    )
+                    result = self._process_runner.run_text(cmd, capture_output=True)
 
                     with self._file_system.open_text(
                         out_file, mode=FileMode.WRITE

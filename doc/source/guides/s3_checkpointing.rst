@@ -32,12 +32,15 @@ Use the ``--checkpoint-dir`` CLI option to redirect checkpoints to an S3 bucket:
 .. code-block:: bash
 
     python -m recipes.lm.train /local/output/dir \
-        --checkpoint-dir s3://my-bucket/key/
+        --checkpoint-dir s3://my-bucket/checkpoints/experiment1
 
 This will:
 
-- Store checkpoints (and `model.yaml`) at ``s3://my-bucket/key/config_hash/step_N/``
+- Store checkpoints (and `model.yaml`) at ``s3://my-bucket/checkpoints/experiment1/config_hash/step_N/``
 - Keep logs, metrics, and other artifacts in ``/local/output/dir/config_hash/``
+
+The ``config_hash`` (e.g., ``ws_1.d2b3ae4f``) is automatically appended to both directories
+based on the training configuration, ensuring consistent organization across local and remote storage.
 
 Resuming from S3 Checkpoints
 ============================

@@ -213,11 +213,18 @@ def _register_main(
     container.register(Path, get_output_dir)
 
     # Checkpoint Directory (optional, defaults to output_dir/checkpoints)
+    # Apply the same sweep tag as output_dir for consistency
     from fairseq2.checkpoint import CheckpointDir
 
-    checkpoint_dir = CheckpointDir(args.checkpoint_dir)
+    def get_checkpoint_dir(resolver: DependencyResolver) -> CheckpointDir:
+        if args.checkpoint_dir is None:
+            return CheckpointDir(None)
 
-    container.register_instance(CheckpointDir, checkpoint_dir)
+        dir_creator = resolver.resolve(_OutputDirectoryCreator)
+        checkpoint_dir_with_tag = dir_creator.create(args.checkpoint_dir)
+        return CheckpointDir(checkpoint_dir_with_tag)
+
+    container.register(CheckpointDir, get_checkpoint_dir)
 
     container.register_type(_RecipeConfigPrinter)
 

@@ -72,6 +72,18 @@ class FileSystem(ABC):
     def copy_directory(self, source_path: Path, target_path: Path) -> None: ...
 
     @abstractmethod
+    def copy_from_local(self, local_path: Path, remote_path: Path | str) -> None:
+        """Copy a local file or directory to this filesystem.
+
+        This is useful for cross-filesystem copies where the source is always
+        on the local filesystem (e.g., copying from local temp to S3).
+
+        For S3 paths, remote_path can be passed as a string to avoid Path
+        mangling the URI.
+        """
+        ...
+
+    @abstractmethod
     def remove_directory(self, path: Path) -> None: ...
 
     @abstractmethod
@@ -183,10 +195,10 @@ class FSspecFileSystem(FileSystem):
 
         if not self._prefix:
             return path_str
-        if not path_str.startswith(self._prefix):
-            return self._prefix + path_str
-        else:
-            raise ValueError(f"Path {path} already starts with prefix {self._prefix}")
+        if path_str.startswith(self._prefix):
+            # Path already has the prefix (either originally or after normalization)
+            return path_str
+        return self._prefix + path_str
 
     @override
     def is_file(self, path: Path) -> bool:
@@ -251,6 +263,33 @@ class FSspecFileSystem(FileSystem):
         )
 
     @override
+    def copy_from_local(self, local_path: Path, remote_path: Path | str) -> None:
+        """Copy a local file or directory to this filesystem."""
+        if self.is_local:
+            # For local filesystem, just use copy_directory
+            remote_path_obj = (
+                Path(remote_path) if isinstance(remote_path, str) else remote_path
+            )
+            if local_path.is_dir():
+                copytree(local_path, remote_path_obj, dirs_exist_ok=True)
+            else:
+                import shutil
+
+                shutil.copy2(local_path, remote_path_obj)
+        else:
+            # For remote filesystems (e.g., S3), use fsspec's put
+            # Handle both Path and string for remote_path
+            remote_path_str = str(remote_path)
+            # First normalize the path (restore s3:/ to s3://), then get short URI
+            normalized_uri = self.get_short_uri(self.get_long_uri(remote_path_str))
+            assert isinstance(normalized_uri, str)
+            self._fsspec.put(
+                str(local_path),
+                normalized_uri,
+                recursive=local_path.is_dir(),
+            )
+
+    @override
     def remove_directory(self, path: Path) -> None:
         # For S3/remote filesystems, rmdir only removes empty directories
         # Use rm with recursive=True to delete directory and all contents
@@ -292,7 +331,9 @@ class FSspecFileSystem(FileSystem):
     def resolve(self, path: Path) -> Path:
         if self.is_local:
             return path.expanduser().resolve()
-        raise NotImplementedError("resolve is not implemented for this filesystem")
+        # For remote filesystems (e.g., S3), just return the path as-is
+        # since there's no concept of user expansion or symlink resolution
+        return path
 
     @property
     @override
@@ -373,37 +414,6 @@ class FileSystemRegistry:
 
         # Default to native local filesystem
         return cls._local_fs
-
-
-def _register_omnilingual_s3_filesystem() -> None:
-    """Register custom S3 filesystem with omnilingual AWS profile for specific bucket access."""
-    try:
-        from stopes.wrapped_s3fs import get_s3_filesystem_with_reconnection
-    except ImportError:
-        log.debug(
-            "stopes.wrapped_s3fs not available, skipping omnilingual S3 registration"
-        )
-        return
-
-    profile_name = "omnilingual-nouserdata--use2-az3--x-s3-rw"
-    bucket_pattern = "omnilingual-nouserdata--use2-az3--x-s3"
-
-    try:
-        pa_s3_fs = get_s3_filesystem_with_reconnection(
-            profile=profile_name, as_fsspec=True
-        )
-
-        def s3_pattern_check(path: PathOrPaths) -> bool:
-            path_str = str(path)
-            return path_str.startswith("s3:/") and bucket_pattern in path_str
-
-        wrapped_fs = FSspecFileSystem(pa_s3_fs, "s3://")
-        FileSystemRegistry.register(s3_pattern_check, lambda: wrapped_fs)
-        log.info(
-            f"Registered S3 filesystem for {bucket_pattern} with profile {profile_name}"
-        )
-    except Exception as e:
-        log.debug(f"Failed to register omnilingual S3 filesystem: {e}")
 
 
 def _register_filesystems(context: Any) -> None:
@@ -495,6 +505,13 @@ class GlobalFileSystem(FileSystem):
     @override
     def copy_directory(self, source_path: Path, target_path: Path) -> None:
         path_fs_resolver(source_path).copy_directory(source_path, target_path)
+
+    @override
+    def copy_from_local(self, local_path: Path, remote_path: Path | str) -> None:
+        """Copy a local file or directory to the target filesystem."""
+        # Use string for path resolution to preserve S3 URIs
+        remote_path_str = str(remote_path)
+        path_fs_resolver(remote_path_str).copy_from_local(local_path, remote_path_str)
 
     @override
     def remove_directory(self, path: Path) -> None:
@@ -600,6 +617,19 @@ class NativeLocalFileSystem(FileSystem):
     @override
     def copy_directory(self, source_path: Path, target_path: Path) -> None:
         copytree(source_path, target_path, dirs_exist_ok=True)
+
+    @override
+    def copy_from_local(self, local_path: Path, remote_path: Path | str) -> None:
+        """Copy a local file or directory to this filesystem (which is also local)."""
+        remote_path_obj = (
+            Path(remote_path) if isinstance(remote_path, str) else remote_path
+        )
+        if local_path.is_dir():
+            copytree(local_path, remote_path_obj, dirs_exist_ok=True)
+        else:
+            import shutil
+
+            shutil.copy2(local_path, remote_path_obj)
 
     @override
     def remove_directory(self, path: Path) -> None:
