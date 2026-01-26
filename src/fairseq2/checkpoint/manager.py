@@ -486,11 +486,12 @@ class StandardCheckpointManager(CheckpointManager):
             raise_operational_gang_error(ex)
 
     def _sync_distributed_writes(self) -> None:
-        gangs = self._gangs
         is_local = self._file_system.is_local_path(self._checkpoint_dir)
-
+        if not is_local:
+            return
+        gangs = self._gangs
         # Rank 0 flushes NFS cache first (only needed for local/NFS)
-        if gangs.root.rank == 0 and is_local:
+        if gangs.root.rank == 0:
             _flush_nfs_lookup_cache(self._checkpoint_dir)
 
         try:
@@ -498,7 +499,7 @@ class StandardCheckpointManager(CheckpointManager):
         except GangError as ex:
             raise_operational_gang_error(ex)
 
-        if gangs.root.rank != 0 and is_local:
+        if gangs.root.rank != 0:
             _flush_nfs_lookup_cache(self._checkpoint_dir)
 
     @override
