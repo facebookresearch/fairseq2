@@ -261,13 +261,14 @@ class TestFSspecFileSystemWithPrefix(unittest.TestCase):
 
         self.assertEqual(result, [f"{self.prefix}/path1", f"{self.prefix}/path2"])
 
-    def test_get_long_uri_raises_for_already_prefixed(self) -> None:
+    def test_get_long_uri_returns_already_prefixed_path(self) -> None:
+        """get_long_uri should return paths that already have the prefix as-is."""
         path = f"{self.prefix}/some/path"
 
-        with self.assertRaises(ValueError) as ctx:
-            self.fs.get_long_uri(path)
+        result = self.fs.get_long_uri(path)
 
-        self.assertIn("already starts with prefix", str(ctx.exception))
+        # Path already has prefix, should be returned as-is
+        self.assertEqual(result, path)
 
 
 if __name__ == "__main__":
