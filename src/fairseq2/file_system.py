@@ -112,6 +112,21 @@ class FSspecFileSystem(FileSystem):
         self.__fsspec = fs
         self.__prefix = prefix
 
+    def _normalize_uri_path(self, path_str: str) -> str:
+        """
+        Handle the case where pathlib.Path normalizes scheme:// to scheme:/
+        by reconstructing the double slash for known URI schemes.
+        """
+        if self.__prefix and "://" in self.__prefix:
+            scheme = self.__prefix.split("://")[0]
+            # Check if path looks like a URI with single slash (normalized by pathlib)
+            if path_str.startswith(f"{scheme}:/") and not path_str.startswith(
+                f"{scheme}://"
+            ):
+                # Restore the double slash
+                return f"{scheme}://{path_str[len(scheme) + 2:]}"
+        return path_str
+
     def get_short_uri(self, path: ExtenedPath) -> str | list[str]:
         """
         Removes prefix from paths and ensures they exist.
@@ -126,7 +141,8 @@ class FSspecFileSystem(FileSystem):
             return [self.get_short_uri(p) for p in path]  # type: ignore
 
         assert isinstance(path, (str, Path))
-        path_str = str(path)
+        path_str = self._normalize_uri_path(str(path))
+
         if not self.__prefix:
             return path_str
         if path_str.startswith(self.__prefix):
@@ -148,7 +164,8 @@ class FSspecFileSystem(FileSystem):
             return [self.get_long_uri(p) for p in path]  # type: ignore
 
         assert isinstance(path, (str, Path))
-        path_str = str(path)
+        path_str = self._normalize_uri_path(str(path))
+
         if not self.__prefix:
             return path_str
         if not path_str.startswith(self.__prefix):

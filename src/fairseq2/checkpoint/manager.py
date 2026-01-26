@@ -387,7 +387,7 @@ class StandardCheckpointManager(CheckpointManager):
         saved_callback: CheckpointSavedCallback | None,
         blocking: bool,
     ) -> None:
-        self._sync_nfs_cache()
+        self._sync_distributed_writes()
 
         if not blocking:
             memo: dict[Tensor, Tensor] = {}
@@ -485,13 +485,12 @@ class StandardCheckpointManager(CheckpointManager):
         except GangError as ex:
             raise_operational_gang_error(ex)
 
-    def _sync_nfs_cache(self) -> None:
-        if not self._file_system.is_local:
-            return
-
+    def _sync_distributed_writes(self) -> None:
         gangs = self._gangs
+        is_local = self._file_system.is_local
 
-        if gangs.root.rank == 0:
+        # Rank 0 flushes NFS cache first (only needed for local/NFS)
+        if gangs.root.rank == 0 and is_local:
             _flush_nfs_lookup_cache(self._checkpoint_dir)
 
         try:
@@ -499,7 +498,7 @@ class StandardCheckpointManager(CheckpointManager):
         except GangError as ex:
             raise_operational_gang_error(ex)
 
-        if gangs.root.rank != 0:
+        if gangs.root.rank != 0 and is_local:
             _flush_nfs_lookup_cache(self._checkpoint_dir)
 
     @override
