@@ -417,8 +417,6 @@ class FileSystemRegistry:
 
 
 def _register_filesystems(context: Any) -> None:
-    # Protocols to skip - either problematic or not needed
-    # ftp: Has cleanup issues (__del__ AttributeError)
     # Only register protocols that have been tested and verified to work correctly.
     # - file/local: Local filesystem (both are aliases in fsspec)
     # - s3: Amazon S3 storage
