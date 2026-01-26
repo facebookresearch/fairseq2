@@ -51,8 +51,7 @@ from fairseq2.checkpoint.model_metadata import (
 
 @final
 class CheckpointDir:
-    """Represents the directory path for storing checkpoints.
-    """
+    """Represents the directory path for storing checkpoints."""
 
     def __init__(self, path: Path | None = None) -> None:
         self._path = path
