@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import tempfile
 from logging import DEBUG, FileHandler, Formatter
 from pathlib import Path
 from typing import TYPE_CHECKING, final
@@ -35,6 +36,8 @@ class _DistributedLogConfigurer:
         self._env = env
         self._world_info = world_info
         self._file_system = file_system
+        # For remote output dirs, logs are written locally
+        self._local_log_dir: Path | None = None
 
     def configure(self) -> None:
         self._configure_logger()
@@ -43,7 +46,34 @@ class _DistributedLogConfigurer:
 
         self._configure_nccl_logging()
 
-        log.info("Log files are stored under {}.", self._output_dir)
+        if self._local_log_dir is not None:
+            log.info(
+                "Log files are stored locally under {} (output_dir is remote: {}).",
+                self._local_log_dir,
+                self._output_dir,
+            )
+        else:
+            log.info("Log files are stored under {}.", self._output_dir)
+
+    def _get_log_base_dir(self) -> Path:
+        """Get the base directory for log files.
+
+        For local output directories, returns output_dir.
+        For remote output directories (S3, etc.), returns a local temp directory.
+        """
+        if self._file_system.is_local_path(self._output_dir):
+            return self._output_dir
+
+        # For remote filesystems, use a local directory for logs
+        if self._local_log_dir is None:
+            # Create a local log directory based on output_dir name
+            output_name = str(self._output_dir).replace("://", "_").replace("/", "_")
+            self._local_log_dir = (
+                Path(tempfile.gettempdir()) / f"fairseq2_logs_{output_name}"
+            )
+            self._local_log_dir.mkdir(parents=True, exist_ok=True)
+
+        return self._local_log_dir
 
     def _configure_logger(self) -> None:
         logger = log.logger
@@ -56,10 +86,11 @@ class _DistributedLogConfigurer:
 
                 handler.close()
 
-        log_file = self._output_dir.joinpath(f"logs/rank_{rank}.log")
+        log_base = self._get_log_base_dir()
+        log_file = log_base / "logs" / f"rank_{rank}.log"
 
         try:
-            self._file_system.make_directory(log_file.parent)
+            log_file.parent.mkdir(parents=True, exist_ok=True)
         except OSError as ex:
             raise_operational_system_error(ex)
 
@@ -83,12 +114,11 @@ class _DistributedLogConfigurer:
         if self._env.has("TORCH_CPP_LOG_LEVEL"):
             return
 
-        log_file = self._output_dir.joinpath(
-            f"logs/aten/rank_{self._world_info.rank}.log"
-        )
+        log_base = self._get_log_base_dir()
+        log_file = log_base / "logs" / "aten" / f"rank_{self._world_info.rank}.log"
 
         try:
-            self._file_system.make_directory(log_file.parent)
+            log_file.parent.mkdir(parents=True, exist_ok=True)
         except OSError as ex:
             raise_operational_system_error(ex)
 
@@ -101,12 +131,11 @@ class _DistributedLogConfigurer:
         if self._env.has("NCCL_DEBUG"):
             return
 
-        log_file = self._output_dir.joinpath(
-            f"logs/nccl/rank_{self._world_info.rank}.log"
-        )
+        log_base = self._get_log_base_dir()
+        log_file = log_base / "logs" / "nccl" / f"rank_{self._world_info.rank}.log"
 
         try:
-            self._file_system.make_directory(log_file.parent)
+            log_file.parent.mkdir(parents=True, exist_ok=True)
         except OSError as ex:
             raise_operational_system_error(ex)
 

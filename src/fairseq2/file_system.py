@@ -88,6 +88,14 @@ class FileSystem(ABC):
     @abstractmethod
     def resolve(self, path: Path) -> Path: ...
 
+    def join_path(self, base: Path, *parts: str) -> Path:
+        """Join path components, handling both local and URI paths correctly.
+
+        For local paths, uses Path.joinpath(). For URI paths (s3://, gs://, etc.),
+        correctly joins while preserving the URI scheme.
+        """
+        return base.joinpath(*parts)
+
     @property
     @abstractmethod
     def is_local(self) -> bool:
@@ -229,9 +237,18 @@ class FSspecFileSystem(FileSystem):
 
     @override
     def move(self, old_path: Path, new_path: Path) -> None:
-        self.__fsspec.mv(
-            self.get_short_uri(old_path), self.get_short_uri(new_path), recursive=True
-        )
+        old_uri = self.get_short_uri(old_path)
+        new_uri = self.get_short_uri(new_path)
+
+        # For remote filesystems, S3's mv with recursive=True can fail for directories
+        # Use copy + delete instead for reliability
+        if not self.is_local and self.is_dir(old_path):
+            # Copy all files first
+            self.__fsspec.copy(old_uri, new_uri, recursive=True)
+            # Then delete the source
+            self.__fsspec.rm(old_uri, recursive=True)
+        else:
+            self.__fsspec.mv(old_uri, new_uri, recursive=True)
 
     @override
     def remove(self, path: Path) -> None:
@@ -290,7 +307,25 @@ class FSspecFileSystem(FileSystem):
     def resolve(self, path: Path) -> Path:
         if self.is_local:
             return path.expanduser().resolve()
-        raise NotImplementedError("resolve is not implemented for this filesystem")
+        # For remote filesystems (S3, GCS, etc.), normalize the URI and return as Path
+        normalized = self._normalize_uri_path(str(path))
+        return Path(normalized)
+
+    @override
+    def join_path(self, base: Path, *parts: str) -> Path:
+        """Join path components, handling URI paths correctly.
+
+        For remote filesystems, we need to manually join paths since
+        pathlib.Path.joinpath() doesn't handle URIs correctly.
+        """
+        if self.is_local:
+            return base.joinpath(*parts)
+
+        # For remote paths, manually join while preserving the URI scheme
+        base_str = self._normalize_uri_path(str(base))
+        for part in parts:
+            base_str = base_str.rstrip("/") + "/" + part.lstrip("/")
+        return Path(base_str)
 
     @property
     @override
@@ -494,6 +529,10 @@ class GlobalFileSystem(FileSystem):
     @override
     def resolve(self, path: Path) -> Path:
         return path_fs_resolver(path).resolve(path)
+
+    @override
+    def join_path(self, base: Path, *parts: str) -> Path:
+        return path_fs_resolver(base).join_path(base, *parts)
 
     @property
     @override
