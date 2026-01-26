@@ -327,19 +327,25 @@ class _TrainModelMetadataSaver(ABC):
 @final
 class _StandardTrainModelMetadataSaver(_TrainModelMetadataSaver):
     def __init__(
-        self, metadata_dumper: ModelMetadataDumper, output_dir: Path, gangs: Gangs
+        self,
+        metadata_dumper: ModelMetadataDumper,
+        output_dir: Path,
+        gangs: Gangs,
+        checkpoint_dir: Path | None = None,
     ) -> None:
         self._metadata_dumper = metadata_dumper
         self._output_dir = output_dir
         self._gangs = gangs
+        if checkpoint_dir is not None:
+            self._checkpoint_dir = checkpoint_dir
+        else:
+            self._checkpoint_dir = output_dir.joinpath("checkpoints")
 
     @override
     def save(self, family_name: str, config: object) -> None:
-        checkpoint_dir = self._output_dir.joinpath("checkpoints")
-
         if self._gangs.root.rank == 0:
             try:
-                self._metadata_dumper.dump(checkpoint_dir, family_name, config)
+                self._metadata_dumper.dump(self._checkpoint_dir, family_name, config)
             except OSError as ex:
                 raise_operational_system_error(ex)
 
