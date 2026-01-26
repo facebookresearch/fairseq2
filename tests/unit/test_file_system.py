@@ -272,3 +272,122 @@ class TestFSspecFileSystemWithPrefix(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestNativeLocalFileSystemEquivalence(unittest.TestCase):
+    """Tests that NativeLocalFileSystem and FSspecFileSystem (local) behave equivalently."""
+
+    def setUp(self) -> None:
+        import fsspec.implementations.local as fs_local  # type: ignore[import-untyped]
+
+        from fairseq2.file_system import NativeLocalFileSystem
+
+        self.fsspec_fs = FSspecFileSystem(fs_local.LocalFileSystem(), "")
+        self.native_fs = NativeLocalFileSystem()
+        self.temp_dir = TemporaryDirectory()
+        self.temp_path = Path(self.temp_dir.name)
+
+    def tearDown(self) -> None:
+        self.temp_dir.cleanup()
+
+    def test_is_local_equivalent(self) -> None:
+        self.assertEqual(self.fsspec_fs.is_local, self.native_fs.is_local)
+
+    def test_is_file_equivalent(self) -> None:
+        file_path = self.temp_path / "test.txt"
+        file_path.write_text("test")
+
+        self.assertEqual(
+            self.fsspec_fs.is_file(file_path), self.native_fs.is_file(file_path)
+        )
+        self.assertEqual(
+            self.fsspec_fs.is_file(self.temp_path), self.native_fs.is_file(self.temp_path)
+        )
+        self.assertEqual(
+            self.fsspec_fs.is_file(self.temp_path / "nonexistent"),
+            self.native_fs.is_file(self.temp_path / "nonexistent"),
+        )
+
+    def test_is_dir_equivalent(self) -> None:
+        file_path = self.temp_path / "test.txt"
+        file_path.write_text("test")
+
+        self.assertEqual(
+            self.fsspec_fs.is_dir(self.temp_path), self.native_fs.is_dir(self.temp_path)
+        )
+        self.assertEqual(
+            self.fsspec_fs.is_dir(file_path), self.native_fs.is_dir(file_path)
+        )
+
+    def test_exists_equivalent(self) -> None:
+        file_path = self.temp_path / "test.txt"
+        file_path.write_text("test")
+
+        self.assertEqual(
+            self.fsspec_fs.exists(file_path), self.native_fs.exists(file_path)
+        )
+        self.assertEqual(
+            self.fsspec_fs.exists(self.temp_path), self.native_fs.exists(self.temp_path)
+        )
+        self.assertEqual(
+            self.fsspec_fs.exists(self.temp_path / "nonexistent"),
+            self.native_fs.exists(self.temp_path / "nonexistent"),
+        )
+
+    def test_open_read_equivalent(self) -> None:
+        file_path = self.temp_path / "test.txt"
+        file_path.write_bytes(b"test content")
+
+        with self.fsspec_fs.open(file_path, FileMode.READ) as f1:
+            content1 = f1.read()
+        with self.native_fs.open(file_path, FileMode.READ) as f2:
+            content2 = f2.read()
+
+        self.assertEqual(content1, content2)
+
+    def test_open_write_equivalent(self) -> None:
+        file1 = self.temp_path / "test1.txt"
+        file2 = self.temp_path / "test2.txt"
+
+        with self.fsspec_fs.open(file1, FileMode.WRITE) as f:
+            f.write(b"written")
+        with self.native_fs.open(file2, FileMode.WRITE) as f:
+            f.write(b"written")
+
+        self.assertEqual(file1.read_bytes(), file2.read_bytes())
+
+    def test_cat_equivalent(self) -> None:
+        file_path = self.temp_path / "test.txt"
+        file_path.write_bytes(b"test content")
+
+        self.assertEqual(
+            self.fsspec_fs.cat(file_path), self.native_fs.cat(file_path)
+        )
+
+    def test_open_text_read_equivalent(self) -> None:
+        file_path = self.temp_path / "test.txt"
+        file_path.write_text("test content", encoding="utf-8")
+
+        with self.fsspec_fs.open_text(file_path, FileMode.READ) as f1:
+            content1 = f1.read()
+        with self.native_fs.open_text(file_path, FileMode.READ) as f2:
+            content2 = f2.read()
+
+        self.assertEqual(content1, content2)
+
+    def test_glob_equivalent(self) -> None:
+        (self.temp_path / "file1.txt").write_text("1")
+        (self.temp_path / "file2.txt").write_text("2")
+        (self.temp_path / "file.py").write_text("3")
+
+        result1 = sorted([Path(p).name for p in self.fsspec_fs.glob(self.temp_path, "*.txt")])
+        result2 = sorted([Path(p).name for p in self.native_fs.glob(self.temp_path, "*.txt")])
+
+        self.assertEqual(result1, result2)
+
+    def test_resolve_equivalent(self) -> None:
+        relative_path = Path(".")
+
+        self.assertEqual(
+            self.fsspec_fs.resolve(relative_path), self.native_fs.resolve(relative_path)
+        )
