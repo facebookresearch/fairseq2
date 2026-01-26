@@ -174,18 +174,6 @@ class StandardCheckpointManager(CheckpointManager):
         self._tensor_file_dumper = tensor_file_dumper
         self._thread_pool = thread_pool
         self._save_op: Future[Callable[[], None]] | None = None
-        # For remote filesystems, skip .tmp directory pattern (S3 doesn't support atomic moves)
-        self._use_tmp_dir = file_system.is_local_path(output_dir)
-
-    def _get_step_dir_name(self, step_nr: int, *, in_progress: bool = False) -> str:
-        """Get the directory name for a checkpoint step.
-
-        For local filesystems, uses .tmp suffix during writes for atomic moves.
-        For remote filesystems (S3), writes directly to final location.
-        """
-        if in_progress and self._use_tmp_dir:
-            return f"step_{step_nr}.tmp"
-        return f"step_{step_nr}"
 
     @override
     def save_checkpoint(
@@ -284,12 +272,11 @@ class StandardCheckpointManager(CheckpointManager):
 
         gangs = self._gangs
 
-        step_dir_name = self._get_step_dir_name(step_nr, in_progress=True)
-        step_dir = self._checkpoint_dir.joinpath(step_dir_name)
+        tmp_step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
 
         if gangs.root.rank == 0:
             try:
-                self._file_system.make_directory(step_dir)
+                self._file_system.make_directory(tmp_step_dir)
             except OSError as ex:
                 raise_operational_system_error(ex)
 
@@ -298,8 +285,7 @@ class StandardCheckpointManager(CheckpointManager):
     ) -> None:
         gangs = self._gangs
 
-        step_dir_name = self._get_step_dir_name(step_nr, in_progress=True)
-        pathname = f"{step_dir_name}/trainer/rank_{gangs.root.rank:02d}.pt"
+        pathname = f"step_{step_nr}.tmp/trainer/rank_{gangs.root.rank:02d}.pt"
 
         file = self._checkpoint_dir.joinpath(pathname)
 
@@ -323,8 +309,7 @@ class StandardCheckpointManager(CheckpointManager):
         if gangs.rdp.rank != 0:
             return
 
-        step_dir_name = self._get_step_dir_name(step_nr, in_progress=True)
-        pathname = f"{step_dir_name}/model/pp_{gangs.pp.rank:02d}/tp_{gangs.tp.rank:02d}/sdp_{gangs.sdp.rank:02d}.pt"
+        pathname = f"step_{step_nr}.tmp/model/pp_{gangs.pp.rank:02d}/tp_{gangs.tp.rank:02d}/sdp_{gangs.sdp.rank:02d}.pt"
 
         file = self._checkpoint_dir.joinpath(pathname)
 
@@ -354,8 +339,7 @@ class StandardCheckpointManager(CheckpointManager):
         if gangs.rdp.rank != 0:
             return
 
-        step_dir_name = self._get_step_dir_name(step_nr, in_progress=True)
-        pathname = f"{step_dir_name}/optimizer/pp_{gangs.pp.rank:02d}/tp_{gangs.tp.rank:02d}/sdp_{gangs.sdp.rank:02d}.pt"
+        pathname = f"step_{step_nr}.tmp/optimizer/pp_{gangs.pp.rank:02d}/tp_{gangs.tp.rank:02d}/sdp_{gangs.sdp.rank:02d}.pt"
 
         file = self._checkpoint_dir.joinpath(pathname)
 
@@ -379,8 +363,7 @@ class StandardCheckpointManager(CheckpointManager):
         if gangs.tp.rank != 0:
             return
 
-        step_dir_name = self._get_step_dir_name(step_nr, in_progress=True)
-        pathname = f"{step_dir_name}/data_reader/dp_{gangs.dp.rank:02d}.pt"
+        pathname = f"step_{step_nr}.tmp/data_reader/dp_{gangs.dp.rank:02d}.pt"
 
         file = self._checkpoint_dir.joinpath(pathname)
 
@@ -487,9 +470,7 @@ class StandardCheckpointManager(CheckpointManager):
         except GangError as ex:
             raise_operational_gang_error(ex)
 
-        # Only move from tmp to final for local filesystems
-        # Remote filesystems (S3) write directly to final location
-        if self._use_tmp_dir and gangs.root.rank == 0:
+        if gangs.root.rank == 0:
             tmp_step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
 
             step_dir = tmp_step_dir.with_suffix("")

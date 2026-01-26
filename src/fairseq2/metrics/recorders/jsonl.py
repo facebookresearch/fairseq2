@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import re
-import tempfile
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
@@ -19,7 +18,6 @@ from typing_extensions import override
 
 from fairseq2.error import raise_operational_system_error
 from fairseq2.file_system import FileMode, FileSystem
-from fairseq2.logging import log
 from fairseq2.metrics.recorders.descriptor import (
     MetricDescriptor,
     MetricDescriptorRegistry,
@@ -43,33 +41,12 @@ class JsonlMetricRecorder(MetricRecorder):
         :param output_dir: The base directory under which to store the metric
             files.
         """
-        self._remote_output_dir = output_dir.joinpath("metrics")
+        metrics_dir = output_dir.joinpath("metrics")
+
+        self._output_dir = metrics_dir
         self._file_system = file_system
         self._metric_descriptors = metric_descriptors
         self._streams: dict[str, TextIO] = {}
-        self._local_files: dict[str, Path] = {}
-
-        # For remote filesystems, use local temp directory for metrics
-        self._is_remote = not file_system.is_local_path(output_dir)
-        if self._is_remote:
-            output_name = str(output_dir).replace("://", "_").replace("/", "_")[-100:]
-            self._local_metrics_dir = (
-                Path(tempfile.gettempdir()) / f"fairseq2_metrics_{output_name}"
-            )
-            self._local_metrics_dir.mkdir(parents=True, exist_ok=True)
-            log.info(
-                "Metrics are buffered locally at {} (output_dir is remote)",
-                self._local_metrics_dir,
-            )
-        else:
-            self._local_metrics_dir = None
-
-    @property
-    def _output_dir(self) -> Path:
-        """Get the directory to write metrics to (local for remote output dirs)."""
-        if self._local_metrics_dir is not None:
-            return self._local_metrics_dir
-        return self._remote_output_dir
 
     @override
     def record_metric_values(
@@ -141,47 +118,18 @@ class JsonlMetricRecorder(MetricRecorder):
         file = self._output_dir.joinpath(category).with_suffix(".jsonl")
 
         try:
-            file.parent.mkdir(parents=True, exist_ok=True)
+            self._file_system.make_directory(file.parent)
         except OSError as ex:
             raise_operational_system_error(ex)
 
         try:
-            fp = open(file, mode="a", encoding="utf-8")
+            fp = self._file_system.open_text(file, mode=FileMode.APPEND)
         except OSError as ex:
             raise_operational_system_error(ex)
 
         self._streams[category] = fp
-        self._local_files[category] = file
 
         return fp
-
-    def _sync_to_remote(self) -> None:
-        """Sync local metric files to remote storage if using remote output."""
-        if not self._is_remote or self._local_metrics_dir is None:
-            return
-
-        try:
-            self._file_system.make_directory(self._remote_output_dir)
-        except OSError:
-            pass
-
-        for category, local_file in self._local_files.items():
-            if not local_file.exists():
-                continue
-
-            remote_file = self._remote_output_dir.joinpath(category).with_suffix(
-                ".jsonl"
-            )
-            try:
-                self._file_system.make_directory(remote_file.parent)
-                # Read local and write to remote
-                with open(local_file, "rb") as f:
-                    content = f.read()
-                with self._file_system.open(remote_file, mode=FileMode.WRITE) as f:
-                    f.write(content)
-                log.debug("Synced metrics {} to {}", local_file, remote_file)
-            except Exception as e:
-                log.warning("Failed to sync metrics to remote: {}", e)
 
     @override
     def close(self) -> None:
@@ -189,6 +137,3 @@ class JsonlMetricRecorder(MetricRecorder):
             stream.close()
 
         self._streams.clear()
-
-        # Sync to remote storage on close
-        self._sync_to_remote()

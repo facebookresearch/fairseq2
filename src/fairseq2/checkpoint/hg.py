@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import shlex
 import sys
-import tempfile
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from concurrent.futures import Future
@@ -95,8 +94,6 @@ class OutOfProcHuggingFaceExporter(HuggingFaceExporter):
         self._process_runner = process_runner
         self._thread_pool = thread_pool
         self._export_op: Future[Callable[[], None]] | None = None
-        # For remote filesystems, subprocess output needs local files
-        self._is_remote = not file_system.is_local_path(output_dir)
 
     @override
     def export(
@@ -124,25 +121,18 @@ class OutOfProcHuggingFaceExporter(HuggingFaceExporter):
                 out_file = export_dir.with_suffix(".stdout")
                 err_file = export_dir.with_suffix(".stderr")
 
-                # For remote filesystems, use local temp files for subprocess
-                # (subprocess.run requires real file handles with fileno())
-                if self._is_remote:
-                    result = self._run_subprocess_with_remote_output(
-                        cmd, out_file, err_file
+                with ExitStack() as exit_stack:
+                    out_fp = exit_stack.enter_context(
+                        self._file_system.open_text(out_file, mode=FileMode.WRITE)
                     )
-                else:
-                    with ExitStack() as exit_stack:
-                        out_fp = exit_stack.enter_context(
-                            self._file_system.open_text(out_file, mode=FileMode.WRITE)
-                        )
 
-                        err_fp = exit_stack.enter_context(
-                            self._file_system.open_text(err_file, mode=FileMode.WRITE)
-                        )
+                    err_fp = exit_stack.enter_context(
+                        self._file_system.open_text(err_file, mode=FileMode.WRITE)
+                    )
 
-                        result = self._process_runner.run_text(
-                            cmd, stdout=out_fp, stderr=err_fp, env={}
-                        )
+                    result = self._process_runner.run_text(
+                        cmd, stdout=out_fp, stderr=err_fp, env={}
+                    )
             else:
                 result = CompletedProcess(cmd, returncode=0)
 
@@ -165,49 +155,6 @@ class OutOfProcHuggingFaceExporter(HuggingFaceExporter):
             committer()
         else:
             self._export_op = self._thread_pool.queue(do_export)
-
-    def _run_subprocess_with_remote_output(
-        self, cmd: list[str], out_file: Path, err_file: Path
-    ) -> CompletedProcess[str]:
-        """Run subprocess with local temp files, then copy to remote."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".stdout", delete=False
-        ) as tmp_out:
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".stderr", delete=False
-            ) as tmp_err:
-                tmp_out_path = Path(tmp_out.name)
-                tmp_err_path = Path(tmp_err.name)
-
-                result = self._process_runner.run_text(
-                    cmd, stdout=tmp_out, stderr=tmp_err, env={}
-                )
-
-        # Copy temp files to remote
-        try:
-            with open(tmp_out_path, "r") as f:
-                content = f.read()
-            with self._file_system.open_text(out_file, mode=FileMode.WRITE) as f:
-                f.write(content)
-        except Exception:
-            pass
-
-        try:
-            with open(tmp_err_path, "r") as f:
-                content = f.read()
-            with self._file_system.open_text(err_file, mode=FileMode.WRITE) as f:
-                f.write(content)
-        except Exception:
-            pass
-
-        # Clean up temp files
-        try:
-            tmp_out_path.unlink()
-            tmp_err_path.unlink()
-        except Exception:
-            pass
-
-        return result
 
     @override
     def maybe_complete_operation(self, *, blocking: bool = False) -> bool | None:
