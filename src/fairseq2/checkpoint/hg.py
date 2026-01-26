@@ -85,10 +85,13 @@ class OutOfProcHuggingFaceExporter(HuggingFaceExporter):
         file_system: FileSystem,
         process_runner: ProcessRunner,
         thread_pool: ThreadPool,
+        checkpoint_dir: Path | None = None,
     ) -> None:
-        checkpoint_dir = output_dir.joinpath("checkpoints")
+        if checkpoint_dir is not None:
+            self._checkpoint_dir = checkpoint_dir
+        else:
+            self._checkpoint_dir = output_dir.joinpath("checkpoints")
 
-        self._checkpoint_dir = checkpoint_dir
         self._gangs = gangs
         self._file_system = file_system
         self._process_runner = process_runner
@@ -109,6 +112,8 @@ class OutOfProcHuggingFaceExporter(HuggingFaceExporter):
 
             cmd = [sys.executable, "-m", "fairseq2.models.utils.hg_export", "--no-rich", "--checkpoint-dir", str(self._checkpoint_dir), f"checkpoint_step_{step_nr}", str(export_dir)]  # fmt: skip
 
+            err_file: Path | None = None
+
             if self._gangs.root.rank == 0:
                 run_file = export_dir.with_suffix(".run")
 
@@ -121,18 +126,35 @@ class OutOfProcHuggingFaceExporter(HuggingFaceExporter):
                 out_file = export_dir.with_suffix(".stdout")
                 err_file = export_dir.with_suffix(".stderr")
 
-                with ExitStack() as exit_stack:
-                    out_fp = exit_stack.enter_context(
-                        self._file_system.open_text(out_file, mode=FileMode.WRITE)
-                    )
+                is_local = self._file_system.is_local_path(self._checkpoint_dir)
 
-                    err_fp = exit_stack.enter_context(
-                        self._file_system.open_text(err_file, mode=FileMode.WRITE)
-                    )
+                if is_local:
+                    with ExitStack() as exit_stack:
+                        out_fp = exit_stack.enter_context(
+                            self._file_system.open_text(out_file, mode=FileMode.WRITE)
+                        )
 
+                        err_fp = exit_stack.enter_context(
+                            self._file_system.open_text(err_file, mode=FileMode.WRITE)
+                        )
+
+                        result = self._process_runner.run_text(
+                            cmd, stdout=out_fp, stderr=err_fp, env={}
+                        )
+                else:
                     result = self._process_runner.run_text(
-                        cmd, stdout=out_fp, stderr=err_fp, env={}
+                        cmd, capture_output=True, env={}
                     )
+
+                    with self._file_system.open_text(
+                        out_file, mode=FileMode.WRITE
+                    ) as out_fp:
+                        out_fp.write(result.stdout or "")
+
+                    with self._file_system.open_text(
+                        err_file, mode=FileMode.WRITE
+                    ) as err_fp:
+                        err_fp.write(result.stderr or "")
             else:
                 result = CompletedProcess(cmd, returncode=0)
 

@@ -212,6 +212,13 @@ def _register_main(
 
     container.register(Path, get_output_dir)
 
+    # Checkpoint Directory (optional, defaults to output_dir/checkpoints)
+    from fairseq2.checkpoint import CheckpointDir
+
+    checkpoint_dir = CheckpointDir(args.checkpoint_dir)
+
+    container.register_instance(CheckpointDir, checkpoint_dir)
+
     container.register_type(_RecipeConfigPrinter)
 
     # CLI Errors
@@ -276,6 +283,17 @@ def _parse_args() -> Namespace:
         type=Path,
         nargs=OPTIONAL,
         help="directory to store recipe artifacts",
+    )
+
+    parser.add_argument(
+        "--checkpoint-dir",
+        dest="checkpoint_dir",
+        metavar="CHECKPOINT_DIR",
+        type=Path,
+        default=None,
+        help="directory to store checkpoints (default: OUTPUT_DIR/checkpoints). "
+        "Use this to redirect checkpoints to a different location (e.g., S3 bucket) "
+        "while keeping other artifacts (logs, metrics) in output_dir.",
     )
 
     args = parser.parse_args()
