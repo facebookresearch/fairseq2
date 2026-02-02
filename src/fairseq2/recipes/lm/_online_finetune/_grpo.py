@@ -616,13 +616,17 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         # Calculate average think rollout length (tokens before </think>)
         think_rollout_lengths = get_think_rollout_lengths(rollouts)
-        if think_rollout_lengths:
-            avg_think_rollout_length = (
+        avg_think_rollout_length = (
+            (
                 torch.tensor(think_rollout_lengths, device=self._gangs.dp.device)
                 .float()
                 .mean()
             )
-            update_avg_think_rollout_length(metric_bag, avg_think_rollout_length)
+            if think_rollout_lengths
+            else torch.tensor(0, device=self._gangs.dp.device)
+        )
+
+        update_avg_think_rollout_length(metric_bag, avg_think_rollout_length)
 
         update_grpo_batch_metrics(
             metric_bag,
