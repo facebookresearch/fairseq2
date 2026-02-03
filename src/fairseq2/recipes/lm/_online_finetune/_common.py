@@ -746,3 +746,10 @@ def get_parameter_converter(model_config):
         raise RuntimeError(f"{model_config} not supported in online recipe")
 
     return _convert_parameter
+
+
+def masked_mean(x, mask, eps=1e-8):
+    # mask: boolean tensor with same shape as x
+    masked_x = x * mask
+    denom = mask.sum().clamp_min(eps)
+    return masked_x.sum() / denom
