@@ -49,6 +49,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     update_grpo_loss,
     update_logit_entropy,
     update_std_reward,
+    masked_mean,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_model import (
@@ -720,7 +721,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         # self._gangs.root.barrier()
 
-        return per_seq_loss.sum(), total_tokens, tis_imp_ratio
+        return per_seq_loss.sum(), total_tokens, masked_mean(tis_imp_ratio, target_mask)
 
     @override
     def set_step_nr(self, step_nr: int) -> None:
