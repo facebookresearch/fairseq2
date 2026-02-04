@@ -8,11 +8,11 @@
 from copy import deepcopy
 
 import pyarrow as pa
-import pyarrow.parquet as pq
 
 from fairseq2.data.data_pipeline import DataPipelineBuilder
 from fairseq2.data.parquet.fragment_streaming.config import FragmentStreamingConfig
 from fairseq2.data.parquet.fragment_streaming.primitives import (
+    ParquetDatasetWrapper,
     init_parquet_dataset,
     list_parquet_fragments,
     process_filter,
@@ -34,13 +34,13 @@ class ParquetFragmentStreamer:
             self.config.files_circular_shift = False
 
     @property
-    def dataset(self) -> pq.ParquetDataset:
+    def dataset(self) -> ParquetDatasetWrapper:
         if self._pq_ds is None:
             self._pq_ds = self._get_dataset()
 
         return self._pq_ds
 
-    def _get_dataset(self) -> pq.ParquetDataset:
+    def _get_dataset(self) -> ParquetDatasetWrapper:
         self.partition_filters = process_filter(self.config.partition_filters)
         if isinstance(self.config.filesystem, str):
             self.filesystem = eval(self.config.filesystem)
