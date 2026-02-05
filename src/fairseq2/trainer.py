@@ -265,7 +265,7 @@ class Trainer(Task):
                 "`publish_metrics_every_n_data_epochs` must be greater than or equal to 1."
             )
 
-        last_lrs = [0.0] * len(optimizer.param_groups)
+        last_lrs: list[float | Tensor] = [0.0] * len(optimizer.param_groups)
 
         self._model = model
         self._model_dp_facade = model_dp_facade
@@ -615,7 +615,7 @@ class Trainer(Task):
 
             return _TrainerState.GRAD_OVERFLOW
 
-        self._last_lrs = self._lr_scheduler.get_last_lr()
+        self._last_lrs = self._lr_scheduler.get_last_lr()  # type: ignore[assignment]
 
         self._lr_scheduler.step()
 

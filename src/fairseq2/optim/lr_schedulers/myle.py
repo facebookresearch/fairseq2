@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import final
 
+from torch import Tensor
 from torch.optim import Optimizer
 from typing_extensions import override
 
@@ -65,7 +66,7 @@ class MyleLR(AbstractLRScheduler):
         super().__init__(optimizer, last_epoch)
 
     @override
-    def _compute_lrs(self) -> list[float]:
+    def _compute_lrs(self) -> list[float | Tensor]:
         base_lrs = self.base_lrs
 
         # Linearly increase the learning rate to its base value during warmup.

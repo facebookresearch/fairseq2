@@ -10,6 +10,7 @@ import math
 from collections.abc import Sequence
 from typing import final
 
+from torch import Tensor
 from torch.optim import Optimizer
 from typing_extensions import override
 
@@ -92,7 +93,7 @@ class CosineAnnealingLR(AbstractLRScheduler):
         super().__init__(optimizer, last_epoch)
 
     @override
-    def _compute_lrs(self) -> list[float]:
+    def _compute_lrs(self) -> list[float | Tensor]:
         base_lrs = self.base_lrs
 
         # Linearly increase the learning rate to its base value during warmup.
@@ -137,7 +138,7 @@ class CosineAnnealingLR(AbstractLRScheduler):
 
         min_lrs, max_lrs = self.final_lrs, base_lrs
 
-        def cycle_lr(min_lr: float, max_lr: float) -> float:
+        def cycle_lr(min_lr: float | Tensor, max_lr: float | Tensor) -> float | Tensor:
             min_lr *= lr_mul
             max_lr *= lr_mul
 
