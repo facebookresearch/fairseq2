@@ -30,7 +30,7 @@ from fairseq2.file_system import FileSystem, _flush_nfs_lookup_cache
 from fairseq2.runtime.dependency import get_dependency_resolver
 
 try:
-    from fsspec.registry import available_protocols
+    from fsspec.registry import available_protocols  # type: ignore[import-untyped]
 except ImportError:
     available_protocols = lambda: []  # noqa: E731
 from fairseq2.utils.progress import ProgressReporter
