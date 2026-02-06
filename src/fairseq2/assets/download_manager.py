@@ -29,10 +29,6 @@ from fairseq2.error import InternalError, NotSupportedError
 from fairseq2.file_system import FileSystem, _flush_nfs_lookup_cache
 from fairseq2.runtime.dependency import get_dependency_resolver
 
-try:
-    from fsspec.registry import available_protocols  # type: ignore[import-untyped]
-except ImportError:
-    available_protocols = lambda: []  # noqa: E731
 from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.uri import Uri
 from fairseq2.utils.warn import _warn_deprecated
@@ -252,21 +248,12 @@ class LocalAssetDownloadManager(AssetDownloadManager):
     Asset download manager for local files and fsspec-compatible URI schemes.
 
     For local files (file:// scheme), it returns the local path directly.
-    For fsspec schemes (s3://, gs://, etc.), it returns the URI as a Path,
+    For fsspec schemes (s3://, etc.), it returns the URI as a Path,
     relying on GlobalFileSystem to handle remote file access transparently.
     """
 
-    # Schemes handled by other managers - we exclude these
-    _EXCLUDED_SCHEMES: Final = {"hg", "http", "https"}
-
-    def __init__(self) -> None:
-        # Start with 'file' scheme, then add all fsspec protocols
-        self._schemes: set[str] = {"file"}
-        self._schemes.update(
-            protocol
-            for protocol in available_protocols()
-            if protocol not in self._EXCLUDED_SCHEMES
-        )
+    # Schemes supported by this manager. Must match TESTED_PROTOCOLS in file_system.py.
+    _SCHEMES: Final = {"file", "s3"}
 
     @override
     def download_model(
@@ -305,7 +292,7 @@ class LocalAssetDownloadManager(AssetDownloadManager):
         return self._to_path(uri)
 
     def _to_path(self, uri: Uri) -> Path:
-        if uri.scheme not in self._schemes:
+        if uri.scheme not in self._SCHEMES:
             raise NotSupportedError(
                 f"`uri.scheme` must be a supported URI scheme, but is {uri.scheme} instead."
             )
@@ -314,14 +301,14 @@ class LocalAssetDownloadManager(AssetDownloadManager):
         if uri.scheme == "file":
             return uri.to_path()
 
-        # For remote schemes (s3://, gs://, etc.), return the full URI as Path
+        # For remote schemes (s3://, etc.), return the full URI as Path
         # GlobalFileSystem will handle the remote access
         return Path(str(uri))
 
     @property
     @override
     def supported_schemes(self) -> Set[str]:
-        return self._schemes
+        return self._SCHEMES
 
 
 @final
