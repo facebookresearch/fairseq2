@@ -28,7 +28,6 @@ from typing_extensions import NoReturn, override
 from fairseq2.error import InternalError, NotSupportedError
 from fairseq2.file_system import FileSystem, _flush_nfs_lookup_cache
 from fairseq2.runtime.dependency import get_dependency_resolver
-
 from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.uri import Uri
 from fairseq2.utils.warn import _warn_deprecated
