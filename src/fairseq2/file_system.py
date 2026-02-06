@@ -28,7 +28,6 @@ from fsspec.registry import (  # type: ignore[import-untyped]
 from typing_extensions import override
 
 from fairseq2.typing import ContextManager
-from fairseq2.context import RuntimeContext
 from fairseq2.logging import log
 
 
