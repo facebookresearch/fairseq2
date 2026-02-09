@@ -58,12 +58,14 @@ class ParquetFragmentStreamer:
         else:
             self.filesystem = self.config.filesystem
 
-        return init_parquet_dataset(
+        pq_ds = init_parquet_dataset(
             self.config.parquet_path,
             partition_filters=self.partition_filters,
             filesystem=self.filesystem,
             use_cache=self._use_cache,
         )
+
+        return pq_ds
 
     @property
     def full_schema(self) -> pa.Schema:

@@ -5,11 +5,10 @@
 # LICENSE file in the root directory of this source tree.
 
 import concurrent.futures
-import os
 from dataclasses import dataclass
 from functools import _CacheInfo as CacheInfo
 from functools import lru_cache, reduce
-from typing import Any, Dict, Iterator, List, NamedTuple, Optional
+from typing import Any, Dict, Iterator, List, NamedTuple, Optional, Tuple
 
 import cloudpickle
 import numpy as np
@@ -65,7 +64,7 @@ class ParquetDatasetKey(NamedTuple):
     filters but the same path/filesystem should share the cached dataset.
     """
 
-    path: tuple[str, ...] | str
+    path: str | Tuple[str, ...]
     """Normalized parquet path - tuple of sorted paths for lists, string for single path."""
 
     filesystem: str
@@ -74,7 +73,7 @@ class ParquetDatasetKey(NamedTuple):
     @classmethod
     def from_init_args(
         cls,
-        parquet_path: os.PathLike | list[os.PathLike],
+        parquet_path: str | List[str],
         filesystem: Any,
     ) -> "ParquetDatasetKey":
         """Create a cache key from dataset initialization parameters."""
