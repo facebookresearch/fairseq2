@@ -11,7 +11,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, final
 
 from torch import Tensor
-from torch.nn import Dropout, Module, ReLU, Sigmoid, SiLU
+from torch.nn import Dropout, GELU, Module, ReLU, Sigmoid, SiLU
 from typing_extensions import override
 
 from fairseq2.data_type import DataType
@@ -355,3 +355,57 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
             f"inner_dim_scale={self.inner_dim_scale:G}, "
             f"inner_dim_to_multiple={self.inner_dim_to_multiple}"
         )
+
+
+@final
+class AltUpFeedForwardNetwork(FeedForwardNetwork):
+    """GLU-based FFN with GELU activation for Gemma3n local layers.
+    
+    Uses alternating up-projection pattern with GELU gating instead of SiLU.
+    """
+
+    gate_proj: Projection
+    inner_proj: Projection
+    output_proj: Projection
+    gate_activation: GELU
+
+    def __init__(
+        self,
+        model_dim: int,
+        inner_dim: int,
+        bias: bool,
+        *,
+        device: Device | None = None,
+        dtype: DataType | None = None,
+    ) -> None:
+        super().__init__()
+
+        self.gate_proj = Linear(
+            model_dim, inner_dim, bias, device=device, dtype=dtype
+        )
+        self.inner_proj = Linear(
+            model_dim, inner_dim, bias, device=device, dtype=dtype
+        )
+        self.output_proj = Linear(
+            inner_dim, model_dim, bias, device=device, dtype=dtype
+        )
+        self.gate_activation = GELU()
+
+    @override
+    def forward(self, seqs: Tensor) -> Tensor:
+        gate = self.gate_proj(seqs)
+        gate = self.gate_activation(gate)
+
+        seqs = self.inner_proj(seqs)
+        seqs = seqs * gate
+
+        del gate
+
+        seqs = self.output_proj(seqs)
+
+        return seqs
+
+    @override
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return ""

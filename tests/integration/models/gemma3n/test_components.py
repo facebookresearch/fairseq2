@@ -190,3 +190,38 @@ def test_soft_capped_sdpa_caps_logits() -> None:
     
     # Verify attention weights sum to 1 (valid probability distribution)
     assert torch.allclose(weights.sum(dim=-1), torch.ones_like(weights.sum(dim=-1)))
+
+
+def test_altup_ffn() -> None:
+    """Verify AltUpFeedForwardNetwork with GELU activation."""
+    from fairseq2.models.transformer.ffn import AltUpFeedForwardNetwork
+
+    ffn = AltUpFeedForwardNetwork(
+        model_dim=2048,
+        inner_dim=5376,
+        bias=False,
+        device=device,
+    )
+
+    batch_size, seq_len, model_dim = 2, 128, 2048
+    seqs = torch.randn(batch_size, seq_len, model_dim, device=device)
+    
+    output = ffn(seqs)
+
+    assert output.shape == (batch_size, seq_len, model_dim)
+    assert output.device == seqs.device
+
+
+def test_altup_ffn_uses_gelu() -> None:
+    """Verify AltUpFeedForwardNetwork uses GELU activation."""
+    from fairseq2.models.transformer.ffn import AltUpFeedForwardNetwork
+    from torch.nn import GELU
+
+    ffn = AltUpFeedForwardNetwork(
+        model_dim=256,
+        inner_dim=512,
+        bias=False,
+        device=device,
+    )
+
+    assert isinstance(ffn.gate_activation, GELU)
