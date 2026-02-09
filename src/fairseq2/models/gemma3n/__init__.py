@@ -1,0 +1,29 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+from fairseq2.models.gemma3n.config import (
+    GEMMA3N_FAMILY as GEMMA3N_FAMILY,
+)
+from fairseq2.models.gemma3n.config import (
+    Gemma3nConfig as Gemma3nConfig,
+)
+from fairseq2.models.gemma3n.config import (
+    get_gemma3n_e2b_config as get_gemma3n_e2b_config,
+)
+from fairseq2.models.gemma3n.config import (
+    get_gemma3n_e4b_config as get_gemma3n_e4b_config,
+)
+from fairseq2.models.gemma3n.config import (
+    is_global_layer as is_global_layer,
+)
+
+__all__ = [
+    "GEMMA3N_FAMILY",
+    "Gemma3nConfig",
+    "get_gemma3n_e2b_config",
+    "get_gemma3n_e4b_config",
+    "is_global_layer",
+]
