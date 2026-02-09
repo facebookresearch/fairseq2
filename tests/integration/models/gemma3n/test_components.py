@@ -281,3 +281,33 @@ def test_create_gemma3n_decoder_layer_global() -> None:
 
     assert output.shape == (batch_size, seq_len, model_dim)
     assert output.device == seqs.device
+
+
+def test_create_gemma3n_model() -> None:
+    """Verify full model creation."""
+    from fairseq2.models.gemma3n import create_gemma3n_model
+
+    config = Gemma3nConfig()
+    model = create_gemma3n_model(config, device=device, dtype=torch.float32)
+
+    assert model.model_dim == config.model_dim
+    assert model.max_seq_len == config.max_seq_len
+
+
+def test_gemma3n_model_forward() -> None:
+    """Verify full model forward pass."""
+    from fairseq2.models.gemma3n import create_gemma3n_model
+
+    config = Gemma3nConfig()
+    model = create_gemma3n_model(config, device=device, dtype=torch.float32)
+    model.eval()
+
+    batch_size, seq_len = 2, 32
+    input_ids = torch.randint(0, config.vocab_size, (batch_size, seq_len), device=device)
+    seqs_layout = BatchLayout((batch_size, seq_len), seq_lens=None, device=device)
+
+    with torch.no_grad():
+        logits = model(input_ids, seqs_layout)
+
+    assert logits.shape == (batch_size, seq_len, config.vocab_size)
+    assert logits.device == input_ids.device

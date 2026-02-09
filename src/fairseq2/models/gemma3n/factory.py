@@ -10,6 +10,7 @@ import torch.nn as nn
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
+from fairseq2.gang import Gangs, maybe_get_current_gangs
 from fairseq2.models.gemma3n.config import Gemma3nConfig, is_global_layer
 from fairseq2.models.transformer import (
     CausalAttentionBias,
@@ -17,16 +18,136 @@ from fairseq2.models.transformer import (
     GLUFeedForwardNetwork,
     MultiheadAttention,
     StandardMultiheadAttention,
+    TransformerEmbeddingFrontend,
+    TransformerFrontend,
     TransformerNormOrder,
 )
 from fairseq2.models.transformer.ffn import AltUpFeedForwardNetwork
 from fairseq2.models.transformer.sdpa.soft_capped import SoftCappedSDPA
 from fairseq2.models.transformer_lm import (
+    StandardTransformerLMDecoder,
     StandardTransformerLMDecoderLayer,
+    TransformerLM,
+    TransformerLMDecoder,
     TransformerLMDecoderLayer,
 )
-from fairseq2.nn import LayerNorm, PositionEncoder, RMSNorm
+from fairseq2.nn import (
+    Embedding,
+    LayerNorm,
+    Linear,
+    PositionEncoder,
+    Projection,
+    RMSNorm,
+    StandardEmbedding,
+    TiedProjection,
+)
 from fairseq2.nn.position_encoder import DualRotaryEncoder
+
+
+def create_gemma3n_model(
+    config: Gemma3nConfig,
+    *,
+    device: Device | None = None,
+    dtype: DataType | None = None,
+) -> TransformerLM:
+    """Create a Gemma3n language model.
+
+    :param config: The Gemma3n configuration.
+    :param device: The device on which to initialize the model.
+    :param dtype: The data type of the model parameters and buffers.
+    :returns: A Gemma3n model.
+    """
+    gangs = maybe_get_current_gangs()
+
+    return Gemma3nFactory(config, device=device, dtype=dtype, gangs=gangs).create_model()
+
+
+class Gemma3nFactory:
+    """Factory for creating Gemma3n model components."""
+
+    _config: Gemma3nConfig
+    _device: Device | None
+    _dtype: DataType | None
+    _gangs: Gangs | None
+
+    def __init__(
+        self,
+        config: Gemma3nConfig,
+        *,
+        device: Device | None = None,
+        dtype: DataType | None = None,
+        gangs: Gangs | None = None,
+    ) -> None:
+        self._config = config
+        self._device = device
+        self._dtype = dtype
+        self._gangs = gangs
+
+    def create_model(self) -> TransformerLM:
+        """Create the full Gemma3n model."""
+        embed = self.create_embedding()
+        decoder_frontend = self.create_decoder_frontend(embed)
+        decoder = self.create_decoder()
+        final_proj = self.create_final_projection(embed)
+
+        return TransformerLM(
+            self._config.model_dim,
+            decoder_frontend,
+            decoder,
+            final_proj,
+            self._config.pad_idx,
+            self._config.max_seq_len,
+        )
+
+    def create_embedding(self) -> Embedding:
+        """Create the token embedding layer."""
+        return StandardEmbedding(
+            self._config.vocab_size,
+            self._config.model_dim,
+            self._config.pad_idx,
+            device=self._device,
+            dtype=self._dtype,
+        )
+
+    def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
+        """Create the decoder frontend (embedding layer)."""
+        return TransformerEmbeddingFrontend(
+            self._config.model_dim,
+            embed,
+            pos_encoder=None,
+            no_scale=True,
+            dropout_p=0.0,
+            device=self._device,
+            dtype=self._dtype,
+        )
+
+    def create_decoder(self) -> TransformerLMDecoder:
+        """Create the decoder stack."""
+        layers = [
+            create_gemma3n_decoder_layer(
+                idx, self._config, device=self._device, dtype=self._dtype
+            )
+            for idx in range(self._config.num_layers)
+        ]
+
+        layer_norm = RMSNorm(
+            self._config.model_dim,
+            bias=False,
+            eps=self._config.rms_norm_eps,
+            device=self._device,
+            dtype=self._dtype,
+        )
+
+        return StandardTransformerLMDecoder(layers, layer_norm)
+
+    def create_final_projection(self, embed: Embedding) -> Projection:
+        """Create the final output projection."""
+        if not isinstance(embed, StandardEmbedding):
+            raise TypeError(
+                f"`embed` must be `StandardEmbedding`, got `{type(embed)}` instead."
+            )
+
+        return TiedProjection(embed.weight, bias=None)
 
 
 def create_gemma3n_decoder_layer(
