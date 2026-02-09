@@ -44,7 +44,6 @@ def create_gemma3n_decoder_layer(
     """
     is_global = is_global_layer(layer_idx, config.num_layers)
 
-    # Position encoder with dual RoPE
     pos_encoder: PositionEncoder | None = None
     if not is_global:
         # Local layers use dual-frequency RoPE
@@ -56,14 +55,12 @@ def create_gemma3n_decoder_layer(
             device=device,
         )
 
-    # SDPA with soft-capping
     sdpa = SoftCappedSDPA(
         bias=CausalAttentionBias(),
         soft_cap=config.final_logit_soft_cap,
         dropout_p=0.0,
     )
 
-    # Multi-head attention
     self_attn = StandardMultiheadAttention(
         model_dim=config.model_dim,
         num_heads=config.num_attn_heads,
@@ -75,7 +72,6 @@ def create_gemma3n_decoder_layer(
         dtype=dtype,
     )
 
-    # Feed-forward network
     ffn: FeedForwardNetwork
     if is_global:
         # Global layers use standard GLU FFN
@@ -97,7 +93,6 @@ def create_gemma3n_decoder_layer(
             dtype=dtype,
         )
 
-    # Layer norms (RMSNorm)
     self_attn_layer_norm = RMSNorm(
         config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
     )
@@ -105,7 +100,6 @@ def create_gemma3n_decoder_layer(
         config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
     )
 
-    # Create the decoder layer
     return StandardTransformerLMDecoderLayer(
         self_attn=self_attn,
         self_attn_layer_norm=self_attn_layer_norm,

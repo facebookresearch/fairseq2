@@ -378,6 +378,15 @@ class AltUpFeedForwardNetwork(FeedForwardNetwork):
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
+        """
+        ``model_dim`` and ``inner_dim`` specify the dimensionality of the model
+        and the inner projection respectively.
+
+        If ``bias`` is ``True``, the gate, inner, and output projections will
+        learn an additive bias.
+
+        The gate activation is fixed to GELU as required by Gemma3n architecture.
+        """
         super().__init__()
 
         self.gate_proj = Linear(
