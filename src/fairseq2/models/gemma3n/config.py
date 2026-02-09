@@ -122,7 +122,7 @@ def is_global_layer(layer_idx: int, num_layers: int = 35) -> bool:
 
 def get_gemma3n_e2b_config() -> Gemma3nConfig:
     """Get configuration for Gemma3n E2B (2B effective parameters)."""
-    return Gemma3nConfig()
+    return Gemma3nConfig(num_layers=30)
 
 
 def get_gemma3n_e4b_config() -> Gemma3nConfig:
