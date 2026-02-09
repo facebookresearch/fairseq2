@@ -7,7 +7,9 @@
 """Component-level tests for Gemma3n model."""
 
 import pytest
+import torch
 
+from fairseq2.data_type import DataType
 from fairseq2.models.gemma3n import (
     Gemma3nConfig,
     convert_gemma3n_state_dict,
@@ -16,6 +18,9 @@ from fairseq2.models.gemma3n import (
     get_gemma3n_e4b_config,
     is_global_layer,
 )
+from fairseq2.nn.batch_layout import BatchLayout
+from fairseq2.nn.position_encoder import DualRotaryEncoder
+from tests.common import device
 
 
 def test_gemma3n_config_defaults() -> None:
@@ -94,3 +99,38 @@ def test_convert_to_hf_not_implemented() -> None:
     with pytest.raises(NotImplementedError, match="not yet implemented"):
         convert_to_hf_gemma3n_state_dict({})
 
+
+
+def test_dual_rotary_encoder() -> None:
+    """Verify DualRotaryEncoder applies dual-frequency RoPE correctly."""
+    encoder = DualRotaryEncoder(
+        encoding_dim=256,
+        max_seq_len=8192,
+        theta=10_000.0,
+        dual_theta=100_000.0,
+        device=device,
+    )
+
+    batch_size, seq_len, num_heads, head_dim = 2, 128, 8, 256
+    seqs = torch.randn(batch_size, seq_len, num_heads, head_dim, device=device)
+
+    batch_layout = BatchLayout((batch_size, seq_len), seq_lens=None, device=device)
+
+    output = encoder(seqs, batch_layout)
+
+    assert output.shape == seqs.shape
+    assert output.device == seqs.device
+
+    first_half = output[..., :128]
+    second_half = output[..., 128:]
+
+    assert not torch.allclose(first_half, second_half)
+
+
+def test_dual_rotary_encoder_validates_encoding_dim() -> None:
+    """Verify DualRotaryEncoder rejects encoding_dim not divisible by 4."""
+    with pytest.raises(ValueError, match="must be divisible by 4"):
+        DualRotaryEncoder(encoding_dim=127, max_seq_len=8192, device=device)
+    
+    with pytest.raises(ValueError, match="must be divisible by 4"):
+        DualRotaryEncoder(encoding_dim=130, max_seq_len=8192, device=device)
