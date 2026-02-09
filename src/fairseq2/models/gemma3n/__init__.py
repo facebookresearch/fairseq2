@@ -22,6 +22,9 @@ from fairseq2.models.gemma3n.config import (
 from fairseq2.models.gemma3n.config import (
     is_global_layer as is_global_layer,
 )
+from fairseq2.models.gemma3n.factory import (
+    create_gemma3n_decoder_layer as create_gemma3n_decoder_layer,
+)
 from fairseq2.models.gemma3n.interop import (
     convert_gemma3n_state_dict as convert_gemma3n_state_dict,
 )
@@ -37,6 +40,7 @@ __all__ = [
     "Gemma3nConfig",
     "convert_gemma3n_state_dict",
     "convert_to_hf_gemma3n_state_dict",
+    "create_gemma3n_decoder_layer",
     "get_gemma3n_e2b_config",
     "get_gemma3n_e4b_config",
     "is_global_layer",

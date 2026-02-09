@@ -225,3 +225,59 @@ def test_altup_ffn_uses_gelu() -> None:
     )
 
     assert isinstance(ffn.gate_activation, GELU)
+
+
+def test_create_gemma3n_decoder_layer_local() -> None:
+    """Verify local layer uses DualRotaryEncoder and AltUpFFN."""
+    from fairseq2.models.gemma3n import Gemma3nConfig, create_gemma3n_decoder_layer
+    from fairseq2.models.transformer.ffn import AltUpFeedForwardNetwork
+
+    config = Gemma3nConfig()
+    layer_idx = 0  # Local layer
+
+    layer = create_gemma3n_decoder_layer(layer_idx, config, device=device)
+
+    # Verify FFN type
+    assert isinstance(layer.ffn, AltUpFeedForwardNetwork)
+
+    # Verify layer can forward
+    batch_size, seq_len, model_dim = 2, 64, config.model_dim
+    seqs = torch.randn(batch_size, seq_len, model_dim, device=device)
+    seqs_layout = BatchLayout((batch_size, seq_len), seq_lens=None, device=device)
+
+    from fairseq2.models.transformer.attention_bias import AttentionBiasCache
+
+    bias_cache = AttentionBiasCache()
+
+    output = layer(seqs, seqs_layout, bias_cache)
+
+    assert output.shape == (batch_size, seq_len, model_dim)
+    assert output.device == seqs.device
+
+
+def test_create_gemma3n_decoder_layer_global() -> None:
+    """Verify global layer uses standard GLU FFN."""
+    from fairseq2.models.gemma3n import Gemma3nConfig, create_gemma3n_decoder_layer
+    from fairseq2.models.transformer import GLUFeedForwardNetwork
+
+    config = Gemma3nConfig()
+    layer_idx = 4  # Global layer (every 5th layer)
+
+    layer = create_gemma3n_decoder_layer(layer_idx, config, device=device)
+
+    # Verify FFN type
+    assert isinstance(layer.ffn, GLUFeedForwardNetwork)
+
+    # Verify layer can forward
+    batch_size, seq_len, model_dim = 2, 64, config.model_dim
+    seqs = torch.randn(batch_size, seq_len, model_dim, device=device)
+    seqs_layout = BatchLayout((batch_size, seq_len), seq_lens=None, device=device)
+
+    from fairseq2.models.transformer.attention_bias import AttentionBiasCache
+
+    bias_cache = AttentionBiasCache()
+
+    output = layer(seqs, seqs_layout, bias_cache)
+
+    assert output.shape == (batch_size, seq_len, model_dim)
+    assert output.device == seqs.device

@@ -50,6 +50,9 @@ class Gemma3nConfig:
     ffn_inner_dim: int = 16_384
     """The dimensionality of inner projection layers in feed-forward networks."""
 
+    altup_hidden_dim: int = 5376
+    """The dimensionality of the AltUp FFN inner projection for local layers."""
+
     sliding_window: int = 512
     """The sliding window size for local attention layers."""
 
