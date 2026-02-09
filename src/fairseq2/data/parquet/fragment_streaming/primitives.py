@@ -96,7 +96,7 @@ class ParquetDatasetKey(NamedTuple):
 
 
 @lru_cache(maxsize=1)  # TODO: decide on reasonable upper bound
-def get_cached_dataset(key: ParquetDatasetKey) -> ds.Dataset:
+def _get_cached_dataset(key: ParquetDatasetKey) -> ds.Dataset:
     """Cached factory function for PyArrow Dataset instances.
 
     Uses LRU cache to avoid redundant instantiation when multiple streamers
@@ -125,7 +125,7 @@ def clear_dataset_cache() -> None:
     Use this to force re-initialization of all cached datasets, for example
     when the underlying parquet files have changed.
     """
-    get_cached_dataset.cache_clear()
+    _get_cached_dataset.cache_clear()
     log.debug("Dataset cache cleared")
 
 
@@ -136,7 +136,7 @@ def get_dataset_cache_info() -> CacheInfo:
         CacheInfo: namedtuple("CacheInfo", ("hits", "misses", "maxsize", "currsize"))
         https://github.com/python/cpython/blob/dd2da42ea479c32a4260463b47e1b58877d07bdc/Lib/functools.py#L520
     """
-    return get_cached_dataset.cache_info()
+    return _get_cached_dataset.cache_info()
 
 
 def process_filter(
@@ -214,6 +214,7 @@ def init_parquet_dataset(
     parquet_path: str | List[str],
     partition_filters: Optional[pa.compute.Expression] = None,
     filesystem=None,
+    use_cache: bool = False,
 ) -> ParquetDatasetWrapper:
     """
     Initialize a Parquet dataset using `pa.dataset.dataset` with hive partitioning.
@@ -224,16 +225,24 @@ def init_parquet_dataset(
         partition_filters (Optional[pa.compute.Expression]): Partition level filters
             to apply when getting fragments from the dataset.
         filesystem : The filesystem to use. If None, the filesystem will be detected.
+        use_cache (bool): Whether to use the singleton cache for the underlying
+            PyArrow dataset. When True, multiple calls with the same parquet_path
+            and filesystem will share the same ds.Dataset instance, avoiding
+            redundant I/O. Defaults to False.
 
     Returns:
         ParquetDatasetWrapper: A wrapper containing the dataset and partition filters.
     """
-    dataset = ds.dataset(
-        parquet_path,
-        format="parquet",
-        partitioning="hive",
-        filesystem=filesystem,
-    )
+    if use_cache:
+        dataset_key = ParquetDatasetKey.from_init_args(parquet_path, filesystem)
+        dataset = _get_cached_dataset(dataset_key)
+    else:
+        dataset = ds.dataset(
+            parquet_path,
+            format="parquet",
+            partitioning="hive",
+            filesystem=filesystem,
+        )
     return ParquetDatasetWrapper(dataset=dataset, partition_filters=partition_filters)
 
 

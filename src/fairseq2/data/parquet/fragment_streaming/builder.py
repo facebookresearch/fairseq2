@@ -12,10 +12,7 @@ import pyarrow as pa
 from fairseq2.data.data_pipeline import DataPipelineBuilder
 from fairseq2.data.parquet.fragment_streaming.config import FragmentStreamingConfig
 from fairseq2.data.parquet.fragment_streaming.primitives import (
-    ParquetDatasetKey,
     ParquetDatasetWrapper,
-    get_cached_dataset,
-    get_dataset_cache_info,
     init_parquet_dataset,
     list_parquet_fragments,
     process_filter,
@@ -61,32 +58,12 @@ class ParquetFragmentStreamer:
         else:
             self.filesystem = self.config.filesystem
 
-        dataset_key = ParquetDatasetKey.from_init_args(
+        return init_parquet_dataset(
             self.config.parquet_path,
-            self.filesystem,
+            partition_filters=self.partition_filters,
+            filesystem=self.filesystem,
+            use_cache=self._use_cache,
         )
-
-        if self._use_cache:
-            cache_info_before = get_dataset_cache_info()
-            pq_ds = get_cached_dataset(dataset_key)
-            dataset = ParquetDatasetWrapper(
-                dataset=pq_ds,
-                partition_filters=self.partition_filters,
-            )
-            cache_info_after = get_dataset_cache_info()
-            if cache_info_after.misses == cache_info_before.misses:
-                log.debug(f"Dataset cache hit for key: {dataset_key}")
-        else:
-            log.debug(
-                f"Cache disabled, initializing new ds.Dataset for key: {dataset_key}"
-            )
-            dataset = init_parquet_dataset(
-                self.config.parquet_path,
-                partition_filters=self.partition_filters,
-                filesystem=self.filesystem,
-            )
-
-        return dataset
 
     @property
     def full_schema(self) -> pa.Schema:
