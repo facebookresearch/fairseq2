@@ -23,10 +23,17 @@ _HG_KEY_MAP: Final = {
     r"^model\.language_model\.layers\.([0-9]+)\.self_attn\.k_proj\.": r"decoder.layers.\1.self_attn.k_proj.",
     r"^model\.language_model\.layers\.([0-9]+)\.self_attn\.v_proj\.": r"decoder.layers.\1.self_attn.v_proj.",
     r"^model\.language_model\.layers\.([0-9]+)\.self_attn\.o_proj\.": r"decoder.layers.\1.self_attn.output_proj.",
+    r"^model\.language_model\.layers\.([0-9]+)\.self_attn\.q_norm\.": r"decoder.layers.\1.self_attn.q_norm.",
+    r"^model\.language_model\.layers\.([0-9]+)\.self_attn\.k_norm\.": r"decoder.layers.\1.self_attn.k_norm.",
 
     # Decoder layers - normalization
     r"^model\.language_model\.layers\.([0-9]+)\.input_layernorm\.":              r"decoder.layers.\1.self_attn_layer_norm.",
     r"^model\.language_model\.layers\.([0-9]+)\.post_attention_layernorm\.":     r"decoder.layers.\1.ffn_layer_norm.",
+
+    # Decoder layers - LAuReL residual
+    r"^model\.language_model\.layers\.([0-9]+)\.laurel\.linear_left\.":          r"decoder.layers.\1.self_attn_residual.linear_left.",
+    r"^model\.language_model\.layers\.([0-9]+)\.laurel\.linear_right\.":         r"decoder.layers.\1.self_attn_residual.linear_right.",
+    r"^model\.language_model\.layers\.([0-9]+)\.laurel\.post_laurel_norm\.":     r"decoder.layers.\1.self_attn_residual.layer_norm.",
 
     # Decoder layers - FFN (standard and AltUp)
     r"^model\.language_model\.layers\.([0-9]+)\.mlp\.gate_proj\.":   r"decoder.layers.\1.ffn.gate_proj.",

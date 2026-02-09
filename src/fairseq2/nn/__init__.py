@@ -49,6 +49,7 @@ from fairseq2.nn.projection import TiedProjection as TiedProjection
 from fairseq2.nn.projection import init_bert_projection as init_bert_projection
 from fairseq2.nn.residual import AdditiveResidualConnect as AdditiveResidualConnect
 from fairseq2.nn.residual import DropPathResidualConnect as DropPathResidualConnect
+from fairseq2.nn.residual import LAuReLResidualConnect as LAuReLResidualConnect
 from fairseq2.nn.residual import ResidualConnect as ResidualConnect
 from fairseq2.nn.residual import ScaledResidualConnect as ScaledResidualConnect
 from fairseq2.nn.sharded import Sharded as Sharded

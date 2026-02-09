@@ -33,6 +33,7 @@ from fairseq2.models.transformer_lm import (
 )
 from fairseq2.nn import (
     Embedding,
+    LAuReLResidualConnect,
     LayerNorm,
     Linear,
     PositionEncoder,
@@ -182,12 +183,22 @@ def create_gemma3n_decoder_layer(
         dropout_p=0.0,
     )
 
+    # QK normalization (replaces soft-capping in Gemma 2)
+    q_norm = RMSNorm(
+        config.head_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
+    )
+    k_norm = RMSNorm(
+        config.head_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
+    )
+
     self_attn = StandardMultiheadAttention(
         model_dim=config.model_dim,
         num_heads=config.num_attn_heads,
         num_key_value_heads=config.num_key_value_heads,
         sdpa=sdpa,
         pos_encoder=pos_encoder,
+        q_norm=q_norm,
+        k_norm=k_norm,
         bias=False,
         device=device,
         dtype=dtype,
@@ -221,13 +232,27 @@ def create_gemma3n_decoder_layer(
         config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
     )
 
+    # LAuReL residual connection with post-LAuReL normalization
+    post_laurel_norm = RMSNorm(
+        config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
+    )
+    self_attn_residual = LAuReLResidualConnect(
+        model_dim=config.model_dim,
+        rank=config.laurel_rank,
+        layer_norm=post_laurel_norm,
+        device=device,
+        dtype=dtype,
+    )
+
     return StandardTransformerLMDecoderLayer(
         self_attn=self_attn,
         self_attn_layer_norm=self_attn_layer_norm,
         ffn=ffn,
         ffn_layer_norm=ffn_layer_norm,
+        self_attn_residual=self_attn_residual,
         norm_order=TransformerNormOrder.PRE,
         dropout_p=0.0,
         device=device,
         dtype=dtype,
     )
+
