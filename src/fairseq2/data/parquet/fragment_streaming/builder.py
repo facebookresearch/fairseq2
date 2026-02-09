@@ -5,12 +5,9 @@
 # LICENSE file in the root directory of this source tree.
 
 from copy import deepcopy
-from functools import cached_property
 from typing import Optional
 
 import pyarrow as pa
-import pyarrow.compute as pc
-import pyarrow.dataset as ds
 
 from fairseq2.data.data_pipeline import DataPipelineBuilder
 from fairseq2.data.parquet.fragment_streaming.config import FragmentStreamingConfig
@@ -19,6 +16,7 @@ from fairseq2.data.parquet.fragment_streaming.primitives import (
     ParquetDatasetWrapper,
     get_cached_dataset,
     get_dataset_cache_info,
+    init_parquet_dataset,
     list_parquet_fragments,
     process_filter,
     stream_parquet_fragments,
@@ -28,26 +26,15 @@ from fairseq2.logging import log
 
 
 class ParquetFragmentStreamer:
-    """A streamer for parquet dataset fragments.
-
-    This class manages the streaming of fragments from a parquet dataset. It uses
-    a module-level singleton cache to avoid redundant instantiation of the underlying
-    PyArrow Dataset when multiple streamer instances reference the same parquet path
-    and filesystem.
-
-    The cache key intentionally excludes partition_filters since the expensive
-    ds.dataset() call doesn't depend on filters - filters are applied later when
-    retrieving fragments.
-
-    Args:
-        config: Configuration for the fragment streaming.
-        use_cache: Whether to use the singleton cache. Defaults to True.
-            Set to False for testing or when cache isolation is needed.
-    """
-
     def __init__(
         self, config: FragmentStreamingConfig, *, use_cache: bool = False
     ) -> None:
+        """Construct a ParquetFragmentStreamer
+
+        Args:
+            config (FragmentStreamingConfig): config for the ParquetFragmentStreamer.
+            use_cache (bool, optional): Whether to enable LRU-caching of datasets. Defaults to False.
+        """
         self.config: FragmentStreamingConfig = deepcopy(config)
         self._pq_ds: Optional[ParquetDatasetWrapper] = None
         self._use_cache = use_cache
@@ -56,10 +43,7 @@ class ParquetFragmentStreamer:
             self.config.files_circular_shift
             and self.config.fragment_shuffle_window == -1
         ):
-            log.info(
-                "Cannot use files circular shift and full shuffle at the same time. "
-                "Ignoring files circular shift."
-            )
+            log.info("Cannot use files circular shift and full shuffle at the same time. Ignoring files circular shift.")  # fmt: skip
             self.config.files_circular_shift = False
 
     @property
@@ -69,12 +53,9 @@ class ParquetFragmentStreamer:
 
         return self._pq_ds
 
-    @cached_property
-    def partition_filters(self) -> pc.Expression:
-        return process_filter(self.config.partition_filters)
-
     def _get_dataset(self) -> ParquetDatasetWrapper:
-        partition_filters = self.partition_filters
+        self.partition_filters = process_filter(self.config.partition_filters)
+
         if isinstance(self.config.filesystem, str):
             self.filesystem = eval(self.config.filesystem)
         else:
@@ -87,7 +68,11 @@ class ParquetFragmentStreamer:
 
         if self._use_cache:
             cache_info_before = get_dataset_cache_info()
-            cached_dataset = get_cached_dataset(dataset_key)
+            pq_ds = get_cached_dataset(dataset_key)
+            dataset = ParquetDatasetWrapper(
+                dataset=pq_ds,
+                partition_filters=self.partition_filters,
+            )
             cache_info_after = get_dataset_cache_info()
             if cache_info_after.misses == cache_info_before.misses:
                 log.debug(f"Dataset cache hit for key: {dataset_key}")
@@ -95,21 +80,13 @@ class ParquetFragmentStreamer:
             log.debug(
                 f"Cache disabled, initializing new ds.Dataset for key: {dataset_key}"
             )
-            cached_dataset = ds.dataset(
-                (
-                    dataset_key.path
-                    if isinstance(dataset_key.path, str)
-                    else list(dataset_key.path)
-                ),
-                format="parquet",
-                partitioning="hive",
+            dataset = init_parquet_dataset(
+                self.config.parquet_path,
+                partition_filters=self.partition_filters,
                 filesystem=self.filesystem,
             )
 
-        return ParquetDatasetWrapper(
-            dataset=cached_dataset,
-            partition_filters=partition_filters,
-        )
+        return dataset
 
     @property
     def full_schema(self) -> pa.Schema:
