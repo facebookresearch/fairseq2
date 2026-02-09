@@ -72,6 +72,7 @@ setup(
     ],
     extras_require={
         "arrow": [
+            "cloudpickle~=3.1.2",
             "pyarrow>=17.0",
             "retrying~=1.3",
             "pandas~=2.0",

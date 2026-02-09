@@ -4,12 +4,14 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-
 import concurrent.futures
+import os
 from dataclasses import dataclass
-from functools import reduce
-from typing import Any, Dict, Iterator, List, Optional
+from functools import _CacheInfo as CacheInfo
+from functools import lru_cache, reduce
+from typing import Any, Dict, Iterator, List, NamedTuple, Optional
 
+import cloudpickle
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc  # noqa: F401
@@ -42,6 +44,99 @@ except ImportError:
         it = iter(iterable)
         while batch := tuple(islice(it, n)):
             yield batch
+
+
+# Module-level singleton cache for parquet datasets.
+# This ensures that multiple ParquetFragmentStreamer instances referencing
+# the same parquet path + filesystem share the same underlying ds.Dataset,
+# avoiding redundant and expensive ds.dataset() I/O calls.
+
+
+class ParquetDatasetKey(NamedTuple):
+    """Hashable cache key for ParquetDatasetWrapper instances.
+
+    This key uniquely identifies a parquet dataset based on:
+    - The parquet path(s)
+    - The filesystem used to access the data
+
+    Note: partition_filters are NOT included in the cache key because
+    the expensive operation is `ds.dataset()` which reads parquet metadata.
+    Filters are applied later in `get_fragments()`, so datasets with different
+    filters but the same path/filesystem should share the cached dataset.
+    """
+
+    path: tuple[str, ...] | str
+    """Normalized parquet path - tuple of sorted paths for lists, string for single path."""
+
+    filesystem: str
+    """Serialization of the filesystem."""
+
+    @classmethod
+    def from_init_args(
+        cls,
+        parquet_path: os.PathLike | list[os.PathLike],
+        filesystem: Any,
+    ) -> "ParquetDatasetKey":
+        """Create a cache key from dataset initialization parameters."""
+        if isinstance(parquet_path, list) and len(parquet_path) == 0:
+            raise ValueError(
+                "Cannot initialize a ParquetDataset without parquet path(s)!"
+            )
+        elif isinstance(parquet_path, list) and len(parquet_path) > 0:
+            normalized_path = tuple(sorted(str(p) for p in parquet_path))
+        else:
+            normalized_path = str(parquet_path)
+
+        filesystem_serialized = cloudpickle.dumps(filesystem)
+
+        return cls(
+            path=normalized_path,
+            filesystem=filesystem_serialized,
+        )
+
+
+@lru_cache(maxsize=1)  # TODO: decide on reasonable upper bound
+def get_cached_dataset(key: ParquetDatasetKey) -> ds.Dataset:
+    """Cached factory function for PyArrow Dataset instances.
+
+    Uses LRU cache to avoid redundant instantiation when multiple streamers
+    reference the same parquet path and filesystem. The cache key intentionally
+    excludes partition_filters since filters are applied at fragment retrieval
+    time, not dataset initialization time.
+
+    Args:
+        key: A hashable key containing normalized path and filesystem info.
+
+    Returns:
+        The underlying PyArrow Dataset (without filters applied).
+    """
+    log.debug(f"Dataset cache miss for key: {key}, initializing new ds.Dataset")
+    return ds.dataset(
+        key.path if isinstance(key.path, str) else list(key.path),
+        format="parquet",
+        partitioning="hive",
+        filesystem=cloudpickle.loads(key.filesystem),
+    )
+
+
+def clear_dataset_cache() -> None:
+    """Clear the singleton dataset cache.
+
+    Use this to force re-initialization of all cached datasets, for example
+    when the underlying parquet files have changed.
+    """
+    get_cached_dataset.cache_clear()
+    log.debug("Dataset cache cleared")
+
+
+def get_dataset_cache_info() -> CacheInfo:
+    """Get cache statistics for the dataset cache.
+
+    Returns:
+        CacheInfo: namedtuple("CacheInfo", ("hits", "misses", "maxsize", "currsize"))
+        https://github.com/python/cpython/blob/dd2da42ea479c32a4260463b47e1b58877d07bdc/Lib/functools.py#L520
+    """
+    return get_cached_dataset.cache_info()
 
 
 def process_filter(
