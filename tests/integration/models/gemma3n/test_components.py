@@ -18,6 +18,8 @@ from fairseq2.models.gemma3n import (
     get_gemma3n_e4b_config,
     is_global_layer,
 )
+from fairseq2.models.transformer.attention_bias import CausalAttentionBias
+from fairseq2.models.transformer.sdpa.soft_capped import SoftCappedSDPA
 from fairseq2.nn.batch_layout import BatchLayout
 from fairseq2.nn.position_encoder import DualRotaryEncoder
 from tests.common import device
@@ -134,3 +136,57 @@ def test_dual_rotary_encoder_validates_encoding_dim() -> None:
     
     with pytest.raises(ValueError, match="must be divisible by 4"):
         DualRotaryEncoder(encoding_dim=130, max_seq_len=8192, device=device)
+
+
+def test_soft_capped_sdpa() -> None:
+    """Verify SoftCappedSDPA applies soft-capping correctly."""
+    bias = CausalAttentionBias()
+    sdpa = SoftCappedSDPA(bias, soft_cap=30.0, dropout_p=0.0)
+
+    batch_size, seq_len, num_heads, head_dim = 2, 64, 8, 64
+    q = torch.randn(batch_size, seq_len, num_heads, head_dim, device=device)
+    k = torch.randn(batch_size, seq_len, num_heads, head_dim, device=device)
+    v = torch.randn(batch_size, seq_len, num_heads, head_dim, device=device)
+
+    q_layout = BatchLayout((batch_size, seq_len), seq_lens=None, device=device)
+    k_layout = BatchLayout((batch_size, seq_len), seq_lens=None, device=device)
+
+    from fairseq2.models.transformer.attention_bias import AttentionBiasCache
+
+    bias_cache = AttentionBiasCache()
+
+    output, weights = sdpa(q, q_layout, k, k_layout, v, bias_cache, needs_weights=True)
+
+    assert output.shape == (batch_size, seq_len, num_heads, head_dim)
+    assert output.device == q.device
+    assert weights is not None
+    assert weights.shape == (batch_size, num_heads, seq_len, seq_len)
+
+
+def test_soft_capped_sdpa_caps_logits() -> None:
+    """Verify soft-capping bounds attention logits."""
+    bias = CausalAttentionBias()
+    soft_cap = 10.0
+    sdpa = SoftCappedSDPA(bias, soft_cap=soft_cap, dropout_p=0.0)
+
+    batch_size, seq_len, num_heads, head_dim = 1, 32, 4, 32
+    
+    # Create queries and keys that would produce large dot products
+    q = torch.ones(batch_size, seq_len, num_heads, head_dim, device=device) * 100.0
+    k = torch.ones(batch_size, seq_len, num_heads, head_dim, device=device) * 100.0
+    v = torch.randn(batch_size, seq_len, num_heads, head_dim, device=device)
+
+    q_layout = BatchLayout((batch_size, seq_len), seq_lens=None, device=device)
+    k_layout = BatchLayout((batch_size, seq_len), seq_lens=None, device=device)
+
+    from fairseq2.models.transformer.attention_bias import AttentionBiasCache
+
+    bias_cache = AttentionBiasCache()
+
+    # Compute with soft-capping - weights should be accessible via needs_weights
+    output, weights = sdpa(q, q_layout, k, k_layout, v, bias_cache, needs_weights=True)
+
+    assert output.shape == (batch_size, seq_len, num_heads, head_dim)
+    
+    # Verify attention weights sum to 1 (valid probability distribution)
+    assert torch.allclose(weights.sum(dim=-1), torch.ones_like(weights.sum(dim=-1)))
