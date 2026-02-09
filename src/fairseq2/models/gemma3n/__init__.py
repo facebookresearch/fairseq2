@@ -29,6 +29,9 @@ from fairseq2.models.gemma3n.interop import (
     convert_to_hf_gemma3n_state_dict as convert_to_hf_gemma3n_state_dict,
 )
 
+# hub, tokenizer, and sharder are stubs for Phase 1
+# They will be implemented in Phase 2-5
+
 __all__ = [
     "GEMMA3N_FAMILY",
     "Gemma3nConfig",
