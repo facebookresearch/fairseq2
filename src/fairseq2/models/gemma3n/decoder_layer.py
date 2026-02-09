@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import final
+from typing import TYPE_CHECKING, final
 
 from torch import Tensor
 from torch.nn import Dropout
@@ -37,6 +37,7 @@ class Gemma3nDecoderLayer(TransformerLMDecoderLayer):
     ffn_dropout: Dropout | None
     pre_feedforward_layernorm: LayerNorm | None
     post_feedforward_layernorm: LayerNorm | None
+    ple: Module | None
 
     def __init__(
         self,
@@ -49,6 +50,7 @@ class Gemma3nDecoderLayer(TransformerLMDecoderLayer):
         ffn_residual: ResidualConnect,
         pre_feedforward_layernorm: LayerNorm | None = None,
         post_feedforward_layernorm: LayerNorm | None = None,
+        ple: Module | None = None,
         dropout_p: float = 0.0,
         device: Device | None = None,
         dtype: DataType | None = None,
@@ -62,6 +64,7 @@ class Gemma3nDecoderLayer(TransformerLMDecoderLayer):
         :param ffn_residual: Residual connection for FFN.
         :param pre_feedforward_layernorm: Additional pre-FFN normalization (optional).
         :param post_feedforward_layernorm: Post-FFN normalization (optional).
+        :param ple: Per-Layer Embedding augmentation (optional).
         :param dropout_p: Dropout probability.
         """
         super().__init__()
@@ -83,6 +86,11 @@ class Gemma3nDecoderLayer(TransformerLMDecoderLayer):
             self.register_module("post_feedforward_layernorm", post_feedforward_layernorm)
         else:
             self.post_feedforward_layernorm = None
+
+        if ple is not None:
+            self.register_module("ple", ple)
+        else:
+            self.ple = None
 
         if dropout_p > 0.0:
             self.self_attn_dropout = Dropout(dropout_p)
