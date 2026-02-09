@@ -6,8 +6,12 @@
 
 """Component-level tests for Gemma3n model."""
 
+import pytest
+
 from fairseq2.models.gemma3n import (
     Gemma3nConfig,
+    convert_gemma3n_state_dict,
+    convert_to_hf_gemma3n_state_dict,
     get_gemma3n_e2b_config,
     get_gemma3n_e4b_config,
     is_global_layer,
@@ -70,4 +74,23 @@ def test_is_global_layer() -> None:
     # Count global layers: should be 7 (layers 4, 9, 14, 19, 24, 29, 34)
     global_count = sum(1 for i in range(35) if is_global_layer(i, num_layers=35))
     assert global_count == 7
+
+
+def test_convert_gemma3n_state_dict_validates_format() -> None:
+    """Verify state dict conversion validates input format."""
+    config = Gemma3nConfig()
+
+    # Empty state dict should raise
+    with pytest.raises(ValueError, match="Expected HuggingFace Gemma3n checkpoint"):
+        convert_gemma3n_state_dict({}, config)
+
+    # Wrong format should raise
+    with pytest.raises(ValueError, match="Expected HuggingFace Gemma3n checkpoint"):
+        convert_gemma3n_state_dict({"wrong.key": None}, config)
+
+
+def test_convert_to_hf_not_implemented() -> None:
+    """Verify reverse conversion stub raises NotImplementedError."""
+    with pytest.raises(NotImplementedError, match="not yet implemented"):
+        convert_to_hf_gemma3n_state_dict({})
 
