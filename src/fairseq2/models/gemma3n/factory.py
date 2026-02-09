@@ -12,6 +12,7 @@ from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.gang import Gangs, maybe_get_current_gangs
 from fairseq2.models.gemma3n.config import Gemma3nConfig, is_global_layer
+from fairseq2.models.gemma3n.decoder_layer import Gemma3nDecoderLayer
 from fairseq2.models.transformer import (
     CausalAttentionBias,
     FeedForwardNetwork,
@@ -32,6 +33,7 @@ from fairseq2.models.transformer_lm import (
     TransformerLMDecoderLayer,
 )
 from fairseq2.nn import (
+    AdditiveResidualConnect,
     Embedding,
     LAuReLResidualConnect,
     LayerNorm,
@@ -225,10 +227,16 @@ def create_gemma3n_decoder_layer(
             dtype=dtype,
         )
 
-    self_attn_layer_norm = RMSNorm(
+    input_layernorm = RMSNorm(
         config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
     )
-    ffn_layer_norm = RMSNorm(
+    post_attention_layernorm = RMSNorm(
+        config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
+    )
+    pre_feedforward_layernorm = RMSNorm(
+        config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
+    )
+    post_feedforward_layernorm = RMSNorm(
         config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
     )
 
@@ -244,15 +252,20 @@ def create_gemma3n_decoder_layer(
         dtype=dtype,
     )
 
-    return StandardTransformerLMDecoderLayer(
+    ffn_residual = AdditiveResidualConnect()
+
+    return Gemma3nDecoderLayer(
         self_attn=self_attn,
-        self_attn_layer_norm=self_attn_layer_norm,
         ffn=ffn,
-        ffn_layer_norm=ffn_layer_norm,
+        input_layernorm=input_layernorm,
+        post_attention_layernorm=post_attention_layernorm,
         self_attn_residual=self_attn_residual,
-        norm_order=TransformerNormOrder.PRE,
+        ffn_residual=ffn_residual,
+        pre_feedforward_layernorm=pre_feedforward_layernorm,
+        post_feedforward_layernorm=post_feedforward_layernorm,
         dropout_p=0.0,
         device=device,
         dtype=dtype,
     )
+
 

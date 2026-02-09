@@ -27,8 +27,10 @@ _HG_KEY_MAP: Final = {
     r"^model\.language_model\.layers\.([0-9]+)\.self_attn\.k_norm\.": r"decoder.layers.\1.self_attn.k_norm.",
 
     # Decoder layers - normalization
-    r"^model\.language_model\.layers\.([0-9]+)\.input_layernorm\.":              r"decoder.layers.\1.self_attn_layer_norm.",
-    r"^model\.language_model\.layers\.([0-9]+)\.post_attention_layernorm\.":     r"decoder.layers.\1.ffn_layer_norm.",
+    r"^model\.language_model\.layers\.([0-9]+)\.input_layernorm\.":              r"decoder.layers.\1.input_layernorm.",
+    r"^model\.language_model\.layers\.([0-9]+)\.post_attention_layernorm\.":     r"decoder.layers.\1.post_attention_layernorm.",
+    r"^model\.language_model\.layers\.([0-9]+)\.pre_feedforward_layernorm\.":    r"decoder.layers.\1.pre_feedforward_layernorm.",
+    r"^model\.language_model\.layers\.([0-9]+)\.post_feedforward_layernorm\.":   r"decoder.layers.\1.post_feedforward_layernorm.",
 
     # Decoder layers - LAuReL residual
     r"^model\.language_model\.layers\.([0-9]+)\.laurel\.linear_left\.":          r"decoder.layers.\1.self_attn_residual.linear_left.",
