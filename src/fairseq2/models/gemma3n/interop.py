@@ -64,11 +64,8 @@ def convert_gemma3n_state_dict(
         including RoPE permutation, PLE parameters, and AltUp handling
         will be added in Phase 2-3.
     """
-    if "model.language_model.embed_tokens.weight" not in state_dict:
-        raise ValueError(
-            "Expected HuggingFace Gemma3n checkpoint format with "
-            "'model.language_model.embed_tokens.weight' key."
-        )
+    # Note: embed_tokens is in shard 1, layers are in shard 3
+    # We don't strictly validate the key since conversion works on subsets
 
     # TODO(Phase 2): Add RoPE permutation for dual-theta encoding
     # TODO(Phase 3): Handle PLE parameters mapping
