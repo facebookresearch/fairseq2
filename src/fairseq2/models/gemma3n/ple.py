@@ -55,7 +55,7 @@ class PerLayerEmbedding(Module):
         # Shared embedding table across all layers
         self.embed_tokens_per_layer = StandardEmbedding(
             num_embeddings=vocab_size,
-            embedding_dim=hidden_size,
+            embed_dim=hidden_size,
             pad_idx=None,
             device=device,
             dtype=dtype,

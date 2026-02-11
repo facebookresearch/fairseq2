@@ -24,6 +24,7 @@ from fairseq2.models.transformer import (
 )
 from fairseq2.models.transformer_lm import TransformerLMDecoderLayer
 from fairseq2.nn import BatchLayout, IncrementalStateBag, LayerNorm
+from fairseq2.nn.projection import Linear
 
 
 @final
@@ -49,7 +50,6 @@ class Gemma3nLAuReL(Module):
     ) -> None:
         super().__init__()
 
-        from fairseq2.nn.projection import Linear
 
         self.linear_left = Linear(model_dim, rank, bias=False, device=device, dtype=dtype)
         self.linear_right = Linear(rank, model_dim, bias=False, device=device, dtype=dtype)

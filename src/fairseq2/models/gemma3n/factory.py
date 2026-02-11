@@ -14,7 +14,11 @@ from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.gang import Gangs, maybe_get_current_gangs
 from fairseq2.models.gemma3n.altup import Gemma3nAltUp
-from fairseq2.models.gemma3n.config import Gemma3nConfig, is_global_layer, get_kv_projection_role
+from fairseq2.models.gemma3n.config import (
+    Gemma3nConfig,
+    get_kv_projection_role,
+    is_global_layer,
+)
 from fairseq2.models.gemma3n.decoder import Gemma3nDecoder
 from fairseq2.models.gemma3n.decoder_layer import (
     Gemma3nDecoderLayer,
@@ -218,7 +222,6 @@ def create_gemma3n_decoder_layer(
             device=device,
         )
 
-    # SDPA (use NaiveSDPA for exact HF parity - upcasts softmax to float32)
     # Use scale=1.0 to disable attention logit scaling because Gemma3n uses QK normalization
     if is_global:
         # Global layers: full causal attention
