@@ -5,7 +5,20 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Full parity test between fairseq2 Gemma3n and HuggingFace implementation."""
+"""End-to-end parity test between fairseq2 Gemma3n and HuggingFace implementation.
+
+Verifies that the fairseq2 implementation produces identical outputs to the
+reference HuggingFace implementation, including:
+- Token embeddings and PLE (Per-Layer Embeddings)
+- All 30 decoder layers with AltUp, LAuReL, and attention
+- KV projection sharing (layers 20-29 reuse K/V from layers 18-19)
+- Final logits with softcapping
+
+Expected results:
+- 100% token prediction agreement
+- Max absolute diff < 1e-3
+- Max relative diff < 1e-2
+"""
 
 from __future__ import annotations
 
@@ -20,14 +33,11 @@ from fairseq2.nn import BatchLayout
 
 def main() -> None:
     print("="*80)
-    print("GEMMA3N PARITY TEST (With KV Sharing)")
+    print("GEMMA3N PARITY TEST")
     print("="*80)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"\nDevice: {device}")
-    print(f"NOTE: Testing with use_cache=True to enable KV sharing in both HF and FS2")
-    print(f"      HF KV sharing activates when use_cache=True")
-    print(f"      FS2 KV sharing is always active")
 
     # Load HuggingFace model
     print("\n[1/5] Loading HuggingFace model...")
@@ -42,8 +52,7 @@ def main() -> None:
 
     tokenizer = AutoTokenizer.from_pretrained(hf_model_id)
     print(f"✓ Loaded HF model: {hf_model_id}")
-    print(f"  Total parameters: {sum(p.numel() for p in hf_model.parameters()):,}")
-    print(f"  Activation sparsity: Enabled (0.95 for first 10 layers)")
+    print(f"  Parameters: {sum(p.numel() for p in hf_model.parameters()):,}")
 
     # Create fairseq2 model
     print("\n[2/5] Creating fairseq2 model...")
@@ -51,52 +60,42 @@ def main() -> None:
     fs2_model = create_gemma3n_model(config, device=device, dtype=torch.float32)
     fs2_model.eval()
     print(f"✓ Created fairseq2 model")
-    print(f"  Total parameters: {sum(p.numel() for p in fs2_model.parameters()):,}")
-    print(f"  Activation sparsity: Enabled (0.95 for first 10 layers)")
-    print(f"  KV sharing: Enabled (layers 15-29 share from layers 13-14)")
+    print(f"  Parameters: {sum(p.numel() for p in fs2_model.parameters()):,}")
 
     # Convert checkpoint
-    print("\n[3/5] Converting HuggingFace checkpoint to fairseq2...")
+    print("\n[3/5] Converting HuggingFace checkpoint...")
     hf_state_dict = hf_model.state_dict()
-    print(f"  HF state dict keys: {len(hf_state_dict)}")
-
     fs2_state_dict = convert_gemma3n_state_dict(hf_state_dict, config)
-    print(f"  Converted state dict keys: {len(fs2_state_dict)}")
 
-    # Load into fairseq2 model
     missing, unexpected = fs2_model.load_state_dict(fs2_state_dict, strict=False)
 
     if missing:
-        print(f"\n⚠️  Missing keys ({len(missing)}):")
-        for key in sorted(missing)[:10]:
-            print(f"    - {key}")
-        if len(missing) > 10:
-            print(f"    ... and {len(missing) - 10} more")
+        print(f"\n⚠️  Missing keys: {len(missing)}")
+        if len(missing) <= 10:
+            for key in sorted(missing):
+                print(f"    - {key}")
 
     if unexpected:
-        print(f"\n⚠️  Unexpected keys ({len(unexpected)}):")
-        for key in sorted(unexpected)[:10]:
-            print(f"    - {key}")
-        if len(unexpected) > 10:
-            print(f"    ... and {len(unexpected) - 10} more")
+        print(f"\n⚠️  Unexpected keys: {len(unexpected)}")
+        if len(unexpected) <= 10:
+            for key in sorted(unexpected):
+                print(f"    - {key}")
 
     if not missing and not unexpected:
-        print("✓ Checkpoint loaded successfully (all keys matched)")
+        print("✓ Checkpoint loaded successfully")
 
     # Prepare test input
     print("\n[4/5] Preparing test input...")
     test_text = "The quick brown fox jumps over the lazy dog"
 
-    # HuggingFace tokenization
     hf_inputs = tokenizer(test_text, return_tensors="pt").to(device)
     input_ids = hf_inputs["input_ids"]
 
-    print(f"  Input text: '{test_text}'")
-    print(f"  Token IDs shape: {input_ids.shape}")
-    print(f"  Token IDs: {input_ids[0].tolist()}")
+    print(f"  Text: '{test_text}'")
+    print(f"  Tokens: {input_ids.shape}")
 
     # Run inference
-    print("\n[5/5] Running inference and comparing outputs...")
+    print("\n[5/5] Running inference...")
 
     with torch.no_grad():
         # HuggingFace forward pass
@@ -106,14 +105,13 @@ def main() -> None:
 
         # fairseq2 forward pass
         print("  Running fairseq2 model...")
-        # Create batch layout
         seq_lens = [input_ids.shape[1]]
         batch_layout = BatchLayout(input_ids.shape, seq_lens, device=device)
         fs2_logits = fs2_model(input_ids, batch_layout)
 
     # Compare outputs
     print("\n" + "="*80)
-    print("PARITY RESULTS")
+    print("RESULTS")
     print("="*80)
 
     print(f"\nOutput shapes:")
@@ -145,7 +143,7 @@ def main() -> None:
     token_match = (hf_predicted_ids == fs2_predicted_ids).float().mean().item()
     print(f"\nToken prediction agreement: {token_match*100:.2f}%")
 
-    # Detailed comparison of first few tokens
+    # Detailed comparison
     print(f"\nFirst 5 token predictions:")
     print(f"  Position | HF Token | FS2 Token | Match | HF Prob | FS2 Prob")
     print(f"  " + "-"*70)
@@ -167,16 +165,15 @@ def main() -> None:
     max_abs_diff = abs_diff.max().item()
     max_rel_diff = rel_diff.max().item()
 
-    # Thresholds for numerical parity
-    ABS_THRESHOLD = 1e-3  # 0.001 absolute difference
-    REL_THRESHOLD = 1e-2  # 1% relative difference
+    ABS_THRESHOLD = 1e-3
+    REL_THRESHOLD = 1e-2
 
     if max_abs_diff < ABS_THRESHOLD and max_rel_diff < REL_THRESHOLD:
         print("✅ PARITY TEST PASSED")
         print(f"   Max absolute diff ({max_abs_diff:.6e}) < {ABS_THRESHOLD}")
         print(f"   Max relative diff ({max_rel_diff:.6e}) < {REL_THRESHOLD}")
     elif token_match > 0.99:
-        print("⚠️  PARITY TEST PARTIAL PASS")
+        print("⚠️  PARTIAL PASS")
         print(f"   Token predictions match: {token_match*100:.2f}%")
         print(f"   But numerical differences exceed thresholds:")
         print(f"     Max absolute diff: {max_abs_diff:.6e} (threshold: {ABS_THRESHOLD})")

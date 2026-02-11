@@ -1,145 +1,141 @@
-# Gemma3n Parity Status - RESOLVED
+# Gemma3n Parity Implementation Status
 
-## **ROOT CAUSE IDENTIFIED AND FIXED** (2026-02-10)
+## ✅ PARITY ACHIEVED (2026-02-11)
 
-### The Issue: Attention Scaling
+Full inference parity between fairseq2 and HuggingFace Transformers implementations.
 
-**HF uses `scaling=1.0` (no scaling) because Gemma3n uses QK normalization.**
-**FS2 was applying default `1/sqrt(d_k)` scaling in SDPA implementations.**
+### Final Parity Results
+- **Token prediction agreement**: 100%
+- **Max absolute diff**: 1.39e-04
+- **Max relative diff**: 2.67e-03
+- **Test**: `scripts/gemma3n_validation/test_parity.py`
 
-This caused attention outputs to diverge significantly (max diff ~2.88) despite Q, K, V matching perfectly.
+## Critical Components for Parity
 
-### The Fix
+### 1. KV Projection Sharing ⭐ MOST COMPLEX
+Consumer layers reuse K/V projections from source layers instead of computing their own.
 
-Added configurable `scale` parameter to SDPA implementations:
+**Configuration**:
+- `num_kv_shared_layers = 10` (NOT 15 - critical bug!)
+- SOURCE layers: Layer 18 (local), Layer 19 (global)
+- CONSUMER layers: Layers 20-29 (10 layers total)
 
-1. **`NaiveSDPA`** (`src/fairseq2/models/transformer/sdpa/naive.py`):
-   - Added `scale: float | None` parameter (default None = 1/sqrt(d_k))
-   - Modified `naive_scaled_dot_product_attention()` to use custom scaling
-   - Updated `extra_repr()` to show scale value
+**Implementation**:
+- `KVProjectionType` enum (LOCAL/GLOBAL) for type-safe slot access
+- `KVProjectionRole` enum (SOURCE/CONSUMER/NONE) for layer roles
+- Decoder creates 2-slot dict: `{KVProjectionType.LOCAL: None, KVProjectionType.GLOBAL: None}`
+- SOURCE layers store via callback: `kv_projection_slots.update({slot_key: (k, v)})`
+- CONSUMER layers retrieve: `pre_computed_kv = kv_projection_slots[slot_key]`
 
-2. **`TorchSDPA`** (`src/fairseq2/models/transformer/sdpa/torch.py`):
-   - Added `scale: float | None` parameter (default None = 1/sqrt(d_k))
-   - Pre-scales Q by `scale * sqrt(d_k)` to cancel PyTorch's built-in 1/sqrt(d_k)
-   - Updated `extra_repr()` to show scale value
+**Key Insight**: Each implementation stores K/V in its native format (HF: B,H,S,D; FS2: B,S,H,D).
 
-3. **Gemma3n Factory** (`src/fairseq2/models/gemma3n/factory.py`):
-   - Updated SDPA creation to pass `scale=1.0`
-   - Added comment explaining why (QK normalization)
+### 2. Activation Sparsity
+Required for both local AND global layers (not in paper, found via debugging).
 
-### Test Results
+**Configuration**:
+- First 10 layers: `activation_sparsity = 0.95`
+- Remaining layers: `activation_sparsity = 0.0`
+- Applied to BOTH AltUpFeedForwardNetwork and GLUFeedForwardNetwork
 
-**Before fix**:
-```
-Max diff: 2.879671e+00
-Mean diff: 2.395230e-01
-❌ ATTENTION OUTPUTS DIVERGE
-```
+**Implementation**: Gaussian top-k selection in FFN.
 
-**After fix**:
-```
-Max diff: 2.622604e-06
-Mean diff: 2.092344e-07
-✅ ATTENTION OUTPUTS MATCH!
-```
+### 3. AltUp Predict/Correct
+4D tensor processing with predict → process → correct pattern.
 
-## Key Technical Details
+**Flow**:
+1. Stack embeddings to 4D: `[4, batch, seq, dim]`
+2. Each layer: `predict()` → attention+FFN → `correct()` all versions
+3. Unstack: average 4 versions back to 3D
 
-### Why Gemma3n Uses No Scaling
+**Config**: `altup_num_inputs=4`, `altup_active_idx=0`, `altup_coef_clip=120.0`
 
-Gemma3n applies RMSNorm to Q, K, V after projection:
-- `q_norm = RMSNorm(head_dim)` on queries
-- `k_norm = RMSNorm(head_dim)` on keys
-- `v_norm = RMSNorm(head_dim, elementwise_affine=False)` on values
+### 4. Per-Layer Embeddings (PLE)
+Separate embeddings per layer that augment hidden states.
 
-This QK normalization eliminates the need for 1/sqrt(d_k) scaling because:
-- Normalized Q and K already have controlled magnitudes
-- The dot product is already properly scaled
-- Additional 1/sqrt(d_k) would under-scale the attention logits
+**Config**: `vocab_size_per_layer_input=262144`, `hidden_size_per_layer_input=256`
 
-### HF Implementation
+### 5. LAuReL (Learned Augmented Residual)
+Low-rank transformation: `model_dim → rank → model_dim`
+Combined: `(attn_gated + laurel_output) / sqrt(2)`
 
-From `transformers/models/gemma3n/modeling_gemma3n.py`:
+**Config**: `laurel_rank=64`
 
-```python
-class Gemma3nTextAttention(nn.Module):
-    def __init__(self, config, layer_idx):
-        # ...
-        self.scaling = 1.0  # No scaling!
+### 6. RoPE with Dual Theta
+- Local layers: `rope_theta = 10,000`
+- Global layers: `rope_theta_global = 1,000,000`
 
-    def forward(self, ...):
-        attn_output, attn_weights = attention_interface(
-            self,
-            query_states,
-            key_states,
-            value_states,
-            attention_mask,
-            dropout=...,
-            scaling=self.scaling,  # Passes 1.0
-            ...
-        )
-```
+### 7. QK Normalization with scale=1.0
+RMSNorm on Q/K/V + SDPA with `scale=1.0` (no 1/sqrt(d_k) scaling)
 
-The `eager_attention_forward` function then uses this scaling value:
+### 8. Attention Softcapping
+Tanh-based softcapping: `final_logit_soft_cap = 30.0`
 
-```python
-def eager_attention_forward(module, query, key, value, attention_mask,
-                           dropout=0.0, scaling=None, ...):
-    if scaling is None:
-        scaling = module.head_dim**-0.5  # Default
+### 9. Sliding Window Attention
+Local layers: 512-token window
+Global layers: Full causal
 
-    attn_weights = torch.matmul(query, key.transpose(2, 3)) * scaling  # Uses 1.0!
-    # ...
-```
+### 10. GELU with Tanh Approximation
+`F.gelu(x, approximate="tanh")`
 
-### Investigation Journey
+## Debugging Journey
 
-1. **Verified Q, K, V match** (~1e-7 precision) at SDPA input
-2. **Verified GQA expansion match** (both use same pattern)
-3. **Verified manual SDPA computation matches HF** perfectly
-4. **Found divergence persisted** in actual forward pass
-5. **Investigated softcapping** - not present in text attention
-6. **Checked HF attention config** - found `self.scaling = 1.0`!
-7. **Tested scaling hypothesis** - pre-scaling Q by sqrt(d_k) fixed divergence
-8. **Implemented proper fix** - added scale parameter to SDPA
+### Issue 1: Activation Sparsity
+**Symptom**: Layer 0 FFN divergence
+**Root Cause**: HF had sparsity enabled, FS2 didn't
+**Fix**: Added `activation_sparsity=0.95` to first 10 layers
 
-## Component Status
+### Issue 2: num_kv_shared_layers
+**Symptom**: Consumer layer 20 exploded (61.9 max diff)
+**Root Cause**: FS2 used 15, HF used 10
+**Fix**: Changed to `num_kv_shared_layers = 10`
 
-✅ **Embedding & Scaling**: Frontend applies sqrt(model_dim) scaling
-✅ **AltUp (4D stacking)**: Predict/correct logic matches
-✅ **PLE (Per-Layer Embeddings)**: Gating and projection match
-✅ **RoPE**: ReferenceRotaryEncoder with halved format matches
-✅ **QKV Projections**: Linear projections match
-✅ **QKV Normalization**: RMSNorm with correct settings
-✅ **GQA Expansion**: repeat_interleave matches HF repeat_kv
-✅ **Attention Masks**: CausalAttentionBias with sliding window
-✅ **SDPA**: NaiveSDPA with scale=1.0 matches HF eager path
-✅ **Output Projection**: Linear layer matches
-✅ **LAuReL (Learned Augmented Residual)**: Low-rank residual augmentation
-✅ **FFN Sparsity**: Gaussian top-k (95% sparsity) for first 10 layers
-✅ **Layer Normalization**: RMSNorm at all normalization points
+### Issue 3: Test Parameter Name
+**Symptom**: HF not storing K/V
+**Root Cause**: Test used `past_key_value` instead of `past_key_values` (plural)
+**Fix**: Corrected parameter name
+**Result**: Layer 20 went from 61.9 → 9.16e-05 (675,000x improvement!)
 
-## Next Steps
+## Layer Configuration (30 layers)
 
-1. **Run full 30-layer parity test** to verify end-to-end matching
-2. **Test with longer sequences** to verify scaling holds
-3. **Test with different model sizes** (E2B, E4B, etc.)
-4. **Run generation tests** to verify inference quality
-5. **Commit changes** with proper documentation
+| Layers | Type | Attention | FFN | RoPE | KV Role | Sparsity |
+|--------|------|-----------|-----|------|---------|----------|
+| 0-3 | Local | Sliding | AltUp | 10k | NONE | 0.95 |
+| 4 | Global | Full | GLU | 1M | NONE | 0.95 |
+| 5-8 | Local | Sliding | AltUp | 10k | NONE | 0.95 |
+| 9 | Global | Full | GLU | 1M | NONE | 0.95 |
+| 10-13 | Local | Sliding | AltUp | 10k | NONE | 0.0 |
+| 14 | Global | Full | GLU | 1M | NONE | 0.0 |
+| 15-17 | Local | Sliding | AltUp | 10k | NONE | 0.0 |
+| **18** | **Local** | **Sliding** | **AltUp** | **10k** | **SOURCE** | **0.0** |
+| **19** | **Global** | **Full** | **GLU** | **1M** | **SOURCE** | **0.0** |
+| 20-23 | Local | Sliding | AltUp | 10k | CONSUMER (18) | 0.0 |
+| 24 | Global | Full | GLU | 1M | CONSUMER (19) | 0.0 |
+| 25-28 | Local | Sliding | AltUp | 10k | CONSUMER (18) | 0.0 |
+| 29 | Global | Full | GLU | 1M | CONSUMER (19) | 0.0 |
 
 ## Files Modified
 
 ### Core Implementation
-- `src/fairseq2/models/transformer/sdpa/naive.py` - Added scale parameter
-- `src/fairseq2/models/transformer/sdpa/torch.py` - Added scale parameter
-- `src/fairseq2/models/gemma3n/factory.py` - Pass scale=1.0 for Gemma3n
+- `src/fairseq2/models/gemma3n/config.py` - Config with KV sharing
+- `src/fairseq2/models/gemma3n/decoder.py` - Decoder with AltUp 4D
+- `src/fairseq2/models/gemma3n/decoder_layer.py` - Layer with LAuReL, AltUp, PLE
+- `src/fairseq2/models/gemma3n/factory.py` - Factory for components
+- `src/fairseq2/models/gemma3n/frontend.py` - Frontend with PLE
+- `src/fairseq2/models/gemma3n/model.py` - Model with softcapping
+- `src/fairseq2/models/gemma3n/altup.py` - AltUp implementation
+- `src/fairseq2/models/gemma3n/kv_projection.py` - KV sharing enums
+- `src/fairseq2/models/gemma3n/interop.py` - Checkpoint conversion
 
-### Test Files Created (This Session)
-- `scripts/gemma3n_validation/direct_attention_comparison.py` - Clean HF vs FS2 attention test
-- `scripts/gemma3n_validation/check_layer0_softcap_value.py` - Verify no softcapping in text layers
-- `scripts/gemma3n_validation/test_disable_scaling.py` - Proof of concept for scaling fix
-- `scripts/gemma3n_validation/check_softcap_in_direct.py` - Check softcap in direct comparison
+### Infrastructure
+- `src/fairseq2/models/transformer/multihead_attention.py` - pre_computed_kv support
+- `src/fairseq2/models/transformer/ffn.py` - AltUpFeedForwardNetwork
+- `src/fairseq2/models/transformer/sdpa/naive.py` - Softcapping
+- `src/fairseq2/models/transformer/sdpa/torch.py` - Softcapping
 
-### Previous Test Files
-- Multiple debug scripts for systematic component verification
-- All component-level tests passed before identifying scaling issue
+## Testing
+
+```bash
+python scripts/gemma3n_validation/test_parity.py
+```
+
+Expected: 100% token agreement, max abs diff < 1e-3, max rel diff < 1e-2
