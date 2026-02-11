@@ -9,6 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final
 
+from fairseq2.models.gemma3n.kv_projection import KVProjectionRole
+
 GEMMA3N_FAMILY: Final = "gemma3n"
 
 
@@ -65,7 +67,7 @@ class Gemma3nConfig:
     final_logit_soft_cap: float = 30.0
     """Soft-capping value for attention logits."""
 
-    num_kv_shared_layers: int = 15
+    num_kv_shared_layers: int = 10
     """The number of layers that share KV cache values."""
 
     laurel_rank: int = 64
@@ -98,6 +100,21 @@ class Gemma3nConfig:
     init_std: float | None = 0.02
     """The standard deviation to initialize input embeddings and projection weights."""
 
+    @property
+    def ple_hidden_dim(self) -> int:
+        """Alias for hidden_size_per_layer_input."""
+        return self.hidden_size_per_layer_input
+
+    @property
+    def vocab_size_per_layer(self) -> int:
+        """Alias for vocab_size_per_layer_input."""
+        return self.vocab_size_per_layer_input
+
+    @property
+    def final_logit_softcapping(self) -> float:
+        """Alias for final_logit_soft_cap to match HF naming."""
+        return self.final_logit_soft_cap
+
 
 def is_global_layer(layer_idx: int, num_layers: int = 35) -> bool:
     """Determine if a layer uses global attention.
@@ -120,9 +137,102 @@ def is_global_layer(layer_idx: int, num_layers: int = 35) -> bool:
     return (layer_idx + 1) % 5 == 0
 
 
+def get_kv_sharing_config(
+    layer_idx: int, num_layers: int = 30, num_kv_shared_layers: int = 10
+) -> tuple[bool, int | None, bool]:
+    """Determine KV sharing configuration for a layer.
+
+    Gemma3n uses KV sharing where the last `num_kv_shared_layers` layers
+    (e.g., 15-29) reuse K/V from earlier layers of the same type instead
+    of computing their own.
+
+    Args:
+        layer_idx: The zero-based index of the layer.
+        num_layers: The total number of layers.
+        num_kv_shared_layers: The number of layers that share KV.
+
+    Returns:
+        A tuple of (is_kv_shared_layer, kv_source_layer_idx, is_kv_source_layer):
+        - is_kv_shared_layer: True if this layer retrieves K/V from a source
+        - kv_source_layer_idx: Index of the source layer (if shared), else None
+        - is_kv_source_layer: True if this layer stores K/V for shared layers
+    """
+    first_kv_shared_layer_idx = num_layers - num_kv_shared_layers
+
+    # Check if this is a shared layer
+    is_kv_shared_layer = layer_idx >= first_kv_shared_layer_idx
+
+    if not is_kv_shared_layer:
+        # Check if this layer is a source for shared layers
+        # A layer is a source if it's the LAST non-shared layer of its type
+        layer_is_global = is_global_layer(layer_idx, num_layers)
+
+        # Find the last non-shared layer of this type
+        last_of_type = -1
+        for idx in range(first_kv_shared_layer_idx):
+            if is_global_layer(idx, num_layers) == layer_is_global:
+                last_of_type = idx
+
+        # This layer is a source only if it's the last of its type
+        is_kv_source_layer = (layer_idx == last_of_type)
+
+        return False, None, is_kv_source_layer
+    else:
+        # This is a shared layer - find its source
+        layer_is_global = is_global_layer(layer_idx, num_layers)
+
+        # Find the last non-shared layer with the same type
+        # Search backwards from first_kv_shared_layer_idx - 1 to 0
+        for source_idx in range(first_kv_shared_layer_idx - 1, -1, -1):
+            if is_global_layer(source_idx, num_layers) == layer_is_global:
+                return True, source_idx, False
+
+        # Should never reach here if config is valid
+        raise ValueError(
+            f"Layer {layer_idx} is a KV shared layer but no source layer "
+            f"of the same type found in layers 0-{first_kv_shared_layer_idx-1}"
+        )
+
+
+def get_kv_projection_role(
+    layer_idx: int,
+    is_global: bool,
+    num_layers: int = 30,
+    num_kv_shared_layers: int = 10,
+) -> KVProjectionRole:
+    """Determine KV projection sharing role for a layer.
+
+    Args:
+        layer_idx: Zero-based layer index.
+        is_global: Whether this is a global (full attention) layer.
+        num_layers: Total number of layers.
+        num_kv_shared_layers: Number of layers that consume shared K/V.
+
+    Returns:
+        KVProjectionRole indicating this layer's role in KV projection sharing.
+    """
+    first_shared_idx = num_layers - num_kv_shared_layers
+
+    # All layers from first_shared_idx onwards are consumers
+    if layer_idx >= first_shared_idx:
+        return KVProjectionRole.CONSUMER
+
+    # Check if this is the last layer of its type before sharing starts
+    # That layer becomes the source for all consumers of the same type
+    for idx in range(layer_idx + 1, first_shared_idx):
+        if is_global_layer(idx, num_layers) == is_global:
+            return KVProjectionRole.NONE  # Found a later layer of same type
+
+    return KVProjectionRole.SOURCE  # This is the last of its type before sharing
+
+
 def get_gemma3n_e2b_config() -> Gemma3nConfig:
     """Get configuration for Gemma3n E2B (2B effective parameters)."""
-    return Gemma3nConfig(num_layers=30)
+    return Gemma3nConfig(
+        num_layers=30,
+        ffn_inner_dim=8192,  # E2B uses 8192 for global layers
+        altup_hidden_dim=8192,  # E2B uses same FFN dim for local layers
+    )
 
 
 def get_gemma3n_e4b_config() -> Gemma3nConfig:

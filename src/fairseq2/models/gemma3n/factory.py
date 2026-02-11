@@ -6,45 +6,51 @@
 
 from __future__ import annotations
 
+import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.gang import Gangs, maybe_get_current_gangs
-from fairseq2.models.gemma3n.config import Gemma3nConfig, is_global_layer
-from fairseq2.models.gemma3n.decoder_layer import Gemma3nDecoderLayer
+from fairseq2.models.gemma3n.altup import Gemma3nAltUp
+from fairseq2.models.gemma3n.config import Gemma3nConfig, is_global_layer, get_kv_projection_role
+from fairseq2.models.gemma3n.decoder import Gemma3nDecoder
+from fairseq2.models.gemma3n.decoder_layer import (
+    Gemma3nDecoderLayer,
+    Gemma3nLAuReL,
+)
+from fairseq2.models.gemma3n.frontend import Gemma3nFrontend
+from fairseq2.models.gemma3n.model import Gemma3nLM
 from fairseq2.models.transformer import (
     CausalAttentionBias,
     FeedForwardNetwork,
     GLUFeedForwardNetwork,
-    MultiheadAttention,
     StandardMultiheadAttention,
-    TransformerEmbeddingFrontend,
     TransformerFrontend,
-    TransformerNormOrder,
 )
 from fairseq2.models.transformer.ffn import AltUpFeedForwardNetwork
-from fairseq2.models.transformer.sdpa.soft_capped import SoftCappedSDPA
-from fairseq2.models.transformer_lm import (
-    StandardTransformerLMDecoder,
-    StandardTransformerLMDecoderLayer,
-    TransformerLM,
-    TransformerLMDecoder,
-    TransformerLMDecoderLayer,
-)
+
+
+class TanhGELU(nn.Module):
+    """GELU activation with tanh approximation.
+
+    Uses tanh approximation to match HuggingFace Gemma3n implementation.
+    """
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return F.gelu(x, approximate="tanh")
+from fairseq2.models.transformer.sdpa.naive import NaiveSDPA
 from fairseq2.nn import (
-    AdditiveResidualConnect,
     Embedding,
-    LAuReLResidualConnect,
-    LayerNorm,
-    Linear,
     PositionEncoder,
     Projection,
     RMSNorm,
     StandardEmbedding,
     TiedProjection,
 )
-from fairseq2.nn.position_encoder import DualRotaryEncoder
+from fairseq2.nn.position_encoder import ReferenceRotaryEncoder
+from fairseq2.nn.projection import Linear
 
 
 def create_gemma3n_model(
@@ -52,7 +58,7 @@ def create_gemma3n_model(
     *,
     device: Device | None = None,
     dtype: DataType | None = None,
-) -> TransformerLM:
+) -> Gemma3nLM:
     """Create a Gemma3n language model.
 
     :param config: The Gemma3n configuration.
@@ -86,20 +92,21 @@ class Gemma3nFactory:
         self._dtype = dtype
         self._gangs = gangs
 
-    def create_model(self) -> TransformerLM:
+    def create_model(self) -> Gemma3nLM:
         """Create the full Gemma3n model."""
         embed = self.create_embedding()
         decoder_frontend = self.create_decoder_frontend(embed)
         decoder = self.create_decoder()
         final_proj = self.create_final_projection(embed)
 
-        return TransformerLM(
+        return Gemma3nLM(
             self._config.model_dim,
             decoder_frontend,
             decoder,
             final_proj,
             self._config.pad_idx,
             self._config.max_seq_len,
+            final_logit_softcapping=self._config.final_logit_softcapping,
         )
 
     def create_embedding(self) -> Embedding:
@@ -113,19 +120,32 @@ class Gemma3nFactory:
         )
 
     def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
-        """Create the decoder frontend (embedding layer)."""
-        return TransformerEmbeddingFrontend(
-            self._config.model_dim,
-            embed,
+        """Create the decoder frontend with PLE support."""
+        # PLE normalization
+        ple_norm = RMSNorm(
+            self._config.ple_hidden_dim,
+            bias=False,
+            eps=self._config.rms_norm_eps,
+            device=self._device,
+            dtype=self._dtype,
+        )
+
+        return Gemma3nFrontend(
+            model_dim=self._config.model_dim,
+            embed=embed,
             pos_encoder=None,
-            no_scale=True,
+            vocab_size_per_layer=self._config.vocab_size_per_layer,
+            num_layers=self._config.num_layers,
+            ple_hidden_dim=self._config.ple_hidden_dim,
+            ple_norm=ple_norm,
+            no_scale=False,  # Gemma3n scales embeddings by sqrt(model_dim)
             dropout_p=0.0,
             device=self._device,
             dtype=self._dtype,
         )
 
-    def create_decoder(self) -> TransformerLMDecoder:
-        """Create the decoder stack."""
+    def create_decoder(self) -> Gemma3nDecoder:
+        """Create the Gemma3n decoder with AltUp and PLE."""
         layers = [
             create_gemma3n_decoder_layer(
                 idx, self._config, device=self._device, dtype=self._dtype
@@ -141,7 +161,14 @@ class Gemma3nFactory:
             dtype=self._dtype,
         )
 
-        return StandardTransformerLMDecoder(layers, layer_norm)
+        return Gemma3nDecoder(
+            layers=layers,
+            layer_norm=layer_norm,
+            model_dim=self._config.model_dim,
+            num_altup_inputs=self._config.altup_num_inputs,
+            device=self._device,
+            dtype=self._dtype,
+        )
 
     def create_final_projection(self, embed: Embedding) -> Projection:
         """Create the final output projection."""
@@ -159,40 +186,70 @@ def create_gemma3n_decoder_layer(
     *,
     device: Device | None = None,
     dtype: DataType | None = None,
-) -> TransformerLMDecoderLayer:
-    """Create a Gemma3n decoder layer with local or global attention.
+) -> Gemma3nDecoderLayer:
+    """Create a Gemma3n decoder layer with AltUp, LAuReL, and PLE.
 
     :param layer_idx: The layer index (0-based).
     :param config: The Gemma3n configuration.
-    :returns: A configured decoder layer.
+    :returns: A configured Gemma3n decoder layer.
     """
     is_global = is_global_layer(layer_idx, config.num_layers)
 
-    pos_encoder: PositionEncoder | None = None
-    if not is_global:
-        # Local layers use dual-frequency RoPE
-        pos_encoder = DualRotaryEncoder(
+    # KV projection sharing role
+    kv_projection_role = get_kv_projection_role(
+        layer_idx, is_global, config.num_layers, config.num_kv_shared_layers
+    )
+
+    # Position encoder (different theta for local vs global)
+    if is_global:
+        # Global layers: use larger theta for longer-range dependencies
+        pos_encoder = ReferenceRotaryEncoder(
+            encoding_dim=config.head_dim,
+            max_seq_len=config.max_seq_len,
+            theta=config.rope_theta_global,
+            device=device,
+        )
+    else:
+        # Local layers: use standard theta
+        pos_encoder = ReferenceRotaryEncoder(
             encoding_dim=config.head_dim,
             max_seq_len=config.max_seq_len,
             theta=config.rope_theta,
-            dual_theta=config.rope_theta_global,
             device=device,
         )
 
-    sdpa = SoftCappedSDPA(
-        bias=CausalAttentionBias(),
-        soft_cap=config.final_logit_soft_cap,
+    # SDPA (use NaiveSDPA for exact HF parity - upcasts softmax to float32)
+    # Use scale=1.0 to disable attention logit scaling because Gemma3n uses QK normalization
+    if is_global:
+        # Global layers: full causal attention
+        attention_bias = CausalAttentionBias()
+    else:
+        # Local layers: sliding window attention
+        attention_bias = CausalAttentionBias(attn_window_len=config.sliding_window)
+
+    sdpa = NaiveSDPA(
+        bias=attention_bias,
         dropout_p=0.0,
+        scale=1.0,  # Disable scaling - Gemma3n uses QK normalization instead
     )
 
-    # QK normalization (replaces soft-capping in Gemma 2)
+    # QKV normalization
     q_norm = RMSNorm(
         config.head_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
     )
     k_norm = RMSNorm(
         config.head_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
     )
+    v_norm = RMSNorm(
+        config.head_dim,
+        bias=False,
+        eps=config.rms_norm_eps,
+        elementwise_affine=False,
+        device=device,
+        dtype=dtype,
+    )
 
+    # Self-attention
     self_attn = StandardMultiheadAttention(
         model_dim=config.model_dim,
         num_heads=config.num_attn_heads,
@@ -201,32 +258,41 @@ def create_gemma3n_decoder_layer(
         pos_encoder=pos_encoder,
         q_norm=q_norm,
         k_norm=k_norm,
+        v_norm=v_norm,
         bias=False,
         device=device,
         dtype=dtype,
     )
 
+    # FFN (global vs local)
+    # Sparsity pattern: first 10 layers have 0.95 sparsity regardless of type
+    num_sparse_layers = 10 if config.num_layers > 10 else 0
+    activation_sparsity = 0.95 if layer_idx < num_sparse_layers else 0.0
+
     ffn: FeedForwardNetwork
     if is_global:
-        # Global layers use standard GLU FFN
         ffn = GLUFeedForwardNetwork(
             model_dim=config.model_dim,
             inner_dim=config.ffn_inner_dim,
             bias=False,
-            gate_activation=nn.GELU(),
+            gate_activation=TanhGELU(),  # Use tanh-approximated GELU
+            inner_dim_scale=1.0,  # Disable 2/3 scaling for Gemma3n
+            activation_sparsity=activation_sparsity,
             device=device,
             dtype=dtype,
         )
     else:
-        # Local layers use AltUp FFN
+        # Local layers: use AltUp FFN with activation sparsity
         ffn = AltUpFeedForwardNetwork(
             model_dim=config.model_dim,
             inner_dim=config.altup_hidden_dim,
             bias=False,
+            activation_sparsity=activation_sparsity,
             device=device,
             dtype=dtype,
         )
 
+    # Normalizations
     input_layernorm = RMSNorm(
         config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
     )
@@ -240,11 +306,11 @@ def create_gemma3n_decoder_layer(
         config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
     )
 
-    # LAuReL residual connection with post-LAuReL normalization
+    # LAuReL
     post_laurel_norm = RMSNorm(
         config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
     )
-    self_attn_residual = LAuReLResidualConnect(
+    laurel = Gemma3nLAuReL(
         model_dim=config.model_dim,
         rank=config.laurel_rank,
         layer_norm=post_laurel_norm,
@@ -252,20 +318,61 @@ def create_gemma3n_decoder_layer(
         dtype=dtype,
     )
 
-    ffn_residual = AdditiveResidualConnect()
-
-    return Gemma3nDecoderLayer(
-        self_attn=self_attn,
-        ffn=ffn,
-        input_layernorm=input_layernorm,
-        post_attention_layernorm=post_attention_layernorm,
-        self_attn_residual=self_attn_residual,
-        ffn_residual=ffn_residual,
-        pre_feedforward_layernorm=pre_feedforward_layernorm,
-        post_feedforward_layernorm=post_feedforward_layernorm,
-        dropout_p=0.0,
+    # AltUp router normalization
+    router_norm = RMSNorm(
+        config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
+    )
+    altup = Gemma3nAltUp(
+        model_dim=config.model_dim,
+        num_inputs=config.altup_num_inputs,
+        active_idx=config.altup_active_idx,
+        router_norm=router_norm,
+        coef_clip=config.altup_coef_clip,
         device=device,
         dtype=dtype,
     )
 
+    # PLE components (per-layer gating and projection)
+    per_layer_input_gate = Linear(
+        config.model_dim,
+        config.ple_hidden_dim,
+        bias=False,
+        device=device,
+        dtype=dtype,
+    )
+    per_layer_projection = Linear(
+        config.ple_hidden_dim,
+        config.model_dim,
+        bias=False,
+        device=device,
+        dtype=dtype,
+    )
+    post_per_layer_input_norm = RMSNorm(
+        config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
+    )
 
+    # Hidden activation for PLE (tanh-approximated GELU to match HF)
+    hidden_activation = TanhGELU()
+
+    return Gemma3nDecoderLayer(
+        self_attn=self_attn,
+        ffn=ffn,
+        layer_idx=layer_idx,
+        is_global=is_global,
+        kv_projection_role=kv_projection_role,
+        input_layernorm=input_layernorm,
+        post_attention_layernorm=post_attention_layernorm,
+        pre_feedforward_layernorm=pre_feedforward_layernorm,
+        post_feedforward_layernorm=post_feedforward_layernorm,
+        laurel=laurel,
+        altup=altup,
+        altup_active_idx=config.altup_active_idx,
+        altup_correct_scale=config.altup_correct_scale,
+        per_layer_input_gate=per_layer_input_gate,
+        per_layer_projection=per_layer_projection,
+        post_per_layer_input_norm=post_per_layer_input_norm,
+        hidden_activation=hidden_activation,
+        dropout_p=0.0,
+        device=device,
+        dtype=dtype,
+    )

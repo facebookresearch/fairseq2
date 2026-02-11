@@ -26,11 +26,28 @@ from fairseq2.nn import BatchLayout
 class NaiveSDPA(SDPA):
     """Computes scaled dot-product attention using a Python implementation."""
 
-    def __init__(self, bias: AttentionBias, *, dropout_p: float = 0.0) -> None:
+    bias: AttentionBias
+    dropout_p: float
+    scale: float | None
+
+    def __init__(
+        self, bias: AttentionBias, *, dropout_p: float = 0.0, scale: float | None = None
+    ) -> None:
+        """
+        :param bias:
+            The attention bias.
+        :param dropout_p:
+            The dropout probability for attention weights.
+        :param scale:
+            The scaling factor to apply to attention logits. If ``None``, uses
+            1/sqrt(head_dim) scaling (default SDPA behavior). Set to 1.0 to
+            disable scaling (e.g. when using QK normalization).
+        """
         super().__init__()
 
         self.bias = bias
         self.dropout_p = dropout_p
+        self.scale = scale
 
     @override
     def forward(
@@ -64,7 +81,7 @@ class NaiveSDPA(SDPA):
         v = v.transpose(-2, -3)
 
         attns, attn_weights = naive_scaled_dot_product_attention(
-            q, k, v, bias, dropout_p=dropout_p, needs_weights=needs_weights
+            q, k, v, bias, dropout_p=dropout_p, scale=self.scale, needs_weights=needs_weights
         )
 
         # (N, H, S, V) -> (N, S, H, V)
@@ -75,7 +92,10 @@ class NaiveSDPA(SDPA):
     @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"bias={self.bias}, dropout_p={self.dropout_p:G}"
+        s = f"bias={self.bias}, dropout_p={self.dropout_p:G}"
+        if self.scale is not None:
+            s += f", scale={self.scale:G}"
+        return s
 
 
 def naive_scaled_dot_product_attention(
@@ -85,12 +105,18 @@ def naive_scaled_dot_product_attention(
     bias: Tensor | None,
     *,
     dropout_p: float = 0.0,
+    scale: float | None = None,
     needs_weights: bool = False,
 ) -> tuple[Tensor, Tensor | None]:
     # (N, H, S, K) @ (N, H, K, S_kv) = (N, H, S, S_kv)
     weights = torch.matmul(q, k.transpose(-1, -2))
 
-    weights = weights * (q.size(-1) ** -0.5)
+    if scale is None:
+        # Default: 1/sqrt(d_k) scaling
+        weights = weights * (q.size(-1) ** -0.5)
+    else:
+        # Custom scaling (e.g., 1.0 for no scaling when using QK normalization)
+        weights = weights * scale
 
     if bias is not None:
         # (N, H, S, S_kv) + ([[N], H], S, S_kv) -> (N, H, S, S_kv)
