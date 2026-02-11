@@ -34,8 +34,16 @@ from fairseq2.nn import BatchLayout
 class Flash3SDPA(SDPA):
     """Computes scaled dot-product attention using FlashAttention3."""
 
-    def __init__(self, bias: AttentionBias, *, dropout_p: float = 0.0) -> None:
+    def __init__(
+        self, bias: AttentionBias, *, dropout_p: float = 0.0, scale: float | None = None
+    ) -> None:
         super().__init__()
+
+        if scale is not None:
+            raise NotSupportedError(
+                "FlashAttention3 does not support custom scale parameter. "
+                "Use TorchSDPA or NaiveSDPA for models with QK normalization."
+            )
 
         self.bias = bias
         self.dropout_p = dropout_p

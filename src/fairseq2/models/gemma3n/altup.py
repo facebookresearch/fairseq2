@@ -38,7 +38,6 @@ class Gemma3nAltUp(Module):
     prediction_coefs: Linear
     modality_router: Linear
     router_norm: LayerNorm
-    router_input_scale: Tensor
     coef_clip: float | None
 
     def __init__(

@@ -6,15 +6,16 @@
 
 from __future__ import annotations
 
-from typing import final
+from typing import cast, final
 
 import torch
 from torch import Tensor
+from torch.nn import Dropout
 from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
-from fairseq2.models.transformer import TransformerEmbeddingFrontend
+from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.nn import (
     BatchLayout,
     Embedding,
@@ -27,15 +28,16 @@ from fairseq2.nn.projection import Linear
 
 
 @final
-class Gemma3nFrontend(TransformerEmbeddingFrontend):
+class Gemma3nFrontend(TransformerFrontend):
     """Gemma3n frontend with PLE (Per-Layer Embeddings) support."""
 
+    embed: Embedding
+    pos_encoder: PositionEncoder | None
+    dropout: Dropout | None
+    scale: float
     embed_tokens_per_layer: StandardEmbedding
     per_layer_model_projection: Linear
     per_layer_projection_norm: LayerNorm
-    per_layer_projection_scale: Tensor
-    per_layer_input_scale: Tensor
-    per_layer_embed_scale: Tensor  # Scale for PLE discrete embeddings
     num_layers: int
     ple_hidden_dim: int
 
@@ -65,15 +67,22 @@ class Gemma3nFrontend(TransformerEmbeddingFrontend):
         :param no_scale: If True, does not scale embeddings.
         :param dropout_p: Dropout probability on embeddings.
         """
-        super().__init__(
-            model_dim,
-            embed,
-            pos_encoder,
-            no_scale=no_scale,
-            dropout_p=dropout_p,
-            device=device,
-            dtype=dtype,
-        )
+        super().__init__()
+
+        # Standard embedding components (copied from TransformerEmbeddingFrontend)
+        self.embed = embed
+        self.scale = 1.0 if no_scale else (model_dim ** 0.5)
+
+        self.pos_encoder: PositionEncoder | None
+        self.register_module("pos_encoder", pos_encoder)
+
+        if dropout_p > 0.0:
+            dropout = Dropout(dropout_p)
+        else:
+            dropout = None
+
+        self.dropout: Dropout | None
+        self.register_module("dropout", dropout)
 
         self.num_layers = num_layers
         self.ple_hidden_dim = ple_hidden_dim
@@ -133,13 +142,20 @@ class Gemma3nFrontend(TransformerEmbeddingFrontend):
         # Store token_ids for PLE lookup (before embedding)
         token_ids = seqs
 
-        # Get PLE discrete embeddings from token_ids
+        # Standard embedding (copied from TransformerEmbeddingFrontend.forward)
+        seqs = self.embed(seqs)
+
+        if self.scale != 1.0:
+            seqs = seqs * self.scale
+
+        if self.pos_encoder is not None:
+            seqs = self.pos_encoder(seqs, seqs_layout, state_bag=state_bag)
+
+        if self.dropout is not None:
+            seqs = self.dropout(seqs)
+
+        # Gemma3n-specific: Compute PLE embeddings
         per_layer_inputs_discrete = self._get_per_layer_inputs(token_ids)
-
-        # Normal embedding process (converts token_ids → embeddings)
-        seqs, seqs_layout = super().forward(seqs, seqs_layout, state_bag=state_bag)
-
-        # Get PLE continuous projection from embeddings
         per_layer_inputs_continuous = self._project_per_layer_inputs(seqs)
 
         # Combine discrete + continuous PLE
@@ -152,7 +168,7 @@ class Gemma3nFrontend(TransformerEmbeddingFrontend):
         if state_bag is None:
             state_bag = IncrementalStateBag(max_num_steps=seqs.size(1))
 
-        state_bag.per_layer_inputs = per_layer_inputs
+        state_bag.per_layer_inputs = per_layer_inputs  # pyright: ignore[reportAttributeAccessIssue]
 
         return seqs, seqs_layout
 
@@ -209,4 +225,5 @@ class Gemma3nFrontend(TransformerEmbeddingFrontend):
         :returns: Combined PLE [B, S, L, P].
         """
         # Add and scale (matches HF line 1781)
-        return (continuous + discrete) * self.per_layer_input_scale
+        scale = cast(Tensor, self.per_layer_input_scale)
+        return (continuous + discrete) * scale

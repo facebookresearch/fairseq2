@@ -137,63 +137,6 @@ def is_global_layer(layer_idx: int, num_layers: int = 35) -> bool:
     return (layer_idx + 1) % 5 == 0
 
 
-def get_kv_sharing_config(
-    layer_idx: int, num_layers: int = 30, num_kv_shared_layers: int = 10
-) -> tuple[bool, int | None, bool]:
-    """Determine KV sharing configuration for a layer.
-
-    Gemma3n uses KV sharing where the last `num_kv_shared_layers` layers
-    (e.g., 15-29) reuse K/V from earlier layers of the same type instead
-    of computing their own.
-
-    Args:
-        layer_idx: The zero-based index of the layer.
-        num_layers: The total number of layers.
-        num_kv_shared_layers: The number of layers that share KV.
-
-    Returns:
-        A tuple of (is_kv_shared_layer, kv_source_layer_idx, is_kv_source_layer):
-        - is_kv_shared_layer: True if this layer retrieves K/V from a source
-        - kv_source_layer_idx: Index of the source layer (if shared), else None
-        - is_kv_source_layer: True if this layer stores K/V for shared layers
-    """
-    first_kv_shared_layer_idx = num_layers - num_kv_shared_layers
-
-    # Check if this is a shared layer
-    is_kv_shared_layer = layer_idx >= first_kv_shared_layer_idx
-
-    if not is_kv_shared_layer:
-        # Check if this layer is a source for shared layers
-        # A layer is a source if it's the LAST non-shared layer of its type
-        layer_is_global = is_global_layer(layer_idx, num_layers)
-
-        # Find the last non-shared layer of this type
-        last_of_type = -1
-        for idx in range(first_kv_shared_layer_idx):
-            if is_global_layer(idx, num_layers) == layer_is_global:
-                last_of_type = idx
-
-        # This layer is a source only if it's the last of its type
-        is_kv_source_layer = (layer_idx == last_of_type)
-
-        return False, None, is_kv_source_layer
-    else:
-        # This is a shared layer - find its source
-        layer_is_global = is_global_layer(layer_idx, num_layers)
-
-        # Find the last non-shared layer with the same type
-        # Search backwards from first_kv_shared_layer_idx - 1 to 0
-        for source_idx in range(first_kv_shared_layer_idx - 1, -1, -1):
-            if is_global_layer(source_idx, num_layers) == layer_is_global:
-                return True, source_idx, False
-
-        # Should never reach here if config is valid
-        raise ValueError(
-            f"Layer {layer_idx} is a KV shared layer but no source layer "
-            f"of the same type found in layers 0-{first_kv_shared_layer_idx-1}"
-        )
-
-
 def get_kv_projection_role(
     layer_idx: int,
     is_global: bool,

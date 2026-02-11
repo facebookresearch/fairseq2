@@ -104,7 +104,6 @@ class Gemma3nDecoder(TransformerLMDecoder):
         # Get PLE embeddings from state_bag (set by frontend)
         per_layer_inputs = getattr(state_bag, 'per_layer_inputs', None)
 
-        # Process through layers
         attn_bias_cache = AttentionBiasCache()
 
         for layer_idx, layer in enumerate(self.layers):
@@ -114,7 +113,6 @@ class Gemma3nDecoder(TransformerLMDecoder):
             else:
                 layer_ple = None
 
-            # Process layer (4D → 4D)
             hidden_states = layer(
                 hidden_states,
                 seqs_layout,
@@ -127,7 +125,6 @@ class Gemma3nDecoder(TransformerLMDecoder):
         # Unstack to 3D: [4, B, S, M] → [B, S, M]
         seqs = self._unstack_altup(hidden_states)
 
-        # Final normalization
         seqs = self.layer_norm(seqs)
 
         return seqs

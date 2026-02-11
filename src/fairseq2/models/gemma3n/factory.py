@@ -25,13 +25,15 @@ from fairseq2.models.gemma3n.decoder_layer import (
     Gemma3nLAuReL,
 )
 from fairseq2.models.gemma3n.frontend import Gemma3nFrontend
-from fairseq2.models.gemma3n.model import Gemma3nLM
+from fairseq2.models.gemma3n.model import Gemma3nModel
+from fairseq2.models.gemma3n.projection import SoftcappedProjection
 from fairseq2.models.transformer import (
     CausalAttentionBias,
     FeedForwardNetwork,
     GLUFeedForwardNetwork,
     StandardMultiheadAttention,
     TransformerFrontend,
+    create_default_sdpa,
 )
 from fairseq2.models.transformer.ffn import AltUpFeedForwardNetwork
 
@@ -44,7 +46,8 @@ class TanhGELU(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return F.gelu(x, approximate="tanh")
-from fairseq2.models.transformer.sdpa.naive import NaiveSDPA
+
+
 from fairseq2.nn import (
     Embedding,
     PositionEncoder,
@@ -62,7 +65,7 @@ def create_gemma3n_model(
     *,
     device: Device | None = None,
     dtype: DataType | None = None,
-) -> Gemma3nLM:
+) -> Gemma3nModel:
     """Create a Gemma3n language model.
 
     :param config: The Gemma3n configuration.
@@ -96,21 +99,20 @@ class Gemma3nFactory:
         self._dtype = dtype
         self._gangs = gangs
 
-    def create_model(self) -> Gemma3nLM:
+    def create_model(self) -> Gemma3nModel:
         """Create the full Gemma3n model."""
         embed = self.create_embedding()
         decoder_frontend = self.create_decoder_frontend(embed)
         decoder = self.create_decoder()
         final_proj = self.create_final_projection(embed)
 
-        return Gemma3nLM(
+        return Gemma3nModel(
             self._config.model_dim,
             decoder_frontend,
             decoder,
             final_proj,
             self._config.pad_idx,
             self._config.max_seq_len,
-            final_logit_softcapping=self._config.final_logit_softcapping,
         )
 
     def create_embedding(self) -> Embedding:
@@ -175,13 +177,19 @@ class Gemma3nFactory:
         )
 
     def create_final_projection(self, embed: Embedding) -> Projection:
-        """Create the final output projection."""
+        """Create the final output projection with optional softcapping."""
         if not isinstance(embed, StandardEmbedding):
             raise TypeError(
                 f"`embed` must be `StandardEmbedding`, got `{type(embed)}` instead."
             )
 
-        return TiedProjection(embed.weight, bias=None)
+        base_proj = TiedProjection(embed.weight, bias=None)
+
+        # Wrap with softcapping if configured
+        if self._config.final_logit_softcapping is not None:
+            return SoftcappedProjection(base_proj, self._config.final_logit_softcapping)
+
+        return base_proj
 
 
 def create_gemma3n_decoder_layer(
@@ -230,8 +238,8 @@ def create_gemma3n_decoder_layer(
         # Local layers: sliding window attention
         attention_bias = CausalAttentionBias(attn_window_len=config.sliding_window)
 
-    sdpa = NaiveSDPA(
-        bias=attention_bias,
+    sdpa = create_default_sdpa(
+        attention_bias,
         dropout_p=0.0,
         scale=1.0,  # Disable scaling - Gemma3n uses QK normalization instead
     )

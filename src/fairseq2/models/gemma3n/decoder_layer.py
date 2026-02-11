@@ -128,9 +128,6 @@ class Gemma3nDecoderLayer(TransformerLMDecoderLayer):
         :param per_layer_projection: PLE output projection.
         :param post_per_layer_input_norm: PLE post-normalization.
         :param hidden_activation: Activation for PLE gating.
-        :param is_kv_shared_layer: If True, this layer retrieves K/V from a source layer.
-        :param kv_source_layer_idx: Index of source layer to retrieve K/V from (if shared).
-        :param is_kv_source_layer: If True, this layer stores K/V for shared layers.
         :param dropout_p: Dropout probability.
         """
         super().__init__()
@@ -192,6 +189,7 @@ class Gemma3nDecoderLayer(TransformerLMDecoderLayer):
             active_prediction = predictions[self.altup_active_idx]
         else:
             # No AltUp mode (for compatibility)
+            predictions = None
             active_prediction = seqs
 
         # Pre-normalization
@@ -250,6 +248,7 @@ class Gemma3nDecoderLayer(TransformerLMDecoderLayer):
             return attn_ffw_laurel_gated
 
         # AltUp correct step: update all 4 versions
+        assert predictions is not None  # Always set when is_4d=True
         corrected_predictions = self.altup.correct(predictions, attn_ffw_laurel_gated)
 
         # Extract active version for PLE processing
@@ -259,6 +258,10 @@ class Gemma3nDecoderLayer(TransformerLMDecoderLayer):
 
         # PLE augmentation (if enabled)
         if self.per_layer_input_gate is not None and per_layer_input is not None:
+            assert self.hidden_activation is not None
+            assert self.per_layer_projection is not None
+            assert self.post_per_layer_input_norm is not None
+
             first_prediction = self.per_layer_input_gate(first_prediction)
             first_prediction = self.hidden_activation(first_prediction)
             first_prediction = first_prediction * per_layer_input
