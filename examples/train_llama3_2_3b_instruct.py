@@ -610,18 +610,10 @@ def setup_training(config: TrainingConfig) -> Trainer:
     train_unit = CausalLMTrainUnit(model, gangs, config)
 
     # ========================================================================
-    # 5b. Create evaluation unit and validator
+    # 5b. Create evaluation unit (validator created later)
     # ========================================================================
 
     eval_unit = CausalLMEvalUnit(model, gangs, config)
-
-    # Create validator with epoch-based validation
-    validator = StandardValidator(
-        unit=eval_unit,
-        data_reader=eval_data_reader,
-        gangs=gangs,
-        wall_watch=Stopwatch(),
-    )
 
     # ========================================================================
     # 6. Setup optimizer and LR scheduler
@@ -704,7 +696,7 @@ def setup_training(config: TrainingConfig) -> Trainer:
     metric_recorder = NOOP_METRIC_RECORDER
 
     # ========================================================================
-    # 10. Create the trainer
+    # 10. Create the validator and trainer
     # ========================================================================
 
     # Setup utilities
@@ -713,6 +705,25 @@ def setup_training(config: TrainingConfig) -> Trainer:
     device_stat_tracker = NOOP_DEVICE_STAT_TRACKER
     wall_watch = Stopwatch()
     progress_reporter = NOOP_PROGRESS_REPORTER
+
+    # Create validator with epoch-based validation
+    # StandardValidator needs all infrastructure components
+    validator = StandardValidator(
+        units=[eval_unit],
+        data_readers=[eval_data_reader],
+        gangs=gangs,
+        amp=config.amp,
+        amp_dtype=config.amp_dtype,
+        score_metric_descriptor=None,  # No early stopping based on metric
+        checkpoint_manager=checkpoint_manager,
+        hg_exporter=NOOP_HG_EXPORTER,
+        metric_recorder=metric_recorder,
+        profiler=profiler,
+        device_stat_tracker=device_stat_tracker,
+        wall_watch=Stopwatch(),
+        progress_reporter=progress_reporter,
+        seed=config.seed,
+    )
 
     # Create the trainer
     trainer = Trainer(
