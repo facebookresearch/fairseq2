@@ -6,20 +6,154 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from types import NoneType
+from typing import Any, final
 
-# TODO(Phase 2): Implement Gemma3n tokenizer
-# Gemma3n uses the same tokenizer as Gemma (SentencePiece-based).
-# We can likely reuse fairseq2's Gemma tokenizer implementation or
-# adapt it with minimal changes.
-#
-# Key considerations:
-# - Vocab size: 262,400 tokens
-# - Special tokens: PAD (0), EOS (1), BOS (2)
-# - Potentially different special tokens for multimodal (image/audio markers)
-#
-# Implementation approach:
-# 1. Check if fairseq2 has a Gemma tokenizer we can reuse
-# 2. If not, implement HuggingFaceTokenizer wrapper
-# 3. Handle multimodal special tokens if needed
+from typing_extensions import override
 
-__all__: list[str] = []
+from fairseq2.data.tokenizers import (
+    TokenDecoder,
+    TokenEncoder,
+    Tokenizer,
+    VocabularyInfo,
+)
+from fairseq2.data.tokenizers.hg import (
+    HuggingFaceTokenDecoder,
+    HuggingFaceTokenEncoder,
+    HuggingFaceTokenModel,
+    load_hg_token_model,
+)
+from fairseq2.device import Device
+
+
+@final
+class Gemma3nTokenizer(Tokenizer):
+    """Gemma3n tokenizer wrapping HuggingFace tokenizer.json."""
+
+    def __init__(self, model: HuggingFaceTokenModel) -> None:
+        self._model = model
+
+    @override
+    def create_encoder(
+        self,
+        *,
+        task: str | None = None,
+        lang: str | None = None,
+        mode: str | None = None,
+        device: Device | None = None,
+        pin_memory: bool = False,
+    ) -> TokenEncoder:
+        if task is not None:
+            raise ValueError(f"`task` must be `None`, but is '{task}' instead.")
+
+        if lang is not None:
+            raise ValueError(f"`lang` must be `None`, but is '{lang}' instead.")
+
+        if mode is not None and mode not in ("default", "prompt", "as_is"):
+            raise ValueError(
+                f"`mode` must be 'default', 'prompt', or 'as_is', but is '{mode}' instead."
+            )
+
+        # Gemma3n uses BOS token (ID 2) as prefix, no EOS suffix
+        # This matches HuggingFace's add_special_tokens=True behavior
+        if mode == "as_is":
+            prefix_tokens = []
+            suffix_tokens = []
+        else:
+            # default and prompt modes add BOS
+            prefix_tokens = ["<bos>"]
+            suffix_tokens = []
+
+        return HuggingFaceTokenEncoder(
+            self._model,
+            prefix_tokens=prefix_tokens,
+            suffix_tokens=suffix_tokens,
+            device=device,
+            pin_memory=pin_memory,
+        )
+
+    @override
+    def create_raw_encoder(
+        self, *, device: Device | None = None, pin_memory: bool = False
+    ) -> TokenEncoder:
+        return HuggingFaceTokenEncoder(
+            self._model, device=device, pin_memory=pin_memory
+        )
+
+    @override
+    def create_decoder(self, *, skip_special_tokens: bool = False) -> TokenDecoder:
+        return HuggingFaceTokenDecoder(
+            self._model, skip_special_tokens=skip_special_tokens
+        )
+
+    @property
+    @override
+    def vocab_info(self) -> VocabularyInfo:
+        return self._model.vocab_info
+
+    def apply_chat_template(
+        self,
+        conversation: list[dict[str, str]],
+        *,
+        tokenize: bool = True,
+        add_generation_prompt: bool = False,
+        **kwargs: Any,
+    ) -> Any:
+        """Apply Gemma3n chat template to format conversation.
+
+        Args:
+            conversation: List of messages with 'role' and 'content' keys.
+                Roles can be 'user', 'assistant', or 'system'.
+            tokenize: If True, return token IDs. If False, return formatted string.
+            add_generation_prompt: If True, add prompt for model to continue.
+            **kwargs: Additional arguments passed to HuggingFace apply_chat_template.
+
+        Returns:
+            Token IDs (list[int]) if tokenize=True, formatted string otherwise.
+
+        Example:
+            >>> conversation = [
+            ...     {"role": "user", "content": "What is the capital of France?"},
+            ...     {"role": "assistant", "content": "The capital is Paris."},
+            ... ]
+            >>> tokens = tokenizer.apply_chat_template(conversation)
+        """
+        return self._model._tok.apply_chat_template(
+            conversation,
+            tokenize=tokenize,
+            add_generation_prompt=add_generation_prompt,
+            **kwargs,
+        )
+
+    @property
+    def chat_template(self) -> str | None:
+        """Get the current chat template (Jinja2 format).
+
+        Returns:
+            The chat template string if available, None otherwise.
+        """
+        return getattr(self._model._tok, "chat_template", None)
+
+
+def load_gemma3n_tokenizer(path: Path, config: NoneType) -> Tokenizer:
+    """Load Gemma3n tokenizer from HuggingFace tokenizer.json.
+
+    Args:
+        path: Path to the tokenizer directory containing tokenizer.json.
+        config: Config (unused, always None for Gemma3n).
+
+    Returns:
+        Gemma3n tokenizer instance.
+    """
+    model = load_hg_token_model(
+        path,
+        unk_token="<unk>",
+        bos_token="<bos>",
+        eos_token="<eos>",
+        pad_token="<pad>",
+        boh_token=None,
+        eoh_token=None,
+    )
+
+    return Gemma3nTokenizer(model)

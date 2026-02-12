@@ -46,6 +46,14 @@ from fairseq2.models.jepa.classifier import (
     create_jepa_classifier_model,
     register_jepa_classifier_configs,
 )
+from fairseq2.models.gemma3n import (
+    GEMMA3N_FAMILY,
+    Gemma3nConfig,
+    convert_gemma3n_state_dict,
+    create_gemma3n_model,
+    register_gemma3n_configs,
+)
+from fairseq2.models.gemma3n.model import Gemma3nModel
 from fairseq2.models.llama import (
     LLAMA_FAMILY,
     LLaMAConfig,
@@ -259,6 +267,18 @@ def _register_model_families(container: DependencyContainer) -> None:
     )
 
     register_jepa_classifier_configs(container)
+
+    # Gemma3n
+    register_model_family(
+        container,
+        GEMMA3N_FAMILY,
+        kls=Gemma3nModel,
+        config_kls=Gemma3nConfig,
+        factory=create_gemma3n_model,
+        state_dict_converter=convert_gemma3n_state_dict,
+    )
+
+    register_gemma3n_configs(container)
 
     # LLaMA
     register_model_family(

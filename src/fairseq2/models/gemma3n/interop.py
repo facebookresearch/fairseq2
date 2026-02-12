@@ -81,8 +81,26 @@ def convert_gemma3n_state_dict(
 
     Returns:
         The fairseq2-compatible state dictionary.
+
+    Notes:
+        Filters out multimodal components (audio_tower, video_tower, embed_audio,
+        embed_vision) as they are not yet implemented. Text-only models are fully supported.
     """
-    return convert_state_dict(state_dict, _HG_KEY_MAP)
+    # Filter out all multimodal components (not implemented yet)
+    multimodal_prefixes = (
+        "model.audio_tower.",
+        "model.vision_tower.",
+        "model.embed_audio.",
+        "model.embed_vision.",
+    )
+
+    text_only_state_dict = {
+        k: v
+        for k, v in state_dict.items()
+        if not k.startswith(multimodal_prefixes)
+    }
+
+    return convert_state_dict(text_only_state_dict, _HG_KEY_MAP)
 
 
 def convert_to_hf_gemma3n_state_dict(

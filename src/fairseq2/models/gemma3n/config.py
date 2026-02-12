@@ -10,8 +10,23 @@ from dataclasses import dataclass
 from typing import Final
 
 from fairseq2.models.gemma3n.kv_projection import KVProjectionRole
+from fairseq2.runtime.config_registry import ConfigRegistrar
+from fairseq2.runtime.dependency import DependencyContainer
 
 GEMMA3N_FAMILY: Final = "gemma3n"
+
+
+def register_gemma3n_configs(container: DependencyContainer) -> None:
+    """Register Gemma3n model configurations."""
+    arch = ConfigRegistrar(container, Gemma3nConfig)
+
+    @arch("e2b")
+    def _e2b() -> Gemma3nConfig:
+        return get_gemma3n_e2b_config()
+
+    @arch("e4b")
+    def _e4b() -> Gemma3nConfig:
+        return get_gemma3n_e4b_config()
 
 
 @dataclass(kw_only=True)
@@ -52,7 +67,7 @@ class Gemma3nConfig:
     ffn_inner_dim: int = 16_384
     """The dimensionality of inner projection layers in feed-forward networks."""
 
-    altup_hidden_dim: int = 5376
+    altup_hidden_dim: int = 16_384
     """The dimensionality of the AltUp FFN inner projection for local layers."""
 
     sliding_window: int = 512

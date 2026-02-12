@@ -19,9 +19,15 @@ from fairseq2.data.tokenizers import (
 from fairseq2.data.tokenizers.char import CHAR_TOKENIZER_FAMILY, load_char_tokenizer
 from fairseq2.error import InternalError
 from fairseq2.models.hg import (
+    GEMMA3N_FAMILY,
     HG_FAMILY,
+    Gemma3nTokenizer,
     HgTokenizer,
     HgTokenizerConfig,
+    fairseq2.models.gemma3n,
+    from,
+    import,
+    load_gemma3n_tokenizer,
     load_hg_tokenizer,
 )
 from fairseq2.models.llama import (
@@ -128,6 +134,15 @@ def _register_tokenizer_families(container: DependencyContainer) -> None:
         kls=Tokenizer,
         config_kls=NoneType,
         loader=load_char_tokenizer,
+    )
+
+    # Gemma3n
+    register_tokenizer_family(
+        container,
+        GEMMA3N_FAMILY,
+        kls=Gemma3nTokenizer,
+        config_kls=NoneType,
+        loader=load_gemma3n_tokenizer,
     )
 
     # LLaMA

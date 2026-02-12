@@ -6,19 +6,23 @@
 
 from __future__ import annotations
 
-from fairseq2.models.gemma3n.config import GEMMA3N_FAMILY
+from types import NoneType
 
+from fairseq2.data.tokenizers import Tokenizer, TokenizerHubAccessor
+from fairseq2.models import ModelHubAccessor
+from fairseq2.models.gemma3n.config import GEMMA3N_FAMILY, Gemma3nConfig
+from fairseq2.models.gemma3n.model import Gemma3nModel
 
-# TODO(Phase 2): Define model hub accessor once TransformerLM equivalent is implemented
-# get_gemma3n_model_hub = ModelHubAccessor(
-#     GEMMA3N_FAMILY, kls=Gemma3nModel, config_kls=Gemma3nConfig
-# )
+get_gemma3n_model_hub = ModelHubAccessor(
+    GEMMA3N_FAMILY, kls=Gemma3nModel, config_kls=Gemma3nConfig
+)
 
-# TODO(Phase 2): Define tokenizer hub accessor
-# get_gemma3n_tokenizer_hub = TokenizerHubAccessor(
-#     GEMMA3N_FAMILY, kls=Tokenizer, config_kls=Gemma3nTokenizerConfig
-# )
+get_gemma3n_tokenizer_hub = TokenizerHubAccessor(
+    GEMMA3N_FAMILY, kls=Tokenizer, config_kls=NoneType
+)
 
 __all__ = [
     "GEMMA3N_FAMILY",
+    "get_gemma3n_model_hub",
+    "get_gemma3n_tokenizer_hub",
 ]

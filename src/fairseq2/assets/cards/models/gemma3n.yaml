@@ -1,0 +1,39 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: gemma3n_e2b
+model_family: gemma3n
+model_arch: e2b
+checkpoint: "hg://google/gemma-3n-E2B"
+tokenizer: "hg://google/gemma-3n-E2B"
+tokenizer_family: gemma3n
+
+---
+
+name: gemma3n_e2b_instruct
+model_family: gemma3n
+model_arch: e2b
+checkpoint: "hg://google/gemma-3n-E2B-it"
+tokenizer: "hg://google/gemma-3n-E2B-it"
+tokenizer_family: gemma3n
+
+---
+
+name: gemma3n_e4b
+model_family: gemma3n
+model_arch: e4b
+checkpoint: "hg://google/gemma-3n-E4B"
+tokenizer: "hg://google/gemma-3n-E4B"
+tokenizer_family: gemma3n
+
+---
+
+name: gemma3n_e4b_instruct
+model_family: gemma3n
+model_arch: e4b
+checkpoint: "hg://google/gemma-3n-E4B-it"
+tokenizer: "hg://google/gemma-3n-E4B-it"
+tokenizer_family: gemma3n
