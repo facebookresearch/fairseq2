@@ -120,7 +120,7 @@ class TrainingConfig:
     validate_every_n_data_epochs: int = 1  # Validate after each epoch
 
     # Logging
-    publish_metrics_every_n_steps: int = 10
+    publish_metrics_every_n_steps: int = 50  # Print training progress every N steps
 
     # Distributed training
     seed: int = 42
@@ -687,13 +687,57 @@ def setup_training(config: TrainingConfig) -> Trainer:
     log.info("Checkpoint manager created (output_dir={})", config.output_dir)
 
     # ========================================================================
-    # 9. Setup metric recorder (TensorBoard)
+    # 9. Setup metric recorder for progress logging
     # ========================================================================
 
-    # For simplicity, use noop metric recorder
-    # In production, you would set up TensorBoard with proper metric descriptors
-    from fairseq2.metrics.recorders import NOOP_METRIC_RECORDER, NOOP_METRIC_DESCRIPTOR
-    metric_recorder = NOOP_METRIC_RECORDER
+    # Create metric descriptors for logging training progress
+    from fairseq2.metrics.recorders import (
+        LogMetricRecorder,
+        MetricDescriptor,
+        MetricDescriptorRegistry,
+        NOOP_METRIC_DESCRIPTOR,
+    )
+
+    metric_descriptors = [
+        MetricDescriptor(
+            name="train_loss",
+            display_name="Train Loss",
+            priority=1,
+            formatter=lambda x: f"{x:.4f}",
+            log=True,
+        ),
+        MetricDescriptor(
+            name="train_ppl",
+            display_name="Train Perplexity",
+            priority=2,
+            formatter=lambda x: f"{x:.2f}",
+            log=True,
+        ),
+        MetricDescriptor(
+            name="eval_loss",
+            display_name="Eval Loss",
+            priority=1,
+            formatter=lambda x: f"{x:.4f}",
+            log=True,
+        ),
+        MetricDescriptor(
+            name="eval_ppl",
+            display_name="Eval Perplexity",
+            priority=2,
+            formatter=lambda x: f"{x:.2f}",
+            log=True,
+        ),
+        MetricDescriptor(
+            name="grad_norm",
+            display_name="Gradient Norm",
+            priority=3,
+            formatter=lambda x: f"{x:.4f}",
+            log=True,
+        ),
+    ]
+
+    metric_registry = MetricDescriptorRegistry(metric_descriptors)
+    metric_recorder = LogMetricRecorder(metric_registry)
 
     # ========================================================================
     # 10. Create the validator and trainer
