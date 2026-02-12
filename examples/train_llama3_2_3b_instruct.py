@@ -804,10 +804,10 @@ def main() -> None:
     )
 
     parser.add_argument(
-        "--max-num-steps",
+        "--max-num-epochs",
         type=int,
-        default=1000,
-        help="Maximum number of training steps",
+        default=3,
+        help="Maximum number of training epochs",
     )
 
     parser.add_argument(
@@ -834,7 +834,7 @@ def main() -> None:
         batch_size=args.batch_size,
         num_accumulate=args.num_accumulate,
         learning_rate=args.learning_rate,
-        max_num_steps=args.max_num_steps,
+        max_num_data_epochs=args.max_num_epochs,
         max_seq_len=args.max_seq_len,
     )
 
@@ -848,8 +848,9 @@ def main() -> None:
     log.info("  Batch Size: {}", config.batch_size)
     log.info("  Gradient Accumulation: {}", config.num_accumulate)
     log.info("  Learning Rate: {}", config.learning_rate)
-    log.info("  Max Steps: {}", config.max_num_steps)
+    log.info("  Max Epochs: {}", config.max_num_data_epochs)
     log.info("  Max Seq Length: {}", config.max_seq_len)
+    log.info("  Eval Split: {:.1f}%", config.eval_split_ratio * 100)
     log.info("  Output Dir: {}", config.output_dir)
     log.info("=" * 80)
 
