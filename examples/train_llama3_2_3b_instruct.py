@@ -692,7 +692,7 @@ def setup_training(config: TrainingConfig) -> Trainer:
 
     # For simplicity, use noop metric recorder
     # In production, you would set up TensorBoard with proper metric descriptors
-    from fairseq2.metrics.recorders import NOOP_METRIC_RECORDER
+    from fairseq2.metrics.recorders import NOOP_METRIC_RECORDER, NOOP_METRIC_DESCRIPTOR
     metric_recorder = NOOP_METRIC_RECORDER
 
     # ========================================================================
@@ -714,7 +714,7 @@ def setup_training(config: TrainingConfig) -> Trainer:
         gangs=gangs,
         amp=config.amp,
         amp_dtype=config.amp_dtype,
-        score_metric_descriptor=None,  # No early stopping based on metric
+        score_metric_descriptor=NOOP_METRIC_DESCRIPTOR,  # No early stopping based on metric
         checkpoint_manager=checkpoint_manager,
         hg_exporter=NOOP_HG_EXPORTER,
         metric_recorder=metric_recorder,
