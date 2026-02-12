@@ -581,28 +581,27 @@ def setup_training(config: TrainingConfig) -> Trainer:
     # 4. Create data pipeline and data reader
     # ========================================================================
 
-    # Create the data pipeline
-    pipeline = create_data_pipeline(
-        config.dataset_name,
-        tokenizer,
-        gangs,
-        config,
+    # Create train and eval pipelines
+    train_pipeline, eval_pipeline = create_train_eval_pipelines(
+        config.dataset_name, tokenizer, gangs, config,
     )
 
-    # Create the data reader with gradient accumulation
-    data_reader = DataPipelineReader(
-        pipeline,
-        gangs,
+    # Create the train data reader with gradient accumulation
+    train_data_reader = DataPipelineReader(
+        train_pipeline, gangs,
         num_accumulate=config.num_accumulate,
-        drop_remainder=True,  # Drop incomplete batches for consistent training
+        drop_remainder=True,
     )
 
-    log.info(
-        "Data reader created (batch_size={}, num_accumulate={}, effective_batch_size={})",
-        config.batch_size,
-        config.num_accumulate,
-        config.batch_size * config.num_accumulate * gangs.dp.size,
+    # Create the eval data reader
+    eval_data_reader = DataPipelineReader(
+        eval_pipeline, gangs,
+        num_accumulate=config.num_accumulate,
+        drop_remainder=False,
     )
+
+    log.info("Data readers created (batch_size={}, num_accumulate={}, effective_batch_size={})",
+             config.batch_size, config.num_accumulate, config.batch_size * config.num_accumulate * gangs.dp.size)
 
     # ========================================================================
     # 5. Create training unit
