@@ -37,7 +37,6 @@ class TestGemma3nAltUp:
         with torch.no_grad():
             predictions = altup(hidden_states)
 
-        # Output should be same shape
         assert predictions.shape == (num_inputs, batch_size, seq_len, model_dim)
 
     def test_predict_output_shape_preserved(self) -> None:
@@ -88,7 +87,6 @@ class TestGemma3nAltUp:
         with torch.no_grad():
             corrected = altup.correct(predictions, activated)
 
-        # Output should be 4D
         assert corrected.shape == (num_inputs, batch_size, seq_len, model_dim)
 
     def test_correct_output_shape_4d(self) -> None:
@@ -243,7 +241,6 @@ class TestGemma3nAltUp:
 
             assert altup.num_inputs == num_inputs
 
-            # Verify forward works
             batch_size, seq_len = 1, 4
             hidden_states = torch.randn(
                 num_inputs, batch_size, seq_len, model_dim, device=device

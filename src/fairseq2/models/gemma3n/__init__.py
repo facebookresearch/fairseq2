@@ -8,6 +8,9 @@ from fairseq2.models.gemma3n.config import (
     GEMMA3N_FAMILY as GEMMA3N_FAMILY,
 )
 from fairseq2.models.gemma3n.config import (
+    Gemma3nAudioConfig as Gemma3nAudioConfig,
+)
+from fairseq2.models.gemma3n.config import (
     Gemma3nConfig as Gemma3nConfig,
 )
 from fairseq2.models.gemma3n.config import (
@@ -49,6 +52,7 @@ from fairseq2.models.gemma3n.tokenizer import (
 
 __all__ = [
     "GEMMA3N_FAMILY",
+    "Gemma3nAudioConfig",
     "Gemma3nConfig",
     "Gemma3nTokenizer",
     "convert_gemma3n_state_dict",

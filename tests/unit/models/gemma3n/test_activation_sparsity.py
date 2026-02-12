@@ -32,13 +32,10 @@ class TestGaussianTopKSparsity:
         batch_size, seq_len, model_dim = 2, 8, 64
         seqs = torch.randn(batch_size, seq_len, model_dim, device=device)
 
-        # With zero sparsity, forward should not zero out activations
         with torch.no_grad():
             output = ffn(seqs)
 
-        # Output should have same shape
         assert output.shape == (batch_size, seq_len, model_dim)
-        # Output should not be all zeros
         assert not torch.all(output == 0)
 
     def test_high_sparsity_produces_sparse_output(self) -> None:
@@ -74,11 +71,9 @@ class TestGaussianTopKSparsity:
             output_sparse = ffn_sparse(seqs)
             output_dense = ffn_dense(seqs)
 
-        # Sparse output should have significantly smaller magnitude due to zeroing
         sparse_norm = torch.norm(output_sparse).item()
         dense_norm = torch.norm(output_dense).item()
 
-        # Sparse output should be notably smaller
         assert sparse_norm < dense_norm * 0.5, f"Sparse {sparse_norm} not much smaller than dense {dense_norm}"
 
     def test_sparsity_applied_before_activation(self) -> None:
@@ -99,7 +94,6 @@ class TestGaussianTopKSparsity:
         with torch.no_grad():
             output = ffn(seqs)
 
-        # Output should be valid (not NaN or Inf)
         assert not torch.isnan(output).any()
         assert not torch.isinf(output).any()
         assert output.shape == (batch_size, seq_len, model_dim)
@@ -172,7 +166,6 @@ class TestGaussianTopKSparsity:
             with torch.no_grad():
                 outputs.append(ffn(seqs))
 
-        # Results should be identical
         assert torch.allclose(outputs[0], outputs[1], rtol=1e-5)
 
     def test_shape_preservation_with_sparsity(self) -> None:

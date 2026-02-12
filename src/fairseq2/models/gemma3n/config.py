@@ -16,6 +16,77 @@ from fairseq2.runtime.dependency import DependencyContainer
 GEMMA3N_FAMILY: Final = "gemma3n"
 
 
+@dataclass(kw_only=True)
+class Gemma3nAudioConfig:
+    """Holds the configuration of the Gemma3n audio encoder (USM Conformer).
+
+    The default values correspond to the audio tower in the E2B/E4B models.
+    """
+
+    vocab_size: int = 128
+    """Vocabulary size of audio hard-token embeddings."""
+
+    vocab_offset: int = 262_272
+    """Offset for audio tokens in the main tokenizer (text 262,144 + vision 128)."""
+
+    input_feat_size: int = 128
+    """Number of channels in each mel-spectrogram frame."""
+
+    hidden_size: int = 1536
+    """Dimension of the audio encoder hidden representations."""
+
+    rms_norm_eps: float = 1e-6
+    """Epsilon for RMS normalization layers."""
+
+    gradient_clipping: float = 1e10
+    """Gradient clipping value for stability."""
+
+    conf_num_hidden_layers: int = 12
+    """Number of conformer layers."""
+
+    conf_num_attention_heads: int = 8
+    """Number of attention heads in conformer layers."""
+
+    conf_conv_kernel_size: int = 5
+    """Kernel size for depthwise convolution in conformer blocks."""
+
+    conf_attention_chunk_size: int = 12
+    """Sub-sequence size for chunked local attention."""
+
+    conf_attention_context_left: int = 13
+    """Left context size for local attention."""
+
+    conf_attention_context_right: int = 0
+    """Right context size for local attention."""
+
+    conf_attention_logit_cap: float = 50.0
+    """Logit cap for attention softcapping."""
+
+    conf_reduction_factor: int = 4
+    """Reduction factor for subsampling (downsampling ratio)."""
+
+    conf_residual_weight: float = 0.5
+    """Residual connection weight (Macaron-style scaling)."""
+
+    sscp_conv_channel_size: tuple[int, int] = (128, 32)
+    """Channel sizes for subsample conv projection layers (conv0, conv1)."""
+
+    sscp_conv_group_norm_eps: float = 1e-3
+    """Epsilon for group normalization in subsample conv projection."""
+
+    sscp_conv_kernel_size: tuple[tuple[int, int], tuple[int, int]] = (
+        (3, 3),
+        (3, 3),
+    )
+    """Kernel sizes (time, freq) for subsample conv projection layers."""
+
+    sscp_conv_stride_size: tuple[tuple[int, int], tuple[int, int]] = (
+        (2, 2),
+        (2, 2),
+    )
+    """Stride sizes (time, freq) for subsample conv projection layers."""
+
+
 def register_gemma3n_configs(container: DependencyContainer) -> None:
     """Register Gemma3n model configurations."""
     arch = ConfigRegistrar(container, Gemma3nConfig)
@@ -51,6 +122,9 @@ class Gemma3nConfig:
 
     tied_embeddings: bool = True
     """If ``True``, ties the embedding table and the output projection layer."""
+
+    audio_config: Gemma3nAudioConfig | None = None
+    """Configuration for the audio encoder tower. If None, audio modality is disabled."""
 
     num_layers: int = 35
     """The number of decoder layers."""
