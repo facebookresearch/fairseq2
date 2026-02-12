@@ -129,21 +129,20 @@ class TrainingConfig:
 # Data Pipeline
 # ============================================================================
 
-def create_data_pipeline(
+def create_train_eval_pipelines(
     dataset_name: str,
     tokenizer: Tokenizer,
     gangs: Gangs,
     config: TrainingConfig,
-) -> DataPipeline:
+) -> tuple[DataPipeline, DataPipeline]:
     """
-    Creates an optimized data pipeline for causal language modeling.
+    Creates train and eval data pipelines with 90/10 split.
 
     The pipeline:
-    1. Reads text data from the dataset
-    2. Tokenizes the text using the model's tokenizer
-    3. Creates fixed-length sequences for training
-    4. Batches sequences together
-    5. Shards data across data parallel ranks
+    1. Reads text data and shuffles it
+    2. Splits into train (90%) and eval (10%)
+    3. Tokenizes and batches each split
+    4. Train split is re-shuffled, eval is not
 
     Args:
         dataset_name: Name of the dataset asset to load
@@ -152,52 +151,65 @@ def create_data_pipeline(
         config: Training configuration
 
     Returns:
-        DataPipeline ready for training
+        Tuple of (train_pipeline, eval_pipeline)
     """
-    log.info("Creating data pipeline for dataset '{}'", dataset_name)
+    log.info("Creating train/eval data pipelines for dataset '{}'", dataset_name)
 
     # Create a token encoder from the tokenizer
-    # For LLaMA, supported modes are: default, prompt, prompt_response, as_is
     text_encoder = tokenizer.create_encoder(mode="default", device=gangs.device)
 
-    # For this example, we'll create a synthetic text dataset since the
-    # openeft dataset structure isn't well-documented in the source code.
-    # In production, you would load from the actual dataset asset.
-
-    # Create a simple text data pipeline from a list of instruction examples
-    # This is a placeholder - in production, load from fairseq2 dataset assets
+    # Synthetic text dataset
     sample_instructions = [
         "Translate the following English text to French: Hello, how are you?",
         "Write a Python function to calculate the Fibonacci sequence.",
         "Explain the concept of machine learning in simple terms.",
         "What is the capital of France?",
         "Describe the process of photosynthesis.",
-    ] * 200  # Repeat to create more training examples
+    ] * 200  # 1000 total examples
 
-    # Create a data pipeline from the text samples
-    pipeline = (
-        # Read text samples
-        read_sequence(sample_instructions)
-        # Shard across data parallel ranks for distributed training
+    # Calculate split sizes
+    total_size = len(sample_instructions)
+    eval_size = int(total_size * config.eval_split_ratio)
+    train_size = total_size - eval_size
+
+    log.info("Data split: {} train, {} eval ({:.1f}% eval)",
+             train_size, eval_size, config.eval_split_ratio * 100)
+
+    # Shuffle all data first, then split
+    import random
+    rng = random.Random(config.seed)
+    shuffled_instructions = sample_instructions.copy()
+    rng.shuffle(shuffled_instructions)
+
+    train_data = shuffled_instructions[:train_size]
+    eval_data = shuffled_instructions[train_size:]
+
+    # Create train pipeline
+    train_pipeline = (
+        read_sequence(train_data)
         .shard(gangs.dp.rank, gangs.dp.size, allow_uneven=True)
-        # Shuffle for better training dynamics
         .shuffle(shuffle_window=1000, seed=config.seed)
-        # Tokenize text using the encoder
         .map(text_encoder)
-        # Create fixed-length sequences (truncate/pad to max_seq_len)
-        # The encoder might return either a dict or tensor directly
         .map(lambda x: _prepare_sequence(x, config.max_seq_len, tokenizer.vocab_info.pad_idx))
-        # Bucket sequences - bucket combines consecutive examples into batches
         .bucket(bucket_size=config.batch_size)
-        # Convert to SequenceBatch format expected by trainer
         .map(lambda batch: _collate_batch(batch, gangs.device))
-        # Prefetch batches for overlapping data loading and computation
         .prefetch(num_examples=4)
-        # Build the pipeline
         .and_return()
     )
 
-    return pipeline
+    # Create eval pipeline (no shuffling for deterministic results)
+    eval_pipeline = (
+        read_sequence(eval_data)
+        .shard(gangs.dp.rank, gangs.dp.size, allow_uneven=True)
+        .map(text_encoder)
+        .map(lambda x: _prepare_sequence(x, config.max_seq_len, tokenizer.vocab_info.pad_idx))
+        .bucket(bucket_size=config.batch_size)
+        .map(lambda batch: _collate_batch(batch, gangs.device))
+        .prefetch(num_examples=4)
+        .and_return()
+    )
+
+    return train_pipeline, eval_pipeline
 
 
 def _prepare_sequence(encoded_output: Any, max_len: int, pad_idx: int) -> dict[str, Tensor]:
