@@ -346,15 +346,21 @@ max_position_embeddings: 32_768
   - [x] Add chat template support
   - [x] Verify tokenization parity with HuggingFace
 
-### Phase 2a: Audio Tower Integration 🚧 NEXT
-- [ ] Study HuggingFace audio implementation
-  - [ ] Understand USM encoder architecture
-  - [ ] Identify audio preprocessing requirements
-  - [ ] Map audio state dict keys to fairseq2
-- [ ] Implement audio feature extraction
-  - [ ] Audio preprocessing pipeline
-  - [ ] Feature extraction to match HF
+### Phase 2a: Audio Tower Integration 🚧 IN PROGRESS
+- [x] Study HuggingFace audio implementation
+  - [x] Understand USM encoder architecture
+  - [x] Identify audio preprocessing requirements
+  - [x] Map audio state dict keys to fairseq2
+  - [x] Document reusable primitives (conformer, FFN, attention, etc.)
+  - [x] Create architecture reference doc
+- [ ] Implement audio config and primitives
+  - [x] `Gemma3nAudioConfig` dataclass
+  - [ ] Audio feature extraction (mel-spectrogram preprocessing)
+  - [ ] Subsample convolution projection
+  - [ ] Conformer components (FFN, conv, attention)
+  - [ ] Multimodal embedder
 - [ ] Implement audio tower integration
+  - [ ] Assemble conformer encoder
   - [ ] Load audio_tower weights from checkpoint
   - [ ] Integrate with embed_audio
   - [ ] Connect to decoder via AltUp modality routing
