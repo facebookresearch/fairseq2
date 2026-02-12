@@ -70,7 +70,7 @@ from fairseq2.utils.device_stat import NOOP_DEVICE_STAT_TRACKER
 from fairseq2.utils.gc import NOOP_GARBAGE_COLLECTOR
 from fairseq2.utils.progress import NOOP_PROGRESS_REPORTER
 from fairseq2.utils.stopwatch import Stopwatch
-from fairseq2.validator import NOOP_VALIDATOR
+from fairseq2.validator import NOOP_VALIDATOR, StandardValidator
 from fairseq2.utils.threading import ThreadPool, _StandardThreadPool
 
 
@@ -610,6 +610,20 @@ def setup_training(config: TrainingConfig) -> Trainer:
     train_unit = CausalLMTrainUnit(model, gangs, config)
 
     # ========================================================================
+    # 5b. Create evaluation unit and validator
+    # ========================================================================
+
+    eval_unit = CausalLMEvalUnit(model, gangs, config)
+
+    # Create validator with epoch-based validation
+    validator = StandardValidator(
+        unit=eval_unit,
+        data_reader=eval_data_reader,
+        gangs=gangs,
+        wall_watch=Stopwatch(),
+    )
+
+    # ========================================================================
     # 6. Setup optimizer and LR scheduler
     # ========================================================================
 
@@ -625,14 +639,20 @@ def setup_training(config: TrainingConfig) -> Trainer:
     log.info("Optimizer: AdamW (lr={}, weight_decay={})", config.learning_rate, config.weight_decay)
 
     # Create cosine annealing LR scheduler with warmup
+    # Calculate total steps: epochs * (dataset_size / batch_size)
+    # For simplicity, use a reasonable estimate based on data size
+    train_size = int(1000 * (1.0 - config.eval_split_ratio))  # 900 examples
+    steps_per_epoch = train_size // (config.batch_size * config.num_accumulate * gangs.dp.size)
+    max_num_steps = max(1, steps_per_epoch * config.max_num_data_epochs)
+
     lr_scheduler = CosineAnnealingLR(
         optimizer,
-        cycle_len=config.max_num_steps,
+        cycle_len=max_num_steps,
         num_warmup_steps=config.warmup_steps,
         final_lr=config.learning_rate * 0.1,  # Decay to 10% of initial LR
     )
 
-    log.info("LR Scheduler: CosineAnnealingLR (warmup={} steps)", config.warmup_steps)
+    log.info("LR Scheduler: CosineAnnealingLR (warmup={} steps, total_steps={})", config.warmup_steps, max_num_steps)
 
     # ========================================================================
     # 7. Setup FP16 loss scaler
@@ -698,14 +718,14 @@ def setup_training(config: TrainingConfig) -> Trainer:
     trainer = Trainer(
         model=model,
         unit=train_unit,
-        data_reader=data_reader,
+        data_reader=train_data_reader,
         gangs=gangs,
         amp=config.amp,
         amp_dtype=config.amp_dtype,
         optimizer=optimizer,
         lr_scheduler=lr_scheduler,
         fp16_loss_scaler=fp16_loss_scaler,
-        validator=NOOP_VALIDATOR,  # No validation for this simple example
+        validator=validator,
         early_stopper=NOOP_EARLY_STOPPER,
         checkpoint_manager=checkpoint_manager,
         hg_exporter=NOOP_HG_EXPORTER,
@@ -717,7 +737,8 @@ def setup_training(config: TrainingConfig) -> Trainer:
         progress_reporter=progress_reporter,
         seed=config.seed,
         max_grad_norm=config.max_grad_norm,
-        max_num_steps=config.max_num_steps,
+        max_num_data_epochs=config.max_num_data_epochs,
+        validate_every_n_data_epochs=config.validate_every_n_data_epochs,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
         keep_last_n_checkpoints=config.keep_last_n_checkpoints,
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
