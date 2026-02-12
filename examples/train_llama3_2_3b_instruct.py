@@ -65,6 +65,7 @@ from fairseq2.optim.fp16_loss_scaler import StandardFloat16LossScaler, NOOP_FP16
 from fairseq2.optim.lr_schedulers import CosineAnnealingLR
 from fairseq2.profilers import NOOP_PROFILER
 from fairseq2.trainer import Trainer, TrainUnit
+from fairseq2.evaluator import EvalUnit
 from fairseq2.utils.device_stat import NOOP_DEVICE_STAT_TRACKER
 from fairseq2.utils.gc import NOOP_GARBAGE_COLLECTOR
 from fairseq2.utils.progress import NOOP_PROGRESS_REPORTER
@@ -393,6 +394,108 @@ class CausalLMTrainUnit(TrainUnit[SequenceBatch]):
         metric_bag.get("num_tokens", Mean).update(num_targets, weight=1)
 
         return loss, num_targets
+
+
+# ============================================================================
+# Evaluation Unit
+# ============================================================================
+
+class CausalLMEvalUnit(EvalUnit[SequenceBatch]):
+    """
+    Evaluation unit for causal language modeling.
+
+    This unit implements evaluation without gradients, computing loss
+    and perplexity on held-out data.
+    """
+
+    def __init__(self, model: Module, gangs: Gangs, config: TrainingConfig) -> None:
+        """
+        Args:
+            model: The language model to evaluate
+            gangs: Gang abstraction for distributed training
+            config: Training configuration
+        """
+        self._model = model
+        self._gangs = gangs
+        self._config = config
+
+    def prepare_metric_bag(self, metric_bag: MetricBag) -> None:
+        """
+        Prepares metrics to track during evaluation.
+
+        Args:
+            metric_bag: Metric bag to populate with metrics
+        """
+        from fairseq2.metrics import Mean
+
+        # Track evaluation loss
+        metric_bag.add("eval_loss", Mean())
+
+        # Track perplexity (exp of loss)
+        metric_bag.add("eval_ppl", Mean())
+
+        # Track number of tokens processed
+        metric_bag.add("eval_num_tokens", Mean())
+
+    def process_batch(
+        self,
+        batch: SequenceBatch,
+        metric_bag: MetricBag,
+    ) -> None:
+        """
+        Processes a batch and computes the loss without gradients.
+
+        Args:
+            batch: Batch of sequences to process
+            metric_bag: Metric bag for tracking evaluation metrics
+        """
+        # Move batch to the correct device (modifies in-place, returns None)
+        batch.to(self._gangs.device)
+
+        # Extract input sequences [batch_size, seq_len]
+        input_seqs = batch.seqs
+
+        # For causal LM: input is seqs[:-1], target is seqs[1:]
+        input_ids = input_seqs[:, :-1]
+        target_ids = input_seqs[:, 1:]
+
+        # Create batch layout for the input sequences
+        input_seq_lens = None
+        if batch.seq_lens is not None:
+            input_seq_lens = [max(1, length - 1) for length in batch.seq_lens]
+
+        batch_layout = BatchLayout(
+            shape=input_ids.shape,
+            seq_lens=input_seq_lens,
+            device=self._gangs.device,
+        )
+
+        # Forward pass through the model (no gradients)
+        with torch.no_grad():
+            logits = self._model(input_ids, batch_layout)
+
+            # Compute cross-entropy loss
+            logits_flat = logits.reshape(-1, logits.size(-1))
+            targets_flat = target_ids.reshape(-1)
+
+            loss = cross_entropy(
+                logits_flat,
+                targets_flat,
+                reduction="mean",
+                ignore_index=-1,
+            )
+
+        # Compute number of target tokens
+        num_targets = target_ids.numel()
+
+        # Track metrics
+        batch_size = input_seqs.size(0)
+
+        from fairseq2.metrics import Mean
+
+        metric_bag.get("eval_loss", Mean).update(loss.detach(), weight=batch_size)
+        metric_bag.get("eval_ppl", Mean).update(torch.exp(loss.detach()), weight=batch_size)
+        metric_bag.get("eval_num_tokens", Mean).update(num_targets, weight=1)
 
 
 # ============================================================================
