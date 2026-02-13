@@ -4,6 +4,9 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from fairseq2.models.gemma3n.audio import (
+    Gemma3nSubsampleConvProjection as Gemma3nSubsampleConvProjection,
+)
 from fairseq2.models.gemma3n.config import GEMMA3N_FAMILY as GEMMA3N_FAMILY
 from fairseq2.models.gemma3n.config import Gemma3nAudioConfig as Gemma3nAudioConfig
 from fairseq2.models.gemma3n.config import Gemma3nConfig as Gemma3nConfig
@@ -44,6 +47,7 @@ __all__ = [
     "Gemma3nConfig",
     "Gemma3nDecoderBase",
     "Gemma3nFrontendBase",
+    "Gemma3nSubsampleConvProjection",
     "Gemma3nTokenizer",
     "convert_gemma3n_state_dict",
     "convert_to_hf_gemma3n_state_dict",
