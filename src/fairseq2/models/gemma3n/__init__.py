@@ -7,6 +7,9 @@
 from fairseq2.models.gemma3n.audio import (
     Gemma3nSubsampleConvProjection as Gemma3nSubsampleConvProjection,
 )
+from fairseq2.models.gemma3n.audio_tower import (
+    Gemma3nAudioTower as Gemma3nAudioTower,
+)
 from fairseq2.models.gemma3n.config import GEMMA3N_FAMILY as GEMMA3N_FAMILY
 from fairseq2.models.gemma3n.config import Gemma3nAudioConfig as Gemma3nAudioConfig
 from fairseq2.models.gemma3n.config import Gemma3nConfig as Gemma3nConfig
@@ -53,6 +56,7 @@ from fairseq2.models.gemma3n.tokenizer import (
 __all__ = [
     "GEMMA3N_FAMILY",
     "Gemma3nAudioConfig",
+    "Gemma3nAudioTower",
     "Gemma3nConfig",
     "Gemma3nConformerEncoder",
     "Gemma3nConformerSDPA",
