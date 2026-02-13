@@ -20,6 +20,12 @@ from fairseq2.models.gemma3n.config import is_global_layer as is_global_layer
 from fairseq2.models.gemma3n.config import (
     register_gemma3n_configs as register_gemma3n_configs,
 )
+from fairseq2.models.gemma3n.conformer import (
+    Gemma3nConformerEncoder as Gemma3nConformerEncoder,
+)
+from fairseq2.models.gemma3n.conformer_sdpa import (
+    Gemma3nConformerSDPA as Gemma3nConformerSDPA,
+)
 from fairseq2.models.gemma3n.decoder import Gemma3nDecoderBase as Gemma3nDecoderBase
 from fairseq2.models.gemma3n.factory import (
     create_gemma3n_decoder_layer as create_gemma3n_decoder_layer,
@@ -45,6 +51,8 @@ __all__ = [
     "GEMMA3N_FAMILY",
     "Gemma3nAudioConfig",
     "Gemma3nConfig",
+    "Gemma3nConformerEncoder",
+    "Gemma3nConformerSDPA",
     "Gemma3nDecoderBase",
     "Gemma3nFrontendBase",
     "Gemma3nSubsampleConvProjection",
