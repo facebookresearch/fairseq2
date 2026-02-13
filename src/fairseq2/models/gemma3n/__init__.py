@@ -42,6 +42,9 @@ from fairseq2.models.gemma3n.interop import (
 from fairseq2.models.gemma3n.interop import (
     convert_to_hf_gemma3n_state_dict as convert_to_hf_gemma3n_state_dict,
 )
+from fairseq2.models.gemma3n.multimodal_embedder import (
+    Gemma3nMultimodalEmbedder as Gemma3nMultimodalEmbedder,
+)
 from fairseq2.models.gemma3n.tokenizer import Gemma3nTokenizer as Gemma3nTokenizer
 from fairseq2.models.gemma3n.tokenizer import (
     load_gemma3n_tokenizer as load_gemma3n_tokenizer,
@@ -55,6 +58,7 @@ __all__ = [
     "Gemma3nConformerSDPA",
     "Gemma3nDecoderBase",
     "Gemma3nFrontendBase",
+    "Gemma3nMultimodalEmbedder",
     "Gemma3nSubsampleConvProjection",
     "Gemma3nTokenizer",
     "convert_gemma3n_state_dict",
