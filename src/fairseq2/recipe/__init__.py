@@ -32,5 +32,7 @@ from fairseq2.evaluator import Evaluator as Evaluator
 from fairseq2.evaluator import EvalUnit as EvalUnit
 from fairseq2.generator import Generator as Generator
 from fairseq2.generator import GeneratorUnit as GeneratorUnit
-from fairseq2.trainer import Trainer as Trainer
-from fairseq2.trainer import TrainUnit as TrainUnit
+# NOTE: Commented out to break circular import with trainer module
+# These are deprecated and will be removed in v0.14 anyway
+# from fairseq2.trainer import Trainer as Trainer
+# from fairseq2.trainer import TrainUnit as TrainUnit

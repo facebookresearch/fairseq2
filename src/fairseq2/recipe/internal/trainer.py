@@ -7,7 +7,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Sequence, final
+from typing import TYPE_CHECKING, Sequence, final
+
+if TYPE_CHECKING:
+    from fairseq2.trainer import BatchT, Trainer, TrainUnit
 
 import torch
 from torch.optim import Optimizer
@@ -43,7 +46,6 @@ from fairseq2.recipe.error import (
 )
 from fairseq2.recipe.internal.model import _ModelHolder
 from fairseq2.runtime.lookup import Lookup
-from fairseq2.trainer import BatchT, Trainer, TrainUnit
 from fairseq2.utils.gc import (
     NOOP_GARBAGE_COLLECTOR,
     GarbageCollector,

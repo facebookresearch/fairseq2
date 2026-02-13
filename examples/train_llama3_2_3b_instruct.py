@@ -9,12 +9,15 @@ The recipe uses the "openeft" dataset (generic instruction dataset) available
 as a fairseq2 asset for demonstration purposes.
 
 Usage:
+    # Due to potential issues with loss scaling, it is recommended to use no-amp
+    # for a first run. Following this, you may choose a loss scaling factor
+
     # Single GPU training (FP16)
-    python train_llama3_2_3b_instruct.py --output-dir ./checkpoints --device cuda:0
+    python train_llama3_2_3b_instruct.py --output-dir ./checkpoints --device cuda:0 --no-amp
 
     # Multi-GPU training with FSDP (FP16)
-    torchrun --nproc_per_node=4 train_llama3_2_3b_instruct.py \\
-        --output-dir ./checkpoints --device cuda
+    torchrun --nproc_per_node=4 train_llama3_2_3b_instruct.py \
+        --output-dir ./checkpoints --device cuda --no-amp
 
     # CPU training (for testing, FP32)
     python train_llama3_2_3b_instruct.py --output-dir ./checkpoints --device cpu --no-amp
@@ -50,10 +53,10 @@ from fairseq2.data.data_pipeline import DataPipeline, read_sequence
 from fairseq2.data.text import read_text
 from fairseq2.data_type import DataType
 from fairseq2.datasets import DataPipelineReader, DataReader, SequenceBatch
-from fairseq2.device import Device
+from fairseq2.device import Device, detect_default_device
 from fairseq2.early_stopper import NOOP_EARLY_STOPPER
 from fairseq2.file_system import LocalFileSystem
-from fairseq2.gang import Gangs, get_default_gangs, create_fsdp_gangs
+from fairseq2.gang import Gangs, get_default_gangs, create_fsdp_gangs, ProcessGroupGang, set_default_gangs, create_parallel_gangs
 from fairseq2.io import TensorFileLoader, TensorFileDumper, _TorchTensorFileLoader, _TorchTensorFileDumper
 from fairseq2.logging import log
 from fairseq2.metrics import MetricBag
@@ -87,6 +90,8 @@ class TrainingConfig:
     dataset_name: str = "openeft"
 
     # Device and precision
+    # Note: In distributed training (torchrun), the actual device for each rank
+    # is auto-detected based on LOCAL_RANK to prevent GPU conflicts
     device: str = "cuda"
     amp: bool = True  # Automatic Mixed Precision (FP16)
     amp_dtype: DataType = torch.float16
@@ -108,8 +113,7 @@ class TrainingConfig:
 
     # FP16 loss scaling
     fp16_init_scale: float = 2.0 ** 16
-    fp16_scale_window: int = 2000
-    fp16_min_scale: float = 1.0
+    fp16_min_scale: float = 0.1
 
     # Checkpointing
     output_dir: Path = Path("./checkpoints")
@@ -525,7 +529,11 @@ def setup_training(config: TrainingConfig) -> Trainer:
     # 1. Initialize distributed training
     # ========================================================================
 
-    device = Device(config.device)
+    # Detect the default device for this process
+    # In distributed training (torchrun), this automatically assigns each rank
+    # to its own GPU based on LOCAL_RANK environment variable (cuda:0, cuda:1, etc.)
+    # This prevents multiple ranks from trying to use the same GPU
+    device = detect_default_device()
     log.info("Using device: {}", device)
 
     # Disable FP16 on CPU - CPUs don't support FP16 efficiently and this causes
@@ -535,10 +543,38 @@ def setup_training(config: TrainingConfig) -> Trainer:
         config.amp = False
         config.amp_dtype = torch.float32
 
-    # Get default gangs for the device
-    # This will create appropriate gangs for single-GPU or multi-GPU training
-    gangs = get_default_gangs(device)
+    # Initialize distributed training if in multi-process environment
+    # Check environment variables set by torchrun to determine if we're in distributed mode
+    import torch.distributed as dist
+    import os
+    world_size = int(os.environ.get('WORLD_SIZE', '1'))
 
+    if world_size > 1:
+        log.info("Multi-process environment detected (world size: {}). Initializing process group.", world_size)
+
+        # Create the root process group gang
+        # This initializes torch.distributed and creates the default process group
+        from datetime import timedelta
+        root_gang = ProcessGroupGang.create_default_process_group(
+            device,
+            timeout=timedelta(minutes=15),
+            high_priority=False,
+        )
+
+        # Create parallel gangs for data/tensor/pipeline parallelism
+        gangs = create_parallel_gangs(root_gang, tp_size=1)
+
+        # Set as default gangs so get_default_gangs() will return them
+        set_default_gangs(gangs)
+
+        log.info("Process group initialized. Root gang size: {}", root_gang.size)
+    else:
+        log.info("Single-process environment. Using FakeGang.")
+
+    # Get default gangs for the device
+    # This will return the gangs we just initialized, or FakeGang for single-process
+    gangs = get_default_gangs(device)
+   
     # For multi-GPU training, create FSDP-specific gangs
     if gangs.root.size > 1:
         log.info("Multi-GPU training detected (world size: {})", gangs.root.size)
@@ -554,11 +590,15 @@ def setup_training(config: TrainingConfig) -> Trainer:
 
     # Load the model with the specified dtype for mixed precision
     # The model will be loaded on the meta device first, then moved to the target device
+    if device.type == "cuda":
+        torch.cuda.synchronize()
     model = load_model(
         config.model_name,
         gangs=gangs,
         dtype=config.amp_dtype if config.amp else torch.float32,
     )
+    if device.type == "cuda":
+        torch.cuda.synchronize()
 
     log.info("Model loaded successfully")
 

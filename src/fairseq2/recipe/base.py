@@ -10,7 +10,10 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from functools import cache, cached_property
 from pathlib import Path
-from typing import TypeVar, final
+from typing import TYPE_CHECKING, TypeVar, final
+
+if TYPE_CHECKING:
+    from fairseq2.trainer import Trainer, TrainUnit
 
 from torch.nn import Module
 from torch.optim import Optimizer
@@ -49,7 +52,6 @@ from fairseq2.recipe.model import RecipeModel, _StandardRecipeModel
 from fairseq2.recipe.tokenizer import RecipeTokenizer
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 from fairseq2.task import Task
-from fairseq2.trainer import Trainer, TrainUnit
 from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.warn import _warn_deprecated
 
