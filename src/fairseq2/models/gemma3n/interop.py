@@ -18,6 +18,49 @@ _HG_KEY_MAP: Final = {
     r"^model\.language_model\.embed_tokens\.":                        "decoder_frontend.embed.",
     r"^lm_head\.":                                                     "final_proj.",
 
+    # Audio tower - subsample convolution projection
+    r"^model\.audio_tower\.subsample_conv_projection\.conv_0\.conv\.": "audio_tower.subsample.conv_0.",
+    r"^model\.audio_tower\.subsample_conv_projection\.conv_0\.norm\.": "audio_tower.subsample.norm_0.",
+    r"^model\.audio_tower\.subsample_conv_projection\.conv_1\.conv\.": "audio_tower.subsample.conv_1.",
+    r"^model\.audio_tower\.subsample_conv_projection\.conv_1\.norm\.": "audio_tower.subsample.norm_1.",
+    r"^model\.audio_tower\.subsample_conv_projection\.input_proj_linear\.": "audio_tower.subsample.proj.",
+
+    # Audio tower - conformer layers (attention)
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.pre_attn_norm\.": r"audio_tower.encoder.layers.\1.self_attn_layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.q_proj\.": r"audio_tower.encoder.layers.\1.self_attn.q_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.k_proj\.": r"audio_tower.encoder.layers.\1.self_attn.k_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.v_proj\.": r"audio_tower.encoder.layers.\1.self_attn.v_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.per_dim_scale$": r"audio_tower.encoder.layers.\1.self_attn.sdpa.per_dim_scale",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.relative_position_embedding\.pos_proj\.": r"audio_tower.encoder.layers.\1.self_attn.sdpa.rel_k_embed.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.post\.": r"audio_tower.encoder.layers.\1.self_attn.output_proj.",
+
+    # Audio tower - conformer layers (FFN start)
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.pre_layer_norm\.": r"audio_tower.encoder.layers.\1.ffn1_layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.ffw_layer_1\.": r"audio_tower.encoder.layers.\1.ffn1.inner_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.ffw_layer_2\.": r"audio_tower.encoder.layers.\1.ffn1.output_proj.",
+
+    # Audio tower - conformer layers (convolution)
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.pre_layer_norm\.": r"audio_tower.encoder.layers.\1.conv_layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.linear_start\.": r"audio_tower.encoder.layers.\1.conv.pointwise_conv1.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.depthwise_conv1d\.": r"audio_tower.encoder.layers.\1.conv.depthwise_conv.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.conv_norm\.": r"audio_tower.encoder.layers.\1.conv.layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.linear_end\.": r"audio_tower.encoder.layers.\1.conv.pointwise_conv2.",
+
+    # Audio tower - conformer layers (FFN end)
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.pre_layer_norm\.": r"audio_tower.encoder.layers.\1.ffn2_layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.ffw_layer_1\.": r"audio_tower.encoder.layers.\1.ffn2.inner_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.ffw_layer_2\.": r"audio_tower.encoder.layers.\1.ffn2.output_proj.",
+
+    # Audio tower - conformer layers (final norm)
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.norm\.": r"audio_tower.encoder.layers.\1.layer_norm.",
+
+    # Multimodal embedder (audio → text projection)
+    r"^model\.embed_audio\.embedding\.": "embed_audio.embedding.",
+    r"^model\.embed_audio\.hard_embedding_norm\.": "embed_audio.hard_embedding_norm.",
+    r"^model\.embed_audio\.soft_embedding_norm\.": "embed_audio.soft_embedding_norm.",
+    r"^model\.embed_audio\.embedding_projection\.": "embed_audio.embedding_projection.",
+    r"^model\.embed_audio\.embedding_post_projection_norm\.": "embed_audio.embedding_post_projection_norm.",
+
     # Decoder layers - attention with QK norm
     r"^model\.language_model\.layers\.([0-9]+)\.self_attn\.q_proj\.": r"decoder.layers.\1.self_attn.q_proj.",
     r"^model\.language_model\.layers\.([0-9]+)\.self_attn\.k_proj\.": r"decoder.layers.\1.self_attn.k_proj.",
@@ -83,24 +126,22 @@ def convert_gemma3n_state_dict(
         The fairseq2-compatible state dictionary.
 
     Notes:
-        Filters out multimodal components (audio_tower, video_tower, embed_audio,
-        embed_vision) as they are not yet implemented. Text-only models are fully supported.
+        Supports audio tower (subsample + conformer encoder) and multimodal embedder.
+        Vision tower (embed_vision, vision_tower) is filtered out as not yet implemented.
     """
-    # Filter out all multimodal components (not implemented yet)
-    multimodal_prefixes = (
-        "model.audio_tower.",
+    # Filter out vision components (not implemented yet)
+    vision_prefixes = (
         "model.vision_tower.",
-        "model.embed_audio.",
         "model.embed_vision.",
     )
 
-    text_only_state_dict = {
+    filtered_state_dict = {
         k: v
         for k, v in state_dict.items()
-        if not k.startswith(multimodal_prefixes)
+        if not k.startswith(vision_prefixes)
     }
 
-    return convert_state_dict(text_only_state_dict, _HG_KEY_MAP)
+    return convert_state_dict(filtered_state_dict, _HG_KEY_MAP)
 
 
 def convert_to_hf_gemma3n_state_dict(
