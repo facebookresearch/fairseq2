@@ -13,27 +13,27 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.models.clm import CausalLM
-from fairseq2.models.transformer import TransformerFrontend
-from fairseq2.models.transformer_lm import TransformerLMDecoder
+from fairseq2.models.gemma3n.decoder import Gemma3nDecoderBase
+from fairseq2.models.gemma3n.frontend import Gemma3nFrontendBase
 from fairseq2.nn import BatchLayout, IncrementalStateBag, Projection
 from fairseq2.nn.functional import cross_entropy
 
 
 @final
 class Gemma3nModel(CausalLM):
-    """Gemma3n decoder-only transformer. Coordinates state_bag for PLE."""
+    """Gemma3n decoder-only transformer with multimodal support."""
 
     model_dim: int
-    decoder_frontend: TransformerFrontend
-    decoder: TransformerLMDecoder
+    decoder_frontend: Gemma3nFrontendBase
+    decoder: Gemma3nDecoderBase
     final_proj: Projection
     pad_idx: int | None
 
     def __init__(
         self,
         model_dim: int,
-        decoder_frontend: TransformerFrontend,
-        decoder: TransformerLMDecoder,
+        decoder_frontend: Gemma3nFrontendBase,
+        decoder: Gemma3nDecoderBase,
         final_proj: Projection,
         pad_idx: int | None,
         max_seq_len: int,
@@ -122,39 +122,43 @@ class Gemma3nModel(CausalLM):
         targets: Tensor | None = None,
         *,
         state_bag: IncrementalStateBag | None = None,
+        audio_features: Tensor | None = None,
+        vision_features: Tensor | None = None,
         label_smoothing: float = 0.0,
         target_mask: Tensor | None = None,
         reduction: Literal["sum", "mean"] = "sum",
         return_logits: bool = False,
     ) -> Tensor | tuple[Tensor, Tensor]:
-        """Forward pass ensuring state_bag is shared between frontend and decoder.
-
-        :param seqs: Input token IDs.
-        :param seqs_layout: Batch layout information.
-        :param targets: Target token IDs (for loss computation).
-        :param state_bag: Incremental state bag. If None, creates one and shares
-            it between frontend and decoder (required for PLE).
-        :param label_smoothing: Label smoothing factor for loss.
+        """
+        :param seqs: Input token IDs. *Shape:* :math:`(N,S)`.
+        :param seqs_layout: Layout information.
+        :param targets: Target token IDs for loss computation.
+        :param state_bag: Incremental decoding state.
+        :param audio_features: Mel-spectrogram. *Shape:* :math:`(N,T,128)`.
+        :param vision_features: Image pixels. *Shape:* :math:`(N,C,H,W)`.
+        :param label_smoothing: Label smoothing factor.
         :param target_mask: Mask for targets.
         :param reduction: Loss reduction method.
         :param return_logits: If True, return both loss and logits.
         :returns: Logits or loss (or both if return_logits=True).
         """
-        # Create state_bag ONCE and pass to both frontend and decoder
-        if state_bag is None:
-            state_bag = IncrementalStateBag(max_num_steps=seqs.size(1))
-
-        # Frontend computes embeddings and PLE, stores in state_bag
-        seqs, seqs_layout = self.decoder_frontend(
-            seqs, seqs_layout, state_bag=state_bag
+        seqs, seqs_layout, per_layer_embeds = self.decoder_frontend(
+            seqs,
+            seqs_layout,
+            state_bag=state_bag,
+            audio_features=audio_features,
+            vision_features=vision_features,
         )
 
-        # Decoder retrieves PLE from state_bag and processes
-        decoder_output = self.decoder(seqs, seqs_layout, state_bag=state_bag)
+        decoder_output = self.decoder(
+            seqs,
+            seqs_layout,
+            state_bag=state_bag,
+            per_layer_embeds=per_layer_embeds,
+        )
 
         del seqs
 
-        # Compute loss or return logits
         if targets is None:
             return self.final_proj(decoder_output)
 

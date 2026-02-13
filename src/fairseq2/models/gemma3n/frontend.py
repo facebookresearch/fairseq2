@@ -6,16 +6,16 @@
 
 from __future__ import annotations
 
-from typing import cast, final
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, cast, final
 
 import torch
 from torch import Tensor
-from torch.nn import Dropout
+from torch.nn import Dropout, Module
 from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
-from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.nn import (
     BatchLayout,
     Embedding,
@@ -27,8 +27,37 @@ from fairseq2.nn import (
 from fairseq2.nn.projection import Linear
 
 
+class Gemma3nFrontendBase(Module, ABC):
+    """Base class for Gemma3n frontends with multimodal support."""
+
+    @abstractmethod
+    def forward(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        *,
+        state_bag: IncrementalStateBag | None = None,
+        audio_features: Tensor | None = None,
+        vision_features: Tensor | None = None,
+    ) -> tuple[Tensor, BatchLayout, Tensor]:
+        """
+        :param seqs: Token IDs. *Shape:* :math:`(N,S)`.
+        :param seqs_layout: Layout information for ``seqs``.
+        :param state_bag: Incremental decoding state (KV cache).
+        :param audio_features: Mel-spectrogram features. *Shape:* :math:`(N,T,F)`.
+        :param vision_features: Image pixel values. *Shape:* :math:`(N,C,H,W)`.
+        :returns:
+            - Embeddings *Shape:* :math:`(N,S,M)`
+            - Layout
+            - Per-layer embeddings *Shape:* :math:`(N,S,L,H)`
+        """
+
+    if TYPE_CHECKING:
+        __call__ = forward
+
+
 @final
-class Gemma3nFrontend(TransformerFrontend):
+class Gemma3nFrontend(Gemma3nFrontendBase):
     """Gemma3n frontend with PLE (Per-Layer Embeddings) support."""
 
     embed: Embedding
@@ -71,7 +100,7 @@ class Gemma3nFrontend(TransformerFrontend):
 
         # Standard embedding components (copied from TransformerEmbeddingFrontend)
         self.embed = embed
-        self.scale = 1.0 if no_scale else (model_dim ** 0.5)
+        self.scale = 1.0 if no_scale else (model_dim**0.5)
 
         self.pos_encoder: PositionEncoder | None
         self.register_module("pos_encoder", pos_encoder)
@@ -132,17 +161,22 @@ class Gemma3nFrontend(TransformerFrontend):
         seqs_layout: BatchLayout,
         *,
         state_bag: IncrementalStateBag | None = None,
-    ) -> tuple[Tensor, BatchLayout]:
+        audio_features: Tensor | None = None,
+        vision_features: Tensor | None = None,
+    ) -> tuple[Tensor, BatchLayout, Tensor]:
         """
-        :param seqs: Token IDs [B, S] (before embedding).
-        :param seqs_layout: Batch layout information.
-        :param state_bag: State bag to store PLE embeddings.
-        :returns: Tuple of (embedded sequences [B, S, M], layout).
+        :param seqs: Token IDs. *Shape:* :math:`(N,S)`.
+        :param seqs_layout: Layout information.
+        :param state_bag: Incremental decoding state.
+        :param audio_features: Mel-spectrogram. *Shape:* :math:`(N,T,128)`.
+        :param vision_features: Image pixels. *Shape:* :math:`(N,C,H,W)`.
+        :returns:
+            - Embeddings *Shape:* :math:`(N,S,2048)`
+            - Layout
+            - Per-layer embeddings *Shape:* :math:`(N,S,L,256)`
         """
-        # Store token_ids for PLE lookup (before embedding)
         token_ids = seqs
 
-        # Standard embedding (copied from TransformerEmbeddingFrontend.forward)
         seqs = self.embed(seqs)
 
         if self.scale != 1.0:
@@ -154,23 +188,15 @@ class Gemma3nFrontend(TransformerFrontend):
         if self.dropout is not None:
             seqs = self.dropout(seqs)
 
-        # Gemma3n-specific: Compute PLE embeddings
         per_layer_inputs_discrete = self._get_per_layer_inputs(token_ids)
         per_layer_inputs_continuous = self._project_per_layer_inputs(seqs)
 
-        # Combine discrete + continuous PLE
         per_layer_inputs = self._combine_per_layer_inputs(
             per_layer_inputs_discrete,
             per_layer_inputs_continuous,
         )
 
-        # Store in state_bag for decoder to retrieve
-        if state_bag is None:
-            state_bag = IncrementalStateBag(max_num_steps=seqs.size(1))
-
-        state_bag.per_layer_inputs = per_layer_inputs  # pyright: ignore[reportAttributeAccessIssue]
-
-        return seqs, seqs_layout
+        return seqs, seqs_layout, per_layer_inputs
 
     def _get_per_layer_inputs(self, token_ids: Tensor) -> Tensor:
         """Lookup PLE embeddings from token_ids.

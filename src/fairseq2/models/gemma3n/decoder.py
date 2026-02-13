@@ -6,12 +6,13 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Any, final
+from typing import TYPE_CHECKING, Any, final
 
 import torch
 from torch import Tensor
-from torch.nn import ModuleList
+from torch.nn import Module, ModuleList
 from typing_extensions import override
 
 from fairseq2.data_type import DataType
@@ -19,13 +20,39 @@ from fairseq2.device import Device
 from fairseq2.models.gemma3n.decoder_layer import Gemma3nDecoderLayer
 from fairseq2.models.gemma3n.kv_projection import KVProjectionRole, KVProjectionType
 from fairseq2.models.transformer import AttentionBiasCache
-from fairseq2.models.transformer_lm import TransformerLMDecoder
 from fairseq2.nn import BatchLayout, IncrementalStateBag, LayerNorm
 from fairseq2.nn.projection import Linear
 
 
+class Gemma3nDecoderBase(Module, ABC):
+    """Base class for Gemma3n decoders with per-layer embedding support."""
+
+    @abstractmethod
+    def forward(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        *,
+        state_bag: IncrementalStateBag | None = None,
+        per_layer_embeds: Tensor | None = None,
+    ) -> Tensor:
+        """
+        :param seqs: Input embeddings. *Shape:* :math:`(N,S,M)`.
+        :param seqs_layout: Layout information for ``seqs``.
+        :param state_bag: Incremental decoding state (KV cache).
+        :param per_layer_embeds: Per-layer embeddings. *Shape:* :math:`(N,S,L,H)`.
+        :returns: Decoder output. *Shape:* :math:`(N,S,M)`.
+        """
+
+    if TYPE_CHECKING:
+        __call__ = forward
+
+    @abstractmethod
+    def compile_layerwise(self, *args: Any, **kwargs: Any) -> None: ...
+
+
 @final
-class Gemma3nDecoder(TransformerLMDecoder):
+class Gemma3nDecoder(Gemma3nDecoderBase):
     """Gemma3n decoder with AltUp 4D processing and PLE support."""
 
     layers: ModuleList
@@ -65,16 +92,20 @@ class Gemma3nDecoder(TransformerLMDecoder):
         )
 
         # AltUp projections: Create versions 1, 2, 3 from version 0
-        self.altup_projections = ModuleList([
-            Linear(model_dim, model_dim, bias=False, device=device, dtype=dtype)
-            for _ in range(num_altup_inputs - 1)
-        ])
+        self.altup_projections = ModuleList(
+            [
+                Linear(model_dim, model_dim, bias=False, device=device, dtype=dtype)
+                for _ in range(num_altup_inputs - 1)
+            ]
+        )
 
         # AltUp unembed projections: Reverse the projections
-        self.altup_unembed_projections = ModuleList([
-            Linear(model_dim, model_dim, bias=False, device=device, dtype=dtype)
-            for _ in range(num_altup_inputs - 1)
-        ])
+        self.altup_unembed_projections = ModuleList(
+            [
+                Linear(model_dim, model_dim, bias=False, device=device, dtype=dtype)
+                for _ in range(num_altup_inputs - 1)
+            ]
+        )
 
     @override
     def forward(
@@ -83,14 +114,15 @@ class Gemma3nDecoder(TransformerLMDecoder):
         seqs_layout: BatchLayout,
         *,
         state_bag: IncrementalStateBag | None = None,
+        per_layer_embeds: Tensor | None = None,
     ) -> Tensor:
         """
-        :param seqs: Input sequences [B, S, M] from frontend.
-        :param seqs_layout: Batch layout information.
-        :param state_bag: State bag containing PLE embeddings and incremental state.
-        :returns: Output sequences [B, S, M].
+        :param seqs: Input embeddings. *Shape:* :math:`(N,S,M)`.
+        :param seqs_layout: Layout information.
+        :param state_bag: Incremental decoding state.
+        :param per_layer_embeds: Per-layer embeddings. *Shape:* :math:`(N,S,L,256)`.
+        :returns: Decoder output. *Shape:* :math:`(N,S,M)`.
         """
-        # Create KV projection slots if sharing is enabled
         kv_projection_slots = None
         if self._has_kv_projection_sharing:
             kv_projection_slots = {
@@ -98,20 +130,16 @@ class Gemma3nDecoder(TransformerLMDecoder):
                 KVProjectionType.GLOBAL: None,
             }
 
-        # Stack to 4D: [B, S, M] → [4, B, S, M]
         hidden_states = self._stack_altup(seqs)
-
-        # Get PLE embeddings from state_bag (set by frontend)
-        per_layer_inputs = getattr(state_bag, 'per_layer_inputs', None)
 
         attn_bias_cache = AttentionBiasCache()
 
         for layer_idx, layer in enumerate(self.layers):
-            # Extract PLE for this layer
-            if per_layer_inputs is not None:
-                layer_ple = per_layer_inputs[:, :, layer_idx, :]
-            else:
-                layer_ple = None
+            layer_ple = (
+                per_layer_embeds[:, :, layer_idx, :]
+                if per_layer_embeds is not None
+                else None
+            )
 
             hidden_states = layer(
                 hidden_states,
@@ -122,7 +150,6 @@ class Gemma3nDecoder(TransformerLMDecoder):
                 kv_projection_slots=kv_projection_slots,
             )
 
-        # Unstack to 3D: [4, B, S, M] → [B, S, M]
         seqs = self._unstack_altup(hidden_states)
 
         seqs = self.layer_norm(seqs)
@@ -163,8 +190,12 @@ class Gemma3nDecoder(TransformerLMDecoder):
         :returns: 3D tensor [B, S, M].
         """
         # Compute target magnitude from version 0
-        target_magnitude = torch.mean(hidden_states[0]**2, dim=-1, keepdim=True) ** 0.5
-        epsilon = torch.tensor(1e-5, device=hidden_states.device, dtype=hidden_states.dtype)
+        target_magnitude = (
+            torch.mean(hidden_states[0] ** 2, dim=-1, keepdim=True) ** 0.5
+        )
+        epsilon = torch.tensor(
+            1e-5, device=hidden_states.device, dtype=hidden_states.dtype
+        )
 
         # Version 0 stays as-is
         versions = [hidden_states[0]]
