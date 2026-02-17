@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import TypeAlias, final
 
+from torch import Tensor
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
 from typing_extensions import override
@@ -21,7 +22,7 @@ LRScheduler: TypeAlias = _LRScheduler
 class AbstractLRScheduler(ABC, LRScheduler):
     @final
     @override
-    def get_lr(self) -> list[float]:  # type: ignore[override]
+    def get_lr(self) -> list[float | Tensor]:  # type: ignore[override, return-value]
         if not self._get_lr_called_within_step:  # type: ignore[attr-defined]
             warnings.warn(
                 "To get the last learning rate computed by the scheduler, use `get_last_lr()`."
@@ -30,7 +31,7 @@ class AbstractLRScheduler(ABC, LRScheduler):
         return self._compute_lrs()
 
     @abstractmethod
-    def _compute_lrs(self) -> list[float]:
+    def _compute_lrs(self) -> list[float | Tensor]:
         """Compute the learning rate of each parameter group."""
 
 
@@ -40,16 +41,16 @@ class PassthroughLR(AbstractLRScheduler):
         super().__init__(optimizer, last_epoch)
 
     @override
-    def _compute_lrs(self) -> list[float]:
-        return self.base_lrs
+    def _compute_lrs(self) -> list[float | Tensor]:
+        return list(self.base_lrs)
 
 
 def get_per_param_group(
-    optimizer: Optimizer, name: str, value: float | Sequence[float]
-) -> Sequence[float]:
+    optimizer: Optimizer, name: str, value: float | Tensor | Sequence[float | Tensor]
+) -> Sequence[float | Tensor]:
     num_param_groups = len(optimizer.param_groups)
 
-    if isinstance(value, float):
+    if isinstance(value, (float, Tensor)):
         return [value] * num_param_groups
 
     if len(value) != num_param_groups:
@@ -60,6 +61,6 @@ def get_per_param_group(
     return value
 
 
-def get_effective_lr(scheduler: LRScheduler) -> float:
+def get_effective_lr(scheduler: LRScheduler) -> float | Tensor:
     """Return the effective learning rate computed by ``scheduler``."""
     return scheduler.get_last_lr()[0]

@@ -162,54 +162,46 @@ def to_empty(
 
 
 def share_parameters(source_module: Module, target_module: Module) -> None:
-    """Share the parameters and buffers of ``source_module`` with ``target_module``.
-
-    :param source_module:
-        The module whose parameters and buffers will be shared.
-    :param target_module:
-        The module whose parameters and buffers will be overwritten.
     """
-    sources = chain(source_module.named_parameters(), source_module.named_buffers())
-    targets = chain(target_module.named_parameters(), target_module.named_buffers())
+    Shares the parameters and buffers of ``source_module`` with ``target_module``.
+    """
+    src_it = chain(source_module.named_parameters(), source_module.named_buffers())
+    tgt_it = chain(target_module.named_parameters(), target_module.named_buffers())
+
+    sources = list(src_it)
+    targets = list(tgt_it)
+
+    if len(sources) != len(targets):
+        raise ValueError(
+            f"`source_module` has {len(sources)} parameters while `target_module` has {len(targets)} parameters"
+        )
+
+    memo = {}
 
     for (src_name, src_tensor), (tgt_name, tgt_tensor) in zip(sources, targets):
         if src_name != tgt_name:
             raise ValueError(
-                f"`source_module` and `target_module` must have matching parameters and buffers, but `target_module` has no '{src_name}'."
+                f"`source_module` and `target_module` must have matching parameters and buffers, but `target_module` has no '{src_name}'"
             )
 
         if src_tensor.grad is not None:
             raise ValueError(
-                f"Parameters of `source_module` must not have their `grad` set, but '{src_name}' has it set."
+                f"parameters of `source_module` must not have their `grad` set, but '{src_name}' has it set"
             )
 
         if tgt_tensor.grad is not None:
             raise ValueError(
-                f"Parameters of `target_module` must not have their `grad` set, but '{tgt_name}' has it set."
+                f"parameters of `target_module` must not have their `grad` set, but '{tgt_name}' has it set"
             )
 
-    tensors = []
+        memo[tgt_tensor] = src_tensor
 
-    # The order of the collected tensors here must match `apply_to_parameters()`.
-    def collect_tensors(m: Module) -> None:
-        for child in m.children():
-            if child is not None:
-                collect_tensors(child)
+    def fn(_: Tensor) -> Tensor:
+        raise RuntimeError(
+            "at least one tensor during parameter sharing was not memoized"
+        )
 
-        for tensor in chain(m.parameters(recurse=False), m.buffers(recurse=False)):
-            if tensor is not None:
-                tensors.append(tensor)
-
-    collect_tensors(source_module)
-
-    if not tensors:
-        return
-
-    it = iter(tensors)
-
-    # Do not memoize. No need anyways, and would also break the sync between the
-    # traversed tensors and the iterator.
-    apply_to_parameters(target_module, lambda _: next(it), no_memo=True)
+    apply_to_parameters(target_module, fn, memo=memo)
 
 
 def apply_to_parameters(
@@ -218,57 +210,55 @@ def apply_to_parameters(
     *,
     recurse: bool = True,
     memo: dict[Tensor, Tensor] | None = None,
-    no_memo: bool = False,
+    module_memo: set[Module] | None = None,
 ) -> None:
-    """Apply ``fn`` to the parameters and buffers of ``module``.
-
-    :param module:
-        The module to process.
-    :param fn:
-        The function to apply.
-    :param recurse:
-        If ``True``, applies ``fn`` to the parameters and buffers of descendant
-        modules.
-    :param memo:
-        The memoization dictionary to detect shared parameters and buffers. If
-        ``None`` and ``no_memo`` is ``False``, constructs an internal one.
-    :param no_memo:
-        If ``True``, skips memoization.
     """
-    if no_memo:
-        memo = None
-    elif memo is None:
+    Applies ``fn`` to the parameters and buffers of ``module``.
+
+    If ``recurse`` is ``True``, applies ``fn`` to the parameters and buffers of
+    descendant modules as well.
+
+    ``memo`` and ``module_memo`` are used to detect shared parameters, buffers,
+    and modules. If not provided, they are constructed internally.
+    """
+    if memo is None:
         memo = {}
+
+    if module_memo is None:
+        module_memo = set()
 
     if recurse:
         for child in module.children():
-            if child is not None:
-                apply_to_parameters(
-                    child, fn, recurse=recurse, memo=memo, no_memo=no_memo
-                )
+            if child in module_memo:
+                continue
+
+            apply_to_parameters(
+                child, fn, recurse=recurse, memo=memo, module_memo=module_memo
+            )
+
+            module_memo.add(child)
 
     def call_fn(
         source: Tensor, is_param: bool = False, requires_grad: bool = False
     ) -> Tensor:
-        if memo is not None and source in memo:
+        if source in memo:
             return memo[source]
 
         target = fn(source)
 
-        if is_param:
-            target = Parameter(target, requires_grad)
-        elif requires_grad:
-            target.requires_grad_(requires_grad)
+        if target is not source:
+            if is_param:
+                target = Parameter(target, requires_grad)
+            elif requires_grad:
+                target.requires_grad_(requires_grad)
 
-        if memo is not None:
-            memo[source] = target
+        memo[source] = target
 
         return target
 
-    for param_name, param in module.named_parameters(recurse=False):
-        if param is None:
-            continue
-
+    for param_name, param in module.named_parameters(
+        recurse=False, remove_duplicate=False
+    ):
         with torch.no_grad():
             new_param = call_fn(param, is_param=True, requires_grad=param.requires_grad)
 
@@ -281,10 +271,9 @@ def apply_to_parameters(
 
             new_param.grad = new_grad
 
-    for buffer_name, buffer in module.named_buffers(recurse=False):
-        if buffer is None:
-            continue
-
+    for buffer_name, buffer in module.named_buffers(
+        recurse=False, remove_duplicate=False
+    ):
         setattr(module, buffer_name, call_fn(buffer))
 
 

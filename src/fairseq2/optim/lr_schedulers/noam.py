@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import final
 
+from torch import Tensor
 from torch.optim import Optimizer
 from typing_extensions import override
 
@@ -54,7 +55,7 @@ class NoamLR(AbstractLRScheduler):
         super().__init__(optimizer, last_epoch)
 
     @override
-    def _compute_lrs(self) -> list[float]:
+    def _compute_lrs(self) -> list[float | Tensor]:
         # Linearly increase the learning rate during warmup.
         if self.last_epoch < self.num_warmup_steps:
             c = self.last_epoch * self.num_warmup_steps**-1.5

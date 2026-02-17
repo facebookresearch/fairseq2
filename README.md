@@ -13,6 +13,7 @@
 fairseq2 is a sequence modeling toolkit that allows researchers to train custom models for content generation tasks.
 
 ### Some of the Recent FAIR Research Based on fairseq2
+* [Omnilingual ASR: Open-Source Multilingual Speech Recognition for 1600+ Languages](https://arxiv.org/abs/2511.09690)
 * [Bridging Offline and Online Reinforcement Learning for LLMs](https://arxiv.org/pdf/2506.21495)
 * [R.I.P.: Better Models by Survival of the Fittest Prompts](https://arxiv.org/abs/2501.18578)
 * [Learning to reason for factuality](https://arxiv.org/abs/2508.05618)

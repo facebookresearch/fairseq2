@@ -13,6 +13,7 @@ from typing import Any, Dict, Iterator, List, Optional
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc  # noqa: F401
+import pyarrow.dataset as ds
 import pyarrow.parquet as pq
 import torch
 from pyarrow.dataset import get_partition_keys
@@ -25,7 +26,6 @@ from fairseq2.data.data_pipeline import (
 from fairseq2.data.parquet.fragment_streaming.config import ParquetDatasetLimitOptions
 from fairseq2.data.parquet.utils import (
     circular_shift_left,
-    get_dataset_fragments,
     split_fragment_in_row_groups,
 )
 from fairseq2.logging import log
@@ -67,26 +67,79 @@ def process_filter(
     raise ValueError(f"Unknown type of filters: {type(filters)}")
 
 
+@dataclass
+class ParquetDatasetWrapper:
+    """Wrapper for a PyArrow dataset with optional partition filters.
+
+    Since `pa.dataset.dataset` doesn't support filters at initialization time,
+    this wrapper stores the filter expression to be applied when getting fragments.
+    """
+
+    dataset: ds.Dataset
+    partition_filters: Optional[pa.compute.Expression] = None
+
+    @property
+    def files(self) -> List[str]:
+        return self.dataset.files
+
+    @property
+    def schema(self) -> pa.Schema:
+        return self.dataset.schema
+
+    def get_fragments(
+        self, filter_expr: Optional[pa.compute.Expression] = None
+    ) -> List[ds.Fragment]:
+        """
+        Args:
+            filter_expr: Additional filter expression to combine with partition_filters.
+        """
+        combined_filter = self.partition_filters
+        if filter_expr is not None:
+            if combined_filter is not None:
+                combined_filter = combined_filter & filter_expr
+            else:
+                combined_filter = filter_expr
+        return list(self.dataset.get_fragments(combined_filter))
+
+
+ParquetDatasetType = ParquetDatasetWrapper | pq.ParquetDataset
+
+
+def _ensure_wrapper(parquet_ds: ParquetDatasetType) -> ParquetDatasetWrapper:
+    """Convert pq.ParquetDataset to ParquetDatasetWrapper for backward compatibility."""
+    if isinstance(parquet_ds, ParquetDatasetWrapper):
+        return parquet_ds
+    return ParquetDatasetWrapper(
+        dataset=parquet_ds._dataset,
+        partition_filters=parquet_ds._filter_expression,
+    )
+
+
 def init_parquet_dataset(
     parquet_path: str | List[str],
-    partition_filters: Optional[pa.dataset.Expression] = None,
+    partition_filters: Optional[pa.compute.Expression] = None,
     filesystem=None,
-) -> pq.ParquetDataset:
+) -> ParquetDatasetWrapper:
     """
-    Initialize a Parquet dataset.
+    Initialize a Parquet dataset using `pa.dataset.dataset` with hive partitioning.
     Leaving `filesystem` to None will trigger the detection of the filesystem.
 
     Args:
         parquet_path (str or List[str]): The path to the Parquet dataset.
-        filters (Optional[pa.dataset.Expression]): Partition level filters to apply to the dataset.
+        partition_filters (Optional[pa.compute.Expression]): Partition level filters
+            to apply when getting fragments from the dataset.
         filesystem : The filesystem to use. If None, the filesystem will be detected.
 
     Returns:
-        pq.ParquetDataset: The initialized Parquet dataset.
+        ParquetDatasetWrapper: A wrapper containing the dataset and partition filters.
     """
-    return pq.ParquetDataset(
-        parquet_path, filters=partition_filters, filesystem=filesystem
+    dataset = ds.dataset(
+        parquet_path,
+        format="parquet",
+        partitioning="hive",
+        filesystem=filesystem,
     )
+    return ParquetDatasetWrapper(dataset=dataset, partition_filters=partition_filters)
 
 
 def _parquet_fragments_to_pipeline_builder(
@@ -123,7 +176,7 @@ def _parquet_fragments_to_pipeline_builder(
 
 
 def list_parquet_fragments(
-    parquet_ds: pq.ParquetDataset,
+    parquet_ds: ParquetDatasetType,
     nb_epochs: Optional[int] = 1,
     split_to_row_groups: bool = True,
     shuffle: bool = True,
@@ -135,7 +188,8 @@ def list_parquet_fragments(
     if limit_options is None:
         limit_options = ParquetDatasetLimitOptions()
 
-    file_ds_fragments = get_dataset_fragments(parquet_ds, parquet_ds._filter_expression)
+    parquet_ds = _ensure_wrapper(parquet_ds)
+    file_ds_fragments = parquet_ds.get_fragments()
     proxy_ds_path = "/".join(parquet_ds.files[0].split("=")[0].split("/")[:-1])
 
     if limit_options.fraction_of_files is not None:
@@ -236,7 +290,7 @@ class PFSState:
 class ParquetFragmentStreamer:
     def __init__(
         self,
-        parquet_ds: pq.ParquetDataset,
+        parquet_ds: ParquetDatasetType,
         split_to_row_groups: bool = True,
         limit_options: Optional[ParquetDatasetLimitOptions] = None,
         shuffle: bool = False,
@@ -244,7 +298,7 @@ class ParquetFragmentStreamer:
         relative_files_circular_shift: float = 0.0,
         read_state: Optional[PFSState] = None,
     ):
-        self.parquet_ds = parquet_ds
+        self.parquet_ds = _ensure_wrapper(parquet_ds)
         self.split_to_row_groups = split_to_row_groups
         self.limit_options = limit_options or ParquetDatasetLimitOptions()
         self.shuffle = shuffle
@@ -282,13 +336,11 @@ class ParquetFragmentStreamer:
 
     def truncate_files(
         self,
-        parquet_ds: pq.ParquetDataset,
+        parquet_ds: ParquetDatasetWrapper,
         fraction_of_files: Optional[float],
         nb_files: Optional[int],
-    ) -> List[pa.dataset.Fragment]:
-        file_ds_fragments = get_dataset_fragments(
-            parquet_ds, parquet_ds._filter_expression
-        )
+    ) -> List[ds.Fragment]:
+        file_ds_fragments = parquet_ds.get_fragments()
         self.proxy_ds_path = "/".join(parquet_ds.files[0].split("=")[0].split("/")[:-1])
 
         if fraction_of_files is not None:
@@ -452,7 +504,7 @@ class ShuffledIterator(Iterator[Any]):
 
 
 def stream_parquet_fragments(
-    parquet_ds: pq.ParquetDataset,
+    parquet_ds: ParquetDatasetType,
     nb_epochs: Optional[int],
     split_to_row_groups: bool = True,
     shuffle: bool = True,
@@ -462,6 +514,7 @@ def stream_parquet_fragments(
     files_circular_shift: float = 0.0,
 ) -> DataPipelineBuilder:
 
+    parquet_ds = _ensure_wrapper(parquet_ds)
     fragments_iterator = ParquetFragmentStreamer(
         parquet_ds=parquet_ds,
         split_to_row_groups=split_to_row_groups,

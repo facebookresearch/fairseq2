@@ -10,6 +10,7 @@ import math
 from collections.abc import Sequence
 from typing import final
 
+from torch import Tensor
 from torch.optim import Optimizer
 from typing_extensions import override
 
@@ -72,8 +73,8 @@ class TriStageLR(AbstractLRScheduler):
         num_stage_steps = [int(r * num_steps) for r in stage_ratio]
 
         self.num_steps = num_steps
-        self.start_lrs: Sequence[float] | None = None
-        self.final_lrs: Sequence[float] | None = None
+        self.start_lrs: Sequence[float | Tensor] | None = None
+        self.final_lrs: Sequence[float | Tensor] | None = None
         self.start_lr_scales = start_lr_scales
         self.final_lr_scales = final_lr_scales
         self.num_stage_steps = num_stage_steps
@@ -81,7 +82,7 @@ class TriStageLR(AbstractLRScheduler):
         super().__init__(optimizer, last_epoch)
 
     @override
-    def _compute_lrs(self) -> list[float]:
+    def _compute_lrs(self) -> list[float | Tensor]:
         base_lrs = self.base_lrs
 
         # Due to `LRScheduler`'s constructor quirks, we delay the initialization
