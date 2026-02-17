@@ -195,15 +195,15 @@ Module Structure
 ABCs
 ====
 
-.. autoclass:: fairseq2.models.utils.hg.HuggingFaceConverter
+.. autoclass:: fairseq2.models.hg.HuggingFaceConverter
 
 Classes
 =======
 
-.. autoclass:: fairseq2.models.utils.hg.HuggingFaceConfig
+.. autoclass:: fairseq2.models.hg.HuggingFaceConfig
 
 Functions
 =========
 
-.. autofunction:: fairseq2.models.utils.hg.get_hugging_face_converter
-.. autofunction:: fairseq2.models.utils.hg.save_hugging_face_model
+.. autofunction:: fairseq2.models.hg.get_hugging_face_converter
+.. autofunction:: fairseq2.models.hg.save_hugging_face_model
