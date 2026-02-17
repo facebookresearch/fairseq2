@@ -387,8 +387,6 @@ def _load_special_model(
     # Prepare kwargs for from_pretrained
     load_kwargs = _prepare_load_kwargs(config)
 
-    # Needed for Qwen Omni 2.5 in transformers v2.51.1
-    load_kwargs.pop("safe_serialization")
     load_kwargs["device_map"] = device
     load_kwargs["ignore_mismatched_sizes"] = True
 
@@ -500,7 +498,6 @@ def _prepare_load_kwargs(config: HuggingFaceModelConfig) -> Dict[str, Any]:
     model_path = _get_model_path(config)
     kwargs["pretrained_model_name_or_path"] = model_path
     kwargs["use_safetensors"] = True
-    kwargs["safe_serialization"] = True
 
     # Set dtype
     _set_dtype_kwargs(config, kwargs)

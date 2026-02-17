@@ -107,7 +107,7 @@ from fairseq2.models.transformer_lm import (
     apply_fsdp_to_transformer_lm,
     compile_transformer_lm,
 )
-from fairseq2.models.utils.hg import HuggingFaceConverter, _LegacyHuggingFaceConverter
+from fairseq2.models.hg import HuggingFaceConverter, _LegacyHuggingFaceConverter
 from fairseq2.models.w2vbert import (
     W2VBERT_FAMILY,
     W2VBertConfig,
