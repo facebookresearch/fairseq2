@@ -15,7 +15,7 @@ from pathlib import Path
 import torch
 
 from fairseq2.data.tokenizers import load_tokenizer
-from fairseq2.gang import setup_default_gang
+from fairseq2.gang import get_default_gangs
 from fairseq2.logging import get_log_writer
 
 from recipes.lm.sft.dataset import (
@@ -78,11 +78,11 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    # Setup gang (for distributed data loading)
-    gang = setup_default_gang()
+    # Setup gangs (for distributed data loading)
+    gangs = get_default_gangs()
 
     # Only rank 0 saves batches
-    if gang.rank == 0:
+    if gangs.root.rank == 0:
         args.output_dir.mkdir(parents=True, exist_ok=True)
         log.info(f"Extracting {args.num_batches} batches to {args.output_dir}")
 
@@ -116,13 +116,6 @@ def main() -> None:
         seed=args.seed,
     )
 
-    gangs = type('Gangs', (), {
-        'root': gang,
-        'dp': gang,
-        'tp': type('Gang', (), {'size': 1})(),
-        'sdp': type('Gang', (), {'size': 1})(),
-    })()
-
     data_reader = dataset.create_reader(
         split="train",
         tokenizer=tokenizer,
@@ -138,7 +131,7 @@ def main() -> None:
         if batch_idx >= args.num_batches:
             break
 
-        if gang.rank == 0:
+        if gangs.root.rank == 0:
             # Extract batch data
             input_batch, target_batch = batch.as_auto_regressive()
             seqs, seqs_layout = input_batch.as_input()
@@ -168,7 +161,7 @@ def main() -> None:
             if batch_idx % 10 == 0:
                 log.info(f"Extracted batch {batch_idx}/{args.num_batches}")
 
-    if gang.rank == 0:
+    if gangs.root.rank == 0:
         log.info(f"Extraction complete! Saved {args.num_batches} batches to {args.output_dir}")
 
 
