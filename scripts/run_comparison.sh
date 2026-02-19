@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=convergence-comparison
-#SBATCH --output=./slurm_logs/comparison-%j.out
-#SBATCH --error=./slurm_logs/comparison-%j.err
+#SBATCH --output=/home/richardyue/fairseq2/hg_hardware_test/slurm_logs/comparison-%j.out
+#SBATCH --error=/home/richardyue/fairseq2/hg_hardware_test/slurm_logs/comparison-%j.err
 #SBATCH --gpus 8
 #SBATCH --account seamless_fs2
 #SBATCH --qos h100_dev

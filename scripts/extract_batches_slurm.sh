@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=extract-batches
-#SBATCH --output=./slurm_logs/extract-%j.out
-#SBATCH --error=./slurm_logs/extract-%j.err
+#SBATCH --output=/home/richardyue/fairseq2/hg_hardware_test/slurm_logs/extract-%j.out
+#SBATCH --error=/home/richardyue/fairseq2/hg_hardware_test/slurm_logs/extract-%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --qos=cpu_lowest
@@ -18,7 +18,8 @@ echo "=========================================="
 
 # Change to project directory and activate venv
 cd /home/richardyue/fairseq2/hg_hardware_test
-source .venv/bin/activate
+source ~/miniconda3/bin/activate
+source activate fs2v080
 
 # Configuration
 EXTRACTED_DATA="/checkpoint/seamless/richardyue/extracted_data"
