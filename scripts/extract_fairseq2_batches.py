@@ -15,11 +15,15 @@ from pathlib import Path
 import torch
 
 from fairseq2.data.tokenizers import load_tokenizer
-from fairseq2.datasets import load_dataset
-from fairseq2.gang import get_rank, get_world_size, setup_default_gang
+from fairseq2.gang import get_rank, setup_default_gang
 from fairseq2.logging import get_log_writer
 
-from recipes.lm.sft.dataset import LMSFTDataset, DataReadOptions, StaticBatching
+from recipes.lm.sft.dataset import (
+    LMSFTDataset,
+    LMSFTDataSource,
+    DataReadOptions,
+    StaticBatching,
+)
 
 
 log = get_log_writer(__name__)
@@ -86,23 +90,18 @@ def main() -> None:
     tokenizer = load_tokenizer(args.tokenizer, family="hg")
     log.info(f"Loaded tokenizer: {args.tokenizer}")
 
-    # Load dataset
-    dataset = load_dataset(
-        "lm_sft",
-        config={
-            "sources": {
-                "train": [
-                    {
-                        "path": args.dataset_path,
-                        "split": args.split,
-                        "weight": 1.0,
-                    }
-                ]
-            }
-        },
-    )
-    assert isinstance(dataset, LMSFTDataset)
-    log.info(f"Loaded dataset: {args.dataset_path}")
+    # Create dataset
+    sources = {
+        "train": [
+            LMSFTDataSource(
+                path=args.dataset_path,
+                split=args.split,
+                weight=1.0,
+            )
+        ]
+    }
+    dataset = LMSFTDataset(sources)
+    log.info(f"Created dataset from: {args.dataset_path}")
 
     # Create data reader with static batching
     read_options = DataReadOptions(
