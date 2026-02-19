@@ -36,9 +36,9 @@ for arg in "$@"; do
     esac
 done
 
-# Get the absolute path to the project root (parent of scripts directory)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# Set project root and script directory (we already cd'd to project root above)
+PROJECT_ROOT="/home/richardyue/fairseq2/hg_hardware_test"
+SCRIPT_DIR="$PROJECT_ROOT/scripts"
 
 # Define directories
 FAIRSEQ2_DIR="$PROJECT_ROOT/out/fairseq2_checkpoints"
