@@ -15,7 +15,7 @@ from pathlib import Path
 import torch
 
 from fairseq2.data.tokenizers import load_tokenizer
-from fairseq2.gang import get_rank, setup_default_gang
+from fairseq2.gang import setup_default_gang
 from fairseq2.logging import get_log_writer
 
 from recipes.lm.sft.dataset import (
@@ -82,7 +82,7 @@ def main() -> None:
     gang = setup_default_gang()
 
     # Only rank 0 saves batches
-    if get_rank() == 0:
+    if gang.rank == 0:
         args.output_dir.mkdir(parents=True, exist_ok=True)
         log.info(f"Extracting {args.num_batches} batches to {args.output_dir}")
 
@@ -138,7 +138,7 @@ def main() -> None:
         if batch_idx >= args.num_batches:
             break
 
-        if get_rank() == 0:
+        if gang.rank == 0:
             # Extract batch data
             input_batch, target_batch = batch.as_auto_regressive()
             seqs, seqs_layout = input_batch.as_input()
@@ -168,7 +168,7 @@ def main() -> None:
             if batch_idx % 10 == 0:
                 log.info(f"Extracted batch {batch_idx}/{args.num_batches}")
 
-    if get_rank() == 0:
+    if gang.rank == 0:
         log.info(f"Extraction complete! Saved {args.num_batches} batches to {args.output_dir}")
 
 
