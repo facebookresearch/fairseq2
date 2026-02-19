@@ -78,22 +78,28 @@ echo "=== Step 3: Running parallel training ==="
 
 # Launch fairseq2 training on GPUs 0-3
 echo "Starting fairseq2 training on GPUs 0-3..."
-CUDA_VISIBLE_DEVICES=0,1,2,3 fairseq2 lm gemma3_2b_it \
+CUDA_VISIBLE_DEVICES=0,1,2,3 python -m recipes.lm.sft \
     --config-file recipes/lm/sft/configs/gemma_3_2b_it_gsm8k.yaml \
     --output-dir "$FAIRSEQ2_DIR" \
     > "$FAIRSEQ2_DIR/training.log" 2>&1 &
 FAIRSEQ2_PID=$!
 echo "fairseq2 training started (PID: $FAIRSEQ2_PID)"
 
-# Launch Unsloth training on GPUs 4-7
-echo "Starting Unsloth training on GPUs 4-7..."
-CUDA_VISIBLE_DEVICES=4,5,6,7 python "$SCRIPT_DIR/train_unsloth.py" \
-    --extracted-data-dir "$EXTRACTED_DATA_DIR" \
-    --output-dir "$UNSLOTH_DIR" \
-    --num-batches 10 \
-    > "$UNSLOTH_DIR/training.log" 2>&1 &
-UNSLOTH_PID=$!
-echo "Unsloth training started (PID: $UNSLOTH_PID)"
+# Check if unsloth is available
+if python -c "import unsloth" 2>/dev/null; then
+    # Launch Unsloth training on GPUs 4-7
+    echo "Starting Unsloth training on GPUs 4-7..."
+    CUDA_VISIBLE_DEVICES=4,5,6,7 python "$SCRIPT_DIR/train_unsloth.py" \
+        --extracted-data-dir "$EXTRACTED_DATA_DIR" \
+        --output-dir "$UNSLOTH_DIR" \
+        --num-batches 10 \
+        > "$UNSLOTH_DIR/training.log" 2>&1 &
+    UNSLOTH_PID=$!
+    echo "Unsloth training started (PID: $UNSLOTH_PID)"
+else
+    echo "WARNING: unsloth not installed, skipping Unsloth training"
+    UNSLOTH_PID=""
+fi
 
 # Step 4: Wait for both training runs to complete
 echo "=== Step 4: Waiting for training completion ==="
@@ -104,15 +110,23 @@ UNSLOTH_EXIT_CODE=0
 echo "Waiting for fairseq2 training (PID: $FAIRSEQ2_PID)..."
 wait $FAIRSEQ2_PID || FAIRSEQ2_EXIT_CODE=$?
 
-# Wait for Unsloth
-echo "Waiting for Unsloth training (PID: $UNSLOTH_PID)..."
-wait $UNSLOTH_PID || UNSLOTH_EXIT_CODE=$?
+# Wait for Unsloth (if it was started)
+if [ -n "$UNSLOTH_PID" ]; then
+    echo "Waiting for Unsloth training (PID: $UNSLOTH_PID)..."
+    wait $UNSLOTH_PID || UNSLOTH_EXIT_CODE=$?
+else
+    echo "Skipping Unsloth wait (not started)"
+fi
 
 # Check exit codes
 echo ""
 echo "=== Training Results ==="
 echo "fairseq2 exit code: $FAIRSEQ2_EXIT_CODE"
-echo "Unsloth exit code: $UNSLOTH_EXIT_CODE"
+if [ -n "$UNSLOTH_PID" ]; then
+    echo "Unsloth exit code: $UNSLOTH_EXIT_CODE"
+else
+    echo "Unsloth: skipped (not installed)"
+fi
 
 if [ $FAIRSEQ2_EXIT_CODE -ne 0 ]; then
     echo "ERROR: fairseq2 training failed with exit code $FAIRSEQ2_EXIT_CODE"
@@ -120,32 +134,42 @@ if [ $FAIRSEQ2_EXIT_CODE -ne 0 ]; then
     exit 1
 fi
 
-if [ $UNSLOTH_EXIT_CODE -ne 0 ]; then
+if [ -n "$UNSLOTH_PID" ] && [ $UNSLOTH_EXIT_CODE -ne 0 ]; then
     echo "ERROR: Unsloth training failed with exit code $UNSLOTH_EXIT_CODE"
     echo "Check logs at: $UNSLOTH_DIR/training.log"
     exit 1
 fi
 
-echo "Both training runs completed successfully!"
+echo "Training completed successfully!"
 
-# Step 5: Compare checkpoints
-echo ""
-echo "=== Step 5: Comparing checkpoints ==="
-python "$SCRIPT_DIR/compare_checkpoints.py" \
-    --fairseq2-dir "$FAIRSEQ2_DIR" \
-    --unsloth-dir "$UNSLOTH_DIR" \
-    --num-batches 10
-
-COMPARISON_EXIT_CODE=$?
-
-if [ $COMPARISON_EXIT_CODE -eq 0 ]; then
+# Step 5: Compare checkpoints (only if Unsloth ran)
+if [ -n "$UNSLOTH_PID" ]; then
     echo ""
-    echo "=== SUCCESS: Convergence test passed! ==="
-    echo "Checkpoints are identical within tolerance."
-    exit 0
+    echo "=== Step 5: Comparing checkpoints ==="
+    python "$SCRIPT_DIR/compare_checkpoints.py" \
+        --fairseq2-dir "$FAIRSEQ2_DIR" \
+        --unsloth-dir "$UNSLOTH_DIR" \
+        --num-batches 10
+
+    COMPARISON_EXIT_CODE=$?
+
+    if [ $COMPARISON_EXIT_CODE -eq 0 ]; then
+        echo ""
+        echo "=== SUCCESS: Convergence test passed! ==="
+        echo "Checkpoints are identical within tolerance."
+        exit 0
+    else
+        echo ""
+        echo "=== FAILURE: Convergence test failed ==="
+        echo "Checkpoints differ beyond acceptable tolerance."
+        exit 1
+    fi
 else
     echo ""
-    echo "=== FAILURE: Convergence test failed ==="
-    echo "Checkpoints differ beyond acceptable tolerance."
-    exit 1
+    echo "=== Step 5: Skipping checkpoint comparison ==="
+    echo "Unsloth was not run (not installed)"
+    echo ""
+    echo "=== SUCCESS: fairseq2 training completed ==="
+    echo "To run convergence comparison, install unsloth and re-run"
+    exit 0
 fi
