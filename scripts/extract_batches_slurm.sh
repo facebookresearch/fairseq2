@@ -1,9 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=extract-batches
-#SBATCH --output=/checkpoint/seamless/richardyue/extract-%j.out
-#SBATCH --error=/checkpoint/seamless/richardyue/extract-%j.err
+#SBATCH --output=./slurm_logs/extract-%j.out
+#SBATCH --error=./slurm_logs/extract-%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
+#SBATCH --qos=cpu_lowest
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=2:00:00
@@ -14,6 +15,10 @@ set -e
 echo "=========================================="
 echo "Extracting fairseq2 Batches for Convergence Test"
 echo "=========================================="
+
+# Change to project directory and activate venv
+cd /home/richardyue/fairseq2/hg_hardware_test
+source .venv/bin/activate
 
 # Configuration
 EXTRACTED_DATA="/checkpoint/seamless/richardyue/extracted_data"
