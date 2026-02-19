@@ -47,6 +47,7 @@ from fairseq2.gang import (
     get_default_gangs,
 )
 from fairseq2.logging import log
+from fairseq2.models.hg_qwen_omni.adapter import wrap_hg_model_if_causal_lm
 from fairseq2.models.hg_qwen_omni.config import HuggingFaceModelConfig
 from fairseq2.nn import Linear
 from fairseq2.utils.uri import Uri
@@ -242,9 +243,14 @@ class HgFactory:
             model_info = _get_model_info(config_class_name, config)
 
             if model_info:
-                return _load_special_model(name, config, model_info, gangs)
+                model = _load_special_model(name, config, model_info, gangs)
             else:
-                return _load_auto_model(name, config, hf_config)
+                model = _load_auto_model(name, config, hf_config)
+
+            # Wrap causal LM models with fairseq2 adapter
+            model = wrap_hg_model_if_causal_lm(model, config)
+
+            return model
 
         except Exception as ex:
             if "not found" in str(ex).lower() or "404" in str(ex):

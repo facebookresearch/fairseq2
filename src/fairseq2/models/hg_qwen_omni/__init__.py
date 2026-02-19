@@ -59,6 +59,12 @@ For detailed documentation, see: :doc:`/reference/fairseq2.models.hg_qwen_omni
 
 from __future__ import annotations
 
+from fairseq2.models.hg_qwen_omni.adapter import (
+    HgCausalLMAdapter as HgCausalLMAdapter,
+)
+from fairseq2.models.hg_qwen_omni.adapter import (
+    wrap_hg_model_if_causal_lm as wrap_hg_model_if_causal_lm,
+)
 from fairseq2.models.hg_qwen_omni.api import load_causal_lm as load_causal_lm
 from fairseq2.models.hg_qwen_omni.api import (
     load_hg_model_simple as load_hg_model_simple,

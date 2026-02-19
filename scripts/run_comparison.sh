@@ -1,4 +1,14 @@
 #!/bin/bash
+
+#SBATCH --gpus 8
+#SBATCH --account seamless_fs2
+#SBATCH --qos h100_dev
+#SBATCH --time 1409
+#SBATCH --mem 128GB
+
+source ~/miniconda3/bin/activate
+source activate fs2v080
+
 set -euo pipefail
 
 # Orchestration script for parallel convergence testing

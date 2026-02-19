@@ -403,18 +403,12 @@ def _register_model_families(container: DependencyContainer) -> None:
     register_wav2vec2_asr_configs(container)
 
     # HuggingFace
-    hg_kls: type[Module] | type[PreTrainedModel]
-    try:
-        from transformers import PreTrainedModel
-
-        hg_kls = PreTrainedModel
-    except ImportError:
-        hg_kls = Module
-
+    # Use Module as kls since the factory can return either PreTrainedModel
+    # (for non-causal models) or HgCausalLMAdapter (for causal LMs)
     register_model_family(
         container,
         HG_FAMILY,
-        kls=hg_kls,
+        kls=Module,
         config_kls=HuggingFaceModelConfig,
         fsdp_applier=apply_fsdp_to_hg_transformer_lm,
         factory=create_hg_model,

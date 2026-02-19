@@ -20,11 +20,16 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from functools import cache, cached_property
 from pathlib import Path
-from typing import TypeVar, final
+from typing import TYPE_CHECKING, TypeVar, final
 
 from torch.nn import Module
 from torch.optim import Optimizer
 from typing_extensions import override
+
+if TYPE_CHECKING:
+    from fairseq2.evaluator import Evaluator, EvalUnit
+    from fairseq2.generator import Generator, GeneratorUnit
+    from fairseq2.trainer import Trainer, TrainUnit
 
 from fairseq2.assets import AssetStore
 from fairseq2.checkpoint import CheckpointManager
@@ -32,11 +37,9 @@ from fairseq2.data.tokenizers import Tokenizer
 from fairseq2.datasets import DataReader
 from fairseq2.device import Device, SupportsDeviceTransfer
 from fairseq2.error import InvalidOperationError
-from fairseq2.evaluator import Evaluator, EvalUnit
 from fairseq2.file_system import FileSystem
 from fairseq2.gang import Gangs
 from fairseq2.generation import Seq2SeqGenerator, SequenceGenerator
-from fairseq2.generator import Generator, GeneratorUnit
 from fairseq2.metrics.recorders import MetricRecorder
 from fairseq2.optim.lr_schedulers import LRScheduler
 from fairseq2.recipe.config import RecipeConfig, ReferenceModelSection
@@ -59,7 +62,6 @@ from fairseq2.recipe.model import RecipeModel, _StandardRecipeModel
 from fairseq2.recipe.tokenizer import RecipeTokenizer
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 from fairseq2.task import Task
-from fairseq2.trainer import Trainer, TrainUnit
 from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.warn import _warn_deprecated
 

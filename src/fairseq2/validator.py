@@ -9,19 +9,21 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from contextlib import nullcontext
-from typing import Any, Final, TypeVar, final
+from typing import TYPE_CHECKING, Any, Final, TypeVar, final
 
 import torch
 from torch import Tensor
 from torch.profiler import record_function
 from typing_extensions import override
 
+if TYPE_CHECKING:
+    from fairseq2.evaluator import EvalUnit
+
 from fairseq2.checkpoint import CheckpointManager, HuggingFaceExporter
 from fairseq2.data_type import DataType
 from fairseq2.datasets import DataReader
 from fairseq2.device import CPU, SupportsDeviceTransfer
 from fairseq2.error import InternalError, InvalidOperationError
-from fairseq2.evaluator import EvalUnit
 from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
 from fairseq2.logging import log
 from fairseq2.metrics import MetricBag, sync_and_compute_metrics
