@@ -131,9 +131,12 @@ def main() -> None:
 
     # Extract batches
     log.info("Starting batch extraction...")
-    for batch_idx, batch in enumerate(data_reader):
+    for batch_idx, batches in enumerate(data_reader):
         if batch_idx >= args.num_batches:
             break
+
+        # DataPipelineReader returns list[Batch], get the first batch
+        batch = batches[0]
 
         if gangs.root.rank == 0:
             # Extract batch data
