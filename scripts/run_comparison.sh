@@ -14,6 +14,9 @@ source activate fs2v080
 
 set -euo pipefail
 
+# Change to project directory first
+cd /home/richardyue/fairseq2/hg_hardware_test
+
 # Orchestration script for parallel convergence testing
 # Runs fairseq2 and Unsloth training in parallel, then compares checkpoints
 
