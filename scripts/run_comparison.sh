@@ -1,5 +1,8 @@
 #!/bin/bash
 
+#SBATCH --job-name=convergence-comparison
+#SBATCH --output=./slurm_logs/comparison-%j.out
+#SBATCH --error=./slurm_logs/comparison-%j.err
 #SBATCH --gpus 8
 #SBATCH --account seamless_fs2
 #SBATCH --qos h100_dev
@@ -41,6 +44,7 @@ EXTRACTED_DATA_DIR="$PROJECT_ROOT/out/extracted_batches"
 
 # Step 1: Setup directories
 echo "=== Step 1: Setting up directories ==="
+mkdir -p "$PROJECT_ROOT/slurm_logs"
 mkdir -p "$FAIRSEQ2_DIR"
 mkdir -p "$UNSLOTH_DIR"
 mkdir -p "$EXTRACTED_DATA_DIR"
