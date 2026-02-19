@@ -91,7 +91,7 @@ def main() -> None:
         log.info(f"Extracting {args.num_batches} batches to {args.output_dir}")
 
     # Load tokenizer
-    tokenizer = load_tokenizer(args.tokenizer, family="hg")
+    tokenizer = load_tokenizer(args.tokenizer)
     log.info(f"Loaded tokenizer: {args.tokenizer}")
 
     # Create dataset

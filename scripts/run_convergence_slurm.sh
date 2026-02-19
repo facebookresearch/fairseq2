@@ -25,8 +25,9 @@ echo "=========================================="
 # Change to project directory
 cd /home/richardyue/fairseq2/hg_hardware_test
 
-# Activate virtual environment
-source .venv/bin/activate
+# Activate conda environment
+source ~/miniconda3/bin/activate
+source activate fs2v080
 
 # Run the convergence test
 ./scripts/run_comparison.sh
