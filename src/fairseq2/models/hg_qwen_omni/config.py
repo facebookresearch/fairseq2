@@ -49,6 +49,8 @@ class HuggingFaceModelConfig:
         architectures
     :param dtype: PyTorch dtype to use ('auto', 'float16', 'bfloat16', etc.)
     :param load_kwargs: Additional kwargs to pass to from_pretrained
+    :param enable_gradient_checkpointing: Whether to enable gradient checkpointing
+        to reduce memory usage during training (only for causal_lm models)
 
     Example:
         Create a configuration for GPT-2::
@@ -86,6 +88,9 @@ class HuggingFaceModelConfig:
 
     load_kwargs: dict[str, Any] | None = None
     """Additional kwargs to pass to from_pretrained."""
+
+    enable_gradient_checkpointing: bool = False
+    """Whether to enable gradient checkpointing to reduce memory usage (causal_lm only)."""
 
 
 def register_hg_configs(container: DependencyContainer) -> None:
