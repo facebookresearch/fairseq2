@@ -39,11 +39,11 @@ common:
       run_name: "sft_gemma_3_1b_it_gsm8k"
 
 regime:
-  num_steps: 100  # Changed from 100000
-  checkpoint_every_n_steps: 100  # Checkpoint at end
-  validate_every_n_steps: 1000  # No validation during test
+  num_steps: 500  # 5 epochs × 100 batches = 500 steps (single GPU)
+  checkpoint_every_n_steps: 500  # Checkpoint at end
+  validate_every_n_steps: 10000  # No validation during test
   checkpoint_every_n_data_epochs: 100
   keep_last_n_checkpoints: 1  # Only keep final checkpoint
   publish_metrics_every_n_steps: 10
-  save_model_only: false
+  save_model_only: true  # Save consolidated model only
   export_hugging_face: false  # Disable HF export for HG models
