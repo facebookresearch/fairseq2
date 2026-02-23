@@ -390,7 +390,9 @@ class OLMOFactory:
         if config.tied_embeddings:
             if not isinstance(embed, StandardEmbedding):
                 raise TypeError(
-                    f"`embed` is expected to be of type `{StandardEmbedding}` when `config.tied_embeddings` is `True`, but is of type `{type(embed)}` instead."
+                    f"`embed` is expected to be of type "
+                    f"`{StandardEmbedding}` when `config.tied_embeddings` "
+                    f"is `True`, but is of type `{type(embed)}` instead."
                 )
 
             return TiedProjection(embed.weight, bias=None)
@@ -417,8 +419,9 @@ class OLMOFactory:
 
     def create_layer_norm(self, dim: int | None = None) -> LayerNorm:
         """Create OLMORMSNorm.
-        OLMO RMS norm differs from Llama RMS norm in the order of operations:
-        - Weight and hidden states are multiplied before converting back to the input dtype.
+        OLMO RMS norm differs from Llama RMS norm in operation order:
+        - Weight and hidden states are multiplied before converting back
+          to the input dtype.
         """
         config = self._config
 
@@ -445,7 +448,8 @@ class OLMOFactory:
                 return 1.0
             case _:
                 raise ValueError(
-                    f"`config.init_std_scale` must be 'none', 'layer', or 'stack', but is '{config.init_std_scale}' instead."
+                    f"`config.init_std_scale` must be 'none', 'layer', or "
+                    f"'stack', but is '{config.init_std_scale}' instead."
                 )
 
         return float((2 * (n + 1)) ** 0.5)

@@ -59,7 +59,8 @@ class YaRNRotaryEncoder(ReferenceRotaryEncoder):  # type: ignore[misc]
 
         Args:
             encoding_dim: The dimensionality of positional encodings (head_dim).
-            max_seq_len: The maximum allowed length for input sequences (extended, e.g., 65536).
+            max_seq_len: The maximum allowed length for input sequences
+                (extended, e.g., 65536).
             theta: The coefficient of the long-term decay (RoPE base).
             scale_factor: Context extension ratio (e.g., 8.0 for 8K→65K).
             original_max_seq_len: Original max sequence length before extension.
@@ -67,11 +68,13 @@ class YaRNRotaryEncoder(ReferenceRotaryEncoder):  # type: ignore[misc]
             beta_slow: Boundary for low-frequency interpolation (default: 1).
             mscale: Numerator scalar for attention scaling computation.
             mscale_all_dim: Denominator scalar for attention scaling.
-            truncate: If True, truncate correction range bounds to integers (default: True).
+            truncate: If True, truncate correction range bounds to integers
+                (default: True).
             device: The device to use for initialization.
         """
         # Store YaRN-specific parameters BEFORE calling super().__init__()
-        # because parent's __init__ calls reset_non_persistent_buffers() which needs these
+        # because parent's __init__ calls reset_non_persistent_buffers()
+        # which needs these
         self.scale_factor = scale_factor
         self.original_max_seq_len = original_max_seq_len
         self.beta_fast = beta_fast
@@ -196,8 +199,11 @@ class YaRNRotaryEncoder(ReferenceRotaryEncoder):  # type: ignore[misc]
         # Compute blend factor (ramp from 0 to 1) - directly on the correct device
         ramp = 1 - linear_ramp(low, high, dim // 2, device)
 
-        # Blend: where ramp=0 (high freq) use extrapolation, where ramp=1 (low freq) use interpolation
-        inv_freq = inv_freq_interpolation * (1 - ramp) + inv_freq_extrapolation * ramp
+        # Blend: where ramp=0 (high freq) use extrapolation,
+        # where ramp=1 (low freq) use interpolation
+        inv_freq = (
+            inv_freq_interpolation * (1 - ramp) + inv_freq_extrapolation * ramp
+        )
 
         return inv_freq
 
@@ -219,7 +225,9 @@ class YaRNRotaryEncoder(ReferenceRotaryEncoder):  # type: ignore[misc]
 
         if max_seq_len > self.max_seq_len:
             raise ValueError(
-                f"The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length ({self.max_seq_len}), but at least one sequence is of length {max_seq_len} instead."
+                f"The lengths of all sequences in `seqs` must be less than or "
+                f"equal to the maximum sequence length ({self.max_seq_len}), "
+                f"but at least one sequence is of length {max_seq_len} instead."
             )
 
         if seqs_layout.packed or seqs_layout.padded:

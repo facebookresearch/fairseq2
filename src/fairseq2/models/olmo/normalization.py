@@ -25,15 +25,18 @@ from fairseq2.nn import LayerNorm
 class OLMORMSNorm(LayerNorm):
     """OLMO Root Mean Square Layer Normalization.
 
-    The mathematical representation of this RMSNorm is identical to the LLaMA implementation.
+    The mathematical representation of this RMSNorm is identical to the
+    LLaMA implementation.
 
     The key difference from standard RMSNorm is the order of operations:
     - Standard: normalize -> cast to original dtype -> multiply by weight
     - OLMO:     normalize -> multiply by weight     -> cast to original dtype
 
-    This matches the [HuggingFace OLMO implementation](https://github.com/huggingface/transformers/blob/main/src/transformers/models/olmo/modular_olmo.py) where the weight
+    This matches the [HuggingFace OLMO implementation][1] where the weight
     and normalized hidden states are multiplied before converting back
     to the input dtype.
+
+    [1]: https://github.com/huggingface/transformers/blob/main/src/transformers/models/olmo/modular_olmo.py
     """
 
     def __init__(

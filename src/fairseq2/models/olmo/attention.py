@@ -29,7 +29,7 @@ from fairseq2.nn import (
 
 
 class OLMOMultiheadAttention(StandardMultiheadAttention):  # type: ignore[misc]
-    """OLMO Multi-head Attention with Q/K normalization and reference rotary encoding."""
+    """OLMO Multi-head Attention with Q/K normalization and rotary encoding."""
 
     rope_encoder: PositionEncoder | None
 

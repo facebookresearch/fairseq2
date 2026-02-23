@@ -13,20 +13,34 @@ from fairseq2.models.utils.checkpoint import convert_state_dict
 
 _HG_KEY_MAP: Final = {
     # fmt: off
-    r"^model\.layers\.([0-9]+)\.self_attn\.q_proj\.":                r"decoder.layers.\1.self_attn.q_proj.",
-    r"^model\.layers\.([0-9]+)\.self_attn\.k_proj\.":                r"decoder.layers.\1.self_attn.k_proj.",
-    r"^model\.layers\.([0-9]+)\.self_attn\.v_proj\.":                r"decoder.layers.\1.self_attn.v_proj.",
-    r"^model\.layers\.([0-9]+)\.self_attn\.o_proj\.":                r"decoder.layers.\1.self_attn.output_proj.",
-    r"^model\.layers\.([0-9]+)\.self_attn\.q_norm\.":                 r"decoder.layers.\1.self_attn.q_norm.",  # OLMO Q/K Norm
-    r"^model\.layers\.([0-9]+)\.self_attn\.k_norm\.":                 r"decoder.layers.\1.self_attn.k_norm.",  # OLMO Q/K Norm
-    r"^model\.layers\.([0-9]+)\.post_attention_layernorm\.":         r"decoder.layers.\1.self_attn_layer_norm.",  # Post-Norm after attention
-    r"^model\.layers\.([0-9]+)\.post_feedforward_layernorm\.":      r"decoder.layers.\1.ffn_layer_norm.",  # Post-Norm after FFN
-    r"^model\.layers\.([0-9]+)\.mlp\.gate_proj\.":                    r"decoder.layers.\1.ffn.gate_proj.",
-    r"^model\.layers\.([0-9]+)\.mlp\.down_proj\.":                    r"decoder.layers.\1.ffn.output_proj.",
-    r"^model\.layers\.([0-9]+)\.mlp\.up_proj\.":                      r"decoder.layers.\1.ffn.inner_proj.",
-    r"^model\.norm\.":                                                r"decoder.layer_norm.",
-    r"^model\.embed_tokens\.":                                        r"decoder_frontend.embed.",
-    r"^lm_head\.":                                                   r"final_proj.",
+    r"^model\.layers\.([0-9]+)\.self_attn\.q_proj\.":
+        r"decoder.layers.\1.self_attn.q_proj.",
+    r"^model\.layers\.([0-9]+)\.self_attn\.k_proj\.":
+        r"decoder.layers.\1.self_attn.k_proj.",
+    r"^model\.layers\.([0-9]+)\.self_attn\.v_proj\.":
+        r"decoder.layers.\1.self_attn.v_proj.",
+    r"^model\.layers\.([0-9]+)\.self_attn\.o_proj\.":
+        r"decoder.layers.\1.self_attn.output_proj.",
+    r"^model\.layers\.([0-9]+)\.self_attn\.q_norm\.":
+        r"decoder.layers.\1.self_attn.q_norm.",  # OLMO Q/K Norm
+    r"^model\.layers\.([0-9]+)\.self_attn\.k_norm\.":
+        r"decoder.layers.\1.self_attn.k_norm.",  # OLMO Q/K Norm
+    r"^model\.layers\.([0-9]+)\.post_attention_layernorm\.":
+        r"decoder.layers.\1.self_attn_layer_norm.",  # Post-Norm
+    r"^model\.layers\.([0-9]+)\.post_feedforward_layernorm\.":
+        r"decoder.layers.\1.ffn_layer_norm.",  # Post-Norm after FFN
+    r"^model\.layers\.([0-9]+)\.mlp\.gate_proj\.":
+        r"decoder.layers.\1.ffn.gate_proj.",
+    r"^model\.layers\.([0-9]+)\.mlp\.down_proj\.":
+        r"decoder.layers.\1.ffn.output_proj.",
+    r"^model\.layers\.([0-9]+)\.mlp\.up_proj\.":
+        r"decoder.layers.\1.ffn.inner_proj.",
+    r"^model\.norm\.":
+        r"decoder.layer_norm.",
+    r"^model\.embed_tokens\.":
+        r"decoder_frontend.embed.",
+    r"^lm_head\.":
+        r"final_proj.",
     # fmt: on
 }
 
@@ -59,18 +73,30 @@ def convert_olmo_state_dict(
     elif "tok_embeddings.weight" in state_dict:  # Reference format
         key_map = {
             # fmt: off
-            r"^layers\.([0-9]+)\.attention\.wq\.":    r"decoder.layers.\1.self_attn.q_proj.",
-            r"^layers\.([0-9]+)\.attention\.wk\.":    r"decoder.layers.\1.self_attn.k_proj.",
-            r"^layers\.([0-9]+)\.attention\.wv\.":    r"decoder.layers.\1.self_attn.v_proj.",
-            r"^layers\.([0-9]+)\.attention\.wo\.":    r"decoder.layers.\1.self_attn.output_proj.",
-            r"^layers\.([0-9]+)\.attention_norm\.":   r"decoder.layers.\1.self_attn_layer_norm.",
-            r"^layers\.([0-9]+)\.feed_forward\.w1\.": r"decoder.layers.\1.ffn.gate_proj.",
-            r"^layers\.([0-9]+)\.feed_forward\.w2\.": r"decoder.layers.\1.ffn.output_proj.",
-            r"^layers\.([0-9]+)\.feed_forward\.w3\.": r"decoder.layers.\1.ffn.inner_proj.",
-            r"^layers\.([0-9]+)\.ffn_norm\.":         r"decoder.layers.\1.ffn_layer_norm.",
-            r"^norm\.":                               r"decoder.layer_norm.",
-            r"^tok_embeddings\.":                     r"decoder_frontend.embed.",
-            r"^output\.":                             r"final_proj.",
+            r"^layers\.([0-9]+)\.attention\.wq\.":
+                r"decoder.layers.\1.self_attn.q_proj.",
+            r"^layers\.([0-9]+)\.attention\.wk\.":
+                r"decoder.layers.\1.self_attn.k_proj.",
+            r"^layers\.([0-9]+)\.attention\.wv\.":
+                r"decoder.layers.\1.self_attn.v_proj.",
+            r"^layers\.([0-9]+)\.attention\.wo\.":
+                r"decoder.layers.\1.self_attn.output_proj.",
+            r"^layers\.([0-9]+)\.attention_norm\.":
+                r"decoder.layers.\1.self_attn_layer_norm.",
+            r"^layers\.([0-9]+)\.feed_forward\.w1\.":
+                r"decoder.layers.\1.ffn.gate_proj.",
+            r"^layers\.([0-9]+)\.feed_forward\.w2\.":
+                r"decoder.layers.\1.ffn.output_proj.",
+            r"^layers\.([0-9]+)\.feed_forward\.w3\.":
+                r"decoder.layers.\1.ffn.inner_proj.",
+            r"^layers\.([0-9]+)\.ffn_norm\.":
+                r"decoder.layers.\1.ffn_layer_norm.",
+            r"^norm\.":
+                r"decoder.layer_norm.",
+            r"^tok_embeddings\.":
+                r"decoder_frontend.embed.",
+            r"^output\.":
+                r"final_proj.",
             # fmt: on
         }
 
