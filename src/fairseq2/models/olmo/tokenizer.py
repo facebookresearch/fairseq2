@@ -52,7 +52,8 @@ OLMO_HG_CHAT_TEMPLATE: Final = """{{ bos_token }}
 # <|endoftext|><|user|>
 How are you doing?
 <|assistant|>
-I'm just a computer program, so I don't have feelings, but I'm functioning as expected. How can I assist you today?<|endoftext|>
+I'm just a computer program, so I don't have feelings, but I'm
+functioning as expected. How can I assist you today?<|endoftext|>
 """
 
 
@@ -92,7 +93,8 @@ class OlmoTokenizer(Tokenizer):
                 suffix_tokens = []
             case _:
                 raise NotSupportedError(
-                    f"`mode` must be a supported mode, but is {mode} instead. Supported modes are default, prompt, prompt_response, as_is."
+                    f"`mode` must be a supported mode, but is {mode} instead. "
+                    f"Supported modes are default, prompt, prompt_response, as_is."
                 )
 
         return HuggingFaceTokenEncoder(

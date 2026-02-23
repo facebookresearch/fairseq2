@@ -26,7 +26,7 @@ class YaRNScaleConfig:
     """
 
     scale_factor: float = 8.0
-    """The ratio between extended and original max sequence length (65536/8192 = 8.0)."""
+    """Ratio between extended and original max sequence length (65536/8192)."""
 
     original_max_seq_len: int = 8192
     """Original sequence length before YaRN extension."""
@@ -44,7 +44,7 @@ class YaRNScaleConfig:
     """Dimension-wise scaling parameter for YaRN."""
 
     truncate: bool = True
-    """If True, truncate correction range bounds to integers using floor/ceil. Default: True."""
+    """If True, truncate correction range bounds to integers. Default: True."""
 
 
 @dataclass(kw_only=True)
@@ -92,9 +92,8 @@ class OLMOConfig(LLaMAConfig):
     num_key_value_heads: int = 16
     """The number of key/value heads for Grouped Query Attention.
     Olmo model use MHA, but 32B variabt use GQA
-    If num_key_value_heads == num_attn_heads, the model will use Multi Head Attention (MHA),
-    If num_key_value_heads == 1, the model will use Multi Query Attention (MQA),
-    otherwise GQA is used.
+    If num_key_value_heads == num_attn_heads, use MHA,
+    If num_key_value_heads == 1, use MQA, otherwise GQA is used.
     """
 
     ffn_inner_dim: int = 8192
@@ -251,7 +250,8 @@ def register_olmo_configs(container: DependencyContainer) -> None:
         """OLMO3 7B model configuration with hybrid attention and YaRN.
 
         Uses Multi-Head Attention (MHA) with a hybrid pattern:
-        - 3 out of 4 layers use sliding window attention (window=4096) with standard RoPE
+        - 3 out of 4 layers use sliding window attention (window=4096)
+          with standard RoPE
         - Every 4th layer uses full global attention with YaRN RoPE
         - Final layer always uses full global attention with YaRN RoPE
 
@@ -288,11 +288,13 @@ def register_olmo_configs(container: DependencyContainer) -> None:
     def olmo3_32b() -> OLMOConfig:
         """OLMO3 32B model configuration with GQA and YaRN.
 
-        Uses Grouped Query Attention (GQA) with 8 key-value heads for efficiency.
-        Features enhanced MLP with 5.4x expansion ratio (vs 4x in smaller models).
+        Uses Grouped Query Attention (GQA) with 8 key-value heads for
+        efficiency. Features enhanced MLP with 5.4x expansion ratio
+        (vs 4x in smaller models).
 
         Uses hybrid attention pattern:
-        - 3 out of 4 layers use sliding window attention (window=4096) with standard RoPE
+        - 3 out of 4 layers use sliding window attention (window=4096)
+          with standard RoPE
         - Every 4th layer uses full global attention with YaRN RoPE
         - Final layer always uses full global attention with YaRN RoPE
 
