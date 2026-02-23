@@ -111,10 +111,13 @@ def setup_training(config: TrainingConfig) -> Trainer:
     if device.type == "cuda":
         torch.cuda.synchronize()
 
+    # Always load model in FP32, even with AMP enabled
+    # The Trainer's autocast() handles FP16 conversion during forward pass
+    # Loading in FP16 causes gradient explosion due to loss of precision
     model = load_model(
         config.model_name,
         gangs=gangs,
-        dtype=config.amp_dtype if config.amp else torch.float32,
+        dtype=torch.float32,
     )
 
     if device.type == "cuda":
@@ -254,6 +257,7 @@ def setup_training(config: TrainingConfig) -> Trainer:
     profiler = NOOP_PROFILER
     device_stat_tracker = NOOP_DEVICE_STAT_TRACKER
     wall_watch = Stopwatch()
+    wall_watch.start()  # Must be started before passing to Trainer
     progress_reporter = NOOP_PROGRESS_REPORTER
 
     # Create validator

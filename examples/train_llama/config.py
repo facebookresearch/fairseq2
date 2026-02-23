@@ -37,7 +37,7 @@ class TrainingConfig:
 
     # FP16 loss scaling
     fp16_init_scale: float = 2.0 ** 16
-    fp16_min_scale: float = 0.1
+    fp16_min_scale: float = 0.0001  # Fairseq2 default, prevents underflow
     fp16_scale_window: int = 1000
 
     # Checkpointing

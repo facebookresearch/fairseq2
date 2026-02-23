@@ -138,3 +138,65 @@ The training loop tracks:
 - **Loss Scaling**: If you encounter NaN losses, try `--no-amp` first, then adjust `fp16.init_scale` in the config
 - **Memory**: Reduce `batch_size` or `max_seq_len` if you run out of GPU memory
 - **Checkpoints**: Checkpoints are saved to `output_dir` and include model state, optimizer state, and training progress
+
+## Troubleshooting
+
+### Gradient Explosion / "Loss is scaled down to minimum"
+
+If you see errors like:
+```
+ERROR | fairseq2 | Overflow detected at step N, loss scale is already at minimum (0.0001)
+ERROR | fairseq2 | Training failed with error: Loss is scaled down to minimum at step N
+```
+
+**Root Cause**: This means gradients are exploding (becoming inf/NaN).
+
+**Solutions** (in order of likelihood):
+
+1. **Verify model is loaded in FP32** (MOST COMMON)
+   - Even with AMP enabled, the model should be loaded in `torch.float32`
+   - The Trainer's `autocast()` handles FP16 conversion during forward pass
+   - Loading in FP16 loses precision and causes gradient explosion
+   - **Fixed in current version** - model always loads in FP32
+
+2. **Lower the learning rate**
+   - Try reducing by 10x: `learning_rate: 1.0e-6` (from `1.0e-5`)
+   - Especially important for fine-tuning pretrained models
+
+3. **Increase effective batch size**
+   - Increase `batch_size` (if GPU memory allows)
+   - Increase `num_accumulate` (gradient accumulation steps)
+   - Larger batches = more stable gradients
+
+4. **Strengthen gradient clipping**
+   - Current default is `max_grad_norm: 1.0`
+   - Try lower values: `0.5` or `0.1`
+
+5. **Check your data**
+   - Ensure inputs are properly normalized
+   - Check for extreme values or outliers
+
+### NaN Losses with FP16
+
+If you see NaN values for `train_loss`, `eval_loss`, or perplexity:
+
+1. **Try FP32 first**: Run with `--no-amp` to verify the setup works
+2. **Check loss scale**: The `fp16.min_scale` in config should be at least `0.0001` (fairseq2 default)
+   - Too low values (e.g., `1e-10`) cause FP16 underflow
+   - The default `init_scale` of `65536.0` (2^16) is usually good
+3. **Gradient explosion**: If gradients explode, reduce `fp16.init_scale` or `learning_rate`
+4. **Monitor scale changes**: Check logs for "increasing/decreasing loss scale" messages
+
+### Zero Timing Values
+
+If `wall_time` and `total_time` show as `0.0`:
+- This was a bug in the initial version - the `wall_watch` Stopwatch wasn't started
+- Fixed in the current version by calling `wall_watch.start()` before passing to Trainer
+
+### Out of Memory
+
+If you run out of GPU memory:
+1. Reduce `batch_size` (default: 2)
+2. Reduce `max_seq_len` (default: 512)
+3. Increase `num_accumulate` to maintain effective batch size
+4. Use gradient checkpointing (requires model modification)

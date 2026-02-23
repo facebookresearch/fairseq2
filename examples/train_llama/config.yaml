@@ -34,7 +34,7 @@ data:
 # FP16 loss scaling
 fp16:
   init_scale: 65536.0  # 2^16
-  min_scale: 0.1
+  min_scale: 0.0001  # Minimum scale to prevent underflow (fairseq2 default)
   scale_window: 1000
 
 # Checkpointing

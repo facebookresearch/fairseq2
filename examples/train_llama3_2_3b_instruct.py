@@ -590,12 +590,14 @@ def setup_training(config: TrainingConfig) -> Trainer:
 
     # Load the model with the specified dtype for mixed precision
     # The model will be loaded on the meta device first, then moved to the target device
+    # IMPORTANT: Always use FP32 for model weights, even with AMP enabled
+    # The Trainer's autocast() handles FP16 conversion during forward pass
     if device.type == "cuda":
         torch.cuda.synchronize()
     model = load_model(
         config.model_name,
         gangs=gangs,
-        dtype=config.amp_dtype if config.amp else torch.float32,
+        dtype=torch.float32,
     )
     if device.type == "cuda":
         torch.cuda.synchronize()
