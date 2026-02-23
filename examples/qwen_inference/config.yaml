@@ -1,0 +1,23 @@
+# Qwen Inference Configuration
+
+# Model settings
+model:
+  name: "qwen25_7b_instruct"
+
+# Device settings
+device:
+  type: "cpu"  # Options: cpu, cuda, cuda:0, cuda:1, etc.
+
+# Generation settings
+generation:
+  max_gen_len: 128
+  temperature: 0.6
+  top_p: 0.9
+  echo_prompt: true
+  skip_special_tokens: true
+
+# Example prompts for inference
+prompts:
+  - "The capital of France is"
+  - "Artificial intelligence is defined as"
+  - "In machine learning, a neural network"

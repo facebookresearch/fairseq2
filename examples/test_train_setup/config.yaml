@@ -1,0 +1,12 @@
+# Test Training Setup Configuration
+
+# Training configuration for verification test
+training:
+  output_dir: "./test_checkpoints"
+  device: "cpu"
+  amp: false  # Disable AMP for CPU testing
+  batch_size: 2
+  num_accumulate: 4
+  learning_rate: 1.0e-5
+  max_num_data_epochs: 1
+  max_seq_len: 512

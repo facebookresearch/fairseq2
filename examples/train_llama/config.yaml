@@ -1,0 +1,52 @@
+# Training Configuration for Llama 3.2 3B Instruct
+
+# Model and dataset
+model:
+  name: "llama3_2_3b_instruct"
+
+dataset:
+  name: "openeft"
+
+# Device and precision settings
+device:
+  type: "cuda"  # Options: cpu, cuda, cuda:0, etc.
+
+precision:
+  amp: true  # Automatic Mixed Precision (FP16)
+  amp_dtype: "float16"  # Options: float16, bfloat16
+
+# Training hyperparameters
+training:
+  learning_rate: 1.0e-5
+  batch_size: 2  # Per-device batch size
+  num_accumulate: 4  # Gradient accumulation steps
+  max_num_data_epochs: 3
+  max_seq_len: 512
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  warmup_steps: 100
+
+# Data split
+data:
+  eval_split_ratio: 0.1  # 10% for evaluation
+  seed: 42
+
+# FP16 loss scaling
+fp16:
+  init_scale: 65536.0  # 2^16
+  min_scale: 0.1
+  scale_window: 1000
+
+# Checkpointing
+checkpoint:
+  output_dir: "./checkpoints"
+  checkpoint_every_n_steps: 100
+  keep_last_n_checkpoints: 3
+
+# Validation
+validation:
+  validate_every_n_data_epochs: 1  # Validate after each epoch
+
+# Logging
+logging:
+  publish_metrics_every_n_steps: 50
