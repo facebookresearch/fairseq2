@@ -21,3 +21,6 @@ __pycache__/
 
 # Other
 .DS_Store
+
+# Claude Code local settings (user-specific)
+.claude/*.local.*

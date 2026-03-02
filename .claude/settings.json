@@ -1,0 +1,38 @@
+{
+  "$schema": "https://cdn.jsdelivr.net/gh/anthropics/claude-code@main/schema/settings.schema.json",
+  "description": "fairseq2 repository Claude Code settings - prioritizes local doc-code-author skill",
+
+  "skills": {
+    "loadOrder": [
+      "local",
+      "user"
+    ],
+    "local": {
+      "path": ".claude/skills",
+      "priority": "highest",
+      "autoLoad": ["SKILL"]
+    }
+  },
+
+  "permissions": {
+    "allow": [
+      "Bash(source:*)",
+      "Bash(source activate fs2v070_examples)",
+      "Bash(python -c:*)",
+      "Bash(chmod:*)",
+      "Bash(python:*)",
+      "Bash(PYTHONPATH=/home/richardyue/fairseq2/v0.7.0:$PYTHONPATH python:*)",
+      "Bash(git:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(grep:*)"
+    ]
+  },
+
+  "context": {
+    "always_include": [
+      "CLAUDE.md",
+      ".claude/skills/SKILL.md"
+    ]
+  }
+}

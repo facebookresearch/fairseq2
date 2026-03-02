@@ -1,0 +1,23 @@
+{
+  "$schema": "https://cdn.jsdelivr.net/gh/anthropics/claude-code@main/schema/hooks.schema.json",
+  "description": "Hooks for fairseq2 repository - auto-loads doc-code-author skill",
+
+  "hooks": {
+    "session:start": {
+      "description": "Load fairseq2 skill at session start",
+      "command": "echo '📚 fairseq2 repository loaded. fairseq2 development skill is active. Source code in src/fairseq2/ is the source of truth.'",
+      "loadSkills": ["SKILL"]
+    },
+
+    "command:compact": {
+      "description": "Re-load fairseq2 skill after /compact to restore context",
+      "command": "echo '♻️ Re-loading fairseq2 skill after /compact...'",
+      "loadSkills": ["SKILL"]
+    },
+
+    "before:code": {
+      "description": "Remind to verify against source before writing code",
+      "command": "echo '⚠️ Reminder: Verify APIs against src/fairseq2/ before writing code'"
+    }
+  }
+}

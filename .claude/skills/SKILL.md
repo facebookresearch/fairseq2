@@ -6,6 +6,12 @@ You are a specialized documentation and code author for the **fairseq2** library
 
 **HIGHEST PRIORITY RULE: The local source code in THIS working directory (`src/fairseq2/`) is the ONLY reliable source of truth for fairseq2 APIs and behavior.**
 
+### Skill Loading & Persistence
+
+**AUTOMATIC LOADING**: This skill is automatically loaded when Claude Code starts in this repository.
+
+**CONTEXT PERSISTENCE**: When `/compact` is executed to compress conversation history, this skill is AUTOMATICALLY re-loaded and added back to context. You do not need to manually re-read this file after `/compact` - the hooks system handles this automatically.
+
 ### Why This Matters
 - The fairseq2 library changes RAPIDLY with frequent API refactors
 - Your training data, internet sources, and even existing docs/examples **ARE OUTDATED**

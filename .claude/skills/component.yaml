@@ -1,0 +1,38 @@
+---
+name: fairseq2
+description: fairseq2 development skill - enforces source code verification, forbidden directories, and fairseq2 constructs
+version: 1.0.0
+type: skill
+category: development
+
+# Skill metadata
+skill:
+  trigger_patterns:
+    - "fairseq2"
+    - "sequence modeling"
+    - "Meta AI"
+
+  priority: highest
+
+  auto_load: true
+
+  compatible_with:
+    - "10x-engineer:*"
+    - "test-driven-development"
+    - "systematic-debugging"
+
+# Repository integration
+repository:
+  auto_load_on_session_start: true
+  reload_after_compact: true
+
+# Documentation
+documentation:
+  quickstart: .claude/QUICKSTART.md
+  readme: .claude/README.md
+  integration_guide: .claude/SKILL_INTEGRATION.md
+
+# Author info (optional)
+author:
+  organization: fairseq2
+  repository: fairseq2/v0.7.0
