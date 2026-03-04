@@ -31,9 +31,11 @@ class Gemma3nConformerEncoder(Module):
 
     Stacks 12 conformer blocks with Shaw relative position embeddings,
     chunked local attention, per-dimension scaling, and macaron-style FFN.
+    Applies 4x downsampling after conformer processing.
     """
 
     layers: ModuleList
+    reduction_factor: int
 
     def __init__(
         self,
@@ -46,6 +48,8 @@ class Gemma3nConformerEncoder(Module):
         :param config: Audio tower configuration.
         """
         super().__init__()
+
+        self.reduction_factor = config.conf_reduction_factor
 
         layers = []
 
@@ -169,15 +173,28 @@ class Gemma3nConformerEncoder(Module):
         )
 
     @override
-    def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> Tensor:
+    def forward(
+        self, seqs: Tensor, seqs_layout: BatchLayout, mask: Tensor | None = None
+    ) -> Tensor:
         """
         :param seqs: Audio features. *Shape:* :math:`(N,T,H)` where H=1536.
         :param seqs_layout: Layout information for the sequences.
-        :returns: Encoded audio features. *Shape:* :math:`(N,T,H)`.
+        :param mask: Optional mask where True=masked (invalid). *Shape:* :math:`(N,T)`.
+        :returns: Encoded audio features. *Shape:* :math:`(N,T/R,H)` where R=reduction_factor.
         """
         bias_cache = AttentionBiasCache()
 
         for layer in self.layers:
             seqs = layer(seqs, seqs_layout, bias_cache)
+
+        # Apply conformer reduction (4x downsampling via strided slicing)
+        if self.reduction_factor > 1:
+            seqs = seqs[:, :: self.reduction_factor]
+            if mask is not None:
+                mask = mask[:, :: self.reduction_factor]
+
+        # Apply masking: set masked positions to zero (HF compatibility)
+        if mask is not None:
+            seqs = seqs.masked_fill(mask.unsqueeze(-1), 0.0)
 
         return seqs

@@ -95,9 +95,9 @@ class TestGemma3nAudioTower:
         assert hasattr(tower, "encoder")
         assert hasattr(tower, "embedder")
 
-        # Verify subsample has 10 parameters (conv+norm layers + proj)
+        # Verify subsample has 8 parameters (conv weights + norm weight/bias + proj weight/bias)
         subsample_params = list(tower.subsample.parameters())
-        assert len(subsample_params) == 10
+        assert len(subsample_params) == 8
 
         # Verify encoder has 12 layers
         assert len(tower.encoder.layers) == 12

@@ -65,6 +65,7 @@ class Gemma3nSubsampleConvProjection(Module):
             kernel_size=k0,
             stride=s0,
             padding=(k0[0] // 2, k0[1] // 2),
+            bias=False,
             device=device,
             dtype=dtype,
         )
@@ -82,6 +83,7 @@ class Gemma3nSubsampleConvProjection(Module):
             kernel_size=k1,
             stride=s1,
             padding=(k1[0] // 2, k1[1] // 2),
+            bias=False,
             device=device,
             dtype=dtype,
         )

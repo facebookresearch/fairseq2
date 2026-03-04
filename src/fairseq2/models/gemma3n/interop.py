@@ -129,6 +129,8 @@ def convert_gemma3n_state_dict(
         Supports audio tower (subsample + conformer encoder) and multimodal embedder.
         Vision tower (embed_vision, vision_tower) is filtered out as not yet implemented.
     """
+    import torch
+
     # Filter out vision components (not implemented yet)
     vision_prefixes = (
         "model.vision_tower.",
@@ -141,7 +143,43 @@ def convert_gemma3n_state_dict(
         if not k.startswith(vision_prefixes)
     }
 
-    return convert_state_dict(filtered_state_dict, _HG_KEY_MAP)
+    converted = convert_state_dict(filtered_state_dict, _HG_KEY_MAP)
+
+    # Post-process audio tower weights for architecture differences
+    # 1. Reshape Conv1d pointwise weights from (out, in) to (out, in, 1)
+    for key in list(converted.keys()):
+        if "audio_tower.encoder" in key and ("pointwise_conv1.weight" in key or "pointwise_conv2.weight" in key):
+            # HF stores as Linear (out, in), fairseq2 Conv1d expects (out, in, 1)
+            converted[key] = converted[key].unsqueeze(-1)
+
+    # 2. Convert Shaw relative position embeddings from linear projection to embedding table
+    # HF: linear projection (hidden_size, hidden_size) = (1536, 1536)
+    # FS2: embedding table (num_pos, head_dim) = (14, 192)
+    # The HF linear is actually just a transposed embedding lookup
+    for key in list(converted.keys()):
+        if "audio_tower.encoder" in key and "sdpa.rel_k_embed.weight" in key:
+            # Extract (num_pos, head_dim) from (hidden_size, hidden_size)
+            # The HF weight is (1536, 1536) but we only need (14, 192)
+            # where 14 = max_left + 1 + max_right = 13 + 1 + 0
+            # and 192 = head_dim = 1536 / 8
+            linear_weight = converted[key]  # (1536, 1536)
+            num_heads = 8
+            head_dim = 1536 // num_heads  # 192
+            max_left = 13
+            max_right = 0
+            num_pos = max_left + 1 + max_right  # 14
+
+            # The linear weight is transposed - transpose it and extract the first num_pos x head_dim
+            # Actually, HF applies this as: output = input @ weight.T
+            # We want embedding lookup which is: output = embedding_table[indices]
+            # So we need to extract the first num_pos rows and num_heads * head_dim columns
+            # But the weight is stored as (out_features, in_features) = (1536, 1536)
+            # For our embedding, we need (num_pos, head_dim)
+            # The first num_pos columns of the transposed weight should work
+            embedding_weight = linear_weight.T[:num_pos, :head_dim].contiguous()
+            converted[key] = embedding_weight
+
+    return converted
 
 
 def convert_to_hf_gemma3n_state_dict(
