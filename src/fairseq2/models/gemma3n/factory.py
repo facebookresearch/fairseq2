@@ -165,7 +165,7 @@ class Gemma3nFactory:
             dropout_p=0.0,
             audio_tower=audio_tower,
             audio_token_id=(
-                self._config.audio_config.vocab_offset + 1
+                self._config.audio_config.vocab_offset
                 if self._config.audio_config
                 else None
             ),
