@@ -227,7 +227,7 @@ def main() -> None:
     print(f"  Duration: {waveform.shape[-1] / SAMPLE_RATE:.2f}s")
 
     mel = extract_mel_features(waveform.numpy())
-    mel_tensor = torch.from_numpy(mel).unsqueeze(0).to(device)
+    mel_tensor = torch.from_numpy(mel).float().unsqueeze(0).to(device)
     print(f"  Mel features: {mel_tensor.shape}")
 
     # -- load model ----------------------------------------------------------
