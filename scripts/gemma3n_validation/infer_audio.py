@@ -121,40 +121,31 @@ def extract_mel_features(
 
 def build_audio_input_ids(
     prompt: str,
-    tokenizer_path: Path,
+    hf_tokenizer: "PreTrainedTokenizerBase",
     device: torch.device,
 ) -> Tensor:
     """Build token sequence: <bos> <start_of_turn>user\n <audio>*188 \n{prompt}<end_of_turn>\n <start_of_turn>model\n
 
     :returns: Token IDs, shape ``(1, S)``.
     """
-    from fairseq2.data.tokenizers.hg import load_hg_token_model
-
-    model = load_hg_token_model(
-        tokenizer_path,
-        unk_token="<unk>",
-        bos_token="<bos>",
-        eos_token="<eos>",
-        pad_token="<pad>",
-    )
-    hf_tok = model._tok
-
     # Use the chat template to get the text-only structure, then inject audio
     # tokens manually.
     conversation = [
         {"role": "user", "content": f"<audio_placeholder>\n{prompt}"},
     ]
-    text = hf_tok.apply_chat_template(
+    text = hf_tokenizer.apply_chat_template(
         conversation,
         tokenize=False,
         add_generation_prompt=True,
     )
 
     # Tokenize the full string
-    token_ids = hf_tok.encode(text, add_special_tokens=False)
+    token_ids = hf_tokenizer.encode(text, add_special_tokens=False)
 
     # Find and replace the placeholder text tokens with actual audio tokens
-    placeholder_ids = hf_tok.encode("<audio_placeholder>", add_special_tokens=False)
+    placeholder_ids = hf_tokenizer.encode(
+        "<audio_placeholder>", add_special_tokens=False
+    )
     token_ids_t = torch.tensor(token_ids, dtype=torch.long)
 
     # Find placeholder position
@@ -273,27 +264,13 @@ def main() -> None:
     model.eval()
 
     # -- tokenize prompt with audio placeholders -----------------------------
-    # Resolve tokenizer path from HF cache
-    from huggingface_hub import snapshot_download
+    from transformers import AutoTokenizer
 
-    tokenizer_dir = Path(
-        snapshot_download(args.hf_model, allow_patterns=["tokenizer*"])
-    )
+    hf_tok = AutoTokenizer.from_pretrained(args.hf_model)
 
-    input_ids = build_audio_input_ids(args.prompt, tokenizer_dir, device)
+    input_ids = build_audio_input_ids(args.prompt, hf_tok, device)
     print(f"\n  Input tokens: {input_ids.shape[1]}")
 
-    # Decode tokens for display
-    from fairseq2.data.tokenizers.hg import load_hg_token_model
-
-    tok_model = load_hg_token_model(
-        tokenizer_dir,
-        unk_token="<unk>",
-        bos_token="<bos>",
-        eos_token="<eos>",
-        pad_token="<pad>",
-    )
-    hf_tok = tok_model._tok
     eos_id = hf_tok.eos_token_id
 
     # -- generate ------------------------------------------------------------
