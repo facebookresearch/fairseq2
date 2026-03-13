@@ -126,6 +126,9 @@ class Gemma3nConfig:
     audio_config: Gemma3nAudioConfig | None = None
     """Configuration for the audio encoder tower. If None, audio modality is disabled."""
 
+    num_audio_tokens: int = 188
+    """Fixed number of <audio> tokens per audio input (30s @ 16kHz with 16x reduction)."""
+
     num_layers: int = 35
     """The number of decoder layers."""
 
@@ -262,11 +265,14 @@ def get_gemma3n_e2b_config() -> Gemma3nConfig:
     """Get configuration for Gemma3n E2B (2B effective parameters)."""
     return Gemma3nConfig(
         num_layers=30,
-        ffn_inner_dim=8192,  # E2B uses 8192 for global layers
-        altup_hidden_dim=8192,  # E2B uses same FFN dim for local layers
+        ffn_inner_dim=8192,
+        altup_hidden_dim=8192,
+        audio_config=Gemma3nAudioConfig(),
     )
 
 
 def get_gemma3n_e4b_config() -> Gemma3nConfig:
     """Get configuration for Gemma3n E4B (4B effective parameters)."""
-    return Gemma3nConfig()
+    return Gemma3nConfig(
+        audio_config=Gemma3nAudioConfig(),
+    )
