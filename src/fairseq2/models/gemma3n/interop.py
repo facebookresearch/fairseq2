@@ -18,7 +18,7 @@ _HG_KEY_MAP: Final = {
     # fmt: off
     # Embedding layers
     r"^model\.language_model\.embed_tokens\.":                        "decoder_frontend.embed.",
-    r"^lm_head\.":                                                     "final_proj.",
+    r"^lm_head\.":                                                     "final_proj.proj.",
 
     # Audio tower - subsample convolution projection
     r"^model\.audio_tower\.subsample_conv_projection\.conv_0\.conv\.": "decoder_frontend.audio_tower.subsample.conv_0.",
@@ -143,11 +143,17 @@ def convert_gemma3n_state_dict(
         "model.audio_tower.",
         "model.embed_audio.",
     )
+    # HF's embedding_post_projection_norm uses with_scale=False (non-learnable
+    # scalar buffer), so there's no weight to load.
+    audio_buffer_prefixes = (
+        "model.embed_audio.embedding_post_projection_norm.",
+    )
 
     filtered_state_dict = {
         k: v
         for k, v in state_dict.items()
         if not k.startswith(vision_prefixes)
+        and not k.startswith(audio_buffer_prefixes)
         and (config.audio_config is not None or not k.startswith(audio_prefixes))
     }
 

@@ -83,6 +83,7 @@ class Gemma3nMultimodalEmbedder(Module):
             text_config.model_dim,
             bias=False,
             eps=text_config.rms_norm_eps,
+            elementwise_affine=False,
             device=device,
             dtype=dtype,
         )
