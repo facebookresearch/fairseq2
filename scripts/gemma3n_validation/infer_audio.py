@@ -13,9 +13,9 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torchaudio
 from torch import Tensor
 
+from fairseq2.data.audio import AudioDecoder as Fs2AudioDecoder
 from fairseq2.models.gemma3n.config import get_gemma3n_e2b_config
 from fairseq2.models.gemma3n.factory import create_gemma3n_model
 from fairseq2.models.gemma3n.interop import convert_gemma3n_state_dict
@@ -215,12 +215,25 @@ def main() -> None:
 
     # -- load audio & extract mel features -----------------------------------
     print(f"Loading audio from {audio_path}...")
-    waveform, sr = torchaudio.load(str(audio_path))
+    with open(audio_path, "rb") as f:
+        audio_bytes = f.read()
+
+    from fairseq2.data._memory import MemoryBlock
+
+    decoder = Fs2AudioDecoder(dtype=torch.float32)
+    decoded = decoder(MemoryBlock(audio_bytes))
+    waveform = decoded["waveform"]  # (channels, samples)
+    sr = int(decoded["sample_rate"])
+
     if sr != SAMPLE_RATE:
+        import torchaudio
+
         waveform = torchaudio.functional.resample(waveform, sr, SAMPLE_RATE)
+    if waveform.dim() == 1:
+        waveform = waveform.unsqueeze(0)
     if waveform.shape[0] > 1:
         waveform = waveform.mean(dim=0, keepdim=True)
-    print(f"  Duration: {waveform.shape[1] / SAMPLE_RATE:.2f}s")
+    print(f"  Duration: {waveform.shape[-1] / SAMPLE_RATE:.2f}s")
 
     mel = extract_mel_features(waveform.numpy())
     mel_tensor = torch.from_numpy(mel).unsqueeze(0).to(device)
