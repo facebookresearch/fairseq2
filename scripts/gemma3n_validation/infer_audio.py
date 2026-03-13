@@ -3,6 +3,9 @@
 
 Usage:
     python scripts/gemma3n_validation/infer_audio.py --audio mono-16k.wav
+
+Loads model and tokenizer via fairseq2's hub system. Falls back to
+direct safetensors loading from HF cache when hub is unavailable.
 """
 
 from __future__ import annotations
@@ -15,11 +18,9 @@ import numpy as np
 import torch
 from torch import Tensor
 
-from fairseq2.data.audio import AudioDecoder as Fs2AudioDecoder
 from fairseq2.models.gemma3n.config import get_gemma3n_e2b_config
 from fairseq2.models.gemma3n.factory import create_gemma3n_model
 from fairseq2.models.gemma3n.interop import convert_gemma3n_state_dict
-from fairseq2.models.gemma3n.tokenizer import load_gemma3n_tokenizer
 from fairseq2.nn import BatchLayout
 
 SAMPLE_RATE = 16_000
@@ -96,7 +97,11 @@ def extract_mel_features(
     n_samples = waveform.shape[1]
     n_frames = (n_samples - frame_size) // hop_length + 1
 
-    strides = (waveform.strides[0], waveform.strides[1] * hop_length, waveform.strides[1])
+    strides = (
+        waveform.strides[0],
+        waveform.strides[1] * hop_length,
+        waveform.strides[1],
+    )
     frames = np.lib.stride_tricks.as_strided(
         waveform, shape=(1, n_frames, frame_size), strides=strides
     )
@@ -121,32 +126,31 @@ def extract_mel_features(
 
 def build_audio_input_ids(
     prompt: str,
-    hf_tokenizer: "PreTrainedTokenizerBase",
+    tokenizer: object,
     device: torch.device,
 ) -> Tensor:
-    """Build token sequence: <bos> <start_of_turn>user\n <audio>*188 \n{prompt}<end_of_turn>\n <start_of_turn>model\n
+    """Build token sequence with audio placeholders.
 
+    :param tokenizer: Any tokenizer with ``apply_chat_template`` and
+        ``encode`` methods (HF PreTrainedTokenizer or fairseq2 wrapper).
     :returns: Token IDs, shape ``(1, S)``.
     """
-    # Use the chat template to get the text-only structure, then inject audio
-    # tokens manually.
     conversation = [
         {"role": "user", "content": f"<audio_placeholder>\n{prompt}"},
     ]
-    text = hf_tokenizer.apply_chat_template(
-        conversation,
-        tokenize=False,
-        add_generation_prompt=True,
-    )
 
-    # Tokenize the full string
-    token_ids = hf_tokenizer.encode(text, add_special_tokens=False)
+    # Get chat-formatted text, then tokenize
+    if hasattr(tokenizer, "apply_chat_template"):
+        text = tokenizer.apply_chat_template(
+            conversation, tokenize=False, add_generation_prompt=True
+        )
+    else:
+        raise ValueError("Tokenizer must support apply_chat_template")
 
-    # Find and replace the placeholder text tokens with actual audio tokens
-    placeholder_ids = hf_tokenizer.encode(
+    token_ids = tokenizer.encode(text, add_special_tokens=False)
+    placeholder_ids = tokenizer.encode(
         "<audio_placeholder>", add_special_tokens=False
     )
-    token_ids_t = torch.tensor(token_ids, dtype=torch.long)
 
     # Find placeholder position
     placeholder_len = len(placeholder_ids)
@@ -159,10 +163,11 @@ def build_audio_input_ids(
     if pos < 0:
         raise RuntimeError("Could not find placeholder in tokenized sequence")
 
-    # Replace placeholder with 188 audio tokens
+    # Replace placeholder with audio tokens
     audio_tokens = torch.full(
         (NUM_AUDIO_TOKENS,), AUDIO_TOKEN_ID, dtype=torch.long
     )
+    token_ids_t = torch.tensor(token_ids, dtype=torch.long)
     token_ids_t = torch.cat(
         [token_ids_t[:pos], audio_tokens, token_ids_t[pos + placeholder_len :]],
     )
@@ -170,80 +175,78 @@ def build_audio_input_ids(
     return token_ids_t.unsqueeze(0).to(device)
 
 
-# -- inference ----------------------------------------------------------------
+# -- model loading -----------------------------------------------------------
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Transcribe audio with Gemma3n (fairseq2)"
-    )
-    parser.add_argument(
-        "--audio", type=str, required=True, help="Path to 16 kHz mono WAV"
-    )
-    parser.add_argument(
-        "--prompt", type=str, default="Transcribe this audio."
-    )
-    parser.add_argument(
-        "--hf-model",
-        type=str,
-        default="google/gemma-3n-E2B-it",
-        help="HF model ID (for checkpoint + tokenizer)",
-    )
-    parser.add_argument(
-        "--max-tokens", type=int, default=128
-    )
-    parser.add_argument(
-        "--device",
-        type=str,
-        default="cuda" if torch.cuda.is_available() else "cpu",
-    )
-    args = parser.parse_args()
-    device = torch.device(args.device)
+def _load_safetensors_state_dict(snapshot_dir: Path) -> dict[str, Tensor]:
+    """Load state dict from safetensors shards in a snapshot directory."""
+    from safetensors.torch import load_file
 
-    audio_path = Path(args.audio)
-    if not audio_path.exists():
-        raise FileNotFoundError(f"Audio file not found: {audio_path}")
+    state_dict: dict[str, Tensor] = {}
+    for shard in sorted(snapshot_dir.glob("*.safetensors")):
+        state_dict.update(load_file(str(shard), device="cpu"))
+    return state_dict
 
-    # -- load audio & extract mel features -----------------------------------
-    print(f"Loading audio from {audio_path}...")
-    with open(audio_path, "rb") as f:
-        audio_bytes = f.read()
 
-    from fairseq2.data._memory import MemoryBlock
+def _find_hf_cache_snapshot(model_id: str) -> Path | None:
+    """Find cached HF snapshot directory for a model ID."""
+    cache_dir = Path.home() / ".cache" / "huggingface"
+    safe_name = f"models--{model_id.replace('/', '--')}"
+    model_dir = cache_dir / safe_name / "snapshots"
+    if not model_dir.exists():
+        return None
+    snapshots = list(model_dir.iterdir())
+    if not snapshots:
+        return None
+    return snapshots[0]
 
-    decoder = Fs2AudioDecoder(dtype=torch.float32)
-    decoded = decoder(MemoryBlock(audio_bytes))
-    waveform = decoded["waveform"]  # (channels, samples)
-    sr = int(decoded["sample_rate"])
 
-    if sr != SAMPLE_RATE:
-        import torchaudio
+def load_model_and_tokenizer(
+    model_name: str,
+    device: torch.device,
+    hf_model_id: str = "google/gemma-3n-E2B-it",
+) -> tuple[object, object, int]:
+    """Load Gemma3n model and tokenizer.
 
-        waveform = torchaudio.functional.resample(waveform, sr, SAMPLE_RATE)
-    if waveform.dim() == 1:
-        waveform = waveform.unsqueeze(0)
-    if waveform.shape[0] > 1:
-        waveform = waveform.mean(dim=0, keepdim=True)
-    print(f"  Duration: {waveform.shape[-1] / SAMPLE_RATE:.2f}s")
+    Tries fairseq2 hub first, falls back to cached HF safetensors.
 
-    mel = extract_mel_features(waveform.numpy())
-    mel_tensor = torch.from_numpy(mel).float().unsqueeze(0).to(device)
-    print(f"  Mel features: {mel_tensor.shape}")
+    :returns: (model, tokenizer, eos_token_id)
+    """
+    # Try fairseq2 hub first
+    try:
+        from fairseq2.models.gemma3n.hub import (
+            get_gemma3n_model_hub,
+            get_gemma3n_tokenizer_hub,
+        )
 
-    # -- load model ----------------------------------------------------------
-    print(f"\nLoading HF checkpoint from {args.hf_model}...")
-    from transformers import AutoModelForCausalLM
+        model_hub = get_gemma3n_model_hub()
+        model = model_hub.load_model(
+            model_name, device=device, dtype=torch.float32
+        )
+        model.eval()
 
-    hf_model = AutoModelForCausalLM.from_pretrained(
-        args.hf_model, torch_dtype=torch.float32, device_map="cpu"
-    )
+        tok_hub = get_gemma3n_tokenizer_hub()
+        tokenizer = tok_hub.load_tokenizer(model_name)
+        eos_id = tokenizer.vocab_info.eos_idx or 1
+
+        print(f"  Loaded via fairseq2 hub: {model_name}")
+        return model, tokenizer, eos_id
+    except Exception as hub_err:
+        print(f"  Hub loading failed ({hub_err}), falling back to cache...")
+
+    # Fallback: load from cached safetensors + HF tokenizer
+    snapshot = _find_hf_cache_snapshot(hf_model_id)
+    if snapshot is None:
+        raise FileNotFoundError(
+            f"No cached checkpoint found for {hf_model_id}. "
+            "Run with network access first to download."
+        )
+
+    print(f"  Loading safetensors from {snapshot}...")
+    hf_state = _load_safetensors_state_dict(snapshot)
 
     config = get_gemma3n_e2b_config()
     model = create_gemma3n_model(config, device=device, dtype=torch.float32)
-
-    hf_state = hf_model.state_dict()
-    del hf_model
-
     state_dict = convert_gemma3n_state_dict(hf_state, config)
     del hf_state
 
@@ -263,15 +266,89 @@ def main() -> None:
 
     model.eval()
 
-    # -- tokenize prompt with audio placeholders -----------------------------
+    # Load tokenizer (try HF AutoTokenizer as fallback)
     from transformers import AutoTokenizer
 
-    hf_tok = AutoTokenizer.from_pretrained(args.hf_model)
+    tokenizer = AutoTokenizer.from_pretrained(hf_model_id)
+    eos_id = tokenizer.eos_token_id
 
-    input_ids = build_audio_input_ids(args.prompt, hf_tok, device)
+    return model, tokenizer, eos_id
+
+
+# -- inference ----------------------------------------------------------------
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Transcribe audio with Gemma3n (fairseq2)"
+    )
+    parser.add_argument(
+        "--audio", type=str, required=True, help="Path to 16 kHz mono WAV"
+    )
+    parser.add_argument(
+        "--prompt", type=str, default="Transcribe this audio."
+    )
+    parser.add_argument(
+        "--model-name",
+        type=str,
+        default="gemma3n_e2b_instruct",
+        help="fairseq2 model name (from asset cards)",
+    )
+    parser.add_argument(
+        "--hf-model",
+        type=str,
+        default="google/gemma-3n-E2B-it",
+        help="HF model ID (fallback for checkpoint + tokenizer)",
+    )
+    parser.add_argument("--max-tokens", type=int, default=128)
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cuda" if torch.cuda.is_available() else "cpu",
+    )
+    args = parser.parse_args()
+    device = torch.device(args.device)
+
+    audio_path = Path(args.audio)
+    if not audio_path.exists():
+        raise FileNotFoundError(f"Audio file not found: {audio_path}")
+
+    # -- load audio & extract mel features -----------------------------------
+    print(f"Loading audio from {audio_path}...")
+    with open(audio_path, "rb") as f:
+        audio_bytes = f.read()
+
+    from fairseq2.data._memory import MemoryBlock
+    from fairseq2.data.audio import AudioDecoder as Fs2AudioDecoder
+
+    decoder = Fs2AudioDecoder(dtype=torch.float32)
+    decoded = decoder(MemoryBlock(audio_bytes))
+    waveform = decoded["waveform"]
+    sr = int(decoded["sample_rate"])
+
+    if sr != SAMPLE_RATE:
+        import torchaudio
+
+        waveform = torchaudio.functional.resample(waveform, sr, SAMPLE_RATE)
+    if waveform.dim() == 1:
+        waveform = waveform.unsqueeze(0)
+    if waveform.shape[0] > 1:
+        waveform = waveform.mean(dim=0, keepdim=True)
+    print(f"  Duration: {waveform.shape[-1] / SAMPLE_RATE:.2f}s")
+
+    mel = extract_mel_features(waveform.numpy())
+    mel_tensor = torch.from_numpy(mel).float().unsqueeze(0).to(device)
+    print(f"  Mel features: {mel_tensor.shape}")
+
+    # -- load model + tokenizer ----------------------------------------------
+    print(f"\nLoading model...")
+    model, tokenizer, eos_id = load_model_and_tokenizer(
+        args.model_name, device, args.hf_model
+    )
+
+    # -- tokenize prompt with audio placeholders -----------------------------
+    input_ids = build_audio_input_ids(args.prompt, tokenizer, device)
     print(f"\n  Input tokens: {input_ids.shape[1]}")
-
-    eos_id = hf_tok.eos_token_id
 
     # -- generate ------------------------------------------------------------
     print(f"\nGenerating (max {args.max_tokens} tokens)...")
@@ -297,9 +374,13 @@ def main() -> None:
                 print(f"  {step + 1} tokens...")
 
     # -- decode output -------------------------------------------------------
-    output_text = hf_tok.decode(
-        generated[0].cpu().tolist(), skip_special_tokens=True
-    )
+    output_ids = generated[0].cpu().tolist()
+    if hasattr(tokenizer, "decode"):
+        output_text = tokenizer.decode(output_ids, skip_special_tokens=True)
+    else:
+        tok_decoder = tokenizer.create_decoder(skip_special_tokens=True)
+        output_text = tok_decoder(torch.tensor(output_ids))
+
     print(f"\n{'=' * 60}")
     print(output_text)
     print(f"{'=' * 60}")
