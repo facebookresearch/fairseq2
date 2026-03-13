@@ -137,15 +137,17 @@ def build_audio_input_ids(
         conversation, tokenize=False, add_generation_prompt=True
     )
 
-    token_ids = tokenizer.encode(text, add_special_tokens=False)
-    placeholder_ids = tokenizer.encode(
-        "<audio_placeholder>", add_special_tokens=False
-    )
+    encoder = tokenizer.create_encoder(mode="as_is")
+    token_ids = encoder(text)
 
-    placeholder_len = len(placeholder_ids)
+    placeholder_text = "<audio_placeholder>"
+    placeholder_ids = encoder(placeholder_text)
+
+    # Find placeholder position in the token sequence
+    ph_len = placeholder_ids.size(0)
     pos = -1
-    for i in range(len(token_ids) - placeholder_len + 1):
-        if token_ids[i : i + placeholder_len] == placeholder_ids:
+    for i in range(token_ids.size(0) - ph_len + 1):
+        if torch.equal(token_ids[i : i + ph_len], placeholder_ids):
             pos = i
             break
 
@@ -155,12 +157,11 @@ def build_audio_input_ids(
     audio_tokens = torch.full(
         (NUM_AUDIO_TOKENS,), AUDIO_TOKEN_ID, dtype=torch.long
     )
-    token_ids_t = torch.tensor(token_ids, dtype=torch.long)
-    token_ids_t = torch.cat(
-        [token_ids_t[:pos], audio_tokens, token_ids_t[pos + placeholder_len :]],
+    token_ids = torch.cat(
+        [token_ids[:pos], audio_tokens, token_ids[pos + ph_len :]],
     )
 
-    return token_ids_t.unsqueeze(0).to(device)
+    return token_ids.unsqueeze(0).to(device)
 
 
 # -- inference ----------------------------------------------------------------
