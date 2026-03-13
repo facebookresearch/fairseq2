@@ -76,6 +76,8 @@ class Gemma3nSubsampleConvProjection(Module):
             device=device,
             dtype=dtype,
         )
+        # HF's CumulativeGroupNorm has weight but no bias
+        self.norm_0.register_parameter("bias", None)
 
         self.conv_1 = Conv2d(
             in_channels=ch0,
@@ -94,6 +96,8 @@ class Gemma3nSubsampleConvProjection(Module):
             device=device,
             dtype=dtype,
         )
+        # HF's CumulativeGroupNorm has weight but no bias
+        self.norm_1.register_parameter("bias", None)
 
         downsampled_freq = input_feat_size // (s0[1] * s1[1])
         flattened_size = ch1 * downsampled_freq
@@ -101,7 +105,7 @@ class Gemma3nSubsampleConvProjection(Module):
         self.proj = Linear(
             flattened_size,
             hidden_size,
-            bias=True,
+            bias=False,
             device=device,
             dtype=dtype,
         )

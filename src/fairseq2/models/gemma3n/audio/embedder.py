@@ -57,7 +57,7 @@ class Gemma3nMultimodalEmbedder(Module):
 
         self.hard_embedding_norm = RMSNorm(
             audio_config.hidden_size,
-            bias=True,
+            bias=False,
             eps=audio_config.rms_norm_eps,
             device=device,
             dtype=dtype,
@@ -65,7 +65,7 @@ class Gemma3nMultimodalEmbedder(Module):
 
         self.soft_embedding_norm = RMSNorm(
             audio_config.hidden_size,
-            bias=True,
+            bias=False,
             eps=audio_config.rms_norm_eps,
             device=device,
             dtype=dtype,

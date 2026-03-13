@@ -322,6 +322,15 @@ def _build_conformer_block(
         device=device,
         dtype=dtype,
     )
+    # Replace StandardLayerNorm (bias=True) with RMSNorm (no bias)
+    # to match HF's Gemma3nRMSNorm used in conv_norm
+    conv.layer_norm = RMSNorm(
+        config.hidden_size,
+        bias=False,
+        eps=config.rms_norm_eps,
+        device=device,
+        dtype=dtype,
+    )
 
     conv_layer_norm = RMSNorm(
         config.hidden_size,
