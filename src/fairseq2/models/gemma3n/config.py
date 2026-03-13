@@ -159,7 +159,7 @@ class Gemma3nConfig:
     final_logit_soft_cap: float = 30.0
     """Soft-capping value for attention logits."""
 
-    num_kv_shared_layers: int = 10
+    num_kv_shared_layers: int = 15
     """The number of layers that share KV cache values."""
 
     laurel_rank: int = 64
@@ -214,12 +214,9 @@ def is_global_layer(layer_idx: int, num_layers: int = 35) -> bool:
     Gemma3n uses a 4:1 local:global ratio. Global layers occur every 5th layer
     (indices 4, 9, 14, ...) with the last layer always being global.
 
-    Args:
-        layer_idx: The zero-based index of the layer.
-        num_layers: The total number of layers.
-
-    Returns:
-        True if the layer should use global attention, False for local.
+    :param layer_idx: The zero-based index of the layer.
+    :param num_layers: The total number of layers.
+    :returns: True if the layer should use global attention, False for local.
     """
     # Last layer is always global
     if layer_idx == num_layers - 1:
@@ -237,14 +234,11 @@ def get_kv_projection_role(
 ) -> KVProjectionRole:
     """Determine KV projection sharing role for a layer.
 
-    Args:
-        layer_idx: Zero-based layer index.
-        is_global: Whether this is a global (full attention) layer.
-        num_layers: Total number of layers.
-        num_kv_shared_layers: Number of layers that consume shared K/V.
-
-    Returns:
-        KVProjectionRole indicating this layer's role in KV projection sharing.
+    :param layer_idx: Zero-based layer index.
+    :param is_global: Whether this is a global (full attention) layer.
+    :param num_layers: Total number of layers.
+    :param num_kv_shared_layers: Number of layers that consume shared K/V.
+    :returns: KVProjectionRole indicating this layer's role in KV sharing.
     """
     first_shared_idx = num_layers - num_kv_shared_layers
 
