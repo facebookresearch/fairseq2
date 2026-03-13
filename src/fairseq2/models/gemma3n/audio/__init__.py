@@ -5,6 +5,9 @@
 # LICENSE file in the root directory of this source tree.
 
 from fairseq2.models.gemma3n.audio.conformer import (
+    Gemma3nConformerBlock as Gemma3nConformerBlock,
+)
+from fairseq2.models.gemma3n.audio.conformer import (
     Gemma3nConformerEncoder as Gemma3nConformerEncoder,
 )
 from fairseq2.models.gemma3n.audio.embedder import (

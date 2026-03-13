@@ -96,6 +96,12 @@ class Gemma3nConformerSDPA(SDPA):
             torch.ones(self.head_dim, device=device, dtype=dtype)
         )
 
+        self._audio_mask: Tensor | None = None
+
+    def set_audio_mask(self, mask: Tensor | None) -> None:
+        """Store audio mel mask for validity masking in chunked attention."""
+        self._audio_mask = mask
+
     @override
     def forward(
         self,

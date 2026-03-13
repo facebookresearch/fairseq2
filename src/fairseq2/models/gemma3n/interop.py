@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Final
 
+import torch
+
 from fairseq2.models.gemma3n.config import Gemma3nConfig
 from fairseq2.models.utils.checkpoint import convert_state_dict
 
@@ -19,47 +21,50 @@ _HG_KEY_MAP: Final = {
     r"^lm_head\.":                                                     "final_proj.",
 
     # Audio tower - subsample convolution projection
-    r"^model\.audio_tower\.subsample_conv_projection\.conv_0\.conv\.": "audio_tower.subsample.conv_0.",
-    r"^model\.audio_tower\.subsample_conv_projection\.conv_0\.norm\.": "audio_tower.subsample.norm_0.",
-    r"^model\.audio_tower\.subsample_conv_projection\.conv_1\.conv\.": "audio_tower.subsample.conv_1.",
-    r"^model\.audio_tower\.subsample_conv_projection\.conv_1\.norm\.": "audio_tower.subsample.norm_1.",
-    r"^model\.audio_tower\.subsample_conv_projection\.input_proj_linear\.": "audio_tower.subsample.proj.",
+    r"^model\.audio_tower\.subsample_conv_projection\.conv_0\.conv\.": "decoder_frontend.audio_tower.subsample.conv_0.",
+    r"^model\.audio_tower\.subsample_conv_projection\.conv_0\.norm\.": "decoder_frontend.audio_tower.subsample.norm_0.",
+    r"^model\.audio_tower\.subsample_conv_projection\.conv_1\.conv\.": "decoder_frontend.audio_tower.subsample.conv_1.",
+    r"^model\.audio_tower\.subsample_conv_projection\.conv_1\.norm\.": "decoder_frontend.audio_tower.subsample.norm_1.",
+    r"^model\.audio_tower\.subsample_conv_projection\.input_proj_linear\.": "decoder_frontend.audio_tower.subsample.proj.",
 
     # Audio tower - conformer layers (attention)
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.pre_attn_norm\.": r"audio_tower.encoder.layers.\1.self_attn_layer_norm.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.q_proj\.": r"audio_tower.encoder.layers.\1.self_attn.q_proj.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.k_proj\.": r"audio_tower.encoder.layers.\1.self_attn.k_proj.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.v_proj\.": r"audio_tower.encoder.layers.\1.self_attn.v_proj.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.per_dim_scale$": r"audio_tower.encoder.layers.\1.self_attn.sdpa.per_dim_scale",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.relative_position_embedding\.pos_proj\.": r"audio_tower.encoder.layers.\1.self_attn.sdpa.rel_k_embed.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.post\.": r"audio_tower.encoder.layers.\1.self_attn.output_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.pre_attn_norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.self_attn_layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.q_proj\.": r"decoder_frontend.audio_tower.encoder.layers.\1.self_attn.q_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.k_proj\.": r"decoder_frontend.audio_tower.encoder.layers.\1.self_attn.k_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.v_proj\.": r"decoder_frontend.audio_tower.encoder.layers.\1.self_attn.v_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.per_dim_scale$": r"decoder_frontend.audio_tower.encoder.layers.\1.self_attn.sdpa.per_dim_scale",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.relative_position_embedding\.pos_proj\.": r"decoder_frontend.audio_tower.encoder.layers.\1.self_attn.sdpa.pos_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.post\.": r"decoder_frontend.audio_tower.encoder.layers.\1.self_attn.output_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.post_norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.self_attn_post_norm.",
 
     # Audio tower - conformer layers (FFN start)
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.pre_layer_norm\.": r"audio_tower.encoder.layers.\1.ffn1_layer_norm.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.ffw_layer_1\.": r"audio_tower.encoder.layers.\1.ffn1.inner_proj.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.ffw_layer_2\.": r"audio_tower.encoder.layers.\1.ffn1.output_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.pre_layer_norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.ffn1_layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.ffw_layer_1\.": r"decoder_frontend.audio_tower.encoder.layers.\1.ffn1.inner_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.ffw_layer_2\.": r"decoder_frontend.audio_tower.encoder.layers.\1.ffn1.output_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.post_layer_norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.ffn1_post_layer_norm.",
 
     # Audio tower - conformer layers (convolution)
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.pre_layer_norm\.": r"audio_tower.encoder.layers.\1.conv_layer_norm.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.linear_start\.": r"audio_tower.encoder.layers.\1.conv.pointwise_conv1.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.depthwise_conv1d\.": r"audio_tower.encoder.layers.\1.conv.depthwise_conv.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.conv_norm\.": r"audio_tower.encoder.layers.\1.conv.layer_norm.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.linear_end\.": r"audio_tower.encoder.layers.\1.conv.pointwise_conv2.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.pre_layer_norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.conv_layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.linear_start\.": r"decoder_frontend.audio_tower.encoder.layers.\1.conv.pointwise_conv1.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.depthwise_conv1d\.": r"decoder_frontend.audio_tower.encoder.layers.\1.conv.depthwise_conv.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.conv_norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.conv.layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.linear_end\.": r"decoder_frontend.audio_tower.encoder.layers.\1.conv.pointwise_conv2.",
 
     # Audio tower - conformer layers (FFN end)
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.pre_layer_norm\.": r"audio_tower.encoder.layers.\1.ffn2_layer_norm.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.ffw_layer_1\.": r"audio_tower.encoder.layers.\1.ffn2.inner_proj.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.ffw_layer_2\.": r"audio_tower.encoder.layers.\1.ffn2.output_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.pre_layer_norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.ffn2_layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.ffw_layer_1\.": r"decoder_frontend.audio_tower.encoder.layers.\1.ffn2.inner_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.ffw_layer_2\.": r"decoder_frontend.audio_tower.encoder.layers.\1.ffn2.output_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.post_layer_norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.ffn2_post_layer_norm.",
 
     # Audio tower - conformer layers (final norm)
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.norm\.": r"audio_tower.encoder.layers.\1.layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.layer_norm.",
 
     # Multimodal embedder (audio → text projection)
-    r"^model\.embed_audio\.embedding\.": "embed_audio.embedding.",
-    r"^model\.embed_audio\.hard_embedding_norm\.": "embed_audio.hard_embedding_norm.",
-    r"^model\.embed_audio\.soft_embedding_norm\.": "embed_audio.soft_embedding_norm.",
-    r"^model\.embed_audio\.embedding_projection\.": "embed_audio.embedding_projection.",
-    r"^model\.embed_audio\.embedding_post_projection_norm\.": "embed_audio.embedding_post_projection_norm.",
+    r"^model\.embed_audio\.embedding\.": "decoder_frontend.audio_tower.embedder.embedding.",
+    r"^model\.embed_audio\.hard_embedding_norm\.": "decoder_frontend.audio_tower.embedder.hard_embedding_norm.",
+    r"^model\.embed_audio\.soft_embedding_norm\.": "decoder_frontend.audio_tower.embedder.soft_embedding_norm.",
+    r"^model\.embed_audio\.embedding_projection\.": "decoder_frontend.audio_tower.embedder.embedding_projection.",
+    r"^model\.embed_audio\.embedding_post_projection_norm\.": "decoder_frontend.audio_tower.embedder.embedding_post_projection_norm.",
 
     # Decoder layers - attention with QK norm
     r"^model\.language_model\.layers\.([0-9]+)\.self_attn\.q_proj\.": r"decoder.layers.\1.self_attn.q_proj.",
@@ -126,58 +131,36 @@ def convert_gemma3n_state_dict(
         The fairseq2-compatible state dictionary.
 
     Notes:
-        Supports audio tower (subsample + conformer encoder) and multimodal embedder.
-        Vision tower (embed_vision, vision_tower) is filtered out as not yet implemented.
+        Filters out vision tower (not yet integrated). Audio tower is included
+        when config.audio_config is set.
     """
-    import torch
-
-    # Filter out vision components (not implemented yet)
+    # Filter out multimodal components not yet integrated
     vision_prefixes = (
         "model.vision_tower.",
         "model.embed_vision.",
+    )
+    audio_prefixes = (
+        "model.audio_tower.",
+        "model.embed_audio.",
     )
 
     filtered_state_dict = {
         k: v
         for k, v in state_dict.items()
         if not k.startswith(vision_prefixes)
+        and (config.audio_config is not None or not k.startswith(audio_prefixes))
     }
 
     converted = convert_state_dict(filtered_state_dict, _HG_KEY_MAP)
 
-    # Post-process audio tower weights for architecture differences
-    # 1. Reshape Conv1d pointwise weights from (out, in) to (out, in, 1)
-    for key in list(converted.keys()):
-        if "audio_tower.encoder" in key and ("pointwise_conv1.weight" in key or "pointwise_conv2.weight" in key):
-            # HF stores as Linear (out, in), fairseq2 Conv1d expects (out, in, 1)
-            converted[key] = converted[key].unsqueeze(-1)
-
-    # 2. Convert Shaw relative position embeddings from linear projection to embedding table
-    # HF: linear projection (hidden_size, hidden_size) = (1536, 1536)
-    # FS2: embedding table (num_pos, head_dim) = (14, 192)
-    # The HF linear is actually just a transposed embedding lookup
-    for key in list(converted.keys()):
-        if "audio_tower.encoder" in key and "sdpa.rel_k_embed.weight" in key:
-            # Extract (num_pos, head_dim) from (hidden_size, hidden_size)
-            # The HF weight is (1536, 1536) but we only need (14, 192)
-            # where 14 = max_left + 1 + max_right = 13 + 1 + 0
-            # and 192 = head_dim = 1536 / 8
-            linear_weight = converted[key]  # (1536, 1536)
-            num_heads = 8
-            head_dim = 1536 // num_heads  # 192
-            max_left = 13
-            max_right = 0
-            num_pos = max_left + 1 + max_right  # 14
-
-            # The linear weight is transposed - transpose it and extract the first num_pos x head_dim
-            # Actually, HF applies this as: output = input @ weight.T
-            # We want embedding lookup which is: output = embedding_table[indices]
-            # So we need to extract the first num_pos rows and num_heads * head_dim columns
-            # But the weight is stored as (out_features, in_features) = (1536, 1536)
-            # For our embedding, we need (num_pos, head_dim)
-            # The first num_pos columns of the transposed weight should work
-            embedding_weight = linear_weight.T[:num_pos, :head_dim].contiguous()
-            converted[key] = embedding_weight
+    # Reshape pointwise conv weights: HF Linear [N, M] → fs2 Conv1d [N, M, 1]
+    for key, value in converted.items():
+        if (
+            isinstance(value, torch.Tensor)
+            and value.ndim == 2
+            and ("pointwise_conv1.weight" in key or "pointwise_conv2.weight" in key)
+        ):
+            converted[key] = value.unsqueeze(-1)
 
     return converted
 
