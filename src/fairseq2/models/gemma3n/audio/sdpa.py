@@ -6,43 +6,41 @@
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING, final
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.error import NotSupportedError
-from fairseq2.models.transformer.attention_bias import (
-    AttentionBiasCache,
-    maybe_get_attention_bias_tensor,
-)
+from fairseq2.models.transformer.attention_bias import AttentionBiasCache
 from fairseq2.models.transformer.sdpa.base import SDPA
-from fairseq2.models.transformer.sdpa.naive import (
-    naive_scaled_dot_product_attention,
-)
-from fairseq2.nn import BatchLayout, StandardEmbedding
+from fairseq2.nn import BatchLayout
+from fairseq2.nn.projection import Linear
 
 
 @final
 class Gemma3nConformerSDPA(SDPA):
-    """SDPA for Gemma3n audio conformer with Shaw relative positions,
-    chunked local attention, per-dimension scaling, and softcapping.
+    """SDPA for Gemma3n audio conformer matching HuggingFace architecture.
+
+    Uses sinusoidal relative position embeddings projected via pos_proj,
+    block-based chunked local attention, per-dimension scaling with softplus,
+    and logit softcapping (pre-softmax).
     """
 
     model_dim: int
     num_heads: int
     head_dim: int
-    max_left_rel_pos: int
-    max_right_rel_pos: int
     chunk_size: int
-    left_context: int
-    right_context: int
-    logit_cap: float
-    rel_k_embed: StandardEmbedding
+    max_past_horizon: int
+    max_future_horizon: int
+    context_size: int
+    pos_proj: Linear
     per_dim_scale: nn.Parameter
 
     def __init__(
@@ -62,8 +60,8 @@ class Gemma3nConformerSDPA(SDPA):
         """
         :param model_dim: Model dimensionality (1536).
         :param num_heads: Number of attention heads (8).
-        :param max_left_rel_pos: Maximum left relative position for Shaw embeddings.
-        :param max_right_rel_pos: Maximum right relative position for Shaw embeddings.
+        :param max_left_rel_pos: Maximum left relative position.
+        :param max_right_rel_pos: Maximum right relative position.
         :param chunk_size: Chunk size for local attention (12).
         :param left_context: Left context size in tokens (13).
         :param right_context: Right context size in tokens (0).
@@ -73,33 +71,75 @@ class Gemma3nConformerSDPA(SDPA):
 
         if model_dim % num_heads != 0:
             raise ValueError(
-                f"`model_dim` must be a multiple of `num_heads` ({num_heads}), but is {model_dim} instead."
+                f"`model_dim` must be a multiple of `num_heads` "
+                f"({num_heads}), but is {model_dim} instead."
             )
 
         self.model_dim = model_dim
         self.num_heads = num_heads
         self.head_dim = model_dim // num_heads
-        self.max_left_rel_pos = max_left_rel_pos
-        self.max_right_rel_pos = max_right_rel_pos
         self.chunk_size = chunk_size
-        self.left_context = left_context
-        self.right_context = right_context
-        self.logit_cap = logit_cap
-
-        num_pos = max_left_rel_pos + 1 + max_right_rel_pos
-
-        self.rel_k_embed = StandardEmbedding(
-            num_pos, self.head_dim, init_fn=init_shaw_embedding, device=device, dtype=dtype
+        self.max_past_horizon = max(0, left_context - 1)
+        self.max_future_horizon = right_context
+        self.context_size = (
+            chunk_size + self.max_past_horizon + self.max_future_horizon
         )
 
+        # Sinusoidal position projection (replaces Shaw embedding)
+        self.pos_proj = Linear(
+            model_dim,
+            num_heads * self.head_dim,
+            bias=False,
+            device=device,
+            dtype=dtype,
+        )
+
+        # Per-dimension scaling with zeros init (apply via softplus)
         self.per_dim_scale = nn.Parameter(
-            torch.ones(self.head_dim, device=device, dtype=dtype)
+            torch.zeros(self.head_dim, device=device, dtype=dtype)
+        )
+
+        # q_scale = head_dim^(-0.5) / softplus(0)
+        q_scale = self.head_dim**-0.5 / F.softplus(torch.tensor(0.0))
+        self.register_buffer(
+            "q_scale", q_scale.clone().detach(), persistent=False
+        )
+
+        # Sinusoidal inverse timescales
+        num_timescales = model_dim // 2
+        log_timescale_increment = math.log(1.0e4) / max(
+            num_timescales - 1, 1
+        )
+        inv_timescales = torch.exp(
+            torch.arange(num_timescales, dtype=torch.float32)
+            * -log_timescale_increment
+        )
+        self.register_buffer(
+            "inv_timescales",
+            inv_timescales.unsqueeze(0).unsqueeze(0),
+            persistent=False,
+        )
+
+        # Precomputed local causal mask [chunk_size, context_size]
+        local_mask = self._create_local_causal_valid_mask()
+        self.register_buffer(
+            "local_causal_valid_mask", local_mask, persistent=False
+        )
+
+        # Softcap value
+        self.register_buffer(
+            "softcap",
+            torch.tensor(logit_cap, dtype=torch.float32),
+            persistent=False,
         )
 
         self._audio_mask: Tensor | None = None
 
     def set_audio_mask(self, mask: Tensor | None) -> None:
-        """Store audio mel mask for validity masking in chunked attention."""
+        """Store audio mel mask for validity masking in chunked attention.
+
+        :param mask: Where True=masked (invalid). *Shape:* :math:`(N,T)`.
+        """
         self._audio_mask = mask
 
     @override
@@ -125,69 +165,276 @@ class Gemma3nConformerSDPA(SDPA):
                 "Gemma3n conformer SDPA does not support packed batches."
             )
 
-        q = q.transpose(-2, -3)
-        k = k.transpose(-2, -3)
-        v = v.transpose(-2, -3)
+        batch_size, q_time, num_heads, head_dim = q.shape
 
-        q_len = q.size(-2)
-        k_len = k.size(-2)
+        # Per-dim scaling with softplus
+        per_dim_scale_sp = F.softplus(self.per_dim_scale)
+        q = q * (self.q_scale * per_dim_scale_sp)
 
-        q = q * self.per_dim_scale.unsqueeze(0).unsqueeze(0).unsqueeze(0)
+        # Convert to blocks
+        query_blocks = self._convert_to_block(q)
+        key_blocks = self._extract_block_context(k)
+        value_blocks = self._extract_block_context(v)
+        num_query_blocks = query_blocks.shape[1]
 
-        rel_indices = self._get_relative_indices(k)
-        rel_keys = self.rel_k_embed(rel_indices)
-        rel_keys = rel_keys[-q_len:]
+        # Build validity mask from audio mel mask
+        validity_condition: Tensor | None = None
+        if self._audio_mask is not None:
+            original_valid = ~self._audio_mask
+            extracted_valid = self._extract_block_context(original_valid)
+            # [B, 1, U, 1, C]
+            validity_condition = (
+                extracted_valid.unsqueeze(1).unsqueeze(-2)
+            )
 
-        rel_weights = torch.einsum("nhsk,stk->nhst", q, rel_keys)
-        rel_weights = rel_weights * (self.head_dim**-0.5)
-
-        chunked_mask = self._create_chunked_local_mask(q_len, k_len, q.device)
-        chunked_mask = chunked_mask.unsqueeze(0).unsqueeze(0)
-
-        if chunked_mask is not None:
-            rel_weights = rel_weights.masked_fill(chunked_mask == 0, float("-inf"))
-
-        attns, attn_weights = naive_scaled_dot_product_attention(
-            q, k, v, rel_weights, needs_weights=needs_weights
+        # Local causal mask [1, 1, 1, W, C]
+        causal_condition = (
+            self.local_causal_valid_mask
+            .unsqueeze(0)
+            .unsqueeze(0)
+            .unsqueeze(0)
         )
 
-        attns = torch.tanh(attns / self.logit_cap) * self.logit_cap
+        # Compute logits with relative position embeddings
+        logits = self._compute_relative_logits(
+            query_blocks, key_blocks, num_query_blocks
+        )
 
-        attns = attns.transpose(-2, -3)
+        # Softcap on logits (pre-softmax)
+        softcap_val = self.softcap.to(logits.device)
+        logits = torch.tanh(logits / softcap_val) * softcap_val
 
-        return attns, attn_weights if needs_weights else None
+        # Apply combined mask
+        if validity_condition is not None:
+            final_condition = torch.logical_and(
+                validity_condition,
+                causal_condition.to(validity_condition.device),
+            )
+        else:
+            final_condition = causal_condition.to(logits.device)
+
+        logits = torch.where(
+            final_condition,
+            logits,
+            torch.finfo(logits.dtype).min,
+        )
+
+        # Softmax + weighted sum
+        probs = torch.softmax(
+            logits, dim=-1, dtype=torch.float32
+        ).to(dtype=v.dtype)
+
+        # Context vectors via batched matmul
+        # probs: [B, N, U, W, C], values: [B, U, C, N, H]
+        b, n, u, w, c = probs.shape
+        h = value_blocks.shape[-1]
+        prob_bun = probs.permute(0, 2, 1, 3, 4).reshape(-1, w, c)
+        v_bun = value_blocks.permute(0, 1, 3, 2, 4).reshape(-1, c, h)
+        result = torch.bmm(prob_bun, v_bun)
+        context = (
+            result.reshape(b, u, n, w, h)
+            .permute(0, 1, 3, 2, 4)
+            .reshape(b, u * w, n, h)
+        )
+        # Trim padding to original sequence length
+        context = context[:, :q_time]
+
+        return context, None
 
     if TYPE_CHECKING:
         __call__ = forward
 
-    def _get_relative_indices(self, k: Tensor) -> Tensor:
-        """Compute Shaw relative position indices."""
-        indices = torch.arange(k.size(-2), device=k.device).unsqueeze(0)
-        rel_indices = indices - indices.transpose(0, 1)
+    def _compute_relative_logits(
+        self,
+        query_blocks: Tensor,
+        key_blocks: Tensor,
+        num_query_blocks: int,
+    ) -> Tensor:
+        """Compute attention logits with sinusoidal relative positions.
 
-        rel_indices = torch.clamp(
-            rel_indices, -self.max_left_rel_pos, self.max_right_rel_pos
+        :param query_blocks: *Shape:* :math:`(B,U,W,N,K)`.
+        :param key_blocks: *Shape:* :math:`(B,U,C,N,K)`.
+        :returns: Logits. *Shape:* :math:`(B,N,U,W,C)`.
+        """
+        batch_size = query_blocks.shape[0]
+        _, _, _, num_heads, head_dim = query_blocks.shape
+        _, _, key_context_size, _, _ = key_blocks.shape
+
+        # Sinusoidal position embeddings
+        pos_indices = torch.arange(
+            self.max_past_horizon,
+            -self.max_future_horizon - 1,
+            -1,
+            device=query_blocks.device,
+        ).unsqueeze(0)
+        f_span = pos_indices.shape[1]
+
+        sin_emb = self._get_timing_signal(
+            pos_indices, dtype=query_blocks.dtype
+        )
+        projected = self.pos_proj(sin_emb)
+        sin_emb_heads = projected.reshape(
+            1, f_span, num_heads, head_dim
+        ).squeeze(0)
+
+        # term_ac: content-content interaction
+        # [B, N, U, W, K] @ [B, N, U, K, C] -> [B, N, U, W, C]
+        queries_p = query_blocks.permute(0, 3, 1, 2, 4)
+        keys_p_t = key_blocks.permute(0, 3, 1, 4, 2)
+        term_ac = torch.matmul(queries_p, keys_p_t)
+
+        # term_bd: content-position interaction
+        # [B, N, U*W, K] @ [N, K, F] -> [B, N, U*W, F]
+        q_permuted = queries_p
+        s_permuted = sin_emb_heads.permute(1, 2, 0)
+        q_reshaped = q_permuted.reshape(
+            batch_size,
+            num_heads,
+            num_query_blocks * self.chunk_size,
+            head_dim,
+        )
+        term_bd_flat = torch.matmul(q_reshaped, s_permuted)
+        term_bd = term_bd_flat.reshape(
+            batch_size, num_heads, num_query_blocks, self.chunk_size, f_span
         )
 
-        return rel_indices + self.max_left_rel_pos
+        # Relative shift
+        term_bd_shifted = self._relative_shift(
+            term_bd,
+            batch_size,
+            num_heads,
+            num_query_blocks,
+            self.chunk_size,
+            key_context_size,
+            f_span,
+        )
 
-    def _create_chunked_local_mask(
-        self, q_len: int, k_len: int, device: Device
+        return term_ac + term_bd_shifted
+
+    def _get_timing_signal(
+        self, position: Tensor, dtype: torch.dtype
     ) -> Tensor:
-        """Create chunked local attention mask with left/right context."""
-        pos_i = torch.arange(q_len, device=device).unsqueeze(1)
-        pos_j = torch.arange(k_len, device=device).unsqueeze(0)
+        """Compute sinusoidal timing signal.
 
-        distance = pos_i - pos_j
+        :param position: Position indices. *Shape:* :math:`(1,F)`.
+        :returns: Timing signal. *Shape:* :math:`(1,F,D)`.
+        """
+        position_f = position.float().unsqueeze(-1)
+        inv_ts = self.inv_timescales.to(
+            device=position.device, dtype=torch.float32
+        )
+        scaled_time = position_f * inv_ts
+        timing_signal = torch.cat(
+            [torch.sin(scaled_time), torch.cos(scaled_time)], dim=-1
+        )
+        return timing_signal.to(dtype)
 
-        within_left = distance <= self.left_context
-        within_right = distance >= -self.right_context
+    @staticmethod
+    def _relative_shift(
+        term_bd: Tensor,
+        batch_size: int,
+        num_heads: int,
+        num_query_blocks: int,
+        query_block_size: int,
+        key_context_size: int,
+        f_span: int,
+    ) -> Tensor:
+        """Apply relative shift to align position embeddings with keys.
 
-        mask = within_left & within_right
+        :param term_bd: *Shape:* :math:`(B,N,U,W,F)`.
+        :returns: Shifted tensor. *Shape:* :math:`(B,N,U,W,C)`.
+        """
+        pad_amount = (key_context_size + 1) - f_span
+        term_bd_padded = F.pad(term_bd, (0, pad_amount))
+        term_bd_reshaped = term_bd_padded.reshape(
+            batch_size,
+            num_heads,
+            num_query_blocks,
+            query_block_size * (key_context_size + 1),
+        )
+        term_bd_sliced = term_bd_reshaped[
+            :, :, :, : query_block_size * key_context_size
+        ]
+        return term_bd_sliced.reshape(
+            batch_size,
+            num_heads,
+            num_query_blocks,
+            query_block_size,
+            key_context_size,
+        )
 
-        return mask.to(dtype=torch.bool)
+    def _pad_dim1(
+        self, x: Tensor, pad_left: int, pad_right: int
+    ) -> Tensor:
+        """Zero-pad tensor along dimension 1."""
+        batch = x.shape[0]
+        tail_shape = x.shape[2:]
+        left = x.new_zeros((batch, pad_left, *tail_shape))
+        right = x.new_zeros((batch, pad_right, *tail_shape))
+        return torch.cat([left, x, right], dim=1)
 
+    def _convert_to_block(self, x: Tensor) -> Tensor:
+        """Split sequence into non-overlapping blocks.
 
-def init_shaw_embedding(embed: StandardEmbedding) -> None:
-    """Initialize Shaw embedding with Xavier uniform."""
-    nn.init.xavier_uniform_(embed.weight)
+        :param x: *Shape:* :math:`(B,T,...)`.
+        :returns: *Shape:* :math:`(B,U,W,...)` where U=ceil(T/W).
+        """
+        shape = x.shape
+        b, t = shape[:2]
+        num_blocks = (t + self.chunk_size - 1) // self.chunk_size
+
+        padding_len = num_blocks * self.chunk_size - t
+        if padding_len > 0:
+            x = self._pad_dim1(x, 0, padding_len)
+
+        new_shape = (b, num_blocks, self.chunk_size) + shape[2:]
+        return x.reshape(new_shape).contiguous()
+
+    def _extract_block_context(self, x: Tensor) -> Tensor:
+        """Extract sliding window context for each block.
+
+        :param x: *Shape:* :math:`(B,T,...)`.
+        :returns: *Shape:* :math:`(B,U,C,...)` where C=context_size.
+        """
+        pad_left = self.max_past_horizon
+        pad_right = self.max_future_horizon + self.chunk_size - 1
+        x = self._pad_dim1(x, pad_left, pad_right)
+
+        x_unfolded = x.unfold(
+            dimension=1, size=self.context_size, step=self.chunk_size
+        )
+
+        # For inputs with extra dims [B, T, N, H], unfold gives
+        # [B, U, N, H, C] - move C to position 2 → [B, U, C, N, H]
+        if x.ndim > 2 and x_unfolded.ndim > 3:
+            x_unfolded = torch.movedim(
+                x_unfolded, source=-1, destination=2
+            )
+
+        return x_unfolded.contiguous()
+
+    def _create_local_causal_valid_mask(self) -> Tensor:
+        """Create combined local + causal attention mask.
+
+        :returns: Boolean mask. *Shape:* :math:`(W,C)` where
+            True = allowed position.
+        """
+        lower_causal = torch.tril(
+            torch.ones(
+                (self.context_size, self.chunk_size), dtype=torch.bool
+            ),
+            diagonal=0,
+        ).T
+        upper_causal = torch.tril(
+            torch.ones(
+                (self.chunk_size, self.context_size), dtype=torch.bool
+            ),
+            diagonal=self.max_past_horizon + self.max_future_horizon,
+        )
+        return (
+            torch.ones(
+                (self.chunk_size, self.context_size), dtype=torch.bool
+            )
+            * lower_causal
+            * upper_causal
+        )
