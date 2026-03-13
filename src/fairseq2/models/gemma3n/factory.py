@@ -102,7 +102,8 @@ class Gemma3nFactory:
     def create_model(self) -> Gemma3nModel:
         """Create the full Gemma3n model."""
         embed = self.create_embedding()
-        decoder_frontend = self.create_decoder_frontend(embed)
+        audio_tower = self.create_audio_tower()
+        decoder_frontend = self.create_decoder_frontend(embed, audio_tower)
         decoder = self.create_decoder()
         final_proj = self.create_final_projection(embed)
 
@@ -125,7 +126,23 @@ class Gemma3nFactory:
             dtype=self._dtype,
         )
 
-    def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
+    def create_audio_tower(self) -> "Gemma3nAudioTower | None":
+        """Create audio tower if config has audio_config."""
+        if self._config.audio_config is None:
+            return None
+
+        from fairseq2.models.gemma3n.audio.tower import Gemma3nAudioTower
+
+        return Gemma3nAudioTower(
+            audio_config=self._config.audio_config,
+            text_config=self._config,
+            device=self._device,
+            dtype=self._dtype,
+        )
+
+    def create_decoder_frontend(
+        self, embed: Embedding, audio_tower: "Gemma3nAudioTower | None"
+    ) -> TransformerFrontend:
         """Create the decoder frontend with PLE support."""
         # PLE normalization
         ple_norm = RMSNorm(
@@ -146,6 +163,13 @@ class Gemma3nFactory:
             ple_norm=ple_norm,
             no_scale=False,  # Gemma3n scales embeddings by sqrt(model_dim)
             dropout_p=0.0,
+            audio_tower=audio_tower,
+            audio_token_id=(
+                self._config.audio_config.vocab_offset + 1
+                if self._config.audio_config
+                else None
+            ),
+            num_audio_tokens=self._config.num_audio_tokens,
             device=self._device,
             dtype=self._dtype,
         )

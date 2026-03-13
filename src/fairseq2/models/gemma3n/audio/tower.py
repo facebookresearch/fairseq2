@@ -15,10 +15,10 @@ from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
-from fairseq2.models.gemma3n.audio import Gemma3nSubsampleConvProjection
+from fairseq2.models.gemma3n.audio.conformer import Gemma3nConformerEncoder
+from fairseq2.models.gemma3n.audio.embedder import Gemma3nMultimodalEmbedder
+from fairseq2.models.gemma3n.audio.subsample import Gemma3nSubsampleConvProjection
 from fairseq2.models.gemma3n.config import Gemma3nAudioConfig, Gemma3nConfig
-from fairseq2.models.gemma3n.conformer import Gemma3nConformerEncoder
-from fairseq2.models.gemma3n.multimodal_embedder import Gemma3nMultimodalEmbedder
 from fairseq2.nn import BatchLayout
 
 
@@ -27,9 +27,9 @@ class Gemma3nAudioTower(Module):
     """Gemma3n audio tower for processing mel-spectrograms to text space.
 
     Pipeline:
-    1. Mel-spectrogram (N, T, 128) → Subsample (4x downsample) → (N, T/4, 1536)
-    2. Conformer encoder (12 layers + 4x reduction) → (N, T/16, 1536)
-    3. Multimodal embedder → Text space (N, T/16, 2048)
+    1. Mel-spectrogram (N, T, 128) -> Subsample (4x downsample) -> (N, T/4, 1536)
+    2. Conformer encoder (12 layers + 4x reduction) -> (N, T/16, 1536)
+    3. Multimodal embedder -> Text space (N, T/16, 2048)
     """
 
     subsample: Gemma3nSubsampleConvProjection
@@ -88,7 +88,7 @@ class Gemma3nAudioTower(Module):
         batch_size = features.size(0)
         seq_len = features.size(1)
 
-        # Subsample: (N, T, 128) → (N, T/4, 1536)
+        # Subsample: (N, T, 128) -> (N, T/4, 1536)
         features = self.subsample(features)
 
         # Subsample mask to match conformer input
@@ -114,7 +114,7 @@ class Gemma3nAudioTower(Module):
             seq_lens=[downsampled_len] * batch_size,
         )
 
-        # Conformer encode + reduction: (N, T/4, 1536) → (N, T/16, 1536)
+        # Conformer encode + reduction: (N, T/4, 1536) -> (N, T/16, 1536)
         features = self.encoder(features, layout, subsampled_mask)
 
         # Update layout for reduced sequence
@@ -124,7 +124,7 @@ class Gemma3nAudioTower(Module):
             seq_lens=[reduced_len] * batch_size,
         )
 
-        # Project to text space: (N, T/16, 1536) → (N, T/16, 2048)
+        # Project to text space: (N, T/16, 1536) -> (N, T/16, 2048)
         features = self.embedder(features, is_soft=True)
 
         return features, layout

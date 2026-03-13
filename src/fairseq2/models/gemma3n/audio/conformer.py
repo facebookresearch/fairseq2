@@ -15,8 +15,8 @@ from typing_extensions import override
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
+from fairseq2.models.gemma3n.audio.sdpa import Gemma3nConformerSDPA
 from fairseq2.models.gemma3n.config import Gemma3nAudioConfig
-from fairseq2.models.gemma3n.conformer_sdpa import Gemma3nConformerSDPA
 from fairseq2.models.transformer import (
     AttentionBiasCache,
     StandardFeedForwardNetwork,

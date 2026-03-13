@@ -4,10 +4,19 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from fairseq2.models.gemma3n.audio import (
+from fairseq2.models.gemma3n.audio.conformer import (
+    Gemma3nConformerEncoder as Gemma3nConformerEncoder,
+)
+from fairseq2.models.gemma3n.audio.embedder import (
+    Gemma3nMultimodalEmbedder as Gemma3nMultimodalEmbedder,
+)
+from fairseq2.models.gemma3n.audio.sdpa import (
+    Gemma3nConformerSDPA as Gemma3nConformerSDPA,
+)
+from fairseq2.models.gemma3n.audio.subsample import (
     Gemma3nSubsampleConvProjection as Gemma3nSubsampleConvProjection,
 )
-from fairseq2.models.gemma3n.audio_tower import (
+from fairseq2.models.gemma3n.audio.tower import (
     Gemma3nAudioTower as Gemma3nAudioTower,
 )
 from fairseq2.models.gemma3n.config import GEMMA3N_FAMILY as GEMMA3N_FAMILY
@@ -22,12 +31,6 @@ from fairseq2.models.gemma3n.config import (
 from fairseq2.models.gemma3n.config import is_global_layer as is_global_layer
 from fairseq2.models.gemma3n.config import (
     register_gemma3n_configs as register_gemma3n_configs,
-)
-from fairseq2.models.gemma3n.conformer import (
-    Gemma3nConformerEncoder as Gemma3nConformerEncoder,
-)
-from fairseq2.models.gemma3n.conformer_sdpa import (
-    Gemma3nConformerSDPA as Gemma3nConformerSDPA,
 )
 from fairseq2.models.gemma3n.decoder import Gemma3nDecoderBase as Gemma3nDecoderBase
 from fairseq2.models.gemma3n.factory import (
@@ -44,9 +47,6 @@ from fairseq2.models.gemma3n.interop import (
 )
 from fairseq2.models.gemma3n.interop import (
     convert_to_hf_gemma3n_state_dict as convert_to_hf_gemma3n_state_dict,
-)
-from fairseq2.models.gemma3n.multimodal_embedder import (
-    Gemma3nMultimodalEmbedder as Gemma3nMultimodalEmbedder,
 )
 from fairseq2.models.gemma3n.tokenizer import Gemma3nTokenizer as Gemma3nTokenizer
 from fairseq2.models.gemma3n.tokenizer import (
