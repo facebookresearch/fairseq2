@@ -10,6 +10,7 @@ from typing import Any, Literal, final, overload
 
 import torch
 from torch import Tensor
+from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.models.clm import CausalLM
@@ -28,6 +29,7 @@ class Gemma3nModel(CausalLM):
     decoder: Gemma3nDecoderBase
     final_proj: Projection
     pad_idx: int | None
+    audio_tower: "Module | None"
 
     def __init__(
         self,
@@ -37,6 +39,8 @@ class Gemma3nModel(CausalLM):
         final_proj: Projection,
         pad_idx: int | None,
         max_seq_len: int,
+        *,
+        audio_tower: "Module | None" = None,
     ) -> None:
         """
         :param model_dim: The model dimensionality.
@@ -45,6 +49,7 @@ class Gemma3nModel(CausalLM):
         :param final_proj: The projection to apply to decoder outputs.
         :param pad_idx: The index of the pad symbol in the vocabulary.
         :param max_seq_len: The maximum sequence length.
+        :param audio_tower: Optional audio tower for mel → text-space encoding.
         """
         super().__init__(max_seq_len)
 
@@ -53,6 +58,9 @@ class Gemma3nModel(CausalLM):
         self.decoder = decoder
         self.final_proj = final_proj
         self.pad_idx = pad_idx
+
+        self.audio_tower: Module | None
+        self.register_module("audio_tower", audio_tower)
 
     @overload
     def forward(
@@ -142,11 +150,16 @@ class Gemma3nModel(CausalLM):
         :param return_logits: If True, return both loss and logits.
         :returns: Logits or loss (or both if return_logits=True).
         """
+        # Encode audio through tower before frontend
+        audio_embeds: Tensor | None = None
+        if audio_features is not None and self.audio_tower is not None:
+            audio_embeds = self.audio_tower(audio_features)
+
         seqs, seqs_layout, per_layer_embeds = self.decoder_frontend(
             seqs,
             seqs_layout,
             state_bag=state_bag,
-            audio_features=audio_features,
+            audio_embeds=audio_embeds,
             vision_features=vision_features,
         )
 

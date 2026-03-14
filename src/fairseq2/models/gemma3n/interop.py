@@ -21,50 +21,50 @@ _HG_KEY_MAP: Final = {
     r"^lm_head\.":                                                     "final_proj.proj.",
 
     # Audio tower - subsample convolution projection
-    r"^model\.audio_tower\.subsample_conv_projection\.conv_0\.conv\.": "decoder_frontend.audio_tower.subsample.conv_0.",
-    r"^model\.audio_tower\.subsample_conv_projection\.conv_0\.norm\.": "decoder_frontend.audio_tower.subsample.norm_0.",
-    r"^model\.audio_tower\.subsample_conv_projection\.conv_1\.conv\.": "decoder_frontend.audio_tower.subsample.conv_1.",
-    r"^model\.audio_tower\.subsample_conv_projection\.conv_1\.norm\.": "decoder_frontend.audio_tower.subsample.norm_1.",
-    r"^model\.audio_tower\.subsample_conv_projection\.input_proj_linear\.": "decoder_frontend.audio_tower.subsample.proj.",
+    r"^model\.audio_tower\.subsample_conv_projection\.conv_0\.conv\.": "audio_tower.subsample.conv_0.",
+    r"^model\.audio_tower\.subsample_conv_projection\.conv_0\.norm\.": "audio_tower.subsample.norm_0.",
+    r"^model\.audio_tower\.subsample_conv_projection\.conv_1\.conv\.": "audio_tower.subsample.conv_1.",
+    r"^model\.audio_tower\.subsample_conv_projection\.conv_1\.norm\.": "audio_tower.subsample.norm_1.",
+    r"^model\.audio_tower\.subsample_conv_projection\.input_proj_linear\.": "audio_tower.subsample.proj.",
 
     # Audio tower - conformer layers (attention)
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.pre_attn_norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.self_attn_layer_norm.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.q_proj\.": r"decoder_frontend.audio_tower.encoder.layers.\1.self_attn.q_proj.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.k_proj\.": r"decoder_frontend.audio_tower.encoder.layers.\1.self_attn.k_proj.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.v_proj\.": r"decoder_frontend.audio_tower.encoder.layers.\1.self_attn.v_proj.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.per_dim_scale$": r"decoder_frontend.audio_tower.encoder.layers.\1.self_attn.sdpa.per_dim_scale",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.relative_position_embedding\.pos_proj\.": r"decoder_frontend.audio_tower.encoder.layers.\1.self_attn.sdpa.pos_proj.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.post\.": r"decoder_frontend.audio_tower.encoder.layers.\1.self_attn.output_proj.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.post_norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.self_attn_post_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.pre_attn_norm\.": r"audio_tower.encoder.layers.\1.self_attn_layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.q_proj\.": r"audio_tower.encoder.layers.\1.self_attn.q_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.k_proj\.": r"audio_tower.encoder.layers.\1.self_attn.k_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.v_proj\.": r"audio_tower.encoder.layers.\1.self_attn.v_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.per_dim_scale$": r"audio_tower.encoder.layers.\1.self_attn.sdpa.per_dim_scale",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.relative_position_embedding\.pos_proj\.": r"audio_tower.encoder.layers.\1.self_attn.sdpa.pos_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.post\.": r"audio_tower.encoder.layers.\1.self_attn.output_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.post_norm\.": r"audio_tower.encoder.layers.\1.self_attn_post_norm.",
 
     # Audio tower - conformer layers (FFN start)
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.pre_layer_norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.ffn1_layer_norm.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.ffw_layer_1\.": r"decoder_frontend.audio_tower.encoder.layers.\1.ffn1.inner_proj.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.ffw_layer_2\.": r"decoder_frontend.audio_tower.encoder.layers.\1.ffn1.output_proj.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.post_layer_norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.ffn1_post_layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.pre_layer_norm\.": r"audio_tower.encoder.layers.\1.ffn1_layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.ffw_layer_1\.": r"audio_tower.encoder.layers.\1.ffn1.inner_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.ffw_layer_2\.": r"audio_tower.encoder.layers.\1.ffn1.output_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_start\.post_layer_norm\.": r"audio_tower.encoder.layers.\1.ffn1_post_layer_norm.",
 
     # Audio tower - conformer layers (convolution)
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.pre_layer_norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.conv_layer_norm.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.linear_start\.": r"decoder_frontend.audio_tower.encoder.layers.\1.conv.pointwise_conv1.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.depthwise_conv1d\.": r"decoder_frontend.audio_tower.encoder.layers.\1.conv.depthwise_conv.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.conv_norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.conv.layer_norm.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.linear_end\.": r"decoder_frontend.audio_tower.encoder.layers.\1.conv.pointwise_conv2.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.pre_layer_norm\.": r"audio_tower.encoder.layers.\1.conv_layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.linear_start\.": r"audio_tower.encoder.layers.\1.conv.pointwise_conv1.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.depthwise_conv1d\.": r"audio_tower.encoder.layers.\1.conv.depthwise_conv.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.conv_norm\.": r"audio_tower.encoder.layers.\1.conv.layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.lconv1d\.linear_end\.": r"audio_tower.encoder.layers.\1.conv.pointwise_conv2.",
 
     # Audio tower - conformer layers (FFN end)
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.pre_layer_norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.ffn2_layer_norm.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.ffw_layer_1\.": r"decoder_frontend.audio_tower.encoder.layers.\1.ffn2.inner_proj.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.ffw_layer_2\.": r"decoder_frontend.audio_tower.encoder.layers.\1.ffn2.output_proj.",
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.post_layer_norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.ffn2_post_layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.pre_layer_norm\.": r"audio_tower.encoder.layers.\1.ffn2_layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.ffw_layer_1\.": r"audio_tower.encoder.layers.\1.ffn2.inner_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.ffw_layer_2\.": r"audio_tower.encoder.layers.\1.ffn2.output_proj.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.ffw_layer_end\.post_layer_norm\.": r"audio_tower.encoder.layers.\1.ffn2_post_layer_norm.",
 
     # Audio tower - conformer layers (final norm)
-    r"^model\.audio_tower\.conformer\.([0-9]+)\.norm\.": r"decoder_frontend.audio_tower.encoder.layers.\1.layer_norm.",
+    r"^model\.audio_tower\.conformer\.([0-9]+)\.norm\.": r"audio_tower.encoder.layers.\1.layer_norm.",
 
     # Multimodal embedder (audio → text projection)
-    r"^model\.embed_audio\.embedding\.": "decoder_frontend.audio_tower.embedder.embedding.",
-    r"^model\.embed_audio\.hard_embedding_norm\.": "decoder_frontend.audio_tower.embedder.hard_embedding_norm.",
-    r"^model\.embed_audio\.soft_embedding_norm\.": "decoder_frontend.audio_tower.embedder.soft_embedding_norm.",
-    r"^model\.embed_audio\.embedding_projection\.": "decoder_frontend.audio_tower.embedder.embedding_projection.",
-    r"^model\.embed_audio\.embedding_post_projection_norm\.": "decoder_frontend.audio_tower.embedder.embedding_post_projection_norm.",
+    r"^model\.embed_audio\.embedding\.": "audio_tower.embedder.embedding.",
+    r"^model\.embed_audio\.hard_embedding_norm\.": "audio_tower.embedder.hard_embedding_norm.",
+    r"^model\.embed_audio\.soft_embedding_norm\.": "audio_tower.embedder.soft_embedding_norm.",
+    r"^model\.embed_audio\.embedding_projection\.": "audio_tower.embedder.embedding_projection.",
+    r"^model\.embed_audio\.embedding_post_projection_norm\.": "audio_tower.embedder.embedding_post_projection_norm.",
 
     # Decoder layers - attention with QK norm
     r"^model\.language_model\.layers\.([0-9]+)\.self_attn\.q_proj\.": r"decoder.layers.\1.self_attn.q_proj.",
@@ -123,16 +123,12 @@ def convert_gemma3n_state_dict(
 ) -> dict[str, object]:
     """Convert a HuggingFace Gemma3n state dictionary to fairseq2 format.
 
-    Args:
-        state_dict: The HuggingFace Gemma3n state dictionary.
-        config: The Gemma3n configuration.
+    :param state_dict: The HuggingFace Gemma3n state dictionary.
+    :param config: The Gemma3n configuration.
+    :returns: The fairseq2-compatible state dictionary.
 
-    Returns:
-        The fairseq2-compatible state dictionary.
-
-    Notes:
-        Filters out vision tower (not yet integrated). Audio tower is included
-        when config.audio_config is set.
+    Filters out vision tower (not yet integrated). Audio tower is included
+    when config.audio_config is set.
     """
     # Filter out multimodal components not yet integrated
     vision_prefixes = (
@@ -176,11 +172,8 @@ def convert_to_hf_gemma3n_state_dict(
 ) -> dict[str, object]:
     """Convert a fairseq2 Gemma3n state dictionary to HuggingFace format.
 
-    Args:
-        state_dict: The fairseq2 Gemma3n state dictionary.
-
-    Returns:
-        The HuggingFace-compatible state dictionary.
+    :param state_dict: The fairseq2 Gemma3n state dictionary.
+    :returns: The HuggingFace-compatible state dictionary.
     """
     raise NotImplementedError(
         "fairseq2 → HuggingFace conversion not yet implemented."

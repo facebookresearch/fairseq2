@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import final
 
-import torch
 from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
@@ -17,7 +16,9 @@ from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.models.gemma3n.audio.conformer import Gemma3nConformerEncoder
 from fairseq2.models.gemma3n.audio.embedder import Gemma3nMultimodalEmbedder
-from fairseq2.models.gemma3n.audio.subsample import Gemma3nSubsampleConvProjection
+from fairseq2.models.gemma3n.audio.subsample import (
+    Gemma3nSubsampleConvProjection,
+)
 from fairseq2.models.gemma3n.config import Gemma3nAudioConfig, Gemma3nConfig
 from fairseq2.nn import BatchLayout
 
@@ -75,39 +76,16 @@ class Gemma3nAudioTower(Module):
         )
 
     @override
-    def forward(
-        self, features: Tensor, mask: Tensor | None = None
-    ) -> tuple[Tensor, BatchLayout]:
+    def forward(self, features: Tensor) -> Tensor:
         """
         :param features: Mel-spectrogram. *Shape:* :math:`(N,T,F)` where F=128.
-        :param mask: Optional mask where True=masked (invalid). *Shape:* :math:`(N,T)`.
-        :returns: Tuple of (projected features, layout).
-                 - features: *Shape:* :math:`(N,T/16,H_{text})` where H_text=2048.
-                 - layout: BatchLayout for the downsampled sequence.
+        :returns: Projected features. *Shape:* :math:`(N,T/16,H_{text})`.
         """
         batch_size = features.size(0)
-        seq_len = features.size(1)
 
         # Subsample: (N, T, 128) -> (N, T/4, 1536)
         features = self.subsample(features)
 
-        # Subsample mask to match conformer input
-        subsampled_mask = None
-        if mask is not None:
-            # Calculate subsample stride product
-            time_stride = 1
-            for stride_pair in [(2, 2), (2, 2)]:  # sscp_conv_stride_size default
-                time_stride *= stride_pair[0]
-
-            # Gather mask at subsampled indices
-            t_sub = features.size(1)
-            indices = torch.arange(t_sub, device=mask.device) * time_stride
-            indices = torch.clamp(indices, max=mask.size(1) - 1)
-            if indices.dim() == 1 and batch_size > 0:
-                indices = indices.unsqueeze(0).expand(batch_size, -1)
-            subsampled_mask = torch.gather(mask, 1, indices)
-
-        # Create layout for downsampled sequence
         downsampled_len = features.size(1)
         layout = BatchLayout(
             (batch_size, downsampled_len),
@@ -115,16 +93,9 @@ class Gemma3nAudioTower(Module):
         )
 
         # Conformer encode + reduction: (N, T/4, 1536) -> (N, T/16, 1536)
-        features = self.encoder(features, layout, subsampled_mask)
-
-        # Update layout for reduced sequence
-        reduced_len = features.size(1)
-        layout = BatchLayout(
-            (batch_size, reduced_len),
-            seq_lens=[reduced_len] * batch_size,
-        )
+        features = self.encoder(features, layout)
 
         # Project to text space: (N, T/16, 1536) -> (N, T/16, 2048)
         features = self.embedder(features, is_soft=True)
 
-        return features, layout
+        return features

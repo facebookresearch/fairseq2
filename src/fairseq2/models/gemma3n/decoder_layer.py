@@ -22,7 +22,6 @@ from fairseq2.models.transformer import (
     FeedForwardNetwork,
     MultiheadAttention,
 )
-from fairseq2.models.transformer_lm import TransformerLMDecoderLayer
 from fairseq2.nn import BatchLayout, IncrementalStateBag, LayerNorm
 from fairseq2.nn.projection import Linear
 
@@ -65,7 +64,7 @@ class Gemma3nLAuReL(Module):
 
 
 @final
-class Gemma3nDecoderLayer(TransformerLMDecoderLayer):
+class Gemma3nDecoderLayer(Module):
     """Gemma3n decoder layer with AltUp, LAuReL, and optional PLE."""
 
     self_attn: MultiheadAttention

@@ -5,6 +5,9 @@
 # LICENSE file in the root directory of this source tree.
 
 from fairseq2.models.gemma3n.audio.conformer import (
+    Gemma3nConformerAttention as Gemma3nConformerAttention,
+)
+from fairseq2.models.gemma3n.audio.conformer import (
     Gemma3nConformerBlock as Gemma3nConformerBlock,
 )
 from fairseq2.models.gemma3n.audio.conformer import (
@@ -25,6 +28,7 @@ from fairseq2.models.gemma3n.audio.tower import (
 
 __all__ = [
     "Gemma3nAudioTower",
+    "Gemma3nConformerAttention",
     "Gemma3nConformerEncoder",
     "Gemma3nConformerSDPA",
     "Gemma3nMultimodalEmbedder",

@@ -159,7 +159,7 @@ class Gemma3nConfig:
     final_logit_soft_cap: float = 30.0
     """Soft-capping value for attention logits."""
 
-    num_kv_shared_layers: int = 15
+    num_kv_shared_layers: int = 10
     """The number of layers that share KV cache values."""
 
     laurel_rank: int = 64
@@ -261,6 +261,7 @@ def get_gemma3n_e2b_config() -> Gemma3nConfig:
         num_layers=30,
         ffn_inner_dim=8192,
         altup_hidden_dim=8192,
+        num_kv_shared_layers=10,
         audio_config=Gemma3nAudioConfig(),
     )
 
@@ -268,5 +269,6 @@ def get_gemma3n_e2b_config() -> Gemma3nConfig:
 def get_gemma3n_e4b_config() -> Gemma3nConfig:
     """Get configuration for Gemma3n E4B (4B effective parameters)."""
     return Gemma3nConfig(
+        num_kv_shared_layers=15,
         audio_config=Gemma3nAudioConfig(),
     )

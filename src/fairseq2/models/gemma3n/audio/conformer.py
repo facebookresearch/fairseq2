@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import final
+from typing import TYPE_CHECKING, final
 
 import torch
 from torch import Tensor
@@ -21,10 +21,84 @@ from fairseq2.models.gemma3n.config import Gemma3nAudioConfig
 from fairseq2.models.transformer import (
     AttentionBiasCache,
     StandardFeedForwardNetwork,
-    StandardMultiheadAttention,
     TransformerEncoderLayer,
 )
 from fairseq2.nn import BatchLayout, RMSNorm
+from fairseq2.nn.projection import Linear
+
+
+@final
+class Gemma3nConformerAttention(Module):
+    """Self-attention for Gemma3n conformer with chunked local attention.
+
+    Owns Q/K/V projections and a :class:`Gemma3nConformerSDPA` instance.
+    Passes mask directly to SDPA (no side channel).
+    """
+
+    q_proj: Linear
+    k_proj: Linear
+    v_proj: Linear
+    output_proj: Linear
+    sdpa: Gemma3nConformerSDPA
+    num_heads: int
+    head_dim: int
+
+    def __init__(
+        self,
+        model_dim: int,
+        num_heads: int,
+        sdpa: Gemma3nConformerSDPA,
+        *,
+        bias: bool = False,
+        device: Device | None = None,
+        dtype: DataType | None = None,
+    ) -> None:
+        super().__init__()
+
+        self.num_heads = num_heads
+        self.head_dim = model_dim // num_heads
+
+        self.q_proj = Linear(
+            model_dim, model_dim, bias=bias, device=device, dtype=dtype,
+        )
+        self.k_proj = Linear(
+            model_dim, model_dim, bias=bias, device=device, dtype=dtype,
+        )
+        self.v_proj = Linear(
+            model_dim, model_dim, bias=bias, device=device, dtype=dtype,
+        )
+        self.output_proj = Linear(
+            model_dim, model_dim, bias=bias, device=device, dtype=dtype,
+        )
+        self.sdpa = sdpa
+
+    def forward(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        bias_cache: AttentionBiasCache,
+        *,
+        mask: Tensor | None = None,
+    ) -> Tensor:
+        """
+        :param seqs: Input features. *Shape:* :math:`(N,T,M)`.
+        :param seqs_layout: Layout information.
+        :param bias_cache: Attention bias cache (unused, kept for API compat).
+        :param mask: Where True=masked (invalid). *Shape:* :math:`(N,T)`.
+        :returns: Attention output. *Shape:* :math:`(N,T,M)`.
+        """
+        q = self.q_proj(seqs).unflatten(-1, (self.num_heads, self.head_dim))
+        k = self.k_proj(seqs).unflatten(-1, (self.num_heads, self.head_dim))
+        v = self.v_proj(seqs).unflatten(-1, (self.num_heads, self.head_dim))
+
+        attns, _ = self.sdpa(
+            q, seqs_layout, k, seqs_layout, v, mask=mask,
+        )
+
+        return self.output_proj(attns.flatten(-2, -1))
+
+    if TYPE_CHECKING:
+        __call__ = forward
 
 
 @final
@@ -43,7 +117,7 @@ class Gemma3nConformerBlock(TransformerEncoderLayer):
     ffn1: StandardFeedForwardNetwork
     ffn1_post_layer_norm: RMSNorm
     self_attn_layer_norm: RMSNorm
-    self_attn: StandardMultiheadAttention
+    self_attn: Gemma3nConformerAttention
     self_attn_post_norm: RMSNorm
     conv_layer_norm: RMSNorm
     conv: ConformerConvolution
@@ -52,6 +126,7 @@ class Gemma3nConformerBlock(TransformerEncoderLayer):
     ffn2_post_layer_norm: RMSNorm
     layer_norm: RMSNorm
     gradient_clipping: float
+    residual_weight: float
 
     def __init__(
         self,
@@ -60,7 +135,7 @@ class Gemma3nConformerBlock(TransformerEncoderLayer):
         ffn1: StandardFeedForwardNetwork,
         ffn1_post_layer_norm: RMSNorm,
         self_attn_layer_norm: RMSNorm,
-        self_attn: StandardMultiheadAttention,
+        self_attn: Gemma3nConformerAttention,
         self_attn_post_norm: RMSNorm,
         conv_layer_norm: RMSNorm,
         conv: ConformerConvolution,
@@ -69,6 +144,7 @@ class Gemma3nConformerBlock(TransformerEncoderLayer):
         ffn2_post_layer_norm: RMSNorm,
         layer_norm: RMSNorm,
         gradient_clipping: float = 1e10,
+        residual_weight: float = 0.5,
     ) -> None:
         super().__init__()
 
@@ -89,6 +165,7 @@ class Gemma3nConformerBlock(TransformerEncoderLayer):
 
         self.layer_norm = layer_norm
         self.gradient_clipping = gradient_clipping
+        self.residual_weight = residual_weight
 
     @override
     def forward(
@@ -120,7 +197,7 @@ class Gemma3nConformerBlock(TransformerEncoderLayer):
         seqs = torch.clamp(seqs, -self.gradient_clipping, self.gradient_clipping)
         seqs = self.ffn1_post_layer_norm(seqs)
 
-        return residual + seqs * 0.5
+        return residual + seqs * self.residual_weight
 
     def _forward_self_attn(
         self,
@@ -134,17 +211,7 @@ class Gemma3nConformerBlock(TransformerEncoderLayer):
         seqs = torch.clamp(seqs, -self.gradient_clipping, self.gradient_clipping)
         seqs = self.self_attn_layer_norm(seqs)
 
-        # Store mask on SDPA for validity masking in chunked attention
-        self.self_attn.sdpa.set_audio_mask(mask)  # type: ignore[attr-defined]
-
-        seqs = self.self_attn(
-            seqs,
-            seqs_layout,
-            keys=seqs,
-            keys_layout=seqs_layout,
-            values=seqs,
-            bias_cache=attn_bias_cache,
-        )
+        seqs = self.self_attn(seqs, seqs_layout, attn_bias_cache, mask=mask)
 
         seqs = torch.clamp(seqs, -self.gradient_clipping, self.gradient_clipping)
 
@@ -177,7 +244,7 @@ class Gemma3nConformerBlock(TransformerEncoderLayer):
         seqs = torch.clamp(seqs, -self.gradient_clipping, self.gradient_clipping)
         seqs = self.ffn2_post_layer_norm(seqs)
 
-        return residual + seqs * 0.5
+        return residual + seqs * self.residual_weight
 
 
 @final
@@ -289,7 +356,7 @@ def _build_conformer_block(
         dtype=dtype,
     )
 
-    self_attn = StandardMultiheadAttention(
+    self_attn = Gemma3nConformerAttention(
         model_dim=config.hidden_size,
         num_heads=config.conf_num_attention_heads,
         sdpa=sdpa,
@@ -387,4 +454,5 @@ def _build_conformer_block(
         ffn2_post_layer_norm=ffn2_post_layer_norm,
         layer_norm=layer_norm,
         gradient_clipping=config.gradient_clipping,
+        residual_weight=config.conf_residual_weight,
     )

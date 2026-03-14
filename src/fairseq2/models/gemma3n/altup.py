@@ -145,3 +145,7 @@ class Gemma3nAltUp(Module):
         :returns: Scaled tensor [batch, seq_len, model_dim].
         """
         return (corrected.type_as(self.correct_output_scale) * self.correct_output_scale).type_as(corrected)
+
+    def reset_non_persistent_buffers(self) -> None:
+        """Reset non-persistent buffers to their default values."""
+        self.router_input_scale.fill_(self.model_dim**-1.0)

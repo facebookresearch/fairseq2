@@ -7,7 +7,7 @@
 import torch
 
 from fairseq2.models.gemma3n.config import Gemma3nAudioConfig
-from fairseq2.models.gemma3n.conformer import Gemma3nConformerEncoder
+from fairseq2.models.gemma3n.audio.conformer import Gemma3nConformerEncoder
 from fairseq2.nn import BatchLayout
 
 
@@ -26,7 +26,9 @@ class TestGemma3nConformerEncoder:
 
         output = encoder(features, layout)
 
-        assert output.shape == (batch_size, seq_len, config.hidden_size)
+        # Conformer applies reduction_factor striding
+        expected_len = seq_len // config.conf_reduction_factor
+        assert output.shape == (batch_size, expected_len, config.hidden_size)
 
     def test_layer_count(self) -> None:
         """Test that encoder has correct number of layers."""

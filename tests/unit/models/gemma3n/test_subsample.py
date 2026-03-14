@@ -71,7 +71,8 @@ class TestSubsampleConvProjection:
 
         assert total_params > 0, "Module should have parameters"
 
-        # Expected: conv0 (weight), norm0 (weight, bias), conv1 (weight), norm1 (weight, bias), proj (weight, bias)
-        expected_params = 8
+        # conv0 (weight, no bias), norm0 (weight), conv1 (weight, no bias),
+        # norm1 (weight), proj (weight, no bias)
+        expected_params = 5
         assert len(list(module.named_parameters())) == expected_params, \
-            f"Expected {expected_params} parameters (conv0: weight, norm0: weight+bias, conv1: weight, norm1: weight+bias, proj: weight+bias)"
+            f"Expected {expected_params} parameters, got {len(list(module.named_parameters()))}"

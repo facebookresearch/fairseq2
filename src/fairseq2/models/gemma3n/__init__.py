@@ -45,9 +45,6 @@ from fairseq2.models.gemma3n.hub import (
 from fairseq2.models.gemma3n.interop import (
     convert_gemma3n_state_dict as convert_gemma3n_state_dict,
 )
-from fairseq2.models.gemma3n.interop import (
-    convert_to_hf_gemma3n_state_dict as convert_to_hf_gemma3n_state_dict,
-)
 from fairseq2.models.gemma3n.tokenizer import Gemma3nTokenizer as Gemma3nTokenizer
 from fairseq2.models.gemma3n.tokenizer import (
     load_gemma3n_tokenizer as load_gemma3n_tokenizer,
@@ -66,7 +63,6 @@ __all__ = [
     "Gemma3nSubsampleConvProjection",
     "Gemma3nTokenizer",
     "convert_gemma3n_state_dict",
-    "convert_to_hf_gemma3n_state_dict",
     "create_gemma3n_decoder_layer",
     "create_gemma3n_model",
     "get_gemma3n_e2b_config",

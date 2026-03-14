@@ -7,8 +7,6 @@
 from __future__ import annotations
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
@@ -24,7 +22,7 @@ from fairseq2.models.gemma3n.decoder_layer import (
     Gemma3nDecoderLayer,
     Gemma3nLAuReL,
 )
-from fairseq2.models.gemma3n.frontend import Gemma3nFrontend
+from fairseq2.models.gemma3n.frontend import Gemma3nFrontend, Gemma3nFrontendBase
 from fairseq2.models.gemma3n.model import Gemma3nModel
 from fairseq2.models.gemma3n.projection import SoftcappedProjection
 from fairseq2.models.transformer import (
@@ -32,20 +30,9 @@ from fairseq2.models.transformer import (
     FeedForwardNetwork,
     GLUFeedForwardNetwork,
     StandardMultiheadAttention,
-    TransformerFrontend,
     create_default_sdpa,
 )
 from fairseq2.models.transformer.ffn import AltUpFeedForwardNetwork
-
-
-class TanhGELU(nn.Module):
-    """GELU activation with tanh approximation.
-
-    Uses tanh approximation to match HuggingFace Gemma3n implementation.
-    """
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return F.gelu(x, approximate="tanh")
 
 
 from fairseq2.nn import (
@@ -103,7 +90,7 @@ class Gemma3nFactory:
         """Create the full Gemma3n model."""
         embed = self.create_embedding()
         audio_tower = self.create_audio_tower()
-        decoder_frontend = self.create_decoder_frontend(embed, audio_tower)
+        decoder_frontend = self.create_decoder_frontend(embed)
         decoder = self.create_decoder()
         final_proj = self.create_final_projection(embed)
 
@@ -114,6 +101,7 @@ class Gemma3nFactory:
             final_proj,
             self._config.pad_idx,
             self._config.max_seq_len,
+            audio_tower=audio_tower,
         )
 
     def create_embedding(self) -> Embedding:
@@ -141,8 +129,8 @@ class Gemma3nFactory:
         )
 
     def create_decoder_frontend(
-        self, embed: Embedding, audio_tower: "Gemma3nAudioTower | None"
-    ) -> TransformerFrontend:
+        self, embed: Embedding,
+    ) -> Gemma3nFrontendBase:
         """Create the decoder frontend with PLE support."""
         # PLE normalization
         ple_norm = RMSNorm(
@@ -161,9 +149,8 @@ class Gemma3nFactory:
             num_layers=self._config.num_layers,
             ple_hidden_dim=self._config.ple_hidden_dim,
             ple_norm=ple_norm,
-            no_scale=False,  # Gemma3n scales embeddings by sqrt(model_dim)
+            no_scale=False,
             dropout_p=0.0,
-            audio_tower=audio_tower,
             audio_token_id=(
                 self._config.audio_config.vocab_offset
                 if self._config.audio_config
@@ -310,7 +297,7 @@ def create_gemma3n_decoder_layer(
             model_dim=config.model_dim,
             inner_dim=config.ffn_inner_dim,
             bias=False,
-            gate_activation=TanhGELU(),  # Use tanh-approximated GELU
+            gate_activation=torch.nn.GELU(approximate="tanh"),
             inner_dim_scale=1.0,  # Disable 2/3 scaling for Gemma3n
             activation_sparsity=activation_sparsity,
             device=device,
@@ -386,8 +373,7 @@ def create_gemma3n_decoder_layer(
         config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
     )
 
-    # Hidden activation for PLE (tanh-approximated GELU to match HF)
-    hidden_activation = TanhGELU()
+    hidden_activation = torch.nn.GELU(approximate="tanh")
 
     return Gemma3nDecoderLayer(
         self_attn=self_attn,

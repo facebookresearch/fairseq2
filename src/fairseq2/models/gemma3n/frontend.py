@@ -37,14 +37,14 @@ class Gemma3nFrontendBase(Module, ABC):
         seqs_layout: BatchLayout,
         *,
         state_bag: IncrementalStateBag | None = None,
-        audio_features: Tensor | None = None,
+        audio_embeds: Tensor | None = None,
         vision_features: Tensor | None = None,
     ) -> tuple[Tensor, BatchLayout, Tensor]:
         """
         :param seqs: Token IDs. *Shape:* :math:`(N,S)`.
         :param seqs_layout: Layout information for ``seqs``.
         :param state_bag: Incremental decoding state (KV cache).
-        :param audio_features: Mel-spectrogram features. *Shape:* :math:`(N,T,F)`.
+        :param audio_embeds: Pre-encoded audio. *Shape:* :math:`(N,T,M)`.
         :param vision_features: Image pixel values. *Shape:* :math:`(N,C,H,W)`.
         :returns:
             - Embeddings *Shape:* :math:`(N,S,M)`
@@ -69,7 +69,6 @@ class Gemma3nFrontend(Gemma3nFrontendBase):
     per_layer_projection_norm: LayerNorm
     num_layers: int
     ple_hidden_dim: int
-    audio_tower: "Module | None"
     audio_token_id: int | None
     num_audio_tokens: int
 
@@ -85,7 +84,6 @@ class Gemma3nFrontend(Gemma3nFrontendBase):
         ple_norm: LayerNorm,
         no_scale: bool = False,
         dropout_p: float = 0.0,
-        audio_tower: "Module | None" = None,
         audio_token_id: int | None = None,
         num_audio_tokens: int = 188,
         device: Device | None = None,
@@ -101,13 +99,11 @@ class Gemma3nFrontend(Gemma3nFrontendBase):
         :param ple_norm: Layer normalization for PLE.
         :param no_scale: If True, does not scale embeddings.
         :param dropout_p: Dropout probability on embeddings.
-        :param audio_tower: Optional audio tower for processing audio features.
         :param audio_token_id: Token ID for <audio> placeholder tokens.
         :param num_audio_tokens: Fixed number of <audio> tokens per audio input.
         """
         super().__init__()
 
-        # Standard embedding components (copied from TransformerEmbeddingFrontend)
         self.embed = embed
         self.scale = 1.0 if no_scale else (model_dim**0.5)
 
@@ -125,9 +121,6 @@ class Gemma3nFrontend(Gemma3nFrontendBase):
         self.num_layers = num_layers
         self.ple_hidden_dim = ple_hidden_dim
 
-        # Audio tower integration
-        self.audio_tower: Module | None
-        self.register_module("audio_tower", audio_tower)
         self.audio_token_id = audio_token_id
         self.num_audio_tokens = num_audio_tokens
 
@@ -176,14 +169,14 @@ class Gemma3nFrontend(Gemma3nFrontendBase):
         seqs_layout: BatchLayout,
         *,
         state_bag: IncrementalStateBag | None = None,
-        audio_features: Tensor | None = None,
+        audio_embeds: Tensor | None = None,
         vision_features: Tensor | None = None,
     ) -> tuple[Tensor, BatchLayout, Tensor]:
         """
         :param seqs: Token IDs. *Shape:* :math:`(N,S)`.
         :param seqs_layout: Layout information.
         :param state_bag: Incremental decoding state.
-        :param audio_features: Mel-spectrogram. *Shape:* :math:`(N,T,128)`.
+        :param audio_embeds: Pre-encoded audio. *Shape:* :math:`(N,T,M)`.
         :param vision_features: Image pixels. *Shape:* :math:`(N,C,H,W)`.
         :returns:
             - Embeddings *Shape:* :math:`(N,S,2048)`
@@ -203,13 +196,9 @@ class Gemma3nFrontend(Gemma3nFrontendBase):
         if self.dropout is not None:
             seqs = self.dropout(seqs)
 
-        # Process audio if provided
-        if (
-            audio_features is not None
-            and self.audio_tower is not None
-            and self.audio_token_id is not None
-        ):
-            seqs = self._merge_audio_embeddings(token_ids, seqs, audio_features)
+        # Inject pre-encoded audio embeddings
+        if audio_embeds is not None and self.audio_token_id is not None:
+            seqs = self._inject_audio_embeds(token_ids, seqs, audio_embeds)
 
         per_layer_inputs_discrete = self._get_per_layer_inputs(token_ids)
         per_layer_inputs_continuous = self._project_per_layer_inputs(seqs)
@@ -221,52 +210,38 @@ class Gemma3nFrontend(Gemma3nFrontendBase):
 
         return seqs, seqs_layout, per_layer_inputs
 
-    def _merge_audio_embeddings(
-        self, token_ids: Tensor, text_embeds: Tensor, audio_features: Tensor
+    def _inject_audio_embeds(
+        self, token_ids: Tensor, text_embeds: Tensor, audio_embeds: Tensor,
     ) -> Tensor:
-        """Replace <audio> token embeddings with actual audio features from tower.
+        """Replace <audio> token embeddings with pre-encoded audio features.
 
-        :param token_ids: Token IDs [B, S].
-        :param text_embeds: Text embeddings [B, S, 2048].
-        :param audio_features: Mel-spectrogram [B, T, 128].
-        :returns: Merged embeddings [B, S, 2048] with audio tokens replaced.
+        Pads audio_embeds with zeros if fewer frames than token slots.
+
+        :param token_ids: Token IDs. *Shape:* :math:`(N,S)`.
+        :param text_embeds: Text embeddings. *Shape:* :math:`(N,S,M)`.
+        :param audio_embeds: Audio features. *Shape:* :math:`(N,T,M)`.
+        :returns: Merged embeddings. *Shape:* :math:`(N,S,M)`.
         """
-        if self.audio_tower is None:
-            return text_embeds
+        assert self.audio_token_id is not None
 
-        # Process audio through tower: [B, T, 128] -> [B, T/16, 2048]
-        audio_embeds, _ = self.audio_tower(audio_features, mask=None)
+        upper = self.audio_token_id + self.num_audio_tokens
+        mask = (token_ids >= self.audio_token_id) & (token_ids < upper)
+        n_slots = self.num_audio_tokens
+        n_frames = audio_embeds.size(1)
 
-        # Find <audio> token positions (HF uses >= vocab_offset)
-        audio_token_mask = token_ids >= self.audio_token_id  # [B, S]
-
-        if not audio_token_mask.any():
-            return text_embeds
-
-        # Flatten audio embeddings for indexing
-        batch_size, audio_seq_len, embed_dim = audio_embeds.shape
-        audio_flat = audio_embeds.reshape(-1, embed_dim)  # [B*T/16, 2048]
-
-        # Get positions where <audio> tokens appear
-        audio_positions = torch.where(audio_token_mask)
-        num_audio_positions = audio_token_mask.sum().item()
-
-        # Pad or truncate audio to match number of <audio> tokens (188)
-        if num_audio_positions > audio_flat.size(0):
-            # More tokens than audio features - pad with zeros
-            padding = torch.zeros(
-                num_audio_positions - audio_flat.size(0),
-                embed_dim,
-                device=audio_flat.device,
-                dtype=audio_flat.dtype,
+        # Safeguard: pad if tower produces fewer frames than token slots.
+        # The dataloader should handle this, but protect against mismatches.
+        if n_frames < n_slots:
+            pad = audio_embeds.new_zeros(
+                audio_embeds.size(0), n_slots - n_frames, audio_embeds.size(2),
             )
-            audio_flat = torch.cat([audio_flat, padding], dim=0)
+            audio_embeds = torch.cat([audio_embeds, pad], dim=1)
 
-        # Replace text embeddings at audio token positions
-        text_embeds = text_embeds.clone()
-        text_embeds[audio_positions] = audio_flat[:num_audio_positions]
+        result = text_embeds.clone()
+        for i in range(token_ids.size(0)):
+            result[i, mask[i]] = audio_embeds[i, :n_slots]
 
-        return text_embeds
+        return result
 
     def _get_per_layer_inputs(self, token_ids: Tensor) -> Tensor:
         """Lookup PLE embeddings from token_ids.

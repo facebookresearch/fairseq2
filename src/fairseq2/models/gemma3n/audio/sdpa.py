@@ -10,27 +10,24 @@ import math
 from typing import TYPE_CHECKING, final
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
-from typing_extensions import override
+from torch.nn import Module, Parameter
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.error import NotSupportedError
-from fairseq2.models.transformer.attention_bias import AttentionBiasCache
-from fairseq2.models.transformer.sdpa.base import SDPA
 from fairseq2.nn import BatchLayout
 from fairseq2.nn.projection import Linear
 
 
 @final
-class Gemma3nConformerSDPA(SDPA):
-    """SDPA for Gemma3n audio conformer matching HuggingFace architecture.
+class Gemma3nConformerSDPA(Module):
+    """Chunked local attention for Gemma3n audio conformer.
 
-    Uses sinusoidal relative position embeddings projected via pos_proj,
-    block-based chunked local attention, per-dimension scaling with softplus,
-    and logit softcapping (pre-softmax).
+    Not a pluggable SDPA backend — conformer's block-based chunking,
+    sinusoidal relative positions, pre-softmax softcap, and combined
+    validity masking are incompatible with standard SDPA interfaces.
     """
 
     model_dim: int
@@ -41,7 +38,7 @@ class Gemma3nConformerSDPA(SDPA):
     max_future_horizon: int
     context_size: int
     pos_proj: Linear
-    per_dim_scale: nn.Parameter
+    per_dim_scale: Parameter
 
     def __init__(
         self,
@@ -95,7 +92,7 @@ class Gemma3nConformerSDPA(SDPA):
         )
 
         # Per-dimension scaling with zeros init (apply via softplus)
-        self.per_dim_scale = nn.Parameter(
+        self.per_dim_scale = Parameter(
             torch.zeros(self.head_dim, device=device, dtype=dtype)
         )
 
@@ -133,16 +130,6 @@ class Gemma3nConformerSDPA(SDPA):
             persistent=False,
         )
 
-        self._audio_mask: Tensor | None = None
-
-    def set_audio_mask(self, mask: Tensor | None) -> None:
-        """Store audio mel mask for validity masking in chunked attention.
-
-        :param mask: Where True=masked (invalid). *Shape:* :math:`(N,T)`.
-        """
-        self._audio_mask = mask
-
-    @override
     def forward(
         self,
         q: Tensor,
@@ -150,14 +137,14 @@ class Gemma3nConformerSDPA(SDPA):
         k: Tensor,
         k_layout: BatchLayout,
         v: Tensor,
-        bias_cache: AttentionBiasCache,
         *,
-        needs_weights: bool = False,
+        mask: Tensor | None = None,
     ) -> tuple[Tensor, Tensor | None]:
         """
         :param q: Queries. *Shape:* :math:`(N,S,H,K)`.
         :param k: Keys. *Shape:* :math:`(N,S,H,K)`.
         :param v: Values. *Shape:* :math:`(N,S,H,V)`.
+        :param mask: Where True=masked (invalid). *Shape:* :math:`(N,T)`.
         :returns: Attention output and optional weights.
         """
         if q_layout.packed or k_layout.packed:
@@ -179,8 +166,8 @@ class Gemma3nConformerSDPA(SDPA):
 
         # Build validity mask from audio mel mask
         validity_condition: Tensor | None = None
-        if self._audio_mask is not None:
-            original_valid = ~self._audio_mask
+        if mask is not None:
+            original_valid = ~mask
             extracted_valid = self._extract_block_context(original_valid)
             # [B, 1, U, 1, C]
             validity_condition = (

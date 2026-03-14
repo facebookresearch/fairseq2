@@ -102,22 +102,12 @@ class Gemma3nTokenizer(Tokenizer):
     ) -> Any:
         """Apply Gemma3n chat template to format conversation.
 
-        Args:
-            conversation: List of messages with 'role' and 'content' keys.
-                Roles can be 'user', 'assistant', or 'system'.
-            tokenize: If True, return token IDs. If False, return formatted string.
-            add_generation_prompt: If True, add prompt for model to continue.
-            **kwargs: Additional arguments passed to HuggingFace apply_chat_template.
-
-        Returns:
-            Token IDs (list[int]) if tokenize=True, formatted string otherwise.
-
-        Example:
-            >>> conversation = [
-            ...     {"role": "user", "content": "What is the capital of France?"},
-            ...     {"role": "assistant", "content": "The capital is Paris."},
-            ... ]
-            >>> tokens = tokenizer.apply_chat_template(conversation)
+        :param conversation: List of messages with 'role' and 'content' keys.
+            Roles can be 'user', 'assistant', or 'system'.
+        :param tokenize: If True, return token IDs. If False, return formatted string.
+        :param add_generation_prompt: If True, add prompt for model to continue.
+        :param kwargs: Additional arguments passed to HuggingFace apply_chat_template.
+        :returns: Token IDs (list[int]) if tokenize=True, formatted string otherwise.
         """
         return self._model._tok.apply_chat_template(
             conversation,
@@ -128,23 +118,16 @@ class Gemma3nTokenizer(Tokenizer):
 
     @property
     def chat_template(self) -> str | None:
-        """Get the current chat template (Jinja2 format).
-
-        Returns:
-            The chat template string if available, None otherwise.
-        """
+        """The current chat template (Jinja2 format), or None."""
         return getattr(self._model._tok, "chat_template", None)
 
 
 def load_gemma3n_tokenizer(path: Path, config: NoneType) -> Tokenizer:
     """Load Gemma3n tokenizer from HuggingFace tokenizer.json.
 
-    Args:
-        path: Path to the tokenizer directory containing tokenizer.json.
-        config: Config (unused, always None for Gemma3n).
-
-    Returns:
-        Gemma3n tokenizer instance.
+    :param path: Path to the tokenizer directory containing tokenizer.json.
+    :param config: Config (unused, always None for Gemma3n).
+    :returns: Gemma3n tokenizer instance.
     """
     model = load_hg_token_model(
         path,
