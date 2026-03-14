@@ -192,8 +192,7 @@ class Trainer(Task):
 
             if publish_metrics_every_n_data_epochs is not None:
                 not_multiple = (
-                    validate_every_n_data_epochs
-                    % publish_metrics_every_n_data_epochs
+                    validate_every_n_data_epochs % publish_metrics_every_n_data_epochs
                     != 0
                 )
                 if not_multiple:
@@ -221,8 +220,7 @@ class Trainer(Task):
 
             if publish_metrics_every_n_data_epochs is not None:
                 not_multiple = (
-                    checkpoint_every_n_data_epochs
-                    % publish_metrics_every_n_data_epochs
+                    checkpoint_every_n_data_epochs % publish_metrics_every_n_data_epochs
                     != 0
                 )
                 if not_multiple:
