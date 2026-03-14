@@ -439,7 +439,12 @@ class RegimeSection(Validatable):
                 )
 
             if self.publish_metrics_every_n_steps is not None:
-                if self.validate_every_n_steps % self.publish_metrics_every_n_steps != 0:  # fmt: skip
+                not_multiple = (
+                    self.validate_every_n_steps
+                    % self.publish_metrics_every_n_steps
+                    != 0
+                )
+                if not_multiple:
                     result.add_error(
                         f"`validate_every_n_steps` must be a multiple of `publish_metrics_every_n_steps` ({self.publish_metrics_every_n_steps}), but is {self.validate_every_n_steps} instead."
                     )
