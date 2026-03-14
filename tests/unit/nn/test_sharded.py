@@ -29,10 +29,10 @@ def test_get_shard_dims_work() -> None:
 
     module = Sequential(
         Linear(32, 32, bias=True),
-        ColumnShardedLinear(32, 32, bias=True, gangs=gangs),
+        ColumnShardedLinear(32, 32, bias=True, gangs=gangs, device=device),
         Linear(32, 32, bias=False),
         Sequential(
-            RowShardedLinear(32, 32, bias=True, gangs=gangs),
+            RowShardedLinear(32, 32, bias=True, gangs=gangs, device=device),
         ),
     )
 
