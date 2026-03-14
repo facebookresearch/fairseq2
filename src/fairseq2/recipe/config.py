@@ -456,7 +456,12 @@ class RegimeSection(Validatable):
                 )
 
             if self.publish_metrics_every_n_data_epochs is not None:
-                if self.validate_every_n_data_epochs % self.publish_metrics_every_n_data_epochs != 0:  # fmt: skip
+                not_multiple = (
+                    self.validate_every_n_data_epochs
+                    % self.publish_metrics_every_n_data_epochs
+                    != 0
+                )
+                if not_multiple:
                     result.add_error(
                         f"`validate_every_n_data_epochs` must be a multiple of `publish_metrics_every_n_data_epochs` ({self.publish_metrics_every_n_data_epochs}), but is {self.validate_every_n_data_epochs} instead."
                     )
@@ -468,7 +473,12 @@ class RegimeSection(Validatable):
                 )
 
             if self.publish_metrics_every_n_steps is not None:
-                if self.checkpoint_every_n_steps % self.publish_metrics_every_n_steps != 0:  # fmt: skip
+                not_multiple = (
+                    self.checkpoint_every_n_steps
+                    % self.publish_metrics_every_n_steps
+                    != 0
+                )
+                if not_multiple:
                     result.add_error(
                         f"`checkpoint_every_n_steps` must be a multiple of `publish_metrics_every_n_steps` ({self.publish_metrics_every_n_steps}), but is {self.checkpoint_every_n_steps} instead."
                     )
@@ -480,7 +490,12 @@ class RegimeSection(Validatable):
                 )
 
             if self.publish_metrics_every_n_data_epochs is not None:
-                if self.checkpoint_every_n_data_epochs % self.publish_metrics_every_n_data_epochs != 0:  # fmt: skip
+                not_multiple = (
+                    self.checkpoint_every_n_data_epochs
+                    % self.publish_metrics_every_n_data_epochs
+                    != 0
+                )
+                if not_multiple:
                     result.add_error(
                         f"`checkpoint_every_n_data_epochs` must be a multiple of `publish_metrics_every_n_data_epochs` ({self.publish_metrics_every_n_data_epochs}), but is {self.checkpoint_every_n_data_epochs} instead."
                     )
@@ -514,7 +529,12 @@ class RegimeSection(Validatable):
                 )
 
             if self.checkpoint_every_n_steps is not None:
-                if self.keep_checkpoint_every_n_steps % self.checkpoint_every_n_steps != 0:  # fmt: skip
+                not_multiple = (
+                    self.keep_checkpoint_every_n_steps
+                    % self.checkpoint_every_n_steps
+                    != 0
+                )
+                if not_multiple:
                     result.add_error(
                         f"`keep_checkpoint_every_n_steps` must be a multiple of `checkpoint_every_n_steps` ({self.checkpoint_every_n_steps}), but is {self.keep_checkpoint_every_n_steps} instead."
                     )
