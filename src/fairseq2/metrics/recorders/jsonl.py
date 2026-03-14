@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Final, TextIO, final
 
@@ -85,7 +85,7 @@ class JsonlMetricRecorder(MetricRecorder):
                 f"`values` must consist of objects of types `{int}`, `{float}`, `{Tensor}`, and `{str}` only."
             )
 
-        output: dict[str, object] = {"Time": datetime.utcnow().isoformat()}
+        output: dict[str, object] = {"Time": datetime.now(timezone.utc).isoformat()}
 
         if step_nr is not None:
             output["Step"] = step_nr
