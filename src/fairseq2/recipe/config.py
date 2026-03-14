@@ -440,8 +440,7 @@ class RegimeSection(Validatable):
 
             if self.publish_metrics_every_n_steps is not None:
                 not_multiple = (
-                    self.validate_every_n_steps
-                    % self.publish_metrics_every_n_steps
+                    self.validate_every_n_steps % self.publish_metrics_every_n_steps
                     != 0
                 )
                 if not_multiple:
@@ -474,8 +473,7 @@ class RegimeSection(Validatable):
 
             if self.publish_metrics_every_n_steps is not None:
                 not_multiple = (
-                    self.checkpoint_every_n_steps
-                    % self.publish_metrics_every_n_steps
+                    self.checkpoint_every_n_steps % self.publish_metrics_every_n_steps
                     != 0
                 )
                 if not_multiple:
@@ -530,8 +528,7 @@ class RegimeSection(Validatable):
 
             if self.checkpoint_every_n_steps is not None:
                 not_multiple = (
-                    self.keep_checkpoint_every_n_steps
-                    % self.checkpoint_every_n_steps
+                    self.keep_checkpoint_every_n_steps % self.checkpoint_every_n_steps
                     != 0
                 )
                 if not_multiple:
