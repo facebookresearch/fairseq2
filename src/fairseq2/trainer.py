@@ -191,7 +191,12 @@ class Trainer(Task):
                 )
 
             if publish_metrics_every_n_data_epochs is not None:
-                if validate_every_n_data_epochs % publish_metrics_every_n_data_epochs != 0:  # fmt: skip
+                not_multiple = (
+                    validate_every_n_data_epochs
+                    % publish_metrics_every_n_data_epochs
+                    != 0
+                )
+                if not_multiple:
                     raise ValueError(
                         f"`validate_every_n_data_epochs` must be a multiple of `publish_metrics_every_n_data_epochs` ({publish_metrics_every_n_data_epochs}), but is {validate_every_n_data_epochs} instead."
                     )
