@@ -213,7 +213,8 @@ class TestSinusoidalPositionEncoder:
         x_layout = BatchLayout.of(x)
 
         with pytest.raises(
-            ValueError, match=r"^The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length \(3\), but at least one sequence is of length 5 instead\.$"  # fmt: skip
+            ValueError,
+            match=r"^The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length \(3\), but at least one sequence is of length 5 instead\.$",  # fmt: skip
         ):
             m(x, x_layout)
 
@@ -343,7 +344,8 @@ class TestLearnedPositionEncoder:
         x_layout = BatchLayout.of(x)
 
         with pytest.raises(
-            ValueError, match=r"^The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length \(3\), but at least one sequence is of length 5 instead\.$"  # fmt: skip
+            ValueError,
+            match=r"^The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length \(3\), but at least one sequence is of length 5 instead\.$",  # fmt: skip
         ):
             m(x, x_layout)
 
@@ -472,7 +474,8 @@ class TestRotaryEncoder:
         x_layout = BatchLayout.of(x)
 
         with pytest.raises(
-            ValueError, match=r"^The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length \(3\), but at least one sequence is of length 5 instead\.$"  # fmt: skip
+            ValueError,
+            match=r"^The lengths of all sequences in `seqs` must be less than or equal to the maximum sequence length \(3\), but at least one sequence is of length 5 instead\.$",  # fmt: skip
         ):
             m(x, x_layout)
 

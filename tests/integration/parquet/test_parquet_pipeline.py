@@ -452,7 +452,6 @@ class TestBuildIteratorOverOneTable:
 
 
 class TestComplexDatasetIterator:
-
     def test_basic_iteration(self, complex_dataset):
         config = BasicDataLoadingConfig(
             fragment_stream_config=FragmentStreamingConfig(

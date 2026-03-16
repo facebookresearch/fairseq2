@@ -5,7 +5,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Train with HuggingFace Transformers using extracted fairseq2 batches (single GPU)."""
+"""Train with HuggingFace Transformers using extracted fairseq2 batches (multi-GPU with DDP)."""
 
 from __future__ import annotations
 
@@ -16,9 +16,12 @@ import random
 import numpy as np
 
 import torch
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader, Dataset
+from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 # Enable full determinism BEFORE any CUDA operations
@@ -38,6 +41,22 @@ def set_seed(seed: int):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+
+
+def setup_distributed():
+    """Initialize distributed training."""
+    if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
+        rank = int(os.environ["RANK"])
+        world_size = int(os.environ["WORLD_SIZE"])
+        local_rank = int(os.environ["LOCAL_RANK"])
+    else:
+        # Not using distributed training
+        return 0, 1, 0
+
+    dist.init_process_group(backend="nccl")
+    torch.cuda.set_device(local_rank)
+
+    return rank, world_size, local_rank
 
 
 class PreloadedDataset(Dataset):
@@ -64,7 +83,9 @@ class PreloadedDataset(Dataset):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Train with Transformers (single GPU)")
+    parser = argparse.ArgumentParser(
+        description="Train with Transformers (multi-GPU with DDP)"
+    )
     parser.add_argument(
         "--data-dir",
         type=Path,
@@ -97,18 +118,25 @@ def main() -> None:
     )
 
     args = parser.parse_args()
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Setup distributed training
+    rank, world_size, local_rank = setup_distributed()
+
+    if rank == 0:
+        args.output_dir.mkdir(parents=True, exist_ok=True)
 
     # Set random seed for reproducibility
     set_seed(args.seed)
 
-    print(f"Training on single GPU for {args.num_steps} steps")
-    print("Using FULL FINE-TUNING (not LoRA)")
-    print("Mixed precision: bfloat16 (matching fairseq2)")
-    print(f"Random seed: {args.seed}")
+    if rank == 0:
+        print(f"Training on {world_size} GPUs for {args.num_steps} steps")
+        print("Using FULL FINE-TUNING (not LoRA)")
+        print("Mixed precision: bfloat16 (matching fairseq2)")
+        print(f"Random seed: {args.seed}")
 
     # Load model
-    print(f"Loading model {args.model_name}...")
+    if rank == 0:
+        print(f"Loading model {args.model_name}...")
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name,
         dtype=torch.bfloat16,  # Match fairseq2's dtype
@@ -121,20 +149,31 @@ def main() -> None:
         local_files_only=True,
         trust_remote_code=True,
     )
-    print("Model loaded successfully (Flash Attention disabled for determinism)")
+    if rank == 0:
+        print("Model loaded successfully (Flash Attention disabled for determinism)")
 
     # Move to GPU
-    device = torch.device("cuda:0")
+    device = torch.device(f"cuda:{local_rank}")
     model = model.to(device)
 
+    # Wrap with DDP (use DDP instead of FSDP since model fits on single GPU;
+    # FSDP breaks Gemma 3's weight tying between lm_head and embeddings)
+    if world_size > 1:
+        model = DDP(model, device_ids=[local_rank])
+        if rank == 0:
+            print(f"Model wrapped with DDP across {world_size} GPUs")
+
     # Set to eval mode to disable dropout for deterministic training
-    # This ensures exact reproducibility while still allowing gradient updates
     model.eval()
-    print("Model set to eval() mode for deterministic training (dropout disabled)")
+    if rank == 0:
+        print("Model set to eval() mode for deterministic training (dropout disabled)")
+
+    # Get model parameters
+    model_params = model.parameters()
 
     # Optimizer (matching fairseq2 exactly)
     optimizer = AdamW(
-        model.parameters(),
+        model_params,
         lr=3e-4,
         betas=(0.9, 0.95),
         eps=1e-8,
@@ -149,26 +188,48 @@ def main() -> None:
         eta_min=6e-5,  # final_lr = 3e-4 * 0.2
     )
 
-    # Load dataset (no distributed sampler for single GPU)
+    # Load dataset
     num_batches_per_epoch = 200
     dataset = PreloadedDataset(args.data_dir, num_batches=num_batches_per_epoch)
-    dataloader = DataLoader(
-        dataset,
-        batch_size=1,
-        shuffle=False,  # Keep original order for reproducibility
-        num_workers=0,
-    )
+
+    # Use DistributedSampler for multi-GPU training
+    if world_size > 1:
+        sampler = DistributedSampler(
+            dataset,
+            num_replicas=world_size,
+            rank=rank,
+            shuffle=False,  # Keep original order for reproducibility
+            seed=args.seed,
+        )
+        dataloader = DataLoader(
+            dataset,
+            batch_size=1,
+            sampler=sampler,
+            num_workers=0,
+        )
+    else:
+        dataloader = DataLoader(
+            dataset,
+            batch_size=1,
+            shuffle=False,
+            num_workers=0,
+        )
 
     # Calculate epochs
-    num_epochs = (args.num_steps + num_batches_per_epoch - 1) // num_batches_per_epoch
-    print(f"Dataset: {num_batches_per_epoch} batches")
-    print(f"Training for {num_epochs} epochs to reach {args.num_steps} steps")
+    steps_per_epoch = num_batches_per_epoch // world_size
+    num_epochs = (args.num_steps + steps_per_epoch - 1) // steps_per_epoch
+    if rank == 0:
+        print(f"Dataset: {num_batches_per_epoch} batches")
+        print(f"Steps per epoch per GPU: {steps_per_epoch}")
+        print(f"Training for {num_epochs} epochs to reach {args.num_steps} steps")
 
     # Training loop with multiple epochs
-    model.train()
     global_step = 0
 
     for epoch in range(num_epochs):
+        if world_size > 1:
+            sampler.set_epoch(epoch)
+
         for batch_idx, batch in enumerate(dataloader):
             if global_step >= args.num_steps:
                 break
@@ -198,8 +259,8 @@ def main() -> None:
             scheduler.step()
             optimizer.zero_grad()
 
-            # Logging
-            if global_step % 10 == 0:
+            # Logging (only rank 0)
+            if rank == 0 and global_step % 10 == 0:
                 current_lr = scheduler.get_last_lr()[0]
                 print(
                     f"Epoch {epoch + 1}/{num_epochs}, Step {global_step}/{args.num_steps}, Loss: {loss.item():.4f}, LR: {current_lr:.2e}"
@@ -207,21 +268,33 @@ def main() -> None:
 
             global_step += 1
 
-        # Log batch indices processed in first epoch for verification
-        if epoch == 0:
+        # Log batch indices processed in first epoch for verification (rank 0 only)
+        if epoch == 0 and rank == 0:
             print(
-                f"[HF Single-GPU] Epoch 0 batch indices: {sorted(dataset.access_log)}"
+                f"[HF Multi-GPU] Epoch 0 batch indices on rank 0: {sorted(dataset.access_log)}"
             )
             dataset.access_log.clear()  # Clear for next epoch
 
         if global_step >= args.num_steps:
             break
 
-    # Save checkpoint
-    print("Saving checkpoint...")
-    checkpoint_path = args.output_dir / f"checkpoint_{args.num_steps}.pt"
-    torch.save({"model": model.state_dict()}, checkpoint_path)
-    print(f"Saved checkpoint to {checkpoint_path}")
+    # Save checkpoint (only rank 0)
+    if rank == 0:
+        print("Saving checkpoint...")
+        checkpoint_path = args.output_dir / f"checkpoint_{args.num_steps}.pt"
+
+        # For DDP, unwrap with .module to get the original model state dict
+        if world_size > 1:
+            state_dict = model.module.state_dict()
+            torch.save({"model": state_dict}, checkpoint_path)
+        else:
+            torch.save({"model": model.state_dict()}, checkpoint_path)
+
+        print(f"Saved checkpoint to {checkpoint_path}")
+
+    # Cleanup distributed
+    if world_size > 1:
+        dist.destroy_process_group()
 
 
 if __name__ == "__main__":

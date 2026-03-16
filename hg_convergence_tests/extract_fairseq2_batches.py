@@ -46,7 +46,7 @@ def main() -> None:
     parser.add_argument(
         "--num-batches",
         type=int,
-        default=100,
+        default=200,
         help="Number of batches to extract",
     )
     parser.add_argument(
@@ -145,7 +145,9 @@ def main() -> None:
 
             # Create attention mask from layout
             if seqs_layout.padded:
-                attention_mask = (seqs_layout.position_indices >= 0).to(dtype=torch.long)
+                attention_mask = (seqs_layout.position_indices >= 0).to(
+                    dtype=torch.long
+                )
             else:
                 attention_mask = torch.ones_like(seqs, dtype=torch.long)
 
@@ -169,7 +171,9 @@ def main() -> None:
                 log.info(f"Extracted batch {batch_idx}/{args.num_batches}")
 
     if gangs.root.rank == 0:
-        log.info(f"Extraction complete! Saved {args.num_batches} batches to {args.output_dir}")
+        log.info(
+            f"Extraction complete! Saved {args.num_batches} batches to {args.output_dir}"
+        )
 
 
 if __name__ == "__main__":

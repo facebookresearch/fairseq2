@@ -24,7 +24,9 @@ class TestPackOp:
         ]
 
         pipeline = (
-            read_sequence(seqs).pack(num_elements=3, max_seq_len=32, drop_remainder=False).and_return()  # fmt: skip
+            read_sequence(seqs)
+            .pack(num_elements=3, max_seq_len=32, drop_remainder=False)
+            .and_return()  # fmt: skip
         )
 
         expected_examples = [
@@ -60,7 +62,9 @@ class TestPackOp:
         ]
 
         pipeline = (
-            read_sequence(seqs).pack(num_elements=3, max_seq_len=32, drop_remainder=True).and_return()  # fmt: skip
+            read_sequence(seqs)
+            .pack(num_elements=3, max_seq_len=32, drop_remainder=True)
+            .and_return()  # fmt: skip
         )
 
         expected_examples = [
@@ -94,7 +98,9 @@ class TestPackOp:
         ]
 
         pipeline = (
-            read_sequence(seqs).pack(num_elements=6, max_seq_len=3, drop_remainder=False).and_return()  # fmt: skip
+            read_sequence(seqs)
+            .pack(num_elements=6, max_seq_len=3, drop_remainder=False)
+            .and_return()  # fmt: skip
         )
 
         expected_examples = [
@@ -128,7 +134,9 @@ class TestPackOp:
 
         # `drop_remainder` should have no effect when we do not truncate.
         pipeline = (
-            read_sequence(seqs).pack(num_elements=7, max_seq_len=32, truncate=False, drop_remainder=True).and_return()  # fmt: skip
+            read_sequence(seqs)
+            .pack(num_elements=7, max_seq_len=32, truncate=False, drop_remainder=True)
+            .and_return()  # fmt: skip
         )
 
         expected_examples = [
@@ -161,7 +169,9 @@ class TestPackOp:
         ]
 
         pipeline = (
-            read_sequence(seqs).pack(num_elements=3, max_seq_len=32, drop_remainder=False).and_return()  # fmt: skip
+            read_sequence(seqs)
+            .pack(num_elements=3, max_seq_len=32, drop_remainder=False)
+            .and_return()  # fmt: skip
         )
 
         it = iter(pipeline)

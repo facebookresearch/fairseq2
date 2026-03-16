@@ -100,7 +100,7 @@ class _BasicModelCheckpointLoader(ModelCheckpointLoader):
 
     @override
     def supports_path(self, path: Path) -> bool:
-        if not path.suffix in (".pt", ".pth", ".bin"):
+        if path.suffix not in (".pt", ".pth", ".bin"):
             return False
 
         return self._file_system.is_file(path)

@@ -85,7 +85,8 @@ class _TorchConfigurer:
 
         # Non-actionable warning when tracing enabled.
         warnings.filterwarnings(
-            action="ignore", message=r".*Skipping serialization of skipfiles_inline_module_allowlist value.*"  # fmt: skip
+            action="ignore",
+            message=r".*Skipping serialization of skipfiles_inline_module_allowlist value.*",  # fmt: skip
         )
 
         # Triton Cache

@@ -59,7 +59,9 @@ class _HgEmbeddingWrapper(Embedding):
         """Delegate all other attributes to the HF embedding."""
         # Avoid recursion for private attributes
         if name.startswith("_"):
-            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '{name}'"
+            )
         return getattr(self._hf_embedding, name)
 
 
@@ -117,7 +119,10 @@ class HgCausalLMAdapter(CausalLM):
             try:
                 hf_model.gradient_checkpointing_enable()
                 # Verify it was actually enabled
-                if hasattr(hf_model, "is_gradient_checkpointing") and not hf_model.is_gradient_checkpointing:
+                if (
+                    hasattr(hf_model, "is_gradient_checkpointing")
+                    and not hf_model.is_gradient_checkpointing
+                ):
                     raise RuntimeError(
                         f"Gradient checkpointing was called but failed to enable on {type(hf_model).__name__}."
                     )
@@ -142,10 +147,10 @@ class HgCausalLMAdapter(CausalLM):
         """
         # Try common locations for embedding layers
         for attr_path in [
-            "embed_tokens",           # Llama, Mistral, etc.
-            "model.embed_tokens",     # Some wrapped models
-            "wte",                    # GPT-2
-            "transformer.wte",        # GPT-2 variants
+            "embed_tokens",  # Llama, Mistral, etc.
+            "model.embed_tokens",  # Some wrapped models
+            "wte",  # GPT-2
+            "transformer.wte",  # GPT-2 variants
             "embeddings.word_embeddings",  # BERT-style
             "model.embeddings.word_embeddings",
         ]:
@@ -282,16 +287,22 @@ class HgCausalLMAdapter(CausalLM):
         """
         # Avoid infinite recursion for private attributes or during initialization
         if name.startswith("_"):
-            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '{name}'"
+            )
 
         # Check if _wrapped_hf_model has been initialized yet
         # Use object.__getattribute__ to avoid recursion
         try:
             modules = object.__getattribute__(self, "_modules")
             if "_wrapped_hf_model" not in modules:
-                raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+                raise AttributeError(
+                    f"'{type(self).__name__}' object has no attribute '{name}'"
+                )
         except AttributeError:
-            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '{name}'"
+            )
 
         try:
             return super().__getattr__(name)
@@ -325,7 +336,9 @@ def wrap_hg_model_if_causal_lm(hf_model: Module, config) -> Module:
                     break
 
         # Check if gradient checkpointing should be enabled
-        enable_gradient_checkpointing = getattr(config, "enable_gradient_checkpointing", False)
+        enable_gradient_checkpointing = getattr(
+            config, "enable_gradient_checkpointing", False
+        )
 
         return HgCausalLMAdapter(
             hf_model,

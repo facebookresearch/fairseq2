@@ -36,7 +36,11 @@ def check_model_vocabulary(context: RecipeContext) -> None:
         )
     elif vocab_diff == 1:
         # Off-by-one is acceptable (common with HF models due to power-of-2 padding)
-        log.info("Model has {} embeddings, tokenizer has {} tokens (off-by-one, likely due to padding).", embed.num_embeddings, vocab_info.size)
+        log.info(
+            "Model has {} embeddings, tokenizer has {} tokens (off-by-one, likely due to padding).",
+            embed.num_embeddings,
+            vocab_info.size,
+        )
 
     if embed.pad_idx != vocab_info.pad_idx:
         raise RecipeError(

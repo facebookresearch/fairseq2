@@ -126,7 +126,7 @@ def _load_sndfile() -> None:
 def _load_shared_library(lib_name: str) -> CDLL | None:
     # In Conda environments, we always expect native libraries to be part of the
     # environment, so we skip the default lookup rules of the dynamic linker.
-    if not "CONDA_PREFIX" in environ:
+    if "CONDA_PREFIX" not in environ:
         try:
             # Use the global namespace to ensure that all modules use the same
             # library instance.

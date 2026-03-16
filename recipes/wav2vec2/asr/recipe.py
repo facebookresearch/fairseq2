@@ -44,7 +44,6 @@ from .wer_calculator import WerCalculator
 
 @final
 class Wav2Vec2AsrRecipe(TrainRecipe):
-
     @override
     def register(self, container: DependencyContainer) -> None:
         register_dataset_family(

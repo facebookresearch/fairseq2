@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
@@ -108,7 +109,8 @@ class TestCreateHgModel:
         config = HuggingFaceModelConfig(hf_name="gpt2")
         result = create_hg_model(config)
 
-        mock_factory_class.assert_called_once_with(config)
+        mock_factory_class.assert_called_once()
+        assert mock_factory_class.call_args[0][0] == config
         mock_factory.create_model.assert_called_once()
         assert result is mock_model
 
@@ -186,7 +188,11 @@ class TestHgFactory:
         assert result is mock_model
 
     def test_create_model_special_model_with_gangs(self) -> None:
-        if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+        if (
+            torch.cuda.is_available()
+            and torch.cuda.device_count() > 1
+            and "RANK" in os.environ
+        ):
             import torch.distributed as dist
 
             from fairseq2.assets import get_asset_store

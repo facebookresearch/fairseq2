@@ -107,7 +107,8 @@ def clip_grad_norm(
         # safety check.
         with warnings.catch_warnings():
             warnings.filterwarnings(
-                action="ignore", message=r".*with no gradients -- returning the total norm.*"  # fmt: skip
+                action="ignore",
+                message=r".*with no gradients -- returning the total norm.*",  # fmt: skip
             )
 
             try:

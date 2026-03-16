@@ -74,7 +74,8 @@ class TestStandardObjectValidator:
         validator = StandardObjectValidator()
 
         with pytest.raises(
-            ValidationError, match=r"^root is not valid\. `field2\['foo2_2'\]` is not valid: value2_2 error\. `field3\[0\]` is not valid: value3_1 error\. `field4.field4_2\[0\]` is not valid: value4_2 error\.$"  # fmt: skip
+            ValidationError,
+            match=r"^root is not valid\. `field2\['foo2_2'\]` is not valid: value2_2 error\. `field3\[0\]` is not valid: value3_1 error\. `field4.field4_2\[0\]` is not valid: value4_2 error\.$",  # fmt: skip
         ):
             validator.validate(config)
 
@@ -95,7 +96,8 @@ class TestStandardObjectValidator:
         validator = StandardObjectValidator()
 
         with pytest.raises(
-            ValidationError, match=r"^`field2\['foo2_2'\]` is not valid: value2_2 error\. `field4.field4_2\[0\]` is not valid: value4_2 error\.$"  # fmt: skip
+            ValidationError,
+            match=r"^`field2\['foo2_2'\]` is not valid: value2_2 error\. `field4.field4_2\[0\]` is not valid: value4_2 error\.$",  # fmt: skip
         ):
             validator.validate(config)
 

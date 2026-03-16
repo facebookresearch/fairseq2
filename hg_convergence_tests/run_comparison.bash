@@ -3,15 +3,15 @@
 #SBATCH --job-name=convergence-comparison
 #SBATCH --output=$HOME/fairseq2/hg_hardware_test/slurm_logs/comparison/comparison-%j.out
 #SBATCH --error=$HOME/fairseq2/hg_hardware_test/slurm_logs/comparison/comparison-%j.err
-#SBATCH --gpus 2
+#SBATCH --gpus 8
 #SBATCH --account seamless_fs2
 #SBATCH --qos h100_dev
 #SBATCH --time 1409
-#SBATCH --mem 256GB
+#SBATCH --mem 512GB
 
 source $HOME/miniconda3/bin/activate
 # Replace with your env if needed
-conda activate fs2v080
+conda activate fs2_hg
 
 set -euo pipefail
 
@@ -67,7 +67,7 @@ else
     echo "=== Step 2: Extracting dataset batches ==="
     python "$SCRIPT_DIR/extract_fairseq2_batches.py" \
         --output-dir "$EXTRACTED_DATA_DIR" \
-        --num-batches 100
+        --num-batches 200
 
     if [ $? -ne 0 ]; then
         echo "ERROR: Dataset extraction failed"
@@ -76,26 +76,55 @@ else
 fi
 
 # Step 3: Run training in parallel on separate GPUs
-echo "=== Step 3: Running training in parallel on GPU 0 and GPU 1 ==="
+echo "=== Step 3: Running training in parallel on 8 GPUs (4 per framework) ==="
 
-# Launch fairseq2 training on GPU 0 in background
-echo "Starting fairseq2 training on GPU 0..."
-CUDA_VISIBLE_DEVICES=0 python "$SCRIPT_DIR/train_fairseq2_from_batches.py" \
+# Get GPU device IDs from Slurm
+if [ -n "${SLURM_JOB_GPUS:-}" ]; then
+    # Parse Slurm GPU allocation
+    IFS=',' read -ra GPU_ARRAY <<< "$SLURM_JOB_GPUS"
+    GPU_COUNT=${#GPU_ARRAY[@]}
+
+    if [ $GPU_COUNT -lt 8 ]; then
+        echo "Error: Need 8 GPUs but only $GPU_COUNT allocated"
+        exit 1
+    fi
+
+    # Split GPUs: first 4 for fairseq2, last 4 for HF
+    FAIRSEQ2_GPUS="${GPU_ARRAY[0]},${GPU_ARRAY[1]},${GPU_ARRAY[2]},${GPU_ARRAY[3]}"
+    HF_GPUS="${GPU_ARRAY[4]},${GPU_ARRAY[5]},${GPU_ARRAY[6]},${GPU_ARRAY[7]}"
+else
+    # Fallback for non-Slurm environments
+    FAIRSEQ2_GPUS="0,1,2,3"
+    HF_GPUS="4,5,6,7"
+fi
+
+echo "fairseq2 GPUs: $FAIRSEQ2_GPUS"
+echo "HuggingFace GPUs: $HF_GPUS"
+
+# Launch fairseq2 training on first 4 GPUs in background
+echo "Starting fairseq2 training..."
+CUDA_VISIBLE_DEVICES=$FAIRSEQ2_GPUS torchrun \
+    --nproc_per_node=4 \
+    --master_port=29500 \
+    "$SCRIPT_DIR/train_fairseq2_from_batches.py" \
     --data-dir "$EXTRACTED_DATA_DIR" \
     --output-dir "$FAIRSEQ2_DIR" \
-    --num-steps 500 \
+    --num-steps 10000 \
     --seed 2 \
     > "$FAIRSEQ2_DIR/training.log" 2>&1 &
 FAIRSEQ2_PID=$!
 
 # Check if transformers is available
 if python -c "import transformers" 2>/dev/null; then
-    # Launch HuggingFace training on GPU 1 in background
-    echo "Starting HuggingFace training on GPU 1..."
-    CUDA_VISIBLE_DEVICES=1 python "$SCRIPT_DIR/train_hf_single_gpu.py" \
+    # Launch HuggingFace training on last 4 GPUs in background
+    echo "Starting HuggingFace training..."
+    CUDA_VISIBLE_DEVICES=$HF_GPUS torchrun \
+        --nproc_per_node=4 \
+        --master_port=29501 \
+        "$SCRIPT_DIR/train_hf_multi_gpu.py" \
         --data-dir "$EXTRACTED_DATA_DIR" \
         --output-dir "$HF_DIR" \
-        --num-steps 500 \
+        --num-steps 10000 \
         --seed 2 \
         > "$HF_DIR/training.log" 2>&1 &
     HF_PID=$!
@@ -147,8 +176,8 @@ if python -c "import transformers" 2>/dev/null; then
     echo ""
     echo "=== Step 5: Comparing checkpoints ==="
     python "$SCRIPT_DIR/compare_checkpoints_simple.py" \
-        --fairseq2-checkpoint "$FAIRSEQ2_DIR/checkpoint_500.pt" \
-        --hf-checkpoint "$HF_DIR/checkpoint_500.pt"
+        --fairseq2-checkpoint "$FAIRSEQ2_DIR/checkpoint_10000.pt" \
+        --hf-checkpoint "$HF_DIR/checkpoint_10000.pt"
 
     COMPARISON_EXIT_CODE=$?
 

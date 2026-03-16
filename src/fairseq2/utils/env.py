@@ -110,7 +110,8 @@ def _get_rank(env: Environment, var_name: str) -> int | None:
 
     if value < 0:
         raise EnvironmentVariableError(
-            var_name, f"{var_name} environment variable is expected to be greater than or equal to 0, but is {value} instead."  # fmt: skip
+            var_name,
+            f"{var_name} environment variable is expected to be greater than or equal to 0, but is {value} instead.",  # fmt: skip
         )
 
     return value
@@ -130,7 +131,8 @@ def _get_world_size(env: Environment, var_name: str) -> int | None:
 
     if value < 1:
         raise EnvironmentVariableError(
-            var_name, f"{var_name} environment variable is expected to be greater than or equal to 1, but is {value} instead."  # fmt: skip
+            var_name,
+            f"{var_name} environment variable is expected to be greater than or equal to 1, but is {value} instead.",  # fmt: skip
         )
 
     return value

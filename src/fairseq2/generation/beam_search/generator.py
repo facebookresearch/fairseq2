@@ -632,7 +632,10 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
 
         # We split the batch by `beam_sizes` and treat each beam separately.
         for beam_idx, (beam_lprobs, beam_step_scores) in enumerate(
-            zip(lprobs.split(self._beam_sizes), self._step_scores.split(self._beam_sizes))  # fmt: skip
+            zip(
+                lprobs.split(self._beam_sizes),
+                self._step_scores.split(self._beam_sizes),
+            )  # fmt: skip
         ):
             beam_next_step = self._search_beam(
                 beam_idx, batch_offset, beam_lprobs, beam_step_scores

@@ -185,9 +185,7 @@ def main() -> None:
         default=Path("output"),
         help="Output directory for checkpoints",
     )
-    parser.add_argument(
-        "--batch-size", type=int, default=4, help="Training batch size"
-    )
+    parser.add_argument("--batch-size", type=int, default=4, help="Training batch size")
     parser.add_argument(
         "--num-epochs", type=int, default=1, help="Number of training epochs"
     )
@@ -321,6 +319,7 @@ def main() -> None:
     # Apply FSDP if using multi-GPU
     if use_fsdp and gangs is not None:
         print_rank0("   Applying FSDP to model...")
+
         # Create an applier that matches the expected signature
         # apply_fsdp_to_hg_transformer_lm expects (model, granularity, wrapper)
         # but to_fsdp2 calls applier(model, wrapper), so we need to add granularity
@@ -346,7 +345,7 @@ def main() -> None:
     tokenizer = load_hg_tokenizer_simple("google/gemma-3-1b-it")
     # Get the HuggingFace tokenizer from the wrapper using .raw property
     hf_tokenizer = tokenizer.raw
-    print_rank0(f"   ✓ Tokenizer loaded")
+    print_rank0("   ✓ Tokenizer loaded")
 
     # Create SFT training data
     print_rank0("\n3. Creating SFT dataset...")
@@ -463,7 +462,9 @@ def main() -> None:
             data_reader=data_reader_state,
             blocking=True,
         )
-        print_rank0(f"   ✓ Checkpoint saved to {args.output_dir}/checkpoints/step_{global_step}")
+        print_rank0(
+            f"   ✓ Checkpoint saved to {args.output_dir}/checkpoints/step_{global_step}"
+        )
     except Exception as e:
         print_rank0(f"   ⚠ Warning: Could not save checkpoint: {e}")
 

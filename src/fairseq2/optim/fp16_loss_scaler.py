@@ -168,7 +168,8 @@ class StandardFloat16LossScaler(Float16LossScaler):
         else:
             with warnings.catch_warnings():
                 warnings.filterwarnings(
-                    action="ignore", message=r".*torch\.cuda\.amp\.GradScaler is enabled.*"  # fmt: skip
+                    action="ignore",
+                    message=r".*torch\.cuda\.amp\.GradScaler is enabled.*",  # fmt: skip
                 )
 
                 grad_scaler = _InternalGradScaler(

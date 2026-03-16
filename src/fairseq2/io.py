@@ -117,7 +117,8 @@ class _TorchTensorFileLoader(TensorFileLoader):
 
         with warnings.catch_warnings():
             warnings.filterwarnings(
-                action="ignore", message=r".*You are using `torch\.load` with `weights_only=False`.*"  # fmt: skip
+                action="ignore",
+                message=r".*You are using `torch\.load` with `weights_only=False`.*",  # fmt: skip
             )
 
             try:

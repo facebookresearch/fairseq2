@@ -1,0 +1,37 @@
+=== Step 1: Setting up directories ===
+=== Step 2: Extracting dataset batches ===
+=== Step 3: Running training in parallel on 8 GPUs (4 per framework) ===
+fairseq2 GPUs: 0,1,2,3
+HuggingFace GPUs: 4,5,6,7
+Starting fairseq2 training...
+Starting HuggingFace training...
+Waiting for both training processes to complete...
+fairseq2 training completed with exit code: 0
+HuggingFace training completed with exit code: 0
+
+=== Step 4: Training Results ===
+fairseq2 exit code: 0
+HuggingFace exit code: 0
+Training completed successfully!
+
+=== Step 5: Comparing checkpoints ===
+================================================================================
+🔍 Checkpoint Comparison
+================================================================================
+fairseq2:     /checkpoint/seamless/richardyue/fs2_hg/comparison/fairseq2_checkpoints/checkpoint_10000.pt
+HuggingFace:  /checkpoint/seamless/richardyue/fs2_hg/comparison/hf_checkpoints/checkpoint_10000.pt
+Tolerances:   rtol=0.001, atol=1e-05
+================================================================================
+Loading checkpoint: /checkpoint/seamless/richardyue/fs2_hg/comparison/fairseq2_checkpoints/checkpoint_10000.pt
+  Loaded 341 parameters
+Loading checkpoint: /checkpoint/seamless/richardyue/fs2_hg/comparison/hf_checkpoints/checkpoint_10000.pt
+  Loaded 341 parameters
+
+📊 Comparing 341 common parameters...
+
+================================================================================
+✅ SUCCESS: All parameters match within tolerance!
+================================================================================
+
+=== SUCCESS: Convergence test passed! ===
+Checkpoints are identical within tolerance.

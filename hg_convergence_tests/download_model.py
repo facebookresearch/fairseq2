@@ -2,7 +2,6 @@
 """Pre-download model to avoid distributed loading issues."""
 
 import argparse
-from pathlib import Path
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
 

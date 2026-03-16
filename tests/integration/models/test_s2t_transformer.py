@@ -22,9 +22,7 @@ from tests.common import device
 
 TEST_FBANK_PATH: Final = Path(__file__).parent.joinpath("fbank.pt")
 
-TRANSFORMER_DE: Final = (
-    "Es war Zeit des Abendessens, und wir suchten nach einem Ort, an dem wir essen konnten."
-)
+TRANSFORMER_DE: Final = "Es war Zeit des Abendessens, und wir suchten nach einem Ort, an dem wir essen konnten."
 CONFORMER_DE: Final = (
     "Es war das Abendessen, und wir begannen, nach dem Essen zu suchen."
 )

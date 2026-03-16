@@ -70,16 +70,16 @@ def _convert_jepa_encoder_state_dict(
 
     key_map = {
         # fmt: off
-        r"^module\.backbone\.blocks\.([0-9]+)\.attn\.q_proj\.":   r"encoder.layers.\1.self_attn.q_proj.",
-        r"^module\.backbone\.blocks\.([0-9]+)\.attn\.k_proj\.":   r"encoder.layers.\1.self_attn.k_proj.",
-        r"^module\.backbone\.blocks\.([0-9]+)\.attn\.v_proj\.":   r"encoder.layers.\1.self_attn.v_proj.",
-        r"^module\.backbone\.blocks\.([0-9]+)\.attn\.proj\.":     r"encoder.layers.\1.self_attn.output_proj.",
-        r"^module\.backbone\.blocks\.([0-9]+)\.norm1\.":          r"encoder.layers.\1.self_attn_layer_norm.",
-        r"^module\.backbone\.blocks\.([0-9]+)\.mlp\.fc1\.":       r"encoder.layers.\1.ffn.inner_proj.",
-        r"^module\.backbone\.blocks\.([0-9]+)\.mlp\.fc2\.":       r"encoder.layers.\1.ffn.output_proj.",
-        r"^module\.backbone\.blocks\.([0-9]+)\.norm2\.":          r"encoder.layers.\1.ffn_layer_norm.",
-        r"^module\.backbone\.norm\.":                             r"encoder.layer_norm.",
-        r"^module\.backbone\.patch_embed\.proj\.":                r"encoder_frontend.feature_extractor.conv.",
+        r"^module\.backbone\.blocks\.([0-9]+)\.attn\.q_proj\.": r"encoder.layers.\1.self_attn.q_proj.",
+        r"^module\.backbone\.blocks\.([0-9]+)\.attn\.k_proj\.": r"encoder.layers.\1.self_attn.k_proj.",
+        r"^module\.backbone\.blocks\.([0-9]+)\.attn\.v_proj\.": r"encoder.layers.\1.self_attn.v_proj.",
+        r"^module\.backbone\.blocks\.([0-9]+)\.attn\.proj\.": r"encoder.layers.\1.self_attn.output_proj.",
+        r"^module\.backbone\.blocks\.([0-9]+)\.norm1\.": r"encoder.layers.\1.self_attn_layer_norm.",
+        r"^module\.backbone\.blocks\.([0-9]+)\.mlp\.fc1\.": r"encoder.layers.\1.ffn.inner_proj.",
+        r"^module\.backbone\.blocks\.([0-9]+)\.mlp\.fc2\.": r"encoder.layers.\1.ffn.output_proj.",
+        r"^module\.backbone\.blocks\.([0-9]+)\.norm2\.": r"encoder.layers.\1.ffn_layer_norm.",
+        r"^module\.backbone\.norm\.": r"encoder.layer_norm.",
+        r"^module\.backbone\.patch_embed\.proj\.": r"encoder_frontend.feature_extractor.conv.",
         # fmt: on
     }
 

@@ -3,6 +3,8 @@
 
 This script loads the same pre-extracted batches that HuggingFace uses,
 ensuring both frameworks train on identical data for fair comparison.
+
+Supports distributed training with DDP while maintaining determinism.
 """
 
 from __future__ import annotations
@@ -14,13 +16,16 @@ import random
 import numpy as np
 
 import torch
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import Dataset, DataLoader
+from torch.utils.data.distributed import DistributedSampler
 
 # Enable full determinism BEFORE any CUDA operations
-os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
-os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 # Disable Flash Attention for determinism
-os.environ['DISABLE_FLASH_ATTN'] = '1'
+os.environ["DISABLE_FLASH_ATTN"] = "1"
 
 torch.use_deterministic_algorithms(True, warn_only=True)
 torch.backends.cudnn.deterministic = True
@@ -28,10 +33,10 @@ torch.backends.cudnn.benchmark = False
 
 # Add fairseq2 to path
 import sys
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from fairseq2.models.hg_qwen_omni.api import load_hg_model_simple
-from fairseq2.models.hg_qwen_omni.tokenizer import load_hg_tokenizer
 
 
 def set_seed(seed: int):
@@ -42,10 +47,26 @@ def set_seed(seed: int):
     torch.cuda.manual_seed_all(seed)
 
 
+def setup_distributed():
+    """Initialize distributed training."""
+    if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
+        rank = int(os.environ["RANK"])
+        world_size = int(os.environ["WORLD_SIZE"])
+        local_rank = int(os.environ["LOCAL_RANK"])
+    else:
+        # Not using distributed training
+        return 0, 1, 0
+
+    dist.init_process_group(backend="nccl")
+    torch.cuda.set_device(local_rank)
+
+    return rank, world_size, local_rank
+
+
 class PreloadedDataset(Dataset):
     """Dataset that loads pre-extracted batches."""
 
-    def __init__(self, data_dir: Path, num_batches: int = 100):
+    def __init__(self, data_dir: Path, num_batches: int = 200):
         self.data_dir = data_dir
         self.num_batches = num_batches
 
@@ -82,7 +103,7 @@ def main() -> None:
     parser.add_argument(
         "--num-steps",
         type=int,
-        default=500,
+        default=10000,
         help="Number of training steps",
     )
     parser.add_argument(
@@ -99,18 +120,26 @@ def main() -> None:
     )
 
     args = parser.parse_args()
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Setup distributed training
+    rank, world_size, local_rank = setup_distributed()
+
+    if rank == 0:
+        args.output_dir.mkdir(parents=True, exist_ok=True)
 
     # Set random seed
     set_seed(args.seed)
 
-    print(f"Training fairseq2 HG model for {args.num_steps} steps")
-    print(f"Using pre-extracted batches from: {args.data_dir}")
-    print(f"Model: {args.model_name}")
-    print(f"Random seed: {args.seed}")
+    if rank == 0:
+        print(f"Training fairseq2 HG model for {args.num_steps} steps")
+        print(f"Using {world_size} GPUs with DDP")
+        print(f"Using pre-extracted batches from: {args.data_dir}")
+        print(f"Model: {args.model_name}")
+        print(f"Random seed: {args.seed}")
 
     # Load model via fairseq2 HG adapter
-    print(f"\nLoading model via fairseq2 HG adapter...")
+    if rank == 0:
+        print("\nLoading model via fairseq2 HG adapter...")
     wrapped_model = load_hg_model_simple(
         args.model_name,
         model_type="causal_lm",
@@ -120,28 +149,40 @@ def main() -> None:
     )
 
     # Extract the underlying HuggingFace model from the adapter
-    # The adapter provides a .hf_model property to access the wrapped model
     if hasattr(wrapped_model, "hf_model"):
         model = wrapped_model.hf_model
-        print("Extracted underlying HuggingFace model from fairseq2 adapter")
+        if rank == 0:
+            print("Extracted underlying HuggingFace model from fairseq2 adapter")
     else:
         model = wrapped_model
 
-    print("Model loaded successfully (Flash Attention disabled for determinism)")
+    if rank == 0:
+        print("Model loaded successfully (Flash Attention disabled for determinism)")
 
     # Move to GPU
-    device = torch.device("cuda:0")
+    device = torch.device(f"cuda:{local_rank}")
     model = model.to(device)
 
+    # Wrap with DDP (use DDP instead of FSDP since model fits on single GPU;
+    # FSDP breaks Gemma 3's weight tying between lm_head and embeddings)
+    if world_size > 1:
+        model = DDP(model, device_ids=[local_rank])
+        if rank == 0:
+            print(f"Model wrapped with DDP across {world_size} GPUs")
+
     # Set to eval mode to disable dropout for deterministic training
-    # This ensures exact reproducibility while still allowing gradient updates
     model.eval()
-    print("Model set to eval() mode for deterministic training (dropout disabled)")
+    if rank == 0:
+        print("Model set to eval() mode for deterministic training (dropout disabled)")
+
+    # Get model parameters
+    model_params = model.parameters()
 
     # Optimizer (matching HuggingFace exactly)
     from torch.optim import AdamW
+
     optimizer = AdamW(
-        model.parameters(),
+        model_params,
         lr=3e-4,
         betas=(0.9, 0.95),
         eps=1e-8,
@@ -151,6 +192,7 @@ def main() -> None:
 
     # LR Scheduler
     from torch.optim.lr_scheduler import CosineAnnealingLR
+
     scheduler = CosineAnnealingLR(
         optimizer,
         T_max=args.num_steps,
@@ -158,24 +200,47 @@ def main() -> None:
     )
 
     # Load dataset
-    num_batches_per_epoch = 100
+    num_batches_per_epoch = 200
     dataset = PreloadedDataset(args.data_dir, num_batches=num_batches_per_epoch)
-    dataloader = DataLoader(
-        dataset,
-        batch_size=1,
-        shuffle=False,
-        num_workers=0,
-    )
+
+    # Use DistributedSampler for multi-GPU training
+    if world_size > 1:
+        sampler = DistributedSampler(
+            dataset,
+            num_replicas=world_size,
+            rank=rank,
+            shuffle=False,  # Keep order for determinism
+            seed=args.seed,
+        )
+        dataloader = DataLoader(
+            dataset,
+            batch_size=1,
+            sampler=sampler,
+            num_workers=0,
+        )
+    else:
+        dataloader = DataLoader(
+            dataset,
+            batch_size=1,
+            shuffle=False,
+            num_workers=0,
+        )
 
     # Calculate epochs
-    num_epochs = (args.num_steps + num_batches_per_epoch - 1) // num_batches_per_epoch
-    print(f"Dataset: {num_batches_per_epoch} batches")
-    print(f"Training for {num_epochs} epochs to reach {args.num_steps} steps")
+    steps_per_epoch = num_batches_per_epoch // world_size
+    num_epochs = (args.num_steps + steps_per_epoch - 1) // steps_per_epoch
+    if rank == 0:
+        print(f"Dataset: {num_batches_per_epoch} batches")
+        print(f"Steps per epoch per GPU: {steps_per_epoch}")
+        print(f"Training for {num_epochs} epochs to reach {args.num_steps} steps")
 
     # Training loop
     global_step = 0
 
     for epoch in range(num_epochs):
+        if world_size > 1:
+            sampler.set_epoch(epoch)
+
         for batch_idx, batch in enumerate(dataloader):
             if global_step >= args.num_steps:
                 break
@@ -205,11 +270,11 @@ def main() -> None:
             scheduler.step()
             optimizer.zero_grad()
 
-            # Logging
-            if global_step % 10 == 0:
+            # Logging (only rank 0)
+            if rank == 0 and global_step % 10 == 0:
                 current_lr = scheduler.get_last_lr()[0]
                 print(
-                    f"Epoch {epoch+1}/{num_epochs}, Step {global_step}/{args.num_steps}, "
+                    f"Epoch {epoch + 1}/{num_epochs}, Step {global_step}/{args.num_steps}, "
                     f"Loss: {loss.item():.4f}, LR: {current_lr:.2e}"
                 )
 
@@ -218,11 +283,23 @@ def main() -> None:
         if global_step >= args.num_steps:
             break
 
-    # Save checkpoint
-    print("Saving checkpoint...")
-    checkpoint_path = args.output_dir / f"checkpoint_{args.num_steps}.pt"
-    torch.save({"model": model.state_dict()}, checkpoint_path)
-    print(f"Saved checkpoint to {checkpoint_path}")
+    # Save checkpoint (only rank 0)
+    if rank == 0:
+        print("Saving checkpoint...")
+        checkpoint_path = args.output_dir / f"checkpoint_{args.num_steps}.pt"
+
+        # For DDP, unwrap with .module to get the original model state dict
+        if world_size > 1:
+            state_dict = model.module.state_dict()
+            torch.save({"model": state_dict}, checkpoint_path)
+        else:
+            torch.save({"model": model.state_dict()}, checkpoint_path)
+
+        print(f"Saved checkpoint to {checkpoint_path}")
+
+    # Cleanup distributed
+    if world_size > 1:
+        dist.destroy_process_group()
 
 
 if __name__ == "__main__":

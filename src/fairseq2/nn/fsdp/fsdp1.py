@@ -156,7 +156,8 @@ def to_fsdp1(
 
     with warnings.catch_warnings():
         warnings.filterwarnings(
-            action="ignore", message=r".*FSDP\.state_dict_type\(\) and FSDP\.set_state_dict_type\(\) are being deprecated.*"  # fmt: skip
+            action="ignore",
+            message=r".*FSDP\.state_dict_type\(\) and FSDP\.set_state_dict_type\(\) are being deprecated.*",  # fmt: skip
         )
 
         FSDP.set_state_dict_type(
@@ -180,7 +181,8 @@ def fsdp1_local_state_dict(module: FSDP1Module) -> dict[str, object]:
 
     with warnings.catch_warnings():
         warnings.filterwarnings(
-            action="ignore", message=r".*`_get_pg_default_device` will be deprecated.*"  # fmt: skip
+            action="ignore",
+            message=r".*`_get_pg_default_device` will be deprecated.*",  # fmt: skip
         )
         warnings.filterwarnings(
             action="ignore", message=r".*Please use DTensor instead.*"
@@ -210,7 +212,8 @@ def fsdp1_load_local_state_dict(
 
     with warnings.catch_warnings():
         warnings.filterwarnings(
-            action="ignore", message=r".*`_get_pg_default_device` will be deprecated.*"  # fmt: skip
+            action="ignore",
+            message=r".*`_get_pg_default_device` will be deprecated.*",  # fmt: skip
         )
         warnings.filterwarnings(
             action="ignore", message=r".*Please use DTensor instead.*"

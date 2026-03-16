@@ -102,7 +102,8 @@ def test_config_merge_raises_error_when_type_is_invalid() -> None:
     merger = StandardConfigMerger()
 
     with pytest.raises(
-        TypeError, match=rf"^_del_ at `overrides` must be of type `{list}`, but is of type `{str}` instead\.$"  # fmt: skip
+        TypeError,
+        match=rf"^_del_ at `overrides` must be of type `{list}`, but is of type `{str}` instead\.$",  # fmt: skip
     ):
         merger.merge(target, source)
 
@@ -110,7 +111,8 @@ def test_config_merge_raises_error_when_type_is_invalid() -> None:
     source = {"foo1": {"foo2": {"_del_": "foo"}}}
 
     with pytest.raises(
-        TypeError, match=rf"^foo1\.foo2\._del_ at `overrides` must be of type `{list}`, but is of type `{str}` instead\.$"  # fmt: skip
+        TypeError,
+        match=rf"^foo1\.foo2\._del_ at `overrides` must be of type `{list}`, but is of type `{str}` instead\.$",  # fmt: skip
     ):
         merger.merge(target, source)
 
@@ -118,7 +120,8 @@ def test_config_merge_raises_error_when_type_is_invalid() -> None:
     source = {"foo1": {"foo2": {"_del_": [0]}}}
 
     with pytest.raises(
-        TypeError, match=rf"^Each element under foo1\.foo2\._del_ at `overrides` must be of type `{str}`, but the element at index 0 is of type `{int}` instead\.$"  # fmt: skip
+        TypeError,
+        match=rf"^Each element under foo1\.foo2\._del_ at `overrides` must be of type `{str}`, but the element at index 0 is of type `{int}` instead\.$",  # fmt: skip
     ):
         merger.merge(target, source)
 
@@ -126,7 +129,8 @@ def test_config_merge_raises_error_when_type_is_invalid() -> None:
     source = {"foo1": {"foo2": {"_set_": "foo"}}}
 
     with pytest.raises(
-        TypeError, match=rf"^foo1\.foo2\._set_ at `overrides` must be of type `{Mapping}`, but is of type `{str}` instead\.$"  # fmt: skip
+        TypeError,
+        match=rf"^foo1\.foo2\._set_ at `overrides` must be of type `{Mapping}`, but is of type `{str}` instead\.$",  # fmt: skip
     ):
         merger.merge(target, source)
 
@@ -134,7 +138,8 @@ def test_config_merge_raises_error_when_type_is_invalid() -> None:
     source = {"foo1": {"foo2": {"_set_": {0: "foo"}}}}
 
     with pytest.raises(
-        TypeError, match=rf"^Each key under foo1\.foo2\._set_ at `overrides` must be of type `{str}`, but the key at index 0 is of type `{int}` instead\.$"  # fmt: skip
+        TypeError,
+        match=rf"^Each key under foo1\.foo2\._set_ at `overrides` must be of type `{str}`, but the key at index 0 is of type `{int}` instead\.$",  # fmt: skip
     ):
         merger.merge(target, source)
 

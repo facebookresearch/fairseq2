@@ -91,12 +91,14 @@ def compare_state_dicts(
         # Shape check
         if tensor1.shape != tensor2.shape:
             all_match = False
-            mismatches.append({
-                "name": key,
-                "error": "shape_mismatch",
-                "shape1": tensor1.shape,
-                "shape2": tensor2.shape,
-            })
+            mismatches.append(
+                {
+                    "name": key,
+                    "error": "shape_mismatch",
+                    "shape1": tensor1.shape,
+                    "shape2": tensor2.shape,
+                }
+            )
             continue
 
         # Value check
@@ -116,16 +118,18 @@ def compare_state_dicts(
             if np.any(mask):
                 rel_diff = np.max(abs_diff[mask] / np2_abs[mask])
             else:
-                rel_diff = 0.0 if max_diff < atol else float('inf')
+                rel_diff = 0.0 if max_diff < atol else float("inf")
 
-            mismatches.append({
-                "name": key,
-                "error": "value_mismatch",
-                "shape": tensor1.shape,
-                "max_diff": float(max_diff),
-                "mean_diff": float(mean_diff),
-                "rel_diff": float(rel_diff),
-            })
+            mismatches.append(
+                {
+                    "name": key,
+                    "error": "value_mismatch",
+                    "shape": tensor1.shape,
+                    "max_diff": float(max_diff),
+                    "mean_diff": float(mean_diff),
+                    "rel_diff": float(rel_diff),
+                }
+            )
 
     return all_match, mismatches
 
@@ -158,9 +162,7 @@ def report_results(all_match: bool, mismatches: list[dict], top_n: int = 10) -> 
 
         # Sort by max diff
         sorted_mismatches = sorted(
-            value_mismatches,
-            key=lambda m: m["max_diff"],
-            reverse=True
+            value_mismatches, key=lambda m: m["max_diff"], reverse=True
         )
 
         print(f"\nTop {min(top_n, len(sorted_mismatches))} worst mismatches:")

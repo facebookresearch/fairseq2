@@ -135,7 +135,8 @@ class Wav2Vec2PositionalConv1d(Conv1d):
         if not getattr(self, "no_parametrization", False):
             with warnings.catch_warnings():
                 warnings.filterwarnings(
-                    action="ignore", message=r".*deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.*"  # fmt: skip
+                    action="ignore",
+                    message=r".*deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.*",  # fmt: skip
                 )
 
                 weight_norm(self, dim=2)
