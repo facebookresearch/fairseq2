@@ -18,11 +18,14 @@ from fairseq2.device import Device
 from fairseq2.gang import Gangs
 from fairseq2.models.transformer.attention_bias import AttentionBiasCache
 from fairseq2.models.transformer.multihead_attention import (
+    AttentionState,
     AttentionStateFactory,
+    FullAttentionState,
     MultiheadAttention,
     init_mha_output_projection,
     init_qkv_projection,
 )
+from fairseq2.ops import repeat_interleave
 from fairseq2.models.transformer.sdpa.base import SDPA
 from fairseq2.nn import (
     BatchLayout,
@@ -42,12 +45,14 @@ class OLMOMultiheadAttention(MultiheadAttention):
 
     This class inherits directly from :class:`MultiheadAttention` (the abstract
     base) and inlines the projection/norm setup that
-    :class:`StandardMultiheadAttention` provides, but omits the ``pos_encoder``
-    parameter (OLMO uses ``rope_encoder`` instead) and the incremental
-    KV-caching logic in ``forward()``.
+    :class:`StandardMultiheadAttention` provides, but replaces the
+    ``pos_encoder`` parameter with ``rope_encoder`` (OLMO-style RoPE).
 
-    ``state_factory`` is accepted for API compatibility but is unused by
-    ``forward()``.  ``state_bag`` is forwarded to ``rope_encoder`` only.
+    During incremental decoding (``not self.training`` and ``state_bag`` is
+    provided), projected keys and values are cached via :class:`AttentionState`.
+    The cache implementation is determined by ``state_factory``; when
+    ``state_factory`` is ``None`` it defaults to :class:`FullAttentionState`.
+    For sliding-window layers, pass a :class:`LocalAttentionStateFactory`.
     """
 
     rope_encoder: PositionEncoder | None
@@ -283,9 +288,31 @@ class OLMOMultiheadAttention(MultiheadAttention):
             q = rope_encoder(q, seqs_layout, state_bag=state_bag)
             k = rope_encoder(k, keys_layout, state_bag=state_bag)
 
+        # KV caching for incremental (auto-regressive) decoding.
+        if not self.training and state_bag is not None and seqs is keys:
+            if keys_layout.packed:
+                raise ValueError("`keys` must not be a packed batch.")
+            if keys_layout.padded:
+                raise ValueError("`keys` must not be a padded batch.")
+
+            state = state_bag.maybe_get_state(self, AttentionState)
+            if state is None:
+                state_factory = self.state_factory or FullAttentionState
+                state = state_factory(
+                    k, v, state_bag.max_num_steps, state_bag.capacity_increment
+                )
+                state_bag.set_state(self, state)
+            else:
+                state.append(k, v)
+                k, v = state.get()
+                keys_layout = BatchLayout.of(k)
+
+        # With Grouped Query Attention, each key/value head is repeated.
+        if self.num_query_groups > 1:
+            k = repeat_interleave(k, dim=-2, repeat=self.num_query_groups)
+            v = repeat_interleave(v, dim=-2, repeat=self.num_query_groups)
+
         # Apply SDPA
-        # q, k, v are all in (B, S, H, D) format
-        # SDPA expects: (q, seqs_layout, k, keys_layout, v, bias_cache)
         needs_weights = len(self._attn_weight_hooks) > 0
 
         attns, attn_weights = self.sdpa(
