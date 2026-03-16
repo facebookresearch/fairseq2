@@ -399,7 +399,8 @@ class TestNativeLocalFileSystemEquivalence(unittest.TestCase):
 
 class TestGlobalFileSystem(unittest.TestCase):
     """Verifies GlobalFileSystem correctly delegates local-path operations through
-    the FileSystemRegistry dispatch chain that replaced the direct LocalFileSystem singleton."""
+    the FileSystemRegistry dispatch chain that replaced the direct LocalFileSystem singleton.
+    """
 
     def setUp(self) -> None:
         from fairseq2.file_system import GlobalFileSystem

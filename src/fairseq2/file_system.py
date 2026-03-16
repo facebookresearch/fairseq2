@@ -443,8 +443,7 @@ def _register_filesystems(context: Any) -> None:
                 scheme = pref.split("://")[0]
                 mangled_pref = f"{scheme}:/"
                 return lambda p: str(p).startswith(pref) or (
-                    str(p).startswith(mangled_pref)
-                    and not str(p).startswith(pref)
+                    str(p).startswith(mangled_pref) and not str(p).startswith(pref)
                 )
 
             def make_fs_factory(
