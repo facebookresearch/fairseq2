@@ -81,6 +81,7 @@ class Gemma3nConformerSDPA(Module):
         self.context_size = (
             chunk_size + self.max_past_horizon + self.max_future_horizon
         )
+        self.logit_cap = logit_cap
 
         # Sinusoidal position projection (replaces Shaw embedding)
         self.pos_proj = Linear(
@@ -164,15 +165,18 @@ class Gemma3nConformerSDPA(Module):
         value_blocks = self._extract_block_context(v)
         num_query_blocks = query_blocks.shape[1]
 
-        # Build validity mask from audio mel mask
-        validity_condition: Tensor | None = None
-        if mask is not None:
-            original_valid = ~mask
-            extracted_valid = self._extract_block_context(original_valid)
-            # [B, 1, U, 1, C]
-            validity_condition = (
-                extracted_valid.unsqueeze(1).unsqueeze(-2)
+        # Build validity mask — always needed because
+        # _extract_block_context pads with zeros that must be masked.
+        if mask is None:
+            mask = torch.zeros(
+                batch_size, q_time, dtype=torch.bool, device=q.device
             )
+        original_valid = ~mask
+        extracted_valid = self._extract_block_context(original_valid)
+        # [B, 1, U, 1, C]
+        validity_condition = (
+            extracted_valid.unsqueeze(1).unsqueeze(-2)
+        )
 
         # Local causal mask [1, 1, 1, W, C]
         causal_condition = (
@@ -191,14 +195,11 @@ class Gemma3nConformerSDPA(Module):
         softcap_val = self.softcap.to(logits.device)
         logits = torch.tanh(logits / softcap_val) * softcap_val
 
-        # Apply combined mask
-        if validity_condition is not None:
-            final_condition = torch.logical_and(
-                validity_condition,
-                causal_condition.to(validity_condition.device),
-            )
-        else:
-            final_condition = causal_condition.to(logits.device)
+        # Combined mask: validity AND causality
+        final_condition = torch.logical_and(
+            validity_condition,
+            causal_condition.to(validity_condition.device),
+        )
 
         logits = torch.where(
             final_condition,
@@ -425,3 +426,19 @@ class Gemma3nConformerSDPA(Module):
             * lower_causal
             * upper_causal
         )
+
+    def reset_non_persistent_buffers(self) -> None:
+        """Re-initialize non-persistent buffers after checkpoint load."""
+        self.q_scale.fill_(
+            self.head_dim**-0.5 / F.softplus(torch.tensor(0.0)).item()
+        )
+        self.softcap.fill_(self.logit_cap)
+        self.local_causal_valid_mask.copy_(
+            self._create_local_causal_valid_mask()
+        )
+        num_timescales = self.model_dim // 2
+        log_inc = math.log(1.0e4) / max(num_timescales - 1, 1)
+        inv_ts = torch.exp(
+            torch.arange(num_timescales, dtype=torch.float32) * -log_inc
+        )
+        self.inv_timescales.copy_(inv_ts.unsqueeze(0).unsqueeze(0))
