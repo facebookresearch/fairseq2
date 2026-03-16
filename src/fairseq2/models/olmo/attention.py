@@ -25,7 +25,6 @@ from fairseq2.models.transformer.multihead_attention import (
     init_mha_output_projection,
     init_qkv_projection,
 )
-from fairseq2.ops import repeat_interleave
 from fairseq2.models.transformer.sdpa.base import SDPA
 from fairseq2.nn import (
     BatchLayout,
@@ -38,6 +37,7 @@ from fairseq2.nn import (
     RowShardedLinear,
 )
 from fairseq2.nn.utils.module import get_name_or_self
+from fairseq2.ops import repeat_interleave
 
 
 class OLMOMultiheadAttention(MultiheadAttention):

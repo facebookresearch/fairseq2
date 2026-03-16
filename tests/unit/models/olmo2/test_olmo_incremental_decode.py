@@ -9,12 +9,16 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 import pytest
 import torch
 
 from fairseq2.data.tokenizers import load_tokenizer
+from fairseq2.models.hub import ModelHub
 from fairseq2.models.olmo import get_olmo_model_hub
+from fairseq2.models.olmo.config import OLMOConfig
+from fairseq2.models.transformer_lm import TransformerLM
 from fairseq2.nn import BatchLayout, IncrementalStateBag
 from fairseq2.nn.utils.padding import pad_seqs
 from tests.common import assert_close, device
@@ -22,11 +26,13 @@ from tests.common import assert_close, device
 OLMO2_1B_NAME = "olmo-2-0425-1b"
 OLMO2_1B_PATH = "/datasets/pretrained-llms/OLMo-2-0425-1B"
 
-TEST_SENTENCE = "The capital of Germany is Berlin, which has a rich history dating back centuries."
+TEST_SENTENCE = (
+    "The capital of Germany is Berlin, which has a rich history dating back centuries."
+)
 
 
 @pytest.fixture(scope="module")
-def hub():
+def hub() -> ModelHub[TransformerLM, OLMOConfig]:
     return get_olmo_model_hub()
 
 
@@ -34,7 +40,7 @@ def hub():
     not os.path.exists(OLMO2_1B_PATH),
     reason=f"Model path {OLMO2_1B_PATH} does not exist (not on fair cluster)",
 )
-def test_olmo2_incremental_decode(hub) -> None:
+def test_olmo2_incremental_decode(hub: Any) -> None:
     """Full-sequence forward must match step-by-step incremental decode (OLMO2-1B).
 
     Loads the pretrained OLMO2-1B checkpoint and tokenizes real sentences to
