@@ -7,8 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import NoneType
-from typing import Any, final
+from typing import Any, Final, final
 
 from typing_extensions import override
 
@@ -25,6 +24,28 @@ from fairseq2.data.tokenizers.hg import (
     load_hg_token_model,
 )
 from fairseq2.device import Device
+
+# Gemma3n chat template with {%- generation %} blocks for SFT assistant mask
+# support. Handles both 'assistant' (OpenAI convention) and 'model' (Gemma
+# convention) role names.
+GEMMA3N_CHAT_TEMPLATE: Final = """\
+{{ bos_token }}\
+{%- for message in messages %}
+{%- if message['role'] == 'user' %}
+<start_of_turn>user
+{{ message['content'] | trim }}<end_of_turn>
+{%- elif message['role'] == 'model' or message['role'] == 'assistant' %}
+{%- generation %}<start_of_turn>model
+{{ message['content'] | trim }}<end_of_turn>
+{%- endgeneration %}
+{%- elif message['role'] == 'system' %}
+<start_of_turn>system
+{{ message['content'] | trim }}<end_of_turn>
+{%- endif %}
+{%- endfor %}
+{%- if add_generation_prompt %}
+<start_of_turn>model
+{%- endif %}"""
 
 
 @final
@@ -58,8 +79,8 @@ class Gemma3nTokenizer(Tokenizer):
         # Gemma3n uses BOS token (ID 2) as prefix, no EOS suffix
         # This matches HuggingFace's add_special_tokens=True behavior
         if mode == "as_is":
-            prefix_tokens = []
-            suffix_tokens = []
+            prefix_tokens: list[str] = []
+            suffix_tokens: list[str] = []
         else:
             # default and prompt modes add BOS
             prefix_tokens = ["<bos>"]
@@ -122,7 +143,7 @@ class Gemma3nTokenizer(Tokenizer):
         return getattr(self._model._tok, "chat_template", None)
 
 
-def load_gemma3n_tokenizer(path: Path, config: NoneType) -> Tokenizer:
+def load_gemma3n_tokenizer(path: Path, config: None) -> Tokenizer:
     """Load Gemma3n tokenizer from HuggingFace tokenizer.json.
 
     :param path: Path to the tokenizer directory containing tokenizer.json.
@@ -138,5 +159,7 @@ def load_gemma3n_tokenizer(path: Path, config: NoneType) -> Tokenizer:
         boh_token=None,
         eoh_token=None,
     )
+
+    model.overwrite_chat_template(GEMMA3N_CHAT_TEMPLATE)
 
     return Gemma3nTokenizer(model)

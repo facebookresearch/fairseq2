@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any, final
 
 import torch
@@ -86,9 +86,15 @@ class Gemma3nDecoder(Gemma3nDecoderBase):
         self.model_dim = model_dim
         self.num_altup_inputs = num_altup_inputs
 
+        # Store per-layer KV sharing metadata so the decoder can manage slots
+        # outside of FSDP-wrapped layer forwards (dict mutation side effects
+        # are not guaranteed through FSDP wrappers).
+        self._layer_kv_roles = [layer.kv_projection_role for layer in layers]
+        self._layer_is_global = [layer.is_global for layer in layers]
+
         # Check if any layer uses KV projection sharing
         self._has_kv_projection_sharing = any(
-            layer.kv_projection_role != KVProjectionRole.NONE for layer in layers
+            role != KVProjectionRole.NONE for role in self._layer_kv_roles
         )
 
         # AltUp projections: Create versions 1, 2, 3 from version 0
@@ -123,9 +129,9 @@ class Gemma3nDecoder(Gemma3nDecoderBase):
         :param per_layer_embeds: Per-layer embeddings. *Shape:* :math:`(N,S,L,256)`.
         :returns: Decoder output. *Shape:* :math:`(N,S,M)`.
         """
-        kv_projection_slots = None
+        kv_slots: dict[KVProjectionType, tuple[Tensor, Tensor] | None] | None = None
         if self._has_kv_projection_sharing:
-            kv_projection_slots = {
+            kv_slots = {
                 KVProjectionType.LOCAL: None,
                 KVProjectionType.GLOBAL: None,
             }
@@ -141,13 +147,46 @@ class Gemma3nDecoder(Gemma3nDecoderBase):
                 else None
             )
 
+            # Resolve KV sharing args from decoder-side metadata
+            pre_computed_kv = None
+            kv_storage_callback = None
+
+            if kv_slots is not None:
+                role = self._layer_kv_roles[layer_idx]
+                slot_key = (
+                    KVProjectionType.GLOBAL
+                    if self._layer_is_global[layer_idx]
+                    else KVProjectionType.LOCAL
+                )
+
+                if role == KVProjectionRole.CONSUMER:
+                    pre_computed_kv = kv_slots[slot_key]
+                    if pre_computed_kv is None:
+                        raise RuntimeError(
+                            f"Layer {layer_idx} ({slot_key.value}) is a CONSUMER "
+                            f"but no SOURCE has populated the {slot_key.value} slot."
+                        )
+                elif role == KVProjectionRole.SOURCE:
+
+                    def _make_cb(
+                        s: dict[KVProjectionType, tuple[Tensor, Tensor] | None],
+                        k: KVProjectionType,
+                    ) -> Callable[[Tensor, Tensor], None]:
+                        def cb(key: Tensor, val: Tensor) -> None:
+                            s[k] = (key, val)
+
+                        return cb
+
+                    kv_storage_callback = _make_cb(kv_slots, slot_key)
+
             hidden_states = layer(
                 hidden_states,
                 seqs_layout,
                 attn_bias_cache,
                 per_layer_input=layer_ple,
                 state_bag=state_bag,
-                kv_projection_slots=kv_projection_slots,
+                pre_computed_kv=pre_computed_kv,
+                kv_storage_callback=kv_storage_callback,
             )
 
         seqs = self._unstack_altup(hidden_states)

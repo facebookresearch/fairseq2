@@ -10,8 +10,12 @@ from typing import Final
 
 import torch
 
+from fairseq2.models.family import HuggingFaceExport
 from fairseq2.models.gemma3n.config import Gemma3nConfig
-from fairseq2.models.utils.checkpoint import convert_state_dict
+from fairseq2.models.utils.checkpoint import (
+    convert_state_dict,
+    create_reverse_key_map,
+)
 
 # HuggingFace → fairseq2 key mappings
 _HG_KEY_MAP: Final = {
@@ -141,9 +145,7 @@ def convert_gemma3n_state_dict(
     )
     # HF's embedding_post_projection_norm uses with_scale=False (non-learnable
     # scalar buffer), so there's no weight to load.
-    audio_buffer_prefixes = (
-        "model.embed_audio.embedding_post_projection_norm.",
-    )
+    audio_buffer_prefixes = ("model.embed_audio.embedding_post_projection_norm.",)
 
     filtered_state_dict = {
         k: v
@@ -167,14 +169,69 @@ def convert_gemma3n_state_dict(
     return converted
 
 
-def convert_to_hf_gemma3n_state_dict(
+def export_gemma3n(
+    state_dict: dict[str, object], config: Gemma3nConfig
+) -> HuggingFaceExport:
+    """Export a fairseq2 Gemma3n model to HuggingFace format.
+
+    :param state_dict: The fairseq2 state dictionary.
+    :param config: The Gemma3n configuration.
+    :returns: A :class:`HuggingFaceExport` with HF state dict and config.
+    """
+    hg_state_dict = _convert_to_hg_state_dict(state_dict)
+    hg_config = _convert_to_hg_config(config)
+
+    return HuggingFaceExport(
+        hg_state_dict,
+        hg_config,
+        config_kls_name="Gemma3nConfig",
+        arch="Gemma3nForConditionalGeneration",
+    )
+
+
+def _convert_to_hg_state_dict(
     state_dict: dict[str, object],
 ) -> dict[str, object]:
-    """Convert a fairseq2 Gemma3n state dictionary to HuggingFace format.
+    # Squeeze pointwise conv weights: fs2 Conv1d [N, M, 1] → HF Linear [N, M]
+    for key, value in state_dict.items():
+        if (
+            isinstance(value, torch.Tensor)
+            and value.ndim == 3
+            and ("pointwise_conv1.weight" in key or "pointwise_conv2.weight" in key)
+        ):
+            state_dict[key] = value.squeeze(-1)
 
-    :param state_dict: The fairseq2 Gemma3n state dictionary.
-    :returns: The HuggingFace-compatible state dictionary.
-    """
-    raise NotImplementedError(
-        "fairseq2 → HuggingFace conversion not yet implemented."
-    )
+    key_map = create_reverse_key_map(_HG_KEY_MAP)
+
+    return convert_state_dict(state_dict, key_map)
+
+
+def _convert_to_hg_config(config: Gemma3nConfig) -> dict[str, object]:
+    hg_config: dict[str, object] = {
+        "model_type": "gemma3n",
+        "hidden_size": config.model_dim,
+        "intermediate_size": config.ffn_inner_dim,
+        "num_hidden_layers": config.num_layers,
+        "num_attention_heads": config.num_attn_heads,
+        "num_key_value_heads": config.num_key_value_heads,
+        "head_dim": config.head_dim,
+        "vocab_size": config.vocab_size,
+        "max_position_embeddings": config.max_seq_len,
+        "rms_norm_eps": config.rms_norm_eps,
+        "rope_theta": config.rope_theta,
+        "rope_theta_global": config.rope_theta_global,
+        "sliding_window": config.sliding_window,
+        "final_logit_softcapping": config.final_logit_soft_cap,
+        "tie_word_embeddings": config.tied_embeddings,
+        "num_kv_shared_layers": config.num_kv_shared_layers,
+        "laurel_rank": config.laurel_rank,
+        "altup_num_inputs": config.altup_num_inputs,
+        "altup_active_idx": config.altup_active_idx,
+        "altup_coef_clip": config.altup_coef_clip,
+        "altup_correct_scale": config.altup_correct_scale,
+        "altup_hidden_dim": config.altup_hidden_dim,
+        "vocab_size_per_layer_input": config.vocab_size_per_layer_input,
+        "hidden_size_per_layer_input": config.hidden_size_per_layer_input,
+    }
+
+    return hg_config

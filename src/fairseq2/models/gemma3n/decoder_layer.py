@@ -7,16 +7,17 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from typing import final
 
 from torch import Tensor
-from torch.nn import Dropout, Module
+from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.models.gemma3n.altup import Gemma3nAltUp
-from fairseq2.models.gemma3n.kv_projection import KVProjectionRole, KVProjectionType
+from fairseq2.models.gemma3n.kv_projection import KVProjectionRole
 from fairseq2.models.transformer import (
     AttentionBiasCache,
     FeedForwardNetwork,
@@ -49,9 +50,12 @@ class Gemma3nLAuReL(Module):
     ) -> None:
         super().__init__()
 
-
-        self.linear_left = Linear(model_dim, rank, bias=False, device=device, dtype=dtype)
-        self.linear_right = Linear(rank, model_dim, bias=False, device=device, dtype=dtype)
+        self.linear_left = Linear(
+            model_dim, rank, bias=False, device=device, dtype=dtype
+        )
+        self.linear_right = Linear(
+            rank, model_dim, bias=False, device=device, dtype=dtype
+        )
         self.post_laurel_norm = layer_norm
 
     @override
@@ -169,7 +173,8 @@ class Gemma3nDecoderLayer(Module):
         *,
         per_layer_input: Tensor | None = None,
         state_bag: IncrementalStateBag | None = None,
-        kv_projection_slots: dict[KVProjectionType, tuple[Tensor, Tensor] | None] | None = None,
+        pre_computed_kv: tuple[Tensor, Tensor] | None = None,
+        kv_storage_callback: Callable[[Tensor, Tensor], None] | None = None,
     ) -> Tensor:
         """Forward pass with AltUp predict/correct pattern and KV sharing.
 
@@ -178,7 +183,8 @@ class Gemma3nDecoderLayer(Module):
         :param attn_bias_cache: Attention bias cache.
         :param per_layer_input: PLE embeddings for this layer [batch, seq_len, ple_dim].
         :param state_bag: Incremental state for generation.
-        :param kv_projection_slots: Dict with LOCAL/GLOBAL slots for KV projection sharing.
+        :param pre_computed_kv: Pre-computed K/V from a SOURCE layer (for CONSUMERs).
+        :param kv_storage_callback: Callback to store K/V (for SOURCEs).
         :returns: 4D output [num_inputs, batch, seq_len, model_dim] or 3D [batch, seq_len, model_dim].
         """
         # AltUp predict step: 4D → 4D predictions
@@ -196,28 +202,6 @@ class Gemma3nDecoderLayer(Module):
 
         # LAuReL path: parallel augmentation
         laurel_output = self.laurel(active_prediction_normed)
-
-        # Attention path with KV projection sharing
-        pre_computed_kv = None
-        kv_storage_callback = None
-
-        if kv_projection_slots is not None:
-            # Determine which slot to use based on layer type
-            slot_key = KVProjectionType.GLOBAL if self.is_global else KVProjectionType.LOCAL
-
-            if self.kv_projection_role == KVProjectionRole.CONSUMER:
-                # Retrieve pre-computed K/V from appropriate slot
-                pre_computed_kv = kv_projection_slots[slot_key]
-                if pre_computed_kv is None:
-                    raise RuntimeError(
-                        f"Layer {self.layer_idx} ({slot_key.value}) is configured as CONSUMER "
-                        f"but the {slot_key.value} slot has not been populated by a SOURCE layer. "
-                        f"Layers must execute sequentially."
-                    )
-
-            elif self.kv_projection_role == KVProjectionRole.SOURCE:
-                # Store K/V to appropriate slot for consumer layers
-                kv_storage_callback = lambda k, v: kv_projection_slots.update({slot_key: (k, v)})
 
         attn = self.self_attn(
             active_prediction_normed,
