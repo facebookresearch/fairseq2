@@ -146,9 +146,7 @@ class OLMOMultiheadAttention(MultiheadAttention):
             )
         else:
             if q_proj is None or k_proj is None or v_proj is None:
-                raise ValueError(
-                    "`q_proj`, `k_proj`, `v_proj` must be all specified."
-                )
+                raise ValueError("`q_proj`, `k_proj`, `v_proj` must be all specified.")
 
             if qkv_proj_init_fn is not None:
                 raise ValueError(

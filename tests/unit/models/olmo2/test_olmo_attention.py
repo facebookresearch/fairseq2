@@ -95,7 +95,7 @@ class TestOLMOMultiheadAttention:
 
         seqs = torch.randn(batch_size, seq_len, model_dim, device=device)
         layout = BatchLayout.of(seqs)
-        bias_cache: AttentionBiasCache = {}
+        bias_cache: AttentionBiasCache = AttentionBiasCache()
 
         out = attn(seqs, layout, seqs, layout, seqs, bias_cache)
         assert out.shape == (batch_size, seq_len, model_dim)
