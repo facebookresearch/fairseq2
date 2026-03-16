@@ -129,13 +129,11 @@ class OLMOConfig(LLaMAConfig):
     dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""
 
-    # TODO check the init_std == initializer_range?
     init_std: float | None = None
     """
     If not ``None``, the standard deviation to initialize input embeddings and
     projection weights; otherwise, ``model_dim ** -0.5`` will be used instead.
     """
-    # initializer_range: float = 0.02
 
     init_std_scale: Literal["none", "layer", "stack"] = "layer"
     """
@@ -145,9 +143,6 @@ class OLMOConfig(LLaMAConfig):
     the decoder.
     """
 
-    # TODO check if it is used in olmo
-    # shard_embed_dim: bool = False
-    """If ``True``, shards the embedding dimension for tensor parallelism."""
 
     sliding_window: int | None = None
     """Sliding window size for local attention (OLMO3 only).
