@@ -54,6 +54,7 @@ setup(
         "editdistance~=0.8",
         "fairseq2n" + fairseq2n_version_spec,
         "fsspec>=2024.1",
+        "s3fs>=2024.1",
         "huggingface_hub~=0.32",
         "importlib_metadata~=7.0",
         "importlib_resources~=6.4",
