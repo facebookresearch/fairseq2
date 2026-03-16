@@ -126,7 +126,6 @@ class YaRNRotaryEncoder(PositionEncoder):
         else:
             return get_mscale(self.scale_factor, self.mscale_param or 1.0)
 
-    @override
     def reset_non_persistent_buffers(self) -> None:
         """Pre-compute cos/sin tables using YaRN-scaled frequencies."""
         self.cos_freqs[0] = 0.0  # pad
