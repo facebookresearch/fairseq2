@@ -439,7 +439,13 @@ def _register_filesystems(context: Any) -> None:
             def make_pattern_check(
                 pref: str,
             ) -> Callable[[PathOrPaths], bool]:
-                return lambda p: str(p).startswith(pref)
+                # Also match pathlib-mangled URIs (s3:/ instead of s3://)
+                scheme = pref.split("://")[0]
+                mangled_pref = f"{scheme}:/"
+                return lambda p: str(p).startswith(pref) or (
+                    str(p).startswith(mangled_pref)
+                    and not str(p).startswith(pref)
+                )
 
             def make_fs_factory(
                 fs: fsspec.AbstractFileSystem, pref: str
