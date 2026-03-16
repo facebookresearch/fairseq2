@@ -11,18 +11,22 @@ dataset:
   chat_mode: true
   config_overrides:
     path: "hg://facebook/fairseq2-lm-gsm8k"
+
 model:
   family: "gemma3n"
   name: "gemma3n_e2b"
+
 tokenizer:
   family: "gemma3n"
   name: "gemma3n_e2b"
+
 common:
   metric_recorders:
     wandb:
       enabled: True
       project: "fairseq2"
       run_name: "sft_gemma3n_e2b_gsm8k"
+
 regime:
   num_steps: 100000
   checkpoint_every_n_steps: 100
