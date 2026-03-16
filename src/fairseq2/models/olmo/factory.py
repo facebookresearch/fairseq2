@@ -11,7 +11,7 @@ from typing import Literal
 import torch.nn as nn
 from torch import Tensor
 
-from fairseq2.gang import Gangs, maybe_get_current_gangs
+from fairseq2.gang import Gangs, get_current_gangs
 from fairseq2.models.olmo.attention import OLMOMultiheadAttention
 from fairseq2.models.olmo.config import OLMOConfig
 from fairseq2.models.olmo.decoder_layer import OLMOTransformerLMDecoderLayer
@@ -21,6 +21,7 @@ from fairseq2.models.transformer import (
     CausalAttentionBias,
     FeedForwardNetwork,
     GLUFeedForwardNetwork,
+    LocalAttentionStateFactory,
     MultiheadAttention,
     TransformerEmbeddingFrontend,
     TransformerFrontend,
@@ -49,7 +50,7 @@ from fairseq2.nn.position_encoder import ReferenceRotaryEncoder
 
 def create_olmo_model(config: OLMOConfig) -> TransformerLM:
     """Create an OLMO model instance (supports OLMO2 and OLMO3)."""
-    gangs = maybe_get_current_gangs()
+    gangs = get_current_gangs()
 
     return OLMOFactory(config, gangs).create_model()
 
@@ -344,6 +345,10 @@ class OLMOFactory:
         q_norm = self.create_layer_norm(config.num_attn_heads * head_dim)
         k_norm = self.create_layer_norm(config.num_key_value_heads * head_dim)
 
+        state_factory = None
+        if is_sliding_window and config.sliding_window is not None:
+            state_factory = LocalAttentionStateFactory(config.sliding_window)
+
         return OLMOMultiheadAttention(
             config.model_dim,
             config.num_attn_heads,
@@ -355,6 +360,7 @@ class OLMOFactory:
             bias=False,
             q_norm=q_norm,
             k_norm=k_norm,
+            state_factory=state_factory,
             gangs=self._gangs,
         )
 
