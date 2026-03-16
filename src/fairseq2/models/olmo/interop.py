@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Final, cast
+from typing import Final
 
 from fairseq2.models.olmo.config import OLMOConfig
 from fairseq2.models.utils.checkpoint import convert_state_dict
@@ -56,18 +56,7 @@ def convert_olmo_state_dict(
     - Has post_feedforward_layernorm (after FFN)
     - Has Q/K Norm in attention layers
     """
-    # Handle legacy format (wrapped in "model" key)
-    try:
-        state_dict = cast(dict[str, object], state_dict["model"])
-    except KeyError:
-        pass
-
     if "model.embed_tokens.weight" in state_dict:  # HuggingFace format
-        # Note: OLMO may need RoPE weight permutation similar to LLaMA
-        # This depends on the actual checkpoint format. For now, we'll check
-        # if weights need permutation by comparing shapes.
-
-        # Apply key mapping
         state_dict = convert_state_dict(state_dict, _HG_KEY_MAP)
 
     elif "tok_embeddings.weight" in state_dict:  # Reference format

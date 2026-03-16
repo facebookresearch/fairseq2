@@ -27,11 +27,6 @@ from fairseq2.data.tokenizers.hg import (
 from fairseq2.device import Device
 from fairseq2.error import NotSupportedError
 
-# Chat template with assistant mask support.
-
-## this article shows the hg implementation on
-# https://huggingface.co/allenai/OLMo-2-1124-7B-Instruct/blob/main/tokenizer_config.json
-
 OLMO_HG_CHAT_TEMPLATE: Final = """{{ bos_token }}
 {% for message in messages %}
 {% if message['role'] == 'system' %}
@@ -45,15 +40,6 @@ OLMO_HG_CHAT_TEMPLATE: Final = """{{ bos_token }}
 {% if loop.last and add_generation_prompt %}
 {{ '<|assistant|>\n' }}{% endif %}
 {% endfor %}
-"""
-
-# chat template example
-"""
-# <|endoftext|><|user|>
-How are you doing?
-<|assistant|>
-I'm just a computer program, so I don't have feelings, but I'm
-functioning as expected. How can I assist you today?<|endoftext|>
 """
 
 
