@@ -395,3 +395,58 @@ class TestNativeLocalFileSystemEquivalence(unittest.TestCase):
         self.assertEqual(
             self.fsspec_fs.resolve(relative_path), self.native_fs.resolve(relative_path)
         )
+
+
+class TestGlobalFileSystem(unittest.TestCase):
+    """Verifies GlobalFileSystem correctly delegates local-path operations through
+    the FileSystemRegistry dispatch chain that replaced the direct LocalFileSystem singleton."""
+
+    def setUp(self) -> None:
+        from fairseq2.file_system import GlobalFileSystem
+
+        self.fs = GlobalFileSystem()
+        self.temp_dir = TemporaryDirectory()
+        self.temp_path = Path(self.temp_dir.name)
+
+    def tearDown(self) -> None:
+        self.temp_dir.cleanup()
+
+    def test_is_local_returns_false(self) -> None:
+        self.assertFalse(self.fs.is_local)
+
+    def test_is_local_path_returns_true_for_local(self) -> None:
+        self.assertTrue(self.fs.is_local_path(self.temp_path))
+
+    def test_exists_delegates_for_local_path(self) -> None:
+        file_path = self.temp_path / "test.txt"
+        file_path.write_text("content")
+
+        self.assertTrue(self.fs.exists(file_path))
+        self.assertFalse(self.fs.exists(self.temp_path / "nonexistent"))
+
+    def test_make_directory_and_open_delegate(self) -> None:
+        dir_path = self.temp_path / "subdir"
+        self.fs.make_directory(dir_path)
+
+        self.assertTrue(dir_path.is_dir())
+
+        file_path = dir_path / "test.txt"
+        with self.fs.open(file_path, FileMode.WRITE) as f:
+            f.write(b"hello")
+
+        with self.fs.open(file_path, FileMode.READ) as f:
+            self.assertEqual(f.read(), b"hello")
+
+    def test_cat_delegates_for_local_path(self) -> None:
+        file_path = self.temp_path / "test.txt"
+        file_path.write_bytes(b"cat content")
+
+        self.assertEqual(self.fs.cat(file_path), b"cat content")
+
+    def test_remove_delegates_for_local_path(self) -> None:
+        file_path = self.temp_path / "test.txt"
+        file_path.write_text("to delete")
+
+        self.fs.remove(file_path)
+
+        self.assertFalse(file_path.exists())
