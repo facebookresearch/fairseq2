@@ -4,7 +4,10 @@ All notable changes to fairseq2 are documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [0.8.0] - TBD
-- TBD
+- fsspec integration for remote filesystem support. Checkpoints can be saved to
+  and loaded from S3 via `--checkpoint-dir s3://bucket/path/`. Requires `s3fs`.
+- New `GlobalFileSystem` replaces `LocalFileSystem` as default, dispatching to
+  the appropriate backend based on URI scheme.
 
 ## [0.7.0] - Nov 4th, 2025
 - `RecipeModel` is now callable and forwards the call to `RecipeModel.module`
