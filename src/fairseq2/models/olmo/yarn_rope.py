@@ -15,13 +15,12 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.device import Device
-from fairseq2.nn import BatchLayout, IncrementalStateBag
-from fairseq2.nn.position_encoder import ReferenceRotaryEncoder
+from fairseq2.nn import BatchLayout, IncrementalStateBag, PositionEncoder
 from fairseq2.ops import unsqueeze
 
 
-class YaRNRotaryEncoder(ReferenceRotaryEncoder):  # type: ignore[misc]
-    """YaRN-scaled Rotary Position Encoder inheriting from ReferenceRotaryEncoder.
+class YaRNRotaryEncoder(PositionEncoder):
+    """YaRN-scaled Rotary Position Encoder extending PositionEncoder.
 
     Implements YaRN (Yet another RoPE extensioN) scaling for long-context extension.
     YaRN applies frequency-dependent RoPE scaling:
@@ -33,11 +32,6 @@ class YaRNRotaryEncoder(ReferenceRotaryEncoder):  # type: ignore[misc]
     exactly, as used in OLMO3 long-context models.
 
     Reference: https://arxiv.org/abs/2309.00071
-
-    Note: Inherits from ReferenceRotaryEncoder which is marked as @final.
-    The type: ignore comment suppresses the type checker warning about
-    subclassing a final class. This is intentional to maximize code reuse
-    while implementing YaRN-specific frequency scaling.
     """
 
     def __init__(
@@ -73,8 +67,7 @@ class YaRNRotaryEncoder(ReferenceRotaryEncoder):  # type: ignore[misc]
             device: The device to use for initialization.
         """
         # Store YaRN-specific parameters BEFORE calling super().__init__()
-        # because parent's __init__ calls reset_non_persistent_buffers()
-        # which needs these
+        # because reset_non_persistent_buffers() needs these.
         self.scale_factor = scale_factor
         self.original_max_seq_len = original_max_seq_len
         self.beta_fast = beta_fast
@@ -83,11 +76,39 @@ class YaRNRotaryEncoder(ReferenceRotaryEncoder):  # type: ignore[misc]
         self.mscale_all_dim = mscale_all_dim
         self.truncate = truncate
 
-        # Compute attention scaling factor (needed before parent init)
+        # Compute attention scaling factor (needed before buffer init)
         self.attention_scaling = self._compute_attention_scaling()
 
-        # Initialize parent class (this will call reset_non_persistent_buffers)
-        super().__init__(encoding_dim, max_seq_len, theta=theta, device=device)
+        # Initialize parent class (sets self.encoding_dim)
+        super().__init__(encoding_dim)
+
+        # Validate encoding_dim is even
+        if encoding_dim % 2 != 0:
+            raise ValueError(
+                f"`encoding_dim` must be even, but is {encoding_dim} instead."
+            )
+
+        # Register cos/sin frequency buffers
+        cos_freqs = torch.empty(
+            (max_seq_len + 1, encoding_dim), device=device, dtype=torch.float32
+        )
+        sin_freqs = torch.empty(
+            (max_seq_len + 1, encoding_dim), device=device, dtype=torch.float32
+        )
+
+        self.cos_freqs: Tensor
+        self.sin_freqs: Tensor
+
+        self.register_buffer("cos_freqs", cos_freqs, persistent=False)
+        self.register_buffer("sin_freqs", sin_freqs, persistent=False)
+
+        self.max_seq_len = max_seq_len
+        self.theta = theta
+
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        self.reset_non_persistent_buffers()
 
     def _compute_attention_scaling(self) -> float:
         """Compute attention scaling factor (mscale) for YaRN."""
@@ -268,6 +289,12 @@ class YaRNRotaryEncoder(ReferenceRotaryEncoder):  # type: ignore[misc]
         fp32_seqs = (fp32_seqs * cos_freqs) + (fp32_rotated_seqs * sin_freqs)
 
         return fp32_seqs.type_as(seqs)
+
+    def _rotate_half_way(self, seqs: Tensor) -> Tensor:
+        half1 = seqs[..., : self.encoding_dim // 2]
+        half2 = seqs[..., self.encoding_dim // 2 :]
+
+        return torch.cat((-half2, half1), dim=-1)
 
     @override
     def extra_repr(self) -> str:

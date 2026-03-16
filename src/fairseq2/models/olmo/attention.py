@@ -11,25 +11,44 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.gang import Gangs
-from fairseq2.models.transformer import StandardMultiheadAttention
 from fairseq2.models.transformer.attention_bias import AttentionBiasCache
+from fairseq2.models.transformer.multihead_attention import (
+    AttentionStateFactory,
+    MultiheadAttention,
+    init_mha_output_projection,
+    init_qkv_projection,
+)
 from fairseq2.models.transformer.sdpa.base import SDPA
 from fairseq2.nn import (
     BatchLayout,
+    ColumnShardedLinear,
     IncrementalStateBag,
     LayerNorm,
     Linear,
     PositionEncoder,
     Projection,
+    RowShardedLinear,
 )
+from fairseq2.nn.utils.module import get_name_or_self
 
 
-class OLMOMultiheadAttention(StandardMultiheadAttention):  # type: ignore[misc]
-    """OLMO Multi-head Attention with Q/K normalization and rotary encoding."""
+class OLMOMultiheadAttention(MultiheadAttention):
+    """OLMO Multi-head Attention with Q/K normalization and rotary encoding.
+
+    This class inherits directly from :class:`MultiheadAttention` (the abstract
+    base) and inlines the projection/norm setup that
+    :class:`StandardMultiheadAttention` provides, but omits the ``pos_encoder``
+    parameter (OLMO uses ``rope_encoder`` instead) and the incremental
+    KV-caching logic in ``forward()``.
+
+    ``state_factory`` is accepted for API compatibility but is unused by
+    ``forward()``.  ``state_bag`` is forwarded to ``rope_encoder`` only.
+    """
 
     rope_encoder: PositionEncoder | None
 
@@ -53,43 +72,186 @@ class OLMOMultiheadAttention(StandardMultiheadAttention):  # type: ignore[misc]
         output_proj_init_fn: Callable[[Linear], None] | None = None,
         bias: bool = True,
         output_proj_bias: bool | None = None,
-        state_factory: object = None,  # type: ignore[assignment]
+        state_factory: AttentionStateFactory | None = None,
         gangs: Gangs | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
-        """Initialize OLMO2 Multi-head Attention.
+        super().__init__()
 
-        Args:
-            rope_encoder: rotary encoder applied to queries and keys after projection.
-            All other parameters are passed through to StandardMultiheadAttention.
-        """
-        super().__init__(
-            model_dim=model_dim,
-            num_heads=num_heads,
-            sdpa=sdpa,
-            head_dim=head_dim,
-            num_key_value_heads=num_key_value_heads,
-            kv_dim=kv_dim,
-            q_proj=q_proj,
-            k_proj=k_proj,
-            v_proj=v_proj,
-            qkv_proj_init_fn=qkv_proj_init_fn,
-            q_norm=q_norm,
-            k_norm=k_norm,
-            pos_encoder=None,
-            output_proj=output_proj,
-            output_proj_init_fn=output_proj_init_fn,
-            bias=bias,
-            output_proj_bias=output_proj_bias,
-            state_factory=state_factory,  # type: ignore[arg-type]
-            gangs=gangs,
-            device=device,
-            dtype=dtype,
-        )
+        # --- num_heads / num_key_value_heads validation ---
+        self.num_heads = num_heads
+
+        if num_key_value_heads is None:
+            num_key_value_heads = num_heads
+        else:
+            if num_heads < num_key_value_heads:
+                raise ValueError(
+                    f"`num_heads` must be greater than or equal to "
+                    f"`num_key_value_heads` ({num_key_value_heads}), "
+                    f"but is {num_heads} instead."
+                )
+            if num_heads % num_key_value_heads != 0:
+                raise ValueError(
+                    f"`num_heads` must be a multiple of "
+                    f"`num_key_value_heads` ({num_key_value_heads}), "
+                    f"but is {num_heads} instead."
+                )
+
+        self.num_key_value_heads = num_key_value_heads
+
+        if head_dim is None:
+            head_dim = model_dim // num_heads
+
+        self.head_dim = head_dim
+
+        if kv_dim is None:
+            kv_dim = model_dim
+
+        self.kv_dim = kv_dim
+
+        self.num_query_groups = num_heads // num_key_value_heads
+
+        # --- Q / K / V projections ---
+        if q_proj is None and k_proj is None and v_proj is None:
+            self.q_proj: Projection = ColumnShardedLinear(
+                model_dim,
+                head_dim * num_heads,
+                bias,
+                gather_output=False,
+                init_fn=qkv_proj_init_fn or init_qkv_projection,
+                gangs=gangs,
+                device=device,
+                dtype=dtype,
+            )
+            self.k_proj: Projection = ColumnShardedLinear(
+                kv_dim,
+                head_dim * num_key_value_heads,
+                bias,
+                gather_output=False,
+                init_fn=qkv_proj_init_fn or init_qkv_projection,
+                gangs=gangs,
+                device=device,
+                dtype=dtype,
+            )
+            self.v_proj: Projection = ColumnShardedLinear(
+                kv_dim,
+                head_dim * num_key_value_heads,
+                bias,
+                gather_output=False,
+                init_fn=qkv_proj_init_fn or init_qkv_projection,
+                gangs=gangs,
+                device=device,
+                dtype=dtype,
+            )
+        else:
+            if q_proj is None or k_proj is None or v_proj is None:
+                raise ValueError(
+                    "`q_proj`, `k_proj`, `v_proj` must be all specified."
+                )
+
+            if qkv_proj_init_fn is not None:
+                raise ValueError(
+                    "`qkv_proj_init_fn` must not be specified when "
+                    "`q_proj`, `k_proj`, `v_proj` are specified."
+                )
+
+            if q_proj.input_dim != kv_dim:
+                raise ValueError(
+                    f"`q_proj.input_dim` must be equal to `kv_dim` "
+                    f"({kv_dim}), but is {q_proj.input_dim} instead."
+                )
+
+            k_dim = k_proj.output_dim * self.num_query_groups
+            if k_dim != q_proj.output_dim:
+                raise ValueError(
+                    f"`q_proj.output_dim` and `k_proj.output_dim` (or times "
+                    f"the number of query groups when GQA) must be equal, "
+                    f"but they are {q_proj.output_dim} and {k_dim} instead."
+                )
+
+            if k_proj.output_dim % num_key_value_heads != 0:
+                raise ValueError(
+                    f"`k_proj.output_dim` must be a multiple of "
+                    f"`num_key_value_heads` ({num_key_value_heads}), "
+                    f"but is {k_proj.output_dim} instead."
+                )
+
+            if v_proj.output_dim % num_key_value_heads != 0:
+                raise ValueError(
+                    f"`v_proj.output_dim` must be a multiple of "
+                    f"`num_key_value_heads` ({num_key_value_heads}), "
+                    f"but is {v_proj.output_dim} instead."
+                )
+
+            self.q_proj = q_proj
+            self.k_proj = k_proj
+            self.v_proj = v_proj
+
+        # --- Q / K norms ---
+        self.q_norm: LayerNorm | None
+        self.k_norm: LayerNorm | None
+
+        self.register_module("q_norm", q_norm)
+        self.register_module("k_norm", k_norm)
+
+        # --- Rope encoder ---
+        if rope_encoder is not None:
+            if head_dim != rope_encoder.encoding_dim:
+                raise ValueError(
+                    f"`rope_encoder.encoding_dim` must be equal to the size "
+                    f"of the head dimension ({head_dim}), but is "
+                    f"{rope_encoder.encoding_dim} instead."
+                )
 
         self.rope_encoder = rope_encoder
 
+        # --- SDPA ---
+        self.sdpa = sdpa
+
+        # --- Output projection ---
+        v_dim = self.v_proj.output_dim * self.num_query_groups
+
+        if output_proj is None:
+            if output_proj_bias is None:
+                output_proj_bias = bias
+
+            self.output_proj: Projection = RowShardedLinear(
+                v_dim,
+                model_dim,
+                output_proj_bias,
+                scatter_input=False,
+                init_fn=output_proj_init_fn or init_mha_output_projection,
+                gangs=gangs,
+                device=device,
+                dtype=dtype,
+            )
+        else:
+            if output_proj_init_fn is not None:
+                raise ValueError(
+                    "`output_proj_init_fn` must not be specified when "
+                    "`output_proj` is specified."
+                )
+
+            if v_dim != output_proj.input_dim:
+                raise ValueError(
+                    f"`v_proj.output_dim` (or times the number of query "
+                    f"groups when GQA) and `output_proj.input_dim` must be "
+                    f"equal, but they are {v_dim} and "
+                    f"{output_proj.input_dim} instead."
+                )
+
+            if output_proj.output_dim != model_dim:
+                raise ValueError(
+                    f"`output_proj.output_dim` must be equal to `model_dim` "
+                    f"({model_dim}), but is {output_proj.output_dim} instead."
+                )
+
+            self.output_proj = output_proj
+
+        self.state_factory = state_factory
+
+    @override
     def forward(
         self,
         seqs: Tensor,
@@ -141,3 +303,21 @@ class OLMOMultiheadAttention(StandardMultiheadAttention):  # type: ignore[misc]
 
         # Output projection: (N, S, V_proj) -> (N, S, M)
         return self.output_proj(attns)
+
+    @override
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        s = f"num_heads={self.num_heads}"
+
+        if self.num_key_value_heads != self.num_heads:
+            s = f"{s}, num_key_value_heads={self.num_key_value_heads}"
+
+        if self.num_query_groups > 1:
+            s = f"{s}, num_query_groups={self.num_query_groups}"
+
+        if self.state_factory is not None:
+            state_factory = get_name_or_self(self.state_factory)
+
+            s = f"{s}, state_factory={state_factory}"
+
+        return s
