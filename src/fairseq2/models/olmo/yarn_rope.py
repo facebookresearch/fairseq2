@@ -11,13 +11,12 @@ from __future__ import annotations
 import math
 
 import torch
-from torch import Tensor
-from typing_extensions import override
-
 from fairseq2.device import Device
 from fairseq2.nn import BatchLayout, IncrementalStateBag
 from fairseq2.nn.position_encoder import ReferenceRotaryEncoder
 from fairseq2.ops import unsqueeze
+from torch import Tensor
+from typing_extensions import override
 
 
 class YaRNRotaryEncoder(ReferenceRotaryEncoder):  # type: ignore[misc]
@@ -201,9 +200,7 @@ class YaRNRotaryEncoder(ReferenceRotaryEncoder):  # type: ignore[misc]
 
         # Blend: where ramp=0 (high freq) use extrapolation,
         # where ramp=1 (low freq) use interpolation
-        inv_freq = (
-            inv_freq_interpolation * (1 - ramp) + inv_freq_extrapolation * ramp
-        )
+        inv_freq = inv_freq_interpolation * (1 - ramp) + inv_freq_extrapolation * ramp
 
         return inv_freq
 
