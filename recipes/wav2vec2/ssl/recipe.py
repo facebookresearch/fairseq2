@@ -13,11 +13,13 @@ from typing_extensions import override
 
 from fairseq2.composition import register_dataset_family
 from fairseq2.datasets import SequenceBatch, SyncMode
+from fairseq2.evaluator import EvalUnit
 from fairseq2.metrics import MetricBag
-from fairseq2.recipe import EvalUnit, RecipeModel, Trainer, TrainUnit
+from fairseq2.recipe import RecipeModel
 from fairseq2.recipe.base import RecipeContext, TrainRecipe
 from fairseq2.recipe.error import RecipeError
 from fairseq2.runtime.dependency import DependencyContainer
+from fairseq2.trainer import Trainer, TrainUnit
 
 from .config import Wav2Vec2SslRecipeConfig
 from .criterion import Wav2Vec2SslCriterion

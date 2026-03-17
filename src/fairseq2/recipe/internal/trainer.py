@@ -7,19 +7,15 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Sequence, final
+from typing import Sequence, final
 
 import torch
 from torch.optim import Optimizer
 
-if TYPE_CHECKING:
-    from fairseq2.evaluator import EvalUnit
-
-from fairseq2.trainer import BatchT, Trainer, TrainUnit
-
 from fairseq2.checkpoint import NOOP_HG_EXPORTER, HuggingFaceExporter
 from fairseq2.datasets import DataReader
 from fairseq2.early_stopper import NOOP_EARLY_STOPPER
+from fairseq2.evaluator import EvalUnit
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
 from fairseq2.metrics.recorders import (
@@ -47,6 +43,7 @@ from fairseq2.recipe.error import (
 )
 from fairseq2.recipe.internal.model import _ModelHolder
 from fairseq2.runtime.lookup import Lookup
+from fairseq2.trainer import BatchT, Trainer, TrainUnit
 from fairseq2.utils.gc import (
     NOOP_GARBAGE_COLLECTOR,
     GarbageCollector,

@@ -22,10 +22,11 @@ from fairseq2.models import (
     ShardSpecsProvider,
     StandardModelFamily,
 )
-from fairseq2.models.hg import HuggingFaceConverter, _LegacyHuggingFaceConverter
 from fairseq2.models.hg import (
     HG_FAMILY,
+    HuggingFaceConverter,
     HuggingFaceModelConfig,
+    _LegacyHuggingFaceConverter,
     apply_fsdp_to_hg_transformer_lm,
     create_hg_model,
     register_hg_configs,

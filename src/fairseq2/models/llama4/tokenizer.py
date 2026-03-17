@@ -24,24 +24,23 @@ def get_reserved_special_tokens(
 
 
 # 200005, ..., 200079
-LLAMA4_TEXT_POST_TRAIN_SPECIAL_TOKENS = (
-    [
-        "<|header_start|>",
-        "<|header_end|>",
-        "<|eom|>",
-        "<|eot|>",
-        "<|step|>",
-        "<|text_post_train_reserved_special_token_0|>",
-        "<|text_post_train_reserved_special_token_1|>",
-        "<|text_post_train_reserved_special_token_2|>",
-        "<|text_post_train_reserved_special_token_3|>",
-        "<|text_post_train_reserved_special_token_4|>",
-        "<|text_post_train_reserved_special_token_5|>",
-        "<|text_post_train_reserved_special_token_6|>",
-        "<|text_post_train_reserved_special_token_7|>",
-        "<|finetune_right_pad|>",
-    ]
-    + get_reserved_special_tokens("text_post_train", 61, 8)
+LLAMA4_TEXT_POST_TRAIN_SPECIAL_TOKENS = [
+    "<|header_start|>",
+    "<|header_end|>",
+    "<|eom|>",
+    "<|eot|>",
+    "<|step|>",
+    "<|text_post_train_reserved_special_token_0|>",
+    "<|text_post_train_reserved_special_token_1|>",
+    "<|text_post_train_reserved_special_token_2|>",
+    "<|text_post_train_reserved_special_token_3|>",
+    "<|text_post_train_reserved_special_token_4|>",
+    "<|text_post_train_reserved_special_token_5|>",
+    "<|text_post_train_reserved_special_token_6|>",
+    "<|text_post_train_reserved_special_token_7|>",
+    "<|finetune_right_pad|>",
+] + get_reserved_special_tokens(
+    "text_post_train", 61, 8
 )  # <|text_post_train_reserved_special_token_6|>, ..., <|text_post_train_reserved_special_token_66|>
 
 # 200080, ..., 201133

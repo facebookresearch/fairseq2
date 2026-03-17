@@ -75,7 +75,9 @@ else:
             if override:
                 token_indices[f"{token_type}_idx"] = tok.convert_tokens_to_ids(override)
             else:
-                token_indices[f"{token_type}_idx"] = getattr(tok, f"{token_type}_token_id", None)
+                token_indices[f"{token_type}_idx"] = getattr(
+                    tok, f"{token_type}_token_id", None
+                )
 
         vocab_info = VocabularyInfo(vocab_size, **token_indices)
 

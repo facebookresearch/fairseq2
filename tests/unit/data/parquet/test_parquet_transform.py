@@ -91,9 +91,9 @@ class TestShuffleTable:
         shuffled2 = shuffle_table(table, random_state2)
 
         # Both shuffles should yield the same order
-        assert shuffled1.equals(shuffled2), (
-            "Shuffling with the same seed should produce identical results"
-        )
+        assert shuffled1.equals(
+            shuffled2
+        ), "Shuffling with the same seed should produce identical results"
 
     def test_shuffle_table_empty(self) -> None:
         table = pa.table({"col1": []})
@@ -102,9 +102,9 @@ class TestShuffleTable:
 
         assert shuffled.num_rows == 0
         assert shuffled.num_columns == 1
-        assert shuffled.equals(table), (
-            "Shuffling an empty table should return the same (empty) table"
-        )
+        assert shuffled.equals(
+            table
+        ), "Shuffling an empty table should return the same (empty) table"
 
 
 class TestApplyFilter:
@@ -162,9 +162,9 @@ class TestConcatTable:
         # Expect a table with 4 rows
         assert combined.num_rows == 4
         # Combined chunks: With combine=True, ideally 1 chunk
-        assert len(combined.column(0).chunks) == 1, (
-            "Should combine chunks into a single chunk"
-        )
+        assert (
+            len(combined.column(0).chunks) == 1
+        ), "Should combine chunks into a single chunk"
         # Data check
         expected = pa.table({"col1": [1, 2, 3, 4], "col2": ["a", "b", "c", "d"]})
         assert combined.equals(expected)
@@ -228,9 +228,9 @@ class TestFilterStringsByLength:
         # All strings have length between 3 and 5, so none should be filtered.
         result = filter_strings_by_length(table, column="texts", min_len=3, max_len=6)
         # Should return the same table
-        assert result.equals(table), (
-            "All rows pass => function should return the original table"
-        )
+        assert result.equals(
+            table
+        ), "All rows pass => function should return the original table"
 
     def test_filter_strings_by_length_min_len(self) -> None:
         """

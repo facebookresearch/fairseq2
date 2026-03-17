@@ -12,7 +12,7 @@ from typing_extensions import override
 
 from fairseq2.composition import register_dataset_family
 from fairseq2.datasets.data_reader import SyncMode
-from fairseq2.recipe import Evaluator
+from fairseq2.evaluator import Evaluator
 from fairseq2.recipe.base import EvalRecipe, RecipeContext
 from fairseq2.recipe.error import RecipeError
 from fairseq2.runtime.dependency import DependencyContainer

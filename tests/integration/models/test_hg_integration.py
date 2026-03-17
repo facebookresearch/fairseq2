@@ -15,9 +15,9 @@ without downloading real models. All HF calls are mocked.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
-import pytest
 import torch
 
 from fairseq2.models.hg.adapter import HgCausalLMAdapter
@@ -34,17 +34,17 @@ from fairseq2.models.hg.factory import (
 )
 
 
-def _make_mock_hf_causal_model():
+def _make_mock_hf_causal_model() -> torch.nn.Module:
     """Create a real Module-based mock for causal LM (needed by add_module)."""
 
     class FakeCausalLM(torch.nn.Module):
-        def __init__(self):
+        def __init__(self) -> None:
             super().__init__()
             self.embed_tokens = torch.nn.Embedding(50257, 768)
             self.config = MagicMock()
             self.config.max_position_embeddings = 1024
 
-        def forward(self, **kwargs):
+        def forward(self, **kwargs: Any) -> Any:
             output = MagicMock()
             output.loss = torch.tensor(2.5)
             input_ids = kwargs.get("input_ids", torch.zeros(1, 5, dtype=torch.long))
@@ -54,7 +54,7 @@ def _make_mock_hf_causal_model():
     return FakeCausalLM()
 
 
-def _make_mock_hf_seq2seq_model():
+def _make_mock_hf_seq2seq_model() -> MagicMock:
     """Create a mock HF seq2seq model."""
     model = MagicMock()
     model.config = MagicMock()
@@ -171,7 +171,7 @@ class TestLoadHgModelSimpleAPI:
         mock_model = MagicMock()
         mock_auto_model.from_pretrained.return_value = mock_model
 
-        result = load_hg_model_simple("bert-base-uncased", model_type="auto")
+        load_hg_model_simple("bert-base-uncased", model_type="auto")
 
         mock_auto_model.from_pretrained.assert_called_once()
 
@@ -249,16 +249,14 @@ class TestLoadTokenizerAPI:
         mock_tok.pad_token_id = None
         mock_auto_tok.from_pretrained.return_value = mock_tok
 
-        tokenizer = load_hg_tokenizer_simple("gpt2")
+        tokenizer = load_hg_tokenizer_simple("gpt2")  # noqa: F841
 
         mock_auto_tok.from_pretrained.assert_called_once()
         call_args = mock_auto_tok.from_pretrained.call_args
         assert str(call_args[0][0]) == "gpt2"
 
     @patch("fairseq2.data.tokenizers.hg.AutoTokenizer")
-    def test_tokenizer_vocab_info_populated(
-        self, mock_auto_tok: MagicMock
-    ) -> None:
+    def test_tokenizer_vocab_info_populated(self, mock_auto_tok: MagicMock) -> None:
         """Tokenizer vocab_info should reflect the HF tokenizer's properties."""
         mock_tok = MagicMock()
         mock_tok.vocab_size = 32000
@@ -276,9 +274,7 @@ class TestLoadTokenizerAPI:
         assert vocab_info.eos_idx == 2
 
     @patch("fairseq2.data.tokenizers.hg.AutoTokenizer")
-    def test_tokenizer_custom_special_tokens(
-        self, mock_auto_tok: MagicMock
-    ) -> None:
+    def test_tokenizer_custom_special_tokens(self, mock_auto_tok: MagicMock) -> None:
         """Custom special tokens should be resolved via convert_tokens_to_ids."""
         mock_tok = MagicMock()
         mock_tok.vocab_size = 50257
@@ -301,9 +297,7 @@ class TestLoadTokenizerAPI:
         assert vocab_info.eos_idx == 50255
 
     @patch("fairseq2.data.tokenizers.hg.AutoTokenizer")
-    def test_vocab_size_uses_base_vocab_not_len(
-        self, mock_auto_tok: MagicMock
-    ) -> None:
+    def test_vocab_size_uses_base_vocab_not_len(self, mock_auto_tok: MagicMock) -> None:
         """vocab_info.size should use tok.vocab_size (base vocab), not len(tok) (base + added tokens).
 
         HF tokenizers distinguish between base vocab (vocab_size property) and

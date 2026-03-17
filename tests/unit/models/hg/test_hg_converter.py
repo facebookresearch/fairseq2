@@ -147,7 +147,7 @@ class TestSaveHuggingFaceModel:
 
         mock_transformers.FakeConfig = FakeConfig
 
-        state_dict = {"layer.weight": torch.randn(10, 10)}
+        state_dict: dict[str, object] = {"layer.weight": torch.randn(10, 10)}
         config = HuggingFaceConfig(data={}, kls_name="FakeConfig", arch="FakeArch")
         save_hugging_face_model(Path("/tmp/test"), state_dict, config)
 

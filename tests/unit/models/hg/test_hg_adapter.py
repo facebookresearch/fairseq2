@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, PropertyMock, patch
+from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 import torch
@@ -28,7 +29,9 @@ def _make_hf_embedding(
     padding_idx: int | None = None,
 ) -> MagicMock:
     """Create a mock HuggingFace embedding layer."""
-    embed = MagicMock(spec=["num_embeddings", "embedding_dim", "padding_idx", "forward", "__call__"])
+    embed = MagicMock(
+        spec=["num_embeddings", "embedding_dim", "padding_idx", "forward", "__call__"]
+    )
     embed.num_embeddings = num_embeddings
     embed.embedding_dim = embedding_dim
     embed.padding_idx = padding_idx
@@ -41,7 +44,7 @@ def _make_hf_model(
     embedding_dim: int = 768,
     has_config: bool = True,
     has_gradient_checkpointing: bool = False,
-) -> MagicMock:
+) -> tuple[MagicMock, MagicMock]:
     """Create a mock HuggingFace model with an embedding layer."""
     model = MagicMock(spec=Module)
     model._modules = {}
@@ -54,7 +57,7 @@ def _make_hf_model(
             delattr(model, attr)
 
     # Configure mock to only have the specified embedding attribute
-    def getattr_side_effect(name: str):
+    def getattr_side_effect(name: str) -> Any:
         if name == embed_attr:
             return embed
         # For dotted paths, handle the first part
@@ -70,9 +73,11 @@ def _make_hf_model(
             return sub
         raise AttributeError(f"Mock has no attribute '{name}'")
 
-    model.__getattr__ = getattr_side_effect
+    model.__getattr__ = getattr_side_effect  # type: ignore[method-assign]
     # Make getattr work through the mock
-    model.configure_mock(**{embed_attr.split(".")[0]: getattr_side_effect(embed_attr.split(".")[0])})
+    model.configure_mock(
+        **{embed_attr.split(".")[0]: getattr_side_effect(embed_attr.split(".")[0])}
+    )
 
     if has_config:
         config = MagicMock()
@@ -102,10 +107,10 @@ def _make_simple_hf_model(embed_attr: str = "embed_tokens") -> tuple[Module, Mod
                 setattr(sub, parts[1], self._embed)
                 setattr(self, parts[0], sub)
 
-        def forward(self, **kwargs):
+        def forward(self, **kwargs: Any) -> Any:
             # Simulate HF model output
             output = MagicMock()
-            input_ids = kwargs.get("input_ids")
+            input_ids: Tensor = kwargs["input_ids"]
             batch_size, seq_len = input_ids.shape
             if "labels" in kwargs:
                 output.loss = torch.tensor(2.5)
@@ -213,7 +218,7 @@ class TestHgCausalLMAdapter:
         """Model with no known embedding attr raises LookupError."""
 
         class NoEmbedModel(Module):
-            def forward(self, **kwargs):
+            def forward(self, **kwargs: Any) -> None:
                 pass
 
         model = NoEmbedModel()
@@ -228,14 +233,14 @@ class TestHgCausalLMAdapter:
                 super().__init__()
                 self.embed_tokens = torch.nn.Embedding(100, 32)
 
-            def gradient_checkpointing_enable(self):
+            def gradient_checkpointing_enable(self) -> None:
                 pass  # Does nothing
 
             @property
-            def is_gradient_checkpointing(self):
+            def is_gradient_checkpointing(self) -> bool:
                 return False  # Always reports disabled
 
-            def forward(self, **kwargs):
+            def forward(self, **kwargs: Any) -> None:
                 pass
 
         model = BadGCModel()
@@ -250,14 +255,16 @@ class TestHgCausalLMAdapter:
                 super().__init__()
                 self.embed_tokens = torch.nn.Embedding(100, 32)
 
-            def gradient_checkpointing_enable(self):
+            def gradient_checkpointing_enable(self) -> None:
                 raise ValueError("CUDA required")
 
-            def forward(self, **kwargs):
+            def forward(self, **kwargs: Any) -> None:
                 pass
 
         model = ExplodingGCModel()
-        with pytest.raises(RuntimeError, match="Failed to enable gradient checkpointing"):
+        with pytest.raises(
+            RuntimeError, match="Failed to enable gradient checkpointing"
+        ):
             HgCausalLMAdapter(model, enable_gradient_checkpointing=True)
 
     def test_getattr_private_attr_raises(self) -> None:
@@ -275,7 +282,7 @@ class TestHgCausalLMAdapter:
                 super().__init__()
                 self.embed_tokens = torch.nn.Embedding(100, 32)
 
-            def forward(self, **kwargs):
+            def forward(self, **kwargs: Any) -> None:
                 pass
 
         model = MinimalModel()
@@ -322,7 +329,7 @@ class TestHgCausalLMAdapter:
                 super().__init__()
                 self.embed_tokens = torch.nn.Embedding(100, 32)
 
-            def forward(self, **kwargs):
+            def forward(self, **kwargs: Any) -> Any:
                 output = MagicMock()
                 input_ids = kwargs["input_ids"]
                 b, s = input_ids.shape
@@ -415,18 +422,18 @@ class TestHgCausalLMAdapter:
                 self.embed_tokens = torch.nn.Embedding(100, 32)
                 self._gc_enabled = False
 
-            def gradient_checkpointing_enable(self):
+            def gradient_checkpointing_enable(self) -> None:
                 self._gc_enabled = True
 
             @property
-            def is_gradient_checkpointing(self):
+            def is_gradient_checkpointing(self) -> bool:
                 return self._gc_enabled
 
-            def forward(self, **kwargs):
+            def forward(self, **kwargs: Any) -> None:
                 pass
 
         model = GCModel()
-        adapter = HgCausalLMAdapter(model, enable_gradient_checkpointing=True)
+        HgCausalLMAdapter(model, enable_gradient_checkpointing=True)
         assert model._gc_enabled
 
     def test_gradient_checkpointing_unsupported(self) -> None:
@@ -435,11 +442,13 @@ class TestHgCausalLMAdapter:
                 super().__init__()
                 self.embed_tokens = torch.nn.Embedding(100, 32)
 
-            def forward(self, **kwargs):
+            def forward(self, **kwargs: Any) -> None:
                 pass
 
         model = NoGCModel()
-        with pytest.raises(RuntimeError, match="does not support gradient checkpointing"):
+        with pytest.raises(
+            RuntimeError, match="does not support gradient checkpointing"
+        ):
             HgCausalLMAdapter(model, enable_gradient_checkpointing=True)
 
     def test_getattr_delegates_to_hf_model(self) -> None:
@@ -449,7 +458,7 @@ class TestHgCausalLMAdapter:
                 self.embed_tokens = torch.nn.Embedding(100, 32)
                 self.custom_attr = "hello"
 
-            def forward(self, **kwargs):
+            def forward(self, **kwargs: Any) -> None:
                 pass
 
         model = CustomModel()
