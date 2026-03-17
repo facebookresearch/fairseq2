@@ -40,6 +40,7 @@ other content generation tasks.
     :caption: Guides
 
     guides/add_model
+    guides/hg_sft_example
     guides/pudb
 
 .. toctree::
