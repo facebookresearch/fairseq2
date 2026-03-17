@@ -14,7 +14,6 @@ model classes, and error handling.
 
 from __future__ import annotations
 
-import copy
 import importlib
 import re
 from pathlib import Path
@@ -295,9 +294,8 @@ def _simple_shard_qwen_omni_model(
     qkv_pattern_c = re.compile("[.]q_|[.]k_|[.]v_|_[qkv]$|[.][qkv]$")
     out_pattern_c = re.compile("out|[.]o_|_o$|[.]o$|[.]proj$")
 
-    fs_model = copy.copy(model)
-
-    progress_bar = tqdm(total=len(list(model.modules())))
+    # Collect replacements first to avoid mutating the model while iterating.
+    replacements: list[tuple[str, object]] = []
 
     gang = gangs.tp
 
@@ -308,8 +306,7 @@ def _simple_shard_qwen_omni_model(
             or isinstance(module, Qwen2_5OmniAttention)
             or isinstance(module, DiTAttention)
         ):
-            sharded_attn_head = module.to(gang.device)
-            _replace_layer(fs_model, name, sharded_attn_head)
+            replacements.append((name, module.to(gang.device)))
 
         # Place gated and projection layers, MLP, FFN according to gang sharding strategy
         elif isinstance(module, torch.nn.Linear):
@@ -327,14 +324,14 @@ def _simple_shard_qwen_omni_model(
                     dtype=dtype,
                     device=gang.device,
                 )
-                state_dict = module.state_dict()
-                fs_proj.load_state_dict(state_dict)
+                fs_proj.load_state_dict(module.state_dict())
+                replacements.append((name, fs_proj))
 
-                _replace_layer(fs_model, name, fs_proj)
+    # Apply all replacements in-place.
+    for name, replacement in tqdm(replacements):
+        _replace_layer(model, name, replacement)
 
-        progress_bar.update(1)
-
-    return fs_model
+    return model
 
 
 def _load_special_model(
