@@ -144,7 +144,7 @@ def main() -> None:
         args.model_name,
         model_type="causal_lm",
         trust_remote_code=True,
-        dtype="bfloat16",
+        dtype=torch.bfloat16,
         attn_implementation="eager",  # Disable Flash Attention for determinism
     )
 

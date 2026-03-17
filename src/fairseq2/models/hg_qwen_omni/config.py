@@ -22,6 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Final
 
+from fairseq2.data_type import DataType
 from fairseq2.runtime.config_registry import ConfigRegistrar
 from fairseq2.runtime.dependency import DependencyContainer
 
@@ -47,7 +48,7 @@ class HuggingFaceModelConfig:
         cases
     :param trust_remote_code: Whether to trust remote code for custom
         architectures
-    :param dtype: PyTorch dtype to use ('auto', 'float16', 'bfloat16', etc.)
+    :param dtype: PyTorch dtype to use. None means 'auto' (let HuggingFace decide)
     :param load_kwargs: Additional kwargs to pass to from_pretrained
     :param enable_gradient_checkpointing: Whether to enable gradient checkpointing
         to reduce memory usage during training (only for causal_lm models)
@@ -83,8 +84,8 @@ class HuggingFaceModelConfig:
     trust_remote_code: bool = False
     """Whether to trust remote code for custom architectures."""
 
-    dtype: str = "auto"
-    """PyTorch dtype to use ('auto', 'float16', 'bfloat16', etc.)."""
+    dtype: DataType | None = None
+    """PyTorch dtype to use. None means 'auto' (let HuggingFace decide)."""
 
     load_kwargs: dict[str, Any] | None = None
     """Additional kwargs to pass to from_pretrained."""

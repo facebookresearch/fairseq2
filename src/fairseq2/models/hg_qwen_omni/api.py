@@ -36,6 +36,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from fairseq2.data_type import DataType
 from fairseq2.models.hg_qwen_omni.config import HuggingFaceModelConfig
 from fairseq2.models.hg_qwen_omni.factory import create_hg_model
 from fairseq2.models.hg_qwen_omni.tokenizer import (
@@ -52,7 +53,7 @@ def load_hg_model_simple(
     use_processor: bool = False,
     device: str = "cpu",
     trust_remote_code: bool = False,
-    dtype: str = "auto",
+    dtype: DataType | None = None,
     **kwargs: Any,
 ) -> Any:
     """Load a HuggingFace model with simplified configuration.
@@ -65,7 +66,7 @@ def load_hg_model_simple(
     :param use_processor: Whether to use AutoProcessor instead of AutoTokenizer
     :param device: Device placement ('cpu', 'cuda:0', or 'auto' for HF accelerate)
     :param trust_remote_code: Whether to trust remote code for custom architectures
-    :param dtype: PyTorch dtype to use ('auto', 'float16', 'bfloat16', etc.)
+    :param dtype: PyTorch dtype to use. None means 'auto' (let HuggingFace decide)
     :param kwargs: Additional kwargs passed to from_pretrained
     :returns: The loaded HuggingFace model
 

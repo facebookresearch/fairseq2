@@ -44,7 +44,6 @@ from fairseq2.file_system import LocalFileSystem
 from fairseq2.gang import (
     Gangs,
     get_current_gangs,
-    get_default_gangs,
 )
 from fairseq2.logging import log
 from fairseq2.models.hg_qwen_omni.adapter import wrap_hg_model_if_causal_lm
@@ -178,10 +177,6 @@ def create_hg_model(config: HuggingFaceModelConfig) -> Any:
     """
 
     if torch.cuda.is_available():
-        default_gangs = get_default_gangs()
-        with default_gangs:
-            gangs = get_current_gangs()
-
         gangs = get_current_gangs()
         return HgFactory(config, gangs).create_model()
     else:
@@ -547,16 +542,8 @@ def _get_model_path(config: HuggingFaceModelConfig) -> Path:
 
 def _set_dtype_kwargs(config: HuggingFaceModelConfig, kwargs: Dict[str, Any]) -> None:
     """Set dtype-related kwargs."""
-    if config.dtype != "auto":
-        import torch
-
-        dtype_map = {
-            "float16": torch.float16,
-            "bfloat16": torch.bfloat16,
-            "float32": torch.float32,
-        }
-        if config.dtype in dtype_map:
-            kwargs["dtype"] = dtype_map[config.dtype]
+    if config.dtype is not None:
+        kwargs["dtype"] = config.dtype
     else:
         kwargs["dtype"] = "auto"
 

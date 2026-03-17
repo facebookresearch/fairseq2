@@ -111,7 +111,7 @@ class TestLoadCausalLmAPI:
         mock_model = _make_mock_hf_causal_model()
         mock_auto_causal.from_pretrained.return_value = mock_model
 
-        load_causal_lm("meta-llama/Llama-2-7b", dtype="float16")
+        load_causal_lm("meta-llama/Llama-2-7b", dtype=torch.float16)
 
         call_kwargs = mock_auto_causal.from_pretrained.call_args[1]
         assert call_kwargs.get("dtype") == torch.float16

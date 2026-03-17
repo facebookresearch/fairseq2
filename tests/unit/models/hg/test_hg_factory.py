@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 
-from fairseq2.gang import get_current_gangs, get_default_gangs
+from fairseq2.gang import get_current_gangs
 from fairseq2.models.hg_qwen_omni.config import HuggingFaceModelConfig
 from fairseq2.models.hg_qwen_omni.factory import (
     HgFactory,
@@ -121,9 +121,6 @@ class TestHgFactory:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.config = HuggingFaceModelConfig(hf_name="gpt2")
-        self.root_gangs_object = get_default_gangs()
-        with self.root_gangs_object:
-            self.gangs = get_current_gangs()
         self.gangs = get_current_gangs()
         self.factory = HgFactory(self.config)
 
@@ -423,7 +420,7 @@ class TestSetDtypeKwargs:
 
     def test_set_dtype_kwargs_auto(self) -> None:
         """Test dtype auto."""
-        config = HuggingFaceModelConfig(hf_name="test", dtype="auto")
+        config = HuggingFaceModelConfig(hf_name="test", dtype=None)
         kwargs: Dict[str, Any] = {}
         _set_dtype_kwargs(config, kwargs)
 
@@ -431,7 +428,7 @@ class TestSetDtypeKwargs:
 
     def test_set_dtype_kwargs_float16(self) -> None:
         """Test dtype float16."""
-        config = HuggingFaceModelConfig(hf_name="test", dtype="float16")
+        config = HuggingFaceModelConfig(hf_name="test", dtype=torch.float16)
         kwargs: Dict[str, Any] = {}
         _set_dtype_kwargs(config, kwargs)
 
@@ -439,7 +436,7 @@ class TestSetDtypeKwargs:
 
     def test_set_dtype_kwargs_bfloat16(self) -> None:
         """Test dtype bfloat16."""
-        config = HuggingFaceModelConfig(hf_name="test", dtype="bfloat16")
+        config = HuggingFaceModelConfig(hf_name="test", dtype=torch.bfloat16)
         kwargs: Dict[str, Any] = {}
         _set_dtype_kwargs(config, kwargs)
 
