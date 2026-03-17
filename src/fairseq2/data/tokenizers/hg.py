@@ -21,17 +21,14 @@ from fairseq2.data.tokenizers.vocab_info import VocabularyInfo
 from fairseq2.device import Device
 from fairseq2.utils.tensor import to_tensor
 
+_TOKEN_TYPES = ("unk", "bos", "eos", "pad", "boh", "eoh")
+
+
 if TYPE_CHECKING:
 
     def load_hg_token_model(
         path: Path,
-        *,
-        unk_token: str | None = ...,
-        bos_token: str | None = ...,
-        eos_token: str | None = ...,
-        pad_token: str | None = ...,
-        boh_token: str | None = ...,
-        eoh_token: str | None = ...,
+        **token_overrides: str | None,
     ) -> HuggingFaceTokenModel: ...
 
     @final
@@ -61,13 +58,7 @@ else:
 
     def load_hg_token_model(
         path: Path,
-        *,
-        unk_token: str | None = None,
-        bos_token: str | None = None,
-        eos_token: str | None = None,
-        pad_token: str | None = None,
-        boh_token: str | None = None,
-        eoh_token: str | None = None,
+        **token_overrides: str | None,
     ) -> HuggingFaceTokenModel:
         try:
             tok = AutoTokenizer.from_pretrained(path)
@@ -78,26 +69,15 @@ else:
 
         vocab_size = tok.vocab_size
 
-        def maybe_index(token: str | None, token_type: str | None) -> int | None:
-            """Get token index from explicit token or tokenizer's default."""
-            if token:
-                return tok.convert_tokens_to_ids(token)
+        token_indices: dict[str, int | None] = {}
+        for token_type in _TOKEN_TYPES:
+            override = token_overrides.get(f"{token_type}_token")
+            if override:
+                token_indices[f"{token_type}_idx"] = tok.convert_tokens_to_ids(override)
+            else:
+                token_indices[f"{token_type}_idx"] = getattr(tok, f"{token_type}_token_id", None)
 
-            if token_type:
-                token_id_attr = f"{token_type}_token_id"
-                return getattr(tok, token_id_attr, None)
-
-            return None
-
-        vocab_info = VocabularyInfo(
-            vocab_size,
-            unk_idx=maybe_index(unk_token, token_type="unk"),
-            bos_idx=maybe_index(bos_token, token_type="bos"),
-            eos_idx=maybe_index(eos_token, token_type="eos"),
-            pad_idx=maybe_index(pad_token, token_type="pad"),
-            boh_idx=maybe_index(boh_token, token_type="boh"),
-            eoh_idx=maybe_index(eoh_token, token_type="eoh"),
-        )
+        vocab_info = VocabularyInfo(vocab_size, **token_indices)
 
         return HuggingFaceTokenModel(tok, vocab_info)
 
