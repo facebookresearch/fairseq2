@@ -28,12 +28,9 @@ from fairseq2.recipe.tokenizer import RecipeTokenizer as RecipeTokenizer
 # isort: split
 
 # TODO: Deprecated, will be removed in v0.14.
-# NOTE: Commented out due to circular import issues. These were scheduled for
-# removal anyway. Import directly from fairseq2.evaluator, fairseq2.generator,
-# and fairseq2.trainer instead.
-# from fairseq2.evaluator import Evaluator as Evaluator
-# from fairseq2.evaluator import EvalUnit as EvalUnit
-# from fairseq2.generator import Generator as Generator
-# from fairseq2.generator import GeneratorUnit as GeneratorUnit
-# from fairseq2.trainer import Trainer as Trainer
-# from fairseq2.trainer import TrainUnit as TrainUnit
+from fairseq2.evaluator import Evaluator as Evaluator
+from fairseq2.evaluator import EvalUnit as EvalUnit
+from fairseq2.generator import Generator as Generator
+from fairseq2.generator import GeneratorUnit as GeneratorUnit
+from fairseq2.trainer import Trainer as Trainer
+from fairseq2.trainer import TrainUnit as TrainUnit

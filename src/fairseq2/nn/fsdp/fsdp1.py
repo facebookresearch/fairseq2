@@ -31,6 +31,7 @@ from torch.nn import Module, Parameter, SyncBatchNorm
 from fairseq2.data_type import DataType
 from fairseq2.error import NotSupportedError, OperationalError
 from fairseq2.gang import GangError, Gangs
+from fairseq2.logging import log
 from fairseq2.nn.fsdp.common import FSDPApplier, FSDPParameterInitializer
 from fairseq2.nn.utils.module import (
     apply_to_parameters,
@@ -156,8 +157,7 @@ def to_fsdp1(
 
     with warnings.catch_warnings():
         warnings.filterwarnings(
-            action="ignore",
-            message=r".*FSDP\.state_dict_type\(\) and FSDP\.set_state_dict_type\(\) are being deprecated.*",  # fmt: skip
+            action="ignore", message=r".*FSDP\.state_dict_type\(\) and FSDP\.set_state_dict_type\(\) are being deprecated.*"  # fmt: skip
         )
 
         FSDP.set_state_dict_type(
@@ -181,8 +181,7 @@ def fsdp1_local_state_dict(module: FSDP1Module) -> dict[str, object]:
 
     with warnings.catch_warnings():
         warnings.filterwarnings(
-            action="ignore",
-            message=r".*`_get_pg_default_device` will be deprecated.*",  # fmt: skip
+            action="ignore", message=r".*`_get_pg_default_device` will be deprecated.*"  # fmt: skip
         )
         warnings.filterwarnings(
             action="ignore", message=r".*Please use DTensor instead.*"
@@ -212,8 +211,7 @@ def fsdp1_load_local_state_dict(
 
     with warnings.catch_warnings():
         warnings.filterwarnings(
-            action="ignore",
-            message=r".*`_get_pg_default_device` will be deprecated.*",  # fmt: skip
+            action="ignore", message=r".*`_get_pg_default_device` will be deprecated.*"  # fmt: skip
         )
         warnings.filterwarnings(
             action="ignore", message=r".*Please use DTensor instead.*"
@@ -224,7 +222,9 @@ def fsdp1_load_local_state_dict(
                 input_value = state_dict.get(key)
                 local_shards = value.local_shards()
                 if not local_shards:
-                    print(f"empty local_shards, setting {key} and ignoring state_dict")
+                    log.warning(
+                        f"empty local_shards, setting {key} and ignoring state_dict"
+                    )
                     state_dict[key] = value
                 elif isinstance(input_value, Tensor):
                     value.local_tensor().detach().copy_(input_value)

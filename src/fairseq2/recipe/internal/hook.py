@@ -5,12 +5,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, final
-
-if TYPE_CHECKING:
-    from fairseq2.trainer import Trainer
+from typing import final
 
 from fairseq2.recipe.internal.task import _TaskRunner
+from fairseq2.trainer import Trainer
 
 
 @final

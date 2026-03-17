@@ -14,7 +14,6 @@ from typing_extensions import override
 
 from fairseq2.composition import register_dataset_family
 from fairseq2.datasets import Seq2SeqBatch, SyncMode
-from fairseq2.evaluator import EvalUnit
 from fairseq2.logging import log
 from fairseq2.metrics import MetricBag
 from fairseq2.metrics.text import WerMetric
@@ -22,13 +21,15 @@ from fairseq2.models.wav2vec2 import Wav2Vec2Model
 from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters
 from fairseq2.recipe import (
+    EvalUnit,
     RecipeContext,
     RecipeModel,
+    Trainer,
     TrainRecipe,
+    TrainUnit,
 )
 from fairseq2.recipe.error import RecipeError
 from fairseq2.runtime.dependency import DependencyContainer
-from fairseq2.trainer import Trainer, TrainUnit
 
 from .config import Wav2Vec2AsrRecipeConfig
 from .criterion import Wav2Vec2AsrCriterion
@@ -43,6 +44,7 @@ from .wer_calculator import WerCalculator
 
 @final
 class Wav2Vec2AsrRecipe(TrainRecipe):
+
     @override
     def register(self, container: DependencyContainer) -> None:
         register_dataset_family(
