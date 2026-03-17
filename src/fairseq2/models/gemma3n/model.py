@@ -142,7 +142,11 @@ class Gemma3nModel(CausalLM):
         :param seqs_layout: Layout information.
         :param targets: Target token IDs for loss computation.
         :param state_bag: Incremental decoding state.
-        :param audio_features: Mel-spectrogram. *Shape:* :math:`(N,T,128)`.
+        :param audio_features: Log-mel spectrogram. *Shape:* :math:`(N,T,128)`.
+            Requires Gemma3n-specific preprocessing (HTK preemphasis, 32ms
+            frames, 10ms hop, overdrive FFT). Use HuggingFace's
+            ``Gemma3nAudioFeatureExtractor`` rather than fairseq2's built-in
+            audio pipeline, which uses incompatible defaults.
         :param vision_features: Image pixels. *Shape:* :math:`(N,C,H,W)`.
         :param label_smoothing: Label smoothing factor.
         :param target_mask: Mask for targets.
