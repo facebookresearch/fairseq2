@@ -395,6 +395,16 @@ def _load_special_model(
     return model
 
 
+def _is_multimodal_config(hf_config: Any) -> bool:
+    """Check if a HuggingFace config indicates a multimodal model."""
+    if hasattr(hf_config, "processor_class") and hf_config.processor_class:
+        return True
+    auto_map = getattr(hf_config, "auto_map", {}) or {}
+    if any("Processor" in v for v in auto_map.values() if isinstance(v, str)):
+        return True
+    return False
+
+
 def _load_auto_model(name: str, config: HuggingFaceModelConfig, hf_config: Any) -> Any:
     """Load a model using Auto classes."""
 
@@ -409,6 +419,14 @@ def _load_auto_model(name: str, config: HuggingFaceModelConfig, hf_config: Any) 
     try:
         model = auto_model_class.from_pretrained(**load_kwargs)
     except Exception as ex:
+        if _is_multimodal_config(hf_config):
+            raise HuggingFaceModelError(
+                name,
+                f"Model '{name}' appears to be a multimodal model that requires "
+                f"a processor and cannot be loaded via Auto classes. "
+                f"Register it with register_hg_model_class() or use "
+                f"model_type='custom' with the appropriate model class.",
+            ) from ex
         # Check if this might be an unsupported model
         if "does not appear to have a file named config.json" not in str(ex):
             raise HuggingFaceModelError(

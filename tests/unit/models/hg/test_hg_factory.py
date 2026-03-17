@@ -23,6 +23,8 @@ from fairseq2.models.hg.factory import (
     _get_model_info,
     _get_model_path,
     _import_class_from_transformers,
+    _is_multimodal_config,
+    _load_auto_model,
     _prepare_load_kwargs,
     _set_device_kwargs,
     _set_dtype_kwargs,
@@ -564,6 +566,80 @@ class TestImportClassFromTransformers:
 
         assert "TestClass" in str(exc_info.value)
         assert "not found" in str(exc_info.value)
+
+
+class TestMultimodalModelDetection:
+    """Test multimodal model detection and error handling."""
+
+    def test_multimodal_config_with_processor_class(self) -> None:
+        """Config with processor_class should be detected as multimodal."""
+        hf_config = MagicMock()
+        hf_config.processor_class = "SomeProcessor"
+        hf_config.auto_map = {}
+
+        assert _is_multimodal_config(hf_config) is True
+
+    def test_non_multimodal_config(self) -> None:
+        """Standard config without processor indicators should not be multimodal."""
+        hf_config = MagicMock(spec=[])
+        # No processor_class attribute, no auto_map
+
+        assert _is_multimodal_config(hf_config) is False
+
+    def test_multimodal_config_with_auto_map_processor(self) -> None:
+        """Config with auto_map containing Processor should be multimodal."""
+        hf_config = MagicMock(spec=[])
+        hf_config.auto_map = {"AutoProcessor": "some_module.SomeProcessor"}
+
+        assert _is_multimodal_config(hf_config) is True
+
+    @patch("fairseq2.models.hg.factory._prepare_load_kwargs")
+    @patch("fairseq2.models.hg.factory._get_auto_model_class")
+    def test_auto_model_raises_for_multimodal(
+        self,
+        mock_get_class: MagicMock,
+        mock_prepare_kwargs: MagicMock,
+    ) -> None:
+        """Auto model loading should raise specific error for multimodal models."""
+        mock_prepare_kwargs.return_value = {"pretrained_model_name_or_path": "/tmp"}
+        mock_auto_class = MagicMock()
+        mock_auto_class.from_pretrained.side_effect = Exception("some loading error")
+        mock_get_class.return_value = mock_auto_class
+
+        hf_config = MagicMock()
+        hf_config.processor_class = "SomeProcessor"
+
+        config = HuggingFaceModelConfig(hf_name="multimodal-model")
+
+        with pytest.raises(HuggingFaceModelError, match="multimodal") as exc_info:
+            _load_auto_model("multimodal-model", config, hf_config)
+
+        assert "register_hg_model_class" in str(exc_info.value)
+        assert exc_info.value.model_name == "multimodal-model"
+
+    @patch("fairseq2.models.hg.factory._prepare_load_kwargs")
+    @patch("fairseq2.models.hg.factory._get_auto_model_class")
+    def test_auto_model_non_multimodal_error_unchanged(
+        self,
+        mock_get_class: MagicMock,
+        mock_prepare_kwargs: MagicMock,
+    ) -> None:
+        """Non-multimodal model failures should raise the existing generic error."""
+        mock_prepare_kwargs.return_value = {"pretrained_model_name_or_path": "/tmp"}
+        mock_auto_class = MagicMock()
+        mock_auto_class.from_pretrained.side_effect = Exception("some loading error")
+        mock_get_class.return_value = mock_auto_class
+
+        hf_config = MagicMock(spec=[])
+        # No processor_class, no auto_map
+
+        config = HuggingFaceModelConfig(hf_name="regular-model")
+
+        with pytest.raises(HuggingFaceModelError) as exc_info:
+            _load_auto_model("regular-model", config, hf_config)
+
+        assert "not supported by HuggingFace AutoModel" in str(exc_info.value)
+        assert "multimodal" not in str(exc_info.value)
 
 
 if __name__ == "__main__":
