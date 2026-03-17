@@ -81,7 +81,13 @@ class NaiveSDPA(SDPA):
         v = v.transpose(-2, -3)
 
         attns, attn_weights = naive_scaled_dot_product_attention(
-            q, k, v, bias, dropout_p=dropout_p, scale=self.scale, needs_weights=needs_weights
+            q,
+            k,
+            v,
+            bias,
+            dropout_p=dropout_p,
+            scale=self.scale,
+            needs_weights=needs_weights,
         )
 
         # (N, H, S, V) -> (N, S, H, V)

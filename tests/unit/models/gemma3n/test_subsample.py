@@ -31,8 +31,11 @@ class TestSubsampleConvProjection:
         output = module(features)
 
         expected_time = time_steps // 4
-        assert output.shape == (batch_size, expected_time, config.hidden_size), \
-            f"Expected shape {(batch_size, expected_time, config.hidden_size)}, got {output.shape}"
+        assert output.shape == (
+            batch_size,
+            expected_time,
+            config.hidden_size,
+        ), f"Expected shape {(batch_size, expected_time, config.hidden_size)}, got {output.shape}"
 
     def test_downsampling_factor(self) -> None:
         """Test that 4x downsampling is applied correctly."""
@@ -52,8 +55,9 @@ class TestSubsampleConvProjection:
             output = module(features)
 
             expected_time = time_steps // 4
-            assert output.size(1) == expected_time, \
-                f"Expected {expected_time} time steps, got {output.size(1)}"
+            assert (
+                output.size(1) == expected_time
+            ), f"Expected {expected_time} time steps, got {output.size(1)}"
 
     def test_parameter_count(self) -> None:
         """Test that module has expected number of parameters."""
@@ -74,5 +78,6 @@ class TestSubsampleConvProjection:
         # conv0 (weight, no bias), norm0 (weight), conv1 (weight, no bias),
         # norm1 (weight), proj (weight, no bias)
         expected_params = 5
-        assert len(list(module.named_parameters())) == expected_params, \
-            f"Expected {expected_params} parameters, got {len(list(module.named_parameters()))}"
+        assert (
+            len(list(module.named_parameters())) == expected_params
+        ), f"Expected {expected_params} parameters, got {len(list(module.named_parameters()))}"

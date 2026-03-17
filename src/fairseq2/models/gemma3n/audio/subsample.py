@@ -50,12 +50,8 @@ class CumulativeGroupNorm(Module):
         self.num_channels = num_channels
         self.feature_dims = feature_dims
         self.eps = eps
-        self.reduction_axes = tuple(
-            range(2, 2 + len(feature_dims) + 1)
-        )
-        self.weight = Parameter(
-            torch.ones(num_channels, device=device, dtype=dtype)
-        )
+        self.reduction_axes = tuple(range(2, 2 + len(feature_dims) + 1))
+        self.weight = Parameter(torch.ones(num_channels, device=device, dtype=dtype))
 
     @override
     def forward(self, x: Tensor) -> Tensor:
@@ -70,24 +66,18 @@ class CumulativeGroupNorm(Module):
         sum_at_t = x_fp32.sum(dim=self.reduction_axes, keepdim=True)
         cum_sum = torch.cumsum(sum_at_t, dim=1)
 
-        count_at_t = torch.ones_like(x_fp32).sum(
-            dim=self.reduction_axes, keepdim=True
-        )
+        count_at_t = torch.ones_like(x_fp32).sum(dim=self.reduction_axes, keepdim=True)
         cum_count = torch.cumsum(count_at_t, dim=1).clamp(min=1.0)
 
         cum_mean = cum_sum / cum_count
 
         # Cumulative variance along time (dim=1).
         sq_diff = (x_fp32 - cum_mean).pow(2)
-        sq_diff_sum_at_t = sq_diff.sum(
-            dim=self.reduction_axes, keepdim=True
-        )
+        sq_diff_sum_at_t = sq_diff.sum(dim=self.reduction_axes, keepdim=True)
         cum_sq_diff = torch.cumsum(sq_diff_sum_at_t, dim=1)
         cum_var = cum_sq_diff / cum_count
 
-        normalized = (x_fp32 - cum_mean) * torch.rsqrt(
-            cum_var + self.eps
-        )
+        normalized = (x_fp32 - cum_mean) * torch.rsqrt(cum_var + self.eps)
 
         # Per-channel scale: [C] -> [1, ..., 1, C].
         scale_shape = [1] * (x.dim() - 1) + [self.num_channels]

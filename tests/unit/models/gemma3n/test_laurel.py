@@ -76,8 +76,8 @@ class TestGemma3nLAuReL:
 
         # But should contain contribution from input (residual)
         # Set weights to zero to verify residual path exists
-        laurel.linear_left.weight.data.zero_()
-        laurel.linear_right.weight.data.zero_()
+        laurel.linear_left.weight.data.zero_()  # type: ignore[operator]
+        laurel.linear_right.weight.data.zero_()  # type: ignore[operator]
 
         with torch.no_grad():
             output_zero_weights = laurel(hidden_states)
@@ -88,7 +88,6 @@ class TestGemma3nLAuReL:
     def test_layer_norm_applied(self) -> None:
         """Verify layer normalization applied to LAuReL output."""
         model_dim, rank = 64, 16
-        batch_size, seq_len = 2, 8
 
         layer_norm = RMSNorm(model_dim, bias=False, device=device)
         laurel = Gemma3nLAuReL(

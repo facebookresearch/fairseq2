@@ -40,12 +40,15 @@ class TestGemma3nAudioTower:
         # Larger inputs should produce proportionally larger outputs
         prev_time = 0
         for time_steps in [64, 128, 256, 512]:
-            mel_features = torch.randn(batch_size, time_steps, audio_config.input_feat_size)
+            mel_features = torch.randn(
+                batch_size, time_steps, audio_config.input_feat_size
+            )
             output = tower(mel_features)
 
             cur_time = output.size(1)
-            assert cur_time > prev_time, \
-                f"Larger input ({time_steps}) should produce larger output"
+            assert (
+                cur_time > prev_time
+            ), f"Larger input ({time_steps}) should produce larger output"
             prev_time = cur_time
 
     def test_projection_to_text_space(self) -> None:
@@ -74,7 +77,9 @@ class TestGemma3nAudioTower:
         time_steps = 100
 
         for batch_size in [1, 2, 4]:
-            mel_features = torch.randn(batch_size, time_steps, audio_config.input_feat_size)
+            mel_features = torch.randn(
+                batch_size, time_steps, audio_config.input_feat_size
+            )
             output = tower(mel_features)
 
             assert output.size(0) == batch_size
@@ -113,7 +118,9 @@ class TestGemma3nAudioTower:
         loss = output.sum()
         loss.backward()
 
-        subsample_has_grad = any(p.grad is not None for p in tower.subsample.parameters())
+        subsample_has_grad = any(
+            p.grad is not None for p in tower.subsample.parameters()
+        )
         encoder_has_grad = any(p.grad is not None for p in tower.encoder.parameters())
         embedder_has_grad = any(p.grad is not None for p in tower.embedder.parameters())
 

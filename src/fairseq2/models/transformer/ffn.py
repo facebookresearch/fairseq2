@@ -13,13 +13,13 @@ from typing import TYPE_CHECKING, final
 import torch
 import torch.nn.functional as F
 from torch import Tensor
-from torch.nn import GELU, Dropout, Module, ReLU, Sigmoid, SiLU
+from torch.nn import Dropout, Module, ReLU, Sigmoid, SiLU
 from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.gang import Gangs
-from fairseq2.nn import ColumnShardedLinear, Linear, RowShardedLinear
+from fairseq2.nn import ColumnShardedLinear, Linear, Projection, RowShardedLinear
 
 
 class FeedForwardNetwork(Module, ABC):
@@ -346,17 +346,6 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
             dtype=dtype,
         )
 
-        self.output_proj: Projection
-
-        if gangs is None or gangs.tp.size == 1:
-            self.output_proj = output_proj
-        else:
-            self.output_proj = RowShardedLinear.from_linear(
-                output_proj, gangs.tp, scatter_input=False
-            )
-
-            del output_proj
-
     def _gaussian_topk(self, inputs: Tensor) -> Tensor:
         """Apply Gaussian top-k sparsification to inputs.
 
@@ -367,9 +356,7 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         :returns: Sparsified tensor with values below threshold set to zero.
         """
         target_sparsity = torch.tensor(
-            self.activation_sparsity,
-            dtype=torch.float32,
-            device=inputs.device
+            self.activation_sparsity, dtype=torch.float32, device=inputs.device
         )
 
         # Compute threshold multiplier using inverse CDF of standard normal
@@ -454,12 +441,8 @@ class AltUpFeedForwardNetwork(FeedForwardNetwork):
         """
         super().__init__()
 
-        self.gate_proj = Linear(
-            model_dim, inner_dim, bias, device=device, dtype=dtype
-        )
-        self.inner_proj = Linear(
-            model_dim, inner_dim, bias, device=device, dtype=dtype
-        )
+        self.gate_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
+        self.inner_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
         self.output_proj = Linear(
             inner_dim, model_dim, bias, device=device, dtype=dtype
         )
@@ -477,9 +460,7 @@ class AltUpFeedForwardNetwork(FeedForwardNetwork):
         import torch
 
         target_sparsity = torch.tensor(
-            self.activation_sparsity,
-            dtype=torch.float32,
-            device=inputs.device
+            self.activation_sparsity, dtype=torch.float32, device=inputs.device
         )
 
         # Compute threshold multiplier using inverse CDF of standard normal

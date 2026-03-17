@@ -924,6 +924,7 @@ class Sinusoidal3dPositionEncoder(SinusoidalNdPositionEncoder):
         # (1, D_inp, H_inp, W_inp, E) -> (D_inp, H_inp, W_inp, E)
         return freqs.squeeze(0)  # type: ignore[no-any-return]
 
+
 class DualRotaryEncoder(PositionEncoder):
     """Dual-frequency Rotary Position Encoder for LAuReL.
 
@@ -961,9 +962,7 @@ class DualRotaryEncoder(PositionEncoder):
 
         half_dim = encoding_dim // 2
 
-        self.rope_std = RotaryEncoder(
-            half_dim, max_seq_len, theta=theta, device=device
-        )
+        self.rope_std = RotaryEncoder(half_dim, max_seq_len, theta=theta, device=device)
 
         self.rope_long = RotaryEncoder(
             half_dim, max_seq_len, theta=dual_theta, device=device

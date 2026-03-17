@@ -6,8 +6,8 @@
 
 import torch
 
-from fairseq2.models.gemma3n.config import Gemma3nAudioConfig
 from fairseq2.models.gemma3n.audio.conformer import Gemma3nConformerEncoder
+from fairseq2.models.gemma3n.config import Gemma3nAudioConfig
 from fairseq2.nn import BatchLayout
 
 

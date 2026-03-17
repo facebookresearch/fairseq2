@@ -7,7 +7,6 @@
 """KV projection sharing types for Gemma3n."""
 
 from enum import Enum
-from typing import Final
 
 
 class KVProjectionType(Enum):

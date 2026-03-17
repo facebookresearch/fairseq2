@@ -78,9 +78,7 @@ class Gemma3nConformerSDPA(Module):
         self.chunk_size = chunk_size
         self.max_past_horizon = max(0, left_context - 1)
         self.max_future_horizon = right_context
-        self.context_size = (
-            chunk_size + self.max_past_horizon + self.max_future_horizon
-        )
+        self.context_size = chunk_size + self.max_past_horizon + self.max_future_horizon
         self.logit_cap = logit_cap
 
         # Sinusoidal position projection (replaces Shaw embedding)
@@ -99,18 +97,13 @@ class Gemma3nConformerSDPA(Module):
 
         # q_scale = head_dim^(-0.5) / softplus(0)
         q_scale = self.head_dim**-0.5 / F.softplus(torch.tensor(0.0))
-        self.register_buffer(
-            "q_scale", q_scale.clone().detach(), persistent=False
-        )
+        self.register_buffer("q_scale", q_scale.clone().detach(), persistent=False)
 
         # Sinusoidal inverse timescales
         num_timescales = model_dim // 2
-        log_timescale_increment = math.log(1.0e4) / max(
-            num_timescales - 1, 1
-        )
+        log_timescale_increment = math.log(1.0e4) / max(num_timescales - 1, 1)
         inv_timescales = torch.exp(
-            torch.arange(num_timescales, dtype=torch.float32)
-            * -log_timescale_increment
+            torch.arange(num_timescales, dtype=torch.float32) * -log_timescale_increment
         )
         self.register_buffer(
             "inv_timescales",
@@ -120,9 +113,7 @@ class Gemma3nConformerSDPA(Module):
 
         # Precomputed local causal mask [chunk_size, context_size]
         local_mask = self._create_local_causal_valid_mask()
-        self.register_buffer(
-            "local_causal_valid_mask", local_mask, persistent=False
-        )
+        self.register_buffer("local_causal_valid_mask", local_mask, persistent=False)
 
         # Softcap value
         self.register_buffer(
@@ -157,7 +148,7 @@ class Gemma3nConformerSDPA(Module):
 
         # Per-dim scaling with softplus
         per_dim_scale_sp = F.softplus(self.per_dim_scale)
-        q = q * (self.q_scale * per_dim_scale_sp)
+        q = q * (self.q_scale * per_dim_scale_sp)  # type: ignore[operator]
 
         # Convert to blocks
         query_blocks = self._convert_to_block(q)
@@ -168,22 +159,15 @@ class Gemma3nConformerSDPA(Module):
         # Build validity mask — always needed because
         # _extract_block_context pads with zeros that must be masked.
         if mask is None:
-            mask = torch.zeros(
-                batch_size, q_time, dtype=torch.bool, device=q.device
-            )
+            mask = torch.zeros(batch_size, q_time, dtype=torch.bool, device=q.device)
         original_valid = ~mask
         extracted_valid = self._extract_block_context(original_valid)
         # [B, 1, U, 1, C]
-        validity_condition = (
-            extracted_valid.unsqueeze(1).unsqueeze(-2)
-        )
+        validity_condition = extracted_valid.unsqueeze(1).unsqueeze(-2)
 
         # Local causal mask [1, 1, 1, W, C]
         causal_condition = (
-            self.local_causal_valid_mask
-            .unsqueeze(0)
-            .unsqueeze(0)
-            .unsqueeze(0)
+            self.local_causal_valid_mask.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # type: ignore[operator]
         )
 
         # Compute logits with relative position embeddings
@@ -192,8 +176,8 @@ class Gemma3nConformerSDPA(Module):
         )
 
         # Softcap on logits (pre-softmax)
-        softcap_val = self.softcap.to(logits.device)
-        logits = torch.tanh(logits / softcap_val) * softcap_val
+        softcap_val = self.softcap.to(logits.device)  # type: ignore[operator]
+        logits = torch.tanh(logits / softcap_val) * softcap_val  # type: ignore[operator]
 
         # Combined mask: validity AND causality
         final_condition = torch.logical_and(
@@ -208,9 +192,7 @@ class Gemma3nConformerSDPA(Module):
         )
 
         # Softmax + weighted sum
-        probs = torch.softmax(
-            logits, dim=-1, dtype=torch.float32
-        ).to(dtype=v.dtype)
+        probs = torch.softmax(logits, dim=-1, dtype=torch.float32).to(dtype=v.dtype)
 
         # Context vectors via batched matmul
         # probs: [B, N, U, W, C], values: [B, U, C, N, H]
@@ -220,9 +202,7 @@ class Gemma3nConformerSDPA(Module):
         v_bun = value_blocks.permute(0, 1, 3, 2, 4).reshape(-1, c, h)
         result = torch.bmm(prob_bun, v_bun)
         context = (
-            result.reshape(b, u, n, w, h)
-            .permute(0, 1, 3, 2, 4)
-            .reshape(b, u * w, n, h)
+            result.reshape(b, u, n, w, h).permute(0, 1, 3, 2, 4).reshape(b, u * w, n, h)
         )
         # Trim padding to original sequence length
         context = context[:, :q_time]
@@ -257,13 +237,9 @@ class Gemma3nConformerSDPA(Module):
         ).unsqueeze(0)
         f_span = pos_indices.shape[1]
 
-        sin_emb = self._get_timing_signal(
-            pos_indices, dtype=query_blocks.dtype
-        )
+        sin_emb = self._get_timing_signal(pos_indices, dtype=query_blocks.dtype)
         projected = self.pos_proj(sin_emb)
-        sin_emb_heads = projected.reshape(
-            1, f_span, num_heads, head_dim
-        ).squeeze(0)
+        sin_emb_heads = projected.reshape(1, f_span, num_heads, head_dim).squeeze(0)
 
         # term_ac: content-content interaction
         # [B, N, U, W, K] @ [B, N, U, K, C] -> [B, N, U, W, C]
@@ -299,19 +275,15 @@ class Gemma3nConformerSDPA(Module):
 
         return term_ac + term_bd_shifted
 
-    def _get_timing_signal(
-        self, position: Tensor, dtype: torch.dtype
-    ) -> Tensor:
+    def _get_timing_signal(self, position: Tensor, dtype: torch.dtype) -> Tensor:
         """Compute sinusoidal timing signal.
 
         :param position: Position indices. *Shape:* :math:`(1,F)`.
         :returns: Timing signal. *Shape:* :math:`(1,F,D)`.
         """
         position_f = position.float().unsqueeze(-1)
-        inv_ts = self.inv_timescales.to(
-            device=position.device, dtype=torch.float32
-        )
-        scaled_time = position_f * inv_ts
+        inv_ts = self.inv_timescales.to(device=position.device, dtype=torch.float32)  # type: ignore[operator]
+        scaled_time = position_f * inv_ts  # type: ignore[operator]
         timing_signal = torch.cat(
             [torch.sin(scaled_time), torch.cos(scaled_time)], dim=-1
         )
@@ -351,9 +323,7 @@ class Gemma3nConformerSDPA(Module):
             key_context_size,
         )
 
-    def _pad_dim1(
-        self, x: Tensor, pad_left: int, pad_right: int
-    ) -> Tensor:
+    def _pad_dim1(self, x: Tensor, pad_left: int, pad_right: int) -> Tensor:
         """Zero-pad tensor along dimension 1."""
         batch = x.shape[0]
         tail_shape = x.shape[2:]
@@ -388,16 +358,12 @@ class Gemma3nConformerSDPA(Module):
         pad_right = self.max_future_horizon + self.chunk_size - 1
         x = self._pad_dim1(x, pad_left, pad_right)
 
-        x_unfolded = x.unfold(
-            dimension=1, size=self.context_size, step=self.chunk_size
-        )
+        x_unfolded = x.unfold(dimension=1, size=self.context_size, step=self.chunk_size)
 
         # For inputs with extra dims [B, T, N, H], unfold gives
         # [B, U, N, H, C] - move C to position 2 → [B, U, C, N, H]
         if x.ndim > 2 and x_unfolded.ndim > 3:
-            x_unfolded = torch.movedim(
-                x_unfolded, source=-1, destination=2
-            )
+            x_unfolded = torch.movedim(x_unfolded, source=-1, destination=2)
 
         return x_unfolded.contiguous()
 
@@ -408,37 +374,25 @@ class Gemma3nConformerSDPA(Module):
             True = allowed position.
         """
         lower_causal = torch.tril(
-            torch.ones(
-                (self.context_size, self.chunk_size), dtype=torch.bool
-            ),
+            torch.ones((self.context_size, self.chunk_size), dtype=torch.bool),
             diagonal=0,
         ).T
         upper_causal = torch.tril(
-            torch.ones(
-                (self.chunk_size, self.context_size), dtype=torch.bool
-            ),
+            torch.ones((self.chunk_size, self.context_size), dtype=torch.bool),
             diagonal=self.max_past_horizon + self.max_future_horizon,
         )
         return (
-            torch.ones(
-                (self.chunk_size, self.context_size), dtype=torch.bool
-            )
+            torch.ones((self.chunk_size, self.context_size), dtype=torch.bool)
             * lower_causal
             * upper_causal
         )
 
     def reset_non_persistent_buffers(self) -> None:
         """Re-initialize non-persistent buffers after checkpoint load."""
-        self.q_scale.fill_(
-            self.head_dim**-0.5 / F.softplus(torch.tensor(0.0)).item()
-        )
-        self.softcap.fill_(self.logit_cap)
-        self.local_causal_valid_mask.copy_(
-            self._create_local_causal_valid_mask()
-        )
+        self.q_scale.fill_(self.head_dim**-0.5 / F.softplus(torch.tensor(0.0)).item())  # type: ignore[operator]
+        self.softcap.fill_(self.logit_cap)  # type: ignore[operator]
+        self.local_causal_valid_mask.copy_(self._create_local_causal_valid_mask())  # type: ignore[operator]
         num_timescales = self.model_dim // 2
         log_inc = math.log(1.0e4) / max(num_timescales - 1, 1)
-        inv_ts = torch.exp(
-            torch.arange(num_timescales, dtype=torch.float32) * -log_inc
-        )
-        self.inv_timescales.copy_(inv_ts.unsqueeze(0).unsqueeze(0))
+        inv_ts = torch.exp(torch.arange(num_timescales, dtype=torch.float32) * -log_inc)
+        self.inv_timescales.copy_(inv_ts.unsqueeze(0).unsqueeze(0))  # type: ignore[operator]

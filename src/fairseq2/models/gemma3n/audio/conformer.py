@@ -59,16 +59,32 @@ class Gemma3nConformerAttention(Module):
         self.head_dim = model_dim // num_heads
 
         self.q_proj = Linear(
-            model_dim, model_dim, bias=bias, device=device, dtype=dtype,
+            model_dim,
+            model_dim,
+            bias=bias,
+            device=device,
+            dtype=dtype,
         )
         self.k_proj = Linear(
-            model_dim, model_dim, bias=bias, device=device, dtype=dtype,
+            model_dim,
+            model_dim,
+            bias=bias,
+            device=device,
+            dtype=dtype,
         )
         self.v_proj = Linear(
-            model_dim, model_dim, bias=bias, device=device, dtype=dtype,
+            model_dim,
+            model_dim,
+            bias=bias,
+            device=device,
+            dtype=dtype,
         )
         self.output_proj = Linear(
-            model_dim, model_dim, bias=bias, device=device, dtype=dtype,
+            model_dim,
+            model_dim,
+            bias=bias,
+            device=device,
+            dtype=dtype,
         )
         self.sdpa = sdpa
 
@@ -92,7 +108,12 @@ class Gemma3nConformerAttention(Module):
         v = self.v_proj(seqs).unflatten(-1, (self.num_heads, self.head_dim))
 
         attns, _ = self.sdpa(
-            q, seqs_layout, k, seqs_layout, v, mask=mask,
+            q,
+            seqs_layout,
+            k,
+            seqs_layout,
+            v,
+            mask=mask,
         )
 
         return self.output_proj(attns.flatten(-2, -1))
@@ -391,7 +412,7 @@ def _build_conformer_block(
     )
     # Replace StandardLayerNorm (bias=True) with RMSNorm (no bias)
     # to match HF's Gemma3nRMSNorm used in conv_norm
-    conv.layer_norm = RMSNorm(
+    conv.layer_norm = RMSNorm(  # type: ignore[assignment]
         config.hidden_size,
         bias=False,
         eps=config.rms_norm_eps,

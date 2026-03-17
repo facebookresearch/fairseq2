@@ -189,11 +189,13 @@ class Gemma3nDecoderLayer(Module):
         """
         # AltUp predict step: 4D → 4D predictions
         is_4d = seqs.ndim == 4
+        predictions: Tensor | None
+        active_prediction: Tensor
         if is_4d:
             predictions = self.altup(seqs)
+            assert isinstance(predictions, Tensor)
             active_prediction = predictions[self.altup_active_idx]
         else:
-            # No AltUp mode (for compatibility)
             predictions = None
             active_prediction = seqs
 
@@ -201,9 +203,9 @@ class Gemma3nDecoderLayer(Module):
         active_prediction_normed = self.input_layernorm(active_prediction)
 
         # LAuReL path: parallel augmentation
-        laurel_output = self.laurel(active_prediction_normed)
+        laurel_output: Tensor = self.laurel(active_prediction_normed)
 
-        attn = self.self_attn(
+        attn = self.self_attn(  # type: ignore[call-arg]
             active_prediction_normed,
             seqs_layout,
             keys=active_prediction_normed,
@@ -232,7 +234,9 @@ class Gemma3nDecoderLayer(Module):
 
         # AltUp correct step: update all 4 versions
         assert predictions is not None  # Always set when is_4d=True
-        corrected_predictions = self.altup.correct(predictions, attn_ffw_laurel_gated)
+        corrected_predictions: Tensor = self.altup.correct(
+            predictions, attn_ffw_laurel_gated
+        )
 
         # Extract active version for PLE processing
         first_prediction = corrected_predictions[self.altup_active_idx].clone()

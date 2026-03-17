@@ -6,8 +6,8 @@
 
 import torch
 
-from fairseq2.models.gemma3n.config import Gemma3nAudioConfig, get_gemma3n_e2b_config
 from fairseq2.models.gemma3n.audio.embedder import Gemma3nMultimodalEmbedder
+from fairseq2.models.gemma3n.config import Gemma3nAudioConfig, get_gemma3n_e2b_config
 
 
 class TestGemma3nMultimodalEmbedder:

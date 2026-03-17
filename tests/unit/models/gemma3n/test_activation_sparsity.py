@@ -60,9 +60,9 @@ class TestGaussianTopKSparsity:
         )
 
         # Copy weights to make them identical
-        ffn_dense.gate_proj.weight.data = ffn_sparse.gate_proj.weight.data.clone()
-        ffn_dense.inner_proj.weight.data = ffn_sparse.inner_proj.weight.data.clone()
-        ffn_dense.output_proj.weight.data = ffn_sparse.output_proj.weight.data.clone()
+        ffn_dense.gate_proj.weight.data = ffn_sparse.gate_proj.weight.data.clone()  # type: ignore[operator]
+        ffn_dense.inner_proj.weight.data = ffn_sparse.inner_proj.weight.data.clone()  # type: ignore[operator]
+        ffn_dense.output_proj.weight.data = ffn_sparse.output_proj.weight.data.clone()  # type: ignore[operator]
 
         batch_size, seq_len, model_dim = 2, 16, 64
         seqs = torch.randn(batch_size, seq_len, model_dim, device=device)
@@ -74,7 +74,9 @@ class TestGaussianTopKSparsity:
         sparse_norm = torch.norm(output_sparse).item()
         dense_norm = torch.norm(output_dense).item()
 
-        assert sparse_norm < dense_norm * 0.5, f"Sparse {sparse_norm} not much smaller than dense {dense_norm}"
+        assert (
+            sparse_norm < dense_norm * 0.5
+        ), f"Sparse {sparse_norm} not much smaller than dense {dense_norm}"
 
     def test_sparsity_applied_before_activation(self) -> None:
         """Verify Gaussian top-k applied before GELU activation."""

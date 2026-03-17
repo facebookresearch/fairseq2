@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, final
+from typing import TYPE_CHECKING, cast, final
 
 import torch
 from torch import Tensor
@@ -160,9 +160,8 @@ class LAuReLResidualConnect(ResidualConnect):
     @override
     def forward(self, seqs: Tensor, residual: Tensor) -> Tensor:
         residual_transformed = self.linear_right(self.linear_left(residual))
-        return self.layer_norm(seqs + residual_transformed)
+        return cast(Tensor, self.layer_norm(seqs + residual_transformed))
 
     @override
     def extra_repr(self) -> str:
         return f"rank={self.linear_left.out_features}"
-

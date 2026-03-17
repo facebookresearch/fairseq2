@@ -6,7 +6,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import torch
+
+if TYPE_CHECKING:
+    from fairseq2.models.gemma3n.audio.tower import Gemma3nAudioTower
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
@@ -33,11 +38,8 @@ from fairseq2.models.transformer import (
     create_default_sdpa,
 )
 from fairseq2.models.transformer.ffn import AltUpFeedForwardNetwork
-
-
 from fairseq2.nn import (
     Embedding,
-    PositionEncoder,
     Projection,
     RMSNorm,
     StandardEmbedding,
@@ -62,7 +64,9 @@ def create_gemma3n_model(
     """
     gangs = maybe_get_current_gangs()
 
-    return Gemma3nFactory(config, device=device, dtype=dtype, gangs=gangs).create_model()
+    return Gemma3nFactory(
+        config, device=device, dtype=dtype, gangs=gangs
+    ).create_model()
 
 
 class Gemma3nFactory:
@@ -129,7 +133,8 @@ class Gemma3nFactory:
         )
 
     def create_decoder_frontend(
-        self, embed: Embedding,
+        self,
+        embed: Embedding,
     ) -> Gemma3nFrontendBase:
         """Create the decoder frontend with PLE support."""
         # PLE normalization
@@ -316,21 +321,41 @@ def create_gemma3n_decoder_layer(
 
     # Normalizations
     input_layernorm = RMSNorm(
-        config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
+        config.model_dim,
+        bias=False,
+        eps=config.rms_norm_eps,
+        device=device,
+        dtype=dtype,
     )
     post_attention_layernorm = RMSNorm(
-        config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
+        config.model_dim,
+        bias=False,
+        eps=config.rms_norm_eps,
+        device=device,
+        dtype=dtype,
     )
     pre_feedforward_layernorm = RMSNorm(
-        config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
+        config.model_dim,
+        bias=False,
+        eps=config.rms_norm_eps,
+        device=device,
+        dtype=dtype,
     )
     post_feedforward_layernorm = RMSNorm(
-        config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
+        config.model_dim,
+        bias=False,
+        eps=config.rms_norm_eps,
+        device=device,
+        dtype=dtype,
     )
 
     # LAuReL
     post_laurel_norm = RMSNorm(
-        config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
+        config.model_dim,
+        bias=False,
+        eps=config.rms_norm_eps,
+        device=device,
+        dtype=dtype,
     )
     laurel = Gemma3nLAuReL(
         model_dim=config.model_dim,
@@ -342,7 +367,11 @@ def create_gemma3n_decoder_layer(
 
     # AltUp router normalization
     router_norm = RMSNorm(
-        config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
+        config.model_dim,
+        bias=False,
+        eps=config.rms_norm_eps,
+        device=device,
+        dtype=dtype,
     )
     altup = Gemma3nAltUp(
         model_dim=config.model_dim,
@@ -370,7 +399,11 @@ def create_gemma3n_decoder_layer(
         dtype=dtype,
     )
     post_per_layer_input_norm = RMSNorm(
-        config.model_dim, bias=False, eps=config.rms_norm_eps, device=device, dtype=dtype
+        config.model_dim,
+        bias=False,
+        eps=config.rms_norm_eps,
+        device=device,
+        dtype=dtype,
     )
 
     hidden_activation = torch.nn.GELU(approximate="tanh")

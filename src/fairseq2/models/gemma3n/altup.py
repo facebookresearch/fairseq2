@@ -65,7 +65,9 @@ class Gemma3nAltUp(Module):
         self.active_idx = active_idx
         self.coef_clip = coef_clip
 
-        self.correct_output_scale = Parameter(torch.zeros(model_dim, device=device, dtype=dtype))
+        self.correct_output_scale = Parameter(
+            torch.zeros(model_dim, device=device, dtype=dtype)
+        )
 
         self.correction_coefs = Linear(
             num_inputs, num_inputs, bias=False, device=device, dtype=dtype
@@ -86,7 +88,7 @@ class Gemma3nAltUp(Module):
 
     def compute_router_modalities(self, x: Tensor) -> Tensor:
         """Compute routing modalities from input tensor."""
-        router_inputs = self.router_norm(x) * self.router_input_scale
+        router_inputs = self.router_norm(x) * self.router_input_scale  # type: ignore[operator]
         routed = self.modality_router(router_inputs)
         return torch.tanh(routed.float()).type_as(x)
 
@@ -144,8 +146,10 @@ class Gemma3nAltUp(Module):
         :param corrected: 3D tensor [batch, seq_len, model_dim].
         :returns: Scaled tensor [batch, seq_len, model_dim].
         """
-        return (corrected.type_as(self.correct_output_scale) * self.correct_output_scale).type_as(corrected)
+        return (
+            corrected.type_as(self.correct_output_scale) * self.correct_output_scale
+        ).type_as(corrected)
 
     def reset_non_persistent_buffers(self) -> None:
         """Reset non-persistent buffers to their default values."""
-        self.router_input_scale.fill_(self.model_dim**-1.0)
+        self.router_input_scale.fill_(self.model_dim**-1.0)  # type: ignore[operator]

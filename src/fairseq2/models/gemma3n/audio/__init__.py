@@ -22,9 +22,7 @@ from fairseq2.models.gemma3n.audio.sdpa import (
 from fairseq2.models.gemma3n.audio.subsample import (
     Gemma3nSubsampleConvProjection as Gemma3nSubsampleConvProjection,
 )
-from fairseq2.models.gemma3n.audio.tower import (
-    Gemma3nAudioTower as Gemma3nAudioTower,
-)
+from fairseq2.models.gemma3n.audio.tower import Gemma3nAudioTower as Gemma3nAudioTower
 
 __all__ = [
     "Gemma3nAudioTower",

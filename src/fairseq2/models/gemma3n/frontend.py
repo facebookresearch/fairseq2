@@ -211,7 +211,10 @@ class Gemma3nFrontend(Gemma3nFrontendBase):
         return seqs, seqs_layout, per_layer_inputs
 
     def _inject_audio_embeds(
-        self, token_ids: Tensor, text_embeds: Tensor, audio_embeds: Tensor,
+        self,
+        token_ids: Tensor,
+        text_embeds: Tensor,
+        audio_embeds: Tensor,
     ) -> Tensor:
         """Replace <audio> token embeddings with pre-encoded audio features.
 
@@ -233,7 +236,9 @@ class Gemma3nFrontend(Gemma3nFrontendBase):
         # The dataloader should handle this, but protect against mismatches.
         if n_frames < n_slots:
             pad = audio_embeds.new_zeros(
-                audio_embeds.size(0), n_slots - n_frames, audio_embeds.size(2),
+                audio_embeds.size(0),
+                n_slots - n_frames,
+                audio_embeds.size(2),
             )
             audio_embeds = torch.cat([audio_embeds, pad], dim=1)
 
@@ -252,13 +257,15 @@ class Gemma3nFrontend(Gemma3nFrontendBase):
         # Clip token IDs to valid vocab range for PLE (text-only vocab)
         # Audio/vision tokens are out of PLE vocab range, so use pad token instead
         # (they'll be replaced by tower embeddings in main embedding space anyway)
-        ple_token_ids = torch.clamp(token_ids, max=self.embed_tokens_per_layer.num_embeddings - 1)
+        ple_token_ids = torch.clamp(
+            token_ids, max=self.embed_tokens_per_layer.num_embeddings - 1
+        )
 
         # Lookup from shared embedding table
         per_layer_embeds = self.embed_tokens_per_layer(ple_token_ids)  # [B, S, L*P]
 
         # Scale embeddings (like Gemma3nTextScaledWordEmbedding)
-        per_layer_embeds = per_layer_embeds * self.per_layer_embed_scale
+        per_layer_embeds = per_layer_embeds * self.per_layer_embed_scale  # type: ignore[operator]
 
         # Reshape to separate layers
         return per_layer_embeds.reshape(
@@ -277,7 +284,7 @@ class Gemma3nFrontend(Gemma3nFrontendBase):
         per_layer_proj = self.per_layer_model_projection(seqs)  # [B, S, L*P]
 
         # Scale
-        per_layer_proj = per_layer_proj * self.per_layer_projection_scale
+        per_layer_proj = per_layer_proj * self.per_layer_projection_scale  # type: ignore[operator]
 
         # Reshape to separate layers
         per_layer_proj = per_layer_proj.reshape(
@@ -307,6 +314,6 @@ class Gemma3nFrontend(Gemma3nFrontendBase):
     def reset_non_persistent_buffers(self) -> None:
         """Reset non-persistent buffers to their default values."""
         model_dim = self.embed.embed_dim
-        self.per_layer_projection_scale.fill_(model_dim**-0.5)
-        self.per_layer_input_scale.fill_(2.0**-0.5)
-        self.per_layer_embed_scale.fill_(self.ple_hidden_dim**0.5)
+        self.per_layer_projection_scale.fill_(model_dim**-0.5)  # type: ignore[operator]
+        self.per_layer_input_scale.fill_(2.0**-0.5)  # type: ignore[operator]
+        self.per_layer_embed_scale.fill_(self.ple_hidden_dim**0.5)  # type: ignore[operator]
