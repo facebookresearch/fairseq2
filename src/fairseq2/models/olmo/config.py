@@ -158,8 +158,9 @@ class OLMOConfig:
     """YaRN scaling configuration for long-context models (OLMO3 only).
 
     Enables YaRN (Yet another RoPE extensioN) scaling to extend context
-    length from 8K to 65K. In OLMO3, YaRN scaling is selectively applied
-    only to full-attention layers; sliding window layers use regular RoPE.
+    length from 8K to 65K. When set, ALL layers (both sliding window and
+    full attention) share the same YaRN-scaled RoPE encoder, matching the
+    HuggingFace behavior where a single RotaryEmbedding is shared.
 
     If None, uses standard RoPE without scaling (default for OLMO2/3 base models).
     """
@@ -246,9 +247,9 @@ def register_olmo_configs(container: DependencyContainer) -> None:
 
         Uses Multi-Head Attention (MHA) with a hybrid pattern:
         - 3 out of 4 layers use sliding window attention (window=4096)
-          with standard RoPE
-        - Every 4th layer uses full global attention with YaRN RoPE
-        - Final layer always uses full global attention with YaRN RoPE
+        - Every 4th layer uses full global attention
+        - Final layer always uses full global attention
+        - ALL layers share the same YaRN-scaled RoPE encoder
 
         Max sequence length: 65,536 tokens
         """
@@ -273,9 +274,9 @@ def register_olmo_configs(container: DependencyContainer) -> None:
 
         Uses hybrid attention pattern:
         - 3 out of 4 layers use sliding window attention (window=4096)
-          with standard RoPE
-        - Every 4th layer uses full global attention with YaRN RoPE
-        - Final layer always uses full global attention with YaRN RoPE
+        - Every 4th layer uses full global attention
+        - Final layer always uses full global attention
+        - ALL layers share the same YaRN-scaled RoPE encoder
 
         Max sequence length: 65,536 tokens
         """

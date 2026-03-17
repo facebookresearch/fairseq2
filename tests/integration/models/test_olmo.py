@@ -6,7 +6,6 @@
 
 """Integration tests for all OLMO model variants."""
 
-import os
 from typing import Any
 
 import pytest
@@ -24,7 +23,7 @@ transformers = pytest.importorskip("transformers")
 
 # List of OLMO models to test: (model_name, local_path)
 OLMO_MODELS = [
-    #("olmo-2-0425-1b", "/datasets/pretrained-llms/OLMo-2-0425-1B"),
+    ("olmo-2-0425-1b", "/datasets/pretrained-llms/OLMo-2-0425-1B"),
     #("olmo-2-1124-7b", "/datasets/pretrained-llms/OLMo-2-1124-7B"),
     # ("olmo-2-1124-13b", "/datasets/pretrained-llms/OLMo-2-1124-13B"),  # OOM
     ("olmo-3-1025-7b", "/datasets/pretrained-llms/Olmo-3-1025-7B"),
@@ -41,8 +40,6 @@ def hub() -> ModelHub[TransformerLM, OLMOConfig]:
 @pytest.mark.parametrize("model_name,local_path", OLMO_MODELS)
 def test_consistency(model_name: str, local_path: str, hub: Any) -> None:
     """Test end-to-end inference consistency between fairseq2 and HuggingFace."""
-    if not os.path.exists(local_path):
-        pytest.skip(f"Model path {local_path} does not exist (not on fair cluster)")
     # Load HuggingFace model
     hf_model = transformers.AutoModelForCausalLM.from_pretrained(
         local_path,
