@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Dict, Type
 
 import torch
-from tqdm.auto import tqdm
+from tqdm.auto import tqdm  # type: ignore[import-untyped]
 
 from fairseq2.assets import HuggingFaceHub
 from fairseq2.device import detect_default_device
@@ -358,7 +358,7 @@ def _load_special_model(
                 **load_kwargs, attn_implementation="flash_attention_2"
             )
             log.info("Using flash_attention_2.")
-        except:
+        except Exception:
             log.info("Couldn't load flash_attention_2. Using classic SDPA.")
             model = model_class.from_pretrained(**load_kwargs)
 

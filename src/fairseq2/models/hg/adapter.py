@@ -14,7 +14,7 @@ to be used with fairseq2 training recipes like SFT.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal, cast
 
 import torch
 from torch import Tensor
@@ -39,11 +39,11 @@ class _HgEmbeddingWrapper(Embedding):
     - pad_idx
     """
 
-    def __init__(self, hf_embedding: Module) -> None:
+    def __init__(self, hf_embedding: torch.nn.Embedding) -> None:
         # Initialize with HF embedding's attributes
         num_embeddings = hf_embedding.num_embeddings
         embed_dim = hf_embedding.embedding_dim
-        pad_idx = getattr(hf_embedding, "padding_idx", None)
+        pad_idx = hf_embedding.padding_idx
 
         super().__init__(num_embeddings, embed_dim, pad_idx)
 
@@ -53,9 +53,9 @@ class _HgEmbeddingWrapper(Embedding):
     @override
     def forward(self, x: Tensor) -> Tensor:
         """Delegate forward to the HuggingFace embedding."""
-        return self._hf_embedding(x)
+        return cast(Tensor, self._hf_embedding(x))
 
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> Any:
         """Delegate all other attributes to the HF embedding."""
         # Avoid recursion for private attributes
         if name.startswith("_"):
@@ -74,7 +74,7 @@ class _HgDecoderFrontend:
     """
 
     def __init__(self, embed_module: Module) -> None:
-        self.embed = _HgEmbeddingWrapper(embed_module)
+        self.embed = _HgEmbeddingWrapper(cast(torch.nn.Embedding, embed_module))
 
 
 class HgCausalLMAdapter(CausalLM):
@@ -113,20 +113,18 @@ class HgCausalLMAdapter(CausalLM):
         self.add_module("_wrapped_hf_model", hf_model)
 
         # Store reference to HF model's config
-        if hasattr(hf_model, "config"):
-            self._hf_config = hf_model.config
-        else:
-            self._hf_config = None
+        self._hf_config: Any = getattr(hf_model, "config", None)
 
         # Enable gradient checkpointing if requested
         if enable_gradient_checkpointing:
-            if not hasattr(hf_model, "gradient_checkpointing_enable"):
+            gc_enable = getattr(hf_model, "gradient_checkpointing_enable", None)
+            if gc_enable is None:
                 raise RuntimeError(
                     f"Model {type(hf_model).__name__} does not support gradient checkpointing. "
                     f"The model must have a 'gradient_checkpointing_enable()' method."
                 )
             try:
-                hf_model.gradient_checkpointing_enable()
+                gc_enable()
                 # Verify it was actually enabled
                 if (
                     hasattr(hf_model, "is_gradient_checkpointing")
@@ -176,10 +174,12 @@ class HgCausalLMAdapter(CausalLM):
     def _hf_model(self) -> Module:
         """Access the wrapped HuggingFace model."""
         # Access via _modules to ensure it works after FSDP wrapping
-        return self._modules["_wrapped_hf_model"]
+        module = self._modules["_wrapped_hf_model"]
+        assert module is not None
+        return module
 
     @override
-    def forward(
+    def forward(  # type: ignore[override]
         self,
         seqs: Tensor,
         seqs_layout: BatchLayout,
@@ -230,7 +230,7 @@ class HgCausalLMAdapter(CausalLM):
             outputs = self._hf_model(**hf_kwargs)
 
             # HuggingFace returns a ModelOutput with .loss and .logits
-            loss = outputs.loss
+            loss: Tensor = outputs.loss
 
             # Handle reduction
             # HF models typically return mean loss, we need to convert based on reduction
@@ -244,13 +244,13 @@ class HgCausalLMAdapter(CausalLM):
             # If reduction == "mean", loss is already in the right format
 
             if return_logits:
-                return loss, outputs.logits
+                return loss, cast(Tensor, outputs.logits)
             else:
                 return loss
         else:
             # Inference mode - just get logits
             outputs = self._hf_model(**hf_kwargs)
-            return outputs.logits
+            return cast(Tensor, outputs.logits)
 
     def _create_attention_mask(self, seqs: Tensor, seqs_layout: BatchLayout) -> Tensor:
         """
@@ -278,7 +278,7 @@ class HgCausalLMAdapter(CausalLM):
         """Access the underlying HuggingFace model."""
         return self._hf_model
 
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> Any:
         """
         Delegate attribute access to the underlying HuggingFace model.
         This allows accessing HF-specific attributes and methods.
@@ -306,7 +306,7 @@ class HgCausalLMAdapter(CausalLM):
             return getattr(hf_model, name)
 
 
-def wrap_hg_model_if_causal_lm(hf_model: Module, config) -> Module:
+def wrap_hg_model_if_causal_lm(hf_model: Module, config: Any) -> Module:
     """
     Wrap a HuggingFace model in HgCausalLMAdapter if it's a causal language model.
 

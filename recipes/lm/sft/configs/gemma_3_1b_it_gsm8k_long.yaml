@@ -9,13 +9,13 @@ model:
   family: "hg"
   arch: "causal_lm"
   config_overrides:
-    hf_name: "google/gemma-3-2b-it"
+    hf_name: "google/gemma-3-1b-it"
     model_type: "causal_lm"
     trust_remote_code: true
 
 tokenizer:
   # Don't override name - let path take precedence
-  path: "google/gemma-3-2b-it"  # path takes precedence over name
+  path: "google/gemma-3-1b-it"  # path takes precedence over name
   family: "hg"
 
 dataset:
@@ -37,7 +37,7 @@ common:
     wandb:
       enabled: False
       project: "fairseq2"
-      run_name: "sft_gemma_3_2b_it_gsm8k"
+      run_name: "sft_gemma_3_1b_it_gsm8k"
 
 regime:
   num_steps: 100000

@@ -6,7 +6,7 @@ This directory contains the implementation for supervised fine-tuning of languag
 
 The SFT recipe is designed to finetune language models to follow instructions by learning from prompt-response pairs.
 
-This recipe supports both Llama and Qwen model families.
+This recipe supports Llama, Qwen, and HuggingFace (`hg`) model families.
 
 ## Key Features
 
@@ -69,10 +69,27 @@ regime:
 python -m fairseq2.recipes.lm.sft --config-file sft/configs/llama3_2_1b_gsm8k.yaml
 ```
 
-##### LLaMA 3.2 1B Instruct on GSM8K  
+##### LLaMA 3.2 1B Instruct on GSM8K
 ```bash
 python -m fairseq2.recipes.lm.sft --config-file sft/configs/llama3_2_1b_instruct_gsm8k.yaml
 ```
+
+##### HuggingFace Models (Gemma 3 1B-IT on GSM8K)
+
+Two Gemma configs are provided with different training regimes:
+
+- `gemma_3_1b_it_gsm8k.yaml` — short run (500 steps), useful for quick tests
+- `gemma_3_1b_it_gsm8k_long.yaml` — full training run (100k steps)
+
+```bash
+# Quick test run
+python -m fairseq2.recipes.lm.sft --config-file sft/configs/gemma_3_1b_it_gsm8k.yaml
+
+# Full training
+python -m fairseq2.recipes.lm.sft --config-file sft/configs/gemma_3_1b_it_gsm8k_long.yaml
+```
+
+HuggingFace models use `family: "hg"` and `arch: "causal_lm"` in the config, with the HF model name specified via `config_overrides.hf_name`.
 
 ## Data Format
 
