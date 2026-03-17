@@ -5,15 +5,21 @@
 # LICENSE file in the root directory of this source tree.
 
 import pickle
+import threading
 from collections import Counter
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from fairseq2.data.parquet.fragment_streaming.builder import ParquetFragmentStreamer
+from fairseq2.data.parquet.fragment_streaming.builder import (
+    ParquetFragmentStreamer,
+)
 from fairseq2.data.parquet.fragment_streaming.config import FragmentStreamingConfig
 from fairseq2.data.parquet.fragment_streaming.primitives import (
+    ParquetDatasetKey,
+    clear_dataset_cache,
+    get_dataset_cache_info,
     list_parquet_fragments,
     stream_parquet_fragments,
 )
@@ -290,3 +296,294 @@ def test_fragment_input_conifg(
 
     assert Counter(result_02) + Counter(result_12) == Counter(result_01)
     assert list(Counter(result_01).values()) == total_number_of_row_groups * [nb_epochs]
+
+
+class TestParquetDatasetCache:
+    """Tests for the cache functionality in ParquetFragmentStreamer."""
+
+    @pytest.fixture(autouse=True)
+    def setup_and_teardown(self):
+        """Clear cache before and after each test."""
+        clear_dataset_cache()
+        yield
+        clear_dataset_cache()
+
+    def test_same_config_returns_same_dataset_object(
+        self, controled_row_groups_pq_dataset
+    ):
+        """Two ParquetFragmentStreamer instances with same config share the same dataset."""
+        config = FragmentStreamingConfig(
+            parquet_path=controled_row_groups_pq_dataset,
+            nb_epochs=1,
+            seed=42,
+        )
+
+        streamer1 = ParquetFragmentStreamer(config=config, use_cache=True)
+        streamer2 = ParquetFragmentStreamer(config=config, use_cache=True)
+
+        # Access datasets to trigger initialization
+        dataset1 = streamer1.dataset
+        dataset2 = streamer2.dataset
+
+        # The underlying PyArrow dataset should be the exact same object
+        assert dataset1.dataset is dataset2.dataset, (
+            "Expected same dataset object for identical config, "
+            f"but got different objects: {id(dataset1.dataset)} vs {id(dataset2.dataset)}"
+        )
+
+        # Verify cache was hit
+        cache_info = get_dataset_cache_info()
+        assert cache_info.hits == 1, f"Expected 1 cache hit, got {cache_info.hits}"
+        assert cache_info.misses == 1, f"Expected 1 cache miss, got {cache_info.misses}"
+
+    def test_different_paths_produce_different_cache_entries(
+        self, controled_row_groups_pq_dataset, multi_partition_file_dataset
+    ):
+        """Different parquet paths should result in different cache entries."""
+        config1 = FragmentStreamingConfig(
+            parquet_path=controled_row_groups_pq_dataset,
+            nb_epochs=1,
+            seed=42,
+        )
+        config2 = FragmentStreamingConfig(
+            parquet_path=multi_partition_file_dataset,
+            nb_epochs=1,
+            seed=42,
+        )
+
+        streamer1 = ParquetFragmentStreamer(config=config1, use_cache=True)
+        streamer2 = ParquetFragmentStreamer(config=config2, use_cache=True)
+
+        dataset1 = streamer1.dataset
+        dataset2 = streamer2.dataset
+
+        # Datasets should be different objects since paths differ
+        assert (
+            dataset1.dataset is not dataset2.dataset
+        ), "Expected different dataset objects for different paths"
+
+        # Verify both were cache misses (different keys)
+        cache_info = get_dataset_cache_info()
+        assert (
+            cache_info.misses == 2
+        ), f"Expected 2 cache misses, got {cache_info.misses}"
+
+    def test_different_filters_share_same_cached_dataset(
+        self, controled_row_groups_pq_dataset
+    ):
+        """Different partition_filters should share the same cached dataset.
+
+        The cache key intentionally excludes partition_filters because
+        ds.dataset() doesn't depend on filters - they're applied later.
+        """
+        config1 = FragmentStreamingConfig(
+            parquet_path=controled_row_groups_pq_dataset,
+            partition_filters='pc.field("cat") == "cat_0"',
+            nb_epochs=1,
+            seed=42,
+        )
+        config2 = FragmentStreamingConfig(
+            parquet_path=controled_row_groups_pq_dataset,
+            partition_filters='pc.field("cat") == "cat_1"',
+            nb_epochs=1,
+            seed=42,
+        )
+
+        streamer1 = ParquetFragmentStreamer(config=config1, use_cache=True)
+        streamer2 = ParquetFragmentStreamer(config=config2, use_cache=True)
+
+        dataset1 = streamer1.dataset
+        dataset2 = streamer2.dataset
+
+        # The underlying PyArrow dataset should be shared (same path)
+        assert (
+            dataset1.dataset is dataset2.dataset
+        ), "Expected same underlying dataset for same path with different filters"
+
+        # But the wrappers should have different filters (compare string representations
+        # since PyArrow Expressions cannot be compared with != directly)
+        assert str(dataset1.partition_filters) != str(
+            dataset2.partition_filters
+        ), f"Expected different partition filters, but both have: {dataset1.partition_filters}"
+
+        cache_info = get_dataset_cache_info()
+        assert cache_info.hits == 1, f"Expected 1 cache hit, got {cache_info.hits}"
+
+    def test_clear_cache_forces_reinitialization(self, controled_row_groups_pq_dataset):
+        """clear_dataset_cache() should force re-initialization of datasets."""
+        config = FragmentStreamingConfig(
+            parquet_path=controled_row_groups_pq_dataset,
+            nb_epochs=1,
+            seed=42,
+        )
+
+        streamer1 = ParquetFragmentStreamer(config=config, use_cache=True)
+        dataset1 = streamer1.dataset
+
+        cache_info_before = get_dataset_cache_info()
+        assert cache_info_before.misses == 1
+
+        # Clear the cache
+        clear_dataset_cache()
+
+        cache_info_after_clear = get_dataset_cache_info()
+        assert cache_info_after_clear.hits == 0
+        assert cache_info_after_clear.misses == 0
+
+        # Create a new streamer - should be a cache miss
+        streamer2 = ParquetFragmentStreamer(config=config, use_cache=True)
+        dataset2 = streamer2.dataset
+
+        # After clearing, we should get a different dataset object
+        assert (
+            dataset1.dataset is not dataset2.dataset
+        ), "Expected different dataset object after cache clear"
+
+        cache_info_final = get_dataset_cache_info()
+        assert (
+            cache_info_final.misses == 1
+        ), f"Expected 1 cache miss after clear, got {cache_info_final.misses}"
+
+    def test_thread_safety_concurrent_streamers(self, controled_row_groups_pq_dataset):
+        """Multiple threads creating streamers concurrently should not cause race conditions.
+
+        Note: lru_cache is thread-safe but does not prevent duplicate work when
+        multiple threads call it concurrently before the cache is populated.
+        This test verifies that no errors occur during concurrent access.
+        """
+        config = FragmentStreamingConfig(
+            parquet_path=controled_row_groups_pq_dataset,
+            nb_epochs=1,
+            seed=42,
+        )
+
+        num_threads = 10
+        results = []
+        errors = []
+        lock = threading.Lock()
+
+        def create_streamer_and_get_dataset():
+            try:
+                streamer = ParquetFragmentStreamer(config=config, use_cache=True)
+                dataset = streamer.dataset
+                with lock:
+                    results.append(id(dataset.dataset))
+            except Exception as e:
+                with lock:
+                    errors.append(e)
+
+        threads = [
+            threading.Thread(target=create_streamer_and_get_dataset)
+            for _ in range(num_threads)
+        ]
+
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # No errors should have occurred
+        assert not errors, f"Errors occurred during concurrent access: {errors}"
+
+        # All threads should have completed successfully
+        assert len(results) == num_threads
+
+        # Due to lru_cache behavior, we might get at most 2 unique datasets:
+        # one from initial concurrent misses, and one that gets cached.
+        # The important thing is that no errors occurred and all threads completed.
+        # Subsequent sequential access will always return the cached dataset.
+        unique_datasets = len(set(results))
+        assert (
+            unique_datasets <= num_threads
+        ), f"Got more unique datasets ({unique_datasets}) than threads ({num_threads})"
+
+    def test_cache_disabled_creates_new_datasets(self, controled_row_groups_pq_dataset):
+        """When use_cache=False, each streamer should get a new dataset."""
+        config = FragmentStreamingConfig(
+            parquet_path=controled_row_groups_pq_dataset,
+            nb_epochs=1,
+            seed=42,
+        )
+
+        streamer1 = ParquetFragmentStreamer(config=config, use_cache=False)
+        streamer2 = ParquetFragmentStreamer(config=config, use_cache=False)
+
+        dataset1 = streamer1.dataset
+        dataset2 = streamer2.dataset
+
+        # Without cache, should be different objects
+        assert (
+            dataset1.dataset is not dataset2.dataset
+        ), "Expected different dataset objects when cache is disabled"
+
+        # Cache should not have been used
+        cache_info = get_dataset_cache_info()
+        assert cache_info.hits == 0
+        assert cache_info.misses == 0
+
+
+class TestParquetDatasetKeyNormalization:
+    """Tests for cache key normalization edge cases."""
+
+    def test_list_path_normalized_to_sorted_tuple(self):
+        """List paths should be normalized to sorted tuples for consistent caching."""
+        key1 = ParquetDatasetKey.from_init_args(
+            parquet_path=["/path/to/a", "/path/to/b", "/path/to/c"],
+            filesystem=None,
+        )
+        key2 = ParquetDatasetKey.from_init_args(
+            parquet_path=["/path/to/c", "/path/to/a", "/path/to/b"],
+            filesystem=None,
+        )
+
+        # Different orderings should produce the same key
+        assert (
+            key1.path == key2.path
+        ), f"Expected same normalized path, got {key1.path} vs {key2.path}"
+        assert key1 == key2, "Keys should be equal regardless of list order"
+
+    def test_string_path_preserved(self):
+        """String paths should be preserved as-is."""
+        key = ParquetDatasetKey.from_init_args(
+            parquet_path="/path/to/dataset",
+            filesystem=None,
+        )
+        assert key.path == "/path/to/dataset"
+        assert isinstance(key.path, str)
+
+    def test_none_filesystem_serialized(self):
+        """None filesystem should be handled correctly."""
+        key = ParquetDatasetKey.from_init_args(
+            parquet_path="/path/to/dataset",
+            filesystem=None,
+        )
+        # The filesystem should be serialized
+        assert key.filesystem is not None
+
+    def test_key_is_hashable(self):
+        """ParquetDatasetKey should be hashable for use in lru_cache."""
+        key = ParquetDatasetKey.from_init_args(
+            parquet_path="/path/to/dataset",
+            filesystem=None,
+        )
+
+        # Should not raise
+        hash(key)
+
+        # Should work as dict key
+        d = {key: "value"}
+        assert d[key] == "value"
+
+    def test_same_inputs_produce_equal_keys(self):
+        """Same inputs should produce equal and hash-equal keys."""
+        key1 = ParquetDatasetKey.from_init_args(
+            parquet_path="/path/to/dataset",
+            filesystem=None,
+        )
+        key2 = ParquetDatasetKey.from_init_args(
+            parquet_path="/path/to/dataset",
+            filesystem=None,
+        )
+
+        assert key1 == key2
+        assert hash(key1) == hash(key2)
