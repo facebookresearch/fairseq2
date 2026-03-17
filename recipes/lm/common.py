@@ -26,20 +26,10 @@ def check_model_vocabulary(context: RecipeContext) -> None:
 
     if embed.num_embeddings > vocab_info.size:
         log.warning("Vocabulary size of the tokenizer ({}) is less than the number of embeddings in the model ({}). If this is not intentional (e.g. padding for efficient GPU utilization), check your job configuration.", vocab_info.size, embed.num_embeddings)  # fmt: skip
-
-    vocab_diff = vocab_info.size - embed.num_embeddings
-
-    if vocab_diff > 1:
-        # More than 1 token difference is an error
+    elif vocab_info.size != embed.num_embeddings:
         raise RecipeError(
-            f"Number of embeddings in the model ({embed.num_embeddings}) is less than the vocabulary size of the tokenizer ({vocab_info.size})."
-        )
-    elif vocab_diff == 1:
-        # Off-by-one is acceptable (common with HF models due to power-of-2 padding)
-        log.info(
-            "Model has {} embeddings, tokenizer has {} tokens (off-by-one, likely due to padding).",
-            embed.num_embeddings,
-            vocab_info.size,
+            f"Vocabulary size of the tokenizer ({vocab_info.size}) does not match "
+            f"the number of embeddings in the model ({embed.num_embeddings})."
         )
 
     if embed.pad_idx != vocab_info.pad_idx:

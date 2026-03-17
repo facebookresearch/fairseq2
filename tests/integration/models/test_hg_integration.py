@@ -242,7 +242,7 @@ class TestLoadTokenizerAPI:
     ) -> None:
         """load_hg_tokenizer_simple should call AutoTokenizer.from_pretrained."""
         mock_tok = MagicMock()
-        mock_tok.__len__ = MagicMock(return_value=50257)
+        mock_tok.vocab_size = 50257
         mock_tok.unk_token_id = 0
         mock_tok.bos_token_id = 1
         mock_tok.eos_token_id = 2
@@ -261,7 +261,7 @@ class TestLoadTokenizerAPI:
     ) -> None:
         """Tokenizer vocab_info should reflect the HF tokenizer's properties."""
         mock_tok = MagicMock()
-        mock_tok.__len__ = MagicMock(return_value=32000)
+        mock_tok.vocab_size = 32000
         mock_tok.unk_token_id = 0
         mock_tok.bos_token_id = 1
         mock_tok.eos_token_id = 2
@@ -281,7 +281,7 @@ class TestLoadTokenizerAPI:
     ) -> None:
         """Custom special tokens should be resolved via convert_tokens_to_ids."""
         mock_tok = MagicMock()
-        mock_tok.__len__ = MagicMock(return_value=50257)
+        mock_tok.vocab_size = 50257
         mock_tok.unk_token_id = None
         mock_tok.bos_token_id = None
         mock_tok.eos_token_id = None
@@ -299,6 +299,31 @@ class TestLoadTokenizerAPI:
         vocab_info = tokenizer.vocab_info
         assert vocab_info.pad_idx == 50256
         assert vocab_info.eos_idx == 50255
+
+    @patch("fairseq2.data.tokenizers.hg.AutoTokenizer")
+    def test_vocab_size_uses_base_vocab_not_len(
+        self, mock_auto_tok: MagicMock
+    ) -> None:
+        """vocab_info.size should use tok.vocab_size (base vocab), not len(tok) (base + added tokens).
+
+        HF tokenizers distinguish between base vocab (vocab_size property) and
+        total vocab including added tokens (len()). Model embeddings are sized to
+        base vocab, so we must use vocab_size to avoid spurious mismatches.
+        """
+        mock_tok = MagicMock()
+        # Simulate an instruct model: base vocab is 32000, but added tokens make len() = 32010
+        mock_tok.vocab_size = 32000
+        mock_tok.__len__ = MagicMock(return_value=32010)
+        mock_tok.unk_token_id = 0
+        mock_tok.bos_token_id = 1
+        mock_tok.eos_token_id = 2
+        mock_tok.pad_token_id = None
+        mock_auto_tok.from_pretrained.return_value = mock_tok
+
+        tokenizer = load_hg_tokenizer_simple("meta-llama/Llama-2-7b-chat-hf")
+
+        # Must use base vocab (32000), NOT len(tok) (32010)
+        assert tokenizer.vocab_info.size == 32000
 
 
 class TestCausalLMAdapterWiring:

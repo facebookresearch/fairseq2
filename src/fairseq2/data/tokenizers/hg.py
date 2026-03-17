@@ -76,7 +76,7 @@ else:
 
             raise TokenizerModelError(path, msg) from ex
 
-        vocab_size = len(tok)
+        vocab_size = tok.vocab_size
 
         def maybe_index(token: str | None, token_type: str | None) -> int | None:
             """Get token index from explicit token or tokenizer's default."""
