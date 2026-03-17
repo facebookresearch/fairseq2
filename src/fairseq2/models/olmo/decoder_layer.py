@@ -10,10 +10,8 @@ from __future__ import annotations
 
 from torch import Tensor
 from torch.nn import Dropout
-from typing_extensions import override
+from typing_extensions import final, override
 
-from fairseq2.data_type import DataType
-from fairseq2.device import Device
 from fairseq2.models.transformer import (
     AttentionBiasCache,
     FeedForwardNetwork,
@@ -29,6 +27,7 @@ from fairseq2.nn import (
 )
 
 
+@final
 class OLMOTransformerLMDecoderLayer(TransformerLMDecoderLayer):
     """OLMO Transformer Decoder Layer with custom Post-Norm order.
 
@@ -52,8 +51,6 @@ class OLMOTransformerLMDecoderLayer(TransformerLMDecoderLayer):
         self_attn_residual: ResidualConnect | None = None,
         ffn_residual: ResidualConnect | None = None,
         dropout_p: float = 0.0,
-        device: Device | None = None,
-        dtype: DataType | None = None,
     ) -> None:
         """Initialize OLMO2 Transformer Decoder Layer.
 
@@ -109,7 +106,9 @@ class OLMOTransformerLMDecoderLayer(TransformerLMDecoderLayer):
         state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
         seqs = self._forward_self_attn(seqs, seqs_layout, attn_bias_cache, state_bag)
+
         seqs = self._forward_ffn(seqs)
+
         return seqs
 
     def _forward_self_attn(

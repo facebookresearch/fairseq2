@@ -15,7 +15,7 @@ from fairseq2.models.transformer.attention_bias import (
     IdentityBias,
 )
 from fairseq2.models.transformer.sdpa.naive import NaiveSDPA
-from fairseq2.nn import BatchLayout, Linear
+from fairseq2.nn import BatchLayout
 from fairseq2.nn.position_encoder import ReferenceRotaryEncoder
 from tests.common import device
 
@@ -33,39 +33,6 @@ class TestOLMOMultiheadAttention:
                 num_heads=4,
                 sdpa=sdpa,
                 rope_encoder=rope,
-                device=device,
-            )
-
-    def test_init_rejects_inconsistent_explicit_projections(self) -> None:
-        sdpa = NaiveSDPA(IdentityBias())
-        # q_proj output_dim=128 but k_proj output_dim=32 with 4 heads
-        # num_query_groups = 4/4 = 1, so k_dim = 32*1 = 32 != 128
-        q_proj = Linear(256, 128, bias=True, device=device)
-        k_proj = Linear(256, 32, bias=True, device=device)
-        v_proj = Linear(256, 32, bias=True, device=device)
-
-        with pytest.raises(ValueError, match="q_proj.output_dim"):
-            OLMOMultiheadAttention(
-                model_dim=256,
-                num_heads=4,
-                sdpa=sdpa,
-                q_proj=q_proj,
-                k_proj=k_proj,
-                v_proj=v_proj,
-                device=device,
-            )
-
-    def test_init_rejects_output_proj_with_init_fn(self) -> None:
-        sdpa = NaiveSDPA(IdentityBias())
-        output_proj = Linear(256, 256, bias=True, device=device)
-
-        with pytest.raises(ValueError, match="must not be specified"):
-            OLMOMultiheadAttention(
-                model_dim=256,
-                num_heads=4,
-                sdpa=sdpa,
-                output_proj=output_proj,
-                output_proj_init_fn=lambda _: None,
                 device=device,
             )
 

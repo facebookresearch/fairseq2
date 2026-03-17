@@ -12,26 +12,42 @@ import math
 
 import torch
 from torch import Tensor
-from typing_extensions import override
+from typing_extensions import final, override
 
 from fairseq2.device import Device
 from fairseq2.nn import BatchLayout, IncrementalStateBag, PositionEncoder
 from fairseq2.ops import unsqueeze
 
 
+@final
 class YaRNRotaryEncoder(PositionEncoder):
-    """YaRN-scaled Rotary Position Encoder extending PositionEncoder.
+    """YaRN-scaled Rotary Position Encoder for long-context extension.
 
-    Implements YaRN (Yet another RoPE extensioN) scaling for long-context extension.
-    YaRN applies frequency-dependent RoPE scaling:
-    - High frequencies (short wavelengths): No scaling (extrapolation)
-    - Low frequencies (long wavelengths): Scaled by factor (interpolation)
-    - Medium frequencies: Smooth linear ramp transition
+    Implements YaRN (Yet another RoPE extensioN) scaling as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.2309.00071`.
+
+    Compared to :class:`ReferenceRotaryEncoder` (standard RoPE), YaRN differs
+    in two ways:
+
+    1. **Frequency-dependent scaling**: Instead of uniformly computing
+       ``inv_freq = θ^(-2i/d)`` for all dimensions, YaRN blends extrapolation
+       (no scaling, for high frequencies) and interpolation (scaled by factor,
+       for low frequencies) with a smooth linear ramp in between:
+
+       - High frequencies (short-range): preserved as-is (extrapolation)
+       - Low frequencies (long-range): divided by ``scale_factor`` (interpolation)
+       - Medium frequencies: smooth transition via ``linear_ramp``
+
+       This preserves short-distance modeling while extending long-distance
+       capacity, unlike NTK interpolation which scales all frequencies equally.
+
+    2. **Attention scaling (mscale)**: A multiplicative correction factor is
+       pre-applied to the cos/sin frequency tables to compensate for the
+       increased variance of attention scores when attending over longer contexts.
+       This is computed as ``0.1 × mscale × log(scale_factor) + 1.0``.
 
     This implementation matches the HuggingFace transformers YaRN implementation
-    exactly, as used in OLMO3 long-context models.
-
-    Reference: https://arxiv.org/abs/2309.00071
+    exactly, as used in OLMO3 long-context models (8K → 65K).
     """
 
     def __init__(
@@ -273,7 +289,9 @@ class YaRNRotaryEncoder(PositionEncoder):
             cos_freqs = cos_freqs.unsqueeze(0)
             sin_freqs = sin_freqs.unsqueeze(0)
 
-        # Apply YaRN attention scaling (this is the key difference from parent)
+        # Apply YaRN attention scaling (this is the key difference from
+        # ReferenceRotaryEncoder — compensates for increased attention score
+        # variance when attending over longer contexts)
         cos_freqs = cos_freqs * self.attention_scaling
         sin_freqs = sin_freqs * self.attention_scaling
 

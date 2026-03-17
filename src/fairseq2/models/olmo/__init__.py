@@ -17,8 +17,11 @@ from fairseq2.models.olmo.factory import OLMOFactory as OLMOFactory
 from fairseq2.models.olmo.factory import create_olmo_model as create_olmo_model
 from fairseq2.models.olmo.hub import get_olmo_model_hub as get_olmo_model_hub
 from fairseq2.models.olmo.interop import (
+    _OLMOHuggingFaceConverter as _OLMOHuggingFaceConverter,
+)
+from fairseq2.models.olmo.interop import (
     convert_olmo_state_dict as convert_olmo_state_dict,
 )
-from fairseq2.models.olmo.tokenizer import OlmoTokenizer as OlmoTokenizer
-from fairseq2.models.olmo.tokenizer import OlmoTokenizerConfig as OlmoTokenizerConfig
+from fairseq2.models.olmo.tokenizer import OLMOTokenizer as OLMOTokenizer
+from fairseq2.models.olmo.tokenizer import OLMOTokenizerConfig as OLMOTokenizerConfig
 from fairseq2.models.olmo.tokenizer import load_olmo_tokenizer as load_olmo_tokenizer

@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from torch import Tensor
-from typing_extensions import override
+from typing_extensions import final, override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
@@ -40,6 +40,7 @@ from fairseq2.nn.utils.module import get_name_or_self
 from fairseq2.ops import repeat_interleave
 
 
+@final
 class OLMOMultiheadAttention(MultiheadAttention):
     """OLMO Multi-head Attention with Q/K normalization and rotary encoding.
 
@@ -53,6 +54,10 @@ class OLMOMultiheadAttention(MultiheadAttention):
     The cache implementation is determined by ``state_factory``; when
     ``state_factory`` is ``None`` it defaults to :class:`FullAttentionState`.
     For sliding-window layers, pass a :class:`LocalAttentionStateFactory`.
+
+    .. note::
+        This module only supports self-attention (decoder-only). Cross-attention
+        (encoder-decoder) is not supported since OLMO is a decoder-only model.
     """
 
     rope_encoder: PositionEncoder | None
@@ -65,15 +70,10 @@ class OLMOMultiheadAttention(MultiheadAttention):
         *,
         head_dim: int | None = None,
         num_key_value_heads: int | None = None,
-        kv_dim: int | None = None,
-        q_proj: Projection | None = None,
-        k_proj: Projection | None = None,
-        v_proj: Projection | None = None,
         qkv_proj_init_fn: Callable[[Linear], None] | None = None,
         q_norm: LayerNorm | None = None,
         k_norm: LayerNorm | None = None,
         rope_encoder: PositionEncoder | None = None,
-        output_proj: Projection | None = None,
         output_proj_init_fn: Callable[[Linear], None] | None = None,
         bias: bool = True,
         output_proj_bias: bool | None = None,
@@ -110,86 +110,39 @@ class OLMOMultiheadAttention(MultiheadAttention):
 
         self.head_dim = head_dim
 
-        if kv_dim is None:
-            kv_dim = model_dim
-
-        self.kv_dim = kv_dim
-
         self.num_query_groups = num_heads // num_key_value_heads
 
         # --- Q / K / V projections ---
-        if q_proj is None and k_proj is None and v_proj is None:
-            self.q_proj: Projection = ColumnShardedLinear(
-                model_dim,
-                head_dim * num_heads,
-                bias,
-                gather_output=False,
-                init_fn=qkv_proj_init_fn or init_qkv_projection,
-                gangs=gangs,
-                device=device,
-                dtype=dtype,
-            )
-            self.k_proj: Projection = ColumnShardedLinear(
-                kv_dim,
-                head_dim * num_key_value_heads,
-                bias,
-                gather_output=False,
-                init_fn=qkv_proj_init_fn or init_qkv_projection,
-                gangs=gangs,
-                device=device,
-                dtype=dtype,
-            )
-            self.v_proj: Projection = ColumnShardedLinear(
-                kv_dim,
-                head_dim * num_key_value_heads,
-                bias,
-                gather_output=False,
-                init_fn=qkv_proj_init_fn or init_qkv_projection,
-                gangs=gangs,
-                device=device,
-                dtype=dtype,
-            )
-        else:
-            if q_proj is None or k_proj is None or v_proj is None:
-                raise ValueError("`q_proj`, `k_proj`, `v_proj` must be all specified.")
-
-            if qkv_proj_init_fn is not None:
-                raise ValueError(
-                    "`qkv_proj_init_fn` must not be specified when "
-                    "`q_proj`, `k_proj`, `v_proj` are specified."
-                )
-
-            if q_proj.input_dim != kv_dim:
-                raise ValueError(
-                    f"`q_proj.input_dim` must be equal to `kv_dim` "
-                    f"({kv_dim}), but is {q_proj.input_dim} instead."
-                )
-
-            k_dim = k_proj.output_dim * self.num_query_groups
-            if k_dim != q_proj.output_dim:
-                raise ValueError(
-                    f"`q_proj.output_dim` and `k_proj.output_dim` (or times "
-                    f"the number of query groups when GQA) must be equal, "
-                    f"but they are {q_proj.output_dim} and {k_dim} instead."
-                )
-
-            if k_proj.output_dim % num_key_value_heads != 0:
-                raise ValueError(
-                    f"`k_proj.output_dim` must be a multiple of "
-                    f"`num_key_value_heads` ({num_key_value_heads}), "
-                    f"but is {k_proj.output_dim} instead."
-                )
-
-            if v_proj.output_dim % num_key_value_heads != 0:
-                raise ValueError(
-                    f"`v_proj.output_dim` must be a multiple of "
-                    f"`num_key_value_heads` ({num_key_value_heads}), "
-                    f"but is {v_proj.output_dim} instead."
-                )
-
-            self.q_proj = q_proj
-            self.k_proj = k_proj
-            self.v_proj = v_proj
+        self.q_proj: Projection = ColumnShardedLinear(
+            model_dim,
+            head_dim * num_heads,
+            bias,
+            gather_output=False,
+            init_fn=qkv_proj_init_fn or init_qkv_projection,
+            gangs=gangs,
+            device=device,
+            dtype=dtype,
+        )
+        self.k_proj: Projection = ColumnShardedLinear(
+            model_dim,
+            head_dim * num_key_value_heads,
+            bias,
+            gather_output=False,
+            init_fn=qkv_proj_init_fn or init_qkv_projection,
+            gangs=gangs,
+            device=device,
+            dtype=dtype,
+        )
+        self.v_proj: Projection = ColumnShardedLinear(
+            model_dim,
+            head_dim * num_key_value_heads,
+            bias,
+            gather_output=False,
+            init_fn=qkv_proj_init_fn or init_qkv_projection,
+            gangs=gangs,
+            device=device,
+            dtype=dtype,
+        )
 
         # --- Q / K norms ---
         self.q_norm: LayerNorm | None
@@ -215,42 +168,19 @@ class OLMOMultiheadAttention(MultiheadAttention):
         # --- Output projection ---
         v_dim = self.v_proj.output_dim * self.num_query_groups
 
-        if output_proj is None:
-            if output_proj_bias is None:
-                output_proj_bias = bias
+        if output_proj_bias is None:
+            output_proj_bias = bias
 
-            self.output_proj: Projection = RowShardedLinear(
-                v_dim,
-                model_dim,
-                output_proj_bias,
-                scatter_input=False,
-                init_fn=output_proj_init_fn or init_mha_output_projection,
-                gangs=gangs,
-                device=device,
-                dtype=dtype,
-            )
-        else:
-            if output_proj_init_fn is not None:
-                raise ValueError(
-                    "`output_proj_init_fn` must not be specified when "
-                    "`output_proj` is specified."
-                )
-
-            if v_dim != output_proj.input_dim:
-                raise ValueError(
-                    f"`v_proj.output_dim` (or times the number of query "
-                    f"groups when GQA) and `output_proj.input_dim` must be "
-                    f"equal, but they are {v_dim} and "
-                    f"{output_proj.input_dim} instead."
-                )
-
-            if output_proj.output_dim != model_dim:
-                raise ValueError(
-                    f"`output_proj.output_dim` must be equal to `model_dim` "
-                    f"({model_dim}), but is {output_proj.output_dim} instead."
-                )
-
-            self.output_proj = output_proj
+        self.output_proj: Projection = RowShardedLinear(
+            v_dim,
+            model_dim,
+            output_proj_bias,
+            scatter_input=False,
+            init_fn=output_proj_init_fn or init_mha_output_projection,
+            gangs=gangs,
+            device=device,
+            dtype=dtype,
+        )
 
         self.state_factory = state_factory
 
@@ -318,6 +248,8 @@ class OLMOMultiheadAttention(MultiheadAttention):
         attns, attn_weights = self.sdpa(
             q, seqs_layout, k, keys_layout, v, bias_cache, needs_weights=needs_weights
         )
+
+        del q, k, v
 
         if attn_weights is not None:
             for hook in self._attn_weight_hooks.values():

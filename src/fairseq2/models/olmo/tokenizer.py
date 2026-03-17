@@ -44,7 +44,7 @@ OLMO_HG_CHAT_TEMPLATE: Final = """{{ bos_token }}
 
 
 @final
-class OlmoTokenizer(Tokenizer):
+class OLMOTokenizer(Tokenizer):
     def __init__(self, model: HuggingFaceTokenModel, eos_token: str) -> None:
         self._model = model
         self._eos_token = eos_token
@@ -112,11 +112,16 @@ class OlmoTokenizer(Tokenizer):
 
 
 @dataclass(kw_only=True)
-class OlmoTokenizerConfig:
+class OLMOTokenizerConfig:
+    """Configuration for OLMO tokenizer."""
+
     use_im_end: bool = False
+    """If ``True``, use ``<|im_end|>`` as the EOS token (for chat/instruct models).
+    If ``False``, use ``<|endoftext|>`` (default, for base models).
+    """
 
 
-def load_olmo_tokenizer(path: Path, config: OlmoTokenizerConfig) -> Tokenizer:
+def load_olmo_tokenizer(path: Path, config: OLMOTokenizerConfig) -> Tokenizer:
     # Use <|im_end|> as eos_token if configured, otherwise use <|endoftext|>
     # Similar to Qwen's tokenizer configuration
     eos_token = "<|im_end|>" if config.use_im_end else "<|endoftext|>"
@@ -133,4 +138,4 @@ def load_olmo_tokenizer(path: Path, config: OlmoTokenizerConfig) -> Tokenizer:
 
     model.overwrite_chat_template(OLMO_HG_CHAT_TEMPLATE)
 
-    return OlmoTokenizer(model, eos_token)
+    return OLMOTokenizer(model, eos_token)

@@ -130,17 +130,10 @@ class OLMOFactory:
         if config.sliding_window is None:
             return False
 
-        # Use explicitly specified layer_types if available
-        if config.layer_types is not None:
-            return config.layer_types[layer_idx] == "sliding_attention"
-
-        # This should not happen after __init__ auto-generation, but keep as fallback
-        # Final layer always uses full attention
-        if layer_idx == config.num_layers - 1:
-            return False
-
-        # Every 4th layer uses full attention
-        return (layer_idx + 1) % 4 != 0
+        # layer_types is guaranteed to be non-None here because __init__
+        # auto-generates it when sliding_window is set.
+        assert config.layer_types is not None
+        return config.layer_types[layer_idx] == "sliding_attention"
 
     def create_model(self) -> TransformerLM:
         config = self._config
@@ -324,7 +317,7 @@ class OLMOFactory:
         # Determine attention type for this layer (OLMO3 hybrid attention)
         is_sliding_window = self._is_sliding_window_layer(layer_idx)
 
-        if is_sliding_window and config.sliding_window is not None:
+        if is_sliding_window:
             # Create sliding window causal attention bias
             attn_bias = CausalAttentionBias(attn_window_len=config.sliding_window)
         else:
@@ -346,7 +339,7 @@ class OLMOFactory:
         k_norm = self.create_layer_norm(config.num_key_value_heads * head_dim)
 
         state_factory = None
-        if is_sliding_window and config.sliding_window is not None:
+        if is_sliding_window:
             state_factory = LocalAttentionStateFactory(config.sliding_window)
 
         return OLMOMultiheadAttention(
@@ -378,14 +371,11 @@ class OLMOFactory:
 
             _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
 
-        ffn_inner_dim = int(config.ffn_inner_dim * config.ffn_inner_dim_multiplier)
-
         return GLUFeedForwardNetwork(
             config.model_dim,
-            ffn_inner_dim,
+            config.ffn_inner_dim,
             bias=False,
-            inner_dim_scale=config.ffn_inner_dim_scale,
-            inner_dim_to_multiple=config.ffn_inner_dim_multiple_of,
+            inner_dim_scale=1.0,
             proj_init_fn=init_projection,
             gangs=self._gangs,
         )
