@@ -10,7 +10,15 @@ dataset:
   batch_size: 4
   chat_mode: true
   config_overrides:
-    path: "hg://facebook/fairseq2-lm-gsm8k"
+    sources:
+      train:
+      - path: "hg://facebook/fairseq2-lm-gsm8k"
+        split: "sft_train"
+        weight: 1.0
+      sft_test:
+      - path: "hg://facebook/fairseq2-lm-gsm8k"
+        split: "sft_test"
+        weight: 1.0
 
 model:
   family: "gemma3n"
@@ -23,7 +31,7 @@ tokenizer:
 common:
   metric_recorders:
     wandb:
-      enabled: True
+      enabled: False
       project: "fairseq2"
       run_name: "sft_gemma3n_e2b_gsm8k"
 
