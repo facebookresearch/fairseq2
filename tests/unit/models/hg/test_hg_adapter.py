@@ -13,7 +13,7 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 
-from fairseq2.models.hg_qwen_omni.adapter import (
+from fairseq2.models.hg.adapter import (
     HgCausalLMAdapter,
     _HgDecoderFrontend,
     _HgEmbeddingWrapper,

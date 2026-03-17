@@ -85,10 +85,10 @@ class HgCausalLMAdapter(CausalLM):
     This allows HuggingFace models (like Gemma, Llama, GPT-2, etc.) to be used
     with fairseq2's training recipes that expect the CausalLM interface.
 
-    Args:
-        hf_model: The HuggingFace PreTrainedModel to wrap
-        max_seq_len: Maximum sequence length supported by the model
-        enable_gradient_checkpointing: If True, enables gradient checkpointing to save memory
+    :param hf_model: The HuggingFace PreTrainedModel to wrap.
+    :param max_seq_len: Maximum sequence length supported by the model.
+    :param enable_gradient_checkpointing: If ``True``, enables gradient
+        checkpointing to save memory.
     """
 
     def __init__(
@@ -190,18 +190,15 @@ class HgCausalLMAdapter(CausalLM):
         """
         Forward pass that translates fairseq2's interface to HuggingFace's.
 
-        Args:
-            seqs: Input token IDs [batch_size, seq_len]
-            seqs_layout: Layout information (padding, etc.)
-            targets: Target token IDs for training [batch_size, seq_len]
-            state_bag: Incremental state (not used for HF models)
-            label_smoothing: Label smoothing factor (not implemented)
-            target_mask: Mask for targets [batch_size, seq_len]
-            reduction: How to reduce the loss ("sum" or "mean")
-            return_logits: Whether to return logits along with loss
-
-        Returns:
-            Loss tensor, or tuple of (loss, logits) if return_logits=True
+        :param seqs: Input token IDs [batch_size, seq_len].
+        :param seqs_layout: Layout information (padding, etc.).
+        :param targets: Target token IDs for training [batch_size, seq_len].
+        :param state_bag: Incremental state (not used for HF models).
+        :param label_smoothing: Label smoothing factor (not implemented).
+        :param target_mask: Mask for targets [batch_size, seq_len].
+        :param reduction: How to reduce the loss (``"sum"`` or ``"mean"``).
+        :param return_logits: Whether to return logits along with loss.
+        :returns: Loss tensor, or tuple of (loss, logits) if ``return_logits`` is ``True``.
         """
         # Create attention mask from seqs_layout
         attention_mask = self._create_attention_mask(seqs, seqs_layout)
@@ -255,12 +252,9 @@ class HgCausalLMAdapter(CausalLM):
         """
         Create attention mask from fairseq2's BatchLayout.
 
-        Args:
-            seqs: Input token IDs [batch_size, seq_len]
-            seqs_layout: Layout with padding information
-
-        Returns:
-            Attention mask [batch_size, seq_len] where 1 = attend, 0 = ignore
+        :param seqs: Input token IDs [batch_size, seq_len].
+        :param seqs_layout: Layout with padding information.
+        :returns: Attention mask [batch_size, seq_len] where 1 = attend, 0 = ignore.
         """
         # In fairseq2, position_indices contains -1 for padding positions
         # and valid positions (0, 1, 2, ...) for non-padding positions
@@ -316,12 +310,9 @@ def wrap_hg_model_if_causal_lm(hf_model: Module, config) -> Module:
     """
     Wrap a HuggingFace model in HgCausalLMAdapter if it's a causal language model.
 
-    Args:
-        hf_model: The HuggingFace model to potentially wrap
-        config: The HuggingFaceModelConfig used to create the model
-
-    Returns:
-        Wrapped model if it's a causal LM, otherwise the original model
+    :param hf_model: The HuggingFace model to potentially wrap.
+    :param config: The HuggingFaceModelConfig used to create the model.
+    :returns: Wrapped model if it's a causal LM, otherwise the original model.
     """
     # Check if this is a causal LM that should be wrapped
     if hasattr(config, "model_type") and config.model_type == "causal_lm":

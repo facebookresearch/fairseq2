@@ -20,7 +20,7 @@ import torch
 
 from fairseq2.gang import get_default_gangs
 from fairseq2.logging import get_log_writer
-from fairseq2.models.hg_qwen_omni import load_hg_tokenizer_simple
+from fairseq2.models.hg import load_hg_tokenizer_simple
 
 from recipes.lm.sft.dataset import (
     LMSFTDataset,

@@ -4,18 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""
-Configuration classes for HuggingFace model integration.
-
-This module defines the configuration dataclasses used to specify how
-HuggingFace models should be loaded and configured within fairseq2.
-
-Classes:
-    HuggingFaceModelConfig: Main configuration class for HuggingFace models
-
-Functions:
-    register_hg_configs: Register predefined HuggingFace model configurations
-"""
+"""Configuration classes for HuggingFace model integration."""
 
 from __future__ import annotations
 
@@ -97,18 +86,7 @@ class HuggingFaceModelConfig:
 def register_hg_configs(container: DependencyContainer) -> None:
     """Register predefined HuggingFace model configurations.
 
-    This function registers several predefined configurations for common
-    HuggingFace models, making them available through the fairseq2 model
-    hub system.
-
-    :param container: The dependency container to register configurations with
-
-    Registered Configurations:
-        - `Stack Overflow home <https://stackoverflow.com/>`_
-        - `auto <https://huggingface.co/docs/transformers/model_doc/auto#transformers.AutoModel>`_
-        - `causal_lm <https://huggingface.co/docs/transformers/modeldoc/auto#transformers.AutoModelForCausalLM>`_
-        - `seq2seq_lm <https://huggingface.co/docs/transformers/model_doc/auto#transformers.AutoModelForSeq2SeqLM>`_
-        - custom: Custom model configuration for untracked models in auto classes
+    :param container: The dependency container to register configurations with.
     """
     arch = ConfigRegistrar(container, HuggingFaceModelConfig)
 

@@ -10,26 +10,12 @@ Factory functions for creating HuggingFace models.
 This module provides the core factory functionality for creating HuggingFace
 models within fairseq2. It handles model loading, device placement, custom
 model classes, and error handling.
-
-Key Components:
-    - HgFactory: Main factory class for model creation
-    - HuggingFaceModelError: Custom exception for model loading errors
-    - Model registries for special cases and custom models
-    - Utility functions for device and dtype handling
-
-The factory supports:
-    - Auto model detection and loading
-    - Custom model classes for unsupported architectures
-    - Device placement with accelerate integration
-    - Processor and tokenizer handling
-    - Comprehensive error handling and logging
 """
 
 from __future__ import annotations
 
 import copy
 import importlib
-import os
 import re
 from pathlib import Path
 from typing import Any, Dict, Type
@@ -38,7 +24,7 @@ import torch
 from tqdm.auto import tqdm
 
 from fairseq2.assets import HuggingFaceHub
-from fairseq2.device import get_default_device
+from fairseq2.device import detect_default_device
 from fairseq2.error import NotSupportedError, OperationalError
 from fairseq2.file_system import LocalFileSystem
 from fairseq2.gang import (
@@ -46,8 +32,8 @@ from fairseq2.gang import (
     get_current_gangs,
 )
 from fairseq2.logging import log
-from fairseq2.models.hg_qwen_omni.adapter import wrap_hg_model_if_causal_lm
-from fairseq2.models.hg_qwen_omni.config import HuggingFaceModelConfig
+from fairseq2.models.hg.adapter import wrap_hg_model_if_causal_lm
+from fairseq2.models.hg.config import HuggingFaceModelConfig
 from fairseq2.nn import Linear
 from fairseq2.utils.uri import Uri
 
@@ -89,16 +75,7 @@ _USER_REGISTRY: Dict[str, Dict[str, Any]] = {}
 
 
 class HuggingFaceModelError(Exception):
-    """
-    Exception raised when HuggingFace model loading fails.
-
-    This exception provides detailed information about model loading failures,
-    including the model name and specific error details.
-
-    Attributes:
-        model_name: The name of the model that failed to load
-        message: Detailed error message
-    """
+    """Exception raised when HuggingFace model loading fails."""
 
     def __init__(self, model_name: str, message: str) -> None:
         super().__init__(message)
@@ -184,15 +161,10 @@ def create_hg_model(config: HuggingFaceModelConfig) -> Any:
 
 
 class HgFactory:
-    """
-    Factory for creating HuggingFace models.
+    """Factory for creating HuggingFace models.
 
-    This class handles the logic of loading HuggingFace models,
-    including device placement, dtype conversion, custom classes, and
-    error handling.
-
-    Args:
-        config: The HuggingFace model configuration
+    :param config: The HuggingFace model configuration.
+    :param gangs: The gangs to use for distributed model loading.
     """
 
     def __init__(
@@ -205,12 +177,9 @@ class HgFactory:
     def create_model(self) -> Any:
         """Create the model according to the configuration.
 
-        Returns:
-            PreTrainedModel: The loaded model
-
-        Raises:
-            NotSupportedError: If transformers is not available
-            HuggingFaceModelError: If model loading fails
+        :returns: The loaded model.
+        :raises NotSupportedError: If transformers is not available.
+        :raises HuggingFaceModelError: If model loading fails.
         """
         config = self._config
         gangs = self._gangs
@@ -287,14 +256,12 @@ def _get_model_info(
 def _replace_layer(
     layers_indexable: Qwen2_5OmniForConditionalGeneration, path: str, value: object
 ) -> None:
-    """Replace a potentially indexed, nested object atrribute
-    by parsing an object path string
+    """Replace a potentially indexed, nested object attribute
+    by parsing an object path string.
 
-    :param obj: The object to be modified, e.g. model (`QwenModel`)
-
-    :param path: The path of the attribute to be modified, e.g. ``model.thinker.fc2``
-
-    :param value: The object to substitute, e.g. a `RowShardedLinear` layer
+    :param layers_indexable: The object to be modified, e.g. model.
+    :param path: The path of the attribute to be modified, e.g. ``model.thinker.fc2``.
+    :param value: The object to substitute, e.g. a ``RowShardedLinear`` layer.
     """
     parts = path.split(".")
     for i, part in enumerate(parts[:-1]):
@@ -380,10 +347,10 @@ def _load_special_model(
 
     log.info(f"Loading special model '{name}' using custom classes")
 
-    local_rank = int(os.environ.get("LOCAL_RANK", 0))
-    torch.cuda.set_device(local_rank)
-
-    device = get_default_device()
+    if gangs is not None:
+        device = gangs.root.device
+    else:
+        device = detect_default_device()
 
     # Prepare kwargs for from_pretrained
     load_kwargs = _prepare_load_kwargs(config)
@@ -399,9 +366,9 @@ def _load_special_model(
             model = model_class.from_pretrained(
                 **load_kwargs, attn_implementation="flash_attention_2"
             )
-            print("Using flash_attention_2.")
+            log.info("Using flash_attention_2.")
         except:
-            print("Couldn't load flash_attention_2. Using classic SDPA.")
+            log.info("Couldn't load flash_attention_2. Using classic SDPA.")
             model = model_class.from_pretrained(**load_kwargs)
 
     except Exception as ex:
@@ -413,12 +380,12 @@ def _load_special_model(
     # Shard the model according to available gangs
     if gangs is not None and gangs.tp.size > 1:
         try:
-            print(f"Sharding model with {gangs.tp.size} gangs...")
+            log.info(f"Sharding model with {gangs.tp.size} gangs...")
             model = _simple_shard_qwen_omni_model(model, gangs)
-            print("Model successfully sharded!")
+            log.info("Model successfully sharded!")
 
         except Exception as e:
-            print(
+            log.warning(
                 f"Error sharding the model. Is special model type supported? (Qwen2.5-Omni) {e}"
             )
 

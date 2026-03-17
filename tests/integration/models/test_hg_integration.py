@@ -20,15 +20,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 
-from fairseq2.models.hg_qwen_omni.adapter import HgCausalLMAdapter
-from fairseq2.models.hg_qwen_omni.api import (
+from fairseq2.models.hg.adapter import HgCausalLMAdapter
+from fairseq2.models.hg.api import (
     load_causal_lm,
     load_hg_model_simple,
     load_hg_tokenizer_simple,
     load_seq2seq_lm,
 )
-from fairseq2.models.hg_qwen_omni.config import HuggingFaceModelConfig
-from fairseq2.models.hg_qwen_omni.factory import (
+from fairseq2.models.hg.config import HuggingFaceModelConfig
+from fairseq2.models.hg.factory import (
     _get_auto_model_class,
     create_hg_model,
 )
@@ -66,10 +66,10 @@ def _make_mock_hf_seq2seq_model():
 class TestLoadCausalLmAPI:
     """Test that load_causal_lm correctly delegates to AutoModelForCausalLM."""
 
-    @patch("fairseq2.models.hg_qwen_omni.factory._get_model_path")
-    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
-    @patch("fairseq2.models.hg_qwen_omni.factory.AutoConfig")
-    @patch("fairseq2.models.hg_qwen_omni.factory.AutoModelForCausalLM")
+    @patch("fairseq2.models.hg.factory._get_model_path")
+    @patch("fairseq2.models.hg.factory._has_transformers", True)
+    @patch("fairseq2.models.hg.factory.AutoConfig")
+    @patch("fairseq2.models.hg.factory.AutoModelForCausalLM")
     def test_load_causal_lm_uses_auto_causal_lm(
         self,
         mock_auto_causal: MagicMock,
@@ -92,10 +92,10 @@ class TestLoadCausalLmAPI:
         # Causal LM models should be wrapped in HgCausalLMAdapter
         assert isinstance(result, HgCausalLMAdapter)
 
-    @patch("fairseq2.models.hg_qwen_omni.factory._get_model_path")
-    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
-    @patch("fairseq2.models.hg_qwen_omni.factory.AutoConfig")
-    @patch("fairseq2.models.hg_qwen_omni.factory.AutoModelForCausalLM")
+    @patch("fairseq2.models.hg.factory._get_model_path")
+    @patch("fairseq2.models.hg.factory._has_transformers", True)
+    @patch("fairseq2.models.hg.factory.AutoConfig")
+    @patch("fairseq2.models.hg.factory.AutoModelForCausalLM")
     def test_load_causal_lm_passes_kwargs(
         self,
         mock_auto_causal: MagicMock,
@@ -120,10 +120,10 @@ class TestLoadCausalLmAPI:
 class TestLoadSeq2SeqLmAPI:
     """Test that load_seq2seq_lm correctly delegates to AutoModelForSeq2SeqLM."""
 
-    @patch("fairseq2.models.hg_qwen_omni.factory._get_model_path")
-    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
-    @patch("fairseq2.models.hg_qwen_omni.factory.AutoConfig")
-    @patch("fairseq2.models.hg_qwen_omni.factory.AutoModelForSeq2SeqLM")
+    @patch("fairseq2.models.hg.factory._get_model_path")
+    @patch("fairseq2.models.hg.factory._has_transformers", True)
+    @patch("fairseq2.models.hg.factory.AutoConfig")
+    @patch("fairseq2.models.hg.factory.AutoModelForSeq2SeqLM")
     def test_load_seq2seq_uses_auto_seq2seq(
         self,
         mock_auto_seq2seq: MagicMock,
@@ -152,10 +152,10 @@ class TestLoadSeq2SeqLmAPI:
 class TestLoadHgModelSimpleAPI:
     """Test load_hg_model_simple with different model_type values."""
 
-    @patch("fairseq2.models.hg_qwen_omni.factory._get_model_path")
-    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
-    @patch("fairseq2.models.hg_qwen_omni.factory.AutoConfig")
-    @patch("fairseq2.models.hg_qwen_omni.factory.AutoModel")
+    @patch("fairseq2.models.hg.factory._get_model_path")
+    @patch("fairseq2.models.hg.factory._has_transformers", True)
+    @patch("fairseq2.models.hg.factory.AutoConfig")
+    @patch("fairseq2.models.hg.factory.AutoModel")
     def test_auto_model_type_uses_auto_model(
         self,
         mock_auto_model: MagicMock,
@@ -193,29 +193,29 @@ class TestLoadHgModelSimpleAPI:
 class TestAutoModelClassSelection:
     """Test that the correct Auto class is selected based on model_type."""
 
-    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
-    @patch("fairseq2.models.hg_qwen_omni.factory.AutoModelForCausalLM")
+    @patch("fairseq2.models.hg.factory._has_transformers", True)
+    @patch("fairseq2.models.hg.factory.AutoModelForCausalLM")
     def test_causal_lm_selects_auto_causal(self, mock_cls: MagicMock) -> None:
         config = HuggingFaceModelConfig(hf_name="gpt2", model_type="causal_lm")
         result = _get_auto_model_class(config, MagicMock())
         assert result is mock_cls
 
-    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
-    @patch("fairseq2.models.hg_qwen_omni.factory.AutoModelForSeq2SeqLM")
+    @patch("fairseq2.models.hg.factory._has_transformers", True)
+    @patch("fairseq2.models.hg.factory.AutoModelForSeq2SeqLM")
     def test_seq2seq_selects_auto_seq2seq(self, mock_cls: MagicMock) -> None:
         config = HuggingFaceModelConfig(hf_name="t5", model_type="seq2seq_lm")
         result = _get_auto_model_class(config, MagicMock())
         assert result is mock_cls
 
-    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
-    @patch("fairseq2.models.hg_qwen_omni.factory.AutoModel")
+    @patch("fairseq2.models.hg.factory._has_transformers", True)
+    @patch("fairseq2.models.hg.factory.AutoModel")
     def test_auto_selects_auto_model(self, mock_cls: MagicMock) -> None:
         config = HuggingFaceModelConfig(hf_name="bert", model_type="auto")
         result = _get_auto_model_class(config, MagicMock())
         assert result is mock_cls
 
-    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
-    @patch("fairseq2.models.hg_qwen_omni.factory.AutoModelForSeq2SeqLM")
+    @patch("fairseq2.models.hg.factory._has_transformers", True)
+    @patch("fairseq2.models.hg.factory.AutoModelForSeq2SeqLM")
     def test_encoder_decoder_auto_detects_seq2seq(self, mock_cls: MagicMock) -> None:
         config = HuggingFaceModelConfig(hf_name="bart", model_type="unknown")
         hf_config = MagicMock()
@@ -223,8 +223,8 @@ class TestAutoModelClassSelection:
         result = _get_auto_model_class(config, hf_config)
         assert result is mock_cls
 
-    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
-    @patch("fairseq2.models.hg_qwen_omni.factory.AutoModelForCausalLM")
+    @patch("fairseq2.models.hg.factory._has_transformers", True)
+    @patch("fairseq2.models.hg.factory.AutoModelForCausalLM")
     def test_decoder_only_auto_detects_causal(self, mock_cls: MagicMock) -> None:
         config = HuggingFaceModelConfig(hf_name="gpt2", model_type="unknown")
         hf_config = MagicMock()
@@ -329,10 +329,10 @@ class TestLoadTokenizerAPI:
 class TestCausalLMAdapterWiring:
     """Test that the factory correctly wraps causal LM models in HgCausalLMAdapter."""
 
-    @patch("fairseq2.models.hg_qwen_omni.factory._get_model_path")
-    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
-    @patch("fairseq2.models.hg_qwen_omni.factory.AutoConfig")
-    @patch("fairseq2.models.hg_qwen_omni.factory.AutoModelForCausalLM")
+    @patch("fairseq2.models.hg.factory._get_model_path")
+    @patch("fairseq2.models.hg.factory._has_transformers", True)
+    @patch("fairseq2.models.hg.factory.AutoConfig")
+    @patch("fairseq2.models.hg.factory.AutoModelForCausalLM")
     def test_causal_lm_wrapped_in_adapter(
         self,
         mock_auto_causal: MagicMock,
@@ -354,10 +354,10 @@ class TestCausalLMAdapterWiring:
         assert isinstance(result, HgCausalLMAdapter)
         assert result.decoder_frontend.embed.num_embeddings == 50257
 
-    @patch("fairseq2.models.hg_qwen_omni.factory._get_model_path")
-    @patch("fairseq2.models.hg_qwen_omni.factory._has_transformers", True)
-    @patch("fairseq2.models.hg_qwen_omni.factory.AutoConfig")
-    @patch("fairseq2.models.hg_qwen_omni.factory.AutoModelForSeq2SeqLM")
+    @patch("fairseq2.models.hg.factory._get_model_path")
+    @patch("fairseq2.models.hg.factory._has_transformers", True)
+    @patch("fairseq2.models.hg.factory.AutoConfig")
+    @patch("fairseq2.models.hg.factory.AutoModelForSeq2SeqLM")
     def test_seq2seq_not_wrapped(
         self,
         mock_auto_seq2seq: MagicMock,

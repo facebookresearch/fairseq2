@@ -4,32 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""
-High-level API for HuggingFace model integration.
-
-This module provides the main entry points for loading HuggingFace models and
-tokenizers within the fairseq2 framework. It offers simplified functions that
-handle common use cases while providing flexibility for advanced
-configurations.
-
-Key Functions:
-    - load_hg_model_simple: Load any HuggingFace model with minimal config
-    - load_hg_tokenizer_simple: Load a HuggingFace tokenizer with custom tokens
-    - load_causal_lm: Convenient wrapper for causal language models (GPT-style)
-    - load_seq2seq_lm: Convenient wrapper for seq2seq models (T5-style)
-    - load_multimodal_model: Convenient wrapper for multimodal models
-
-Example:
-    Basic usage for loading a GPT-2 model::
-
-        from fairseq2.models.hg_qwen_omni import (
-            load_hg_model_simple,
-            load_hg_tokenizer_simple,
-        )
-
-        model = load_hg_model_simple("gpt2")
-        tokenizer = load_hg_tokenizer_simple("gpt2")
-"""
+"""High-level API for loading HuggingFace models and tokenizers."""
 
 from __future__ import annotations
 
@@ -37,9 +12,9 @@ from pathlib import Path
 from typing import Any
 
 from fairseq2.data_type import DataType
-from fairseq2.models.hg_qwen_omni.config import HuggingFaceModelConfig
-from fairseq2.models.hg_qwen_omni.factory import create_hg_model
-from fairseq2.models.hg_qwen_omni.tokenizer import (
+from fairseq2.models.hg.config import HuggingFaceModelConfig
+from fairseq2.models.hg.factory import create_hg_model
+from fairseq2.models.hg.tokenizer import (
     HgTokenizer,
     HgTokenizerConfig,
     load_hg_tokenizer,

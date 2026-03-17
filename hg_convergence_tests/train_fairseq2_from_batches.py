@@ -36,7 +36,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from fairseq2.models.hg_qwen_omni.api import load_hg_model_simple
+from fairseq2.models.hg.api import load_hg_model_simple
 
 
 def set_seed(seed: int):

@@ -4,31 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""HuggingFace tokenizer integration for fairseq2.
-
-This module provides a bridge between HuggingFace tokenizers and fairseq2's
-tokenizer interface. It allows you to use any HuggingFace tokenizer within
-the fairseq2 ecosystem while maintaining compatibility with fairseq2's
-training and inference pipelines.
-
-Classes:
-    HgTokenizerConfig: Configuration for HuggingFace tokenizers
-    HgTokenizer: Wrapper class that adapts HuggingFace tokenizers
-
-Functions:
-    load_hg_tokenizer: Load a HuggingFace tokenizer from path and config
-
-Example:
-    Load a GPT-2 tokenizer::
-
-        from fairseq2.models.hg_qwen_omni.tokenizer import (
-            load_hg_tokenizer,
-            HgTokenizerConfig,
-        )
-
-        config = HgTokenizerConfig()
-        tokenizer = load_hg_tokenizer("gpt2", config)
-"""
+"""HuggingFace tokenizer integration for fairseq2."""
 
 from __future__ import annotations
 

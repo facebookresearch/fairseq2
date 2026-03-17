@@ -2,14 +2,13 @@
 HuggingFace Model SFT Training with fairseq2
 ==================================================
 
-.. currentmodule:: fairseq2.models.hg_qwen_omni
+.. currentmodule:: fairseq2.models.hg
 
 fairseq2 provides integration with HuggingFace Transformers models through the
-:mod:`fairseq2.models.hg_qwen_omni` module. This guide walks through a complete
+:mod:`fairseq2.models.hg` module. This guide walks through a complete
 supervised fine-tuning (SFT) example using a Gemma model loaded via HuggingFace
-and trained with fairseq2's distributed training infrastructure.
-
-The full example script is located at ``examples/simple_gemma_sft.py``.
+and trained with fairseq2's recipe system and distributed training
+infrastructure.
 
 Prerequisites
 =============
@@ -20,127 +19,282 @@ Ensure fairseq2 is installed and the virtual environment is activated:
 
     source .venv/bin/activate
 
-The example uses ``google/gemma-3-1b-it`` by default. HuggingFace will
-download the model automatically on first use.
+The example uses ``google/gemma-3-1b-it`` from HuggingFace Hub and the
+``facebook/fairseq2-lm-gsm8k`` dataset. Both are downloaded automatically on
+first use.
 
-Running the Example
-===================
+Running the Recipe
+==================
 
-**CPU mode** (slow, for testing only):
+fairseq2 uses a YAML-based recipe system for training. A pre-configured
+example for Gemma SFT on GSM8K is provided at
+``recipes/lm/sft/configs/gemma_3_1b_it_gsm8k.yaml``.
 
-.. code:: bash
-
-    python examples/simple_gemma_sft.py --device cpu
-
-**Single GPU mode** (recommended):
-
-.. code:: bash
-
-    python examples/simple_gemma_sft.py --device cuda
-
-**Multi-GPU mode with FSDP** (requires 2+ GPUs):
+**Single GPU** (recommended):
 
 .. code:: bash
 
-    torchrun --nproc_per_node=2 examples/simple_gemma_sft.py --device cuda
+    python -m recipes.lm.sft \
+        --config-file recipes/lm/sft/configs/gemma_3_1b_it_gsm8k.yaml \
+        /path/to/output
 
-**Custom training parameters**:
+**Multi-GPU with FSDP** (requires 2+ GPUs):
 
 .. code:: bash
 
-    python examples/simple_gemma_sft.py --device cuda --num-epochs 2 --learning-rate 1e-5 --batch-size 8
+    torchrun --nproc_per_node=2 -m recipes.lm.sft \
+        --config-file recipes/lm/sft/configs/gemma_3_1b_it_gsm8k.yaml \
+        /path/to/output
 
-What the Example Demonstrates
-==============================
+**Override config values from the command line**:
 
-The script covers several key fairseq2 features:
+.. code:: bash
 
-1. **Loading a HuggingFace model** using :func:`load_causal_lm` from
-   fairseq2's HG integration module.
+    python -m recipes.lm.sft \
+        --config-file recipes/lm/sft/configs/gemma_3_1b_it_gsm8k.yaml \
+        --config regime.num_steps=100 dataset.max_seq_len=2048 \
+        /path/to/output
 
-2. **Distributed training** using fairseq2's :class:`~fairseq2.gang.Gang`
-   abstraction. When launched with ``torchrun``, the script automatically
-   detects the multi-GPU environment and initializes
-   :class:`~fairseq2.gang.ProcessGroupGang`.
+**Dump the full default config** (useful for reference):
 
-3. **FSDP sharding** using :func:`~fairseq2.nn.fsdp.to_fsdp2` and
-   :func:`apply_fsdp_to_hg_transformer_lm` for memory-efficient multi-GPU
-   training with layer-wise sharding granularity.
+.. code:: bash
 
-4. **Checkpoint management** using
-   :class:`~fairseq2.checkpoint.StandardCheckpointManager` for saving and
-   automatically resuming training from the last checkpoint.
+    python -m recipes.lm.sft --dump-config
 
-5. **Tokenization** using :func:`load_hg_tokenizer_simple` to load the
-   HuggingFace tokenizer with proper special token handling.
+Understanding the Configuration
+================================
 
-Key Code Patterns
-=================
+The complete Gemma SFT config is shown below. Each section is explained
+afterwards.
 
-Loading a HuggingFace Model
----------------------------
+.. code:: yaml
 
-.. code:: python
+    model:
+      name: null
+      family: "hg"
+      arch: "causal_lm"
+      config_overrides:
+        hf_name: "google/gemma-3-1b-it"
+        model_type: "causal_lm"
+        trust_remote_code: true
 
-    from fairseq2.models.hg_qwen_omni import load_causal_lm, load_hg_tokenizer_simple
+    tokenizer:
+      path: "google/gemma-3-1b-it"
+      family: "hg"
 
-    model = load_causal_lm("google/gemma-3-1b-it", device=device)
-    tokenizer = load_hg_tokenizer_simple("google/gemma-3-1b-it")
+    dataset:
+      max_seq_len: 4096
+      max_num_tokens: 8192
+      chat_mode: false
+      config_overrides:
+        sources:
+          train:
+          - path: "hg://facebook/fairseq2-lm-gsm8k"
+            split: "sft_train"
+            weight: 1.0
 
-Distributed Setup with Gang
-----------------------------
+    common:
+      metric_recorders:
+        wandb:
+          enabled: False
+          project: "fairseq2"
+          run_name: "sft_gemma_3_1b_it_gsm8k"
 
-The example uses fairseq2's :class:`~fairseq2.gang.Gang` rather than raw
-``torch.distributed`` calls:
+    regime:
+      num_steps: 500
+      checkpoint_every_n_steps: 500
+      validate_every_n_steps: 10000
+      checkpoint_every_n_data_epochs: 100
+      keep_last_n_checkpoints: 1
+      publish_metrics_every_n_steps: 10
+      save_model_only: true
+      export_hugging_face: false
 
-.. code:: python
-
-    from fairseq2.gang import ProcessGroupGang, create_parallel_gangs, create_fsdp_gangs
-
-    gang = ProcessGroupGang.create_default_process_group(device)
-    gangs = create_parallel_gangs(gang)
-    gangs = create_fsdp_gangs(gangs)
-
-See :doc:`/concepts/gang` for a detailed explanation of the gang abstraction.
-
-Applying FSDP
+Model Section
 -------------
 
-.. code:: python
+.. code:: yaml
 
-    from fairseq2.nn.fsdp import to_fsdp2
-    from fairseq2.models.hg_qwen_omni import apply_fsdp_to_hg_transformer_lm
+    model:
+      name: null
+      family: "hg"
+      arch: "causal_lm"
+      config_overrides:
+        hf_name: "google/gemma-3-1b-it"
+        model_type: "causal_lm"
+        trust_remote_code: true
 
-    # Mark layer boundaries for FSDP sharding
-    apply_fsdp_to_hg_transformer_lm(model)
+- ``name: null`` disables the default fairseq2 model lookup so the model is
+  loaded entirely through the HuggingFace integration.
+- ``family: "hg"`` selects the HuggingFace model family, which uses
+  :func:`load_causal_lm` internally.
+- ``arch: "causal_lm"`` tells the factory to use ``AutoModelForCausalLM``.
+- ``config_overrides`` passes fields to
+  :class:`~fairseq2.models.hg.config.HuggingFaceModelConfig`:
 
-    # Wrap the model with FSDP
-    to_fsdp2(model, gangs)
+  - ``hf_name`` is the HuggingFace Hub model identifier.
+  - ``model_type: "causal_lm"`` ensures the model is wrapped in
+    :class:`~fairseq2.models.hg.adapter.HgCausalLMAdapter`, which
+    adapts the HuggingFace model to fairseq2's
+    :class:`~fairseq2.models.clm.CausalLM` interface.
 
-Checkpoint Management
----------------------
+Compare this with a native fairseq2 model config (e.g. LLaMA) which only needs
+``name``:
 
-.. code:: python
+.. code:: yaml
 
-    from fairseq2.checkpoint import StandardCheckpointManager
+    model:
+      name: "llama3_2_1b"
 
-    manager = StandardCheckpointManager(output_dir / "checkpoints", ...)
+Tokenizer Section
+-----------------
 
-    # Save checkpoint
-    manager.save(step, state_dict)
+.. code:: yaml
 
-    # Resume from last checkpoint (returns None if no checkpoint exists)
-    last_step = manager.get_last_step()
+    tokenizer:
+      path: "google/gemma-3-1b-it"
+      family: "hg"
 
-Checkpointing Features
-=======================
+- ``path`` specifies the HuggingFace tokenizer to load (same identifier as the
+  model). This uses ``AutoTokenizer.from_pretrained`` under the hood via
+  :func:`load_hg_tokenizer_simple`.
+- ``family: "hg"`` selects the HuggingFace tokenizer family.
 
-The script uses fairseq2's :class:`~fairseq2.checkpoint.StandardCheckpointManager`
-for robust checkpointing:
+Dataset Section
+---------------
 
-- **Automatic resume**: If a checkpoint exists in ``--output-dir``, training
-  automatically resumes from the last step.
-- **Saves model and optimizer state** for proper resumption.
+.. code:: yaml
+
+    dataset:
+      max_seq_len: 4096
+      max_num_tokens: 8192
+      chat_mode: false
+      config_overrides:
+        sources:
+          train:
+          - path: "hg://facebook/fairseq2-lm-gsm8k"
+            split: "sft_train"
+            weight: 1.0
+
+- ``max_seq_len: 4096`` drops sequences longer than 4096 tokens.
+- ``max_num_tokens: 8192`` enables dynamic batching — each batch contains at
+  most 8192 tokens total, automatically adjusting the number of sequences per
+  batch based on their lengths.
+- ``chat_mode: false`` uses standard SFT behavior where all tokens after the
+  source are treated as training targets. HuggingFace tokenizers do not generate
+  the ``assistant_mask`` required by fairseq2's chat mode.
+- ``sources`` defines the training data. The ``hg://`` prefix loads datasets
+  from HuggingFace Hub. Multiple sources with different weights can be specified
+  for weighted sampling.
+
+The dataset expects JSONL entries with ``src`` and ``tgt`` fields:
+
+.. code:: json
+
+    {"src": "What is 2 + 2?", "tgt": "2 + 2 = 4. The answer is 4."}
+
+Regime Section
+--------------
+
+.. code:: yaml
+
+    regime:
+      num_steps: 500
+      checkpoint_every_n_steps: 500
+      validate_every_n_steps: 10000
+      keep_last_n_checkpoints: 1
+      publish_metrics_every_n_steps: 10
+      save_model_only: true
+      export_hugging_face: false
+
+- ``num_steps: 500`` trains for 500 optimizer steps (roughly 5 epochs over the
+  GSM8K dataset on a single GPU).
+- ``save_model_only: true`` saves only the model weights, not the optimizer
+  state. This produces smaller checkpoints suitable for inference.
+- ``export_hugging_face: false`` should be disabled for HuggingFace models since
+  they are already in HuggingFace format.
+
+Key Differences from Native fairseq2 Models
+============================================
+
+When using HuggingFace models with the recipe system, there are a few
+differences compared to native fairseq2 model families like LLaMA:
+
+1. **Model loading**: Set ``family: "hg"`` and provide ``config_overrides``
+   with the HuggingFace model identifier instead of using a fairseq2
+   ``name``.
+
+2. **Tokenizer**: Set ``family: "hg"`` and use ``path`` (not ``name``) to
+   point to the HuggingFace tokenizer.
+
+3. **Chat mode**: Disable ``chat_mode`` unless your HuggingFace tokenizer
+   generates ``assistant_mask`` fields. Standard SFT (all target tokens
+   contribute to loss) works out of the box.
+
+4. **HuggingFace export**: Set ``export_hugging_face: false`` — the model is
+   already in HuggingFace format.
+
+For comparison, a native LLaMA config is much shorter because the model and
+tokenizer are registered in fairseq2's asset system:
+
+.. code:: yaml
+
+    model:
+      name: "llama3_2_1b"
+    tokenizer:
+      name: "llama3_2_1b"
+    dataset:
+      max_seq_len: 4096
+      max_num_tokens: 8192
+      chat_mode: true
+      config_overrides:
+        sources:
+          train:
+          - path: "hg://facebook/fairseq2-lm-gsm8k"
+            split: "sft_train"
+            weight: 1.0
+
+Adapting to Other HuggingFace Models
+=====================================
+
+To fine-tune a different HuggingFace model, copy the Gemma config and change
+the model identifier:
+
+.. code:: yaml
+
+    model:
+      name: null
+      family: "hg"
+      arch: "causal_lm"
+      config_overrides:
+        hf_name: "mistralai/Mistral-7B-Instruct-v0.3"
+        model_type: "causal_lm"
+
+    tokenizer:
+      path: "mistralai/Mistral-7B-Instruct-v0.3"
+      family: "hg"
+
+For seq2seq models (e.g. T5), change ``arch`` and ``model_type``:
+
+.. code:: yaml
+
+    model:
+      name: null
+      family: "hg"
+      arch: "seq2seq_lm"
+      config_overrides:
+        hf_name: "google-t5/t5-small"
+        model_type: "seq2seq_lm"
+
+Checkpointing and Resumption
+=============================
+
+The recipe uses fairseq2's
+:class:`~fairseq2.checkpoint.StandardCheckpointManager` for robust
+checkpointing:
+
+- **Automatic resume**: Re-running the same command with the same output
+  directory automatically resumes from the last checkpoint.
 - **Distributed-safe**: Works correctly in multi-GPU setups.
 - **Checkpoints saved to**: ``{output_dir}/checkpoints/step_{N}/``
 
@@ -148,40 +302,29 @@ for robust checkpointing:
     :caption: Example - Resume Training
 
     # First run (trains and saves checkpoint)
-    python examples/simple_gemma_sft.py --output-dir my_run --num-epochs 1
+    python -m recipes.lm.sft \
+        --config-file recipes/lm/sft/configs/gemma_3_1b_it_gsm8k.yaml \
+        /path/to/output
 
     # Resume from checkpoint (automatically detects and loads)
-    python examples/simple_gemma_sft.py --output-dir my_run --num-epochs 2
+    python -m recipes.lm.sft \
+        --config-file recipes/lm/sft/configs/gemma_3_1b_it_gsm8k.yaml \
+        /path/to/output
 
 Multi-GPU Notes
 ===============
 
-When running with FSDP:
+When running with FSDP (the default for multi-GPU):
 
 - Each rank sees its local device (e.g., ``cuda:0`` from rank 0's perspective).
-  The model is actually sharded across all GPUs — this is expected FSDP behavior.
-- The script skips the generation test when FSDP is enabled because
-  FSDP-wrapped models require all ranks to participate in forward passes.
+  The model is actually sharded across all GPUs — this is expected FSDP
+  behavior.
 - Only rank 0 prints output to avoid clutter.
-
-To disable FSDP in multi-GPU mode:
-
-.. code:: bash
-
-    torchrun --nproc_per_node=2 examples/simple_gemma_sft.py --device cuda --no-fsdp
-
-Training Stability
-==================
-
-The script uses conservative settings for stable training:
-
-- **fp32 precision** instead of fp16 (more stable without loss scaling)
-- **Low learning rate** (5e-6) to prevent instability
-- **Gradient clipping** (max norm 1.0) to prevent exploding gradients
-- **NaN detection** with early stopping if training becomes unstable
+- Adjust ``max_num_tokens`` if you run out of memory on multi-GPU setups.
 
 .. note::
 
-    This is an educational example demonstrating the basics. For production
-    training, use fairseq2's full :class:`~fairseq2.trainer.Trainer` class with
-    proper data pipelines, validation, and early stopping.
+    For production training, consider tuning the optimizer and learning rate
+    scheduler. The recipe system exposes ``optimizer`` and ``lr_scheduler``
+    config sections — run ``python -m recipes.lm.sft --dump-config`` to see
+    all available options.
