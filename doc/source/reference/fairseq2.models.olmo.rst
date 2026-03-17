@@ -87,17 +87,17 @@ YaRNScaleConfig
 Tokenizer
 ---------
 
-OlmoTokenizer
+OLMOTokenizer
 ~~~~~~~~~~~~~
 
-.. autoclass:: OlmoTokenizer
+.. autoclass:: OLMOTokenizer
     :members:
     :show-inheritance:
 
-OlmoTokenizerConfig
+OLMOTokenizerConfig
 ~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: OlmoTokenizerConfig
+.. autoclass:: OLMOTokenizerConfig
     :members:
     :show-inheritance:
 
