@@ -77,13 +77,13 @@ class OLMOFactory:
 
         # Create RoPE encoders based on model type
         if config.sliding_window is not None:
-            # OLMO3: Create separate RoPE encoders for sliding and full attention layers
-            # Sliding window layers use standard RoPE
-            # Full attention layers use YaRN RoPE (if yarn_scale_config is set)
-            self._sliding_rope_encoder = self._create_standard_rope_encoder()
+            # OLMO3: All layers share the same RoPE encoder.
+            # When YaRN scaling is configured, ALL layers use YaRN-scaled RoPE,
+            # matching HuggingFace where a single RotaryEmbedding is shared.
             self._full_attention_rope_encoder = (
                 self._create_full_attention_rope_encoder()
             )
+            self._sliding_rope_encoder = self._full_attention_rope_encoder
         else:
             # OLMO2: Single shared RoPE encoder for all layers
             self._shared_rope_encoder = self._create_standard_rope_encoder()
@@ -130,10 +130,17 @@ class OLMOFactory:
         if config.sliding_window is None:
             return False
 
-        # layer_types is guaranteed to be non-None here because __init__
-        # auto-generates it when sliding_window is set.
-        assert config.layer_types is not None
-        return config.layer_types[layer_idx] == "sliding_attention"
+        # Use explicitly specified layer_types if available
+        if config.layer_types is not None:
+            return config.layer_types[layer_idx] == "sliding_attention"
+
+        # This should not happen after __init__ auto-generation, but keep as fallback
+        # Final layer always uses full attention
+        if layer_idx == config.num_layers - 1:
+            return False
+
+        # Every 4th layer uses full attention
+        return (layer_idx + 1) % 4 != 0
 
     def create_model(self) -> TransformerLM:
         config = self._config
@@ -219,9 +226,7 @@ class OLMOFactory:
     def _create_standard_rope_encoder(self) -> PositionEncoder:
         """Create standard rotary encoder (without YaRN scaling).
 
-        Used for:
-        - All layers in OLMO2 models
-        - Sliding window attention layers in OLMO3 models
+        Used for all layers in OLMO2 models.
 
         Returns:
             Standard RoPE PositionEncoder
@@ -317,7 +322,7 @@ class OLMOFactory:
         # Determine attention type for this layer (OLMO3 hybrid attention)
         is_sliding_window = self._is_sliding_window_layer(layer_idx)
 
-        if is_sliding_window:
+        if is_sliding_window and config.sliding_window is not None:
             # Create sliding window causal attention bias
             attn_bias = CausalAttentionBias(attn_window_len=config.sliding_window)
         else:
@@ -339,7 +344,7 @@ class OLMOFactory:
         k_norm = self.create_layer_norm(config.num_key_value_heads * head_dim)
 
         state_factory = None
-        if is_sliding_window:
+        if is_sliding_window and config.sliding_window is not None:
             state_factory = LocalAttentionStateFactory(config.sliding_window)
 
         return OLMOMultiheadAttention(
