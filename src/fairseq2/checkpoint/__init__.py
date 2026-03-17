@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import final
+
 from fairseq2.checkpoint.hg import NOOP_HG_EXPORTER as NOOP_HG_EXPORTER
 from fairseq2.checkpoint.hg import (
     HuggingFaceExportCallbackArgs as HuggingFaceExportCallbackArgs,
@@ -44,3 +47,15 @@ from fairseq2.checkpoint.model_metadata import (
 from fairseq2.checkpoint.model_metadata import (
     StandardModelMetadataLoader as StandardModelMetadataLoader,
 )
+
+
+@final
+class CheckpointDir:
+    """Represents the directory path for storing checkpoints."""
+
+    def __init__(self, path: Path | None = None) -> None:
+        self._path = path
+
+    @property
+    def path(self) -> Path | None:
+        return self._path

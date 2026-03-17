@@ -9,7 +9,11 @@ from __future__ import annotations
 import torch
 
 from fairseq2.assets import AssetMetadataSource
-from fairseq2.checkpoint import CheckpointManager, StandardCheckpointManager
+from fairseq2.checkpoint import (
+    CheckpointDir,
+    CheckpointManager,
+    StandardCheckpointManager,
+)
 from fairseq2.error import raise_operational_system_error
 from fairseq2.gang import GangError, Gangs, raise_operational_gang_error
 from fairseq2.recipe.base import Recipe, RecipeContext
@@ -108,9 +112,16 @@ def _register_train_recipe(container: DependencyContainer, recipe: Recipe) -> No
 
     container.register_type(_FSDPGangsFactory)
 
-    container.register_type(
-        CheckpointManager, StandardCheckpointManager, singleton=True
-    )
+    def create_checkpoint_manager(resolver: DependencyResolver) -> CheckpointManager:
+        checkpoint_dir_holder = resolver.resolve(CheckpointDir)
+
+        return wire_object(
+            resolver,
+            StandardCheckpointManager,
+            checkpoint_dir=checkpoint_dir_holder.path,
+        )
+
+    container.register(CheckpointManager, create_checkpoint_manager, singleton=True)
 
     container.register_type(_TrainHookManager, singleton=True)
 

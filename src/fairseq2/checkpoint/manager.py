@@ -164,10 +164,12 @@ class StandardCheckpointManager(CheckpointManager):
         tensor_file_loader: TensorFileLoader,
         tensor_file_dumper: TensorFileDumper,
         thread_pool: ThreadPool,
+        checkpoint_dir: Path | None = None,
     ) -> None:
-        checkpoint_dir = output_dir.joinpath("checkpoints")
-
-        self._checkpoint_dir = checkpoint_dir
+        if checkpoint_dir is not None:
+            self._checkpoint_dir = checkpoint_dir
+        else:
+            self._checkpoint_dir = output_dir.joinpath("checkpoints")
         self._gangs = gangs
         self._file_system = file_system
         self._tensor_file_loader = tensor_file_loader
@@ -267,16 +269,31 @@ class StandardCheckpointManager(CheckpointManager):
     def is_saving(self) -> bool:
         return self._save_op is not None
 
+    def _is_local_checkpoint_dir(self) -> bool:
+        return self._file_system.is_local_path(self._checkpoint_dir)
+
+    def _get_step_dir_name(self, step_nr: int, *, tmp: bool = False) -> str:
+        """Get the step directory name.
+
+        For local filesystems, we use a .tmp suffix during writing for atomicity.
+        For remote filesystems (S3), we write directly to the final location
+        since atomic directory renames are not supported anyway.
+        """
+        if tmp and self._is_local_checkpoint_dir():
+            return f"step_{step_nr}.tmp"
+        return f"step_{step_nr}"
+
     def _begin_checkpoint(self, step_nr: int) -> None:
         self.delete_checkpoint(step_nr)
 
         gangs = self._gangs
 
-        tmp_step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
+        step_dir_name = self._get_step_dir_name(step_nr, tmp=True)
+        step_dir = self._checkpoint_dir.joinpath(step_dir_name)
 
         if gangs.root.rank == 0:
             try:
-                self._file_system.make_directory(tmp_step_dir)
+                self._file_system.make_directory(step_dir)
             except OSError as ex:
                 raise_operational_system_error(ex)
 
@@ -285,7 +302,8 @@ class StandardCheckpointManager(CheckpointManager):
     ) -> None:
         gangs = self._gangs
 
-        pathname = f"step_{step_nr}.tmp/trainer/rank_{gangs.root.rank:02d}.pt"
+        step_dir_name = self._get_step_dir_name(step_nr, tmp=True)
+        pathname = f"{step_dir_name}/trainer/rank_{gangs.root.rank:02d}.pt"
 
         file = self._checkpoint_dir.joinpath(pathname)
 
@@ -309,7 +327,8 @@ class StandardCheckpointManager(CheckpointManager):
         if gangs.rdp.rank != 0:
             return
 
-        pathname = f"step_{step_nr}.tmp/model/pp_{gangs.pp.rank:02d}/tp_{gangs.tp.rank:02d}/sdp_{gangs.sdp.rank:02d}.pt"
+        step_dir_name = self._get_step_dir_name(step_nr, tmp=True)
+        pathname = f"{step_dir_name}/model/pp_{gangs.pp.rank:02d}/tp_{gangs.tp.rank:02d}/sdp_{gangs.sdp.rank:02d}.pt"
 
         file = self._checkpoint_dir.joinpath(pathname)
 
@@ -339,7 +358,8 @@ class StandardCheckpointManager(CheckpointManager):
         if gangs.rdp.rank != 0:
             return
 
-        pathname = f"step_{step_nr}.tmp/optimizer/pp_{gangs.pp.rank:02d}/tp_{gangs.tp.rank:02d}/sdp_{gangs.sdp.rank:02d}.pt"
+        step_dir_name = self._get_step_dir_name(step_nr, tmp=True)
+        pathname = f"{step_dir_name}/optimizer/pp_{gangs.pp.rank:02d}/tp_{gangs.tp.rank:02d}/sdp_{gangs.sdp.rank:02d}.pt"
 
         file = self._checkpoint_dir.joinpath(pathname)
 
@@ -363,7 +383,8 @@ class StandardCheckpointManager(CheckpointManager):
         if gangs.tp.rank != 0:
             return
 
-        pathname = f"step_{step_nr}.tmp/data_reader/dp_{gangs.dp.rank:02d}.pt"
+        step_dir_name = self._get_step_dir_name(step_nr, tmp=True)
+        pathname = f"{step_dir_name}/data_reader/dp_{gangs.dp.rank:02d}.pt"
 
         file = self._checkpoint_dir.joinpath(pathname)
 
@@ -471,14 +492,15 @@ class StandardCheckpointManager(CheckpointManager):
             raise_operational_gang_error(ex)
 
         if gangs.root.rank == 0:
-            tmp_step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
+            if self._is_local_checkpoint_dir():
+                tmp_step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
 
-            step_dir = tmp_step_dir.with_suffix("")
+                step_dir = tmp_step_dir.with_suffix("")
 
-            try:
-                self._file_system.move(tmp_step_dir, step_dir)
-            except OSError as ex:
-                raise_operational_system_error(ex)
+                try:
+                    self._file_system.move(tmp_step_dir, step_dir)
+                except OSError as ex:
+                    raise_operational_system_error(ex)
 
         try:
             gangs.root.barrier()
@@ -486,11 +508,10 @@ class StandardCheckpointManager(CheckpointManager):
             raise_operational_gang_error(ex)
 
     def _sync_nfs_cache(self) -> None:
-        if not self._file_system.is_local:
+        is_local = self._file_system.is_local_path(self._checkpoint_dir)
+        if not is_local:
             return
-
         gangs = self._gangs
-
         if gangs.root.rank == 0:
             _flush_nfs_lookup_cache(self._checkpoint_dir)
 

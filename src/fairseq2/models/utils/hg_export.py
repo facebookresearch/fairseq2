@@ -104,7 +104,7 @@ def _run() -> None:
     except AssetMetadataError as ex:
         raise CommandError(f"Asset metadata in {ex.source} is erroneous.") from ex
 
-    export_command.run(args.model, args.save_dir)
+    export_command.run(args.model, args.save_dir)  # save_dir is Path
 
 
 def _parse_args() -> Namespace:
@@ -138,7 +138,7 @@ def _parse_args() -> Namespace:
     parser.add_argument(
         "save_dir",
         type=Path,
-        help="save directory",
+        help="save directory (can be local path or S3 URI)",
     )
 
     return parser.parse_args()
@@ -184,6 +184,10 @@ class _HuggingFaceExportCommand:
         self._progress_reporter = progress_reporter
 
     def run(self, model_name: str, save_dir: Path) -> None:
+        # Note: For S3 URIs, Path("s3://bucket/path") becomes Path("s3:/bucket/path")
+        # (one slash removed). The filesystem's _normalize_uri_path handles this
+        # automatically when we pass Path to its methods.
+
         if self._file_system.exists(save_dir):
             raise CommandError(f"{save_dir} directory already exists.")
 
@@ -266,18 +270,43 @@ class _HuggingFaceExportCommand:
             hg_state_dict = hg_converter.to_hg_state_dict(state_dict, config)
 
         try:
-            with self._file_system.tmp_directory(save_dir.parent) as tmp_dir:
-                tmp_save_dir = tmp_dir.joinpath(save_dir.name)
+            is_local = self._file_system.is_local_path(save_dir)
 
-                with self._progress_reporter:
-                    progress_task = self._progress_reporter.create_task(
-                        name="export", total=None, start=False
-                    )
+            if is_local:
+                # Local filesystem: use atomic tmp directory + move pattern
+                with self._file_system.tmp_directory(save_dir.parent) as tmp_dir:
+                    tmp_save_dir = tmp_dir.joinpath(save_dir.name)
 
-                    with progress_task:
-                        self._hg_saver(tmp_save_dir, hg_state_dict, hg_config)
+                    with self._progress_reporter:
+                        progress_task = self._progress_reporter.create_task(
+                            name="export", total=None, start=False
+                        )
 
-                self._file_system.move(tmp_save_dir, save_dir)
+                        with progress_task:
+                            self._hg_saver(tmp_save_dir, hg_state_dict, hg_config)
+
+                    self._file_system.move(tmp_save_dir, save_dir)
+            else:
+                # Remote filesystem (e.g., S3): HuggingFace's save_pretrained
+                # doesn't support remote paths - it creates local directories.
+                # Use two-step pattern: save to local temp, then copy to remote.
+                from tempfile import TemporaryDirectory
+
+                with TemporaryDirectory() as local_tmp_dir:
+                    local_tmp_save_dir = Path(local_tmp_dir) / "hg"
+
+                    with self._progress_reporter:
+                        progress_task = self._progress_reporter.create_task(
+                            name="export", total=None, start=False
+                        )
+
+                        with progress_task:
+                            self._hg_saver(local_tmp_save_dir, hg_state_dict, hg_config)
+
+                    # Upload from local temp to remote storage
+                    # Pass save_dir (Path) - the filesystem's _normalize_uri_path
+                    # will restore s3:/ to s3:// automatically
+                    self._file_system.copy_from_local(local_tmp_save_dir, save_dir)
         except OSError as ex:
             raise_operational_system_error(ex)
 
