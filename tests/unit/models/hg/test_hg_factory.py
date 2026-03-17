@@ -515,6 +515,26 @@ class TestGetModelPath:
         mock_hub.download_model.assert_called_once_with(mock_uri, "gpt2")
         assert result == mock_path
 
+    @patch("fairseq2.models.hg.factory.Uri.maybe_parse")
+    def test_get_model_path_invalid_uri(self, mock_uri_parse: MagicMock) -> None:
+        """Test ValueError when URI parsing fails."""
+        mock_uri_parse.return_value = None
+
+        config = HuggingFaceModelConfig(hf_name="bad model name!")
+        with pytest.raises(ValueError, match="Invalid HuggingFace model URI"):
+            _get_model_path(config)
+
+    @patch("fairseq2.models.hg.factory.Uri.maybe_parse")
+    def test_get_model_path_wrong_scheme(self, mock_uri_parse: MagicMock) -> None:
+        """Test ValueError when URI has wrong scheme."""
+        mock_uri = MagicMock()
+        mock_uri.scheme = "s3"
+        mock_uri_parse.return_value = mock_uri
+
+        config = HuggingFaceModelConfig(hf_name="gpt2")
+        with pytest.raises(ValueError, match="Invalid HuggingFace model URI"):
+            _get_model_path(config)
+
 
 class TestImportClassFromTransformers:
     """Test the _import_class_from_transformers function."""

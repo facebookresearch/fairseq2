@@ -153,6 +153,13 @@ class TestHgEmbeddingWrapper:
         embed.assert_called_once_with(x)
         assert result is expected
 
+    def test_private_attr_raises(self) -> None:
+        """Accessing private attrs should raise AttributeError, not recurse."""
+        embed = _make_hf_embedding()
+        wrapper = _HgEmbeddingWrapper(embed)
+        with pytest.raises(AttributeError):
+            wrapper._nonexistent
+
 
 class TestHgDecoderFrontend:
     """Test _HgDecoderFrontend."""
@@ -212,6 +219,69 @@ class TestHgCausalLMAdapter:
         model = NoEmbedModel()
         with pytest.raises(LookupError, match="Cannot find embedding layer"):
             HgCausalLMAdapter(model)
+
+    def test_gradient_checkpointing_enable_fails_verification(self) -> None:
+        """Test RuntimeError when gradient checkpointing call succeeds but verification fails."""
+
+        class BadGCModel(Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.embed_tokens = torch.nn.Embedding(100, 32)
+
+            def gradient_checkpointing_enable(self):
+                pass  # Does nothing
+
+            @property
+            def is_gradient_checkpointing(self):
+                return False  # Always reports disabled
+
+            def forward(self, **kwargs):
+                pass
+
+        model = BadGCModel()
+        with pytest.raises(RuntimeError, match="failed to enable"):
+            HgCausalLMAdapter(model, enable_gradient_checkpointing=True)
+
+    def test_gradient_checkpointing_enable_raises(self) -> None:
+        """Test RuntimeError when gradient_checkpointing_enable() itself throws."""
+
+        class ExplodingGCModel(Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.embed_tokens = torch.nn.Embedding(100, 32)
+
+            def gradient_checkpointing_enable(self):
+                raise ValueError("CUDA required")
+
+            def forward(self, **kwargs):
+                pass
+
+        model = ExplodingGCModel()
+        with pytest.raises(RuntimeError, match="Failed to enable gradient checkpointing"):
+            HgCausalLMAdapter(model, enable_gradient_checkpointing=True)
+
+    def test_getattr_private_attr_raises(self) -> None:
+        """Test that accessing private attrs raises AttributeError, not infinite recursion."""
+        model, _ = _make_simple_hf_model()
+        adapter = HgCausalLMAdapter(model)
+        with pytest.raises(AttributeError):
+            adapter._nonexistent_private
+
+    def test_getattr_missing_public_attr_raises(self) -> None:
+        """Test that accessing non-existent public attrs raises AttributeError."""
+
+        class MinimalModel(Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.embed_tokens = torch.nn.Embedding(100, 32)
+
+            def forward(self, **kwargs):
+                pass
+
+        model = MinimalModel()
+        adapter = HgCausalLMAdapter(model)
+        with pytest.raises(AttributeError):
+            adapter.totally_nonexistent_attribute
 
     def test_forward_training_with_targets(self) -> None:
         model, _ = _make_simple_hf_model()
