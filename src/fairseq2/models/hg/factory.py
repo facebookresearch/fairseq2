@@ -81,6 +81,11 @@ class HuggingFaceModelError(Exception):
         self.model_name = model_name
 
 
+def _class_name(cls: type | str) -> str:
+    """Return the class name string, whether given a type or already a string."""
+    return cls if isinstance(cls, str) else cls.__name__
+
+
 def register_hg_model_class(
     config_class_name: str,
     model_class: Type[PreTrainedModel] | str,
@@ -115,24 +120,13 @@ def register_hg_model_class(
             "`pip install transformers`."
         )
 
-    entry = {}
-
-    if isinstance(model_class, str):
-        entry["model_class"] = model_class
-    else:
-        entry["model_class"] = model_class.__name__
+    entry = {"model_class": _class_name(model_class)}
 
     if tokenizer_class is not None:
-        if isinstance(tokenizer_class, str):
-            entry["tokenizer_class"] = tokenizer_class
-        else:
-            entry["tokenizer_class"] = tokenizer_class.__name__
+        entry["tokenizer_class"] = _class_name(tokenizer_class)
 
     if processor_class is not None:
-        if isinstance(processor_class, str):
-            entry["processor_class"] = processor_class
-        else:
-            entry["processor_class"] = processor_class.__name__
+        entry["processor_class"] = _class_name(processor_class)
 
     _USER_REGISTRY[config_class_name] = entry
 

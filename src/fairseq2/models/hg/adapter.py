@@ -91,6 +91,15 @@ class HgCausalLMAdapter(CausalLM):
         checkpointing to save memory.
     """
 
+    _EMBEDDING_PATHS = [
+        "embed_tokens",  # Llama, Mistral, etc.
+        "model.embed_tokens",  # Some wrapped models
+        "wte",  # GPT-2
+        "transformer.wte",  # GPT-2 variants
+        "embeddings.word_embeddings",  # BERT-style
+        "model.embeddings.word_embeddings",
+    ]
+
     def __init__(
         self,
         hf_model: Module,
@@ -146,14 +155,7 @@ class HgCausalLMAdapter(CausalLM):
         - BERT: model.embeddings.word_embeddings
         """
         # Try common locations for embedding layers
-        for attr_path in [
-            "embed_tokens",  # Llama, Mistral, etc.
-            "model.embed_tokens",  # Some wrapped models
-            "wte",  # GPT-2
-            "transformer.wte",  # GPT-2 variants
-            "embeddings.word_embeddings",  # BERT-style
-            "model.embeddings.word_embeddings",
-        ]:
+        for attr_path in self._EMBEDDING_PATHS:
             try:
                 parts = attr_path.split(".")
                 obj = hf_model
@@ -166,7 +168,7 @@ class HgCausalLMAdapter(CausalLM):
 
         raise LookupError(
             f"Cannot find embedding layer in {type(hf_model).__name__}. "
-            f"Tried: {', '.join(attr_path for attr_path in ['embed_tokens', 'model.embed_tokens', 'wte', 'transformer.wte', 'embeddings.word_embeddings', 'model.embeddings.word_embeddings'])}. "
+            f"Tried: {', '.join(self._EMBEDDING_PATHS)}. "
             f"Register the model with a known embedding path or add support for this architecture."
         )
 
@@ -281,24 +283,20 @@ class HgCausalLMAdapter(CausalLM):
         Delegate attribute access to the underlying HuggingFace model.
         This allows accessing HF-specific attributes and methods.
         """
+        msg = f"'{type(self).__name__}' object has no attribute '{name}'"
+
         # Avoid infinite recursion for private attributes or during initialization
         if name.startswith("_"):
-            raise AttributeError(
-                f"'{type(self).__name__}' object has no attribute '{name}'"
-            )
+            raise AttributeError(msg)
 
         # Check if _wrapped_hf_model has been initialized yet
         # Use object.__getattribute__ to avoid recursion
         try:
             modules = object.__getattribute__(self, "_modules")
             if "_wrapped_hf_model" not in modules:
-                raise AttributeError(
-                    f"'{type(self).__name__}' object has no attribute '{name}'"
-                )
+                raise AttributeError(msg)
         except AttributeError:
-            raise AttributeError(
-                f"'{type(self).__name__}' object has no attribute '{name}'"
-            )
+            raise AttributeError(msg)
 
         try:
             return super().__getattr__(name)

@@ -131,11 +131,13 @@ class HgTokenizer(Tokenizer):
     def vocab_info(self) -> VocabularyInfo:
         return self._model.vocab_info
 
+    def _get_str_attr(self, name: str) -> str | None:
+        value = getattr(self._model._tok, name, None)
+        return str(value) if value is not None else None
+
     @property
     def unk_token(self) -> str | None:
-        if hasattr(self._model._tok, "unk_token"):
-            return str(self._model._tok.unk_token)
-        return None
+        return self._get_str_attr("unk_token")
 
     @property
     def bos_token_id(self) -> int | None:
@@ -143,9 +145,7 @@ class HgTokenizer(Tokenizer):
 
     @property
     def bos_token(self) -> str | None:
-        if hasattr(self._model._tok, "bos_token"):
-            return str(self._model._tok.bos_token)
-        return None
+        return self._get_str_attr("bos_token")
 
     @property
     def eos_token_id(self) -> int | None:
@@ -153,9 +153,7 @@ class HgTokenizer(Tokenizer):
 
     @property
     def eos_token(self) -> str | None:
-        if hasattr(self._model._tok, "eos_token"):
-            return str(self._model._tok.eos_token)
-        return None
+        return self._get_str_attr("eos_token")
 
     @property
     def pad_token_id(self) -> int | None:
@@ -163,27 +161,19 @@ class HgTokenizer(Tokenizer):
 
     @property
     def pad_token(self) -> str | None:
-        if hasattr(self._model._tok, "pad_token"):
-            return str(self._model._tok.pad_token)
-        return None
+        return self._get_str_attr("pad_token")
 
     @property
     def boh_token(self) -> str | None:
-        if hasattr(self._model._tok, "boh_token"):
-            return str(self._model._tok.boh_token)
-        return None
+        return self._get_str_attr("boh_token")
 
     @property
     def eoh_token(self) -> str | None:
-        if hasattr(self._model._tok, "eoh_token"):
-            return str(self._model._tok.eoh_token)
-        return None
+        return self._get_str_attr("eoh_token")
 
     @property
     def chat_template(self) -> str | None:
-        if hasattr(self._model._tok, "chat_template"):
-            return str(self._model._tok.chat_template)
-        return None
+        return self._get_str_attr("chat_template")
 
     @property
     def raw(self) -> PreTrainedTokenizer | PreTrainedTokenizerFast:
