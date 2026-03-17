@@ -24,7 +24,7 @@ transformers = pytest.importorskip("transformers")
 # List of OLMO models to test: (model_name, local_path)
 OLMO_MODELS = [
     ("olmo-2-0425-1b", "/datasets/pretrained-llms/OLMo-2-0425-1B"),
-    #("olmo-2-1124-7b", "/datasets/pretrained-llms/OLMo-2-1124-7B"),
+    # ("olmo-2-1124-7b", "/datasets/pretrained-llms/OLMo-2-1124-7B"),
     # ("olmo-2-1124-13b", "/datasets/pretrained-llms/OLMo-2-1124-13B"),  # OOM
     ("olmo-3-1025-7b", "/datasets/pretrained-llms/Olmo-3-1025-7B"),
     # ("olmo-3-1125-32b", "/datasets/pretrained-llms/Olmo-3-1125-32B"),  # OOM
