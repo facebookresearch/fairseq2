@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final, Literal
 
-from fairseq2.models.llama import LLaMAConfig
 from fairseq2.runtime.config_registry import ConfigRegistrar
 from fairseq2.runtime.dependency import DependencyContainer
 
@@ -48,7 +47,7 @@ class YaRNScaleConfig:
 
 
 @dataclass(kw_only=True)
-class OLMOConfig(LLaMAConfig):
+class OLMOConfig:
     """Holds the configuration of an OLMO model (OLMO2 and OLMO3).
 
     This configuration supports both OLMO2 and OLMO3 architectures.
@@ -143,6 +142,8 @@ class OLMOConfig(LLaMAConfig):
     the decoder.
     """
 
+    shard_embed_dim: bool = True
+    """If ``True``, the embedding dimension is sharded across devices."""
 
     sliding_window: int | None = None
     """Sliding window size for local attention (OLMO3 only).
