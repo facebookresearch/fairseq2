@@ -203,18 +203,14 @@ class TestHgCausalLMAdapter:
         assert wrapper.embed_dim == embed.embedding_dim
 
     def test_find_embedding_layer_fallback(self) -> None:
-        """Model with no known embedding attr falls back to model itself.
-        The fallback returns the model, which lacks num_embeddings, so
-        _HgEmbeddingWrapper.__init__ will raise AttributeError."""
+        """Model with no known embedding attr raises LookupError."""
 
         class NoEmbedModel(Module):
             def forward(self, **kwargs):
                 pass
 
         model = NoEmbedModel()
-        # The fallback path returns the model itself, which doesn't have
-        # num_embeddings/embedding_dim, so wrapping it will fail.
-        with pytest.raises(AttributeError):
+        with pytest.raises(LookupError, match="Cannot find embedding layer"):
             HgCausalLMAdapter(model)
 
     def test_forward_training_with_targets(self) -> None:

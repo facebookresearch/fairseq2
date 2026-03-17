@@ -250,6 +250,101 @@ class TestHgTokenizer:
         assert self.tokenizer.boh_token is None
         assert self.tokenizer.eoh_token is None
 
+    def test_token_id_properties_return_int(self) -> None:
+        """Test that token ID properties return int, not str."""
+        mock_tok = MagicMock()
+        mock_tok.bos_token_id = 1
+        mock_tok.eos_token_id = 2
+        mock_tok.pad_token_id = 0
+        self.mock_model._tok = mock_tok
+
+        assert self.tokenizer.bos_token_id == 1
+        assert self.tokenizer.eos_token_id == 2
+        assert self.tokenizer.pad_token_id == 0
+
+        assert isinstance(self.tokenizer.bos_token_id, int)
+        assert isinstance(self.tokenizer.eos_token_id, int)
+        assert isinstance(self.tokenizer.pad_token_id, int)
+
+    def test_token_id_properties_missing(self) -> None:
+        """Test token ID properties when attributes don't exist."""
+        mock_tok = MagicMock()
+        for attr in ["bos_token_id", "eos_token_id", "pad_token_id"]:
+            if hasattr(mock_tok, attr):
+                delattr(mock_tok, attr)
+        self.mock_model._tok = mock_tok
+
+        assert self.tokenizer.bos_token_id is None
+        assert self.tokenizer.eos_token_id is None
+        assert self.tokenizer.pad_token_id is None
+
+    def test_token_id_properties_when_none(self) -> None:
+        """Test token ID properties when set to None on the underlying tokenizer."""
+        mock_tok = MagicMock()
+        mock_tok.bos_token_id = None
+        mock_tok.eos_token_id = None
+        mock_tok.pad_token_id = None
+        self.mock_model._tok = mock_tok
+
+        assert self.tokenizer.bos_token_id is None
+        assert self.tokenizer.eos_token_id is None
+        assert self.tokenizer.pad_token_id is None
+
+    def test_token_id_zero_is_not_falsy(self) -> None:
+        """Test that token ID of 0 is returned correctly, not confused with None."""
+        mock_tok = MagicMock()
+        mock_tok.bos_token_id = 0
+        mock_tok.eos_token_id = 0
+        mock_tok.pad_token_id = 0
+        self.mock_model._tok = mock_tok
+
+        assert self.tokenizer.bos_token_id == 0
+        assert self.tokenizer.eos_token_id == 0
+        assert self.tokenizer.pad_token_id == 0
+
+        # Ensure 0 is not treated as None
+        assert self.tokenizer.bos_token_id is not None
+        assert self.tokenizer.eos_token_id is not None
+        assert self.tokenizer.pad_token_id is not None
+
+    def test_token_string_and_id_consistency(self) -> None:
+        """Test that token strings and IDs are returned with correct types."""
+        mock_tok = MagicMock()
+        mock_tok.bos_token = "<s>"
+        mock_tok.bos_token_id = 1
+        mock_tok.eos_token = "</s>"
+        mock_tok.eos_token_id = 2
+        mock_tok.pad_token = "<pad>"
+        mock_tok.pad_token_id = 0
+        self.mock_model._tok = mock_tok
+
+        # Strings are str
+        assert isinstance(self.tokenizer.bos_token, str)
+        assert isinstance(self.tokenizer.eos_token, str)
+        assert isinstance(self.tokenizer.pad_token, str)
+
+        # IDs are int
+        assert isinstance(self.tokenizer.bos_token_id, int)
+        assert isinstance(self.tokenizer.eos_token_id, int)
+        assert isinstance(self.tokenizer.pad_token_id, int)
+
+    def test_chat_template_property(self) -> None:
+        """Test chat_template property."""
+        mock_tok = MagicMock()
+        mock_tok.chat_template = "{{ message }}"
+        self.mock_model._tok = mock_tok
+
+        assert self.tokenizer.chat_template == "{{ message }}"
+
+    def test_chat_template_missing(self) -> None:
+        """Test chat_template returns None when not present."""
+        mock_tok = MagicMock()
+        if hasattr(mock_tok, "chat_template"):
+            delattr(mock_tok, "chat_template")
+        self.mock_model._tok = mock_tok
+
+        assert self.tokenizer.chat_template is None
+
     def test_raw_property(self) -> None:
         """Test raw tokenizer property."""
         mock_tok = MagicMock()

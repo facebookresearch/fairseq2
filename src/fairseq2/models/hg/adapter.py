@@ -164,9 +164,11 @@ class HgCausalLMAdapter(CausalLM):
             except AttributeError:
                 continue
 
-        # Fallback: return the model itself as a placeholder
-        # This will likely fail vocabulary checks, but at least won't crash
-        return hf_model
+        raise LookupError(
+            f"Cannot find embedding layer in {type(hf_model).__name__}. "
+            f"Tried: {', '.join(attr_path for attr_path in ['embed_tokens', 'model.embed_tokens', 'wte', 'transformer.wte', 'embeddings.word_embeddings', 'model.embeddings.word_embeddings'])}. "
+            f"Register the model with a known embedding path or add support for this architecture."
+        )
 
     @property
     def _hf_model(self) -> Module:

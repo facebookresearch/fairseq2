@@ -123,8 +123,6 @@ class HgTokenizer(Tokenizer):
         decoder = self.create_decoder(skip_special_tokens=skip_special_tokens)
         return decoder(token_indices)
 
-    # TODO: maybe a better way is just fall back to properties of
-    # self._model._tok if it's not overridden in this fs2 Tokenizer class..?
     def convert_tokens_to_ids(self, tokens: list[str] | str) -> int | list[int]:
         return self._model._tok.convert_tokens_to_ids(tokens)
 
@@ -140,10 +138,8 @@ class HgTokenizer(Tokenizer):
         return None
 
     @property
-    def bos_token_id(self) -> str | None:
-        if hasattr(self._model._tok, "bos_token_id"):
-            return str(self._model._tok.bos_token_id)
-        return None
+    def bos_token_id(self) -> int | None:
+        return getattr(self._model._tok, "bos_token_id", None)
 
     @property
     def bos_token(self) -> str | None:
@@ -152,10 +148,8 @@ class HgTokenizer(Tokenizer):
         return None
 
     @property
-    def eos_token_id(self) -> str | None:
-        if hasattr(self._model._tok, "eos_token_id"):
-            return str(self._model._tok.eos_token_id)
-        return None
+    def eos_token_id(self) -> int | None:
+        return getattr(self._model._tok, "eos_token_id", None)
 
     @property
     def eos_token(self) -> str | None:
@@ -164,10 +158,8 @@ class HgTokenizer(Tokenizer):
         return None
 
     @property
-    def pad_token_id(self) -> str | None:
-        if hasattr(self._model._tok, "pad_token_id"):
-            return str(self._model._tok.pad_token_id)
-        return None
+    def pad_token_id(self) -> int | None:
+        return getattr(self._model._tok, "pad_token_id", None)
 
     @property
     def pad_token(self) -> str | None:
