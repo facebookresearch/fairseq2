@@ -15,7 +15,7 @@ from fairseq2.runtime.dependency import DependencyContainer
 OLMO_FAMILY: Final = "olmo"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class YaRNScaleConfig:
     """YaRN (Yet another RoPE extensioN) scaling configuration for long-context models.
 
@@ -31,10 +31,10 @@ class YaRNScaleConfig:
     """Original sequence length before YaRN extension."""
 
     beta_fast: float = 32.0
-    """Parameter to set the boundary for extrapolation (high frequency). Default: 32."""
+    """Parameter to set the boundary for extrapolation (high frequency)."""
 
     beta_slow: float = 1.0
-    """Parameter to set the boundary for interpolation (low frequency). Default: 1."""
+    """Parameter to set the boundary for interpolation (low frequency)."""
 
     mscale: float = 1.0
     """Multiplier for attention scaling to maintain training stability."""
@@ -90,40 +90,27 @@ class OLMOConfig:
 
     num_key_value_heads: int = 16
     """The number of key/value heads for Grouped Query Attention.
-    Olmo model use MHA, but 32B variabt use GQA
-    If num_key_value_heads == num_attn_heads, use MHA,
-    If num_key_value_heads == 1, use MQA, otherwise GQA is used.
+
+    OLMO2 models use MHA, but the 32B variant uses GQA.
+    OLMO3 7B uses MHA, OLMO3 32B uses GQA.
+
+    If num_key_value_heads == num_attn_heads, MHA is used.
+    If num_key_value_heads == 1, MQA is used. Otherwise GQA is used.
     """
 
     ffn_inner_dim: int = 8192
-    """The dimensionality of inner projection layers in feed-forward networks."""
+    """The inner dimensionality of feed-forward networks.
 
-    ffn_inner_dim_scale: float = 1.0
+    Unlike LLaMA which derives the FFN dimension from base dim × scale × multiplier,
+    OLMO directly specifies the final FFN inner dimension (matching HuggingFace
+    ``intermediate_size``). No additional scaling or rounding is applied.
     """
-    The scale factor for the dimensionality of inner projection layers in
-    feed-forward networks.
-
-    OLMO2 uses a scale of 1.0 (no scaling) unlike LLaMA which uses 2/3.
-    """
-
-    ffn_inner_dim_multiplier: float = 1.0
-    """
-    The multiplier for the dimensionality of inner projection layers in
-    feed-forward networks.
-    """
-
-    ffn_inner_dim_multiple_of: int = 256
-    """The dimensionality of inner projection layers in feed-forward networks is
-    rounded up to the nearest multiple of this value."""
 
     rms_norm_eps: float = 1e-6
     """The epsilon value for RMSNorm layers."""
 
     rope_theta: float = 500_000.0
     """The coefficient of the long-term decay of the Rotary position encoder."""
-
-    use_scaled_rope: bool = False
-    """If ``True``, scales Rotary encoder frequencies to the resolver length."""
 
     dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""
@@ -241,6 +228,18 @@ def register_olmo_configs(container: DependencyContainer) -> None:
     # OLMO3 extends OLMO2 with sliding window attention and YaRN scaling
     # All OLMO3 models use YaRN RoPE for full attention layers
 
+    def _apply_olmo3_defaults(config: OLMOConfig) -> None:
+        """Apply shared OLMO3 settings: vocab, extended context, sliding window, YaRN."""
+        config.vocab_size = 100_278
+        config.max_seq_len = 65536
+        config.sliding_window = 4096
+        config.yarn_scale_config = YaRNScaleConfig(
+            scale_factor=8.0,  # 65536 / 8192
+            original_max_seq_len=8192,
+            mscale=1.0,
+            mscale_all_dim=0.0,
+        )
+
     @arch("olmo3_7b")
     def olmo3_7b() -> OLMOConfig:
         """OLMO3 7B model configuration with hybrid attention and YaRN.
@@ -255,29 +254,13 @@ def register_olmo_configs(container: DependencyContainer) -> None:
         """
         config = OLMOConfig()
 
-        # OLMO3 has different vocabulary size
-        config.vocab_size = 100_278
-
-        # Model dimensions (same as OLMO2 7B)
         config.model_dim = 4096
         config.ffn_inner_dim = 11008
         config.num_layers = 32
         config.num_attn_heads = 32
         config.num_key_value_heads = 32  # MHA
 
-        # OLMO3-specific: Extended context and sliding window
-        config.max_seq_len = 65536
-        config.sliding_window = 4096
-
-        # YaRN scaling for full attention layers
-        # Note: sliding window layers use standard RoPE
-        config.yarn_scale_config = YaRNScaleConfig(
-            scale_factor=8.0,  # 65536 / 8192
-            original_max_seq_len=8192,
-            mscale=1.0,
-            mscale_all_dim=0.0,
-        )
-
+        _apply_olmo3_defaults(config)
         return config
 
     @arch("olmo3_32b")
@@ -298,27 +281,11 @@ def register_olmo_configs(container: DependencyContainer) -> None:
         """
         config = OLMOConfig()
 
-        # OLMO3 has different vocabulary size
-        config.vocab_size = 100_278
-
-        # Model dimensions
         config.model_dim = 5120
         config.ffn_inner_dim = 27648  # 5.4x expansion (5120 * 5.4 ≈ 27648)
-        config.num_layers = 64  # OLMO3 32B has 64 layers
+        config.num_layers = 64
         config.num_attn_heads = 40
         config.num_key_value_heads = 8  # GQA for efficiency
 
-        # OLMO3-specific: Extended context and sliding window
-        config.max_seq_len = 65536
-        config.sliding_window = 4096
-
-        # YaRN scaling for full attention layers
-        # Note: sliding window layers use standard RoPE
-        config.yarn_scale_config = YaRNScaleConfig(
-            scale_factor=8.0,  # 65536 / 8192
-            original_max_seq_len=8192,
-            mscale=1.0,
-            mscale_all_dim=0.0,
-        )
-
+        _apply_olmo3_defaults(config)
         return config

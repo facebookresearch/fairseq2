@@ -37,8 +37,8 @@ from fairseq2.models.nllb import (
 )
 from fairseq2.models.olmo import (
     OLMO_FAMILY,
-    OlmoTokenizer,
-    OlmoTokenizerConfig,
+    OLMOTokenizer,
+    OLMOTokenizerConfig,
     load_olmo_tokenizer,
 )
 from fairseq2.models.qwen import (
@@ -173,8 +173,8 @@ def _register_tokenizer_families(container: DependencyContainer) -> None:
     register_tokenizer_family(
         container,
         OLMO_FAMILY,
-        kls=OlmoTokenizer,
-        config_kls=OlmoTokenizerConfig,
+        kls=OLMOTokenizer,
+        config_kls=OLMOTokenizerConfig,
         loader=load_olmo_tokenizer,
     )
 

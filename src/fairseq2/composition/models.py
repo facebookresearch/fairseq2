@@ -71,6 +71,7 @@ from fairseq2.models.nllb import (
 from fairseq2.models.olmo import (
     OLMO_FAMILY,
     OLMOConfig,
+    _OLMOHuggingFaceConverter,
     convert_olmo_state_dict,
     create_olmo_model,
     register_olmo_configs,
@@ -329,6 +330,10 @@ def _register_model_families(container: DependencyContainer) -> None:
     )
 
     register_olmo_configs(container)
+
+    container.register_type(
+        HuggingFaceConverter, _OLMOHuggingFaceConverter, key=OLMO_FAMILY
+    )
 
     # Qwen
     register_model_family(
