@@ -303,7 +303,6 @@ def wrap_hg_model_if_causal_lm(hf_model: Module, config: Any) -> Module:
     :param config: The HuggingFaceModelConfig used to create the model.
     :returns: Wrapped model if it's a causal LM, otherwise the original model.
     """
-    # Check if this is a causal LM that should be wrapped
     if hasattr(config, "model_type") and config.model_type == "causal_lm":
         # Determine max_seq_len from HF model config
         max_seq_len = 8192  # default
