@@ -200,7 +200,6 @@ class HgCausalLMAdapter(CausalLM):
         """
         attention_mask = self._create_attention_mask(seqs, seqs_layout)
 
-        # Prepare kwargs for HuggingFace model
         hf_kwargs = {
             "input_ids": seqs,
             "attention_mask": attention_mask,
