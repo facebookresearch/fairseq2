@@ -192,7 +192,6 @@ def load_hg_tokenizer(path: Path, config: HgTokenizerConfig) -> HgTokenizer:
     :returns: HgTokenizer instance
     """
 
-    # Load the HuggingFace token model
     model = load_hg_token_model(
         path,
         unk_token=config.unk_token,

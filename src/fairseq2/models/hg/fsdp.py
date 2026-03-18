@@ -41,10 +41,11 @@ def replace_layers(
 def apply_fsdp_to_hg_transformer_lm(
     model: Module, granularity: str, wrapper: FSDPWrapper
 ) -> Module:
+    """If a custom FSDP wrapper is required, register and override
+    by setting `apply_fsdp` in the new model family.
+    """
     transformer_cls_names_to_wrap = get_transformer_cls_names_to_wrap(
         model,
-        # NOTE: to override this, need to register and override this
-        # apply_fsdp in the new model family
         transformer_cls_names_to_wrap=None,
     )
     replace_layers(model, set(transformer_cls_names_to_wrap), wrapper)
