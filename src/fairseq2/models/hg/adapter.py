@@ -110,7 +110,6 @@ class HgCausalLMAdapter(CausalLM):
 
         self.add_module("_wrapped_hf_model", hf_model)
 
-        # Store reference to HF model's config
         self._hf_config: Any = getattr(hf_model, "config", None)
 
         # Enable gradient checkpointing if requested
