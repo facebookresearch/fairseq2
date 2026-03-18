@@ -198,7 +198,6 @@ class HgCausalLMAdapter(CausalLM):
         :param return_logits: Whether to return logits along with loss.
         :returns: Loss tensor, or tuple of (loss, logits) if ``return_logits`` is ``True``.
         """
-        # Create attention mask from seqs_layout
         attention_mask = self._create_attention_mask(seqs, seqs_layout)
 
         # Prepare kwargs for HuggingFace model
