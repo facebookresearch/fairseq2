@@ -112,7 +112,6 @@ class HgCausalLMAdapter(CausalLM):
 
         self._hf_config: Any = getattr(hf_model, "config", None)
 
-        # Enable gradient checkpointing if requested
         if enable_gradient_checkpointing:
             gc_enable = getattr(hf_model, "gradient_checkpointing_enable", None)
             if gc_enable is None:
