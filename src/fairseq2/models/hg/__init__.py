@@ -21,7 +21,6 @@ from fairseq2.models.hg.config import HG_FAMILY as HG_FAMILY
 from fairseq2.models.hg.config import HuggingFaceModelConfig as HuggingFaceModelConfig
 from fairseq2.models.hg.config import register_hg_configs as register_hg_configs
 
-# Re-export converter API (formerly in fairseq2/models/hg.py)
 from fairseq2.models.hg.converter import HuggingFaceConfig as HuggingFaceConfig
 from fairseq2.models.hg.converter import HuggingFaceConverter as HuggingFaceConverter
 from fairseq2.models.hg.converter import (
