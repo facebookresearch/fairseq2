@@ -89,8 +89,6 @@ python -m fairseq2.recipes.lm.sft --config-file sft/configs/gemma_3_1b_it_gsm8k.
 python -m fairseq2.recipes.lm.sft --config-file sft/configs/gemma_3_1b_it_gsm8k_long.yaml
 ```
 
-HuggingFace models use `family: "hg"` and `arch: "causal_lm"` in the config, with the HF model name specified via `config_overrides.hf_name`.
-
 ## Data Format
 
 Your JSONL files should contain entries with `src` (source/prompt) and `tgt` (target/response) fields:
