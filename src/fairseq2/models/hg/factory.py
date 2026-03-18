@@ -412,7 +412,6 @@ def _load_auto_model(name: str, config: HuggingFaceModelConfig, hf_config: Any) 
 
     load_kwargs = _prepare_load_kwargs(config)
 
-    # Determine which AutoModel class to use
     auto_model_class = _get_auto_model_class(config, hf_config)
 
     try:
