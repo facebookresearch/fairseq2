@@ -17,20 +17,20 @@ from fairseq2.utils.config import cast_config_type
 
 _HG_KEY_MAP: Final = {
     # fmt: off
-    r"^model\.layers\.([0-9]+)\.self_attn\.q_proj\.": r"decoder.layers.\1.self_attn.q_proj.",
-    r"^model\.layers\.([0-9]+)\.self_attn\.k_proj\.": r"decoder.layers.\1.self_attn.k_proj.",
-    r"^model\.layers\.([0-9]+)\.self_attn\.v_proj\.": r"decoder.layers.\1.self_attn.v_proj.",
-    r"^model\.layers\.([0-9]+)\.self_attn\.q_norm\.": r"decoder.layers.\1.self_attn.q_norm.",
-    r"^model\.layers\.([0-9]+)\.self_attn\.k_norm\.": r"decoder.layers.\1.self_attn.k_norm.",
-    r"^model\.layers\.([0-9]+)\.self_attn\.o_proj\.": r"decoder.layers.\1.self_attn.output_proj.",
+    r"^model\.layers\.([0-9]+)\.self_attn\.q_proj\.":        r"decoder.layers.\1.self_attn.q_proj.",
+    r"^model\.layers\.([0-9]+)\.self_attn\.k_proj\.":        r"decoder.layers.\1.self_attn.k_proj.",
+    r"^model\.layers\.([0-9]+)\.self_attn\.v_proj\.":        r"decoder.layers.\1.self_attn.v_proj.",
+    r"^model\.layers\.([0-9]+)\.self_attn\.q_norm\.":        r"decoder.layers.\1.self_attn.q_norm.",
+    r"^model\.layers\.([0-9]+)\.self_attn\.k_norm\.":        r"decoder.layers.\1.self_attn.k_norm.",
+    r"^model\.layers\.([0-9]+)\.self_attn\.o_proj\.":        r"decoder.layers.\1.self_attn.output_proj.",
     r"^model\.layers\.([0-9]+)\.post_attention_layernorm\.": r"decoder.layers.\1.ffn_layer_norm.",
-    r"^model\.layers\.([0-9]+)\.mlp\.up_proj\.": r"decoder.layers.\1.ffn.inner_proj.",
-    r"^model\.layers\.([0-9]+)\.mlp\.gate_proj\.": r"decoder.layers.\1.ffn.gate_proj.",
-    r"^model\.layers\.([0-9]+)\.mlp\.down_proj\.": r"decoder.layers.\1.ffn.output_proj.",
-    r"^model\.layers\.([0-9]+)\.input_layernorm\.": r"decoder.layers.\1.self_attn_layer_norm.",
-    r"^model\.norm\.": r"decoder.layer_norm.",
-    r"^model\.embed_tokens\.": r"decoder_frontend.embed.",
-    r"^lm_head\.": r"final_proj.",
+    r"^model\.layers\.([0-9]+)\.mlp\.up_proj\.":             r"decoder.layers.\1.ffn.inner_proj.",
+    r"^model\.layers\.([0-9]+)\.mlp\.gate_proj\.":           r"decoder.layers.\1.ffn.gate_proj.",
+    r"^model\.layers\.([0-9]+)\.mlp\.down_proj\.":           r"decoder.layers.\1.ffn.output_proj.",
+    r"^model\.layers\.([0-9]+)\.input_layernorm\.":          r"decoder.layers.\1.self_attn_layer_norm.",
+    r"^model\.norm\.":                                       r"decoder.layer_norm.",
+    r"^model\.embed_tokens\.":                               r"decoder_frontend.embed.",
+    r"^lm_head\.":                                           r"final_proj.",
     # fmt: on
 }
 
