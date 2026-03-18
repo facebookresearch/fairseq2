@@ -155,7 +155,6 @@ class HgCausalLMAdapter(CausalLM):
                 obj = hf_model
                 for part in parts:
                     obj = getattr(obj, part)
-                # Found it!
                 return obj
             except AttributeError:
                 continue
