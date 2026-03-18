@@ -128,9 +128,7 @@ class TestWaveformToFbankConverter:
             ValueError,
             match=r"^The input sample rate must be of type `float` or `int`, but is of type `string` instead\.$",
         ):
-            converter(
-                {"waveform": torch.zeros((), device=device), "sample_rate": "foo"}  # type: ignore[typeddict-item]
-            )
+            converter({"waveform": torch.zeros((), device=device), "sample_rate": "foo"})  # type: ignore[typeddict-item]
 
     def test_call_raises_error_when_sample_rate_is_too_large(self) -> None:
         converter = WaveformToFbankConverter()
