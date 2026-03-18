@@ -168,7 +168,6 @@ class HgCausalLMAdapter(CausalLM):
     @property
     def _hf_model(self) -> Module:
         """Access the wrapped HuggingFace model."""
-        # Access via _modules to ensure it works after FSDP wrapping
         module = self._modules["_wrapped_hf_model"]
         assert module is not None
         return module
