@@ -224,16 +224,13 @@ class HgCausalLMAdapter(CausalLM):
             # HuggingFace returns a ModelOutput with .loss and .logits
             loss: Tensor = outputs.loss
 
-            # Handle reduction
-            # HF models typically return mean loss, we need to convert based on reduction
+            # HF models return mean loss, need to optionally convert to "sum"
             if reduction == "sum":
-                # Convert from mean to sum
                 if target_mask is not None:
                     num_targets = target_mask.sum()
                 else:
                     num_targets = (labels != -100).sum()
                 loss = loss * num_targets
-            # If reduction == "mean", loss is already in the right format
 
             if return_logits:
                 return loss, cast(Tensor, outputs.logits)
