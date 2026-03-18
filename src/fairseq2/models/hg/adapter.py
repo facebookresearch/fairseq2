@@ -240,7 +240,7 @@ class HgCausalLMAdapter(CausalLM):
             else:
                 return loss
         else:
-            # Inference mode - just get logits
+            # Inference mode returns logits only
             outputs = self._hf_model(**hf_kwargs)
             return cast(Tensor, outputs.logits)
 
