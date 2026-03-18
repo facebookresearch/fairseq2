@@ -541,7 +541,6 @@ def _import_class_from_transformers(class_name: str) -> Any:
         return getattr(transformers_module, class_name)
     except AttributeError:
         # If not found in main module, it might be in a submodule
-        # This is a simplified approach
         raise ImportError(
             f"Class '{class_name}' not found in transformers library. Make sure you have the correct version installed."  # fmt: skip
         )
