@@ -433,7 +433,6 @@ def _load_auto_model(name: str, config: HuggingFaceModelConfig, hf_config: Any) 
         else:
             raise
 
-    # Load tokenizer/processor
     if config.use_processor:
         try:
             processor = AutoProcessor.from_pretrained(name)
