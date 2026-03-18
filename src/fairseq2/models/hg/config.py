@@ -16,7 +16,6 @@ from fairseq2.runtime.config_registry import ConfigRegistrar
 from fairseq2.runtime.dependency import DependencyContainer
 
 HG_FAMILY: Final = "hg"
-"""The family identifier for HuggingFace models in fairseq2."""
 
 
 @dataclass(kw_only=True)
