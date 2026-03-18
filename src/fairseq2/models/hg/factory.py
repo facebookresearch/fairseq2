@@ -410,7 +410,6 @@ def _load_auto_model(name: str, config: HuggingFaceModelConfig, hf_config: Any) 
 
     log.info(f"Loading model '{name}' using Auto classes")
 
-    # Prepare kwargs for from_pretrained
     load_kwargs = _prepare_load_kwargs(config)
 
     # Determine which AutoModel class to use
