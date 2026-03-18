@@ -425,7 +425,6 @@ def _load_auto_model(name: str, config: HuggingFaceModelConfig, hf_config: Any) 
                 f"Register it with register_hg_model_class() or use "
                 f"model_type='custom' with the appropriate model class.",
             ) from ex
-        # Check if this might be an unsupported model
         if "does not appear to have a file named config.json" not in str(ex):
             raise HuggingFaceModelError(
                 name,
