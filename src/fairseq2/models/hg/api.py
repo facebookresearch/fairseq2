@@ -120,7 +120,6 @@ def load_hg_tokenizer_simple(
     return load_hg_tokenizer(Path(name), config)
 
 
-# Convenience aliases for common use cases
 def load_causal_lm(name: str, **kwargs: Any) -> Any:
     """Load a causal language model (GPT-style).
 
