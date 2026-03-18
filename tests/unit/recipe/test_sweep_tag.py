@@ -105,8 +105,7 @@ class TestSweepTagGenerator:
         )
 
         with pytest.raises(
-            ValidationError,
-            match=r"^`common` is not valid: `sweep_format` must have matching opening and closing braces.$",  # fmt: skip
+            ValidationError, match=r"^`common` is not valid: `sweep_format` must have matching opening and closing braces.$"  # fmt: skip
         ):
             generator.maybe_generate()
 
@@ -124,7 +123,6 @@ class TestSweepTagGenerator:
         )
 
         with pytest.raises(
-            ValidationError,
-            match=r"^`common` is not valid: `sweep_format` must contain only placeholders that correspond to the configuration keys, but contains unexpected placeholder\(s\) foo2, foo3\.$",  # fmt: skip
+            ValidationError, match=r"^`common` is not valid: `sweep_format` must contain only placeholders that correspond to the configuration keys, but contains unexpected placeholder\(s\) foo2, foo3\.$"  # fmt: skip
         ):
             generator.maybe_generate()

@@ -46,15 +46,13 @@ class TestAssetCard:
 
     def test_field_raises_error_when_field_does_not_exist(self) -> None:
         with pytest.raises(
-            AssetCardError,
-            match=r"^test-card asset card does not have a field named field9\.$",  # fmt: skip
+            AssetCardError, match=r"^test-card asset card does not have a field named field9\.$",  # fmt: skip
         ):
             self.card.field("field9").value
 
     def test_as_raises_error_when_field_type_is_incorrect(self) -> None:
         with pytest.raises(
-            AssetCardError,
-            match=rf"field2 field of the test-card asset card is expected to be of type `{bool}`, but is of type `{int}` instead\.$",  # fmt: skip
+            AssetCardError, match=rf"field2 field of the test-card asset card is expected to be of type `{bool}`, but is of type `{int}` instead\.$",  # fmt: skip
         ):
             self.card.field("field2").as_(bool)
 
@@ -69,7 +67,6 @@ class TestAssetCard:
 
     def test_as_uri_raises_error_when_field_is_not_uri_or_absolute_path(self) -> None:
         with pytest.raises(
-            AssetCardError,
-            match=r"field1 field of the test-card asset card is a relative pathname and cannot be converted to a URI\.$",  # fmt: skip
+            AssetCardError, match=r"field1 field of the test-card asset card is a relative pathname and cannot be converted to a URI\.$",  # fmt: skip
         ):
             self.card.field("field1").as_uri()

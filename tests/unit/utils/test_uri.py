@@ -48,8 +48,7 @@ class TestUri:
         uri = Uri.parse("https://foo.com")
 
         with pytest.raises(
-            NotSupportedError,
-            match=r"^`to_path\(\)` is only supported for URIs with file scheme\.$",  # fmt: skip
+            NotSupportedError, match=r"^`to_path\(\)` is only supported for URIs with file scheme\.$"  # fmt: skip
         ):
             uri.to_path()
 
