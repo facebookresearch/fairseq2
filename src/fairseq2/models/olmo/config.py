@@ -1,0 +1,289 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Final, Literal
+
+from fairseq2.runtime.config_registry import ConfigRegistrar
+from fairseq2.runtime.dependency import DependencyContainer
+
+OLMO_FAMILY: Final = "olmo"
+
+
+@dataclass(kw_only=True)
+class YaRNScaleConfig:
+    """YaRN (Yet another RoPE extensioN) scaling configuration for long-context models.
+
+    YaRN is applied to extend the context length of OLMO3 models from 8K to 65K.
+
+    Reference: https://arxiv.org/abs/2309.00071
+    """
+
+    scale_factor: float = 8.0
+    """Ratio between extended and original max sequence length (65536/8192)."""
+
+    original_max_seq_len: int = 8192
+    """Original sequence length before YaRN extension."""
+
+    beta_fast: float = 32.0
+    """Parameter to set the boundary for extrapolation (high frequency)."""
+
+    beta_slow: float = 1.0
+    """Parameter to set the boundary for interpolation (low frequency)."""
+
+    mscale: float = 1.0
+    """Multiplier for attention scaling to maintain training stability."""
+
+    mscale_all_dim: float = 0.0
+    """Dimension-wise scaling parameter for YaRN."""
+
+    truncate: bool = True
+    """If True, truncate correction range bounds to integers. Default: True."""
+
+
+@dataclass(kw_only=True)
+class OLMOConfig:
+    """Holds the configuration of an OLMO model (OLMO2 and OLMO3).
+
+    This configuration supports both OLMO2 and OLMO3 architectures.
+    The default values correspond to the allenai/OLMo-2-0425-1B model base architecture.
+
+    OLMO2: Standard causal attention, 4K context
+    OLMO3: Hybrid sliding window + full attention, 8K-65K context
+
+    References:
+    - OLMO2: https://arxiv.org/abs/2501.00656
+    - HuggingFace: https://huggingface.co/allenai/OLMo-2-0425-1B
+    """
+
+    model_dim: int = 2048
+    """The dimensionality of the model."""
+
+    max_seq_len: int = 4096
+    """The maximum sequence length."""
+
+    vocab_size: int = 100_352
+    """The size of the vocabulary."""
+
+    pad_idx: int = 100_277
+    """The index of the PAD token in the vocabulary."""
+
+    bos_token_id: int | None = None
+    """The index of the BOS token in the vocabulary."""
+
+    eos_token_id: int = 100_257
+    """The index of the EOS token in the vocabulary."""
+
+    tied_embeddings: bool = False
+    """If ``True``, ties the embedding table and the output projection layer."""
+
+    num_layers: int = 16
+    """The number of decoder layers."""
+
+    num_attn_heads: int = 16
+    """The number of attention heads in decoder layers."""
+
+    num_key_value_heads: int = 16
+    """The number of key/value heads for Grouped Query Attention.
+
+    OLMO2 models use MHA, but the 32B variant uses GQA.
+    OLMO3 7B uses MHA, OLMO3 32B uses GQA.
+
+    If num_key_value_heads == num_attn_heads, MHA is used.
+    If num_key_value_heads == 1, MQA is used. Otherwise GQA is used.
+    """
+
+    ffn_inner_dim: int = 8192
+    """The inner dimensionality of feed-forward networks.
+
+    Unlike LLaMA which derives the FFN dimension from base dim × scale × multiplier,
+    OLMO directly specifies the final FFN inner dimension (matching HuggingFace
+    ``intermediate_size``). No additional scaling or rounding is applied.
+    """
+
+    rms_norm_eps: float = 1e-6
+    """The epsilon value for RMSNorm layers."""
+
+    rope_theta: float = 500_000.0
+    """The coefficient of the long-term decay of the Rotary position encoder."""
+
+    dropout_p: float = 0.0
+    """The dropout probability on outputs of Transformer layers."""
+
+    init_std: float | None = None
+    """
+    If not ``None``, the standard deviation to initialize input embeddings and
+    projection weights; otherwise, ``model_dim ** -0.5`` will be used instead.
+    """
+
+    init_std_scale: Literal["none", "layer", "stack"] = "layer"
+    """
+    The method to use to scale ``init_std`` per layer. If 'none', no scaling
+    will be applied. If 'layer', ``init_std`` will be scaled by the depth of
+    the layer. If 'stack', ``init_std`` will be scaled by the total depth of
+    the decoder.
+    """
+
+    shard_embed_dim: bool = True
+    """If ``True``, the embedding dimension is sharded across devices."""
+
+    sliding_window: int | None = None
+    """Sliding window size for local attention (OLMO3 only).
+
+    If set, enables hybrid attention pattern where most layers use sliding
+    window attention with this window size. Every 4th layer uses full global
+    attention. The final layer always uses full global attention.
+
+    OLMO3 uses sliding_window=4096 for efficient long-context processing.
+    If None, all layers use full causal attention (OLMO2 behavior).
+    """
+
+    layer_types: list[Literal["sliding_attention", "full_attention"]] | None = None
+    """Per-layer attention type configuration (OLMO3 only).
+
+    Explicitly specifies whether each layer uses 'sliding_attention' or
+    'full_attention'. If None and sliding_window is set, automatically
+    generates the pattern: 3 sliding window layers, 1 full attention layer,
+    with the final layer always using full attention.
+
+    Length must match num_layers if specified.
+    """
+
+    yarn_scale_config: YaRNScaleConfig | None = None
+    """YaRN scaling configuration for long-context models (OLMO3 only).
+
+    Enables YaRN (Yet another RoPE extensioN) scaling to extend context
+    length from 8K to 65K. When set, ALL layers (both sliding window and
+    full attention) share the same YaRN-scaled RoPE encoder, matching the
+    HuggingFace behavior where a single RotaryEmbedding is shared.
+
+    If None, uses standard RoPE without scaling (default for OLMO2/3 base models).
+    """
+
+
+def register_olmo_configs(container: DependencyContainer) -> None:
+    """Register OLMO model configurations (OLMO2 and OLMO3)."""
+    arch = ConfigRegistrar(container, OLMOConfig)
+
+    @arch("olmo2_1b")
+    def olmo_2_1b() -> OLMOConfig:
+        """OLMO2 1B model configuration."""
+        return OLMOConfig()
+
+    @arch("olmo2_7b")
+    def olmo_2_7b() -> OLMOConfig:
+        """OLMO2 7B model configuration."""
+        config = OLMOConfig()
+
+        # Override only the model size parameters that differ from 1B
+        config.model_dim = 4096
+        config.ffn_inner_dim = 11008
+
+        config.num_layers = 32
+        config.num_attn_heads = 32
+        config.num_key_value_heads = 32
+
+        return config
+
+    @arch("olmo2_13b")
+    def olmo_2_13b() -> OLMOConfig:
+        """OLMO2 13B model configuration."""
+        config = OLMOConfig()
+
+        # Override only the model size parameters that differ from 1B
+        config.model_dim = 5120
+        config.ffn_inner_dim = 13824
+
+        config.num_layers = 40
+        config.num_attn_heads = 40
+        config.num_key_value_heads = 40
+
+        return config
+
+    @arch("olmo2_32b")
+    def olmo_2_32b() -> OLMOConfig:
+        """OLMO2 32B model configuration with GQA.
+
+        Uses Grouped Query Attention (GQA) for efficiency.
+        """
+        config = OLMOConfig()
+
+        config.model_dim = 5120
+        config.ffn_inner_dim = 13824  # ~2.7x expansion
+
+        config.num_layers = 64
+        config.num_attn_heads = 40
+        config.num_key_value_heads = 8  # GQA for efficiency
+
+        return config
+
+    # OLMO3 Model Configurations
+    # OLMO3 extends OLMO2 with sliding window attention and YaRN scaling
+    # All OLMO3 models use YaRN RoPE for full attention layers
+
+    def _apply_olmo3_defaults(config: OLMOConfig) -> None:
+        """Apply shared OLMO3 settings: vocab, extended context, sliding window, YaRN."""
+        config.vocab_size = 100_278
+        config.max_seq_len = 65536
+        config.sliding_window = 4096
+        config.yarn_scale_config = YaRNScaleConfig(
+            scale_factor=8.0,  # 65536 / 8192
+            original_max_seq_len=8192,
+            mscale=1.0,
+            mscale_all_dim=0.0,
+        )
+
+    @arch("olmo3_7b")
+    def olmo3_7b() -> OLMOConfig:
+        """OLMO3 7B model configuration with hybrid attention and YaRN.
+
+        Uses Multi-Head Attention (MHA) with a hybrid pattern:
+        - 3 out of 4 layers use sliding window attention (window=4096)
+        - Every 4th layer uses full global attention
+        - Final layer always uses full global attention
+        - ALL layers share the same YaRN-scaled RoPE encoder
+
+        Max sequence length: 65,536 tokens
+        """
+        config = OLMOConfig()
+
+        config.model_dim = 4096
+        config.ffn_inner_dim = 11008
+        config.num_layers = 32
+        config.num_attn_heads = 32
+        config.num_key_value_heads = 32  # MHA
+
+        _apply_olmo3_defaults(config)
+        return config
+
+    @arch("olmo3_32b")
+    def olmo3_32b() -> OLMOConfig:
+        """OLMO3 32B model configuration with GQA and YaRN.
+
+        Uses Grouped Query Attention (GQA) with 8 key-value heads for
+        efficiency. Features enhanced MLP with 5.4x expansion ratio
+        (vs 4x in smaller models).
+
+        Uses hybrid attention pattern:
+        - 3 out of 4 layers use sliding window attention (window=4096)
+        - Every 4th layer uses full global attention
+        - Final layer always uses full global attention
+        - ALL layers share the same YaRN-scaled RoPE encoder
+
+        Max sequence length: 65,536 tokens
+        """
+        config = OLMOConfig()
+
+        config.model_dim = 5120
+        config.ffn_inner_dim = 27648  # 5.4x expansion (5120 * 5.4 ≈ 27648)
+        config.num_layers = 64
+        config.num_attn_heads = 40
+        config.num_key_value_heads = 8  # GQA for efficiency
+
+        _apply_olmo3_defaults(config)
+        return config
