@@ -4,88 +4,72 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-# OLMO2 Base Configuration
-name: olmo2
-model_family: olmo
-checkpoint: "/datasets/pretrained-llms/OLMo-2-0425-1B"
-tokenizer: "/datasets/pretrained-llms/OLMo-2-0425-1B"
-tokenizer_family: olmo
-
----
-
-# OLMO2 0425 1B Model
 name: olmo-2-0425-1b
-base: olmo2
-model_arch: olmo2_1b
-
----
-
-# OLMO2 1124 7B Model
-name: olmo-2-1124-7b
-base: olmo2
-model_arch: olmo2_7b
-checkpoint: "/datasets/pretrained-llms/OLMo-2-1124-7B"
-tokenizer: "/datasets/pretrained-llms/OLMo-2-1124-7B"
-
----
-
-# OLMO2 1124 13B Model
-name: olmo-2-1124-13b
-base: olmo2
-model_arch: olmo2_13b
-checkpoint: "/datasets/pretrained-llms/OLMo-2-1124-13B"
-tokenizer: "/datasets/pretrained-llms/OLMo-2-1124-13B"
-
----
-
-# OLMO2 0325 32B Model
-name: olmo-2-0325-32b
-base: olmo2
-model_arch: olmo2_32b
-checkpoint: "/datasets/pretrained-llms/OLMo-2-0325-32B"
-tokenizer: "/datasets/pretrained-llms/OLMo-2-0325-32B"
-
----
-
-# OLMO3 Base Configuration
-name: olmo3
 model_family: olmo
-checkpoint: "/datasets/pretrained-llms/Olmo-3-1025-7B"
-tokenizer: "/datasets/pretrained-llms/Olmo-3-1025-7B"
+model_arch: olmo2_1b
+checkpoint: "hg://allenai/OLMo-2-0425-1B"
+tokenizer: "hg://allenai/OLMo-2-0425-1B"
 tokenizer_family: olmo
 
 ---
 
-# OLMO3 7B Model (1025 release)
+name: olmo-2-1124-7b
+model_family: olmo
+model_arch: olmo2_7b
+checkpoint: "hg://allenai/OLMo-2-1124-7B"
+tokenizer: "hg://allenai/OLMo-2-1124-7B"
+tokenizer_family: olmo
+
+---
+
+name: olmo-2-1124-13b
+model_family: olmo
+model_arch: olmo2_13b
+checkpoint: "hg://allenai/OLMo-2-1124-13B"
+tokenizer: "hg://allenai/OLMo-2-1124-13B"
+tokenizer_family: olmo
+
+---
+
+name: olmo-2-0325-32b
+model_family: olmo
+model_arch: olmo2_32b
+checkpoint: "hg://allenai/OLMo-2-0325-32B"
+tokenizer: "hg://allenai/OLMo-2-0325-32B"
+tokenizer_family: olmo
+
+---
+
 name: olmo-3-1025-7b
-base: olmo3
+model_family: olmo
 model_arch: olmo3_7b
-checkpoint: "/datasets/pretrained-llms/Olmo-3-1025-7B"
-tokenizer: "/datasets/pretrained-llms/Olmo-3-1025-7B"
+checkpoint: "hg://allenai/OLMo-3-1025-7B"
+tokenizer: "hg://allenai/OLMo-3-1025-7B"
+tokenizer_family: olmo
 
 ---
 
-# OLMO3 32B Model (1125 release)
 name: olmo-3-1125-32b
-base: olmo3
+model_family: olmo
 model_arch: olmo3_32b
-checkpoint: "/datasets/pretrained-llms/Olmo-3-1125-32B"
-tokenizer: "/datasets/pretrained-llms/Olmo-3-1125-32B"
+checkpoint: "hg://allenai/OLMo-3-1125-32B"
+tokenizer: "hg://allenai/OLMo-3-1125-32B"
+tokenizer_family: olmo
 
 ---
 
-# OLMO3.1 32B Think Model
 name: olmo3.1-32b-think
-base: olmo3
+model_family: olmo
 model_arch: olmo3_32b
-checkpoint: "/datasets/pretrained-llms/Olmo-3.1-32B-Think"
-tokenizer: "/datasets/pretrained-llms/Olmo-3.1-32B-Think"
+checkpoint: "hg://allenai/OLMo-3.1-32B-Think"
+tokenizer: "hg://allenai/OLMo-3.1-32B-Think"
+tokenizer_family: olmo
 
 ---
 
-# OLMO3 7B Think Model
 name: olmo-3-7b-think
-base: olmo3
+model_family: olmo
 model_arch: olmo3_7b
-checkpoint: "/datasets/pretrained-llms/Olmo-3-7B-Think"
-tokenizer: "/datasets/pretrained-llms/Olmo-3-7B-Think"
+checkpoint: "hg://allenai/OLMo-3-7B-Think"
+tokenizer: "hg://allenai/OLMo-3-7B-Think"
+tokenizer_family: olmo
