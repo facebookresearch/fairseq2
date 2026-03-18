@@ -70,6 +70,7 @@ other content generation tasks.
     reference/fairseq2.models.hub
     reference/fairseq2.models.llama
     reference/fairseq2.models.qwen
+    reference/fairseq2.models.olmo
     reference/fairseq2.recipe.composition
     reference/fairseq2.recipe.optim
     reference/fairseq2.utils.validation

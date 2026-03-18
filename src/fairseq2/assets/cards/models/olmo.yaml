@@ -1,0 +1,75 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: olmo-2-0425-1b
+model_family: olmo
+model_arch: olmo2_1b
+checkpoint: "hg://allenai/OLMo-2-0425-1B"
+tokenizer: "hg://allenai/OLMo-2-0425-1B"
+tokenizer_family: olmo
+
+---
+
+name: olmo-2-1124-7b
+model_family: olmo
+model_arch: olmo2_7b
+checkpoint: "hg://allenai/OLMo-2-1124-7B"
+tokenizer: "hg://allenai/OLMo-2-1124-7B"
+tokenizer_family: olmo
+
+---
+
+name: olmo-2-1124-13b
+model_family: olmo
+model_arch: olmo2_13b
+checkpoint: "hg://allenai/OLMo-2-1124-13B"
+tokenizer: "hg://allenai/OLMo-2-1124-13B"
+tokenizer_family: olmo
+
+---
+
+name: olmo-2-0325-32b
+model_family: olmo
+model_arch: olmo2_32b
+checkpoint: "hg://allenai/OLMo-2-0325-32B"
+tokenizer: "hg://allenai/OLMo-2-0325-32B"
+tokenizer_family: olmo
+
+---
+
+name: olmo-3-1025-7b
+model_family: olmo
+model_arch: olmo3_7b
+checkpoint: "hg://allenai/OLMo-3-1025-7B"
+tokenizer: "hg://allenai/OLMo-3-1025-7B"
+tokenizer_family: olmo
+
+---
+
+name: olmo-3-1125-32b
+model_family: olmo
+model_arch: olmo3_32b
+checkpoint: "hg://allenai/OLMo-3-1125-32B"
+tokenizer: "hg://allenai/OLMo-3-1125-32B"
+tokenizer_family: olmo
+
+---
+
+name: olmo3.1-32b-think
+model_family: olmo
+model_arch: olmo3_32b
+checkpoint: "hg://allenai/OLMo-3.1-32B-Think"
+tokenizer: "hg://allenai/OLMo-3.1-32B-Think"
+tokenizer_family: olmo
+
+---
+
+name: olmo-3-7b-think
+model_family: olmo
+model_arch: olmo3_7b
+checkpoint: "hg://allenai/OLMo-3-7B-Think"
+tokenizer: "hg://allenai/OLMo-3-7B-Think"
+tokenizer_family: olmo
