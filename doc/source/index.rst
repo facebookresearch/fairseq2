@@ -42,6 +42,7 @@ other content generation tasks.
     guides/add_model
     guides/hg_sft_example
     guides/pudb
+    guides/s3_checkpointing
 
 .. toctree::
     :maxdepth: 1

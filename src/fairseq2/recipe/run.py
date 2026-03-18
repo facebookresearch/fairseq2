@@ -78,6 +78,7 @@ def run(
     config: object,
     output_dir: Path,
     *,
+    checkpoint_dir: Path | None = None,
     no_rich: bool = False,
     no_progress: bool | None = None,
 ) -> None:
@@ -103,13 +104,17 @@ def run(
             else:
                 _register_inference_recipe(container, recipe)
 
-            _register_run(container, recipe, config, output_dir)
+            _register_run(container, recipe, config, output_dir, checkpoint_dir)
 
             _run_recipe(container)
 
 
 def _register_run(
-    container: DependencyContainer, recipe: Recipe, config: object, output_dir: Path
+    container: DependencyContainer,
+    recipe: Recipe,
+    config: object,
+    output_dir: Path,
+    checkpoint_dir: Path | None,
 ) -> None:
     config_kls = recipe.config_kls
 
@@ -135,6 +140,13 @@ def _register_run(
         return dir_creator.create(output_dir)
 
     container.register(Path, get_output_dir)
+
+    # Checkpoint Directory (optional, defaults to output_dir/checkpoints)
+    from fairseq2.checkpoint import CheckpointDir
+
+    checkpoint_dir_holder = CheckpointDir(checkpoint_dir)
+
+    container.register_instance(CheckpointDir, checkpoint_dir_holder)
 
 
 def _run_recipe(resolver: DependencyResolver) -> None:

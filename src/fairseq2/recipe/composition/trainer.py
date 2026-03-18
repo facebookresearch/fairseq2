@@ -8,7 +8,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from fairseq2.checkpoint import HuggingFaceExporter, OutOfProcHuggingFaceExporter
+from fairseq2.checkpoint import (
+    CheckpointDir,
+    HuggingFaceExporter,
+    OutOfProcHuggingFaceExporter,
+)
 from fairseq2.metrics.recorders import MetricDescriptor
 from fairseq2.optim.fp16_loss_scaler import Float16LossScaler
 from fairseq2.recipe.internal.trainer import (
@@ -72,7 +76,13 @@ def _register_trainer_factory(container: DependencyContainer) -> None:
         resolver: DependencyResolver,
     ) -> _HuggingFaceExporterFactory:
         def create_hg_exporter() -> HuggingFaceExporter:
-            return wire_object(resolver, OutOfProcHuggingFaceExporter)
+            checkpoint_dir_holder = resolver.resolve(CheckpointDir)
+
+            return wire_object(
+                resolver,
+                OutOfProcHuggingFaceExporter,
+                checkpoint_dir=checkpoint_dir_holder.path,
+            )
 
         return wire_object(
             resolver, _HuggingFaceExporterFactory, default_factory=create_hg_exporter

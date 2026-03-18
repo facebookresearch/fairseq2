@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import io
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
@@ -122,12 +123,25 @@ class _TorchTensorFileLoader(TensorFileLoader):
             )
 
             try:
-                data: dict[str, object] = torch.load(
-                    file,
-                    options.map_location,  # type: ignore[arg-type]
-                    weights_only=options.restrict,
-                    mmap=options.mmap,
-                )
+                # For non-local filesystems (e.g., S3), read the file into
+                # a BytesIO buffer first, then load from the buffer.
+                # This is faster than passing the remote file handle directly
+                # to torch.load. For local filesystems, pass the path directly
+                # to support mmap.
+                if self._file_system.is_local_path(file) and options.mmap:
+                    data: dict[str, object] = torch.load(
+                        file,
+                        options.map_location,  # type: ignore[arg-type]
+                        weights_only=options.restrict,
+                        mmap=options.mmap,
+                    )
+                else:
+                    buffer = io.BytesIO(self._file_system.cat(file))
+                    data = torch.load(
+                        buffer,
+                        options.map_location,  # type: ignore[arg-type]
+                        weights_only=options.restrict,
+                    )
             except (RuntimeError, PickleError, EOFError) as ex:
                 raise CorruptFileError(file) from ex
 
@@ -213,19 +227,17 @@ class _HuggingFaceSafetensorsLoader(SafetensorsLoader):
         data = {}
 
         try:
-            if options.mmap:
+            # mmap only works with local filesystems
+            if options.mmap and self._file_system.is_local_path(file):
                 with safetensors.safe_open(
                     file, framework="pt", device=str(device)
                 ) as f:
                     for key in f.keys():
                         data[key] = f.get_tensor(key)
             else:
-                fp = self._file_system.open(file, mode=FileMode.READ)
-
-                with fp:
-                    bits = fp.read()
-
-                tensors = safetensors.torch.load(bits)
+                # For non-local filesystems (e.g., S3), or when mmap is disabled,
+                # use the filesystem's cat() method to read the file into memory
+                tensors = safetensors.torch.load(self._file_system.cat(file))
 
                 for key, tensor in tensors.items():
                     data[key] = tensor.to(device)

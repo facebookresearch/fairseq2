@@ -167,19 +167,12 @@ class _StandardWandbRunIdManager(_WandbRunIdManager):
 
         run_id_file = self._save_dir.joinpath("wandb_run_id")
 
-        fp = None
-
         try:
-            fp = self._file_system.open_text(run_id_file)
-
-            return fp.read()
+            return self._file_system.cat(run_id_file).decode("utf-8")
         except FileNotFoundError:
             pass
         except OSError as ex:
             raise_operational_system_error(ex)
-        finally:
-            if fp is not None:
-                fp.close()
 
         run_id = self._id_generator()
 

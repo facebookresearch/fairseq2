@@ -243,7 +243,16 @@ class DelegatingAssetDownloadManager(AssetDownloadManager):
 
 @final
 class LocalAssetDownloadManager(AssetDownloadManager):
-    _SCHEMES: Final = {"file"}
+    """
+    Asset download manager for local files and fsspec-compatible URI schemes.
+
+    For local files (file:// scheme), it returns the local path directly.
+    For fsspec schemes (s3://, etc.), it returns the URI as a Path,
+    relying on GlobalFileSystem to handle remote file access transparently.
+    """
+
+    # Schemes supported by this manager. Must match TESTED_PROTOCOLS in file_system.py.
+    _SCHEMES: Final = {"file", "s3"}
 
     @override
     def download_model(
@@ -281,14 +290,19 @@ class LocalAssetDownloadManager(AssetDownloadManager):
     ) -> Path:
         return self._to_path(uri)
 
-    @staticmethod
-    def _to_path(uri: Uri) -> Path:
-        if uri.scheme != "file":
+    def _to_path(self, uri: Uri) -> Path:
+        if uri.scheme not in self._SCHEMES:
             raise NotSupportedError(
                 f"`uri.scheme` must be a supported URI scheme, but is {uri.scheme} instead."
             )
 
-        return uri.to_path()
+        # For local files, use uri.to_path() to strip the file:// prefix
+        if uri.scheme == "file":
+            return uri.to_path()
+
+        # For remote schemes (s3://, etc.), return the full URI as Path
+        # GlobalFileSystem will handle the remote access
+        return Path(str(uri))
 
     @property
     @override

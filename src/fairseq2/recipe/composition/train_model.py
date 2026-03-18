@@ -11,6 +11,7 @@ from typing import final
 from torch.nn import Module
 from typing_extensions import override
 
+from fairseq2.checkpoint import CheckpointDir
 from fairseq2.error import raise_operational_system_error
 from fairseq2.gang import GangError, raise_operational_gang_error
 from fairseq2.recipe.base import Recipe, RecipeContext
@@ -26,7 +27,11 @@ from fairseq2.recipe.internal.train_model import (
     _TrainModelProvider,
 )
 from fairseq2.recipe.model import RecipeModel, _StandardRecipeModel
-from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
+from fairseq2.runtime.dependency import (
+    DependencyContainer,
+    DependencyResolver,
+    wire_object,
+)
 
 
 def _register_train_model(container: DependencyContainer) -> None:
@@ -59,7 +64,18 @@ def _register_train_model(container: DependencyContainer) -> None:
     container.register(Module, get_dp_model, singleton=True)
 
     container.register_type(_TrainModelBootstrapper, _StandardTrainModelBootstrapper)
-    container.register_type(_TrainModelMetadataSaver, _StandardTrainModelMetadataSaver)
+
+    def create_metadata_saver(resolver: DependencyResolver) -> _TrainModelMetadataSaver:
+        checkpoint_dir_holder = resolver.resolve(CheckpointDir)
+
+        return wire_object(
+            resolver,
+            _StandardTrainModelMetadataSaver,
+            checkpoint_dir=checkpoint_dir_holder.path,
+        )
+
+    container.register(_TrainModelMetadataSaver, create_metadata_saver)
+
     container.register_type(_TrainModelPreparer, _DelegatingTrainModelPreparer)
     container.register_type(_TrainModelProvider)
 
