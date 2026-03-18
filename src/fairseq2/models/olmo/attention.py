@@ -197,7 +197,6 @@ class OLMOMultiheadAttention(MultiheadAttention):
         state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
         """Forward pass with OLMO2 rotary encoding semantics."""
-        # Project Q, K, V with normalization
         # Q: (N, S, K_proj) -> norm -> (N, S, H, K_h)
         q = self.q_proj(seqs)
         if self.q_norm is not None:

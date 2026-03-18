@@ -170,11 +170,9 @@ def register_olmo_configs(container: DependencyContainer) -> None:
     """Register OLMO model configurations (OLMO2 and OLMO3)."""
     arch = ConfigRegistrar(container, OLMOConfig)
 
-    # OLMO2 Model Configurations
     @arch("olmo2_1b")
     def olmo_2_1b() -> OLMOConfig:
         """OLMO2 1B model configuration."""
-        # All parameters are already defaults in OLMOConfig
         return OLMOConfig()
 
     @arch("olmo2_7b")
@@ -215,7 +213,6 @@ def register_olmo_configs(container: DependencyContainer) -> None:
         """
         config = OLMOConfig()
 
-        # Model dimensions for 32B
         config.model_dim = 5120
         config.ffn_inner_dim = 13824  # ~2.7x expansion
 
