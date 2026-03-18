@@ -326,5 +326,5 @@ def wrap_hg_model_if_causal_lm(hf_model: Module, config: Any) -> Module:
             enable_gradient_checkpointing=enable_gradient_checkpointing,
         )
 
-    # Not a causal LM, return as-is
+    # Not a causal LM
     return hf_model
