@@ -453,7 +453,7 @@ def _get_auto_model_class(config: HuggingFaceModelConfig, hf_config: Any) -> Any
     elif config.model_type == "auto":
         return AutoModel
     else:
-        # Auto-detect based on config
+        # Try auto-detection based on config
         if hasattr(hf_config, "is_encoder_decoder") and hf_config.is_encoder_decoder:
             return AutoModelForSeq2SeqLM
         else:
