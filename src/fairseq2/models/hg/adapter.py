@@ -108,8 +108,6 @@ class HgCausalLMAdapter(CausalLM):
     ) -> None:
         super().__init__(max_seq_len=max_seq_len)
 
-        # Register the HF model as a proper submodule
-        # Use a name that won't conflict with parent class attributes
         self.add_module("_wrapped_hf_model", hf_model)
 
         # Store reference to HF model's config
