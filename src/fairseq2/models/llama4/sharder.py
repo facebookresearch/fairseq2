@@ -25,20 +25,20 @@ def get_llama4_shard_specs(config: Llama4Config) -> dict[str, ShardSpec]:
 
     return {
         # fmt: off
-        r".*\.embed$": ShardSpec(dim=embed_dim),
+        r".*\.embed$":                         ShardSpec(dim=embed_dim),
         # Attention sharding
-        r".*\.self_attn.q_proj$": ShardSpec(dim=0, region_boundary=True),
-        r".*\.self_attn.k_proj$": ShardSpec(dim=0, region_boundary=True),
-        r".*\.self_attn.v_proj$": ShardSpec(dim=0, region_boundary=True),
-        r".*\.self_attn.output_proj$": ShardSpec(dim=1, region_boundary=True),
+        r".*\.self_attn.q_proj$":              ShardSpec(dim=0, region_boundary=True),
+        r".*\.self_attn.k_proj$":              ShardSpec(dim=0, region_boundary=True),
+        r".*\.self_attn.v_proj$":              ShardSpec(dim=0, region_boundary=True),
+        r".*\.self_attn.output_proj$":         ShardSpec(dim=1, region_boundary=True),
         # FFN sharding: GLU FFN
-        r".*\.ffn.inner_proj$": ShardSpec(dim=0, region_boundary=True),
-        r".*\.ffn.gate_proj$": ShardSpec(dim=0, region_boundary=True),
-        r".*\.ffn.output_proj$": ShardSpec(dim=1, region_boundary=True),
+        r".*\.ffn.inner_proj$":                ShardSpec(dim=0, region_boundary=True),
+        r".*\.ffn.gate_proj$":                 ShardSpec(dim=0, region_boundary=True),
+        r".*\.ffn.output_proj$":               ShardSpec(dim=1, region_boundary=True),
         # FFN sharding: MoE
-        r".*\.ffn$": ShardSpec(dim=-1),  # MoESharder
+        r".*\.ffn$":                           ShardSpec(dim=-1),  # MoESharder
         # Final proj sharding
-        r"^final_proj$": ShardSpec(dim=0),
+        r"^final_proj$":                       ShardSpec(dim=0),
         # fmt: on
     }
 
