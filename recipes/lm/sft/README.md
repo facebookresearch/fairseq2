@@ -6,7 +6,7 @@ This directory contains the implementation for supervised fine-tuning of languag
 
 The SFT recipe is designed to finetune language models to follow instructions by learning from prompt-response pairs.
 
-This recipe supports Llama, Qwen, and HuggingFace (`hg`) model families.
+This recipe supports a variety of autoregressive models, like Llama, Qwen and supported HuggingFace (`hg`) model families.
 
 ## Key Features
 
