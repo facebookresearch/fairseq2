@@ -437,7 +437,6 @@ def _load_auto_model(name: str, config: HuggingFaceModelConfig, hf_config: Any) 
     if config.use_processor:
         try:
             processor = AutoProcessor.from_pretrained(name)
-            # Set processor to model
             model.processor = processor
         except Exception:
             log.warning(f"AutoProcessor failed for '{name}', skipping")
