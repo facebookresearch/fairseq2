@@ -189,8 +189,7 @@ class _PolynomialDecayLRFactory:
 
         if config.num_warmup_steps >= num_steps:
             raise ValidationError(
-                f"`num_warmup_steps` must be less than `regime.warmup_steps` ({num_steps}), but is {config.num_warmup_steps} instead.",
-                field="lr_scheduler.config",  # fmt: skip
+                f"`num_warmup_steps` must be less than `regime.warmup_steps` ({num_steps}), but is {config.num_warmup_steps} instead.", field="lr_scheduler.config"  # fmt: skip
             )
 
         num_param_groups = len(self._optimizer.param_groups)

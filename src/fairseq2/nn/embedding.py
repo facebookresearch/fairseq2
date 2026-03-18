@@ -240,8 +240,7 @@ class VocabShardedEmbedding(Embedding, Sharded):
         num_embeds = self.sharded_num_embeddings
 
         vocab_begin_idx, vocab_end_idx = (
-            self.tp_gang.rank * num_embeds,
-            (self.tp_gang.rank + 1) * num_embeds,  # fmt: skip
+            self.tp_gang.rank * num_embeds, (self.tp_gang.rank + 1) * num_embeds  # fmt: skip
         )
 
         if self.pad_idx is None:

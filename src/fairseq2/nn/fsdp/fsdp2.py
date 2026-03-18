@@ -39,8 +39,7 @@ from fairseq2.nn.utils.module import (
 # Suppress yet another non-actionable FSDP warning as it originates from within
 # PyTorch itself.
 warnings.filterwarnings(
-    action="ignore",
-    message=r".*Found a non-scalar tensor with numel=1 and ndim!=0, we are implicitly creating a replicated DTensor for it.*",  # fmt: skip
+    action="ignore", message=r".*Found a non-scalar tensor with numel=1 and ndim!=0, we are implicitly creating a replicated DTensor for it.*"  # fmt: skip
 )
 
 

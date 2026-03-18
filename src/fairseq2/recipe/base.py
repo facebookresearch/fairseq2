@@ -4,32 +4,17 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""
-A `Recipe` represents a runnable workflow that helps orchestrate actions
-regularly performed with models, such as training, evaluation, or generation.
-This module provides `Recipe` implementations that help support the complete
-machine learning lifecycle, including setup, cleanup, inference, and logging,
-and unifies execution logic into one standardized, cohesive process. The
-`Recipe` module also includes command-line interface (CLI) APIs for running
-workflows directly from the command line.
-"""
-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from functools import cache, cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, TypeVar, final
+from typing import TypeVar, final
 
 from torch.nn import Module
 from torch.optim import Optimizer
 from typing_extensions import override
-
-if TYPE_CHECKING:
-    from fairseq2.evaluator import Evaluator, EvalUnit
-    from fairseq2.generator import Generator, GeneratorUnit
-    from fairseq2.trainer import Trainer, TrainUnit
 
 from fairseq2.assets import AssetStore
 from fairseq2.checkpoint import CheckpointManager
@@ -37,9 +22,11 @@ from fairseq2.data.tokenizers import Tokenizer
 from fairseq2.datasets import DataReader
 from fairseq2.device import Device, SupportsDeviceTransfer
 from fairseq2.error import InvalidOperationError
+from fairseq2.evaluator import Evaluator, EvalUnit
 from fairseq2.file_system import FileSystem
 from fairseq2.gang import Gangs
 from fairseq2.generation import Seq2SeqGenerator, SequenceGenerator
+from fairseq2.generator import Generator, GeneratorUnit
 from fairseq2.metrics.recorders import MetricRecorder
 from fairseq2.optim.lr_schedulers import LRScheduler
 from fairseq2.recipe.config import RecipeConfig, ReferenceModelSection
@@ -62,6 +49,7 @@ from fairseq2.recipe.model import RecipeModel, _StandardRecipeModel
 from fairseq2.recipe.tokenizer import RecipeTokenizer
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 from fairseq2.task import Task
+from fairseq2.trainer import Trainer, TrainUnit
 from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.warn import _warn_deprecated
 
@@ -78,10 +66,6 @@ TokenizerT = TypeVar("TokenizerT", bound=Tokenizer)
 
 @final
 class RecipeContext:
-    """
-    Represents the underlying framework of a machine learning workflow
-    """
-
     def __init__(self, resolver: DependencyResolver) -> None:
         self._resolver = resolver
 
