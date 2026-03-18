@@ -14,7 +14,6 @@ model:
     trust_remote_code: true
 
 tokenizer:
-  # Don't override name - let path take precedence
   path: "google/gemma-3-1b-it"  # path takes precedence over name
   family: "hg"
 
