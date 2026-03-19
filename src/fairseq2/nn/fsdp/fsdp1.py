@@ -31,6 +31,7 @@ from torch.nn import Module, Parameter, SyncBatchNorm
 from fairseq2.data_type import DataType
 from fairseq2.error import NotSupportedError, OperationalError
 from fairseq2.gang import GangError, Gangs
+from fairseq2.logging import log
 from fairseq2.nn.fsdp.common import FSDPApplier, FSDPParameterInitializer
 from fairseq2.nn.utils.module import (
     apply_to_parameters,
@@ -189,10 +190,12 @@ def fsdp1_local_state_dict(module: FSDP1Module) -> dict[str, object]:
         for name, item in module.state_dict().items():
             if isinstance(item, ShardedTensor):
                 local_shards = item.local_shards()
-                if not local_shards:
-                    continue  # means the tensor is sharded unevenly.
+                if local_shards:
+                    item = item.local_tensor().detach()
+                else:  # means the tensor is sharded unevenly.
+                    # still keep the empty tensor in the state_dict
+                    item = Tensor(item.local_shards())
 
-                item = item.local_tensor().detach()
             elif isinstance(item, Tensor):
                 item = item.detach()
 
@@ -217,7 +220,13 @@ def fsdp1_load_local_state_dict(
         for key, value in module.state_dict().items():
             if isinstance(value, ShardedTensor):
                 input_value = state_dict.get(key)
-                if isinstance(input_value, Tensor):
+                local_shards = value.local_shards()
+                if not local_shards:
+                    log.warning(
+                        f"empty local_shards, setting {key} and ignoring state_dict"
+                    )
+                    state_dict[key] = value
+                elif isinstance(input_value, Tensor):
                     value.local_tensor().detach().copy_(input_value)
 
                     state_dict[key] = value

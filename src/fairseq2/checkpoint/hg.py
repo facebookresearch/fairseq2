@@ -110,7 +110,7 @@ class OutOfProcHuggingFaceExporter(HuggingFaceExporter):
         def do_export() -> Callable[[], None]:
             export_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}/hg")
 
-            cmd = [sys.executable, "-m", "fairseq2.models.utils.hg_export", "--no-rich", "--checkpoint-dir", str(self._checkpoint_dir), f"checkpoint_step_{step_nr}", str(export_dir)]  # fmt: skip
+            cmd = [sys.executable, "-m", "fairseq2.models.hg_export", "--no-rich", "--checkpoint-dir", str(self._checkpoint_dir), f"checkpoint_step_{step_nr}", str(export_dir)]  # fmt: skip
 
             err_file: Path | None = None
 

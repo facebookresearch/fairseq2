@@ -396,7 +396,6 @@ class ParquetFragmentStreamer:
                 self.state.nb_fully_read_files += 1
                 yield frag
         else:
-
             for new_file in file_ds_fragments[self.state.nb_fully_read_files :]:
                 new_file_fragments = split_fragment_in_row_groups(new_file)
                 new_file_fragments = new_file_fragments[

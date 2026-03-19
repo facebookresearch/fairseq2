@@ -235,7 +235,6 @@ class LMSFTDataset:
                 builder.map(encoding_chat)
 
         else:
-
             # Encode source and target texts.
             source_encoder = tokenizer.create_encoder(mode=options.source_encode_mode)
             target_encoder = tokenizer.create_encoder(mode=options.target_encode_mode)

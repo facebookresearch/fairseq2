@@ -87,7 +87,6 @@ class AudioCropper:
             crop_size = self.max_audio_len
 
         for item in batch:
-
             audio = AudioCropper._get_nested(item, self.audio_feature_selector)
             audio_size = audio.size(0)  # type: ignore
             if audio_size > crop_size:

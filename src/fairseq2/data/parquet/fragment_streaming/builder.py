@@ -114,9 +114,10 @@ class ParquetFragmentStreamer:
             # this makes sure that each rank will get different set row groups for each epoch
             # whaterver internal shuffle is done
             fragments_pipeline_builder = fragments_pipeline_builder.filter(
-                lambda fragment: fragment_stable_hash(fragment, seed=self.config.seed)
-                % world_size
-                == rank
+                lambda fragment: (
+                    fragment_stable_hash(fragment, seed=self.config.seed) % world_size
+                    == rank
+                )
             )
         else:
             fragments_pipeline_builder = fragments_pipeline_builder.shard(

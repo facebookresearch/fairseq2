@@ -67,6 +67,9 @@ autodoc_default_options = {
     "show-inheritance": True,
     "undoc-members": True,
 }
+
+autodoc_inherit_docstrings = False
+
 autodoc_member_order = "bysource"
 autodoc_typehints = "signature"
 autodoc_typehints_description_target = "documented_params"
