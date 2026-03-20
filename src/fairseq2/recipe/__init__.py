@@ -32,5 +32,8 @@ from fairseq2.evaluator import Evaluator as Evaluator
 from fairseq2.evaluator import EvalUnit as EvalUnit
 from fairseq2.generator import Generator as Generator
 from fairseq2.generator import GeneratorUnit as GeneratorUnit
+from fairseq2.task import Task as Task
+from fairseq2.task import TaskStopException as TaskStopException
 from fairseq2.trainer import Trainer as Trainer
 from fairseq2.trainer import TrainUnit as TrainUnit
+from fairseq2.validator import Validator as Validator

@@ -76,7 +76,7 @@ setup(
         "arrow": [
             "pyarrow>=17.0",
             "retrying~=1.3",
-            "pandas~=2.0",
+            "pandas~=2.2",
             "polars~=1.19",
             "xxhash~=3.5",
         ],

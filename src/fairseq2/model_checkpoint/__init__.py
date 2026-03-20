@@ -49,6 +49,9 @@ from fairseq2.model_checkpoint.delegating import (
 from fairseq2.model_checkpoint.loader import (
     CorruptModelCheckpointError as CorruptModelCheckpointError,
 )
+
+# TODO: Deprecated, will be removed in v0.14.
+ModelCheckpointError = CorruptModelCheckpointError
 from fairseq2.model_checkpoint.loader import (
     ModelCheckpointLoader as ModelCheckpointLoader,
 )
