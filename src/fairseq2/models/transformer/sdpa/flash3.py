@@ -13,11 +13,18 @@ from torch import Tensor
 from typing_extensions import override
 
 try:
-    import flash_attn_3_cuda  # type: ignore[import-not-found]
+    import flash_attn_3._C as _flash_attn_3_C  # type: ignore[import-not-found,import-untyped]  # noqa: F401,N812
+
+    _flash_attn_3_ops: Any = torch.ops.flash_attn_3
 except ImportError:
-    _has_flash_attn_3 = False
-else:
-    _has_flash_attn_3 = True
+    try:
+        import flash_attn_3_cuda as _flash_attn_3_C  # type: ignore[import-not-found,no-redef]  # noqa: F401,N812
+
+        _flash_attn_3_ops = _flash_attn_3_C
+    except ImportError:
+        _flash_attn_3_ops = None
+
+_has_flash_attn_3 = _flash_attn_3_ops is not None
 
 from fairseq2.error import NotSupportedError, OperationalError
 from fairseq2.models.transformer.attention_bias import (
@@ -148,7 +155,7 @@ def _flash_attn_3_op(
     v = _contiguous(v)
 
     # fmt: off
-    out, softmax_lse, *_ = flash_attn_3_cuda.fwd(
+    out, softmax_lse, *_ = _flash_attn_3_ops.fwd(
         q,
         k,
         v,
@@ -324,7 +331,7 @@ def _flash_attn_3_varlen_op(
     cu_seqlens_k = _contiguous(cu_seqlens_k)
 
     # fmt: off
-    out, softmax_lse, *_ = flash_attn_3_cuda.fwd(
+    out, softmax_lse, *_ = _flash_attn_3_ops.fwd(
         q,
         k,
         v,
@@ -483,7 +490,7 @@ def _flash_attn_3_bwd_op(
     rhs_window_size: int,
 ) -> None:
     # fmt: off
-    flash_attn_3_cuda.bwd(
+    _flash_attn_3_ops.bwd(
         dout,
         q,
         k,
