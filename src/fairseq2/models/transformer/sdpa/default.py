@@ -16,9 +16,13 @@ from fairseq2.models.transformer.sdpa.torch import TorchSDPA
 class SDPAFactory(Protocol):
     """Constructs instances of :class:`SDPA`."""
 
-    def __call__(self, bias: AttentionBias, *, dropout_p: float = 0.0) -> SDPA:
+    def __call__(
+        self, bias: AttentionBias, *, dropout_p: float = 0.0, scale: float | None = None
+    ) -> SDPA:
         """
         :param dropout_p: The dropout probability on attention weights.
+        :param scale: The scaling factor for attention logits. If ``None``, uses
+            default 1/sqrt(head_dim) scaling.
         """
 
 
@@ -37,9 +41,15 @@ def get_default_sdpa_factory() -> SDPAFactory:
     return _sdpa_factory
 
 
-def create_default_sdpa(bias: AttentionBias, *, dropout_p: float = 0.0) -> SDPA:
+def create_default_sdpa(
+    bias: AttentionBias, *, dropout_p: float = 0.0, scale: float | None = None
+) -> SDPA:
     """Creates an instance of the default :class:`SDPA` class.
 
+    :param bias: The attention bias.
     :param dropout_p: The dropout probability on attention weights.
+    :param scale: The scaling factor for attention logits. If ``None``, uses
+        default 1/sqrt(head_dim) scaling. Set to 1.0 to disable scaling
+        (e.g., when using QK normalization).
     """
-    return _sdpa_factory(bias, dropout_p=dropout_p)
+    return _sdpa_factory(bias, dropout_p=dropout_p, scale=scale)
