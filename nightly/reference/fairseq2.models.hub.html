@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="fairseq2.models.llama" href="fairseq2.models.llama.html" /><link rel="prev" title="fairseq2.models.hg" href="fairseq2.models.hg.html" />
+    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="fairseq2.models.llama" href="fairseq2.models.llama.html" /><link rel="prev" title="fairseq2.models.hg.tokenizer" href="generated/fairseq2.models.hg.tokenizer.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
         <title>fairseq2.models.hub - fairseq2 Documentation</title>
@@ -226,7 +226,9 @@
 <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../guides/add_model.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-ruby" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M3.637 2.291A.75.75 0 014.23 2h7.54a.75.75 0 01.593.291l3.48 4.5a.75.75 0 01-.072.999l-7.25 7a.75.75 0 01-1.042 0l-7.25-7a.75.75 0 01-.072-.999l3.48-4.5zM4.598 3.5L1.754 7.177 8 13.207l6.246-6.03L11.402 3.5H4.598z" fill-rule="evenodd"></path></svg> Add Your Own Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/hg_sft_example.html">HuggingFace Model SFT Training with fairseq2</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/pudb.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-bug" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M4.72.22a.75.75 0 011.06 0l1 .999a3.492 3.492 0 012.441 0l.999-1a.75.75 0 111.06 1.061l-.775.776c.616.63.995 1.493.995 2.444v.327c0 .1-.009.197-.025.292.408.14.764.392 1.029.722l1.968-.787a.75.75 0 01.556 1.392L13 7.258V9h2.25a.75.75 0 010 1.5H13v.5c0 .409-.049.806-.141 1.186l2.17.868a.75.75 0 01-.557 1.392l-2.184-.873A4.997 4.997 0 018 16a4.997 4.997 0 01-4.288-2.427l-2.183.873a.75.75 0 01-.558-1.392l2.17-.868A5.013 5.013 0 013 11v-.5H.75a.75.75 0 010-1.5H3V7.258L.971 6.446a.75.75 0 01.558-1.392l1.967.787c.265-.33.62-.583 1.03-.722a1.684 1.684 0 01-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72 1.28a.75.75 0 010-1.06zM6.173 5h3.654A.173.173 0 0010 4.827V4.5a2 2 0 10-4 0v.327c0 .096.077.173.173.173zM5.25 6.5a.75.75 0 00-.75.75V11a3.5 3.5 0 107 0V7.25a.75.75 0 00-.75-.75h-5.5z" fill-rule="evenodd"></path></svg> Debugging with PuDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/s3_checkpointing.html">S3 Checkpointing</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul>
@@ -247,10 +249,21 @@
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.gang.html">fairseq2.gang</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.html">fairseq2.models</a></li>
-<li class="toctree-l1"><a class="reference internal" href="fairseq2.models.hg.html">fairseq2.models.hg</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="fairseq2.models.hg.html">fairseq2.models.hg</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of fairseq2.models.hg</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/fairseq2.models.hg.api.html">fairseq2.models.hg.api</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/fairseq2.models.hg.config.html">fairseq2.models.hg.config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/fairseq2.models.hg.factory.html">fairseq2.models.hg.factory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/fairseq2.models.hg.hub.html">fairseq2.models.hg.hub</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/fairseq2.models.hg.tokenizer.html">fairseq2.models.hg.tokenizer</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.models.hg.html#abcs">ABCs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.models.hg.html#classes">Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.models.hg.html#functions">Functions</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">fairseq2.models.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.llama.html">fairseq2.models.llama</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.models.qwen.html">fairseq2.models.qwen</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.models.olmo.html">fairseq2.models.olmo</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.recipe.composition.html">fairseq2.recipe.composition</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.recipe.optim.html">fairseq2.recipe.optim</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fairseq2.utils.validation.html">fairseq2.utils.validation</a></li>
@@ -347,320 +360,26 @@ listing architectures, and more.</p>
 <section id="modelhub">
 <h3>ModelHub<a class="headerlink" href="#modelhub" title="Link to this heading">¶</a></h3>
 <dl class="py class">
-<dt class="sig sig-object py" id="fairseq2.models.hub.ModelHub">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.models.hub.</span></span><span class="sig-name descname"><span class="pre">ModelHub</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">family</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ModelFamily</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">asset_store</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AssetStore</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/models/hub.html#ModelHub"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hub.ModelHub" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="fairseq2.models.ModelHub">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.models.</span></span><span class="sig-name descname"><span class="pre">ModelHub</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">family</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ModelFamily</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">asset_store</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AssetStore</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/models/hub.html#ModelHub"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.ModelHub" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generic" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Generic</span></code></a>[<code class="xref py py-obj docutils literal notranslate"><span class="pre">ModelT</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">ModelConfigT</span></code>]</p>
 <p>Provides a high-level interface for loading and creating models from a
 specific model family.</p>
 <p>This class serves as the primary entry point for working with models of a
 particular family (e.g., LLaMA, Qwen, etc.). It handles model discovery,
 configuration loading, and model instantiation.</p>
-<p>The main hub class that provides access to all model operations for a specific family.</p>
+<blockquote>
+<div><p>The main hub class that provides access to all model operations for a specific family.</p>
 <p><strong>Key Methods:</strong></p>
 <ul class="simple">
-<li><p><a class="reference internal" href="#fairseq2.models.hub.ModelHub.get_archs" title="fairseq2.models.hub.ModelHub.get_archs"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get_archs()</span></code></a> - List available architectures</p></li>
-<li><p><a class="reference internal" href="#fairseq2.models.hub.ModelHub.get_arch_config" title="fairseq2.models.hub.ModelHub.get_arch_config"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get_arch_config()</span></code></a> - Get architecture configuration</p></li>
-<li><p><a class="reference internal" href="#fairseq2.models.hub.ModelHub.create_new_model" title="fairseq2.models.hub.ModelHub.create_new_model"><code class="xref py py-meth docutils literal notranslate"><span class="pre">create_new_model()</span></code></a> - Create newly initialized model</p></li>
-<li><p><a class="reference internal" href="#fairseq2.models.hub.ModelHub.load_model" title="fairseq2.models.hub.ModelHub.load_model"><code class="xref py py-meth docutils literal notranslate"><span class="pre">load_model()</span></code></a> - Load model from asset card</p></li>
-<li><p><a class="reference internal" href="#fairseq2.models.hub.ModelHub.load_custom_model" title="fairseq2.models.hub.ModelHub.load_custom_model"><code class="xref py py-meth docutils literal notranslate"><span class="pre">load_custom_model()</span></code></a> - Load model from custom checkpoint</p></li>
-<li><p><a class="reference internal" href="#fairseq2.models.hub.ModelHub.iter_cards" title="fairseq2.models.hub.ModelHub.iter_cards"><code class="xref py py-meth docutils literal notranslate"><span class="pre">iter_cards()</span></code></a> - Iterate over available model cards</p></li>
+<li><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">ModelHub.get_archs()</span></code> - List available architectures</p></li>
+<li><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">ModelHub.get_arch_config()</span></code> - Get architecture configuration</p></li>
+<li><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">ModelHub.create_new_model()</span></code> - Create newly initialized model</p></li>
+<li><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">ModelHub.load_model()</span></code> - Load model from asset card</p></li>
+<li><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">ModelHub.load_custom_model()</span></code> - Load model from custom checkpoint</p></li>
+<li><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">ModelHub.iter_cards()</span></code> - Iterate over available model cards</p></li>
 </ul>
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.hub.ModelHub.iter_cards">
-<span class="sig-name descname"><span class="pre">iter_cards</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterator" title="(in Python v3.14)"><span class="pre">Iterator</span></a><span class="p"><span class="pre">[</span></span><span class="pre">AssetCard</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/models/hub.html#ModelHub.iter_cards"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hub.ModelHub.iter_cards" title="Link to this definition">¶</a></dt>
-<dd><p>Iterates over all asset cards belonging to this model family.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.qwen</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_qwen_model_hub</span>
-
-<span class="c1"># List all available Qwen models.</span>
-<span class="k">for</span> <span class="n">card</span> <span class="ow">in</span> <span class="n">get_qwen_model_hub</span><span class="p">()</span><span class="o">.</span><span class="n">iter_cards</span><span class="p">():</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model: </span><span class="si">{</span><span class="n">card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.hub.ModelHub.get_archs">
-<span class="sig-name descname"><span class="pre">get_archs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#set" title="(in Python v3.14)"><span class="pre">set</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/models/hub.html#ModelHub.get_archs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hub.ModelHub.get_archs" title="Link to this definition">¶</a></dt>
-<dd><p>Returns the set of supported model architectures in this family.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.qwen</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_qwen_model_hub</span>
-
-<span class="c1"># List all available Qwen architectures.</span>
-<span class="k">for</span> <span class="n">arch</span> <span class="ow">in</span> <span class="n">get_qwen_model_hub</span><span class="p">()</span><span class="o">.</span><span class="n">get_archs</span><span class="p">():</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Architecture: </span><span class="si">{</span><span class="n">arch</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.hub.ModelHub.get_arch_config">
-<span class="sig-name descname"><span class="pre">get_arch_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ModelConfigT</span></span></span><a class="reference internal" href="../_modules/fairseq2/models/hub.html#ModelHub.get_arch_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hub.ModelHub.get_arch_config" title="Link to this definition">¶</a></dt>
-<dd><p>Returns the configuration for the specified model architecture.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.qwen</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_qwen_model_hub</span>
-
-<span class="n">config</span> <span class="o">=</span> <span class="n">get_qwen_model_hub</span><span class="p">()</span><span class="o">.</span><span class="n">get_arch_config</span><span class="p">(</span><span class="s2">&quot;qwen25_7b&quot;</span><span class="p">)</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-</pre></div>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="fairseq2.models.html#fairseq2.models.ModelArchitectureNotKnownError" title="fairseq2.models.hub.ModelArchitectureNotKnownError"><strong>ModelArchitectureNotKnownError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">arch</span></code> is not a known
-architecture in this family.</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.hub.ModelHub.maybe_get_arch_config">
-<span class="sig-name descname"><span class="pre">maybe_get_arch_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ModelConfigT</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/models/hub.html#ModelHub.maybe_get_arch_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hub.ModelHub.maybe_get_arch_config" title="Link to this definition">¶</a></dt>
-<dd><p>Returns the configuration for the specified model architecture, or
-<code class="docutils literal notranslate"><span class="pre">None</span></code> if not known.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.hub.ModelHub.get_model_config">
-<span class="sig-name descname"><span class="pre">get_model_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">card</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AssetCard</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ModelConfigT</span></span></span><a class="reference internal" href="../_modules/fairseq2/models/hub.html#ModelHub.get_model_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hub.ModelHub.get_model_config" title="Link to this definition">¶</a></dt>
-<dd><p>Returns the model configuration from an asset card.</p>
-<p>This method loads the base architecture configuration and applies any
-model-specific overrides specified in the asset card.</p>
-<p>As a convenience, this method also accepts an asset name instead of an
-asset card.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.assets</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_asset_store</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.qwen</span><span class="w"> </span><span class="kn">import</span> <span class="n">QwenConfig</span><span class="p">,</span> <span class="n">get_qwen_model_hub</span>
-
-<span class="n">card</span> <span class="o">=</span> <span class="n">get_asset_store</span><span class="p">()</span><span class="o">.</span><span class="n">retrieve_card</span><span class="p">(</span><span class="s2">&quot;qwen25_7b_instruct&quot;</span><span class="p">)</span>
-
-<span class="n">qwen_config</span> <span class="o">=</span> <span class="n">get_qwen_model_hub</span><span class="p">()</span><span class="o">.</span><span class="n">get_model_config</span><span class="p">(</span><span class="n">card</span><span class="p">)</span>
-
-<span class="c1"># As a convenience, the card can be omitted and the model name can</span>
-<span class="c1"># be passed directly to `get_model_config()`:</span>
-<span class="n">qwen_config</span> <span class="o">=</span> <span class="n">get_qwen_model_hub</span><span class="p">()</span><span class="o">.</span><span class="n">get_model_config</span><span class="p">(</span><span class="s2">&quot;qwen25_7b_instruct&quot;</span><span class="p">)</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="n">qwen_config</span><span class="p">)</span>
-</pre></div>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><a class="reference internal" href="fairseq2.models.html#fairseq2.models.ModelNotKnownError" title="fairseq2.models.hub.ModelNotKnownError"><strong>ModelNotKnownError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">card</span></code> is a string and no asset card
-with that name exists.</p></li>
-<li><p><strong>AssetCardError</strong> – If the asset card’s model family does not match
-this hub’s family.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.hub.ModelHub.create_new_model">
-<span class="sig-name descname"><span class="pre">create_new_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ModelConfigT</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fairseq2.gang.html#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><span class="pre">Gangs</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.dtype" title="(in PyTorch v2.10)"><span class="pre">dtype</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ModelT</span></span></span><a class="reference internal" href="../_modules/fairseq2/models/hub.html#ModelHub.create_new_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hub.ModelHub.create_new_model" title="Link to this definition">¶</a></dt>
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">create_new_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ModelConfigT</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.10)"><span class="pre">device</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.dtype" title="(in PyTorch v2.10)"><span class="pre">dtype</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ModelT</span></span></span></dt>
-<dd><p>Creates a new model instance with the specified configuration.</p>
-<p>This method creates a fresh model without loading any pretrained weights.
-The model will be initialized with random parameters according to the
-architecture’s default initialization scheme.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">gangs</span></code> is provided, it will be used to apply parallelism (i.e.
-model parallelism) to the initialized model. If the model family does
-not support a certain parallelism strategy, that strategy will be
-ignored. For instance if <code class="docutils literal notranslate"><span class="pre">gangs.tp.size</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>, but the model does not
-support tensor parallelism, the model will be instantiated with regular
-attention and feed-forward network blocks. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the whole model
-will be initialized without any parallelism.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">device</span></code> is provided, the model will be created on the specified
-device; otherwise, the device returned from <a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.get_default_device.html#torch.get_default_device" title="(in PyTorch v2.10)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.get_default_device()</span></code></a>
-will be used. Note that <code class="docutils literal notranslate"><span class="pre">device</span></code> and <code class="docutils literal notranslate"><span class="pre">gangs</span></code> cannot be provided
-together. If <code class="docutils literal notranslate"><span class="pre">gangs</span></code> is provided, <code class="docutils literal notranslate"><span class="pre">gangs.root.device</span></code> will be used.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">dtype</span></code> is provided, it will be used as the default data type of
-the model parameters and buffers; otherwise, the data type returned from
-<a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.get_default_dtype.html#torch.get_default_dtype" title="(in PyTorch v2.10)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.get_default_dtype()</span></code></a> will be used.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">meta</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>, the model will be created on the meta device
-for memory-efficient initialization. Only supported if the model family
-supports meta device.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">init_rank0_only</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>, and the model supports meta
-initialization, the model will be initialized only on the coordinator
-process of the data parallel gang. On all other processes, it will be
-initialized on the meta device. This parameter has no effect if the
-model does not support meta initialization.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.qwen</span><span class="w"> </span><span class="kn">import</span> <span class="n">QwenConfig</span><span class="p">,</span> <span class="n">get_qwen_model_hub</span>
-
-<span class="c1"># Use the default Qwen configuration except the number of</span>
-<span class="c1"># decoder layers.</span>
-<span class="n">config</span> <span class="o">=</span> <span class="n">QwenConfig</span><span class="p">(</span><span class="n">num_layers</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
-
-<span class="n">qwen_model</span> <span class="o">=</span> <span class="n">get_qwen_model_hub</span><span class="p">()</span><span class="o">.</span><span class="n">create_new_model</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-</pre></div>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If both <code class="docutils literal notranslate"><span class="pre">gangs</span></code> and <code class="docutils literal notranslate"><span class="pre">device</span></code> are provided.</p></li>
-<li><p><strong>NotSupportedError</strong> – If <code class="docutils literal notranslate"><span class="pre">meta</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code> but the model family
-doesn’t support meta device.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.hub.ModelHub.load_model">
-<span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">card</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AssetCard</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fairseq2.gang.html#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><span class="pre">Gangs</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.dtype" title="(in PyTorch v2.10)"><span class="pre">dtype</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ModelConfigT</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load_rank0_only</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mmap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ModelT</span></span></span><a class="reference internal" href="../_modules/fairseq2/models/hub.html#ModelHub.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hub.ModelHub.load_model" title="Link to this definition">¶</a></dt>
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">card</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AssetCard</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.10)"><span class="pre">device</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.dtype" title="(in PyTorch v2.10)"><span class="pre">dtype</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ModelConfigT</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load_rank0_only</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mmap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ModelT</span></span></span></dt>
-<dd><p>Loads a pretrained model from an asset card.</p>
-<p>This method downloads the model checkpoint (if necessary) and loads the
-pretrained weights into a model instance. The model architecture and
-configuration are determined from the asset card metadata.</p>
-<p>As a convenience, this method also accepts an asset name instead of an
-asset card.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">gangs</span></code> is provided, it will be used to apply parallelism (i.e.
-model parallelism) to the initialized model. If the model family does
-not support a certain parallelism strategy, that strategy will be
-ignored. For instance if <code class="docutils literal notranslate"><span class="pre">gangs.tp.size</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>, but the model does not
-support tensor parallelism, the model will be instantiated with regular
-attention and feed-forward network blocks. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the whole model
-will be initialized without any parallelism.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">device</span></code> is provided, the model will be created on the specified
-device; otherwise, the device returned from <a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.get_default_device.html#torch.get_default_device" title="(in PyTorch v2.10)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.get_default_device()</span></code></a>
-will be used. Note that <code class="docutils literal notranslate"><span class="pre">device</span></code> and <code class="docutils literal notranslate"><span class="pre">gangs</span></code> cannot be provided
-together. If <code class="docutils literal notranslate"><span class="pre">gangs</span></code> is provided, <code class="docutils literal notranslate"><span class="pre">gangs.root.device</span></code> will be used.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">dtype</span></code> is provided, it will be used as the default data type of
-the model parameters and buffers; otherwise, the data type returned from
-<a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.get_default_dtype.html#torch.get_default_dtype" title="(in PyTorch v2.10)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.get_default_dtype()</span></code></a> will be used.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">config</span></code> is provided, it overrides the default model configuration
-from the asset card. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, uses the configuration specified in
-the card. Typically used to perform slight adjustments to the model
-configuration such as tuning dropout probabilities without changing the
-architecture.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">load_rank0_only</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code>, the model will be loaded on the
-coordinator process of the data parallel gang and then broadcast to all
-other processes in the gang. If it is <code class="docutils literal notranslate"><span class="pre">True</span></code>, the model will be loaded
-only on the coordinator process. On other processes, the model will be
-initialized without loading weights, either on the meta device or on the
-gang’s device, depending on whether the model supports meta
-initialization.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">mmap</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>, the model checkpoint will be memory-mapped. This
-can reduce memory usage but may cause slower load times on some systems.</p>
-<p><code class="docutils literal notranslate"><span class="pre">progress</span></code> is deprecated and will be removed in v0.13. Use
-<code class="docutils literal notranslate"><span class="pre">FAIRSEQ2_NO_PROGRESS=1</span></code> environment variable or <code class="docutils literal notranslate"><span class="pre">no_progress</span></code>
-parameter of <code class="xref py py-func docutils literal notranslate"><span class="pre">init_fairseq()</span></code> to disable progress bars.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.assets</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_asset_store</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.qwen</span><span class="w"> </span><span class="kn">import</span> <span class="n">QwenConfig</span><span class="p">,</span> <span class="n">get_qwen_model_hub</span>
-
-<span class="n">card</span> <span class="o">=</span> <span class="n">get_asset_store</span><span class="p">()</span><span class="o">.</span><span class="n">retrieve_card</span><span class="p">(</span><span class="s2">&quot;qwen25_7b_instruct&quot;</span><span class="p">)</span>
-
-<span class="n">qwen_model</span> <span class="o">=</span> <span class="n">get_qwen_model_hub</span><span class="p">()</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">card</span><span class="p">)</span>
-
-<span class="c1"># As a convenience, the card can be omitted and the model name can</span>
-<span class="c1"># be passed directly to `load_model()`:</span>
-<span class="n">qwen_model</span> <span class="o">=</span> <span class="n">get_qwen_model_hub</span><span class="p">()</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="s2">&quot;qwen25_7b_instruct&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><a class="reference internal" href="fairseq2.models.html#fairseq2.models.ModelNotKnownError" title="fairseq2.models.hub.ModelNotKnownError"><strong>ModelNotKnownError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">card</span></code> is a string and no asset card
-with that name exists.</p></li>
-<li><p><strong>AssetCardError</strong> – If the asset card’s model family doesn’t match
-this hub’s family.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If both <code class="docutils literal notranslate"><span class="pre">gangs</span></code> and <code class="docutils literal notranslate"><span class="pre">device</span></code> are provided.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.hub.ModelHub.load_custom_model">
-<span class="sig-name descname"><span class="pre">load_custom_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.14)"><span class="pre">Path</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ModelConfigT</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fairseq2.gang.html#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><span class="pre">Gangs</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.dtype" title="(in PyTorch v2.10)"><span class="pre">dtype</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load_rank0_only</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mmap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ModelT</span></span></span><a class="reference internal" href="../_modules/fairseq2/models/hub.html#ModelHub.load_custom_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hub.ModelHub.load_custom_model" title="Link to this definition">¶</a></dt>
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">load_custom_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.14)"><span class="pre">Path</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ModelConfigT</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.10)"><span class="pre">device</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.dtype" title="(in PyTorch v2.10)"><span class="pre">dtype</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load_rank0_only</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mmap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ModelT</span></span></span></dt>
-<dd><p>Loads a model from a custom checkpoint file.</p>
-<p>This method is useful for loading models from custom training runs or
-third-party checkpoints that are not available through the asset store.</p>
-<p><code class="docutils literal notranslate"><span class="pre">config</span></code> specifies the model configuration. It must match the
-architecture of the saved checkpoint.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">gangs</span></code> is provided, it will be used to apply parallelism (i.e.
-model parallelism) to the initialized model. If the model family does
-not support a certain parallelism strategy, that strategy will be
-ignored. For instance if <code class="docutils literal notranslate"><span class="pre">gangs.tp.size</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>, but the model does not
-support tensor parallelism, the model will be instantiated with regular
-attention and feed-forward network blocks. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the whole model
-will be initialized without any parallelism.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">device</span></code> is provided, the model will be created on the specified
-device; otherwise, the device returned from <a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.get_default_device.html#torch.get_default_device" title="(in PyTorch v2.10)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.get_default_device()</span></code></a>
-will be used. Note that <code class="docutils literal notranslate"><span class="pre">device</span></code> and <code class="docutils literal notranslate"><span class="pre">gangs</span></code> cannot be provided
-together. If <code class="docutils literal notranslate"><span class="pre">gangs</span></code> is provided, <code class="docutils literal notranslate"><span class="pre">gangs.root.device</span></code> will be used.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">dtype</span></code> is provided, it will be used as the default data type of
-the model parameters and buffers; otherwise, the data type returned from
-<a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.get_default_dtype.html#torch.get_default_dtype" title="(in PyTorch v2.10)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.get_default_dtype()</span></code></a> will be used.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">load_rank0_only</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code>, the model will be loaded on the
-coordinator process of the data parallel gang and then broadcast to all
-other processes in the gang. If it is <code class="docutils literal notranslate"><span class="pre">True</span></code>, the model will be loaded
-only on the coordinator process. On other processes, the model will be
-initialized without loading weights, either on the meta device or on the
-gang’s device, depending on whether the model supports meta
-initialization.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">mmap</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>, the model checkpoint will be memory-mapped. This
-can reduce memory usage but may cause slower load times on some systems.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">restrict</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>, pickle (if used) will be restricted to load
-only tensors and types that can be safely serialized and deserialized.
-If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the default restriction setting of the family will be used.</p>
-<p><code class="docutils literal notranslate"><span class="pre">progress</span></code> is deprecated and will be removed in v0.13. Use
-<code class="docutils literal notranslate"><span class="pre">FAIRSEQ2_NO_PROGRESS=1</span></code> environment variable or <code class="docutils literal notranslate"><span class="pre">no_progress</span></code>
-parameter of <code class="xref py py-func docutils literal notranslate"><span class="pre">init_fairseq()</span></code> to disable progress bars.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.qwen</span><span class="w"> </span><span class="kn">import</span> <span class="n">QwenConfig</span><span class="p">,</span> <span class="n">get_qwen_model_hub</span>
-
-<span class="n">checkpoint_path</span> <span class="o">=</span> <span class="o">...</span>
-
-<span class="c1"># The checkpoint contains a Qwen model with 16 decoder layers.</span>
-<span class="n">config</span> <span class="o">=</span> <span class="n">QwenConfig</span><span class="p">(</span><span class="n">num_layers</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
-
-<span class="n">qwen_model</span> <span class="o">=</span> <span class="n">get_qwen_model_hub</span><span class="p">()</span><span class="o">.</span><span class="n">load_custom_model</span><span class="p">(</span><span class="n">checkpoint_path</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
-</pre></div>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If both <code class="docutils literal notranslate"><span class="pre">gangs</span></code> and <code class="docutils literal notranslate"><span class="pre">device</span></code> are provided.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#FileNotFoundError" title="(in Python v3.14)"><strong>FileNotFoundError</strong></a> – If the checkpoint file does not exist.</p></li>
-<li><p><strong>ModelCheckpointError</strong> – If the checkpoint format is not valid or
-incompatible with the model.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.models.hub.ModelHub.iter_checkpoint">
-<span class="sig-name descname"><span class="pre">iter_checkpoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.14)"><span class="pre">Path</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ModelConfigT</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fairseq2.gang.html#fairseq2.gang.Gangs" title="fairseq2.gang.Gangs"><span class="pre">Gangs</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mmap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterator" title="(in Python v3.14)"><span class="pre">Iterator</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.10)"><span class="pre">Tensor</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/models/hub.html#ModelHub.iter_checkpoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hub.ModelHub.iter_checkpoint" title="Link to this definition">¶</a></dt>
-<dd><p>Lazily loads parameters from the specified model checkpoint path.</p>
-<p>Yields tensors one at a time to minimize memory usage if the underlying
-checkpoint format allows it.</p>
-<p>This method provides low-level access to checkpoint contents without
-loading the full model into memory. It’s useful for checkpoint inspection,
-custom loading logic, or memory-efficient parameter processing.</p>
-<p><code class="docutils literal notranslate"><span class="pre">config</span></code> specifies the model configuration used to determine the
-expected parameter structure in the checkpoint.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">gangs</span></code> is provided, it is used to determine the distributed target
-configuration and to shard yielded parameters accordingly. If <code class="docutils literal notranslate"><span class="pre">None</span></code>,
-no sharding will be performed and full parameters will be yielded.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">mmap</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>, the checkpoint will be memory-mapped. This can
-reduce memory usage but may cause slower load times on some systems.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">restrict</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>, pickle (if used) will be restricted to load
-only tensors and types that can be safely serialized and deserialized.
-If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the default restriction setting of the family will be used.</p>
-<p>Yields pairs of <code class="docutils literal notranslate"><span class="pre">(parameter</span> <span class="pre">name,</span> <span class="pre">parameter)</span></code> for each parameter in
-the checkpoint.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#FileNotFoundError" title="(in Python v3.14)"><strong>FileNotFoundError</strong></a> – If the checkpoint file does not exist.</p></li>
-<li><p><strong>ModelCheckpointError</strong> – If the checkpoint format is not valid.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
+</div></blockquote>
 </dd></dl>
 
 </section>
@@ -670,7 +389,7 @@ the checkpoint.</p>
 <dt class="sig sig-object py" id="fairseq2.models.hub.ModelHubAccessor">
 <em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.models.hub.</span></span><span class="sig-name descname"><span class="pre">ModelHubAccessor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">family_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">kls</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><span class="pre">type</span></a><span class="p"><span class="pre">[</span></span><span class="pre">ModelT</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_kls</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><span class="pre">type</span></a><span class="p"><span class="pre">[</span></span><span class="pre">ModelConfigT</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fairseq2/models/hub.html#ModelHubAccessor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.models.hub.ModelHubAccessor" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generic" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Generic</span></code></a>[<code class="xref py py-obj docutils literal notranslate"><span class="pre">ModelT</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">ModelConfigT</span></code>]</p>
-<p>Creates a <a class="reference internal" href="#fairseq2.models.hub.ModelHub" title="fairseq2.models.hub.ModelHub"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelHub</span></code></a> instance when called.</p>
+<p>Creates a <a class="reference internal" href="#fairseq2.models.ModelHub" title="fairseq2.models.hub.ModelHub"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelHub</span></code></a> instance when called.</p>
 <p>This class provides a strongly-typed way to access model hubs. Its direct
 use is meant for model authors rather than library users.</p>
 <p>See <code class="docutils literal notranslate"><span class="pre">src/fairseq2/models/llama/hub.py</span></code> as an example.</p>
@@ -712,7 +431,7 @@ pretrained weights into a model instance. The model architecture and
 configuration are determined from the asset card metadata.</p>
 <p>As a convenience, this method also accepts an asset name instead of an
 asset card.</p>
-<p>The difference between <code class="docutils literal notranslate"><span class="pre">load_model</span></code> and <a class="reference internal" href="#fairseq2.models.hub.ModelHub.load_model" title="fairseq2.models.hub.ModelHub.load_model"><code class="xref py py-meth docutils literal notranslate"><span class="pre">ModelHub.load_model()</span></code></a> is
+<p>The difference between <code class="docutils literal notranslate"><span class="pre">load_model</span></code> and <code class="xref py py-meth docutils literal notranslate"><span class="pre">ModelHub.load_model()</span></code> is
 as follows:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">load_model</span></code> provides a unified interface for loading models across all
@@ -721,7 +440,7 @@ card metadata and delegates to the family-specific loading logic.</p></li>
 <li><p>The tradeoff is that (1) the <code class="docutils literal notranslate"><span class="pre">config</span></code> parameter of <code class="docutils literal notranslate"><span class="pre">load_model</span></code> is not
 type-safe, (2) it is possible to accidentally load an unintended model
 since the function is not constrained to a specific family.</p></li>
-<li><p>The general recommendation is to use <a class="reference internal" href="#fairseq2.models.hub.ModelHub.load_model" title="fairseq2.models.hub.ModelHub.load_model"><code class="xref py py-meth docutils literal notranslate"><span class="pre">ModelHub.load_model()</span></code></a> if the
+<li><p>The general recommendation is to use <code class="xref py py-meth docutils literal notranslate"><span class="pre">ModelHub.load_model()</span></code> if the
 model family is known in advance, and to use <code class="docutils literal notranslate"><span class="pre">load_model</span></code> if the decision
 about the model and its family needs to be made at runtime.</p></li>
 </ul>
@@ -918,14 +637,14 @@ the appropriate model family from the asset card.</p>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="fairseq2.models.hg.html">
+          <a class="prev-page" href="generated/fairseq2.models.hg.tokenizer.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">fairseq2.models.hg</div>
+                <div class="title">fairseq2.models.hg.tokenizer</div>
                 
               </div>
             </a>
@@ -967,18 +686,7 @@ the appropriate model family from the asset card.</p>
 <li><a class="reference internal" href="#quick-start">Quick Start</a></li>
 <li><a class="reference internal" href="#core-classes">Core Classes</a><ul>
 <li><a class="reference internal" href="#modelhub">ModelHub</a><ul>
-<li><a class="reference internal" href="#fairseq2.models.hub.ModelHub"><code class="docutils literal notranslate"><span class="pre">ModelHub</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.models.hub.ModelHub.iter_cards"><code class="docutils literal notranslate"><span class="pre">ModelHub.iter_cards()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.hub.ModelHub.get_archs"><code class="docutils literal notranslate"><span class="pre">ModelHub.get_archs()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.hub.ModelHub.get_arch_config"><code class="docutils literal notranslate"><span class="pre">ModelHub.get_arch_config()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.hub.ModelHub.maybe_get_arch_config"><code class="docutils literal notranslate"><span class="pre">ModelHub.maybe_get_arch_config()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.hub.ModelHub.get_model_config"><code class="docutils literal notranslate"><span class="pre">ModelHub.get_model_config()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.hub.ModelHub.create_new_model"><code class="docutils literal notranslate"><span class="pre">ModelHub.create_new_model()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.hub.ModelHub.load_model"><code class="docutils literal notranslate"><span class="pre">ModelHub.load_model()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.hub.ModelHub.load_custom_model"><code class="docutils literal notranslate"><span class="pre">ModelHub.load_custom_model()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.models.hub.ModelHub.iter_checkpoint"><code class="docutils literal notranslate"><span class="pre">ModelHub.iter_checkpoint()</span></code></a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#fairseq2.models.ModelHub"><code class="docutils literal notranslate"><span class="pre">ModelHub</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#modelhubaccessor">ModelHubAccessor</a><ul>
@@ -1018,7 +726,7 @@ the appropriate model family from the asset card.</p>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=c488ec34"></script>
+</div><script src="../_static/documentation_options.js?v=372921cf"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>

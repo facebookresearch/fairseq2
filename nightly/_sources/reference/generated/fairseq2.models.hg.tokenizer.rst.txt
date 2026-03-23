@@ -1,0 +1,19 @@
+﻿fairseq2.models.hg.tokenizer
+============================
+
+.. automodule:: fairseq2.models.hg.tokenizer
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      load_hg_tokenizer
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      HgTokenizer
+      HgTokenizerConfig
+   

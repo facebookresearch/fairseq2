@@ -1,0 +1,6 @@
+﻿fairseq2.models.hg.hub
+======================
+
+.. automodule:: fairseq2.models.hg.hub
+
+   

@@ -9,6 +9,7 @@ Classes
 =======
 
 .. autoclass:: ModelHub
+    :no-index:
 .. autoclass:: ModelHubAccessor
 
 Functions

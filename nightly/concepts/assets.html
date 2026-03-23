@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="What is a Gang?" href="gang.html" /><link rel="prev" title="Debugging with PuDB" href="../guides/pudb.html" />
+    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="What is a Gang?" href="gang.html" /><link rel="prev" title="S3 Checkpointing" href="../guides/s3_checkpointing.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
         <title>Assets - fairseq2 Documentation</title>
@@ -226,7 +226,9 @@
 <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../guides/add_model.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-ruby" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M3.637 2.291A.75.75 0 014.23 2h7.54a.75.75 0 01.593.291l3.48 4.5a.75.75 0 01-.072.999l-7.25 7a.75.75 0 01-1.042 0l-7.25-7a.75.75 0 01-.072-.999l3.48-4.5zM4.598 3.5L1.754 7.177 8 13.207l6.246-6.03L11.402 3.5H4.598z" fill-rule="evenodd"></path></svg> Add Your Own Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/hg_sft_example.html">HuggingFace Model SFT Training with fairseq2</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/pudb.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-bug" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M4.72.22a.75.75 0 011.06 0l1 .999a3.492 3.492 0 012.441 0l.999-1a.75.75 0 111.06 1.061l-.775.776c.616.63.995 1.493.995 2.444v.327c0 .1-.009.197-.025.292.408.14.764.392 1.029.722l1.968-.787a.75.75 0 01.556 1.392L13 7.258V9h2.25a.75.75 0 010 1.5H13v.5c0 .409-.049.806-.141 1.186l2.17.868a.75.75 0 01-.557 1.392l-2.184-.873A4.997 4.997 0 018 16a4.997 4.997 0 01-4.288-2.427l-2.183.873a.75.75 0 01-.558-1.392l2.17-.868A5.013 5.013 0 013 11v-.5H.75a.75.75 0 010-1.5H3V7.258L.971 6.446a.75.75 0 01.558-1.392l1.967.787c.265-.33.62-.583 1.03-.722a1.684 1.684 0 01-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72 1.28a.75.75 0 010-1.06zM6.173 5h3.654A.173.173 0 0010 4.827V4.5a2 2 0 10-4 0v.327c0 .096.077.173.173.173zM5.25 6.5a.75.75 0 00-.75.75V11a3.5 3.5 0 107 0V7.25a.75.75 0 00-.75-.75h-5.5z" fill-rule="evenodd"></path></svg> Debugging with PuDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/s3_checkpointing.html">S3 Checkpointing</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="current">
@@ -247,10 +249,21 @@
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.gang.html">fairseq2.gang</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.models.html">fairseq2.models</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.models.hg.html">fairseq2.models.hg</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../reference/fairseq2.models.hg.html">fairseq2.models.hg</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of fairseq2.models.hg</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../reference/generated/fairseq2.models.hg.api.html">fairseq2.models.hg.api</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/generated/fairseq2.models.hg.config.html">fairseq2.models.hg.config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/generated/fairseq2.models.hg.factory.html">fairseq2.models.hg.factory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/generated/fairseq2.models.hg.hub.html">fairseq2.models.hg.hub</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/generated/fairseq2.models.hg.tokenizer.html">fairseq2.models.hg.tokenizer</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.models.hg.html#abcs">ABCs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.models.hg.html#classes">Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.models.hg.html#functions">Functions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.models.hub.html">fairseq2.models.hub</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.models.llama.html">fairseq2.models.llama</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.models.qwen.html">fairseq2.models.qwen</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.models.olmo.html">fairseq2.models.olmo</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.recipe.composition.html">fairseq2.recipe.composition</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.recipe.optim.html">fairseq2.recipe.optim</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/fairseq2.utils.validation.html">fairseq2.utils.validation</a></li>
@@ -332,14 +345,14 @@
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="../guides/pudb.html">
+          <a class="prev-page" href="../guides/s3_checkpointing.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-bug" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4.72.22a.75.75 0 011.06 0l1 .999a3.492 3.492 0 012.441 0l.999-1a.75.75 0 111.06 1.061l-.775.776c.616.63.995 1.493.995 2.444v.327c0 .1-.009.197-.025.292.408.14.764.392 1.029.722l1.968-.787a.75.75 0 01.556 1.392L13 7.258V9h2.25a.75.75 0 010 1.5H13v.5c0 .409-.049.806-.141 1.186l2.17.868a.75.75 0 01-.557 1.392l-2.184-.873A4.997 4.997 0 018 16a4.997 4.997 0 01-4.288-2.427l-2.183.873a.75.75 0 01-.558-1.392l2.17-.868A5.013 5.013 0 013 11v-.5H.75a.75.75 0 010-1.5H3V7.258L.971 6.446a.75.75 0 01.558-1.392l1.967.787c.265-.33.62-.583 1.03-.722a1.684 1.684 0 01-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72 1.28a.75.75 0 010-1.06zM6.173 5h3.654A.173.173 0 0010 4.827V4.5a2 2 0 10-4 0v.327c0 .096.077.173.173.173zM5.25 6.5a.75.75 0 00-.75.75V11a3.5 3.5 0 107 0V7.25a.75.75 0 00-.75-.75h-5.5z"></path></svg> Debugging with PuDB</div>
+                <div class="title">S3 Checkpointing</div>
                 
               </div>
             </a>
@@ -371,7 +384,7 @@
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=c488ec34"></script>
+</div><script src="../_static/documentation_options.js?v=372921cf"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
