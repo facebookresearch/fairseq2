@@ -127,9 +127,71 @@ def register_qwen35_configs(container: DependencyContainer) -> None:
             linear_num_value_heads=16,
         )
 
+    @arch("qwen35_2b")
+    def qwen35_2b() -> Qwen35Config:
+        return Qwen35Config(
+            model_dim=2048,
+            max_seq_len=262_144,
+            vocab_size=248_320,
+            tied_embeddings=True,
+            num_layers=24,
+            num_attn_heads=8,
+            num_key_value_heads=2,
+            head_dim=256,
+            ffn_inner_dim=6144,
+            partial_rotary_factor=0.25,
+            rope_theta=10_000_000.0,
+            full_attention_interval=4,
+            linear_conv_kernel_dim=4,
+            linear_key_head_dim=128,
+            linear_value_head_dim=128,
+            linear_num_key_heads=16,
+            linear_num_value_heads=16,
+        )
+
+    @arch("qwen35_9b")
+    def qwen35_9b() -> Qwen35Config:
+        return Qwen35Config(
+            model_dim=4096,
+            max_seq_len=262_144,
+            vocab_size=248_320,
+            tied_embeddings=False,
+            num_layers=32,
+            num_attn_heads=16,
+            num_key_value_heads=4,
+            head_dim=256,
+            ffn_inner_dim=12_288,
+            partial_rotary_factor=0.25,
+            rope_theta=10_000_000.0,
+            full_attention_interval=4,
+            linear_conv_kernel_dim=4,
+            linear_key_head_dim=128,
+            linear_value_head_dim=128,
+            linear_num_key_heads=16,
+            linear_num_value_heads=32,
+        )
+
     @arch("qwen35_27b")
     def qwen35_27b() -> Qwen35Config:
-        return Qwen35Config()
+        return Qwen35Config(
+            model_dim=5120,
+            max_seq_len=262_144,
+            vocab_size=248_320,
+            tied_embeddings=False,
+            num_layers=64,
+            num_attn_heads=24,
+            num_key_value_heads=4,
+            head_dim=256,
+            ffn_inner_dim=17_408,
+            partial_rotary_factor=0.25,
+            rope_theta=10_000_000.0,
+            full_attention_interval=4,
+            linear_conv_kernel_dim=4,
+            linear_key_head_dim=128,
+            linear_value_head_dim=128,
+            linear_num_key_heads=16,
+            linear_num_value_heads=48,
+        )
 
 
 # ---------------------------------------------------------------------------
