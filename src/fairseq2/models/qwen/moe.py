@@ -61,17 +61,17 @@ class Qwen35TopKRouter(Module):
 
         :returns:
             A 3-tuple of:
-            - ``router_logits``  — full softmax distribution ``(T, E)``
-            - ``router_weights`` — renormalised top-k weights  ``(T, K)``
-            - ``router_indices`` — selected expert indices     ``(T, K)``
+            - ``router_logits``  — raw pre-softmax logits      ``(T, E)``
+            - ``router_weights`` — renormalised top-k weights   ``(T, K)``
+            - ``router_indices`` — selected expert indices      ``(T, K)``
         """
         hidden_states = hidden_states.reshape(-1, self.model_dim)
 
         router_logits = F.linear(hidden_states, self.weight)
-        router_logits = F.softmax(router_logits, dtype=torch.float, dim=-1)
+        router_probs = F.softmax(router_logits, dtype=torch.float, dim=-1)
 
         router_weights, router_indices = torch.topk(
-            router_logits, self.top_k, dim=-1
+            router_probs, self.top_k, dim=-1
         )
 
         router_weights = router_weights / router_weights.sum(

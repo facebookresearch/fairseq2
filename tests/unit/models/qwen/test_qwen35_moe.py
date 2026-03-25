@@ -38,19 +38,27 @@ class TestQwen35TopKRouter:
         sums = weights.sum(dim=-1)
         assert_close(sums, torch.ones(10, device=device), atol=1e-5)
 
-    def test_logits_are_softmax(self) -> None:
-        """Router logits are valid probability distribution (sum to 1, non-negative)."""
+    def test_logits_are_raw_pre_softmax(self) -> None:
+        """Router logits are raw pre-softmax values (NOT a probability distribution)."""
         router = Qwen35TopKRouter(num_experts=8, top_k=2, model_dim=32).to(device)
+        # Initialize with non-zero weights so logits are non-trivial.
+        torch.nn.init.normal_(router.weight, std=0.1)
 
         x = torch.randn(10, 32, device=device)
 
         with torch.no_grad():
-            logits, _, _ = router(x)
+            logits, weights, _ = router(x)
 
-        assert (logits >= 0).all()
-
+        # Raw logits can be negative and do NOT sum to 1.
+        assert logits.shape == (10, 8)
         sums = logits.sum(dim=-1)
-        assert_close(sums, torch.ones(10, device=device), atol=1e-5)
+        assert not torch.allclose(
+            sums, torch.ones(10, device=device), atol=1e-3
+        ), "Raw logits should NOT sum to 1 (they are not softmax)"
+
+        # But the top-k weights DO sum to 1 (renormalized).
+        w_sums = weights.sum(dim=-1)
+        assert_close(w_sums, torch.ones(10, device=device), atol=1e-5)
 
 
 class TestQwen35Experts:
