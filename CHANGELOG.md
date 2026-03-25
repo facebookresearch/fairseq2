@@ -3,11 +3,37 @@ All notable changes to fairseq2 are documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
-## [0.8.0] - TBD
-- fsspec integration for remote filesystem support. Checkpoints can be saved to
-  and loaded from S3 via `--checkpoint-dir s3://bucket/path/`. Requires `s3fs`.
-- New `GlobalFileSystem` replaces `LocalFileSystem` as default, dispatching to
-  the appropriate backend based on URI scheme.
+## [0.8.0] - March 25th, 2026
+- fsspec integration for remote filesystem support. Checkpoints can be saved to and loaded from S3 via `--checkpoint-dir s3://bucket/path/`. Requires `s3fs`. (#1126)
+- New `GlobalFileSystem` replaces `LocalFileSystem` as default, dispatching to the appropriate backend based on URI scheme. (#1126)
+- PyTorch 2.9.1 and 2.10 (forward compatibility) are now supported. PyTorch 2.9 introduced breaking changes to LR scheduler return types, which have been addressed. (#1477, #1491, #1456)
+- **Breaking**: Trainer, evaluator, generator, validator, and task moved from `fairseq2.recipe` to `fairseq2` package root. (#1417)
+- **Breaking**: LM recipes restructured: `text_generate` renamed to `generate`, SFT configs removed/renamed, recipe config classes changed. (#1431, #1432, #1433)
+- **Breaking**: `RecipeModel` is deprecated. Access the model directly via `.module` instead. (#1403)
+- **Breaking**: `pq.ParquetDataset` replaced with `pyarrow.dataset` interface. (#1490)
+- **Breaking**: `resolve_optional` renamed to `maybe_resolve`. (#1462)
+- **Breaking**: Revised `ModelCheckpointLoader` API. (#1475)
+- **Breaking**: Refactored tensor sharded modules (embedding, projection, FFN, attention). (#1476)
+- New context managers for procedural programming: `GangContext`, `DeviceContext`, `DataTypeContext`, `current_dtype`. Eliminates need to pass state through nested function calls. (#1474, #1473, #1464)
+- `CheckpointManager`, `Optimizer`, and `LRScheduler` now exposed in `RecipeContext`. (#1461)
+- Synchronous asset loading across ranks for models and tokenizers. Use when all ranks need identical assets loaded simultaneously. (#1429, #1426)
+- `CheckpointManager.register_save_hook` allows custom logic during checkpoint saves. (#1439)
+- Config files now support `${env:<NAME>}` to interpolate environment variables. (#1435)
+- `--no-rich` CLI flag disables rich text output for log parsing. (#1421)
+- Hugging Face export now runs in isolated process with saved command line and logs for debugging. (#1459, #1458, #1437, #1434)
+- Improved support for gated Hugging Face models. (#1422)
+- `get_family` utility functions for detecting model families. (#1454)
+- Gemma3n model family (E2B/E4B) with text + audio inference and SFT training. (#1496)
+- Generic HuggingFace model integration: load, shard, and train any HuggingFace CausalLM model directly through `HgCausalLMAdapter` without requiring a native fairseq2 reimplementation. Includes FSDP sharding, HF tokenizer integration, and SFT recipe support. (#1479)
+- `AssetDownloadManager` gains `local_only` parameter and custom download subpath support. (#1423, #1425)
+- Recipes now set Python `random` and `numpy` seeds for reproducibility. (#1419)
+- Wandb metric recorder now respects wandb environment variables. (#1440)
+- Improved `share_parameters` implementation. (#1484)
+- Fixed `cross_entropy` with `reduction="mean"` to properly exclude padding tokens from the denominator. (#1455)
+- Fixed `Flash3SDPA` to support the `flash-attn-3` v3.0.0 package API (`flash_attn_3._C` / `torch.ops.flash_attn_3`) in addition to the legacy `flash_attn_3_cuda` module. (#1495)
+- Fixed data pipeline sampling bug when `allow_repeats=False` with many pipelines. (#1471)
+- Fixed `DataParallelFacade` weakref errors. (#1447, #1436)
+- Fixed WER calculation to use lists instead of tensors. (#1413)
 
 ## [0.7.0] - Nov 4th, 2025
 - `RecipeModel` is now callable and forwards the call to `RecipeModel.module`
@@ -24,7 +50,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 ## [0.6.0] - Oct 7th, 2025
 - `fairseq2.sharder` is deprecated. fairseq2 now expects parallelism strategies
   to be applied within model factories. This gives model authors full control
-  over how parallelism is applied to their models. [More info](https://github.com/facebookresearch/fairseq2/pull/1349) 
+  over how parallelism is applied to their models. [More info](https://github.com/facebookresearch/fairseq2/pull/1349)
 - `Gangs` can now be used as a context manager, along with a new `maybe_get_current_gangs()`
   helper function. This feature is particularly useful in procedural programming,
   as it eliminates the need to pass a `Gangs` instance through every function call.

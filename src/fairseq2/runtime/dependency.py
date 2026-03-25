@@ -30,6 +30,7 @@ from typing_extensions import override
 from fairseq2.error import InternalError, InvalidOperationError
 from fairseq2.runtime.lazy import Lazy
 from fairseq2.runtime.lookup import Lookup
+from fairseq2.utils.warn import _warn_deprecated
 
 T = TypeVar("T")
 
@@ -42,6 +43,14 @@ class DependencyResolver(ABC):
     def maybe_resolve(
         self, kls: type[T], *, key: Hashable | None = None
     ) -> T | None: ...
+
+    def resolve_optional(
+        self, kls: type[T], *, key: Hashable | None = None
+    ) -> T | None:
+        _warn_deprecated(
+            "`resolve_optional()` is deprecated and will be removed in v0.14. Use `maybe_resolve()` instead."
+        )
+        return self.maybe_resolve(kls, key=key)
 
     @abstractmethod
     def iter_keys(self, kls: type[T]) -> Iterator[Hashable]: ...

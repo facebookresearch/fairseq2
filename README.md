@@ -108,6 +108,44 @@ matrix shows the supported combinations.
       <td><code>x86_64</code></td>
     </tr>
     <tr>
+      <td rowspan=3><code>0.8</code></td>
+      <td><code>2.9.1</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
+      <td><code>cpu</code>, <code>cu126</code>, <code>cu128</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
+      <td><code>2.8.0</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
+      <td><code>cpu</code>, <code>cu126</code>, <code>cu128</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
+      <td><code>2.7.1</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
+      <td><code>cpu</code>, <code>cu126</code>, <code>cu128</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
+      <td rowspan=3><code>0.7</code></td>
+      <td><code>2.9.0</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
+      <td><code>cpu</code>, <code>cu126</code>, <code>cu128</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
+      <td><code>2.8.0</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
+      <td><code>cpu</code>, <code>cu126</code>, <code>cu128</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
+      <td><code>2.7.1</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
+      <td><code>cpu</code>, <code>cu126</code>, <code>cu128</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
       <td rowspan=3><code>0.6</code></td>
       <td><code>2.8.0</code></td>
       <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
@@ -200,8 +238,20 @@ the supported combinations.
   </thead>
   <tbody>
     <tr>
-      <td rowspan=3><code>HEAD</code></td>
+      <td><code>HEAD</code></td>
       <td><code>2.9.1</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
+      <td><code>arm64</code></td>
+    </tr>
+    <tr>
+      <td><code>0.8</code></td>
+      <td><code>2.9.1</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
+      <td><code>arm64</code></td>
+    </tr>
+    <tr>
+      <td><code>0.7</code></td>
+      <td><code>2.9.0</code></td>
       <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>arm64</code></td>
     </tr>
