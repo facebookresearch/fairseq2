@@ -413,6 +413,9 @@ def _register_model_families(container: DependencyContainer) -> None:
 
     register_qwen35_configs(container)
 
+    # TODO(Phase 5): Register _Qwen35HuggingFaceConverter for HF export support.
+    # Requires reverse RMSNorm conversion (weight -= 1.0) in to_hg_state_dict().
+
     # Qwen 3.5 MoE
     register_model_family(
         container,
@@ -427,6 +430,8 @@ def _register_model_families(container: DependencyContainer) -> None:
     )
 
     register_qwen35_moe_configs(container)
+
+    # TODO(Phase 5): Register _Qwen35MoeHuggingFaceConverter for HF export support.
 
     # S2T Conformer
     register_model_family(
