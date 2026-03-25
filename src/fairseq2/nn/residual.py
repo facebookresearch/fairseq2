@@ -164,4 +164,4 @@ class LAuReLResidualConnect(ResidualConnect):
 
     @override
     def extra_repr(self) -> str:
-        return f"rank={self.linear_left.out_features}"
+        return f"rank={self.linear_left.output_dim}"

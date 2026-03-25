@@ -36,6 +36,8 @@ _HG_KEY_MAP: Final = {
     r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.q_proj\.": r"audio_tower.encoder.layers.\1.self_attn.q_proj.",
     r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.k_proj\.": r"audio_tower.encoder.layers.\1.self_attn.k_proj.",
     r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.v_proj\.": r"audio_tower.encoder.layers.\1.self_attn.v_proj.",
+    # per_dim_scale: fs2 uses learned per-dim scaling; HF does not.
+    # Kept in key map for loading; filtered out during export in _convert_to_hg_state_dict.
     r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.per_dim_scale$": r"audio_tower.encoder.layers.\1.self_attn.sdpa.per_dim_scale",
     r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.attn\.relative_position_embedding\.pos_proj\.": r"audio_tower.encoder.layers.\1.self_attn.sdpa.pos_proj.",
     r"^model\.audio_tower\.conformer\.([0-9]+)\.attention\.post\.": r"audio_tower.encoder.layers.\1.self_attn.output_proj.",
@@ -90,6 +92,8 @@ _HG_KEY_MAP: Final = {
     r"^model\.language_model\.layers\.([0-9]+)\.laurel\.post_laurel_norm\.":     r"decoder.layers.\1.laurel.post_laurel_norm.",
 
     # Decoder layers - AltUp (per-layer predict/correct)
+    # correct_output_scale: fs2 stores as param; HF derives from config.
+    # Kept in key map for loading; filtered out during export in _convert_to_hg_state_dict.
     r"^model\.language_model\.layers\.([0-9]+)\.altup\.correct_output_scale$":   r"decoder.layers.\1.altup.correct_output_scale",
     r"^model\.language_model\.layers\.([0-9]+)\.altup\.correction_coefs\.":      r"decoder.layers.\1.altup.correction_coefs.",
     r"^model\.language_model\.layers\.([0-9]+)\.altup\.prediction_coefs\.":      r"decoder.layers.\1.altup.prediction_coefs.",
@@ -192,6 +196,21 @@ def export_gemma3n(
 def _convert_to_hg_state_dict(
     state_dict: dict[str, object],
 ) -> dict[str, object]:
+    state_dict = dict(state_dict)
+
+    # Remove keys that exist in fs2 but not in HF's model
+    _FS2_ONLY_SUFFIXES = (
+        # fs2 learned per-dim scaling; HF uses 1/sqrt(head_dim)
+        ".per_dim_scale",
+        # fs2 stores as param; HF derives from altup_correct_scale config
+        ".correct_output_scale",
+    )
+    state_dict = {
+        k: v
+        for k, v in state_dict.items()
+        if not any(k.endswith(s) for s in _FS2_ONLY_SUFFIXES)
+    }
+
     # Squeeze pointwise conv weights: fs2 Conv1d [N, M, 1] → HF Linear [N, M]
     for key, value in state_dict.items():
         if (
@@ -207,31 +226,42 @@ def _convert_to_hg_state_dict(
 
 
 def _convert_to_hg_config(config: Gemma3nConfig) -> dict[str, object]:
-    hg_config: dict[str, object] = {
-        "model_type": "gemma3n",
-        "hidden_size": config.model_dim,
-        "intermediate_size": config.ffn_inner_dim,
-        "num_hidden_layers": config.num_layers,
-        "num_attention_heads": config.num_attn_heads,
-        "num_key_value_heads": config.num_key_value_heads,
-        "head_dim": config.head_dim,
-        "vocab_size": config.vocab_size,
-        "max_position_embeddings": config.max_seq_len,
-        "rms_norm_eps": config.rms_norm_eps,
-        "rope_theta": config.rope_theta,
-        "rope_theta_global": config.rope_theta_global,
-        "sliding_window": config.sliding_window,
-        "final_logit_softcapping": config.final_logit_soft_cap,
-        "tie_word_embeddings": config.tied_embeddings,
-        "num_kv_shared_layers": config.num_kv_shared_layers,
-        "laurel_rank": config.laurel_rank,
-        "altup_num_inputs": config.altup_num_inputs,
-        "altup_active_idx": config.altup_active_idx,
-        "altup_coef_clip": config.altup_coef_clip,
-        "altup_correct_scale": config.altup_correct_scale,
-        "altup_hidden_dim": config.altup_hidden_dim,
-        "vocab_size_per_layer_input": config.vocab_size_per_layer_input,
-        "hidden_size_per_layer_input": config.hidden_size_per_layer_input,
-    }
+    from transformers import Gemma3nTextConfig
 
-    return hg_config
+    text_config = Gemma3nTextConfig(
+        hidden_size=config.model_dim,
+        intermediate_size=config.ffn_inner_dim,
+        num_hidden_layers=config.num_layers,
+        num_attention_heads=config.num_attn_heads,
+        num_key_value_heads=config.num_key_value_heads,
+        head_dim=config.head_dim,
+        vocab_size=config.vocab_size,
+        max_position_embeddings=config.max_seq_len,
+        rms_norm_eps=config.rms_norm_eps,
+        sliding_window=config.sliding_window,
+        final_logit_softcapping=config.final_logit_soft_cap,
+        tie_word_embeddings=config.tied_embeddings,
+        num_kv_shared_layers=config.num_kv_shared_layers,
+        laurel_rank=config.laurel_rank,
+        altup_num_inputs=config.altup_num_inputs,
+        altup_active_idx=config.altup_active_idx,
+        altup_coef_clip=config.altup_coef_clip,
+        altup_correct_scale=config.altup_correct_scale,
+        vocab_size_per_layer_input=config.vocab_size_per_layer_input,
+        hidden_size_per_layer_input=config.hidden_size_per_layer_input,
+        rope_parameters={
+            "sliding_attention": {
+                "rope_type": "default",
+                "rope_theta": config.rope_theta,
+            },
+            "full_attention": {
+                "rope_type": "default",
+                "rope_theta": config.rope_theta_global,
+            },
+        },
+    )
+
+    return {
+        "model_type": "gemma3n",
+        "text_config": text_config,
+    }

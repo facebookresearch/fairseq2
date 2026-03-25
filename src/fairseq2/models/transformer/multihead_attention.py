@@ -424,13 +424,6 @@ class StandardMultiheadAttention(MultiheadAttention):
                 kv_storage_callback(k, v)
         else:
             # Incremental decoding path
-            if pre_computed_kv is not None:
-                # TODO: Handle KV sharing with incremental decoding
-                raise NotImplementedError(
-                    "KV sharing with incremental decoding (state_bag) is not yet implemented. "
-                    "Use training mode or set state_bag=None for full forward pass."
-                )
-
             if seqs is keys:  # self attention
                 if keys_layout.packed:
                     raise ValueError("`keys` must not be a packed batch.")
