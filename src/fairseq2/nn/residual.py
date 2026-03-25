@@ -7,12 +7,15 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, final
+from typing import TYPE_CHECKING, cast, final
 
 import torch
 from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
+
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 
 
 class ResidualConnect(Module, ABC):
@@ -114,3 +117,51 @@ class DropPathResidualConnect(ResidualConnect):
     @override
     def extra_repr(self) -> str:
         return f"drop_p={self.drop_p}, scale_by_keep={self.scale_by_keep}"
+
+
+@final
+class LAuReLResidualConnect(ResidualConnect):
+    """
+    Learned Augmented Residual Layer (LAuReL) residual connection.
+
+    Replaces identity residual with low-rank learned transformation followed by
+    normalization. Used in Gemma3n to enhance residual paths with minimal
+    parameter overhead.
+
+    Reference: https://arxiv.org/abs/2411.07501
+    """
+
+    def __init__(
+        self,
+        model_dim: int,
+        rank: int,
+        layer_norm: Module,
+        *,
+        device: Device | None = None,
+        dtype: DataType | None = None,
+    ) -> None:
+        """
+        :param model_dim: Dimensionality of the model.
+        :param rank: Rank of the low-rank factorization.
+        :param layer_norm: Layer normalization applied after residual connection.
+        """
+        super().__init__()
+
+        from fairseq2.nn.projection import Linear
+
+        self.linear_left = Linear(
+            model_dim, rank, bias=False, device=device, dtype=dtype
+        )
+        self.linear_right = Linear(
+            rank, model_dim, bias=False, device=device, dtype=dtype
+        )
+        self.layer_norm = layer_norm
+
+    @override
+    def forward(self, seqs: Tensor, residual: Tensor) -> Tensor:
+        residual_transformed = self.linear_right(self.linear_left(residual))
+        return cast(Tensor, self.layer_norm(seqs + residual_transformed))
+
+    @override
+    def extra_repr(self) -> str:
+        return f"rank={self.linear_left.output_dim}"

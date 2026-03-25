@@ -22,6 +22,17 @@ from fairseq2.models import (
     ShardSpecsProvider,
     StandardModelFamily,
 )
+from fairseq2.models.gemma3n import (
+    GEMMA3N_FAMILY,
+    Gemma3nConfig,
+    apply_ac_to_gemma3n,
+    apply_fsdp_to_gemma3n,
+    convert_gemma3n_state_dict,
+    create_gemma3n_model,
+    export_gemma3n,
+    register_gemma3n_configs,
+)
+from fairseq2.models.gemma3n.model import Gemma3nModel
 from fairseq2.models.hg import (
     HG_FAMILY,
     HuggingFaceConverter,
@@ -259,6 +270,21 @@ def _register_model_families(container: DependencyContainer) -> None:
     )
 
     register_jepa_classifier_configs(container)
+
+    # Gemma3n
+    register_model_family(
+        container,
+        GEMMA3N_FAMILY,
+        kls=Gemma3nModel,
+        config_kls=Gemma3nConfig,
+        factory=create_gemma3n_model,
+        state_dict_converter=convert_gemma3n_state_dict,
+        fsdp_applier=apply_fsdp_to_gemma3n,
+        layerwise_ac_applier=apply_ac_to_gemma3n,
+        hg_exporter=export_gemma3n,
+    )
+
+    register_gemma3n_configs(container)
 
     # LLaMA
     register_model_family(

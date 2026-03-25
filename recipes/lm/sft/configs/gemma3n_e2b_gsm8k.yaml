@@ -1,0 +1,45 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+dataset:
+  valid_split: "sft_test"
+  train_split: "sft_train"
+  batch_size: 4
+  chat_mode: true
+  config_overrides:
+    sources:
+      train:
+      - path: "hg://facebook/fairseq2-lm-gsm8k"
+        split: "sft_train"
+        weight: 1.0
+      sft_test:
+      - path: "hg://facebook/fairseq2-lm-gsm8k"
+        split: "sft_test"
+        weight: 1.0
+
+model:
+  family: "gemma3n"
+  name: "gemma3n_e2b"
+
+tokenizer:
+  family: "gemma3n"
+  name: "gemma3n_e2b"
+
+common:
+  metric_recorders:
+    wandb:
+      enabled: False
+      project: "fairseq2"
+      run_name: "sft_gemma3n_e2b_gsm8k"
+
+regime:
+  num_steps: 100000
+  checkpoint_every_n_steps: 100
+  validate_every_n_steps: 100
+  checkpoint_every_n_data_epochs: 100
+  keep_last_n_checkpoints: 10
+  publish_metrics_every_n_steps: 1
+  save_model_only: false

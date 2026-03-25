@@ -166,6 +166,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         qkv_proj_init_fn: Callable[[Linear], None] | None = None,
         q_norm: LayerNorm | None = None,
         k_norm: LayerNorm | None = None,
+        v_norm: LayerNorm | None = None,
         pos_encoder: PositionEncoder | None = None,
         output_proj: Projection | None = None,
         output_proj_init_fn: Callable[[Linear], None] | None = None,
@@ -205,6 +206,8 @@ class StandardMultiheadAttention(MultiheadAttention):
             If ``True``, applies Layer Normalization to projected queries.
         :param k_norm:
             If ``True``, applies Layer Normalization to projected keys.
+        :param v_norm:
+            If ``True``, applies Layer Normalization to projected values.
         :param pos_encoder:
             The position encoder to apply to sequences and keys after projection.
         :param sdpa:
@@ -328,9 +331,11 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         self.q_norm: LayerNorm | None
         self.k_norm: LayerNorm | None
+        self.v_norm: LayerNorm | None
 
         self.register_module("q_norm", q_norm)
         self.register_module("k_norm", k_norm)
+        self.register_module("v_norm", v_norm)
 
         if pos_encoder is not None:
             if head_dim != pos_encoder.encoding_dim:
@@ -399,15 +404,26 @@ class StandardMultiheadAttention(MultiheadAttention):
         bias_cache: AttentionBiasCache,
         *,
         state_bag: IncrementalStateBag | None = None,
+        pre_computed_kv: tuple[Tensor, Tensor] | None = None,
+        kv_storage_callback: Callable[[Tensor, Tensor], None] | None = None,
     ) -> Tensor:
         # (N, S, M) -> (N, S, H, K_h)
         q = self._project_q(seqs, seqs_layout, state_bag)
 
-        if self.training or state_bag is None:
+        if pre_computed_kv is not None:
+            # KV sharing: use pre-computed K/V from source layer
+            k, v = pre_computed_kv
+        elif self.training or state_bag is None:
+            # Full forward pass (training or no incremental state)
             # k: (N, S_kv, M) -> (N, S_kv, H_kv, K_h)
             # v: (N, S_kv, M) -> (N, S_kv, H_kv, V_h)
             k, v = self._project_kv(keys, keys_layout, values)
+
+            # Store K/V for sharing if callback provided
+            if kv_storage_callback is not None:
+                kv_storage_callback(k, v)
         else:
+            # Incremental decoding path
             if seqs is keys:  # self attention
                 if keys_layout.packed:
                     raise ValueError("`keys` must not be a packed batch.")
@@ -436,6 +452,10 @@ class StandardMultiheadAttention(MultiheadAttention):
                     k, v = state.get()
 
                     keys_layout = BatchLayout.of(k)
+
+                # Store K/V for sharing AFTER incremental state management
+                if kv_storage_callback is not None:
+                    kv_storage_callback(k, v)
             else:
                 state = state_bag.maybe_get_state(self, AttentionState)
                 if state is None:
@@ -454,6 +474,10 @@ class StandardMultiheadAttention(MultiheadAttention):
                     # k: (N, S_kv, H_kv, K_h)
                     # v: (N, S_kv, H_kv, V_h)
                     k, v = state.get()
+
+                # Store K/V for sharing AFTER incremental state management
+                if kv_storage_callback is not None:
+                    kv_storage_callback(k, v)
 
         # With Grouped Query Attention, each key/value head is repeated.
         if self.num_query_groups > 1:
@@ -523,6 +547,9 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         if self.k_norm is not None:
             k = self.k_norm(k)
+
+        if self.v_norm is not None:
+            v = self.v_norm(v)
 
         if self.pos_encoder is not None:
             k = self.pos_encoder(k, keys_layout, state_bag=state_bag)

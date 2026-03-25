@@ -27,11 +27,30 @@ from fairseq2.nn import BatchLayout
 class TorchSDPA(SDPA):
     """Computes scaled dot-product attention using PyTorch SDPA."""
 
-    def __init__(self, bias: AttentionBias, *, dropout_p: float = 0.0) -> None:
+    bias: AttentionBias
+    dropout_p: float
+    scale: float | None
+
+    def __init__(
+        self, bias: AttentionBias, *, dropout_p: float = 0.0, scale: float | None = None
+    ) -> None:
+        """
+        :param bias:
+            The attention bias.
+        :param dropout_p:
+            The dropout probability for attention weights.
+        :param scale:
+            The scaling factor to apply to attention logits. If ``None``, uses
+            PyTorch SDPA's default 1/sqrt(head_dim) scaling. Set to 1.0 to
+            disable scaling (e.g. when using QK normalization). Note: PyTorch
+            SDPA always applies 1/sqrt(d_k), so custom scaling is achieved by
+            pre-scaling queries.
+        """
         super().__init__()
 
         self.bias = bias
         self.dropout_p = dropout_p
+        self.scale = scale
 
     @override
     def forward(
@@ -78,6 +97,15 @@ class TorchSDPA(SDPA):
         # (N, S, H, K) -> (N, H, S, K)
         q = q.transpose(-2, -3)
 
+        # Apply custom scaling if provided (PyTorch SDPA always does 1/sqrt(d_k))
+        if self.scale is not None:
+            # Pre-scale Q to cancel PyTorch's 1/sqrt(d_k) and apply custom scale
+            # PyTorch does: (Q @ K^T) / sqrt(d_k)
+            # We want: (Q @ K^T) * scale
+            # So pre-multiply Q by: scale * sqrt(d_k)
+            head_dim = q.size(-1)
+            q = q * (self.scale * (head_dim**0.5))
+
         # (N, S_kv, H, K) -> (N, H, S_kv, K)
         k = k.transpose(-2, -3)
 
@@ -97,4 +125,7 @@ class TorchSDPA(SDPA):
     @override
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"bias={self.bias}, dropout_p={self.dropout_p:G}"
+        s = f"bias={self.bias}, dropout_p={self.dropout_p:G}"
+        if self.scale is not None:
+            s += f", scale={self.scale:G}"
+        return s

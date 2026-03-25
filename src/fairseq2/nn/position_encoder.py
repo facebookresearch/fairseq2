@@ -923,3 +923,87 @@ class Sinusoidal3dPositionEncoder(SinusoidalNdPositionEncoder):
 
         # (1, D_inp, H_inp, W_inp, E) -> (D_inp, H_inp, W_inp, E)
         return freqs.squeeze(0)  # type: ignore[no-any-return]
+
+
+class DualRotaryEncoder(PositionEncoder):
+    """Dual-frequency Rotary Position Encoder for LAuReL.
+
+    Applies RoPE with two different theta values to different halves of the
+    head dimension. This allows the model to capture both short-range and
+    long-range positional information.
+
+    Used in Gemma3n's LAuReL (Learned Augmented Residual Layer) architecture.
+    """
+
+    def __init__(
+        self,
+        encoding_dim: int,
+        max_seq_len: int,
+        *,
+        theta: float = 10_000.0,
+        dual_theta: float = 100_000.0,
+        device: Device | None = None,
+    ) -> None:
+        """
+        :param encoding_dim: The dimensionality of positional encodings. Must
+            be divisible by 4 since it's split into two halves for dual RoPE.
+        :param max_seq_len: The maximum allowed length for input sequences.
+        :param theta: The coefficient for standard RoPE (applied to first half).
+        :param dual_theta: The coefficient for long-range RoPE (applied to second half).
+
+        :raise ValueError: when ``encoding_dim`` is not divisible by 4.
+        """
+        super().__init__(encoding_dim)
+
+        if encoding_dim % 4 != 0:
+            raise ValueError(
+                f"`encoding_dim` must be divisible by 4 for dual RoPE, but is {encoding_dim} instead."
+            )
+
+        half_dim = encoding_dim // 2
+
+        self.rope_std = RotaryEncoder(half_dim, max_seq_len, theta=theta, device=device)
+
+        self.rope_long = RotaryEncoder(
+            half_dim, max_seq_len, theta=dual_theta, device=device
+        )
+
+        self.theta = theta
+        self.dual_theta = dual_theta
+        self.max_seq_len = max_seq_len
+
+    def reset_parameters(self) -> None:
+        self.rope_std.reset_parameters()
+        self.rope_long.reset_parameters()
+
+    def reset_non_persistent_buffers(self) -> None:
+        self.rope_std.reset_non_persistent_buffers()
+        self.rope_long.reset_non_persistent_buffers()
+
+    @override
+    def forward(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        *,
+        state_bag: IncrementalStateBag | None = None,
+    ) -> Tensor:
+        half_dim = seqs.size(-1) // 2
+
+        seqs_std = seqs[..., :half_dim]
+        seqs_long = seqs[..., half_dim:]
+
+        seqs_std = self.rope_std(seqs_std, seqs_layout, state_bag=state_bag)
+        seqs_long = self.rope_long(seqs_long, seqs_layout, state_bag=state_bag)
+
+        return torch.cat([seqs_std, seqs_long], dim=-1)
+
+    @override
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return (
+            f"encoding_dim={self.encoding_dim}, "
+            f"max_seq_len={self.max_seq_len}, "
+            f"theta={self.theta}, "
+            f"dual_theta={self.dual_theta}"
+        )
