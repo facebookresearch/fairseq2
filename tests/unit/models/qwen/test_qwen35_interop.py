@@ -18,6 +18,7 @@ from fairseq2.models.qwen.interop import (
     _QWEN35_RMSNORM_KEYS,
     _Qwen35HuggingFaceConverter,
     _Qwen35MoeHuggingFaceConverter,
+    _strip_vl_prefix,
     convert_qwen35_moe_state_dict,
     convert_qwen35_state_dict,
 )
@@ -128,6 +129,29 @@ class TestQwen35Interop:
                 converted[gdn_key],
                 torch.ones(config.linear_value_head_dim) * 0.5,
             )
+
+    def test_tied_embeddings_hf_no_lm_head(self) -> None:
+        """HF checkpoint with tied_embeddings has no lm_head.weight.
+
+        Safetensors deduplicates shared tensors, so for models with
+        tie_word_embeddings=True the checkpoint only contains
+        model.embed_tokens.weight. The converter must create
+        final_proj.weight from it.
+        """
+        config = self._make_small_config()
+        config.tied_embeddings = True
+
+        weight = torch.randn(config.vocab_size, config.model_dim)
+        hf_state_dict: dict[str, object] = {
+            "model.embed_tokens.weight": weight,
+            "model.norm.weight": torch.zeros(config.model_dim),
+        }
+
+        result = convert_qwen35_state_dict(dict(hf_state_dict), config)
+
+        assert "decoder_frontend.embed.weight" in result
+        assert "final_proj.weight" in result
+        assert result["final_proj.weight"] is result["decoder_frontend.embed.weight"]
 
     def test_layer_types_are_correct(self) -> None:
         """Verify layer_types pattern: 3 linear, 1 full, repeating."""
@@ -349,4 +373,92 @@ class TestQwen35MoeHuggingFaceConverter:
             f"Round-trip key mismatch.\n"
             f"  Missing in round-trip: {fs2_keys - rt_keys}\n"
             f"  Extra in round-trip:   {rt_keys - fs2_keys}"
+        )
+
+
+class TestStripVlPrefix:
+    """Tests for _strip_vl_prefix helper."""
+
+    def test_strips_language_model_prefix(self) -> None:
+        """model.language_model.X -> model.X for text decoder keys."""
+        state_dict: dict[str, object] = {
+            "model.language_model.embed_tokens.weight": torch.empty(0),
+            "model.language_model.layers.0.input_layernorm.weight": torch.empty(0),
+            "model.language_model.norm.weight": torch.empty(0),
+        }
+        result = _strip_vl_prefix(state_dict)
+        assert "model.embed_tokens.weight" in result
+        assert "model.layers.0.input_layernorm.weight" in result
+        assert "model.norm.weight" in result
+        assert len(result) == 3
+
+    def test_drops_visual_and_mtp_keys(self) -> None:
+        """model.visual.* and mtp.* keys are dropped."""
+        state_dict: dict[str, object] = {
+            "model.language_model.embed_tokens.weight": torch.empty(0),
+            "model.visual.blocks.0.attn.proj.weight": torch.empty(0),
+            "model.visual.patch_embed.proj.weight": torch.empty(0),
+            "mtp.fc.weight": torch.empty(0),
+            "mtp.layers.0.mlp.gate_proj.weight": torch.empty(0),
+        }
+        result = _strip_vl_prefix(state_dict)
+        assert len(result) == 1
+        assert "model.embed_tokens.weight" in result
+
+    def test_noop_for_text_only_keys(self) -> None:
+        """Already-normalized keys (model.layers.*) pass through unchanged."""
+        state_dict: dict[str, object] = {
+            "model.embed_tokens.weight": torch.empty(0),
+            "model.layers.0.input_layernorm.weight": torch.empty(0),
+        }
+        result = _strip_vl_prefix(state_dict)
+        assert result is state_dict  # same object, no copy
+
+    def test_end_to_end_vl_checkpoint(self) -> None:
+        """Full VL checkpoint → convert_qwen35_state_dict produces correct keys."""
+        config = Qwen35Config()
+        config.model_dim = 64
+        config.vocab_size = 128
+        config.num_layers = 4
+        config.num_attn_heads = 4
+        config.num_key_value_heads = 2
+        config.head_dim = 16
+        config.ffn_inner_dim = 128
+        config.partial_rotary_factor = 0.25
+        config.linear_num_key_heads = 2
+        config.linear_num_value_heads = 4
+        config.linear_key_head_dim = 8
+        config.linear_value_head_dim = 8
+        config.tied_embeddings = True
+        config.layer_types = None
+        config.__post_init__()
+
+        with torch.device("meta"):
+            model = create_qwen35_model(config)
+        model_keys = set(model.state_dict().keys())
+
+        # Build a VL-style HF state dict from model keys
+        reverse_map = create_reverse_key_map(_QWEN35_HG_KEY_MAP)
+        fs2_state_dict: dict[str, object] = {k: torch.empty(0) for k in model_keys}
+        hg_state_dict = convert_state_dict(fs2_state_dict, reverse_map)
+
+        # Add model.language_model. prefix (simulating VL checkpoint)
+        vl_state_dict: dict[str, object] = {}
+        for k, v in hg_state_dict.items():
+            if k.startswith("model."):
+                vl_state_dict["model.language_model." + k[len("model."):]] = v
+            else:
+                vl_state_dict[k] = v
+        # Add some visual/mtp keys
+        vl_state_dict["model.visual.blocks.0.attn.proj.weight"] = torch.empty(0)
+        vl_state_dict["mtp.fc.weight"] = torch.empty(0)
+
+        # Convert back — should match model keys
+        result = convert_qwen35_state_dict(dict(vl_state_dict), config)
+        result_keys = set(result.keys())
+
+        assert model_keys == result_keys, (
+            f"VL round-trip key mismatch.\n"
+            f"  Missing: {model_keys - result_keys}\n"
+            f"  Extra:   {result_keys - model_keys}"
         )

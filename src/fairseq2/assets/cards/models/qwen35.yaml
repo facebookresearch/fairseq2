@@ -7,7 +7,7 @@
 name: qwen35_0.8b
 model_family: qwen3_5
 model_arch: qwen35_0.8b
-checkpoint: "hg://Qwen/Qwen3.5-0.8B"
+checkpoint: "/checkpoint/smallomnillm/shared/models/Qwen3.5-0.8B"
 tokenizer: "hg://Qwen/Qwen3.5-0.8B"
 tokenizer_family: qwen
 

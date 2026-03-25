@@ -257,9 +257,39 @@ _QWEN35_RMSNORM_KEYS = (
 )
 
 
+def _strip_vl_prefix(state_dict: dict[str, object]) -> dict[str, object]:
+    """Normalize Qwen 3.5 VL checkpoints to text-only key format.
+
+    HuggingFace checkpoints for Qwen 3.5 are multimodal (VL) models where the
+    text decoder lives under ``model.language_model.*`` and there are additional
+    ``model.visual.*`` and ``mtp.*`` keys.  This helper:
+
+    1. Strips ``model.language_model.`` → ``model.`` for the text decoder keys.
+    2. Drops ``model.visual.*`` and ``mtp.*`` keys (not needed for the text-only model).
+    """
+    if not any(k.startswith("model.language_model.") for k in state_dict):
+        return state_dict
+
+    _VL_PREFIX = "model.language_model."
+    _VL_PREFIX_LEN = len(_VL_PREFIX)
+
+    normalised: dict[str, object] = {}
+    for key, value in state_dict.items():
+        if key.startswith(_VL_PREFIX):
+            normalised["model." + key[_VL_PREFIX_LEN:]] = value
+        elif key.startswith(("model.visual.", "mtp.")):
+            continue  # drop vision encoder & multi-token prediction
+        else:
+            normalised[key] = value
+
+    return normalised
+
+
 def convert_qwen35_state_dict(
     state_dict: dict[str, object], config: Qwen35Config
 ) -> dict[str, object]:
+    state_dict = _strip_vl_prefix(state_dict)
+
     if "model.embed_tokens.weight" in state_dict:
         state_dict = convert_state_dict(state_dict, _QWEN35_HG_KEY_MAP)
 
@@ -313,6 +343,8 @@ for _dense_key in [
 def convert_qwen35_moe_state_dict(
     state_dict: dict[str, object], config: Qwen35MoeConfig
 ) -> dict[str, object]:
+    state_dict = _strip_vl_prefix(state_dict)
+
     if "model.embed_tokens.weight" in state_dict:
         state_dict = convert_state_dict(state_dict, _QWEN35_MOE_HG_KEY_MAP)
 
