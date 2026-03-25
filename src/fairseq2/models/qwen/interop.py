@@ -133,6 +133,8 @@ _QWEN35_RMSNORM_KEYS = (
     "self_attn_layer_norm.weight",
     "ffn_layer_norm.weight",
     "decoder.layer_norm.weight",
+    "self_attn.q_norm.weight",
+    "self_attn.k_norm.weight",
 )
 
 
