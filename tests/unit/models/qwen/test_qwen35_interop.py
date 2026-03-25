@@ -37,6 +37,7 @@ class TestQwen35Interop:
         config.linear_num_value_heads = 4
         config.linear_key_head_dim = 8
         config.linear_value_head_dim = 8
+        config.layer_types = None  # Reset so __post_init__ regenerates for num_layers=4
         config.__post_init__()
         return config
 
