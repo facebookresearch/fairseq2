@@ -38,7 +38,7 @@ from fairseq2.nn import (
     Linear,
     PositionEncoder,
 )
-from fairseq2.nn.functional import repeat_interleave
+from fairseq2.ops import repeat_interleave
 
 
 class Qwen35Attention(MultiheadAttention):
@@ -76,7 +76,7 @@ class Qwen35Attention(MultiheadAttention):
         qkv_proj_init_fn: Callable[[Linear], None] | None = None,
         output_proj_init_fn: Callable[[Linear], None] | None = None,
     ) -> None:
-        super().__init__(model_dim)
+        super().__init__()
 
         self.num_heads = num_heads
         self.head_dim = head_dim
@@ -198,8 +198,8 @@ class Qwen35Attention(MultiheadAttention):
 
         # -- Scaled dot-product attention --
         # q, k, v: (B, S, H, D)
-        attn_output = self.sdpa(
-            seqs=q, keys=k, values=v, bias_cache=bias_cache
+        attn_output, _ = self.sdpa(
+            q, seqs_layout, k, keys_layout, v, bias_cache
         )
 
         # -- Output gating --

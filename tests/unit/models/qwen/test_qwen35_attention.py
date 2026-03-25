@@ -11,6 +11,7 @@ import torch
 from fairseq2.models.qwen.attention import Qwen35Attention
 from fairseq2.models.transformer.attention_bias import (
     AttentionBiasCache,
+    CausalAttentionBias,
     IdentityBias,
 )
 from fairseq2.models.transformer.sdpa.naive import NaiveSDPA
@@ -144,8 +145,8 @@ class TestQwen35Attention:
         assert not torch.allclose(out_no_norm, out_norm, atol=1e-6)
 
     def test_incremental_kv_cache_matches_full_forward(self) -> None:
-        """Token-by-token decoding with KV cache produces the same logits as full-sequence forward."""
-        sdpa = NaiveSDPA(IdentityBias())
+        """Token-by-token decoding with KV cache produces the same logits as causal full-sequence forward."""
+        sdpa = NaiveSDPA(CausalAttentionBias())
         attn = Qwen35Attention(
             model_dim=64, num_heads=4, sdpa=sdpa, head_dim=16
         )
