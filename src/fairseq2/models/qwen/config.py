@@ -105,6 +105,28 @@ class Qwen35Config:
 def register_qwen35_configs(container: DependencyContainer) -> None:
     arch = ConfigRegistrar(container, Qwen35Config)
 
+    @arch("qwen35_0.8b")
+    def qwen35_0p8b() -> Qwen35Config:
+        return Qwen35Config(
+            model_dim=1024,
+            max_seq_len=262_144,
+            vocab_size=248_320,
+            tied_embeddings=True,
+            num_layers=24,
+            num_attn_heads=8,
+            num_key_value_heads=2,
+            head_dim=256,
+            ffn_inner_dim=3584,
+            partial_rotary_factor=0.25,
+            rope_theta=10_000_000.0,
+            full_attention_interval=4,
+            linear_conv_kernel_dim=4,
+            linear_key_head_dim=128,
+            linear_value_head_dim=128,
+            linear_num_key_heads=16,
+            linear_num_value_heads=16,
+        )
+
     @arch("qwen35_27b")
     def qwen35_27b() -> Qwen35Config:
         return Qwen35Config()
