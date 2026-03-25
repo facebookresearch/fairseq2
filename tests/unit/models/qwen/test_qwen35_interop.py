@@ -11,11 +11,14 @@ from __future__ import annotations
 import torch
 from torch.testing import assert_close
 
-from fairseq2.models.qwen.config import Qwen35Config
-from fairseq2.models.qwen.factory import create_qwen35_model
+from fairseq2.models.qwen.config import Qwen35Config, Qwen35MoeConfig
+from fairseq2.models.qwen.factory import create_qwen35_model, create_qwen35_moe_model
 from fairseq2.models.qwen.interop import (
     _QWEN35_HG_KEY_MAP,
     _QWEN35_RMSNORM_KEYS,
+    _Qwen35HuggingFaceConverter,
+    _Qwen35MoeHuggingFaceConverter,
+    convert_qwen35_moe_state_dict,
     convert_qwen35_state_dict,
 )
 from fairseq2.models.utils.checkpoint import convert_state_dict, create_reverse_key_map
@@ -135,3 +138,215 @@ class TestQwen35Interop:
             "linear_attention",
             "full_attention",
         ]
+
+
+class TestQwen35HuggingFaceConverter:
+    """Tests for _Qwen35HuggingFaceConverter."""
+
+    def _make_small_config(self) -> Qwen35Config:
+        config = Qwen35Config()
+        config.model_dim = 64
+        config.vocab_size = 128
+        config.num_layers = 4
+        config.num_attn_heads = 4
+        config.num_key_value_heads = 2
+        config.head_dim = 16
+        config.ffn_inner_dim = 128
+        config.partial_rotary_factor = 0.25
+        config.linear_num_key_heads = 2
+        config.linear_num_value_heads = 4
+        config.linear_key_head_dim = 8
+        config.linear_value_head_dim = 8
+        config.layer_types = None
+        config.__post_init__()
+        return config
+
+    def test_to_hg_config(self) -> None:
+        """to_hg_config maps Qwen35Config fields to HF config dict."""
+        config = self._make_small_config()
+        converter = _Qwen35HuggingFaceConverter()
+        hg_config = converter.to_hg_config(config)
+
+        assert hg_config.kls_name == "Qwen3_5TextConfig"
+        assert hg_config.arch == "Qwen3_5ForCausalLM"
+
+        data = hg_config.data
+        assert data["hidden_size"] == config.model_dim
+        assert data["max_position_embeddings"] == config.max_seq_len
+        assert data["vocab_size"] == config.vocab_size
+        assert data["tie_word_embeddings"] == config.tied_embeddings
+        assert data["num_hidden_layers"] == config.num_layers
+        assert data["num_attention_heads"] == config.num_attn_heads
+        assert data["num_key_value_heads"] == config.num_key_value_heads
+        assert data["head_dim"] == config.head_dim
+        assert data["intermediate_size"] == config.ffn_inner_dim
+        assert data["partial_rotary_factor"] == config.partial_rotary_factor
+        assert data["rope_theta"] == config.rope_theta
+        assert data["full_attention_interval"] == config.full_attention_interval
+        assert data["linear_conv_kernel_dim"] == config.linear_conv_kernel_dim
+        assert data["linear_key_head_dim"] == config.linear_key_head_dim
+        assert data["linear_value_head_dim"] == config.linear_value_head_dim
+        assert data["linear_num_key_heads"] == config.linear_num_key_heads
+        assert data["linear_num_value_heads"] == config.linear_num_value_heads
+
+    def test_state_dict_round_trip(self) -> None:
+        """State dict keys survive a fs2 -> HF -> fs2 round trip."""
+        config = self._make_small_config()
+
+        with torch.device("meta"):
+            model = create_qwen35_model(config)
+
+        fs2_keys = set(model.state_dict().keys())
+        assert len(fs2_keys) > 0
+
+        fs2_state_dict: dict[str, object] = {k: torch.empty(0) for k in fs2_keys}
+
+        converter = _Qwen35HuggingFaceConverter()
+        hg_state_dict = converter.to_hg_state_dict(fs2_state_dict, config)
+        hg_keys = set(hg_state_dict.keys())
+
+        for key in hg_keys:
+            assert key.startswith(
+                ("model.", "lm_head.")
+            ), f"Unexpected HF key prefix: {key}"
+
+        # Round-trip: HF -> fs2
+        rt_state_dict = convert_qwen35_state_dict(dict(hg_state_dict), config)
+        rt_keys = set(rt_state_dict.keys())
+
+        assert fs2_keys == rt_keys, (
+            f"Round-trip key mismatch.\n"
+            f"  Missing in round-trip: {fs2_keys - rt_keys}\n"
+            f"  Extra in round-trip:   {rt_keys - fs2_keys}"
+        )
+
+    def test_rmsnorm_weight_reversed(self) -> None:
+        """to_hg_state_dict subtracts 1.0 from RMSNorm weights."""
+        config = self._make_small_config()
+
+        # Build a fs2 state dict with RMSNorm weights = 1.0 (standard init)
+        fs2_state_dict: dict[str, object] = {}
+        for i in range(config.num_layers):
+            fs2_state_dict[f"decoder.layers.{i}.self_attn_layer_norm.weight"] = (
+                torch.ones(config.model_dim)
+            )
+            fs2_state_dict[f"decoder.layers.{i}.ffn_layer_norm.weight"] = torch.ones(
+                config.model_dim
+            )
+        fs2_state_dict["decoder.layer_norm.weight"] = torch.ones(config.model_dim)
+
+        converter = _Qwen35HuggingFaceConverter()
+        hg_state_dict = converter.to_hg_state_dict(fs2_state_dict, config)
+
+        # HF weights should be 0.0 (1.0 - 1.0)
+        for key in hg_state_dict:
+            if key.endswith(("input_layernorm.weight", "post_attention_layernorm.weight", "model.norm.weight")):
+                weight = hg_state_dict[key]
+                assert isinstance(weight, torch.Tensor)
+                assert_close(weight, torch.zeros_like(weight))
+
+    def test_tied_embeddings_removes_lm_head(self) -> None:
+        """to_hg_state_dict removes lm_head.weight when tied_embeddings=True."""
+        config = self._make_small_config()
+        config.tied_embeddings = True
+
+        with torch.device("meta"):
+            model = create_qwen35_model(config)
+
+        fs2_state_dict: dict[str, object] = {
+            k: torch.empty(0) for k in model.state_dict().keys()
+        }
+
+        converter = _Qwen35HuggingFaceConverter()
+        hg_state_dict = converter.to_hg_state_dict(fs2_state_dict, config)
+
+        assert "lm_head.weight" not in hg_state_dict
+        assert "model.embed_tokens.weight" in hg_state_dict
+
+    def test_tied_embeddings_deduped_final_proj_only(self) -> None:
+        """When safetensors deduplicates tied weights and only final_proj.weight
+        survives, convert_qwen35_state_dict should still reconstruct both keys."""
+        config = self._make_small_config()
+        config.tied_embeddings = True
+
+        weight = torch.randn(config.vocab_size, config.model_dim)
+        state_dict: dict[str, object] = {"final_proj.weight": weight}
+
+        result = convert_qwen35_state_dict(dict(state_dict), config)
+
+        assert "decoder_frontend.embed.weight" in result
+        assert result["decoder_frontend.embed.weight"] is weight
+
+
+class TestQwen35MoeHuggingFaceConverter:
+    """Tests for _Qwen35MoeHuggingFaceConverter."""
+
+    def _make_small_moe_config(self) -> Qwen35MoeConfig:
+        config = Qwen35MoeConfig()
+        config.model_dim = 64
+        config.vocab_size = 128
+        config.num_layers = 4
+        config.num_attn_heads = 4
+        config.num_key_value_heads = 2
+        config.head_dim = 16
+        config.ffn_inner_dim = 128
+        config.partial_rotary_factor = 0.25
+        config.linear_num_key_heads = 2
+        config.linear_num_value_heads = 4
+        config.linear_key_head_dim = 8
+        config.linear_value_head_dim = 8
+        config.num_experts = 4
+        config.num_experts_per_tok = 2
+        config.moe_intermediate_size = 32
+        config.shared_expert_intermediate_size = 32
+        config.layer_types = None
+        config.__post_init__()
+        return config
+
+    def test_to_hg_config(self) -> None:
+        """to_hg_config maps Qwen35MoeConfig fields including MoE-specific ones."""
+        config = self._make_small_moe_config()
+        converter = _Qwen35MoeHuggingFaceConverter()
+        hg_config = converter.to_hg_config(config)
+
+        assert hg_config.kls_name == "Qwen3_5TextConfig"
+        assert hg_config.arch == "Qwen3_5MoeForCausalLM"
+
+        data = hg_config.data
+        assert data["hidden_size"] == config.model_dim
+        assert data["num_experts"] == config.num_experts
+        assert data["num_experts_per_tok"] == config.num_experts_per_tok
+        assert data["moe_intermediate_size"] == config.moe_intermediate_size
+        assert data["shared_expert_intermediate_size"] == config.shared_expert_intermediate_size
+        assert data["router_aux_loss_coef"] == config.router_aux_loss_coef
+
+    def test_state_dict_round_trip(self) -> None:
+        """MoE state dict keys survive a fs2 -> HF -> fs2 round trip."""
+        config = self._make_small_moe_config()
+
+        with torch.device("meta"):
+            model = create_qwen35_moe_model(config)
+
+        fs2_keys = set(model.state_dict().keys())
+        assert len(fs2_keys) > 0
+
+        fs2_state_dict: dict[str, object] = {k: torch.empty(0) for k in fs2_keys}
+
+        converter = _Qwen35MoeHuggingFaceConverter()
+        hg_state_dict = converter.to_hg_state_dict(fs2_state_dict, config)
+        hg_keys = set(hg_state_dict.keys())
+
+        for key in hg_keys:
+            assert key.startswith(
+                ("model.", "lm_head.")
+            ), f"Unexpected HF key prefix: {key}"
+
+        # Round-trip: HF -> fs2
+        rt_state_dict = convert_qwen35_moe_state_dict(dict(hg_state_dict), config)
+        rt_keys = set(rt_state_dict.keys())
+
+        assert fs2_keys == rt_keys, (
+            f"Round-trip key mismatch.\n"
+            f"  Missing in round-trip: {fs2_keys - rt_keys}\n"
+            f"  Extra in round-trip:   {rt_keys - fs2_keys}"
+        )

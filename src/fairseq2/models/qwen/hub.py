@@ -8,7 +8,14 @@ from __future__ import annotations
 
 from fairseq2.data.tokenizers import TokenizerHubAccessor
 from fairseq2.models import ModelHubAccessor
-from fairseq2.models.qwen.config import QWEN_FAMILY, QWEN35_FAMILY, Qwen35Config, QwenConfig
+from fairseq2.models.qwen.config import (
+    QWEN_FAMILY,
+    QWEN35_FAMILY,
+    QWEN35_MOE_FAMILY,
+    Qwen35Config,
+    Qwen35MoeConfig,
+    QwenConfig,
+)
 from fairseq2.models.qwen.tokenizer import QwenTokenizer, QwenTokenizerConfig
 from fairseq2.models.transformer_lm import TransformerLM
 
@@ -26,4 +33,12 @@ get_qwen35_model_hub = ModelHubAccessor(
 
 get_qwen35_tokenizer_hub = TokenizerHubAccessor(
     QWEN35_FAMILY, kls=QwenTokenizer, config_kls=QwenTokenizerConfig
+)
+
+get_qwen35_moe_model_hub = ModelHubAccessor(
+    QWEN35_MOE_FAMILY, kls=TransformerLM, config_kls=Qwen35MoeConfig
+)
+
+get_qwen35_moe_tokenizer_hub = TokenizerHubAccessor(
+    QWEN35_MOE_FAMILY, kls=QwenTokenizer, config_kls=QwenTokenizerConfig
 )

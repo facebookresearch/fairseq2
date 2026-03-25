@@ -11,7 +11,8 @@ Reference: HuggingFace ``modeling_qwen3_5.py`` lines 445-620.
 
 from __future__ import annotations
 
-from typing import Final, final
+import logging
+from typing import Callable, Final, final
 
 import torch
 import torch.nn.functional as F
@@ -23,6 +24,32 @@ from fairseq2.nn import (
     Linear,
     RMSNorm,
 )
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Optional fast-path kernels
+# ---------------------------------------------------------------------------
+
+try:
+    from causal_conv1d import (
+        causal_conv1d_fn as _causal_conv1d_fn,
+        causal_conv1d_update as _causal_conv1d_update,
+    )
+
+    _HAS_CAUSAL_CONV1D = True
+except ImportError:
+    _HAS_CAUSAL_CONV1D = False
+
+try:
+    from fla.ops.gated_delta_rule import (
+        chunk_gated_delta_rule as _chunk_gated_delta_rule,
+        fused_recurrent_gated_delta_rule as _fused_recurrent_gated_delta_rule,
+    )
+
+    _HAS_FLA = True
+except ImportError:
+    _HAS_FLA = False
 
 
 def l2norm(x: Tensor, dim: int = -1, eps: float = 1e-6) -> Tensor:
@@ -384,6 +411,19 @@ class GatedDeltaNet(nn.Module):
         self.norm = RMSNormGated(head_v_dim, eps=eps)
         self.out_proj = Linear(self.value_dim, hidden_size, bias=False)
 
+        # Select fast-path kernels when available, else pure-PyTorch fallbacks.
+        self._conv1d_update_fn: Callable[..., Tensor] = (
+            _causal_conv1d_update if _HAS_CAUSAL_CONV1D else torch_causal_conv1d_update
+        )
+        self._chunk_fn: Callable[..., tuple[Tensor, Tensor | None]] = (
+            _chunk_gated_delta_rule if _HAS_FLA else torch_chunk_gated_delta_rule
+        )
+        self._recurrent_fn: Callable[..., tuple[Tensor, Tensor | None]] = (
+            _fused_recurrent_gated_delta_rule
+            if _HAS_FLA
+            else torch_recurrent_gated_delta_rule
+        )
+
     def forward(
         self,
         seqs: Tensor,
@@ -419,7 +459,7 @@ class GatedDeltaNet(nn.Module):
 
         if use_cache:
             assert state is not None
-            mixed_qkv = torch_causal_conv1d_update(
+            mixed_qkv = self._conv1d_update_fn(
                 mixed_qkv,
                 state.conv_state,
                 self.conv1d.weight.squeeze(1),
@@ -458,7 +498,7 @@ class GatedDeltaNet(nn.Module):
         # -- Delta rule core --
         if use_cache:
             assert state is not None
-            core_out, last_state = torch_recurrent_gated_delta_rule(
+            core_out, last_state = self._recurrent_fn(
                 query, key, value,
                 g=g, beta=beta,
                 initial_state=state.recurrent_state,
@@ -466,7 +506,7 @@ class GatedDeltaNet(nn.Module):
                 use_qk_l2norm_in_kernel=True,
             )
         else:
-            core_out, last_state = torch_chunk_gated_delta_rule(
+            core_out, last_state = self._chunk_fn(
                 query, key, value,
                 g=g, beta=beta,
                 initial_state=None,

@@ -102,6 +102,8 @@ from fairseq2.models.qwen import (
     Qwen35Config,
     Qwen35MoeConfig,
     QwenConfig,
+    _Qwen35HuggingFaceConverter,
+    _Qwen35MoeHuggingFaceConverter,
     _QwenHuggingFaceConverter,
     convert_qwen35_moe_state_dict,
     convert_qwen35_state_dict,
@@ -413,8 +415,9 @@ def _register_model_families(container: DependencyContainer) -> None:
 
     register_qwen35_configs(container)
 
-    # TODO(Phase 5): Register _Qwen35HuggingFaceConverter for HF export support.
-    # Requires reverse RMSNorm conversion (weight -= 1.0) in to_hg_state_dict().
+    container.register_type(
+        HuggingFaceConverter, _Qwen35HuggingFaceConverter, key=QWEN35_FAMILY
+    )
 
     # Qwen 3.5 MoE
     register_model_family(
@@ -431,7 +434,9 @@ def _register_model_families(container: DependencyContainer) -> None:
 
     register_qwen35_moe_configs(container)
 
-    # TODO(Phase 5): Register _Qwen35MoeHuggingFaceConverter for HF export support.
+    container.register_type(
+        HuggingFaceConverter, _Qwen35MoeHuggingFaceConverter, key=QWEN35_MOE_FAMILY
+    )
 
     # S2T Conformer
     register_model_family(

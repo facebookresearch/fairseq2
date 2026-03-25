@@ -26,9 +26,21 @@ from fairseq2.models.qwen.factory import (
 )
 from fairseq2.models.qwen.factory import create_qwen_model as create_qwen_model
 from fairseq2.models.qwen.hub import get_qwen35_model_hub as get_qwen35_model_hub
+from fairseq2.models.qwen.hub import (
+    get_qwen35_moe_model_hub as get_qwen35_moe_model_hub,
+)
+from fairseq2.models.qwen.hub import (
+    get_qwen35_moe_tokenizer_hub as get_qwen35_moe_tokenizer_hub,
+)
 from fairseq2.models.qwen.hub import get_qwen35_tokenizer_hub as get_qwen35_tokenizer_hub
 from fairseq2.models.qwen.hub import get_qwen_model_hub as get_qwen_model_hub
 from fairseq2.models.qwen.hub import get_qwen_tokenizer_hub as get_qwen_tokenizer_hub
+from fairseq2.models.qwen.interop import (
+    _Qwen35HuggingFaceConverter as _Qwen35HuggingFaceConverter,
+)
+from fairseq2.models.qwen.interop import (
+    _Qwen35MoeHuggingFaceConverter as _Qwen35MoeHuggingFaceConverter,
+)
 from fairseq2.models.qwen.interop import (
     _QwenHuggingFaceConverter as _QwenHuggingFaceConverter,
 )
@@ -40,6 +52,9 @@ from fairseq2.models.qwen.interop import (
 )
 from fairseq2.models.qwen.interop import (
     convert_qwen_state_dict as convert_qwen_state_dict,
+)
+from fairseq2.models.qwen.sharder import (
+    get_qwen35_shard_specs as get_qwen35_shard_specs,
 )
 from fairseq2.models.qwen.sharder import get_qwen_shard_specs as get_qwen_shard_specs
 from fairseq2.models.qwen.tokenizer import QwenTokenizer as QwenTokenizer

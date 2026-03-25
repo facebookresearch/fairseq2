@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from fairseq2.models.qwen.config import QwenConfig
+from fairseq2.models.qwen.config import Qwen35Config, QwenConfig
 from fairseq2.sharder import ShardSpec
 from fairseq2.utils.warn import _warn_deprecated
 
@@ -27,5 +27,28 @@ def get_qwen_shard_specs(config: QwenConfig) -> dict[str, ShardSpec]:
         r".*\.ffn.gate_proj$":         ShardSpec(dim=0, region_boundary=True),
         r".*\.ffn.output_proj$":       ShardSpec(dim=1, region_boundary=True),
         r"^final_proj$":               ShardSpec(dim=0),
+        # fmt: on
+    }
+
+
+def get_qwen35_shard_specs(config: Qwen35Config) -> dict[str, ShardSpec]:
+
+    return {
+        # fmt: off
+        r".*\.embed$":                      ShardSpec(dim=0),
+        # Full attention layers
+        r".*\.self_attn.q_proj$":           ShardSpec(dim=0, region_boundary=True),
+        r".*\.self_attn.k_proj$":           ShardSpec(dim=0, region_boundary=True),
+        r".*\.self_attn.v_proj$":           ShardSpec(dim=0, region_boundary=True),
+        r".*\.self_attn.output_proj$":      ShardSpec(dim=1, region_boundary=True),
+        # Linear attention layers (GatedDeltaNet)
+        r".*\.linear_attn.in_proj_qkv$":    ShardSpec(dim=0, region_boundary=True),
+        r".*\.linear_attn.in_proj_z$":      ShardSpec(dim=0, region_boundary=True),
+        r".*\.linear_attn.out_proj$":       ShardSpec(dim=1, region_boundary=True),
+        # FFN
+        r".*\.ffn.inner_proj$":             ShardSpec(dim=0, region_boundary=True),
+        r".*\.ffn.gate_proj$":              ShardSpec(dim=0, region_boundary=True),
+        r".*\.ffn.output_proj$":            ShardSpec(dim=1, region_boundary=True),
+        r"^final_proj$":                    ShardSpec(dim=0),
         # fmt: on
     }

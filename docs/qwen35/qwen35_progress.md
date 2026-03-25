@@ -147,13 +147,33 @@ Note: 35B-A3B-Base shares the same arch config.
 
 ---
 
-## Phase 6: Integration Polish — PENDING
+## Phase 6: Integration Polish ✅ COMPLETE
 
-- [ ] HuggingFaceConverter for HF export (reverse `weight -= 1.0`)
-- [ ] MoE hub accessors (`get_qwen35_moe_model_hub`, `get_qwen35_moe_tokenizer_hub`)
-- [ ] Sharder/FSDP specs (`GatedDeltaNetSharder` for TP)
-- [ ] Fast-path kernels (`causal_conv1d`, `fla`)
-- [ ] Documentation updates
+### 6.1 HuggingFace Converters ✅
+
+- `_Qwen35HuggingFaceConverter` — `to_hg_config()` maps `Qwen35Config` → HF dict, `to_hg_state_dict()` reverses key map + RMSNorm (`weight -= 1.0`)
+- `_Qwen35MoeHuggingFaceConverter` — same pattern with MoE-specific config fields and key map
+- Registered in `composition/models.py` for both `qwen3_5` and `qwen3_5_moe` families
+
+### 6.2 MoE Hub Accessors ✅
+
+- `get_qwen35_moe_model_hub` — `ModelHubAccessor(QWEN35_MOE_FAMILY, ...)`
+- `get_qwen35_moe_tokenizer_hub` — `TokenizerHubAccessor(QWEN35_MOE_FAMILY, ...)`
+
+### 6.3 Fast-path Kernel Integration ✅
+
+- Conditional imports for `causal_conv1d` and `fla.ops.gated_delta_rule` with `_HAS_CAUSAL_CONV1D` / `_HAS_FLA` flags
+- `GatedDeltaNet.__init__()` selects fast or fallback kernels at construction time
+- `forward()` dispatches via `self._conv1d_update_fn`, `self._chunk_fn`, `self._recurrent_fn`
+
+### 6.4 Sharder/FSDP Specs ✅
+
+- `get_qwen35_shard_specs()` — covers `self_attn`, `linear_attn`, `ffn`, `embed`, `final_proj`
+- Deprecated-style (v0.6 compat), same pattern as `get_qwen_shard_specs()`
+
+### 6.5 Exports ✅
+
+- All new symbols exported from `__init__.py`: converters, hub accessors, shard specs
 
 ---
 
