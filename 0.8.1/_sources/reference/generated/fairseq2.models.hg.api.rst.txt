@@ -1,0 +1,16 @@
+﻿fairseq2.models.hg.api
+======================
+
+.. automodule:: fairseq2.models.hg.api
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      load_causal_lm
+      load_hg_model_simple
+      load_hg_tokenizer_simple
+      load_multimodal_model
+      load_seq2seq_lm
+   
