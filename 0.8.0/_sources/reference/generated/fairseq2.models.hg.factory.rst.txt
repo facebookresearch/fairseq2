@@ -1,0 +1,25 @@
+﻿fairseq2.models.hg.factory
+==========================
+
+.. automodule:: fairseq2.models.hg.factory
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      create_hg_model
+      register_hg_model_class
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      HgFactory
+   
+   .. rubric:: Exceptions
+
+   .. autosummary::
+   
+      HuggingFaceModelError
+   

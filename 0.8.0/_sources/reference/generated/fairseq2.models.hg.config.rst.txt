@@ -1,0 +1,18 @@
+﻿fairseq2.models.hg.config
+=========================
+
+.. automodule:: fairseq2.models.hg.config
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      register_hg_configs
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      HuggingFaceModelConfig
+   
