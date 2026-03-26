@@ -93,7 +93,9 @@ class _Qwen35HuggingFaceConverter(HuggingFaceConverter):
     ) -> dict[str, object]:
         config = cast_config_type(config, Qwen35Config)
 
-        key_map = create_reverse_key_map(_QWEN35_HG_KEY_MAP)
+        # Use the text-only key map for export (model.layers.*, not
+        # model.language_model.layers.*).
+        key_map = create_reverse_key_map(_QWEN35_TEXT_KEY_MAP)
 
         hg_state_dict = convert_state_dict(state_dict, key_map)
 
@@ -111,7 +113,6 @@ class _Qwen35HuggingFaceConverter(HuggingFaceConverter):
 
 @final
 class _Qwen35MoeHuggingFaceConverter(HuggingFaceConverter):
-    @override
     def to_hg_config(self, config: object) -> HuggingFaceConfig:
         config = cast_config_type(config, Qwen35MoeConfig)
 
@@ -150,7 +151,8 @@ class _Qwen35MoeHuggingFaceConverter(HuggingFaceConverter):
     ) -> dict[str, object]:
         config = cast_config_type(config, Qwen35MoeConfig)
 
-        key_map = create_reverse_key_map(_QWEN35_MOE_HG_KEY_MAP)
+        # Use the text-only MoE key map for export.
+        key_map = create_reverse_key_map(_QWEN35_MOE_TEXT_KEY_MAP)
 
         hg_state_dict = convert_state_dict(state_dict, key_map)
 
@@ -168,7 +170,6 @@ class _Qwen35MoeHuggingFaceConverter(HuggingFaceConverter):
 
 @final
 class _QwenHuggingFaceConverter(HuggingFaceConverter):
-    @override
     def to_hg_config(self, config: object) -> HuggingFaceConfig:
         config = cast_config_type(config, QwenConfig)
 
@@ -213,7 +214,9 @@ class _QwenHuggingFaceConverter(HuggingFaceConverter):
 # Qwen 3.5 interop
 # ---------------------------------------------------------------------------
 
-_QWEN35_HG_KEY_MAP: Final = {
+# Text-only key map (matches ``transformers`` Qwen3_5ForCausalLM state dict).
+# These are also the canonical keys used for the reverse (fs2 → HF) export.
+_QWEN35_TEXT_KEY_MAP: Final = {
     # fmt: off
     # Full attention layers
     r"^model\.layers\.([0-9]+)\.self_attn\.q_proj\.":        r"decoder.layers.\1.self_attn.q_proj.",
@@ -239,12 +242,36 @@ _QWEN35_HG_KEY_MAP: Final = {
     # Layer norms
     r"^model\.layers\.([0-9]+)\.input_layernorm\.":          r"decoder.layers.\1.self_attn_layer_norm.",
     r"^model\.layers\.([0-9]+)\.post_attention_layernorm\.": r"decoder.layers.\1.ffn_layer_norm.",
-    # Embeddings
+    # Embeddings & head
     r"^model\.norm\.":                                       r"decoder.layer_norm.",
     r"^model\.embed_tokens\.":                               r"decoder_frontend.embed.",
     r"^lm_head\.":                                           r"final_proj.",
     # fmt: on
 }
+
+
+def _expand_with_language_model_prefix(
+    key_map: dict[str, str],
+) -> dict[str, str]:
+    """Add ``model.language_model.*`` variants for every ``model.*`` pattern.
+
+    Qwen 3.5 checkpoints on HuggingFace Hub are multimodal (VL) models where
+    the text decoder lives under ``model.language_model.*``.  This helper
+    duplicates the text-only patterns so that the key map handles both formats:
+
+    * Text-only (``model.layers.*``) — from ``transformers`` ``Qwen3_5ForCausalLM``
+    * Multimodal (``model.language_model.layers.*``) — from safetensors checkpoint
+    """
+    expanded: dict[str, str] = dict(key_map)
+    for pattern, replacement in key_map.items():
+        if pattern.startswith(r"^model\."):
+            vl_pattern = pattern.replace(r"^model\.", r"^model\.language_model\.", 1)
+            expanded[vl_pattern] = replacement
+    return expanded
+
+
+# Full key map: handles both text-only and multimodal checkpoint formats.
+_QWEN35_HG_KEY_MAP: Final = _expand_with_language_model_prefix(_QWEN35_TEXT_KEY_MAP)
 
 # RMSNorm keys that need weight += 1.0 conversion (Qwen 3.5 uses 1+w formula).
 # The GatedDeltaNet internal norm (linear_attn.norm) does NOT need conversion.
@@ -257,40 +284,32 @@ _QWEN35_RMSNORM_KEYS = (
 )
 
 
-def _strip_vl_prefix(state_dict: dict[str, object]) -> dict[str, object]:
-    """Normalize Qwen 3.5 VL checkpoints to text-only key format.
+# Components not yet integrated in the text-only CausalLM model.
+_QWEN35_VL_SKIP_PREFIXES: Final = (
+    "model.visual.",  # vision encoder
+    "mtp.",           # multi-token prediction head
+)
 
-    HuggingFace checkpoints for Qwen 3.5 are multimodal (VL) models where the
-    text decoder lives under ``model.language_model.*`` and there are additional
-    ``model.visual.*`` and ``mtp.*`` keys.  This helper:
 
-    1. Strips ``model.language_model.`` → ``model.`` for the text decoder keys.
-    2. Drops ``model.visual.*`` and ``mtp.*`` keys (not needed for the text-only model).
-    """
-    if not any(k.startswith("model.language_model.") for k in state_dict):
-        return state_dict
-
-    _VL_PREFIX = "model.language_model."
-    _VL_PREFIX_LEN = len(_VL_PREFIX)
-
-    normalised: dict[str, object] = {}
-    for key, value in state_dict.items():
-        if key.startswith(_VL_PREFIX):
-            normalised["model." + key[_VL_PREFIX_LEN:]] = value
-        elif key.startswith(("model.visual.", "mtp.")):
-            continue  # drop vision encoder & multi-token prediction
-        else:
-            normalised[key] = value
-
-    return normalised
+def _is_hg_format(state_dict: dict[str, object]) -> bool:
+    """Return True when the state dict uses HuggingFace key names."""
+    return (
+        "model.embed_tokens.weight" in state_dict
+        or "model.language_model.embed_tokens.weight" in state_dict
+    )
 
 
 def convert_qwen35_state_dict(
     state_dict: dict[str, object], config: Qwen35Config
 ) -> dict[str, object]:
-    state_dict = _strip_vl_prefix(state_dict)
+    # Filter out multimodal components not yet integrated (cf. gemma3n pattern).
+    state_dict = {
+        k: v
+        for k, v in state_dict.items()
+        if not k.startswith(_QWEN35_VL_SKIP_PREFIXES)
+    }
 
-    if "model.embed_tokens.weight" in state_dict:
+    if _is_hg_format(state_dict):
         state_dict = convert_state_dict(state_dict, _QWEN35_HG_KEY_MAP)
 
     # Convert (1+w) RMSNorm weights to standard (w) by adding 1.0.
@@ -317,35 +336,46 @@ def convert_qwen35_state_dict(
 # Qwen 3.5 MoE interop
 # ---------------------------------------------------------------------------
 
-_QWEN35_MOE_HG_KEY_MAP: Final = {
+# MoE text-only base: start from the dense text-only map, swap FFN patterns.
+_QWEN35_MOE_TEXT_KEY_MAP: Final = {
+    **{
+        k: v
+        for k, v in _QWEN35_TEXT_KEY_MAP.items()
+        # Drop dense FFN patterns (MoE uses a different FFN layout)
+        if k
+        not in (
+            r"^model\.layers\.([0-9]+)\.mlp\.gate_proj\.",
+            r"^model\.layers\.([0-9]+)\.mlp\.up_proj\.",
+            r"^model\.layers\.([0-9]+)\.mlp\.down_proj\.",
+        )
+    },
     # fmt: off
-    **_QWEN35_HG_KEY_MAP,
-    # MoE FFN (replaces dense FFN keys)
-    r"^model\.layers\.([0-9]+)\.mlp\.gate\.":                r"decoder.layers.\1.ffn.gate.",
-    r"^model\.layers\.([0-9]+)\.mlp\.experts\.gate_up_proj":  r"decoder.layers.\1.ffn.experts.gate_up_proj",
-    r"^model\.layers\.([0-9]+)\.mlp\.experts\.down_proj":     r"decoder.layers.\1.ffn.experts.down_proj",
-    r"^model\.layers\.([0-9]+)\.mlp\.shared_expert\.gate_proj\.":  r"decoder.layers.\1.ffn.shared_expert.gate_proj.",
-    r"^model\.layers\.([0-9]+)\.mlp\.shared_expert\.up_proj\.":    r"decoder.layers.\1.ffn.shared_expert.inner_proj.",
-    r"^model\.layers\.([0-9]+)\.mlp\.shared_expert\.down_proj\.":  r"decoder.layers.\1.ffn.shared_expert.output_proj.",
-    r"^model\.layers\.([0-9]+)\.mlp\.shared_expert_gate\.":        r"decoder.layers.\1.ffn.shared_expert_gate.",
+    r"^model\.layers\.([0-9]+)\.mlp\.gate\.":                       r"decoder.layers.\1.ffn.gate.",
+    r"^model\.layers\.([0-9]+)\.mlp\.experts\.gate_up_proj":        r"decoder.layers.\1.ffn.experts.gate_up_proj",
+    r"^model\.layers\.([0-9]+)\.mlp\.experts\.down_proj":           r"decoder.layers.\1.ffn.experts.down_proj",
+    r"^model\.layers\.([0-9]+)\.mlp\.shared_expert\.gate_proj\.":   r"decoder.layers.\1.ffn.shared_expert.gate_proj.",
+    r"^model\.layers\.([0-9]+)\.mlp\.shared_expert\.up_proj\.":     r"decoder.layers.\1.ffn.shared_expert.inner_proj.",
+    r"^model\.layers\.([0-9]+)\.mlp\.shared_expert\.down_proj\.":   r"decoder.layers.\1.ffn.shared_expert.output_proj.",
+    r"^model\.layers\.([0-9]+)\.mlp\.shared_expert_gate\.":         r"decoder.layers.\1.ffn.shared_expert_gate.",
     # fmt: on
 }
 
-# Remove the dense FFN keys that conflict with MoE keys
-for _dense_key in [
-    r"^model\.layers\.([0-9]+)\.mlp\.gate_proj\.",
-    r"^model\.layers\.([0-9]+)\.mlp\.up_proj\.",
-    r"^model\.layers\.([0-9]+)\.mlp\.down_proj\.",
-]:
-    _QWEN35_MOE_HG_KEY_MAP.pop(_dense_key, None)
+_QWEN35_MOE_HG_KEY_MAP: Final = _expand_with_language_model_prefix(
+    _QWEN35_MOE_TEXT_KEY_MAP
+)
 
 
 def convert_qwen35_moe_state_dict(
     state_dict: dict[str, object], config: Qwen35MoeConfig
 ) -> dict[str, object]:
-    state_dict = _strip_vl_prefix(state_dict)
+    # Filter out multimodal components not yet integrated (cf. gemma3n pattern).
+    state_dict = {
+        k: v
+        for k, v in state_dict.items()
+        if not k.startswith(_QWEN35_VL_SKIP_PREFIXES)
+    }
 
-    if "model.embed_tokens.weight" in state_dict:
+    if _is_hg_format(state_dict):
         state_dict = convert_state_dict(state_dict, _QWEN35_MOE_HG_KEY_MAP)
 
     # Convert (1+w) RMSNorm weights to standard (w) by adding 1.0.

@@ -16,9 +16,9 @@ from fairseq2.models.qwen.factory import create_qwen35_model, create_qwen35_moe_
 from fairseq2.models.qwen.interop import (
     _QWEN35_HG_KEY_MAP,
     _QWEN35_RMSNORM_KEYS,
+    _QWEN35_TEXT_KEY_MAP,
     _Qwen35HuggingFaceConverter,
     _Qwen35MoeHuggingFaceConverter,
-    _strip_vl_prefix,
     convert_qwen35_moe_state_dict,
     convert_qwen35_state_dict,
 )
@@ -376,46 +376,16 @@ class TestQwen35MoeHuggingFaceConverter:
         )
 
 
-class TestStripVlPrefix:
-    """Tests for _strip_vl_prefix helper."""
+class TestVlCheckpointHandling:
+    """Tests for multimodal (VL) checkpoint handling.
 
-    def test_strips_language_model_prefix(self) -> None:
-        """model.language_model.X -> model.X for text decoder keys."""
-        state_dict: dict[str, object] = {
-            "model.language_model.embed_tokens.weight": torch.empty(0),
-            "model.language_model.layers.0.input_layernorm.weight": torch.empty(0),
-            "model.language_model.norm.weight": torch.empty(0),
-        }
-        result = _strip_vl_prefix(state_dict)
-        assert "model.embed_tokens.weight" in result
-        assert "model.layers.0.input_layernorm.weight" in result
-        assert "model.norm.weight" in result
-        assert len(result) == 3
+    Qwen 3.5 checkpoints on HuggingFace Hub are multimodal models where the
+    text decoder lives under ``model.language_model.*`` with additional
+    ``model.visual.*`` and ``mtp.*`` keys.  The converter handles both formats
+    via ``_expand_with_language_model_prefix`` and explicit filtering.
+    """
 
-    def test_drops_visual_and_mtp_keys(self) -> None:
-        """model.visual.* and mtp.* keys are dropped."""
-        state_dict: dict[str, object] = {
-            "model.language_model.embed_tokens.weight": torch.empty(0),
-            "model.visual.blocks.0.attn.proj.weight": torch.empty(0),
-            "model.visual.patch_embed.proj.weight": torch.empty(0),
-            "mtp.fc.weight": torch.empty(0),
-            "mtp.layers.0.mlp.gate_proj.weight": torch.empty(0),
-        }
-        result = _strip_vl_prefix(state_dict)
-        assert len(result) == 1
-        assert "model.embed_tokens.weight" in result
-
-    def test_noop_for_text_only_keys(self) -> None:
-        """Already-normalized keys (model.layers.*) pass through unchanged."""
-        state_dict: dict[str, object] = {
-            "model.embed_tokens.weight": torch.empty(0),
-            "model.layers.0.input_layernorm.weight": torch.empty(0),
-        }
-        result = _strip_vl_prefix(state_dict)
-        assert result is state_dict  # same object, no copy
-
-    def test_end_to_end_vl_checkpoint(self) -> None:
-        """Full VL checkpoint → convert_qwen35_state_dict produces correct keys."""
+    def _make_small_config(self) -> Qwen35Config:
         config = Qwen35Config()
         config.model_dim = 64
         config.vocab_size = 128
@@ -432,13 +402,72 @@ class TestStripVlPrefix:
         config.tied_embeddings = True
         config.layer_types = None
         config.__post_init__()
+        return config
+
+    def test_key_map_has_language_model_variants(self) -> None:
+        """_QWEN35_HG_KEY_MAP includes both model.* and model.language_model.* patterns."""
+        text_only_count = len(_QWEN35_TEXT_KEY_MAP)
+        full_count = len(_QWEN35_HG_KEY_MAP)
+        # model.* patterns get duplicated; lm_head.* does not
+        model_prefix_count = sum(
+            1 for k in _QWEN35_TEXT_KEY_MAP if k.startswith(r"^model\.")
+        )
+        assert full_count == text_only_count + model_prefix_count
+
+    def test_language_model_prefix_keys_convert(self) -> None:
+        """model.language_model.X keys are correctly converted to fs2 keys."""
+        state_dict: dict[str, object] = {
+            "model.language_model.embed_tokens.weight": torch.empty(0),
+            "model.language_model.layers.0.input_layernorm.weight": torch.empty(0),
+            "model.language_model.norm.weight": torch.empty(0),
+        }
+        result = convert_state_dict(state_dict, _QWEN35_HG_KEY_MAP)
+        assert "decoder_frontend.embed.weight" in result
+        assert "decoder.layers.0.self_attn_layer_norm.weight" in result
+        assert "decoder.layer_norm.weight" in result
+
+    def test_visual_and_mtp_keys_filtered(self) -> None:
+        """model.visual.* and mtp.* keys are filtered by convert_qwen35_state_dict."""
+        config = self._make_small_config()
+        state_dict: dict[str, object] = {
+            "model.language_model.embed_tokens.weight": torch.randn(
+                config.vocab_size, config.model_dim
+            ),
+            "model.language_model.norm.weight": torch.zeros(config.model_dim),
+            "model.visual.blocks.0.attn.proj.weight": torch.empty(0),
+            "model.visual.patch_embed.proj.weight": torch.empty(0),
+            "mtp.fc.weight": torch.empty(0),
+            "mtp.layers.0.mlp.gate_proj.weight": torch.empty(0),
+        }
+        result = convert_qwen35_state_dict(dict(state_dict), config)
+        for key in result:
+            assert not key.startswith(("model.visual.", "mtp.")), (
+                f"Unexpected key not filtered: {key}"
+            )
+
+    def test_text_only_format_still_works(self) -> None:
+        """model.layers.* (text-only format) is still handled correctly."""
+        config = self._make_small_config()
+        state_dict: dict[str, object] = {
+            "model.embed_tokens.weight": torch.randn(
+                config.vocab_size, config.model_dim
+            ),
+            "model.norm.weight": torch.zeros(config.model_dim),
+        }
+        result = convert_qwen35_state_dict(dict(state_dict), config)
+        assert "decoder_frontend.embed.weight" in result
+        assert "decoder.layer_norm.weight" in result
+
+    def test_end_to_end_vl_checkpoint(self) -> None:
+        """Full VL checkpoint → convert_qwen35_state_dict produces correct keys."""
+        config = self._make_small_config()
 
         with torch.device("meta"):
             model = create_qwen35_model(config)
         model_keys = set(model.state_dict().keys())
 
-        # Build a VL-style HF state dict from model keys
-        reverse_map = create_reverse_key_map(_QWEN35_HG_KEY_MAP)
+        # Build a text-only HF state dict, then add VL prefix + extra modalities
+        reverse_map = create_reverse_key_map(_QWEN35_TEXT_KEY_MAP)
         fs2_state_dict: dict[str, object] = {k: torch.empty(0) for k in model_keys}
         hg_state_dict = convert_state_dict(fs2_state_dict, reverse_map)
 
@@ -449,7 +478,7 @@ class TestStripVlPrefix:
                 vl_state_dict["model.language_model." + k[len("model."):]] = v
             else:
                 vl_state_dict[k] = v
-        # Add some visual/mtp keys
+        # Add visual/mtp keys
         vl_state_dict["model.visual.blocks.0.attn.proj.weight"] = torch.empty(0)
         vl_state_dict["mtp.fc.weight"] = torch.empty(0)
 
