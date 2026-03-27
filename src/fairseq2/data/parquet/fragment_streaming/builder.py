@@ -1,11 +1,11 @@
-# Coeyright (c) Meta Platforms, Inc. and affiliates.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-
 from copy import deepcopy
+from typing import Optional
 
 import pyarrow as pa
 
@@ -23,9 +23,19 @@ from fairseq2.logging import log
 
 
 class ParquetFragmentStreamer:
-    def __init__(self, config: FragmentStreamingConfig) -> None:
+    def __init__(
+        self, config: FragmentStreamingConfig, *, use_cache: bool = False
+    ) -> None:
+        """Construct a ParquetFragmentStreamer
+
+        Args:
+            config (FragmentStreamingConfig): config for the ParquetFragmentStreamer.
+            use_cache (bool, optional): Whether to enable LRU-caching of datasets. Defaults to False.
+        """
         self.config: FragmentStreamingConfig = deepcopy(config)
-        self._pq_ds = None
+        self._pq_ds: Optional[ParquetDatasetWrapper] = None
+        self._use_cache = use_cache
+
         if (
             self.config.files_circular_shift
             and self.config.fragment_shuffle_window == -1
@@ -42,6 +52,7 @@ class ParquetFragmentStreamer:
 
     def _get_dataset(self) -> ParquetDatasetWrapper:
         self.partition_filters = process_filter(self.config.partition_filters)
+
         if isinstance(self.config.filesystem, str):
             self.filesystem = eval(self.config.filesystem)
         else:
@@ -51,6 +62,7 @@ class ParquetFragmentStreamer:
             self.config.parquet_path,
             partition_filters=self.partition_filters,
             filesystem=self.filesystem,
+            use_cache=self._use_cache,
         )
 
         return pq_ds
