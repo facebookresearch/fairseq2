@@ -1,0 +1,34 @@
+# Llama 3.1 8B long-context benchmark config for flash3 vs flash2.
+# Uses HuggingFace Open-Orca SlimOrca dataset (instruction-following, longer conversations).
+# Requires: FSDP + activation checkpointing for 8K seq_len on 8× H100.
+
+dataset:
+  max_seq_len: 8192
+  max_num_tokens: 8192
+  chat_mode: true
+  packing: true
+  config_overrides:
+    sources:
+      train:
+      - path: "hg://facebook/fairseq2-lm-gsm8k"
+        split: "sft_train"
+        weight: 1.0
+model:
+  name: "llama3_1_8b"
+  dtype: "torch.bfloat16"
+tokenizer:
+  name: "llama3_1_8b"
+trainer:
+  data_parallelism: fsdp
+  activation_checkpointing:
+    mode: layerwise
+    every_nth_layer: 1
+common:
+  metric_recorders:
+    wandb:
+      enabled: False
+regime:
+  num_steps: 50
+  checkpoint_every_n_steps: 200
+  checkpoint_every_n_data_epochs: 200
+  publish_metrics_every_n_steps: 50
