@@ -1,0 +1,30 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: qwen35_0.8b
+model_family: qwen3_5
+model_arch: qwen35_0.8b
+checkpoint: "hg://Qwen/Qwen3.5-0.8B"
+tokenizer: "hg://Qwen/Qwen3.5-0.8B"
+tokenizer_family: qwen
+
+---
+
+name: qwen35_27b
+model_family: qwen3_5
+model_arch: qwen35_27b
+checkpoint: "hg://Qwen/Qwen3.5-27B"
+tokenizer: "hg://Qwen/Qwen3.5-27B"
+tokenizer_family: qwen
+
+---
+
+name: qwen35_moe_35b_a3b
+model_family: qwen3_5_moe
+model_arch: qwen35_moe_35b_a3b
+checkpoint: "hg://Qwen/Qwen3.5-MoE-35B-A3B"
+tokenizer: "hg://Qwen/Qwen3.5-MoE-35B-A3B"
+tokenizer_family: qwen

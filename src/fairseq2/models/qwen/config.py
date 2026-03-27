@@ -13,6 +13,7 @@ from fairseq2.runtime.config_registry import ConfigRegistrar
 from fairseq2.runtime.dependency import DependencyContainer
 
 QWEN_FAMILY: Final = "qwen"
+QWEN35_FAMILY: Final = "qwen3_5"
 
 
 @dataclass(kw_only=True)
@@ -63,6 +64,108 @@ class QwenConfig:
     """The dropout probability on outputs of Transformer layers."""
 
 
+# ---------------------------------------------------------------------------
+# Qwen 3.5 Config
+# ---------------------------------------------------------------------------
+
+
+@dataclass(kw_only=True)
+class Qwen35Config:
+    """Holds the configuration of a Qwen 3.5 dense model."""
+
+    model_dim: int = 4096
+    max_seq_len: int = 32_768
+    vocab_size: int = 248_320
+    tied_embeddings: bool = False
+    num_layers: int = 32
+    num_attn_heads: int = 16
+    num_key_value_heads: int = 4
+    head_dim: int = 256
+    ffn_inner_dim: int = 12_288
+    partial_rotary_factor: float = 0.25
+    rope_theta: float = 1_000_000.0
+    dropout_p: float = 0.0
+    layer_types: list[str] | None = None
+    full_attention_interval: int = 4
+    linear_conv_kernel_dim: int = 4
+    linear_key_head_dim: int = 128
+    linear_value_head_dim: int = 128
+    linear_num_key_heads: int = 16
+    linear_num_value_heads: int = 32
+
+    def __post_init__(self) -> None:
+        if self.layer_types is None:
+            interval = self.full_attention_interval
+            self.layer_types = [
+                "linear_attention" if bool((i + 1) % interval) else "full_attention"
+                for i in range(self.num_layers)
+            ]
+
+
+def register_qwen35_configs(container: DependencyContainer) -> None:
+    arch = ConfigRegistrar(container, Qwen35Config)
+
+    @arch("qwen35_0.8b")
+    def qwen35_0p8b() -> Qwen35Config:
+        return Qwen35Config(
+            model_dim=1024,
+            max_seq_len=262_144,
+            vocab_size=248_320,
+            tied_embeddings=True,
+            num_layers=24,
+            num_attn_heads=8,
+            num_key_value_heads=2,
+            head_dim=256,
+            ffn_inner_dim=3584,
+            partial_rotary_factor=0.25,
+            rope_theta=10_000_000.0,
+            full_attention_interval=4,
+            linear_conv_kernel_dim=4,
+            linear_key_head_dim=128,
+            linear_value_head_dim=128,
+            linear_num_key_heads=16,
+            linear_num_value_heads=16,
+        )
+
+    @arch("qwen35_27b")
+    def qwen35_27b() -> Qwen35Config:
+        return Qwen35Config()
+
+
+# ---------------------------------------------------------------------------
+# Qwen 3.5 MoE Config
+# ---------------------------------------------------------------------------
+
+QWEN35_MOE_FAMILY: Final = "qwen3_5_moe"
+
+
+@dataclass(kw_only=True)
+class Qwen35MoeConfig(Qwen35Config):
+    """Holds the configuration of a Qwen 3.5 MoE model."""
+
+    model_dim: int = 2048
+    num_layers: int = 40
+    num_key_value_heads: int = 2
+    num_experts: int = 256
+    num_experts_per_tok: int = 8
+    moe_intermediate_size: int = 512
+    shared_expert_intermediate_size: int = 512
+    router_aux_loss_coef: float = 0.001
+
+
+def register_qwen35_moe_configs(container: DependencyContainer) -> None:
+    arch = ConfigRegistrar(container, Qwen35MoeConfig)
+
+    @arch("qwen35_moe_35b_a3b")
+    def qwen35_moe_35b_a3b() -> Qwen35MoeConfig:
+        return Qwen35MoeConfig()
+
+
+# ---------------------------------------------------------------------------
+# Qwen 2.5 / 3.0 arch configs
+# ---------------------------------------------------------------------------
+
+
 def register_qwen_configs(container: DependencyContainer) -> None:
     arch = ConfigRegistrar(container, QwenConfig)
 
@@ -76,7 +179,7 @@ def register_qwen_configs(container: DependencyContainer) -> None:
         config.num_attn_heads = 16
         config.num_key_value_heads = 2
         config.ffn_inner_dim = 11_008
-        config.tied_embeddings = True
+        config.rope_theta = 1_000_000
 
         return config
 
