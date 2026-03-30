@@ -352,6 +352,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InternalError</span><span class="p">,</span> <span class="n">InvalidOperationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.runtime.lazy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Lazy</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.runtime.lookup</span><span class="w"> </span><span class="kn">import</span> <span class="n">Lookup</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.warn</span><span class="w"> </span><span class="kn">import</span> <span class="n">_warn_deprecated</span>
 
 <span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">)</span>
 
@@ -372,6 +373,17 @@
 
         <span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Hashable</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+
+<div class="viewcode-block" id="DependencyResolver.resolve_optional">
+<a class="viewcode-back" href="../../../basics/design_philosophy.html#fairseq2.runtime.dependency.DependencyResolver.resolve_optional">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">resolve_optional</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Hashable</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_warn_deprecated</span><span class="p">(</span>
+            <span class="s2">&quot;`resolve_optional()` is deprecated and will be removed in v0.14. Use `maybe_resolve()` instead.&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">maybe_resolve</span><span class="p">(</span><span class="n">kls</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">)</span></div>
+
 
 <div class="viewcode-block" id="DependencyResolver.iter_keys">
 <a class="viewcode-back" href="../../../basics/design_philosophy.html#fairseq2.runtime.dependency.DependencyResolver.iter_keys">[docs]</a>
@@ -989,7 +1001,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=372921cf"></script>
+</div><script src="../../../_static/documentation_options.js?v=3be386ef"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
