@@ -32,10 +32,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 try:
-    from causal_conv1d import (
-        causal_conv1d_fn as _causal_conv1d_fn,
-        causal_conv1d_update as _causal_conv1d_update,
-    )
+    from causal_conv1d import causal_conv1d_update as _causal_conv1d_update
 
     _HAS_CAUSAL_CONV1D = True
 except ImportError:
@@ -44,6 +41,8 @@ except ImportError:
 try:
     from fla.ops.gated_delta_rule import (
         chunk_gated_delta_rule as _chunk_gated_delta_rule,
+    )
+    from fla.ops.gated_delta_rule import (
         fused_recurrent_gated_delta_rule as _fused_recurrent_gated_delta_rule,
     )
 
@@ -86,9 +85,7 @@ def torch_causal_conv1d_update(
     _, hidden_size, seq_len = hidden_states.shape
     state_len = conv_state.shape[-1]
 
-    hidden_states_new = torch.cat([conv_state, hidden_states], dim=-1).to(
-        weight.dtype
-    )
+    hidden_states_new = torch.cat([conv_state, hidden_states], dim=-1).to(weight.dtype)
     conv_state.copy_(hidden_states_new[:, :, -state_len:])
 
     out = F.conv1d(
@@ -201,19 +198,22 @@ def torch_chunk_gated_delta_rule(
         v_new = v_i - v_prime
         attn_inter = (q_i * g[:, :, i, :, None].exp()) @ last_state
         core_out[:, :, i] = attn_inter + attn_i @ v_new
-        last_state = last_state * g[:, :, i, -1, None, None].exp() + (
-            k_i * (g[:, :, i, -1, None] - g[:, :, i]).exp()[..., None]
-        ).transpose(-1, -2) @ v_new
+        last_state = (
+            last_state * g[:, :, i, -1, None, None].exp()
+            + (k_i * (g[:, :, i, -1, None] - g[:, :, i]).exp()[..., None]).transpose(
+                -1, -2
+            )
+            @ v_new
+        )
 
-    if not output_final_state:
-        last_state = None
+    final_state: Tensor | None = last_state if output_final_state else None
 
     core_out = core_out.reshape(
         core_out.shape[0], core_out.shape[1], -1, core_out.shape[-1]
     )
     core_out = core_out[:, :, :seq_len]
     core_out = core_out.transpose(1, 2).contiguous().to(initial_dtype)
-    return core_out, last_state
+    return core_out, final_state
 
 
 def torch_recurrent_gated_delta_rule(
@@ -274,11 +274,10 @@ def torch_recurrent_gated_delta_rule(
         last_state = last_state + k_t.unsqueeze(-1) * delta.unsqueeze(-2)
         core_out[:, :, i] = (last_state * q_t.unsqueeze(-1)).sum(dim=-2)
 
-    if not output_final_state:
-        last_state = None
+    final_state: Tensor | None = last_state if output_final_state else None
 
     core_out = core_out.transpose(1, 2).contiguous().to(initial_dtype)
-    return core_out, last_state
+    return core_out, final_state
 
 
 # ---------------------------------------------------------------------------
@@ -499,16 +498,22 @@ class GatedDeltaNet(nn.Module):
         if use_cache:
             assert state is not None
             core_out, last_state = self._recurrent_fn(
-                query, key, value,
-                g=g, beta=beta,
+                query,
+                key,
+                value,
+                g=g,
+                beta=beta,
                 initial_state=state.recurrent_state,
                 output_final_state=True,
                 use_qk_l2norm_in_kernel=True,
             )
         else:
             core_out, last_state = self._chunk_fn(
-                query, key, value,
-                g=g, beta=beta,
+                query,
+                key,
+                value,
+                g=g,
+                beta=beta,
                 initial_state=None,
                 output_final_state=state_bag is not None,
                 use_qk_l2norm_in_kernel=True,
@@ -518,9 +523,7 @@ class GatedDeltaNet(nn.Module):
         if state_bag is not None:
             if state is None:
                 assert conv_state is not None and last_state is not None
-                state_bag.set_state(
-                    self, GatedDeltaNetState(conv_state, last_state)
-                )
+                state_bag.set_state(self, GatedDeltaNetState(conv_state, last_state))
             else:
                 assert last_state is not None
                 state.recurrent_state = last_state

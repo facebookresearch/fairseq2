@@ -51,9 +51,7 @@ class Qwen35TopKRouter(Module):
 
         self.weight = Parameter(torch.zeros(num_experts, model_dim))
 
-    def forward(
-        self, hidden_states: Tensor
-    ) -> tuple[Tensor, Tensor, Tensor]:
+    def forward(self, hidden_states: Tensor) -> tuple[Tensor, Tensor, Tensor]:
         """
         :param hidden_states:
             Token representations of shape ``(T, D)`` where *T* is the
@@ -70,13 +68,9 @@ class Qwen35TopKRouter(Module):
         router_logits = F.linear(hidden_states, self.weight)
         router_probs = F.softmax(router_logits, dtype=torch.float, dim=-1)
 
-        router_weights, router_indices = torch.topk(
-            router_probs, self.top_k, dim=-1
-        )
+        router_weights, router_indices = torch.topk(router_probs, self.top_k, dim=-1)
 
-        router_weights = router_weights / router_weights.sum(
-            dim=-1, keepdim=True
-        )
+        router_weights = router_weights / router_weights.sum(dim=-1, keepdim=True)
         router_weights = router_weights.to(router_logits.dtype)
 
         return router_logits, router_weights, router_indices
@@ -138,9 +132,7 @@ class Qwen35Experts(Module):
             expert_mask = F.one_hot(top_k_indices, num_classes=self.num_experts)
             # (T, K, E) → (E, K, T)
             expert_mask = expert_mask.permute(2, 1, 0)
-            expert_hit = torch.greater(
-                expert_mask.sum(dim=(-1, -2)), 0
-            ).nonzero()
+            expert_hit = torch.greater(expert_mask.sum(dim=(-1, -2)), 0).nonzero()
 
         for expert_idx in expert_hit:
             expert_idx = expert_idx[0]
@@ -151,9 +143,9 @@ class Qwen35Experts(Module):
 
             current_state = hidden_states[token_idx]
 
-            gate, up = F.linear(
-                current_state, self.gate_up_proj[expert_idx]
-            ).chunk(2, dim=-1)
+            gate, up = F.linear(current_state, self.gate_up_proj[expert_idx]).chunk(
+                2, dim=-1
+            )
 
             current_hidden_states = F.silu(gate) * up
 
@@ -214,9 +206,7 @@ class Qwen35MoeBlock(FeedForwardNetwork):
 
         self.gate = Qwen35TopKRouter(num_experts, num_experts_per_tok, model_dim)
 
-        self.experts = Qwen35Experts(
-            num_experts, model_dim, moe_intermediate_size
-        )
+        self.experts = Qwen35Experts(num_experts, model_dim, moe_intermediate_size)
 
         self.shared_expert = GLUFeedForwardNetwork(
             model_dim,
@@ -237,12 +227,9 @@ class Qwen35MoeBlock(FeedForwardNetwork):
 
         _, routing_weights, selected_experts = self.gate(hidden_states)
 
-        expert_out = self.experts(
-            hidden_states, selected_experts, routing_weights
-        )
+        expert_out = self.experts(hidden_states, selected_experts, routing_weights)
 
-        shared_out = (
-            F.sigmoid(self.shared_expert_gate(hidden_states)) * shared_out
-        )
+        shared_out = F.sigmoid(self.shared_expert_gate(hidden_states)) * shared_out
 
-        return (expert_out + shared_out).reshape(B, S, D)
+        out: Tensor = (expert_out + shared_out).reshape(B, S, D)
+        return out

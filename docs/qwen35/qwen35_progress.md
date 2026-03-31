@@ -97,7 +97,7 @@
 
 ### HF Parity Test ✅ PASS
 
-**File:** `tests/parity/test_qwen35_hf_parity.py` — Loads `Qwen/Qwen3.5-0.8B`, converts state dict, asserts logit closeness.
+**File:** `tests/integration/models/test_qwen35.py` — Loads `Qwen/Qwen3.5-0.8B`, converts state dict, asserts logit closeness.
 
 ```
 Full-seq logit max  abs diff: 7.63e-06 < 1e-04   ✅ PASS

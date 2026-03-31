@@ -10,7 +10,9 @@ import torch.nn as nn
 from torch import Tensor
 
 from fairseq2.error import NotSupportedError
+from fairseq2.models.qwen.attention import Qwen35Attention
 from fairseq2.models.qwen.config import Qwen35Config, Qwen35MoeConfig, QwenConfig
+from fairseq2.models.qwen.gated_delta_net import GatedDeltaNet
 from fairseq2.models.transformer import (
     CausalAttentionBias,
     FeedForwardNetwork,
@@ -378,7 +380,7 @@ class Qwen35Factory:
 
     def create_gated_attention(
         self, layer_idx: int, pos_encoder: PositionEncoder
-    ) -> MultiheadAttention:
+    ) -> Qwen35Attention:
         from fairseq2.models.qwen.attention import Qwen35Attention
 
         config = self._config
@@ -400,7 +402,7 @@ class Qwen35Factory:
             k_norm=k_norm,
         )
 
-    def create_gated_delta_net(self, layer_idx: int) -> nn.Module:
+    def create_gated_delta_net(self, layer_idx: int) -> GatedDeltaNet:
         from fairseq2.models.qwen.gated_delta_net import GatedDeltaNet
 
         config = self._config
@@ -434,9 +436,7 @@ class Qwen35Factory:
                 )
             return TiedProjection(embed.weight, bias=None)
 
-        return ColumnShardedLinear(
-            config.model_dim, config.vocab_size, bias=False
-        )
+        return ColumnShardedLinear(config.model_dim, config.vocab_size, bias=False)
 
     def create_layer_norm(self, dim: int | None = None) -> LayerNorm:
         config = self._config

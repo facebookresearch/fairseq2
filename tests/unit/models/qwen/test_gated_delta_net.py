@@ -81,6 +81,8 @@ class TestGatedDeltaNet:
         )
 
         assert_close(chunk_out, recurrent_out, atol=1e-4)
+        assert chunk_state is not None
+        assert recurrent_state is not None
         assert_close(chunk_state, recurrent_state, atol=1e-4)
 
     def test_gated_delta_net_state_reorder(self) -> None:
@@ -109,6 +111,7 @@ class TestGatedDeltaNet:
         x_f32 = x.float()
         variance = x_f32.pow(2).mean(-1, keepdim=True)
         x_normed = x_f32 * torch.rsqrt(variance + 1e-6)
+        assert norm.inner_norm.weight is not None
         expected = (norm.inner_norm.weight * x_normed) * F.silu(gate.float())
 
         assert_close(out, expected.to(out.dtype), atol=1e-5)
