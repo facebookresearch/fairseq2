@@ -82,6 +82,7 @@ class LMSFTRecipe(Recipe):
             source_encode_mode=config.dataset.source_encode_mode,
             target_encode_mode=config.dataset.target_encode_mode,
             chat_mode=config.dataset.chat_mode,
+            packing=config.dataset.packing,
             seed=config.common.seed,
         )
 

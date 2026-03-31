@@ -114,6 +114,10 @@ class LMSFTDatasetSection(DatasetSection):
     chat_mode: bool = False
     """If True, dataset jsonl must have 'chat' field with openai-like messages List[Dict] entries"""
 
+    packing: bool = False
+    """If True, pack sequences into a single concatenated tensor (no padding).
+    Required for flash3 and flash2 SDPA variants."""
+
     min_seq_len: int = 1
     """The minimum sequence length."""
 

@@ -123,6 +123,10 @@ class DataReadOptions:
 
     chat_mode: bool = False
 
+    packing: bool = False
+    """If True, pack sequences into a single concatenated tensor (no padding).
+    Required for flash3 and flash2 SDPA variants."""
+
 
 class LMSFTDataset:
     def __init__(self, sources: dict[str, list[LMSFTDataSource]]) -> None:
@@ -317,11 +321,36 @@ class LMSFTDataset:
         builder.prefetch(options.prefetch)
 
         # Wrap examples with `SequenceBatch`.
+        packing = options.packing
+
         def to_batch(example: dict[str, Any]) -> SequenceBatch:
             indices = cast(SequenceData, example["indices"])
 
             seqs, seq_lens = indices["seqs"], indices["seq_lens"]
             target_mask = example["target_mask"]["seqs"]
+
+            if packing:
+                # Convert padded batch to packed: concatenate non-padding tokens.
+                packed_seqs_list = []
+                packed_mask_list = []
+                packed_seq_lens = []
+
+                for i in range(len(seq_lens)):
+                    slen = int(seq_lens[i])
+                    packed_seqs_list.append(seqs[i, :slen])
+                    packed_mask_list.append(target_mask[i, :slen])
+                    packed_seq_lens.append(slen)
+
+                packed_seqs = torch.cat(packed_seqs_list)
+                packed_mask = torch.cat(packed_mask_list)
+
+                return SequenceBatch(
+                    packed_seqs,
+                    packed_seq_lens,
+                    packed=True,
+                    target_mask=packed_mask,
+                    example=example,
+                )
 
             return SequenceBatch(
                 seqs, seq_lens, target_mask=target_mask, example=example

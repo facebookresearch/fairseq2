@@ -1,0 +1,77 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+# Qwen 3.5 0.8B GSM8K SFT Fine-tuning Config
+#
+# Validates training recipe integration and loss convergence for the Qwen 3.5
+# model on the GSM8K math reasoning dataset.
+#
+# Usage:
+#   torchrun --standalone --nproc_per_node=8 -m recipes.lm.sft \
+#     --config-file recipes/lm/sft/configs/qwen35_0.8b_gsm8k.yaml \
+#     /path/to/output_dir
+
+model:
+  name: "qwen35_0.8b"
+  dtype: bfloat16
+
+tokenizer:
+  name: "qwen35_0.8b"
+
+dataset:
+  max_seq_len: 4096
+  max_num_tokens: 8192
+  valid_split: "sft_test"
+  chat_mode: false
+  config_overrides:
+    sources:
+      train:
+      - path: "hg://facebook/fairseq2-lm-gsm8k"
+        split: "sft_train"
+        weight: 1.0
+      sft_test:
+      - path: "hg://facebook/fairseq2-lm-gsm8k"
+        split: "sft_test"
+        weight: 1.0
+
+trainer:
+  data_parallelism: fsdp
+  max_grad_norm: 1.0
+  mixed_precision:
+    mode: static
+    dtype: bfloat16
+
+optimizer:
+  name: adamw
+  config:
+    lr: 2.0e-5
+    betas: [0.9, 0.95]
+    weight_decay: 0.1
+    impl: fused
+
+lr_scheduler:
+  name: cosine_annealing
+  config:
+    final_lr_scale: 0.1
+    num_warmup_steps: 100
+
+regime:
+  num_steps: 100000
+  checkpoint_every_n_steps: 100
+  validate_every_n_steps: 100
+  keep_last_n_checkpoints: 10
+  publish_metrics_every_n_steps: 1
+  save_model_only: false
+
+common:
+  seed: 0
+  metric_recorders:
+    wandb:
+      enabled: true
+      entity: "yunchaoyang1"
+      project: "fairseq2"
+    tensorboard:
+      enabled: false
