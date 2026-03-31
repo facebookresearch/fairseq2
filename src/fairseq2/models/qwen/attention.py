@@ -21,7 +21,7 @@ from collections.abc import Callable
 from typing import Final
 
 import torch
-from torch import Tensor, nn
+from torch import Tensor
 
 from fairseq2.models.transformer import (
     AttentionBiasCache,
