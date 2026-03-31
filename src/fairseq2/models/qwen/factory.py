@@ -89,7 +89,7 @@ class QwenFactory:
             _init_truncated_normal(embed.weight, bias=None, std=std)
 
         return VocabShardedEmbedding(
-            config.vocab_size, config.model_dim, init_fn=init_embed
+            config.vocab_size, config.model_dim, config.pad_idx, init_fn=init_embed
         )
 
     def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
@@ -296,7 +296,7 @@ class Qwen35Factory:
             decoder_frontend,
             decoder,
             final_proj,
-            None,
+            config.pad_idx,
             config.max_seq_len,
         )
 
@@ -308,7 +308,7 @@ class Qwen35Factory:
             _init_truncated_normal(embed.weight, bias=None, std=std)
 
         return VocabShardedEmbedding(
-            config.vocab_size, config.model_dim, init_fn=init_embed
+            config.vocab_size, config.model_dim, config.pad_idx, init_fn=init_embed
         )
 
     def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:

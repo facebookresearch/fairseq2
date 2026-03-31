@@ -63,9 +63,8 @@ class QwenConfig:
     dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""
 
-
-# ---------------------------------------------------------------------------
-# Qwen 3.5 Config
+    pad_idx: int | None = None
+    """The index of the pad symbol in the vocabulary."""
 # ---------------------------------------------------------------------------
 
 
@@ -92,6 +91,9 @@ class Qwen35Config:
     linear_value_head_dim: int = 128
     linear_num_key_heads: int = 16
     linear_num_value_heads: int = 32
+
+    pad_idx: int | None = None
+    """The index of the pad symbol in the vocabulary."""
 
     def __post_init__(self) -> None:
         if self.layer_types is None:
