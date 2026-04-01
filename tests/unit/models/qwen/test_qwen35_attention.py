@@ -24,9 +24,7 @@ class TestQwen35Attention:
     def test_forward_produces_correct_shape(self) -> None:
         """Output shape is (B, S, model_dim)."""
         sdpa = NaiveSDPA(IdentityBias())
-        attn = Qwen35Attention(
-            model_dim=64, num_heads=4, sdpa=sdpa, head_dim=16
-        )
+        attn = Qwen35Attention(model_dim=64, num_heads=4, sdpa=sdpa, head_dim=16)
         attn = attn.to(device)
 
         seqs = torch.randn(2, 8, 64, device=device)
@@ -41,9 +39,7 @@ class TestQwen35Attention:
     def test_output_gating_effect(self) -> None:
         """When gate output is all zeros, attention output should be near zero."""
         sdpa = NaiveSDPA(IdentityBias())
-        attn = Qwen35Attention(
-            model_dim=64, num_heads=4, sdpa=sdpa, head_dim=16
-        )
+        attn = Qwen35Attention(model_dim=64, num_heads=4, sdpa=sdpa, head_dim=16)
         attn = attn.to(device)
 
         seqs = torch.randn(1, 4, 64, device=device)
@@ -147,9 +143,7 @@ class TestQwen35Attention:
     def test_incremental_kv_cache_matches_full_forward(self) -> None:
         """Token-by-token decoding with KV cache produces the same logits as causal full-sequence forward."""
         sdpa = NaiveSDPA(CausalAttentionBias())
-        attn = Qwen35Attention(
-            model_dim=64, num_heads=4, sdpa=sdpa, head_dim=16
-        )
+        attn = Qwen35Attention(model_dim=64, num_heads=4, sdpa=sdpa, head_dim=16)
         attn = attn.to(device)
         attn.eval()
 

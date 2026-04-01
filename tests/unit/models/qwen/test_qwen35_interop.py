@@ -87,9 +87,9 @@ class TestQwen35Interop:
             hf_state_dict[f"model.layers.{i}.input_layernorm.weight"] = torch.zeros(
                 config.model_dim
             )
-            hf_state_dict[
-                f"model.layers.{i}.post_attention_layernorm.weight"
-            ] = torch.zeros(config.model_dim)
+            hf_state_dict[f"model.layers.{i}.post_attention_layernorm.weight"] = (
+                torch.zeros(config.model_dim)
+            )
         hf_state_dict["model.norm.weight"] = torch.zeros(config.model_dim)
         hf_state_dict["model.embed_tokens.weight"] = torch.zeros(
             config.vocab_size, config.model_dim
@@ -112,9 +112,7 @@ class TestQwen35Interop:
         config = self._make_small_config()
 
         # Simulate HF state dict with GDN norm weight
-        hf_state_dict: dict[str, object] = {
-            "model.embed_tokens.weight": torch.zeros(1)
-        }
+        hf_state_dict: dict[str, object] = {"model.embed_tokens.weight": torch.zeros(1)}
         hf_state_dict["model.layers.0.linear_attn.norm.weight"] = (
             torch.ones(config.linear_value_head_dim) * 0.5
         )
@@ -264,7 +262,13 @@ class TestQwen35HuggingFaceConverter:
 
         # HF weights should be 0.0 (1.0 - 1.0)
         for key in hg_state_dict:
-            if key.endswith(("input_layernorm.weight", "post_attention_layernorm.weight", "model.norm.weight")):
+            if key.endswith(
+                (
+                    "input_layernorm.weight",
+                    "post_attention_layernorm.weight",
+                    "model.norm.weight",
+                )
+            ):
                 weight = hg_state_dict[key]
                 assert isinstance(weight, torch.Tensor)
                 assert_close(weight, torch.zeros_like(weight))
@@ -341,7 +345,10 @@ class TestQwen35MoeHuggingFaceConverter:
         assert data["num_experts"] == config.num_experts
         assert data["num_experts_per_tok"] == config.num_experts_per_tok
         assert data["moe_intermediate_size"] == config.moe_intermediate_size
-        assert data["shared_expert_intermediate_size"] == config.shared_expert_intermediate_size
+        assert (
+            data["shared_expert_intermediate_size"]
+            == config.shared_expert_intermediate_size
+        )
         assert data["router_aux_loss_coef"] == config.router_aux_loss_coef
 
     def test_state_dict_round_trip(self) -> None:
@@ -441,9 +448,9 @@ class TestVlCheckpointHandling:
         }
         result = convert_qwen35_state_dict(dict(state_dict), config)
         for key in result:
-            assert not key.startswith(("model.visual.", "mtp.")), (
-                f"Unexpected key not filtered: {key}"
-            )
+            assert not key.startswith(
+                ("model.visual.", "mtp.")
+            ), f"Unexpected key not filtered: {key}"
 
     def test_text_only_format_still_works(self) -> None:
         """model.layers.* (text-only format) is still handled correctly."""
@@ -475,7 +482,7 @@ class TestVlCheckpointHandling:
         vl_state_dict: dict[str, object] = {}
         for k, v in hg_state_dict.items():
             if k.startswith("model."):
-                vl_state_dict["model.language_model." + k[len("model."):]] = v
+                vl_state_dict["model.language_model." + k[len("model.") :]] = v
             else:
                 vl_state_dict[k] = v
         # Add visual/mtp keys

@@ -29,9 +29,7 @@ class TestQwen35DecoderLayer:
         """Full attention layer produces correct shape."""
         model_dim = 64
         sdpa = NaiveSDPA(IdentityBias())
-        self_attn = Qwen35Attention(
-            model_dim, num_heads=4, sdpa=sdpa, head_dim=16
-        )
+        self_attn = Qwen35Attention(model_dim, num_heads=4, sdpa=sdpa, head_dim=16)
         ffn = GLUFeedForwardNetwork(model_dim, 128, bias=False, inner_dim_scale=1.0)
         layer = Qwen35DecoderLayer(
             "full_attention",

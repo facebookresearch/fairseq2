@@ -64,9 +64,9 @@ class TestQwen35TopKRouter:
 class TestQwen35Experts:
     def test_forward_output_shape(self) -> None:
         """Experts output shape matches input shape (T, D)."""
-        experts = Qwen35Experts(
-            num_experts=4, model_dim=32, expert_inner_dim=16
-        ).to(device)
+        experts = Qwen35Experts(num_experts=4, model_dim=32, expert_inner_dim=16).to(
+            device
+        )
         torch.nn.init.normal_(experts.gate_up_proj, std=0.01)
         torch.nn.init.normal_(experts.down_proj, std=0.01)
 
@@ -84,9 +84,9 @@ class TestQwen35Experts:
 
     def test_weighted_output(self) -> None:
         """Output is weighted by routing weights — zero weight means no contribution."""
-        experts = Qwen35Experts(
-            num_experts=4, model_dim=16, expert_inner_dim=8
-        ).to(device)
+        experts = Qwen35Experts(num_experts=4, model_dim=16, expert_inner_dim=8).to(
+            device
+        )
         torch.nn.init.normal_(experts.gate_up_proj, std=0.01)
         torch.nn.init.normal_(experts.down_proj, std=0.01)
 
