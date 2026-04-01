@@ -114,9 +114,7 @@ class Qwen35DecoderLayer(TransformerLMDecoderLayer):
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
-        seqs = self._forward_token_mixer(
-            seqs, seqs_layout, attn_bias_cache, state_bag
-        )
+        seqs = self._forward_token_mixer(seqs, seqs_layout, attn_bias_cache, state_bag)
         seqs = self._forward_ffn(seqs)
         return seqs
 

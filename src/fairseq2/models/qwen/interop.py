@@ -47,6 +47,7 @@ def convert_qwen_state_dict(
 
     return state_dict
 
+
 # HG-side RMSNorm key suffixes for reverse conversion (weight -= 1.0).
 _QWEN35_HG_RMSNORM_SUFFIXES = (
     "input_layernorm.weight",
@@ -287,7 +288,7 @@ _QWEN35_RMSNORM_KEYS = (
 # Components not yet integrated in the text-only CausalLM model.
 _QWEN35_VL_SKIP_PREFIXES: Final = (
     "model.visual.",  # vision encoder
-    "mtp.",           # multi-token prediction head
+    "mtp.",  # multi-token prediction head
 )
 
 

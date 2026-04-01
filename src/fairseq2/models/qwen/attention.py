@@ -89,22 +89,30 @@ class Qwen35Attention(MultiheadAttention):
         # Q projection is DOUBLED — half query, half gate.
         # HF: nn.Linear(hidden, num_heads * head_dim * 2, bias=False)
         self.q_proj = Linear(
-            model_dim, num_heads * head_dim * 2, bias=False,
+            model_dim,
+            num_heads * head_dim * 2,
+            bias=False,
             init_fn=qkv_proj_init_fn,
         )
 
         self.k_proj = Linear(
-            model_dim, num_key_value_heads * head_dim, bias=False,
+            model_dim,
+            num_key_value_heads * head_dim,
+            bias=False,
             init_fn=qkv_proj_init_fn,
         )
 
         self.v_proj = Linear(
-            model_dim, num_key_value_heads * head_dim, bias=False,
+            model_dim,
+            num_key_value_heads * head_dim,
+            bias=False,
             init_fn=qkv_proj_init_fn,
         )
 
         self.output_proj = Linear(
-            num_heads * head_dim, model_dim, bias=False,
+            num_heads * head_dim,
+            model_dim,
+            bias=False,
             init_fn=output_proj_init_fn,
         )
 
@@ -163,12 +171,8 @@ class Qwen35Attention(MultiheadAttention):
                 k_rot = k[..., :encoding_dim]
                 k_pass = k[..., encoding_dim:]
 
-                q_rot = self.pos_encoder(
-                    q_rot, seqs_layout, state_bag=state_bag
-                )
-                k_rot = self.pos_encoder(
-                    k_rot, keys_layout, state_bag=state_bag
-                )
+                q_rot = self.pos_encoder(q_rot, seqs_layout, state_bag=state_bag)
+                k_rot = self.pos_encoder(k_rot, keys_layout, state_bag=state_bag)
 
                 q = torch.cat([q_rot, q_pass], dim=-1)
                 k = torch.cat([k_rot, k_pass], dim=-1)
@@ -198,9 +202,7 @@ class Qwen35Attention(MultiheadAttention):
 
         # -- Scaled dot-product attention --
         # q, k, v: (B, S, H, D)
-        attn_output, _ = self.sdpa(
-            q, seqs_layout, k, keys_layout, v, bias_cache
-        )
+        attn_output, _ = self.sdpa(q, seqs_layout, k, keys_layout, v, bias_cache)
 
         # -- Output gating --
         # attn_output: (B, S, H, D) -> (B, S, H * D)

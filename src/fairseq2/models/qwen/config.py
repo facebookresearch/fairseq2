@@ -65,6 +65,8 @@ class QwenConfig:
 
     pad_idx: int | None = None
     """The index of the pad symbol in the vocabulary."""
+
+
 # ---------------------------------------------------------------------------
 
 

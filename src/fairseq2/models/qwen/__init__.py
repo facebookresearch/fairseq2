@@ -12,7 +12,9 @@ from fairseq2.models.qwen.config import QWEN35_MOE_FAMILY as QWEN35_MOE_FAMILY
 from fairseq2.models.qwen.config import Qwen35Config as Qwen35Config
 from fairseq2.models.qwen.config import Qwen35MoeConfig as Qwen35MoeConfig
 from fairseq2.models.qwen.config import QwenConfig as QwenConfig
-from fairseq2.models.qwen.config import register_qwen35_configs as register_qwen35_configs
+from fairseq2.models.qwen.config import (
+    register_qwen35_configs as register_qwen35_configs,
+)
 from fairseq2.models.qwen.config import (
     register_qwen35_moe_configs as register_qwen35_moe_configs,
 )
@@ -32,7 +34,9 @@ from fairseq2.models.qwen.hub import (
 from fairseq2.models.qwen.hub import (
     get_qwen35_moe_tokenizer_hub as get_qwen35_moe_tokenizer_hub,
 )
-from fairseq2.models.qwen.hub import get_qwen35_tokenizer_hub as get_qwen35_tokenizer_hub
+from fairseq2.models.qwen.hub import (
+    get_qwen35_tokenizer_hub as get_qwen35_tokenizer_hub,
+)
 from fairseq2.models.qwen.hub import get_qwen_model_hub as get_qwen_model_hub
 from fairseq2.models.qwen.hub import get_qwen_tokenizer_hub as get_qwen_tokenizer_hub
 from fairseq2.models.qwen.interop import (
