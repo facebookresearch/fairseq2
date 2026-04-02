@@ -131,7 +131,14 @@ class Qwen35DecoderLayer(TransformerLMDecoderLayer):
 
         if self.layer_type == "linear_attention":
             assert self.linear_attn is not None
-            seqs = self.linear_attn(seqs, state_bag=state_bag)
+            # GatedDeltaNet expects 3D (B, S, D) but packed sequences are 2D
+            # (T, D). Unsqueeze to (1, T, D) — treats all packed tokens as one
+            # long causal sequence, which is correct for recurrent computation.
+            if seqs.dim() == 2:
+                seqs = self.linear_attn(seqs.unsqueeze(0), state_bag=state_bag)
+                seqs = seqs.squeeze(0)
+            else:
+                seqs = self.linear_attn(seqs, state_bag=state_bag)
         else:
             assert self.self_attn is not None
             seqs = self.self_attn(
