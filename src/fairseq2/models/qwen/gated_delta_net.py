@@ -37,6 +37,10 @@ try:
     _HAS_CAUSAL_CONV1D = True
 except ImportError:
     _HAS_CAUSAL_CONV1D = False
+    logger.warning(
+        "causal_conv1d not found; GatedDeltaNet will use a slower PyTorch fallback "
+        "for incremental decoding. Install with: pip install causal-conv1d"
+    )
 
 try:
     from fla.ops.gated_delta_rule import (
@@ -49,6 +53,10 @@ try:
     _HAS_FLA = True
 except ImportError:
     _HAS_FLA = False
+    logger.warning(
+        "flash-linear-attention (fla) not found; GatedDeltaNet will use slower "
+        "pure-PyTorch chunk/recurrent kernels. Install with: pip install flash-linear-attention"
+    )
 
 
 def l2norm(x: Tensor, dim: int = -1, eps: float = 1e-6) -> Tensor:

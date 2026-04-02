@@ -434,6 +434,10 @@ class Qwen35Factory:
                 raise TypeError(
                     f"`embed` is expected to be of type `{VocabShardedEmbedding}` when tied_embeddings is True."
                 )
+            if embed.tp_gang.size > 1:
+                raise NotSupportedError(
+                    "Tied embeddings are not supported when tensor parallelism is enabled."
+                )
             return TiedProjection(embed.weight, bias=None)
 
         return ColumnShardedLinear(config.model_dim, config.vocab_size, bias=False)
