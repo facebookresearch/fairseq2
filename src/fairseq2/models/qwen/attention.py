@@ -24,12 +24,12 @@ import torch
 from torch import Tensor
 
 from fairseq2.models.transformer import (
+    SDPA,
     AttentionBiasCache,
     AttentionState,
     AttentionStateFactory,
     FullAttentionState,
     MultiheadAttention,
-    SDPA,
 )
 from fairseq2.nn import (
     BatchLayout,

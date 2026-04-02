@@ -96,9 +96,9 @@ from fairseq2.models.olmo import (
     register_olmo_configs,
 )
 from fairseq2.models.qwen import (
-    QWEN_FAMILY,
     QWEN35_FAMILY,
     QWEN35_MOE_FAMILY,
+    QWEN_FAMILY,
     Qwen35Config,
     Qwen35MoeConfig,
     QwenConfig,
@@ -108,8 +108,8 @@ from fairseq2.models.qwen import (
     convert_qwen35_moe_state_dict,
     convert_qwen35_state_dict,
     convert_qwen_state_dict,
-    create_qwen35_moe_model,
     create_qwen35_model,
+    create_qwen35_moe_model,
     create_qwen_model,
     register_qwen35_configs,
     register_qwen35_moe_configs,

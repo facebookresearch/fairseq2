@@ -6,9 +6,9 @@
 
 from __future__ import annotations
 
-from fairseq2.models.qwen.config import QWEN_FAMILY as QWEN_FAMILY
 from fairseq2.models.qwen.config import QWEN35_FAMILY as QWEN35_FAMILY
 from fairseq2.models.qwen.config import QWEN35_MOE_FAMILY as QWEN35_MOE_FAMILY
+from fairseq2.models.qwen.config import QWEN_FAMILY as QWEN_FAMILY
 from fairseq2.models.qwen.config import Qwen35Config as Qwen35Config
 from fairseq2.models.qwen.config import Qwen35MoeConfig as Qwen35MoeConfig
 from fairseq2.models.qwen.config import QwenConfig as QwenConfig

@@ -9,9 +9,9 @@ from __future__ import annotations
 from fairseq2.data.tokenizers import TokenizerHubAccessor
 from fairseq2.models import ModelHubAccessor
 from fairseq2.models.qwen.config import (
-    QWEN_FAMILY,
     QWEN35_FAMILY,
     QWEN35_MOE_FAMILY,
+    QWEN_FAMILY,
     Qwen35Config,
     Qwen35MoeConfig,
     QwenConfig,
