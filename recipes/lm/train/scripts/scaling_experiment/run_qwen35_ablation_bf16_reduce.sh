@@ -1,5 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=qwen35_pretrain_fineweb
+# Ablation: BF16 reduce (disable fp32_reduce)
+# Baseline → fp32_reduce=false
+#SBATCH --job-name=qwen35_ablation_bf16_reduce
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=8
 #SBATCH --ntasks-per-node=1
@@ -12,7 +14,7 @@
 #SBATCH --output=/checkpoint/smallomnillm/yunchaoyang1/qwen35_pretrain/slurm_%j.out
 #SBATCH --error=/checkpoint/smallomnillm/yunchaoyang1/qwen35_pretrain/slurm_%j.err
 
-OUTPUT_DIR=/checkpoint/smallomnillm/yunchaoyang1/qwen35_pretrain/baseline
+OUTPUT_DIR=/checkpoint/smallomnillm/yunchaoyang1/qwen35_pretrain/ablation_bf16_reduce
 
 mkdir -p "${OUTPUT_DIR}"
 
@@ -21,4 +23,6 @@ cd /storage/home/yunchaoyang1/fairseq2
 
 torchrun --standalone --nproc_per_node=8 -m recipes.lm.train \
   --config-file recipes/lm/train/configs/qwen35_0.8b_fineweb_edu_10bt.yaml \
+  --config \
+    "set:trainer.fsdp.fp32_reduce=false" \
   "${OUTPUT_DIR}"
