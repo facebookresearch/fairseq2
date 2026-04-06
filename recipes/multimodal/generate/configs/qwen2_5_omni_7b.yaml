@@ -1,0 +1,23 @@
+model:
+  hf_name: "Qwen/Qwen2.5-Omni-7B"
+  dtype: bfloat16
+  trust_remote_code: true
+
+dataset:
+  family: "multimodal_generate"
+  batch_size: 1
+  config_overrides:
+    paths:
+      - "out/dummy_video_dataset.jsonl"
+
+generation:
+  max_new_tokens: 512
+  do_sample: false
+
+video:
+  num_frames: 8
+
+common:
+  metric_recorders:
+    wandb:
+      enabled: false
