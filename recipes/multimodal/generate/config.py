@@ -24,6 +24,7 @@ class HGModelSection:
     hf_name: str = "google/gemma-3-4b-it"
     dtype: DataType = torch.bfloat16
     trust_remote_code: bool = True
+    handler: str = "auto"
 
 
 @dataclass(kw_only=True)

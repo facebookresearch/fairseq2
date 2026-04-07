@@ -10,13 +10,11 @@ import json
 import logging
 from typing import Any, TextIO
 
-import torch
 from typing_extensions import override
 
 from fairseq2.composition import register_dataset_family
 from fairseq2.file_system import FileMode
 from fairseq2.models.hg.api import load_hg_model_simple
-from fairseq2.models.hg.factory import register_hg_model_class
 from fairseq2.recipe.base import Recipe, RecipeContext
 from fairseq2.runtime.dependency import DependencyContainer
 from fairseq2.task import Task
@@ -28,7 +26,7 @@ from .dataset import (
     MultimodalGenerateDatasetConfig,
     open_multimodal_generate_dataset,
 )
-from .video import prepare_multimodal_messages
+from .handlers import ModelHandler, get_handler
 
 logger = logging.getLogger(__name__)
 
@@ -44,13 +42,11 @@ class MultimodalGenerateRecipe(Recipe):
             opener=open_multimodal_generate_dataset,
         )
 
-        # Register Gemma3 as a special model so _load_special_model is used
-        # (same pattern as Qwen2.5 Omni in factory.py).
-        register_hg_model_class(
-            "Gemma3Config",
-            "Gemma3ForConditionalGeneration",
-            processor_class="Gemma3Processor",
-        )
+        # Register all handler model classes (safe — no heavy imports).
+        from .handlers import _HANDLER_MAP
+
+        for handler in _HANDLER_MAP.values():
+            handler.register_model()
 
     @override
     def create_task(self, context: RecipeContext) -> Task:
@@ -58,6 +54,8 @@ class MultimodalGenerateRecipe(Recipe):
 
         gangs = context.gangs
         device = gangs.root.device
+
+        handler = get_handler(config.model.handler, config.model.hf_name)
 
         logger.info(f"Loading model: {config.model.hf_name}")
 
@@ -69,6 +67,7 @@ class MultimodalGenerateRecipe(Recipe):
         )
 
         model.to(device)
+        handler.prepare_model(model)
         model.eval()
 
         processor = model.processor
@@ -99,6 +98,7 @@ class MultimodalGenerateRecipe(Recipe):
         )
 
         return MultimodalGenerateTask(
+            handler=handler,
             model=model,
             processor=processor,
             data_reader=data_reader,
@@ -122,6 +122,7 @@ class MultimodalGenerateTask(Task):
     def __init__(
         self,
         *,
+        handler: ModelHandler,
         model: Any,
         processor: Any,
         data_reader: Any,
@@ -134,6 +135,7 @@ class MultimodalGenerateTask(Task):
         text_fp: TextIO | None,
         json_fp: TextIO | None,
     ) -> None:
+        self._handler = handler
         self._model = model
         self._processor = processor
         self._data_reader = data_reader
@@ -169,51 +171,32 @@ class MultimodalGenerateTask(Task):
                     messages = example.get("messages", [])
                     example_id = example.get("id")
 
-                    # Expand video/image blocks into image blocks + collect PIL images.
-                    rewritten_msgs, images = prepare_multimodal_messages(
-                        messages, self._num_frames
+                    # Prepare inputs via handler.
+                    inputs, prompt_text = self._handler.prepare_inputs(
+                        self._processor,
+                        messages,
+                        self._num_frames,
+                        self._device,
                     )
 
-                    # Apply chat template to get prompt text.
-                    prompt_text = self._processor.apply_chat_template(
-                        rewritten_msgs,
-                        tokenize=False,
-                        add_generation_prompt=True,
+                    # Generate via handler.
+                    output_ids = self._handler.generate(
+                        self._model,
+                        inputs,
+                        max_new_tokens=self._max_new_tokens,
+                        do_sample=self._do_sample,
+                        temperature=self._temperature,
+                        top_p=self._top_p,
                     )
 
-                    # Tokenize + create pixel_values via processor.
-                    if images:
-                        inputs = self._processor(
-                            text=prompt_text,
-                            images=images,
-                            return_tensors="pt",
-                        )
-                    else:
-                        inputs = self._processor(
-                            text=prompt_text,
-                            return_tensors="pt",
-                        )
-
-                    inputs = {k: v.to(self._device) for k, v in inputs.items()}
-
-                    # Generate.
-                    with torch.inference_mode():
-                        output_ids = self._model.generate(
-                            **inputs,
-                            max_new_tokens=self._max_new_tokens,
-                            do_sample=self._do_sample,
-                            temperature=self._temperature if self._do_sample else None,
-                            top_p=self._top_p if self._do_sample else None,
-                        )
-
-                    # Decode only the generated tokens (skip prompt tokens).
+                    # Decode via handler.
                     input_len = inputs["input_ids"].shape[-1]
-                    generated_ids = output_ids[0, input_len:]
-                    response = self._processor.decode(
-                        generated_ids, skip_special_tokens=True
+                    response = self._handler.decode(
+                        self._processor, output_ids, input_len
                     )
 
-                    logger.info(f"[step {self._step_nr}] Generated {len(generated_ids)} tokens.")
+                    generated_len = output_ids.shape[-1] - input_len
+                    logger.info(f"[step {self._step_nr}] Generated {generated_len} tokens.")
 
                     self._write_output(example_id, prompt_text, response)
 

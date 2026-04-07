@@ -2,6 +2,7 @@ model:
   hf_name: "Qwen/Qwen2.5-Omni-7B"
   dtype: bfloat16
   trust_remote_code: true
+  handler: qwen_omni
 
 dataset:
   family: "multimodal_generate"
