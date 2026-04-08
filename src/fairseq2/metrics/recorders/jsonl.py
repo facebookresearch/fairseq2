@@ -91,6 +91,8 @@ class JsonlMetricRecorder(MetricRecorder):
             output["Step"] = step_nr
 
         for value, descriptor in values_and_descriptors:
+            if descriptor.value_transform is not None:
+                value = descriptor.value_transform(value)
             output[descriptor.display_name] = sanitize(value)
 
         try:

@@ -44,6 +44,8 @@ class WandbRecorder(MetricRecorder):
                 display_name = f"{category}/{name}"
             else:
                 display_name = f"{category}/{descriptor.display_name}"
+                if descriptor.value_transform is not None:
+                    value = descriptor.value_transform(value)
 
             self._add_value(display_name, value, output)
 
