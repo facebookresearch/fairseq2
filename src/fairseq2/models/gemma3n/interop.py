@@ -228,7 +228,7 @@ def _convert_to_hg_state_dict(
 def _convert_to_hg_config(config: Gemma3nConfig) -> dict[str, object]:
     from transformers import Gemma3nTextConfig
 
-    text_config = Gemma3nTextConfig(
+    text_config = Gemma3nTextConfig(  # type: ignore[call-arg]
         hidden_size=config.model_dim,
         intermediate_size=config.ffn_inner_dim,
         num_hidden_layers=config.num_layers,
