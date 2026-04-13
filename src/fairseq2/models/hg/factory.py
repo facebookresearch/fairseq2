@@ -523,7 +523,7 @@ def _set_device_kwargs(config: HuggingFaceModelConfig, kwargs: Dict[str, Any]) -
     """Set device-related kwargs."""
     if config.device == "auto":
         try:
-            import accelerate  # type: ignore[import-untyped]  # noqa: F401
+            import accelerate  # type: ignore[import-untyped,import-not-found]  # noqa: F401
 
             kwargs["device_map"] = "auto"
         except ImportError:

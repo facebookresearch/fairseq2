@@ -96,11 +96,23 @@ from fairseq2.models.olmo import (
     register_olmo_configs,
 )
 from fairseq2.models.qwen import (
+    QWEN35_FAMILY,
+    QWEN35_MOE_FAMILY,
     QWEN_FAMILY,
+    Qwen35Config,
+    Qwen35MoeConfig,
     QwenConfig,
+    _Qwen35HuggingFaceConverter,
+    _Qwen35MoeHuggingFaceConverter,
     _QwenHuggingFaceConverter,
+    convert_qwen35_moe_state_dict,
+    convert_qwen35_state_dict,
     convert_qwen_state_dict,
+    create_qwen35_model,
+    create_qwen35_moe_model,
     create_qwen_model,
+    register_qwen35_configs,
+    register_qwen35_moe_configs,
     register_qwen_configs,
 )
 from fairseq2.models.s2t_conformer import (
@@ -386,6 +398,44 @@ def _register_model_families(container: DependencyContainer) -> None:
 
     container.register_type(
         HuggingFaceConverter, _QwenHuggingFaceConverter, key=QWEN_FAMILY
+    )
+
+    # Qwen 3.5
+    register_model_family(
+        container,
+        QWEN35_FAMILY,
+        kls=TransformerLM,
+        config_kls=Qwen35Config,
+        factory=create_qwen35_model,
+        state_dict_converter=convert_qwen35_state_dict,
+        compiler=compile_transformer_lm,
+        fsdp_applier=apply_fsdp_to_transformer_lm,
+        layerwise_ac_applier=apply_ac_to_transformer_lm,
+    )
+
+    register_qwen35_configs(container)
+
+    container.register_type(
+        HuggingFaceConverter, _Qwen35HuggingFaceConverter, key=QWEN35_FAMILY
+    )
+
+    # Qwen 3.5 MoE
+    register_model_family(
+        container,
+        QWEN35_MOE_FAMILY,
+        kls=TransformerLM,
+        config_kls=Qwen35MoeConfig,
+        factory=create_qwen35_moe_model,
+        state_dict_converter=convert_qwen35_moe_state_dict,
+        compiler=compile_transformer_lm,
+        fsdp_applier=apply_fsdp_to_transformer_lm,
+        layerwise_ac_applier=apply_ac_to_transformer_lm,
+    )
+
+    register_qwen35_moe_configs(container)
+
+    container.register_type(
+        HuggingFaceConverter, _Qwen35MoeHuggingFaceConverter, key=QWEN35_MOE_FAMILY
     )
 
     # S2T Conformer
