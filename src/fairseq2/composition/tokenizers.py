@@ -23,6 +23,11 @@ from fairseq2.models.gemma3n import (
     Gemma3nTokenizer,
     load_gemma3n_tokenizer,
 )
+from fairseq2.models.gemma4 import (
+    GEMMA4_FAMILY,
+    Gemma4Tokenizer,
+    load_gemma4_tokenizer,
+)
 from fairseq2.models.hg import (
     HG_FAMILY,
     HgTokenizer,
@@ -142,6 +147,15 @@ def _register_tokenizer_families(container: DependencyContainer) -> None:
         kls=Gemma3nTokenizer,
         config_kls=NoneType,
         loader=load_gemma3n_tokenizer,
+    )
+
+    # Gemma4
+    register_tokenizer_family(
+        container,
+        GEMMA4_FAMILY,
+        kls=Gemma4Tokenizer,
+        config_kls=NoneType,
+        loader=load_gemma4_tokenizer,
     )
 
     # LLaMA

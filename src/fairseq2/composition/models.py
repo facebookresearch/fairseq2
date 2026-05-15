@@ -33,6 +33,18 @@ from fairseq2.models.gemma3n import (
     register_gemma3n_configs,
 )
 from fairseq2.models.gemma3n.model import Gemma3nModel
+from fairseq2.models.gemma4 import (
+    GEMMA4_FAMILY,
+    Gemma4Config,
+    Gemma4Model,
+    _Gemma4HuggingFaceConverter,
+    apply_ac_to_gemma4,
+    apply_fsdp_to_gemma4,
+    convert_gemma4_state_dict,
+    create_gemma4_model,
+    get_gemma4_shard_specs,
+    register_gemma4_configs,
+)
 from fairseq2.models.hg import (
     HG_FAMILY,
     HuggingFaceConverter,
@@ -297,6 +309,25 @@ def _register_model_families(container: DependencyContainer) -> None:
     )
 
     register_gemma3n_configs(container)
+
+    # Gemma4
+    register_model_family(
+        container,
+        GEMMA4_FAMILY,
+        kls=Gemma4Model,
+        config_kls=Gemma4Config,
+        factory=create_gemma4_model,
+        state_dict_converter=convert_gemma4_state_dict,
+        shard_specs=get_gemma4_shard_specs,
+        fsdp_applier=apply_fsdp_to_gemma4,
+        layerwise_ac_applier=apply_ac_to_gemma4,
+    )
+
+    register_gemma4_configs(container)
+
+    container.register_type(
+        HuggingFaceConverter, _Gemma4HuggingFaceConverter, key=GEMMA4_FAMILY
+    )
 
     # LLaMA
     register_model_family(

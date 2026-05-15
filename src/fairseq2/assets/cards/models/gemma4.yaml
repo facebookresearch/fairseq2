@@ -1,0 +1,57 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: gemma4_e4b
+model_family: gemma4
+model_arch: e4b
+checkpoint: "hg://google/gemma-4-E4B"
+tokenizer: "hg://google/gemma-4-E4B"
+tokenizer_family: gemma4
+
+---
+
+name: gemma4_e4b_it
+model_family: gemma4
+model_arch: e4b_it
+checkpoint: "hg://google/gemma-4-E4B-it"
+tokenizer: "hg://google/gemma-4-E4B-it"
+tokenizer_family: gemma4
+
+---
+
+name: gemma4_31b
+model_family: gemma4
+model_arch: 31b
+checkpoint: "hg://google/gemma-4-31B"
+tokenizer: "hg://google/gemma-4-31B"
+tokenizer_family: gemma4
+
+---
+
+name: gemma4_31b_it
+model_family: gemma4
+model_arch: 31b_it
+checkpoint: "hg://google/gemma-4-31B-it"
+tokenizer: "hg://google/gemma-4-31B-it"
+tokenizer_family: gemma4
+
+---
+
+name: gemma4_26b_a4b
+model_family: gemma4
+model_arch: 26b_a4b
+checkpoint: "hg://google/gemma-4-26B-A4B"
+tokenizer: "hg://google/gemma-4-26B-A4B"
+tokenizer_family: gemma4
+
+---
+
+name: gemma4_26b_a4b_it
+model_family: gemma4
+model_arch: 26b_a4b_it
+checkpoint: "hg://google/gemma-4-26B-A4B-it"
+tokenizer: "hg://google/gemma-4-26B-A4B-it"
+tokenizer_family: gemma4
