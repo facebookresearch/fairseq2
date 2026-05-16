@@ -403,15 +403,16 @@ class TestGemma4HFParity:
         cpu_sd = {k: v.cpu() for k, v in hf_state_dict.items()}
         fs2_state_dict = convert_gemma4_state_dict(cpu_sd, config)
 
-        # Create on meta, materialize to GPU, then load weights
-        with torch.device("meta"):
-            fs2_model = create_gemma4_model(config)
-        fs2_model = fs2_model.to_empty(device=device)
+        # Create on CPU (non-persistent buffers like per_layer_embed_scale
+        # must be computed in the constructor, not loaded from state dict)
+        del hf_model  # Free GPU memory for FS2
+        torch.cuda.empty_cache()
+
+        fs2_model = create_gemma4_model(config)
         fs2_model.load_state_dict(fs2_state_dict, strict=True, assign=True)
-        fs2_model = fs2_model.to(dtype=torch.bfloat16)
+        fs2_model = fs2_model.to(device=device, dtype=torch.bfloat16)
         fs2_model.eval()
 
-        del hf_model
         hf_model = AutoModelForCausalLM.from_pretrained(
             E4B_IT_CHECKPOINT, torch_dtype=torch.bfloat16
         ).to(device)
