@@ -238,6 +238,47 @@ def register_gemma4_configs(container: DependencyContainer) -> None:
     def _26b_a4b_it() -> Gemma4Config:
         return get_gemma4_26b_a4b_config()
 
+    @arch("e2b")
+    def _e2b() -> Gemma4Config:
+        return get_gemma4_e2b_config()
+
+    @arch("e2b_it")
+    def _e2b_it() -> Gemma4Config:
+        return get_gemma4_e2b_config()
+
+
+def get_gemma4_e2b_config() -> Gemma4Config:
+    """Get configuration for Gemma4 E2B (small dense, on-device).
+
+    E2B uses a 4:1 sliding:full attention pattern (every 5th layer is full)
+    instead of E4B's 5:1 (every 6th). It also uses ``use_double_wide_mlp``
+    to compensate for parameter savings from aggressive KV sharing (20 layers).
+    """
+    # 4:1 pattern: full attention at indices 4,9,14,19,24,29,34
+    layer_types = [
+        "full_attention" if (i + 1) % 5 == 0 else "sliding_attention"
+        for i in range(35)
+    ]
+
+    return Gemma4Config(
+        model_dim=1536,
+        max_seq_len=131_072,
+        num_layers=35,
+        num_attn_heads=8,
+        num_key_value_heads=1,
+        head_dim=256,
+        global_head_dim=512,
+        num_global_key_value_heads=None,  # defaults to num_key_value_heads=1
+        ffn_inner_dim=6_144,
+        sliding_window=512,
+        attention_k_eq_v=False,
+        num_kv_shared_layers=20,
+        use_double_wide_mlp=True,
+        hidden_size_per_layer_input=256,  # PLE enabled
+        final_logit_soft_cap=30.0,
+        layer_types=layer_types,
+    )
+
 
 def get_gemma4_e4b_config() -> Gemma4Config:
     """Get configuration for Gemma4 E4B."""

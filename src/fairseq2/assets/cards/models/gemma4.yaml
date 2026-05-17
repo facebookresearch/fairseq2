@@ -55,3 +55,21 @@ model_arch: 26b_a4b_it
 checkpoint: "hg://google/gemma-4-26B-A4B-it"
 tokenizer: "hg://google/gemma-4-26B-A4B-it"
 tokenizer_family: gemma4
+
+---
+
+name: gemma4_e2b
+model_family: gemma4
+model_arch: e2b
+checkpoint: "hg://google/gemma-4-E2B"
+tokenizer: "hg://google/gemma-4-E2B"
+tokenizer_family: gemma4
+
+---
+
+name: gemma4_e2b_it
+model_family: gemma4
+model_arch: e2b_it
+checkpoint: "hg://google/gemma-4-E2B-it"
+tokenizer: "hg://google/gemma-4-E2B-it"
+tokenizer_family: gemma4

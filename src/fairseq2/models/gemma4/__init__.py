@@ -18,6 +18,9 @@ from fairseq2.models.gemma4.config import (
     get_gemma4_e4b_config as get_gemma4_e4b_config,
 )
 from fairseq2.models.gemma4.config import (
+    get_gemma4_e2b_config as get_gemma4_e2b_config,
+)
+from fairseq2.models.gemma4.config import (
     is_full_attention_layer as is_full_attention_layer,
 )
 from fairseq2.models.gemma4.config import (
@@ -74,6 +77,7 @@ __all__ = [
     "create_gemma4_model",
     "get_gemma4_26b_a4b_config",
     "get_gemma4_31b_config",
+    "get_gemma4_e2b_config",
     "get_gemma4_e4b_config",
     "get_gemma4_model_hub",
     "get_gemma4_shard_specs",
