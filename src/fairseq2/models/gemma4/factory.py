@@ -6,18 +6,16 @@
 
 """Factory for building Gemma 4 models from :class:`Gemma4Config`.
 
-Follows the pattern established by :mod:`fairseq2.models.gemma3n.factory`
-but simplified: no AltUp, no LAuReL, no audio tower.  The factory
-assembles a complete model (embedding, frontend, decoder, projection)
-using the existing :class:`Gemma4DecoderLayer` and :class:`Gemma4Attention`
-modules.
+Follows the pattern established by :mod:`fairseq2.models.gemma3n.factory`.
+The factory assembles a complete model (embedding, frontend, decoder,
+projection) with optional audio tower for multimodal support.
 
 This file also defines three supporting classes that are tightly coupled
 to the factory and not large enough to warrant separate files:
 
-* :class:`Gemma4Model` -- top-level decoder-only LM.
+* :class:`Gemma4Model` -- top-level decoder-only LM with optional audio.
 * :class:`Gemma4Decoder` -- decoder stack (layers + final norm + KV sharing).
-* :class:`Gemma4Frontend` -- embedding + optional PLE.
+* :class:`Gemma4Frontend` -- embedding + optional PLE + audio injection.
 """
 
 from __future__ import annotations
@@ -73,13 +71,15 @@ from fairseq2.models.gemma4.attention import Gemma4ProportionalRotaryEncoder
 
 @final
 class Gemma4Model(CausalLM):
-    """Gemma 4 decoder-only causal language model."""
+    """Gemma 4 decoder-only causal language model with optional audio."""
 
     model_dim: int
     decoder_frontend: Gemma4Frontend
     decoder: Gemma4Decoder
     final_proj: Projection
     pad_idx: int | None
+    audio_tower: Module | None
+    audio_embedder: Module | None
 
     def __init__(
         self,
@@ -89,6 +89,9 @@ class Gemma4Model(CausalLM):
         final_proj: Projection,
         pad_idx: int | None,
         max_seq_len: int,
+        *,
+        audio_tower: Module | None = None,
+        audio_embedder: Module | None = None,
     ) -> None:
         """
         :param model_dim: The model dimensionality.
@@ -97,6 +100,9 @@ class Gemma4Model(CausalLM):
         :param final_proj: The projection to apply to decoder outputs.
         :param pad_idx: The index of the pad symbol in the vocabulary.
         :param max_seq_len: The maximum sequence length.
+        :param audio_tower: Optional audio tower for mel → projected features.
+        :param audio_embedder: Optional embedder to project audio features to
+            text model space.
         """
         super().__init__(max_seq_len)
 
@@ -105,6 +111,8 @@ class Gemma4Model(CausalLM):
         self.decoder = decoder
         self.final_proj = final_proj
         self.pad_idx = pad_idx
+        self.audio_tower = audio_tower
+        self.audio_embedder = audio_embedder
 
     @overload
     def forward(
@@ -161,6 +169,7 @@ class Gemma4Model(CausalLM):
         targets: Tensor | None = None,
         *,
         state_bag: IncrementalStateBag | None = None,
+        audio_features: Tensor | None = None,
         label_smoothing: float = 0.0,
         target_mask: Tensor | None = None,
         reduction: Literal["sum", "mean"] = "sum",
@@ -171,16 +180,27 @@ class Gemma4Model(CausalLM):
         :param seqs_layout: Layout information.
         :param targets: Target token IDs for loss computation.
         :param state_bag: Incremental decoding state.
+        :param audio_features: Log-mel spectrogram. *Shape:* ``(B, T, 128)``.
+            When provided, audio tokens in ``seqs`` (identified by
+            ``audio_token_id``) are replaced with encoded audio embeddings.
         :param label_smoothing: Label smoothing factor.
         :param target_mask: Mask for targets.
         :param reduction: Loss reduction method.
         :param return_logits: If True, return both loss and logits.
         :returns: Logits or loss (or both if return_logits=True).
         """
+        # Encode audio through tower + embedder before frontend.
+        audio_embeds: Tensor | None = None
+        if audio_features is not None:
+            if self.audio_tower is not None and self.audio_embedder is not None:
+                tower_output = self.audio_tower(audio_features)
+                audio_embeds = self.audio_embedder(tower_output)
+
         seqs, seqs_layout, per_layer_embeds = self.decoder_frontend(
             seqs,
             seqs_layout,
             state_bag=state_bag,
+            audio_embeds=audio_embeds,
         )
 
         decoder_output = self.decoder(
@@ -439,10 +459,15 @@ class Gemma4Frontend(Module):
     lookup with ``sqrt(model_dim)`` scaling.  When PLE is enabled, it behaves
     identically to :class:`~fairseq2.models.gemma3n.frontend.Gemma3nFrontend`
     (discrete + continuous per-layer embeddings).
+
+    Supports audio injection: when ``audio_embeds`` is provided, positions
+    matching ``audio_token_id`` in the input are replaced with pre-encoded
+    audio embeddings.
     """
 
     embed: Embedding
     scale: float
+    audio_token_id: int | None
 
     # PLE modules (None when PLE is disabled).
     embed_tokens_per_layer: StandardEmbedding | None
@@ -460,6 +485,8 @@ class Gemma4Frontend(Module):
         ple_hidden_dim: int = 0,
         vocab_size_per_layer_input: int = 0,
         ple_norm: LayerNorm | None = None,
+        audio_token_id: int | None = None,
+        pad_idx: int | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -470,6 +497,10 @@ class Gemma4Frontend(Module):
         :param ple_hidden_dim: Hidden dim for PLE.  0 disables PLE.
         :param vocab_size_per_layer_input: Vocabulary size for PLE lookup.
         :param ple_norm: RMSNorm for PLE projection (required when PLE enabled).
+        :param audio_token_id: Token ID used as placeholder for audio
+            embeddings.  ``None`` disables audio injection.
+        :param pad_idx: Padding token index.  Used to replace multimodal
+            placeholder tokens in discrete PLE, matching HuggingFace.
         :param device: Device.
         :param dtype: Data type.
         """
@@ -479,6 +510,8 @@ class Gemma4Frontend(Module):
         self.scale = model_dim ** 0.5
         self.num_layers = num_layers
         self.ple_hidden_dim = ple_hidden_dim
+        self.audio_token_id = audio_token_id
+        self.pad_idx = pad_idx
 
         if ple_hidden_dim > 0 and vocab_size_per_layer_input > 0:
             # PLE enabled.
@@ -539,7 +572,8 @@ class Gemma4Frontend(Module):
         :param seqs: Token IDs. *Shape:* ``(B, S)``.
         :param seqs_layout: Layout information.
         :param state_bag: Incremental decoding state.
-        :param audio_embeds: Unused (Gemma 4 has no audio tower).
+        :param audio_embeds: Pre-encoded audio embeddings from
+            ``audio_tower + audio_embedder``.  *Shape:* ``(B, T_a, M)``.
         :param vision_features: Unused (Gemma 4 has no vision tower).
         :returns:
             - Embeddings ``(B, S, M)``
@@ -551,8 +585,23 @@ class Gemma4Frontend(Module):
         seqs = self.embed(seqs)
         seqs = seqs * self.scale
 
+        # Inject pre-encoded audio embeddings at audio_token_id positions.
+        if audio_embeds is not None and self.audio_token_id is not None:
+            seqs = self._inject_audio_embeds(token_ids, seqs, audio_embeds)
+
         if self.embed_tokens_per_layer is not None:
-            per_layer_inputs = self._compute_ple(token_ids, seqs)
+            # For discrete PLE, replace multimodal placeholder tokens with
+            # pad_idx to match HF's behavior (which feeds pad_token_id into
+            # embed_tokens_per_layer at multimodal positions).
+            ple_token_ids = token_ids
+            if (
+                audio_embeds is not None
+                and self.audio_token_id is not None
+                and self.pad_idx is not None
+            ):
+                ple_token_ids = token_ids.clone()
+                ple_token_ids[token_ids == self.audio_token_id] = self.pad_idx
+            per_layer_inputs = self._compute_ple(ple_token_ids, seqs)
         else:
             per_layer_inputs = None
 
@@ -593,6 +642,48 @@ class Gemma4Frontend(Module):
         scale = self.per_layer_input_scale  # type: ignore[assignment]
         return (continuous + discrete) * scale
 
+    def _inject_audio_embeds(
+        self,
+        token_ids: Tensor,
+        text_embeds: Tensor,
+        audio_embeds: Tensor,
+    ) -> Tensor:
+        """Replace audio placeholder token embeddings with encoded audio.
+
+        :param token_ids: Token IDs. *Shape:* ``(B, S)``.
+        :param text_embeds: Text embeddings. *Shape:* ``(B, S, M)``.
+        :param audio_embeds: Audio features. *Shape:* ``(B, T_a, M)``.
+        :returns: Merged embeddings. *Shape:* ``(B, S, M)``.
+        """
+        assert self.audio_token_id is not None
+
+        # Boolean mask: True where the token is an audio placeholder.
+        mask = token_ids == self.audio_token_id  # (B, S)
+
+        result = text_embeds.clone()
+        for i in range(token_ids.size(0)):
+            n_slots = mask[i].sum().item()
+            if n_slots == 0:
+                continue
+
+            n_frames = audio_embeds.size(1)
+
+            if n_frames >= n_slots:
+                # Enough frames — take the first n_slots.
+                result[i, mask[i]] = audio_embeds[i, :n_slots]
+            else:
+                # Fewer frames than slots — pad with zeros.
+                padded = torch.cat(
+                    [
+                        audio_embeds[i, :n_frames],
+                        audio_embeds.new_zeros(n_slots - n_frames, audio_embeds.size(2)),
+                    ],
+                    dim=0,
+                )
+                result[i, mask[i]] = padded
+
+        return result
+
     if TYPE_CHECKING:
         __call__ = forward
 
@@ -628,6 +719,8 @@ class Gemma4Factory:
         frontend = self.create_decoder_frontend(embed)
         decoder = self.create_decoder()
         final_proj = self.create_final_projection(embed)
+        audio_tower = self.create_audio_tower()
+        audio_embedder = self.create_audio_embedder()
 
         return Gemma4Model(
             self._config.model_dim,
@@ -636,6 +729,8 @@ class Gemma4Factory:
             final_proj,
             self._config.pad_idx,
             self._config.max_seq_len,
+            audio_tower=audio_tower,
+            audio_embedder=audio_embedder,
         )
 
     def create_embedding(self) -> Embedding:
@@ -651,7 +746,7 @@ class Gemma4Factory:
         )
 
     def create_decoder_frontend(self, embed: Embedding) -> Gemma4Frontend:
-        """Create the decoder frontend with optional PLE."""
+        """Create the decoder frontend with optional PLE and audio injection."""
         config = self._config
 
         ple_norm: LayerNorm | None = None
@@ -664,6 +759,11 @@ class Gemma4Factory:
                 dtype=self._dtype,
             )
 
+        # Enable audio injection if audio tower is configured.
+        audio_token_id: int | None = None
+        if config.audio_config is not None:
+            audio_token_id = config.audio_token_id
+
         return Gemma4Frontend(
             model_dim=config.model_dim,
             embed=embed,
@@ -671,6 +771,8 @@ class Gemma4Factory:
             ple_hidden_dim=config.ple_hidden_dim,
             vocab_size_per_layer_input=config.vocab_size_per_layer_input,
             ple_norm=ple_norm,
+            audio_token_id=audio_token_id,
+            pad_idx=config.pad_idx,
             device=self._device,
             dtype=self._dtype,
         )
@@ -1038,3 +1140,45 @@ class Gemma4Factory:
             return SoftcappedProjection(base_proj, config.final_logit_soft_cap)
 
         return base_proj
+
+    def create_audio_tower(self) -> Module | None:
+        """Create the audio tower for mel-spectrogram encoding.
+
+        :returns: A :class:`Gemma4AudioTower` if audio is configured,
+            ``None`` otherwise.
+        """
+        config = self._config
+
+        if config.audio_config is None:
+            return None
+
+        from fairseq2.models.gemma4.audio.tower import Gemma4AudioTower
+
+        return Gemma4AudioTower(
+            audio_config=config.audio_config,
+            device=self._device,
+            dtype=self._dtype,
+        )
+
+    def create_audio_embedder(self) -> Module | None:
+        """Create the audio embedder to project audio features to text space.
+
+        :returns: A :class:`Gemma4MultimodalAudioEmbedder` if audio is
+            configured, ``None`` otherwise.
+        """
+        config = self._config
+
+        if config.audio_config is None:
+            return None
+
+        from fairseq2.models.gemma4.audio.embedder import (
+            Gemma4MultimodalAudioEmbedder,
+        )
+
+        return Gemma4MultimodalAudioEmbedder(
+            output_proj_dims=config.audio_config.output_proj_dims,
+            text_model_dim=config.model_dim,
+            rms_norm_eps=config.audio_config.rms_norm_eps,
+            device=self._device,
+            dtype=self._dtype,
+        )

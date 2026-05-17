@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import re
 from typing import Final, final
-
-import torch
 from typing_extensions import override
 
 from fairseq2.models.gemma4.config import Gemma4Config, get_kv_projection_role
@@ -86,6 +84,95 @@ _HG_KEY_MAP: Final = {
 
     # ---- Final normalization ----
     r"^model\.language_model\.norm\.":                                "decoder.layer_norm.",
+
+    # =========================================================================
+    # Audio tower — subsample conv projection
+    # =========================================================================
+    r"^model\.audio_tower\.subsample_conv_projection\.layer0\.conv\.":      "audio_tower.subsample.conv_0.",
+    r"^model\.audio_tower\.subsample_conv_projection\.layer0\.norm\.":      "audio_tower.subsample.norm_0.",
+    r"^model\.audio_tower\.subsample_conv_projection\.layer1\.conv\.":      "audio_tower.subsample.conv_1.",
+    r"^model\.audio_tower\.subsample_conv_projection\.layer1\.norm\.":      "audio_tower.subsample.norm_1.",
+    r"^model\.audio_tower\.subsample_conv_projection\.input_proj_linear\.": "audio_tower.subsample.proj.",
+
+    # =========================================================================
+    # Audio tower — conformer layers: self-attention
+    # Note: HF wraps Linear ops in ClippableLinear, which adds a `.linear.`
+    # sub-module for weights.  Clipping buffers (input_min, etc.) are at
+    # the ClippableLinear level (no `.linear.`).  Weight rules (with `.linear.`)
+    # MUST come before buffer rules (without `.linear.`) since
+    # convert_state_dict applies the FIRST matching pattern.
+    # =========================================================================
+    # Weights (strip .linear.)
+    r"^model\.audio_tower\.layers\.([0-9]+)\.self_attn\.q_proj\.linear\.":   r"audio_tower.encoder.layers.\1.self_attn.q_proj.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.self_attn\.k_proj\.linear\.":   r"audio_tower.encoder.layers.\1.self_attn.k_proj.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.self_attn\.v_proj\.linear\.":   r"audio_tower.encoder.layers.\1.self_attn.v_proj.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.self_attn\.post\.linear\.":     r"audio_tower.encoder.layers.\1.self_attn.output_proj.",
+    # Non-ClippableLinear attention params
+    r"^model\.audio_tower\.layers\.([0-9]+)\.self_attn\.per_dim_scale":      r"audio_tower.encoder.layers.\1.self_attn.sdpa.per_dim_scale",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.self_attn\.relative_k_proj\.":  r"audio_tower.encoder.layers.\1.self_attn.sdpa.pos_proj.",
+    # Clipping buffers (no .linear.)
+    r"^model\.audio_tower\.layers\.([0-9]+)\.self_attn\.q_proj\.":   r"audio_tower.encoder.layers.\1.self_attn.q_proj.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.self_attn\.k_proj\.":   r"audio_tower.encoder.layers.\1.self_attn.k_proj.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.self_attn\.v_proj\.":   r"audio_tower.encoder.layers.\1.self_attn.v_proj.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.self_attn\.post\.":     r"audio_tower.encoder.layers.\1.self_attn.output_proj.",
+
+    # =========================================================================
+    # Audio tower — conformer layers: norms
+    # =========================================================================
+    r"^model\.audio_tower\.layers\.([0-9]+)\.norm_pre_attn\.":     r"audio_tower.encoder.layers.\1.self_attn_layer_norm.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.norm_post_attn\.":    r"audio_tower.encoder.layers.\1.self_attn_post_norm.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.norm_out\.":          r"audio_tower.encoder.layers.\1.layer_norm.",
+
+    # =========================================================================
+    # Audio tower — conformer layers: FFN1 / FFN2
+    # ffw_layer_1 = inner_proj (up), ffw_layer_2 = output_proj (down)
+    # Weight rules (with .linear.) MUST come before buffer rules.
+    # =========================================================================
+    # FFN1 weights (strip .linear.)
+    r"^model\.audio_tower\.layers\.([0-9]+)\.feed_forward1\.ffw_layer_1\.linear\.":   r"audio_tower.encoder.layers.\1.ffn1.inner_proj.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.feed_forward1\.ffw_layer_2\.linear\.":   r"audio_tower.encoder.layers.\1.ffn1.output_proj.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.feed_forward1\.pre_layer_norm\.":        r"audio_tower.encoder.layers.\1.ffn1_layer_norm.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.feed_forward1\.post_layer_norm\.":       r"audio_tower.encoder.layers.\1.ffn1_post_layer_norm.",
+    # FFN1 clipping buffers (no .linear.)
+    r"^model\.audio_tower\.layers\.([0-9]+)\.feed_forward1\.ffw_layer_1\.":   r"audio_tower.encoder.layers.\1.ffn1.inner_proj.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.feed_forward1\.ffw_layer_2\.":   r"audio_tower.encoder.layers.\1.ffn1.output_proj.",
+
+    # FFN2 weights (strip .linear.)
+    r"^model\.audio_tower\.layers\.([0-9]+)\.feed_forward2\.ffw_layer_1\.linear\.":   r"audio_tower.encoder.layers.\1.ffn2.inner_proj.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.feed_forward2\.ffw_layer_2\.linear\.":   r"audio_tower.encoder.layers.\1.ffn2.output_proj.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.feed_forward2\.pre_layer_norm\.":        r"audio_tower.encoder.layers.\1.ffn2_layer_norm.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.feed_forward2\.post_layer_norm\.":       r"audio_tower.encoder.layers.\1.ffn2_post_layer_norm.",
+    # FFN2 clipping buffers (no .linear.)
+    r"^model\.audio_tower\.layers\.([0-9]+)\.feed_forward2\.ffw_layer_1\.":   r"audio_tower.encoder.layers.\1.ffn2.inner_proj.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.feed_forward2\.ffw_layer_2\.":   r"audio_tower.encoder.layers.\1.ffn2.output_proj.",
+
+    # =========================================================================
+    # Audio tower — conformer layers: LightConv1d
+    # HF linear_start/linear_end are ClippableLinear wrappers.  fairseq2 now
+    # uses Gemma4ClippedLinear (Linear, not Conv1d) for pointwise ops — no
+    # weight reshape needed.  Depthwise conv is plain Conv1d.
+    # Weight rules (with .linear.) MUST come before buffer rules.
+    # =========================================================================
+    # Pointwise weights (strip .linear.)
+    r"^model\.audio_tower\.layers\.([0-9]+)\.lconv1d\.linear_start\.linear\.":   r"audio_tower.encoder.layers.\1.conv.pointwise_conv1.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.lconv1d\.linear_end\.linear\.":     r"audio_tower.encoder.layers.\1.conv.pointwise_conv2.",
+    # Depthwise conv + norm (no ClippableLinear wrapper)
+    r"^model\.audio_tower\.layers\.([0-9]+)\.lconv1d\.depthwise_conv1d\.":       r"audio_tower.encoder.layers.\1.conv.depthwise_conv.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.lconv1d\.conv_norm\.":              r"audio_tower.encoder.layers.\1.conv.layer_norm.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.lconv1d\.pre_layer_norm\.":         r"audio_tower.encoder.layers.\1.conv_layer_norm.",
+    # Pointwise clipping buffers (no .linear.)
+    r"^model\.audio_tower\.layers\.([0-9]+)\.lconv1d\.linear_start\.":   r"audio_tower.encoder.layers.\1.conv.pointwise_conv1.",
+    r"^model\.audio_tower\.layers\.([0-9]+)\.lconv1d\.linear_end\.":     r"audio_tower.encoder.layers.\1.conv.pointwise_conv2.",
+
+    # =========================================================================
+    # Audio tower — output projection (nn.Linear with bias)
+    # =========================================================================
+    r"^model\.audio_tower\.output_proj\.":   "audio_tower.output_proj.",
+
+    # =========================================================================
+    # Audio embedder
+    # =========================================================================
+    r"^model\.embed_audio\.embedding_projection\.":   "audio_embedder.embedding_projection.",
     # fmt: on
 }
 
@@ -100,8 +187,13 @@ def convert_gemma4_state_dict(
     :param config: The Gemma 4 configuration.
     :returns: The fairseq2-compatible state dictionary.
 
-    Filters out vision/audio tower parameters (multimodal components not needed
-    for text-only operation).
+    When ``audio_config`` is ``None`` (text-only), all audio tower and audio
+    embedder parameters are filtered out.  When audio is enabled, the audio
+    keys are mapped through ``_HG_KEY_MAP``, stripping the ``.linear.``
+    sub-module prefix from ClippableLinear wrappers.  ClippableLinear
+    clipping buffers (``input_min``, ``input_max``, ``output_min``,
+    ``output_max``) are mapped to the corresponding ``Gemma4ClippedLinear``
+    buffers in the fairseq2 model.
 
     When ``tied_embeddings`` is ``True``, the HF checkpoint omits
     ``lm_head.weight`` (it is tied to the embedding).  The fairseq2 model's
@@ -109,14 +201,18 @@ def convert_gemma4_state_dict(
     parameter (``final_proj.proj.weight``), so we copy the embedding weight
     into that slot after conversion.
     """
-    # Filter out multimodal components.
-    multimodal_prefixes = (
+    # Determine which multimodal prefixes to filter out.
+    # Always filter vision; only filter audio when not configured.
+    multimodal_prefixes = [
         "model.vision_tower.",
-        "model.audio_tower.",
         "model.embed_vision.",
-        "model.embed_audio.",
         "model.multi_modal_projector.",
-    )
+    ]
+    if config.audio_config is None:
+        multimodal_prefixes.extend([
+            "model.audio_tower.",
+            "model.embed_audio.",
+        ])
 
     filtered: dict[str, object] = {}
     for k, v in state_dict.items():

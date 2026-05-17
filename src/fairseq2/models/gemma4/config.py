@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import Final
 
 from fairseq2.models.gemma3n.kv_projection import KVProjectionRole
+from fairseq2.models.gemma4.audio.config import Gemma4AudioConfig
 from fairseq2.runtime.config_registry import ConfigRegistrar
 from fairseq2.runtime.dependency import DependencyContainer
 
@@ -118,6 +119,12 @@ class Gemma4Config:
 
     hidden_activation: str = "gelu_pytorch_tanh"
     """The activation function used in FFN and PLE."""
+
+    audio_config: Gemma4AudioConfig | None = None
+    """Audio tower configuration. None means text-only model."""
+
+    audio_token_id: int = 258_881
+    """Token ID used as placeholder for audio embeddings."""
 
     @property
     def ple_hidden_dim(self) -> int:
