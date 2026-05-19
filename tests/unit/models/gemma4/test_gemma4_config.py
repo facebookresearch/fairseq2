@@ -13,13 +13,14 @@ import torch
 
 from fairseq2.models.gemma4.config import (
     Gemma4Config,
+    _compute_layer_types,
     get_gemma4_26b_a4b_config,
     get_gemma4_31b_config,
     get_gemma4_e4b_config,
     get_kv_projection_role,
-    is_full_attention_layer,
 )
-from fairseq2.models.gemma4.factory import Gemma4Model, create_gemma4_model
+from fairseq2.models.gemma4.factory import create_gemma4_model
+from fairseq2.models.gemma4.model import Gemma4Model
 from fairseq2.models.gemma3n.kv_projection import KVProjectionRole
 from fairseq2.nn import BatchLayout
 from tests.common import device
@@ -80,13 +81,14 @@ class TestGemma4Config:
                 assert config.layer_types[i] == "sliding_attention", f"Layer {i}"
 
 
-class TestIsFullAttentionLayer:
-    """Test the 5:1 sliding:full attention pattern."""
+class TestComputeLayerTypes:
+    """Test the 5:1 sliding:full attention pattern via _compute_layer_types."""
 
     def test_basic_pattern(self) -> None:
         """Layers 5, 11, ... are full attention (0-indexed)."""
         num_layers = 42
-        full_layers = [i for i in range(num_layers) if is_full_attention_layer(i, num_layers)]
+        layer_types = _compute_layer_types(num_layers)
+        full_layers = [i for i, t in enumerate(layer_types) if t == "full_attention"]
         # Every 6th layer (1-indexed: 6, 12, 18, ...) maps to 0-indexed: 5, 11, 17, ...
         expected = [i for i in range(num_layers) if (i + 1) % 6 == 0]
         # Last layer is always full
@@ -97,23 +99,22 @@ class TestIsFullAttentionLayer:
     def test_last_layer_always_full(self) -> None:
         """The last layer is always full attention, regardless of pattern."""
         for num_layers in [6, 12, 30, 42, 60]:
-            assert is_full_attention_layer(num_layers - 1, num_layers) is True
+            assert _compute_layer_types(num_layers)[-1] == "full_attention"
 
     def test_first_layer_sliding(self) -> None:
         """Layer 0 is always sliding attention."""
         for num_layers in [6, 12, 42]:
-            assert is_full_attention_layer(0, num_layers) is False
+            assert _compute_layer_types(num_layers)[0] == "sliding_attention"
 
     @pytest.mark.parametrize("num_layers", [6, 12, 30, 42, 60])
     def test_full_attention_count(self, num_layers: int) -> None:
         """Count of full attention layers matches expectation."""
-        full_count = sum(
-            1 for i in range(num_layers) if is_full_attention_layer(i, num_layers)
-        )
+        layer_types = _compute_layer_types(num_layers)
+        full_count = sum(1 for t in layer_types if t == "full_attention")
         # Approximately 1/6 of layers + possibly last layer adjustment
         expected_from_pattern = num_layers // 6
         # Last layer may add one more if not already in pattern
-        if (num_layers) % 6 != 0:
+        if num_layers % 6 != 0:
             expected_from_pattern += 1  # Last layer forced full
         assert full_count == expected_from_pattern
 
@@ -124,10 +125,7 @@ class TestGetKvProjectionRole:
     def test_no_sharing(self) -> None:
         """All layers are NONE when num_kv_shared_layers=0."""
         num_layers = 12
-        layer_types = [
-            "full_attention" if is_full_attention_layer(i, num_layers) else "sliding_attention"
-            for i in range(num_layers)
-        ]
+        layer_types = _compute_layer_types(num_layers)
         for i in range(num_layers):
             role = get_kv_projection_role(
                 i, layer_types[i], num_layers, 0, layer_types
@@ -138,10 +136,7 @@ class TestGetKvProjectionRole:
         """E4B has 18 shared layers (last 18 are CONSUMER)."""
         num_layers = 42
         num_shared = 18
-        layer_types = [
-            "full_attention" if is_full_attention_layer(i, num_layers) else "sliding_attention"
-            for i in range(num_layers)
-        ]
+        layer_types = _compute_layer_types(num_layers)
 
         roles = [
             get_kv_projection_role(i, layer_types[i], num_layers, num_shared, layer_types)

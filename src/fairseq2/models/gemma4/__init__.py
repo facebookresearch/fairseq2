@@ -41,9 +41,6 @@ from fairseq2.models.gemma4.config import (
     get_gemma4_e2b_config as get_gemma4_e2b_config,
 )
 from fairseq2.models.gemma4.config import (
-    is_full_attention_layer as is_full_attention_layer,
-)
-from fairseq2.models.gemma4.config import (
     register_gemma4_configs as register_gemma4_configs,
 )
 from fairseq2.models.gemma4.decoder import Gemma4Decoder as Gemma4Decoder
@@ -110,7 +107,6 @@ __all__ = [
     "get_gemma4_model_hub",
     "get_gemma4_shard_specs",
     "get_gemma4_tokenizer_hub",
-    "is_full_attention_layer",
     "load_gemma4_tokenizer",
     "register_gemma4_configs",
 ]

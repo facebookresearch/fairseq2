@@ -21,6 +21,19 @@ Sharding strategy:
     - **MoE router proj**: NOT sharded (routing must be consistent across ranks)
     - **MoE experts**: NOT sharded at spec level (Gemma4 uses fused 3-D Parameters,
       not ``GroupedExpertNetwork``; sharding would require a custom ``ModuleSharder``)
+
+Limitations:
+    - **Audio tower** is not sharded — it is replicated on every TP rank.
+      Acceptable for E2B/E4B multimodal (tower is small), but explicit
+      coverage would be needed to TP the full multimodal model.
+    - **MoE experts** (26B-A4B) are not sharded.  Use Expert Parallelism (EP)
+      or a custom ``ModuleSharder`` analogous to LLaMA 4's ``MoESharder`` —
+      adapted for ``Gemma4Experts``' fused 3-D ``Parameter`` layout
+      (``(E, 2*I, D)`` and ``(E, D, I)``).
+    - **CONSUMER layers** (KV sharing) lack ``k_proj`` / ``v_proj`` / ``k_norm`` /
+      ``v_norm`` modules altogether.  The regexes above target those names but
+      safely produce zero matches on consumer layers, so no special handling
+      is required here.
 """
 
 from __future__ import annotations

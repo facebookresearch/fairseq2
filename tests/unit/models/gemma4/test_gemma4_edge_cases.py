@@ -36,16 +36,12 @@ from fairseq2.models.gemma4.config import (
     get_gemma4_31b_config,
     get_gemma4_e4b_config,
     get_kv_projection_role,
-    is_full_attention_layer,
 )
+from fairseq2.models.gemma4.decoder import Gemma4Decoder
 from fairseq2.models.gemma4.decoder_layer import Gemma4DecoderLayer
-from fairseq2.models.gemma4.factory import (
-    Gemma4Decoder,
-    Gemma4Factory,
-    Gemma4Frontend,
-    Gemma4Model,
-    create_gemma4_model,
-)
+from fairseq2.models.gemma4.factory import Gemma4Factory, create_gemma4_model
+from fairseq2.models.gemma4.frontend import Gemma4Frontend
+from fairseq2.models.gemma4.model import Gemma4Model
 from fairseq2.models.gemma4.interop import _HG_KEY_MAP, convert_gemma4_state_dict
 from fairseq2.models.gemma4.moe import Gemma4Experts, Gemma4Router
 from fairseq2.models.gemma3n.kv_projection import KVProjectionRole

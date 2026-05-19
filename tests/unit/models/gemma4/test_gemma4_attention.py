@@ -10,7 +10,10 @@ from __future__ import annotations
 
 import torch
 
-from fairseq2.models.gemma4.attention import Gemma4Attention
+from fairseq2.models.gemma4.attention import (
+    Gemma4Attention,
+    Gemma4ProportionalRotaryEncoder,
+)
 from fairseq2.models.transformer.attention_bias import (
     AttentionBiasCache,
     CausalAttentionBias,
@@ -40,14 +43,23 @@ class TestGemma4Attention:
 
         assert out.shape == (2, 8, 64)
 
-    def test_partial_rope_applies_to_subset_of_dims(self) -> None:
-        """With encoding_dim < head_dim, only first encoding_dim dims are rotated."""
+    def test_partial_rope_with_proportional_encoder(self) -> None:
+        """Gemma4ProportionalRotaryEncoder zero-pads inv_freq so non-rotary dims
+        get identity (cos=1, sin=0) while encoding_dim == head_dim."""
         model_dim = 64
         num_heads = 4
         head_dim = 16
-        encoding_dim = 4  # Only first 4 of 16 dims rotated (partial_rotary_factor=0.25)
+        rope_dim = 8  # Only first 8 of 16 dims are truly rotated
 
-        rope = ReferenceRotaryEncoder(encoding_dim, max_seq_len=32, device=device)
+        rope = Gemma4ProportionalRotaryEncoder(
+            head_dim=head_dim,
+            rope_dim=rope_dim,
+            max_seq_len=32,
+            device=device,
+        )
+        # encoding_dim should equal head_dim (full-width, zero-padded)
+        assert rope.encoding_dim == head_dim
+
         sdpa = NaiveSDPA(IdentityBias())
         attn = Gemma4Attention(
             model_dim=model_dim,

@@ -168,21 +168,6 @@ def _compute_layer_types(num_layers: int) -> list[str]:
     return layer_types
 
 
-def is_full_attention_layer(layer_idx: int, num_layers: int) -> bool:
-    """Determine if a layer uses full (global) attention.
-
-    Gemma 4 uses a 5:1 local:global ratio. Global layers occur every 6th layer
-    (1-indexed: indices 5, 11, 17, ...) with the last layer always being global.
-
-    :param layer_idx: The zero-based index of the layer.
-    :param num_layers: The total number of layers.
-    :returns: True if the layer should use full attention, False for sliding.
-    """
-    if layer_idx == num_layers - 1:
-        return True
-    return (layer_idx + 1) % 6 == 0
-
-
 def get_kv_projection_role(
     layer_idx: int,
     layer_type: str,

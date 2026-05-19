@@ -10,285 +10,52 @@ Follows the pattern established by :mod:`fairseq2.models.gemma3n.factory`.
 The factory assembles a complete model (embedding, frontend, decoder,
 projection) with optional audio tower for multimodal support.
 
-This file also defines three supporting classes that are tightly coupled
-to the factory and not large enough to warrant separate files:
+The component classes live in their own modules:
 
-* :class:`Gemma4Model` -- top-level decoder-only LM with optional audio.
-* :class:`Gemma4Decoder` -- decoder stack (layers + final norm + KV sharing).
-* :class:`Gemma4Frontend` -- embedding + optional PLE + audio injection.
+* :class:`Gemma4Model` -- :mod:`fairseq2.models.gemma4.model`
+* :class:`Gemma4Decoder` -- :mod:`fairseq2.models.gemma4.decoder`
+* :class:`Gemma4Frontend` -- :mod:`fairseq2.models.gemma4.frontend`
+* :class:`Gemma4DecoderLayer` -- :mod:`fairseq2.models.gemma4.decoder_layer`
+* :class:`Gemma4Attention` -- :mod:`fairseq2.models.gemma4.attention`
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
-from typing import TYPE_CHECKING, Any, Literal, final, overload
-
 import torch
-from torch import Tensor
-from torch.nn import Module, ModuleList
-from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.gang import Gangs, maybe_get_current_gangs
-from fairseq2.models.clm import CausalLM
-from fairseq2.models.gemma3n.kv_projection import (
-    KVProjectionRole,
-    KVProjectionType,
-)
+from fairseq2.models.gemma3n.kv_projection import KVProjectionRole
 from fairseq2.models.gemma3n.projection import SoftcappedProjection
-from fairseq2.models.gemma4.attention import Gemma4Attention
+from fairseq2.models.gemma4.attention import (
+    Gemma4Attention,
+    Gemma4ProportionalRotaryEncoder,
+)
 from fairseq2.models.gemma4.config import Gemma4Config, get_kv_projection_role
+from fairseq2.models.gemma4.decoder import Gemma4Decoder
 from fairseq2.models.gemma4.decoder_layer import Gemma4DecoderLayer
+from fairseq2.models.gemma4.frontend import Gemma4Frontend
+from fairseq2.models.gemma4.model import Gemma4Model
 from fairseq2.models.gemma4.moe import Gemma4Experts, Gemma4Router
 from fairseq2.models.gemma4.sdpa import Gemma4SDPA
 from fairseq2.models.transformer import (
-    AttentionBiasCache,
     CausalAttentionBias,
     GLUFeedForwardNetwork,
-    create_default_sdpa,
 )
 from fairseq2.nn import (
-    BatchLayout,
     Embedding,
-    IncrementalStateBag,
     LayerNorm,
     Projection,
     RMSNorm,
     StandardEmbedding,
     TiedProjection,
 )
-from fairseq2.nn.functional import cross_entropy
 from fairseq2.nn.position_encoder import ReferenceRotaryEncoder
 from fairseq2.nn.projection import Linear
+from torch.nn import Module
 
-from fairseq2.models.gemma4.attention import Gemma4ProportionalRotaryEncoder
-
-
-# ---------------------------------------------------------------------------
-# Gemma4Model
-# ---------------------------------------------------------------------------
-
-@final
-class Gemma4Model(CausalLM):
-    """Gemma 4 decoder-only causal language model with optional audio."""
-
-    model_dim: int
-    decoder_frontend: Gemma4Frontend
-    decoder: Gemma4Decoder
-    final_proj: Projection
-    pad_idx: int | None
-    audio_tower: Module | None
-    audio_embedder: Module | None
-
-    def __init__(
-        self,
-        model_dim: int,
-        decoder_frontend: Gemma4Frontend,
-        decoder: Gemma4Decoder,
-        final_proj: Projection,
-        pad_idx: int | None,
-        max_seq_len: int,
-        *,
-        audio_tower: Module | None = None,
-        audio_embedder: Module | None = None,
-    ) -> None:
-        """
-        :param model_dim: The model dimensionality.
-        :param decoder_frontend: The decoder frontend (embedding + optional PLE).
-        :param decoder: The decoder stack.
-        :param final_proj: The projection to apply to decoder outputs.
-        :param pad_idx: The index of the pad symbol in the vocabulary.
-        :param max_seq_len: The maximum sequence length.
-        :param audio_tower: Optional audio tower for mel → projected features.
-        :param audio_embedder: Optional embedder to project audio features to
-            text model space.
-        """
-        super().__init__(max_seq_len)
-
-        self.model_dim = model_dim
-        self.decoder_frontend = decoder_frontend
-        self.decoder = decoder
-        self.final_proj = final_proj
-        self.pad_idx = pad_idx
-        self.audio_tower = audio_tower
-        self.audio_embedder = audio_embedder
-
-    @overload
-    def forward(
-        self,
-        seqs: Tensor,
-        seqs_layout: BatchLayout,
-        *,
-        state_bag: IncrementalStateBag | None = ...,
-    ) -> Tensor: ...
-
-    @overload
-    def forward(
-        self,
-        seqs: Tensor,
-        seqs_layout: BatchLayout,
-        targets: Tensor,
-        *,
-        label_smoothing: float = ...,
-        target_mask: Tensor | None = ...,
-        reduction: Literal["sum", "mean"] = ...,
-    ) -> Tensor: ...
-
-    @overload
-    def forward(
-        self,
-        seqs: Tensor,
-        seqs_layout: BatchLayout,
-        targets: Tensor,
-        *,
-        label_smoothing: float = ...,
-        target_mask: Tensor | None = ...,
-        reduction: Literal["sum", "mean"] = ...,
-        return_logits: Literal[True],
-    ) -> tuple[Tensor, Tensor]: ...
-
-    @overload
-    def forward(
-        self,
-        seqs: Tensor,
-        seqs_layout: BatchLayout,
-        targets: Tensor,
-        *,
-        label_smoothing: float = ...,
-        target_mask: Tensor | None = ...,
-        reduction: Literal["sum", "mean"] = ...,
-        return_logits: bool = ...,
-    ) -> Tensor | tuple[Tensor, Tensor]: ...
-
-    @override
-    def forward(
-        self,
-        seqs: Tensor,
-        seqs_layout: BatchLayout,
-        targets: Tensor | None = None,
-        *,
-        state_bag: IncrementalStateBag | None = None,
-        audio_features: Tensor | None = None,
-        label_smoothing: float = 0.0,
-        target_mask: Tensor | None = None,
-        reduction: Literal["sum", "mean"] = "sum",
-        return_logits: bool = False,
-    ) -> Tensor | tuple[Tensor, Tensor]:
-        """
-        :param seqs: Input token IDs. *Shape:* ``(B, S)``.
-        :param seqs_layout: Layout information.
-        :param targets: Target token IDs for loss computation.
-        :param state_bag: Incremental decoding state.
-        :param audio_features: Log-mel spectrogram. *Shape:* ``(B, T, 128)``.
-            When provided, audio tokens in ``seqs`` (identified by
-            ``audio_token_id``) are replaced with encoded audio embeddings.
-        :param label_smoothing: Label smoothing factor.
-        :param target_mask: Mask for targets.
-        :param reduction: Loss reduction method.
-        :param return_logits: If True, return both loss and logits.
-        :returns: Logits or loss (or both if return_logits=True).
-        """
-        # Encode audio through tower + embedder before frontend.
-        audio_embeds: Tensor | None = None
-        if audio_features is not None:
-            if self.audio_tower is not None and self.audio_embedder is not None:
-                tower_output = self.audio_tower(audio_features)
-                audio_embeds = self.audio_embedder(tower_output)
-
-        seqs, seqs_layout, per_layer_embeds = self.decoder_frontend(
-            seqs,
-            seqs_layout,
-            state_bag=state_bag,
-            audio_embeds=audio_embeds,
-        )
-
-        decoder_output = self.decoder(
-            seqs,
-            seqs_layout,
-            state_bag=state_bag,
-            per_layer_embeds=per_layer_embeds,
-        )
-
-        del seqs
-
-        if targets is None:
-            return self.final_proj(decoder_output)
-
-        if not return_logits:
-            return self.compute_fused_loss(
-                decoder_output,
-                targets,
-                label_smoothing=label_smoothing,
-                target_mask=target_mask,
-                reduction=reduction,
-            )
-
-        logits = self.final_proj(decoder_output)
-
-        del decoder_output
-
-        loss = self.compute_loss(
-            logits,
-            targets,
-            label_smoothing=label_smoothing,
-            target_mask=target_mask,
-            reduction=reduction,
-        )
-
-        return loss, logits
-
-    def compute_loss(
-        self,
-        logits: Tensor,
-        targets: Tensor,
-        *,
-        label_smoothing: float = 0.0,
-        target_mask: Tensor | None = None,
-        reduction: Literal["sum", "mean"] = "sum",
-    ) -> Tensor:
-        return cross_entropy(
-            logits,
-            targets,
-            self.pad_idx,
-            label_smoothing=label_smoothing,
-            target_mask=target_mask,
-            reduction=reduction,
-        )
-
-    def compute_fused_loss(
-        self,
-        decoder_output: Tensor,
-        targets: Tensor,
-        *,
-        label_smoothing: float = 0.0,
-        target_mask: Tensor | None = None,
-        reduction: Literal["sum", "mean"] = "sum",
-    ) -> Tensor:
-        logits = self.final_proj(decoder_output)
-
-        return cross_entropy(
-            logits,
-            targets,
-            self.pad_idx,
-            label_smoothing=label_smoothing,
-            target_mask=target_mask,
-            reduction=reduction,
-        )
-
-    def compile_loss(self, *args: Any, **kwargs: Any) -> None:
-        self.compute_fused_loss = torch.compile(  # type: ignore[method-assign]
-            self.compute_fused_loss, *args, **kwargs
-        )
-
-    @override
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        return (
-            f"model_dim={self.model_dim}, "
-            f"pad_idx={self.pad_idx}, "
-            f"max_seq_len={self.max_seq_len}"
-        )
+__all__ = ["Gemma4Factory", "create_gemma4_model"]
 
 
 def create_gemma4_model(
@@ -310,387 +77,6 @@ def create_gemma4_model(
         config, device=device, dtype=dtype, gangs=gangs
     ).create_model()
 
-
-# ---------------------------------------------------------------------------
-# Gemma4Decoder -- Gemma 4 decoder without AltUp
-# ---------------------------------------------------------------------------
-
-class Gemma4Decoder(Module):
-    """Gemma 4 decoder stack with KV-sharing support.
-
-    Unlike :class:`~fairseq2.models.gemma3n.decoder.Gemma3nDecoder`, this
-    decoder has **no** AltUp projections.  Input and output are plain 3-D
-    tensors ``(B, S, M)``.
-    """
-
-    layers: ModuleList
-    layer_norm: LayerNorm
-    _layer_kv_roles: list[KVProjectionRole]
-    _layer_types: list[str]
-    _has_kv_projection_sharing: bool
-
-    def __init__(
-        self,
-        layers: Sequence[Gemma4DecoderLayer],
-        layer_norm: LayerNorm,
-        *,
-        layer_kv_roles: Sequence[KVProjectionRole],
-        layer_types: Sequence[str],
-    ) -> None:
-        """
-        :param layers: Ordered sequence of :class:`Gemma4DecoderLayer`.
-        :param layer_norm: Final RMSNorm applied after the last layer.
-        :param layer_kv_roles: Per-layer :class:`KVProjectionRole`.
-        :param layer_types: Per-layer attention type strings
-            (``"sliding_attention"`` or ``"full_attention"``).
-        """
-        super().__init__()
-
-        self.layers = ModuleList(layers)
-        self.layer_norm = layer_norm
-
-        self._layer_kv_roles = list(layer_kv_roles)
-        self._layer_types = list(layer_types)
-
-        self._has_kv_projection_sharing = any(
-            role != KVProjectionRole.NONE for role in self._layer_kv_roles
-        )
-
-    def forward(
-        self,
-        seqs: Tensor,
-        seqs_layout: BatchLayout,
-        *,
-        state_bag: IncrementalStateBag | None = None,
-        per_layer_embeds: Tensor | None = None,
-    ) -> Tensor:
-        """
-        :param seqs: Hidden states. *Shape:* ``(B, S, M)``.
-        :param seqs_layout: Batch layout for attention masking.
-        :param state_bag: Incremental state bag for KV-cache.
-        :param per_layer_embeds: PLE embeddings. *Shape:*
-            ``(B, S, num_layers, ple_dim)``.  ``None`` when PLE is disabled.
-        :returns: Decoder output. *Shape:* ``(B, S, M)``.
-        """
-        # Prepare KV sharing slots.
-        kv_slots: dict[KVProjectionType, tuple[Tensor, Tensor] | None] | None = None
-        if self._has_kv_projection_sharing:
-            kv_slots = {
-                KVProjectionType.LOCAL: None,
-                KVProjectionType.GLOBAL: None,
-            }
-
-        attn_bias_cache = AttentionBiasCache()
-
-        for layer_idx, layer in enumerate(self.layers):
-            # Per-layer embedding slice.
-            layer_ple: Tensor | None = None
-            if per_layer_embeds is not None:
-                layer_ple = per_layer_embeds[..., layer_idx, :]
-
-            # Resolve KV sharing arguments.
-            pre_computed_kv: tuple[Tensor, Tensor] | None = None
-            kv_storage_callback: Callable[[Tensor, Tensor], None] | None = None
-
-            if kv_slots is not None:
-                role = self._layer_kv_roles[layer_idx]
-                layer_type = self._layer_types[layer_idx]
-                slot_key = (
-                    KVProjectionType.GLOBAL
-                    if layer_type == "full_attention"
-                    else KVProjectionType.LOCAL
-                )
-
-                if role == KVProjectionRole.CONSUMER:
-                    pre_computed_kv = kv_slots[slot_key]
-                    if pre_computed_kv is None:
-                        raise RuntimeError(
-                            f"Layer {layer_idx} ({slot_key.value}) is a CONSUMER "
-                            f"but no SOURCE has populated the {slot_key.value} slot."
-                        )
-                elif role == KVProjectionRole.SOURCE:
-
-                    def _make_cb(
-                        s: dict[KVProjectionType, tuple[Tensor, Tensor] | None],
-                        k: KVProjectionType,
-                    ) -> Callable[[Tensor, Tensor], None]:
-                        def cb(key: Tensor, val: Tensor) -> None:
-                            s[k] = (key, val)
-
-                        return cb
-
-                    kv_storage_callback = _make_cb(kv_slots, slot_key)
-
-            # Forward through the decoder layer.
-            seqs = layer(
-                seqs,
-                seqs_layout,
-                attn_bias_cache,
-                per_layer_input=layer_ple,
-                state_bag=state_bag,
-                pre_computed_kv=pre_computed_kv,
-                kv_storage_callback=kv_storage_callback,
-            )
-
-        seqs = self.layer_norm(seqs)
-
-        return seqs
-
-    def compile_layerwise(self, *args: Any, **kwargs: Any) -> None:
-        """Compile each layer individually."""
-        for layer in self.layers:
-            layer.compile(*args, **kwargs)
-
-        if self.layer_norm is not None:
-            self.layer_norm.compile(*args, **kwargs)
-
-    if TYPE_CHECKING:
-        __call__ = forward
-
-
-# ---------------------------------------------------------------------------
-# Gemma4Frontend -- PLE-aware frontend (wraps Gemma3nFrontend)
-# ---------------------------------------------------------------------------
-
-class Gemma4Frontend(Module):
-    """Gemma 4 decoder frontend with optional Per-Layer Embeddings (PLE).
-
-    When PLE is disabled (``ple_hidden_dim == 0``), this is a simple embedding
-    lookup with ``sqrt(model_dim)`` scaling.  When PLE is enabled, it behaves
-    identically to :class:`~fairseq2.models.gemma3n.frontend.Gemma3nFrontend`
-    (discrete + continuous per-layer embeddings).
-
-    Supports audio injection: when ``audio_embeds`` is provided, positions
-    matching ``audio_token_id`` in the input are replaced with pre-encoded
-    audio embeddings.
-    """
-
-    embed: Embedding
-    scale: float
-    audio_token_id: int | None
-
-    # PLE modules (None when PLE is disabled).
-    embed_tokens_per_layer: StandardEmbedding | None
-    per_layer_model_projection: Linear | None
-    per_layer_projection_norm: LayerNorm | None
-    num_layers: int
-    ple_hidden_dim: int
-
-    def __init__(
-        self,
-        model_dim: int,
-        embed: Embedding,
-        *,
-        num_layers: int,
-        ple_hidden_dim: int = 0,
-        vocab_size_per_layer_input: int = 0,
-        ple_norm: LayerNorm | None = None,
-        audio_token_id: int | None = None,
-        pad_idx: int | None = None,
-        device: Device | None = None,
-        dtype: DataType | None = None,
-    ) -> None:
-        """
-        :param model_dim: Model dimensionality.
-        :param embed: Token embedding table.
-        :param num_layers: Number of decoder layers.
-        :param ple_hidden_dim: Hidden dim for PLE.  0 disables PLE.
-        :param vocab_size_per_layer_input: Vocabulary size for PLE lookup.
-        :param ple_norm: RMSNorm for PLE projection (required when PLE enabled).
-        :param audio_token_id: Token ID used as placeholder for audio
-            embeddings.  ``None`` disables audio injection.
-        :param pad_idx: Padding token index.  Used to replace multimodal
-            placeholder tokens in discrete PLE, matching HuggingFace.
-        :param device: Device.
-        :param dtype: Data type.
-        """
-        super().__init__()
-
-        self.embed = embed
-        self.scale = model_dim ** 0.5
-        self.num_layers = num_layers
-        self.ple_hidden_dim = ple_hidden_dim
-        self.audio_token_id = audio_token_id
-        self.pad_idx = pad_idx
-
-        if ple_hidden_dim > 0 and vocab_size_per_layer_input > 0:
-            # PLE enabled.
-            self.embed_tokens_per_layer = StandardEmbedding(
-                num_embeddings=vocab_size_per_layer_input,
-                embed_dim=num_layers * ple_hidden_dim,
-                pad_idx=None,
-                device=device,
-                dtype=dtype,
-            )
-
-            self.per_layer_model_projection = Linear(
-                model_dim,
-                num_layers * ple_hidden_dim,
-                bias=False,
-                device=device,
-                dtype=dtype,
-            )
-
-            if ple_norm is None:
-                raise ValueError(
-                    "`ple_norm` must be provided when PLE is enabled."
-                )
-            self.per_layer_projection_norm = ple_norm
-
-            # Scaling buffers (non-persistent).
-            self.register_buffer(
-                "per_layer_projection_scale",
-                torch.tensor(model_dim ** -0.5, device=device, dtype=dtype),
-                persistent=False,
-            )
-            self.register_buffer(
-                "per_layer_input_scale",
-                torch.rsqrt(torch.tensor(2.0, device=device, dtype=dtype)),
-                persistent=False,
-            )
-            self.register_buffer(
-                "per_layer_embed_scale",
-                torch.tensor(ple_hidden_dim ** 0.5, device=device, dtype=dtype),
-                persistent=False,
-            )
-        else:
-            # PLE disabled.
-            self.embed_tokens_per_layer = None
-            self.per_layer_model_projection = None
-            self.per_layer_projection_norm = None
-
-    def forward(
-        self,
-        seqs: Tensor,
-        seqs_layout: BatchLayout,
-        *,
-        state_bag: IncrementalStateBag | None = None,
-        audio_embeds: Tensor | None = None,
-        vision_features: Tensor | None = None,
-    ) -> tuple[Tensor, BatchLayout, Tensor | None]:
-        """
-        :param seqs: Token IDs. *Shape:* ``(B, S)``.
-        :param seqs_layout: Layout information.
-        :param state_bag: Incremental decoding state.
-        :param audio_embeds: Pre-encoded audio embeddings from
-            ``audio_tower + audio_embedder``.  *Shape:* ``(B, T_a, M)``.
-        :param vision_features: Unused (Gemma 4 has no vision tower).
-        :returns:
-            - Embeddings ``(B, S, M)``
-            - Layout
-            - Per-layer embeddings ``(B, S, L, ple_dim)`` or ``None``
-        """
-        token_ids = seqs
-
-        seqs = self.embed(seqs)
-        seqs = seqs * self.scale
-
-        # Inject pre-encoded audio embeddings at audio_token_id positions.
-        if audio_embeds is not None and self.audio_token_id is not None:
-            seqs = self._inject_audio_embeds(token_ids, seqs, audio_embeds)
-
-        if self.embed_tokens_per_layer is not None:
-            # For discrete PLE, replace multimodal placeholder tokens with
-            # pad_idx to match HF's behavior (which feeds pad_token_id into
-            # embed_tokens_per_layer at multimodal positions).
-            ple_token_ids = token_ids
-            if (
-                audio_embeds is not None
-                and self.audio_token_id is not None
-                and self.pad_idx is not None
-            ):
-                ple_token_ids = token_ids.clone()
-                ple_token_ids[token_ids == self.audio_token_id] = self.pad_idx
-            per_layer_inputs = self._compute_ple(ple_token_ids, seqs)
-        else:
-            per_layer_inputs = None
-
-        return seqs, seqs_layout, per_layer_inputs
-
-    def _compute_ple(
-        self, token_ids: Tensor, seqs: Tensor
-    ) -> Tensor:
-        """Compute per-layer embeddings (discrete + continuous).
-
-        :param token_ids: Token IDs ``(B, S)``.
-        :param seqs: Scaled embeddings ``(B, S, M)``.
-        :returns: PLE ``(B, S, num_layers, ple_hidden_dim)``.
-        """
-        assert self.embed_tokens_per_layer is not None
-        assert self.per_layer_model_projection is not None
-        assert self.per_layer_projection_norm is not None
-
-        # Discrete PLE.
-        ple_token_ids = torch.clamp(
-            token_ids, max=self.embed_tokens_per_layer.num_embeddings - 1
-        )
-        discrete = self.embed_tokens_per_layer(ple_token_ids)  # (B, S, L*P)
-        discrete = discrete * self.per_layer_embed_scale  # type: ignore[operator]
-        discrete = discrete.reshape(
-            *token_ids.shape, self.num_layers, self.ple_hidden_dim
-        )
-
-        # Continuous PLE.
-        continuous = self.per_layer_model_projection(seqs)  # (B, S, L*P)
-        continuous = continuous * self.per_layer_projection_scale  # type: ignore[operator]
-        continuous = continuous.reshape(
-            *seqs.shape[:-1], self.num_layers, self.ple_hidden_dim
-        )
-        continuous = self.per_layer_projection_norm(continuous)
-
-        # Combine.
-        scale = self.per_layer_input_scale  # type: ignore[assignment]
-        return (continuous + discrete) * scale
-
-    def _inject_audio_embeds(
-        self,
-        token_ids: Tensor,
-        text_embeds: Tensor,
-        audio_embeds: Tensor,
-    ) -> Tensor:
-        """Replace audio placeholder token embeddings with encoded audio.
-
-        :param token_ids: Token IDs. *Shape:* ``(B, S)``.
-        :param text_embeds: Text embeddings. *Shape:* ``(B, S, M)``.
-        :param audio_embeds: Audio features. *Shape:* ``(B, T_a, M)``.
-        :returns: Merged embeddings. *Shape:* ``(B, S, M)``.
-        """
-        assert self.audio_token_id is not None
-
-        # Boolean mask: True where the token is an audio placeholder.
-        mask = token_ids == self.audio_token_id  # (B, S)
-
-        result = text_embeds.clone()
-        for i in range(token_ids.size(0)):
-            n_slots = mask[i].sum().item()
-            if n_slots == 0:
-                continue
-
-            n_frames = audio_embeds.size(1)
-
-            if n_frames >= n_slots:
-                # Enough frames — take the first n_slots.
-                result[i, mask[i]] = audio_embeds[i, :n_slots]
-            else:
-                # Fewer frames than slots — pad with zeros.
-                padded = torch.cat(
-                    [
-                        audio_embeds[i, :n_frames],
-                        audio_embeds.new_zeros(n_slots - n_frames, audio_embeds.size(2)),
-                    ],
-                    dim=0,
-                )
-                result[i, mask[i]] = padded
-
-        return result
-
-    if TYPE_CHECKING:
-        __call__ = forward
-
-
-# ---------------------------------------------------------------------------
-# Gemma4Factory
-# ---------------------------------------------------------------------------
 
 class Gemma4Factory:
     """Factory for creating Gemma 4 model components."""
@@ -985,14 +371,12 @@ class Gemma4Factory:
                 if config.num_global_key_value_heads is not None
                 else config.num_key_value_heads
             )
-            encoding_dim = int(head_dim * config.partial_rotary_factor)
             rope_theta = config.rope_theta_global
             k_eq_v = config.attention_k_eq_v
         else:
             # Sliding (local) attention: standard head_dim, full RoPE.
             head_dim = config.head_dim
             num_kv_heads = config.num_key_value_heads
-            encoding_dim = head_dim  # Full rotation.
             rope_theta = config.rope_theta
             k_eq_v = False
 

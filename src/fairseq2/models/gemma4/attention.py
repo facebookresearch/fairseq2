@@ -420,21 +420,19 @@ class Gemma4Attention(MultiheadAttention):
         layout: BatchLayout,
         state_bag: IncrementalStateBag | None,
     ) -> Tensor:
-        """Apply RoPE to a tensor, handling partial rotation when needed.
+        """Apply RoPE to ``x`` using ``self.pos_encoder``.
 
-        When ``pos_encoder.encoding_dim < head_dim`` (legacy split approach),
-        only the first ``encoding_dim`` dimensions are rotated; the rest pass
-        through unchanged.  When ``encoding_dim == head_dim`` (standard case
-        and :class:`Gemma4ProportionalRotaryEncoder`), the encoder is applied
-        to the full tensor.
+        Gemma 4 always uses a position encoder whose ``encoding_dim`` equals
+        ``head_dim``.  For partial RoPE on global attention layers, use
+        :class:`Gemma4ProportionalRotaryEncoder`, which keeps ``encoding_dim
+        == head_dim`` and zero-pads ``inv_freq`` so the non-rotary dimensions
+        act as identity (``cos=1, sin=0``).  This matches HuggingFace's
+        ``rotate_half`` pairing.
         """
         assert self.pos_encoder is not None
-
-        encoding_dim = self.pos_encoder.encoding_dim
-        if encoding_dim < self.head_dim:
-            x_rot = x[..., :encoding_dim]
-            x_pass = x[..., encoding_dim:]
-            x_rot = self.pos_encoder(x_rot, layout, state_bag=state_bag)
-            return torch.cat([x_rot, x_pass], dim=-1)
-
+        assert self.pos_encoder.encoding_dim == self.head_dim, (
+            f"Gemma4Attention expects pos_encoder.encoding_dim "
+            f"({self.pos_encoder.encoding_dim}) == head_dim ({self.head_dim}). "
+            f"For partial RoPE use Gemma4ProportionalRotaryEncoder."
+        )
         return self.pos_encoder(x, layout, state_bag=state_bag)
