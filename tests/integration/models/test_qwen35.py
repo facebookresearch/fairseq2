@@ -8,7 +8,11 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-MODEL_ID = "Qwen/Qwen3.5-0.8B"
+import os
+
+# Use local checkpoint if available (avoids SSL/proxy issues in CI)
+_LOCAL_PATH = "/checkpoint/smallomnillm/shared/models/Qwen3.5-0.8B"
+MODEL_ID = _LOCAL_PATH if os.path.isdir(_LOCAL_PATH) else "Qwen/Qwen3.5-0.8B"
 
 
 def _hf_model_type_available(model_type: str) -> bool:
@@ -36,10 +40,11 @@ class TestQwen35HFParity:
         print("Step 1: Loading HuggingFace model...")
         print("=" * 60)
 
-        hf_tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+        hf_tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, trust_remote_code=True)
         hf_model = AutoModelForCausalLM.from_pretrained(
             MODEL_ID,
-            dtype=torch.float32,
+            torch_dtype=torch.float32,
+            trust_remote_code=True,
         )
         hf_model.eval()
         print(
