@@ -79,10 +79,10 @@ def _checkpoint_exists(path: str) -> bool:
 
 # Local checkpoint paths (set via env var or fallback to known locations)
 E4B_CHECKPOINT = os.environ.get(
-    "GEMMA4_E4B_CHECKPOINT", "/engshare/yunchaoyang1/models/gemma-4-E4B"
+    "GEMMA4_E4B_CHECKPOINT", "/checkpoint/smallomnillm/shared/models/gemma-4-E4B"
 )
 E4B_IT_CHECKPOINT = os.environ.get(
-    "GEMMA4_E4B_IT_CHECKPOINT", "/engshare/yunchaoyang1/models/gemma-4-E4B-it"
+    "GEMMA4_E4B_IT_CHECKPOINT", "/checkpoint/smallomnillm/shared/models/gemma-4-E4B-it"
 )
 
 

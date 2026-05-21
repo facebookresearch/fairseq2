@@ -261,5 +261,17 @@ class Gemma4Frontend(Module):
 
         return result
 
+    def reset_non_persistent_buffers(self) -> None:
+        """Reset non-persistent buffers to their default values.
+
+        Called by :func:`~fairseq2.nn.utils.module.reset_non_persistent_buffers`
+        after loading from a checkpoint on the meta device.
+        """
+        if self.ple_hidden_dim > 0:
+            model_dim = self.embed.embed_dim
+            self.per_layer_projection_scale.fill_(model_dim ** -0.5)  # type: ignore[operator]
+            self.per_layer_input_scale.fill_(2.0 ** -0.5)  # type: ignore[operator]
+            self.per_layer_embed_scale.fill_(self.ple_hidden_dim ** 0.5)  # type: ignore[operator]
+
     if TYPE_CHECKING:
         __call__ = forward
