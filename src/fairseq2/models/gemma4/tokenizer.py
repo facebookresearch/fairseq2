@@ -13,7 +13,7 @@ Gemma 4 family uses the same tokenizer format and vocabulary.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Final, final
+from typing import Any, final
 
 from typing_extensions import override
 
@@ -31,27 +31,7 @@ from fairseq2.data.tokenizers.hg import (
 )
 from fairseq2.device import Device
 
-# Gemma 4 chat template -- identical to Gemma 3n / Gemma 3 format.
-# Handles both 'assistant' (OpenAI convention) and 'model' (Gemma convention)
-# role names.  Uses {%- generation %} blocks for SFT assistant mask support.
-GEMMA4_CHAT_TEMPLATE: Final = """\
-{{ bos_token }}\
-{%- for message in messages %}
-{%- if message['role'] == 'user' %}
-<start_of_turn>user
-{{ message['content'] | trim }}<end_of_turn>
-{%- elif message['role'] == 'model' or message['role'] == 'assistant' %}
-{%- generation %}<start_of_turn>model
-{{ message['content'] | trim }}<end_of_turn>
-{%- endgeneration %}
-{%- elif message['role'] == 'system' %}
-<start_of_turn>system
-{{ message['content'] | trim }}<end_of_turn>
-{%- endif %}
-{%- endfor %}
-{%- if add_generation_prompt %}
-<start_of_turn>model
-{%- endif %}"""
+__all__ = ["Gemma4Tokenizer"]
 
 
 @final
@@ -169,6 +149,9 @@ def load_gemma4_tokenizer(path: Path, config: None) -> Tokenizer:
         eoh_token=None,
     )
 
-    model.overwrite_chat_template(GEMMA4_CHAT_TEMPLATE)
+    # Use the chat template from the HF tokenizer as-is.  Gemma 4 uses
+    # <|turn>/<turn|> markers (NOT the old <start_of_turn>/<end_of_turn>
+    # format from Gemma 2/3).  The HF tokenizer_config.json already
+    # contains the correct template with tool-call support.
 
     return Gemma4Tokenizer(model)
