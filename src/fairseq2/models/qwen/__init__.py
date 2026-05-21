@@ -8,15 +8,26 @@ from __future__ import annotations
 
 from fairseq2.models.qwen.config import QWEN35_FAMILY as QWEN35_FAMILY
 from fairseq2.models.qwen.config import QWEN35_MOE_FAMILY as QWEN35_MOE_FAMILY
+from fairseq2.models.qwen.config import QWEN36_FAMILY as QWEN36_FAMILY
+from fairseq2.models.qwen.config import QWEN36_MOE_FAMILY as QWEN36_MOE_FAMILY
 from fairseq2.models.qwen.config import QWEN_FAMILY as QWEN_FAMILY
 from fairseq2.models.qwen.config import Qwen35Config as Qwen35Config
 from fairseq2.models.qwen.config import Qwen35MoeConfig as Qwen35MoeConfig
+from fairseq2.models.qwen.config import Qwen36Config as Qwen36Config
+from fairseq2.models.qwen.config import Qwen36MoeConfig as Qwen36MoeConfig
+from fairseq2.models.qwen.config import Qwen36VisionConfig as Qwen36VisionConfig
 from fairseq2.models.qwen.config import QwenConfig as QwenConfig
 from fairseq2.models.qwen.config import (
     register_qwen35_configs as register_qwen35_configs,
 )
 from fairseq2.models.qwen.config import (
     register_qwen35_moe_configs as register_qwen35_moe_configs,
+)
+from fairseq2.models.qwen.config import (
+    register_qwen36_configs as register_qwen36_configs,
+)
+from fairseq2.models.qwen.config import (
+    register_qwen36_moe_configs as register_qwen36_moe_configs,
 )
 from fairseq2.models.qwen.config import register_qwen_configs as register_qwen_configs
 from fairseq2.models.qwen.factory import Qwen35Factory as Qwen35Factory
@@ -37,6 +48,16 @@ from fairseq2.models.qwen.hub import (
 from fairseq2.models.qwen.hub import (
     get_qwen35_tokenizer_hub as get_qwen35_tokenizer_hub,
 )
+from fairseq2.models.qwen.hub import get_qwen36_model_hub as get_qwen36_model_hub
+from fairseq2.models.qwen.hub import (
+    get_qwen36_moe_model_hub as get_qwen36_moe_model_hub,
+)
+from fairseq2.models.qwen.hub import (
+    get_qwen36_moe_tokenizer_hub as get_qwen36_moe_tokenizer_hub,
+)
+from fairseq2.models.qwen.hub import (
+    get_qwen36_tokenizer_hub as get_qwen36_tokenizer_hub,
+)
 from fairseq2.models.qwen.hub import get_qwen_model_hub as get_qwen_model_hub
 from fairseq2.models.qwen.hub import get_qwen_tokenizer_hub as get_qwen_tokenizer_hub
 from fairseq2.models.qwen.interop import (
@@ -44,6 +65,12 @@ from fairseq2.models.qwen.interop import (
 )
 from fairseq2.models.qwen.interop import (
     _Qwen35MoeHuggingFaceConverter as _Qwen35MoeHuggingFaceConverter,
+)
+from fairseq2.models.qwen.interop import (
+    _Qwen36HuggingFaceConverter as _Qwen36HuggingFaceConverter,
+)
+from fairseq2.models.qwen.interop import (
+    _Qwen36MoeHuggingFaceConverter as _Qwen36MoeHuggingFaceConverter,
 )
 from fairseq2.models.qwen.interop import (
     _QwenHuggingFaceConverter as _QwenHuggingFaceConverter,
@@ -55,8 +82,27 @@ from fairseq2.models.qwen.interop import (
     convert_qwen35_state_dict as convert_qwen35_state_dict,
 )
 from fairseq2.models.qwen.interop import (
+    convert_qwen36_moe_state_dict as convert_qwen36_moe_state_dict,
+)
+from fairseq2.models.qwen.interop import (
+    convert_qwen36_state_dict as convert_qwen36_state_dict,
+)
+from fairseq2.models.qwen.interop import (
     convert_qwen_state_dict as convert_qwen_state_dict,
 )
+from fairseq2.models.qwen.qwen36_factory import (
+    Qwen36Factory as Qwen36Factory,
+)
+from fairseq2.models.qwen.qwen36_factory import (
+    Qwen36MoeFactory as Qwen36MoeFactory,
+)
+from fairseq2.models.qwen.qwen36_factory import (
+    create_qwen36_model as create_qwen36_model,
+)
+from fairseq2.models.qwen.qwen36_factory import (
+    create_qwen36_moe_model as create_qwen36_moe_model,
+)
+from fairseq2.models.qwen.qwen36_model import Qwen36Model as Qwen36Model
 from fairseq2.models.qwen.sharder import (
     get_qwen35_shard_specs as get_qwen35_shard_specs,
 )

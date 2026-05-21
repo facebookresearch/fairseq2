@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Final
 
 from fairseq2.runtime.config_registry import ConfigRegistrar
@@ -14,6 +14,7 @@ from fairseq2.runtime.dependency import DependencyContainer
 
 QWEN_FAMILY: Final = "qwen"
 QWEN35_FAMILY: Final = "qwen3_5"
+QWEN36_FAMILY: Final = "qwen3_6"
 
 
 @dataclass(kw_only=True)
@@ -225,6 +226,129 @@ def register_qwen35_moe_configs(container: DependencyContainer) -> None:
     @arch("qwen35_moe_35b_a3b")
     def qwen35_moe_35b_a3b() -> Qwen35MoeConfig:
         return Qwen35MoeConfig()
+
+
+# ---------------------------------------------------------------------------
+# Qwen 3.6 (Multimodal VLM) Config
+# ---------------------------------------------------------------------------
+
+QWEN36_MOE_FAMILY: Final = "qwen3_6_moe"
+
+
+@dataclass(kw_only=True)
+class Qwen36VisionConfig:
+    """Configuration for the Qwen 3.6 ViT vision encoder."""
+
+    depth: int = 27
+    """Number of vision transformer blocks."""
+
+    hidden_size: int = 1152
+    """Hidden dimensionality of vision encoder."""
+
+    num_heads: int = 16
+    """Number of attention heads in vision blocks."""
+
+    intermediate_size: int = 4304
+    """MLP intermediate dimensionality in vision blocks."""
+
+    in_channels: int = 3
+    """Number of input image channels."""
+
+    patch_size: int = 16
+    """Spatial patch size for Conv3d embedding."""
+
+    temporal_patch_size: int = 2
+    """Temporal patch size for Conv3d embedding (video)."""
+
+    spatial_merge_size: int = 2
+    """Merger groups NxN neighboring patches for downsampling."""
+
+    num_position_embeddings: int = 2304
+    """Number of learned position embeddings."""
+
+    out_hidden_size: int = 5120
+    """Output dimensionality of the merger (matches text model_dim)."""
+
+
+@dataclass(kw_only=True)
+class Qwen36Config:
+    """Configuration for a Qwen 3.6 dense VLM (text + vision)."""
+
+    text_config: Qwen35Config = field(default_factory=lambda: Qwen35Config(
+        model_dim=5120,
+        max_seq_len=262_144,
+        vocab_size=248_320,
+        tied_embeddings=False,
+        num_layers=64,
+        num_attn_heads=24,
+        num_key_value_heads=4,
+        head_dim=256,
+        ffn_inner_dim=17_408,
+        partial_rotary_factor=0.25,
+        rope_theta=10_000_000.0,
+        full_attention_interval=4,
+        linear_conv_kernel_dim=4,
+        linear_key_head_dim=128,
+        linear_value_head_dim=128,
+        linear_num_key_heads=16,
+        linear_num_value_heads=48,
+    ))
+    """Text backbone configuration (identical to Qwen 3.5)."""
+
+    vision_config: Qwen36VisionConfig = field(
+        default_factory=lambda: Qwen36VisionConfig(out_hidden_size=5120)
+    )
+    """Vision encoder configuration."""
+
+    image_token_id: int = 248056
+    """Token ID used as placeholder for image features."""
+
+    video_token_id: int = 248057
+    """Token ID used as placeholder for video features."""
+
+    vision_start_token_id: int = 248053
+    """Token ID marking the start of a vision sequence."""
+
+    vision_end_token_id: int = 248054
+    """Token ID marking the end of a vision sequence."""
+
+    mrope_section: list[int] = field(default_factory=lambda: [11, 11, 10])
+    """Frequency pair counts for 3-section M-RoPE: [temporal, height, width]."""
+
+
+@dataclass(kw_only=True)
+class Qwen36MoeConfig:
+    """Configuration for a Qwen 3.6 MoE VLM (text MoE + vision)."""
+
+    text_config: Qwen35MoeConfig = field(default_factory=Qwen35MoeConfig)
+    """Text backbone configuration (Qwen 3.5 MoE)."""
+
+    vision_config: Qwen36VisionConfig = field(
+        default_factory=lambda: Qwen36VisionConfig(out_hidden_size=2048)
+    )
+    """Vision encoder configuration."""
+
+    image_token_id: int = 248056
+    video_token_id: int = 248057
+    vision_start_token_id: int = 248053
+    vision_end_token_id: int = 248054
+    mrope_section: list[int] = field(default_factory=lambda: [11, 11, 10])
+
+
+def register_qwen36_configs(container: DependencyContainer) -> None:
+    arch = ConfigRegistrar(container, Qwen36Config)
+
+    @arch("qwen36_27b")
+    def qwen36_27b() -> Qwen36Config:
+        return Qwen36Config()
+
+
+def register_qwen36_moe_configs(container: DependencyContainer) -> None:
+    arch = ConfigRegistrar(container, Qwen36MoeConfig)
+
+    @arch("qwen36_moe_35b_a3b")
+    def qwen36_moe_35b_a3b() -> Qwen36MoeConfig:
+        return Qwen36MoeConfig()
 
 
 # ---------------------------------------------------------------------------

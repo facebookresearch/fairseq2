@@ -12,7 +12,13 @@ import torch
 from typing_extensions import override
 
 from fairseq2.models.hg import HuggingFaceConfig, HuggingFaceConverter
-from fairseq2.models.qwen.config import Qwen35Config, Qwen35MoeConfig, QwenConfig
+from fairseq2.models.qwen.config import (
+    Qwen35Config,
+    Qwen35MoeConfig,
+    Qwen36Config,
+    Qwen36MoeConfig,
+    QwenConfig,
+)
 from fairseq2.models.utils.checkpoint import convert_state_dict, create_reverse_key_map
 from fairseq2.utils.config import cast_config_type
 
@@ -397,3 +403,243 @@ def convert_qwen35_moe_state_dict(
             ]
 
     return state_dict
+
+
+# ---------------------------------------------------------------------------
+# Qwen 3.6 (VLM) interop
+# ---------------------------------------------------------------------------
+
+# Vision encoder key map:
+# HF: model.visual.* -> FS2: decoder_frontend.vision_encoder.* / decoder_frontend.vision_merger.*
+_QWEN36_VISION_KEY_MAP: Final = {
+    # fmt: off
+    # Patch embedding
+    r"^model\.visual\.patch_embed\.proj\.":                         r"decoder_frontend.vision_encoder.patch_embed.proj.",
+    # Position embeddings
+    r"^model\.visual\.pos_embed\.":                                 r"decoder_frontend.vision_encoder.pos_embed.",
+    # Vision blocks: attention
+    r"^model\.visual\.blocks\.([0-9]+)\.attn\.qkv\.":              r"decoder_frontend.vision_encoder.blocks.\1.attn.qkv.",
+    r"^model\.visual\.blocks\.([0-9]+)\.attn\.proj\.":             r"decoder_frontend.vision_encoder.blocks.\1.attn.proj.",
+    # Vision blocks: norms
+    r"^model\.visual\.blocks\.([0-9]+)\.norm1\.":                  r"decoder_frontend.vision_encoder.blocks.\1.norm1.",
+    r"^model\.visual\.blocks\.([0-9]+)\.norm2\.":                  r"decoder_frontend.vision_encoder.blocks.\1.norm2.",
+    # Vision blocks: MLP
+    r"^model\.visual\.blocks\.([0-9]+)\.mlp\.linear_fc1\.":        r"decoder_frontend.vision_encoder.blocks.\1.mlp.linear_fc1.",
+    r"^model\.visual\.blocks\.([0-9]+)\.mlp\.linear_fc2\.":        r"decoder_frontend.vision_encoder.blocks.\1.mlp.linear_fc2.",
+    # Merger
+    r"^model\.visual\.merger\.norm\.":                              r"decoder_frontend.vision_merger.norm.",
+    r"^model\.visual\.merger\.linear_fc1\.":                        r"decoder_frontend.vision_merger.linear_fc1.",
+    r"^model\.visual\.merger\.linear_fc2\.":                        r"decoder_frontend.vision_merger.linear_fc2.",
+    # fmt: on
+}
+
+# Skip prefixes for Qwen 3.6 (MTP deferred, but vision is now handled)
+_QWEN36_SKIP_PREFIXES: Final = (
+    "mtp.",  # multi-token prediction head (deferred)
+)
+
+
+def _build_qwen36_key_map(text_key_map: dict[str, str]) -> dict[str, str]:
+    """Build full Qwen 3.6 key map: vision keys + text keys with language_model prefix."""
+    combined: dict[str, str] = dict(_QWEN36_VISION_KEY_MAP)
+    # Text keys use model.language_model.* prefix in VLM checkpoints
+    for pattern, replacement in text_key_map.items():
+        if pattern.startswith(r"^model\."):
+            vl_pattern = pattern.replace(r"^model\.", r"^model\.language_model\.", 1)
+            combined[vl_pattern] = replacement
+        elif pattern.startswith(r"^lm_head\."):
+            combined[pattern] = replacement
+    return combined
+
+
+_QWEN36_HG_KEY_MAP: Final = _build_qwen36_key_map(_QWEN35_TEXT_KEY_MAP)
+_QWEN36_MOE_HG_KEY_MAP: Final = _build_qwen36_key_map(_QWEN35_MOE_TEXT_KEY_MAP)
+
+
+def convert_qwen36_state_dict(
+    state_dict: dict[str, object], config: Qwen36Config
+) -> dict[str, object]:
+    """Convert HF Qwen 3.6 VLM state dict to FS2 format."""
+    # Filter MTP keys
+    state_dict = {
+        k: v
+        for k, v in state_dict.items()
+        if not k.startswith(_QWEN36_SKIP_PREFIXES)
+    }
+
+    if _is_hg_format(state_dict) or any(
+        k.startswith("model.visual.") for k in state_dict
+    ):
+        state_dict = convert_state_dict(state_dict, _QWEN36_HG_KEY_MAP)
+
+    # Convert (1+w) RMSNorm weights to standard (w) — TEXT norms only.
+    # Vision encoder uses standard LayerNorm (no +1 convention).
+    for key in list(state_dict.keys()):
+        if any(key.endswith(suffix) for suffix in _QWEN35_RMSNORM_KEYS):
+            weight = state_dict[key]
+            if isinstance(weight, torch.Tensor):
+                state_dict[key] = weight + 1.0
+
+    text_config = config.text_config
+    if text_config.tied_embeddings:
+        if "decoder_frontend.embed.weight" in state_dict:
+            state_dict["final_proj.weight"] = state_dict[
+                "decoder_frontend.embed.weight"
+            ]
+        elif "final_proj.weight" in state_dict:
+            state_dict["decoder_frontend.embed.weight"] = state_dict[
+                "final_proj.weight"
+            ]
+
+    return state_dict
+
+
+def convert_qwen36_moe_state_dict(
+    state_dict: dict[str, object], config: Qwen36MoeConfig
+) -> dict[str, object]:
+    """Convert HF Qwen 3.6 MoE VLM state dict to FS2 format."""
+    # Filter MTP keys
+    state_dict = {
+        k: v
+        for k, v in state_dict.items()
+        if not k.startswith(_QWEN36_SKIP_PREFIXES)
+    }
+
+    if _is_hg_format(state_dict) or any(
+        k.startswith("model.visual.") for k in state_dict
+    ):
+        state_dict = convert_state_dict(state_dict, _QWEN36_MOE_HG_KEY_MAP)
+
+    # Convert (1+w) RMSNorm weights to standard (w) — TEXT norms only.
+    for key in list(state_dict.keys()):
+        if any(key.endswith(suffix) for suffix in _QWEN35_RMSNORM_KEYS):
+            weight = state_dict[key]
+            if isinstance(weight, torch.Tensor):
+                state_dict[key] = weight + 1.0
+
+    text_config = config.text_config
+    if text_config.tied_embeddings:
+        if "decoder_frontend.embed.weight" in state_dict:
+            state_dict["final_proj.weight"] = state_dict[
+                "decoder_frontend.embed.weight"
+            ]
+        elif "final_proj.weight" in state_dict:
+            state_dict["decoder_frontend.embed.weight"] = state_dict[
+                "final_proj.weight"
+            ]
+
+    return state_dict
+
+
+@final
+class _Qwen36HuggingFaceConverter(HuggingFaceConverter):
+    @override
+    def to_hg_config(self, config: object) -> HuggingFaceConfig:
+        config = cast_config_type(config, Qwen36Config)
+        tc = config.text_config
+
+        data: dict[str, object] = {
+            "hidden_size": tc.model_dim,
+            "max_position_embeddings": tc.max_seq_len,
+            "vocab_size": tc.vocab_size,
+            "tie_word_embeddings": tc.tied_embeddings,
+            "num_hidden_layers": tc.num_layers,
+            "num_attention_heads": tc.num_attn_heads,
+            "num_key_value_heads": tc.num_key_value_heads,
+            "head_dim": tc.head_dim,
+            "intermediate_size": tc.ffn_inner_dim,
+            "partial_rotary_factor": tc.partial_rotary_factor,
+            "rope_theta": tc.rope_theta,
+        }
+
+        return HuggingFaceConfig(
+            data,
+            kls_name="Qwen3_5Config",
+            arch="Qwen3_5ForConditionalGeneration",
+        )
+
+    @override
+    def to_hg_state_dict(
+        self, state_dict: dict[str, object], config: object
+    ) -> dict[str, object]:
+        config = cast_config_type(config, Qwen36Config)
+
+        key_map = create_reverse_key_map({
+            **_QWEN36_VISION_KEY_MAP,
+            **{
+                k.replace(r"^model\.", r"^model\.language_model\.", 1): v
+                for k, v in _QWEN35_TEXT_KEY_MAP.items()
+                if k.startswith(r"^model\.")
+            },
+            **{k: v for k, v in _QWEN35_TEXT_KEY_MAP.items() if k.startswith(r"^lm_head\.")},
+        })
+
+        hg_state_dict = convert_state_dict(state_dict, key_map)
+
+        for key in list(hg_state_dict.keys()):
+            if any(key.endswith(suffix) for suffix in _QWEN35_HG_RMSNORM_SUFFIXES):
+                weight = hg_state_dict[key]
+                if isinstance(weight, torch.Tensor):
+                    hg_state_dict[key] = weight - 1.0
+
+        if config.text_config.tied_embeddings:
+            hg_state_dict.pop("lm_head.weight", None)
+
+        return hg_state_dict
+
+
+@final
+class _Qwen36MoeHuggingFaceConverter(HuggingFaceConverter):
+    @override
+    def to_hg_config(self, config: object) -> HuggingFaceConfig:
+        config = cast_config_type(config, Qwen36MoeConfig)
+        tc = config.text_config
+
+        data: dict[str, object] = {
+            "hidden_size": tc.model_dim,
+            "max_position_embeddings": tc.max_seq_len,
+            "vocab_size": tc.vocab_size,
+            "tie_word_embeddings": tc.tied_embeddings,
+            "num_hidden_layers": tc.num_layers,
+            "num_attention_heads": tc.num_attn_heads,
+            "num_key_value_heads": tc.num_key_value_heads,
+            "head_dim": tc.head_dim,
+            "num_experts": tc.num_experts,
+            "num_experts_per_tok": tc.num_experts_per_tok,
+            "moe_intermediate_size": tc.moe_intermediate_size,
+        }
+
+        return HuggingFaceConfig(
+            data,
+            kls_name="Qwen3_5MoeConfig",
+            arch="Qwen3_5MoeForConditionalGeneration",
+        )
+
+    @override
+    def to_hg_state_dict(
+        self, state_dict: dict[str, object], config: object
+    ) -> dict[str, object]:
+        config = cast_config_type(config, Qwen36MoeConfig)
+
+        key_map = create_reverse_key_map({
+            **_QWEN36_VISION_KEY_MAP,
+            **{
+                k.replace(r"^model\.", r"^model\.language_model\.", 1): v
+                for k, v in _QWEN35_MOE_TEXT_KEY_MAP.items()
+                if k.startswith(r"^model\.")
+            },
+            **{k: v for k, v in _QWEN35_MOE_TEXT_KEY_MAP.items() if k.startswith(r"^lm_head\.")},
+        })
+
+        hg_state_dict = convert_state_dict(state_dict, key_map)
+
+        for key in list(hg_state_dict.keys()):
+            if any(key.endswith(suffix) for suffix in _QWEN35_HG_RMSNORM_SUFFIXES):
+                weight = hg_state_dict[key]
+                if isinstance(weight, torch.Tensor):
+                    hg_state_dict[key] = weight - 1.0
+
+        if config.text_config.tied_embeddings:
+            hg_state_dict.pop("lm_head.weight", None)
+
+        return hg_state_dict

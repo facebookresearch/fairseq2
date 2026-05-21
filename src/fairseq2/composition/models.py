@@ -104,9 +104,13 @@ from fairseq2.models.qwen import (
     QwenConfig,
     _Qwen35HuggingFaceConverter,
     _Qwen35MoeHuggingFaceConverter,
+    _Qwen36HuggingFaceConverter,
+    _Qwen36MoeHuggingFaceConverter,
     _QwenHuggingFaceConverter,
     convert_qwen35_moe_state_dict,
     convert_qwen35_state_dict,
+    convert_qwen36_moe_state_dict,
+    convert_qwen36_state_dict,
     convert_qwen_state_dict,
     create_qwen35_model,
     create_qwen35_moe_model,
@@ -115,6 +119,19 @@ from fairseq2.models.qwen import (
     register_qwen35_moe_configs,
     register_qwen_configs,
 )
+from fairseq2.models.qwen.config import (
+    QWEN36_FAMILY,
+    QWEN36_MOE_FAMILY,
+    Qwen36Config,
+    Qwen36MoeConfig,
+    register_qwen36_configs,
+    register_qwen36_moe_configs,
+)
+from fairseq2.models.qwen.qwen36_factory import (
+    create_qwen36_model,
+    create_qwen36_moe_model,
+)
+from fairseq2.models.qwen.qwen36_model import Qwen36Model
 from fairseq2.models.s2t_conformer import (
     S2T_CONFORMER_FAMILY,
     S2TConformerConfig,
@@ -436,6 +453,38 @@ def _register_model_families(container: DependencyContainer) -> None:
 
     container.register_type(
         HuggingFaceConverter, _Qwen35MoeHuggingFaceConverter, key=QWEN35_MOE_FAMILY
+    )
+
+    # Qwen 3.6 (VLM)
+    register_model_family(
+        container,
+        QWEN36_FAMILY,
+        kls=Qwen36Model,
+        config_kls=Qwen36Config,
+        factory=create_qwen36_model,
+        state_dict_converter=convert_qwen36_state_dict,
+    )
+
+    register_qwen36_configs(container)
+
+    container.register_type(
+        HuggingFaceConverter, _Qwen36HuggingFaceConverter, key=QWEN36_FAMILY
+    )
+
+    # Qwen 3.6 MoE (VLM)
+    register_model_family(
+        container,
+        QWEN36_MOE_FAMILY,
+        kls=Qwen36Model,
+        config_kls=Qwen36MoeConfig,
+        factory=create_qwen36_moe_model,
+        state_dict_converter=convert_qwen36_moe_state_dict,
+    )
+
+    register_qwen36_moe_configs(container)
+
+    container.register_type(
+        HuggingFaceConverter, _Qwen36MoeHuggingFaceConverter, key=QWEN36_MOE_FAMILY
     )
 
     # S2T Conformer
