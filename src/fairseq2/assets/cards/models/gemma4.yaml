@@ -7,8 +7,8 @@
 name: gemma4_e4b
 model_family: gemma4
 model_arch: e4b
-checkpoint: "hg://google/gemma-4-E4B"
-tokenizer: "hg://google/gemma-4-E4B"
+checkpoint: "/checkpoint/smallomnillm/shared/models/gemma-4-E4B"
+tokenizer: "/checkpoint/smallomnillm/shared/models/gemma-4-E4B"
 tokenizer_family: gemma4
 
 ---
@@ -16,8 +16,8 @@ tokenizer_family: gemma4
 name: gemma4_e4b_it
 model_family: gemma4
 model_arch: e4b_it
-checkpoint: "hg://google/gemma-4-E4B-it"
-tokenizer: "hg://google/gemma-4-E4B-it"
+checkpoint: "/checkpoint/smallomnillm/shared/models/gemma-4-E4B-it"
+tokenizer: "/checkpoint/smallomnillm/shared/models/gemma-4-E4B-it"
 tokenizer_family: gemma4
 
 ---
@@ -25,8 +25,8 @@ tokenizer_family: gemma4
 name: gemma4_31b
 model_family: gemma4
 model_arch: 31b
-checkpoint: "hg://google/gemma-4-31B"
-tokenizer: "hg://google/gemma-4-31B"
+checkpoint: "/checkpoint/smallomnillm/shared/models/gemma-4-31B"
+tokenizer: "/checkpoint/smallomnillm/shared/models/gemma-4-31B"
 tokenizer_family: gemma4
 
 ---
@@ -34,8 +34,8 @@ tokenizer_family: gemma4
 name: gemma4_31b_it
 model_family: gemma4
 model_arch: 31b_it
-checkpoint: "hg://google/gemma-4-31B-it"
-tokenizer: "hg://google/gemma-4-31B-it"
+checkpoint: "/checkpoint/smallomnillm/shared/models/gemma-4-31B-it"
+tokenizer: "/checkpoint/smallomnillm/shared/models/gemma-4-31B-it"
 tokenizer_family: gemma4
 
 ---
@@ -43,8 +43,8 @@ tokenizer_family: gemma4
 name: gemma4_26b_a4b
 model_family: gemma4
 model_arch: 26b_a4b
-checkpoint: "hg://google/gemma-4-26B-A4B"
-tokenizer: "hg://google/gemma-4-26B-A4B"
+checkpoint: "/checkpoint/smallomnillm/shared/models/gemma-4-26B-A4B"
+tokenizer: "/checkpoint/smallomnillm/shared/models/gemma-4-26B-A4B"
 tokenizer_family: gemma4
 
 ---
@@ -52,8 +52,8 @@ tokenizer_family: gemma4
 name: gemma4_26b_a4b_it
 model_family: gemma4
 model_arch: 26b_a4b_it
-checkpoint: "hg://google/gemma-4-26B-A4B-it"
-tokenizer: "hg://google/gemma-4-26B-A4B-it"
+checkpoint: "/checkpoint/smallomnillm/shared/models/gemma-4-26B-A4B-it"
+tokenizer: "/checkpoint/smallomnillm/shared/models/gemma-4-26B-A4B-it"
 tokenizer_family: gemma4
 
 ---
@@ -61,8 +61,8 @@ tokenizer_family: gemma4
 name: gemma4_e2b
 model_family: gemma4
 model_arch: e2b
-checkpoint: "hg://google/gemma-4-E2B"
-tokenizer: "hg://google/gemma-4-E2B"
+checkpoint: "/checkpoint/smallomnillm/shared/models/gemma-4-E2B"
+tokenizer: "/checkpoint/smallomnillm/shared/models/gemma-4-E2B"
 tokenizer_family: gemma4
 
 ---
@@ -70,56 +70,6 @@ tokenizer_family: gemma4
 name: gemma4_e2b_it
 model_family: gemma4
 model_arch: e2b_it
-checkpoint: "hg://google/gemma-4-E2B-it"
-tokenizer: "hg://google/gemma-4-E2B-it"
-tokenizer_family: gemma4
-
----
-
-# ── fair-sc cluster overrides ────────────────────────────────────────────────
-
-name: gemma4_e2b@fair-sc
-checkpoint: "/checkpoint/smallomnillm/shared/models/gemma-4-E2B"
-tokenizer: "/checkpoint/smallomnillm/shared/models/gemma-4-E2B"
-
----
-
-name: gemma4_e2b_it@fair-sc
 checkpoint: "/checkpoint/smallomnillm/shared/models/gemma-4-E2B-it"
 tokenizer: "/checkpoint/smallomnillm/shared/models/gemma-4-E2B-it"
-
----
-
-name: gemma4_e4b@fair-sc
-checkpoint: "/checkpoint/smallomnillm/shared/models/gemma-4-E4B"
-tokenizer: "/checkpoint/smallomnillm/shared/models/gemma-4-E4B"
-
----
-
-name: gemma4_e4b_it@fair-sc
-checkpoint: "/checkpoint/smallomnillm/shared/models/gemma-4-E4B-it"
-tokenizer: "/checkpoint/smallomnillm/shared/models/gemma-4-E4B-it"
-
----
-
-name: gemma4_31b@fair-sc
-checkpoint: "/checkpoint/smallomnillm/shared/models/gemma-4-31B"
-tokenizer: "/checkpoint/smallomnillm/shared/models/gemma-4-31B"
-
----
-
-name: gemma4_31b_it@fair-sc
-checkpoint: "/checkpoint/smallomnillm/shared/models/gemma-4-31B-it"
-tokenizer: "/checkpoint/smallomnillm/shared/models/gemma-4-31B-it"
-
----
-
-name: gemma4_26b_a4b@fair-sc
-checkpoint: "/checkpoint/smallomnillm/shared/models/gemma-4-26B-A4B"
-tokenizer: "/checkpoint/smallomnillm/shared/models/gemma-4-26B-A4B"
-
----
-
-name: gemma4_26b_a4b_it@fair-sc
-checkpoint: "/checkpoint/smallomnillm/shared/models/gemma-4-26B-A4B-it"
-tokenizer: "/checkpoint/smallomnillm/shared/models/gemma-4-26B-A4B-it"
+tokenizer_family: gemma4
