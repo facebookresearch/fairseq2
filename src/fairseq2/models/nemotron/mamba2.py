@@ -316,7 +316,7 @@ class NemotronHMamba2Mixer(nn.Module):
         # 5. Selective scan
         A = -torch.exp(self.A_log.float())  # [num_heads]
 
-        if HAS_MAMBA_SSM:
+        if HAS_MAMBA_SSM and x.is_cuda:
             y = mamba_chunk_scan_combined(
                 x,
                 dt,
@@ -354,7 +354,7 @@ class NemotronHMamba2Mixer(nn.Module):
         Returns:
             Conv output with SiLU activation. Shape: [B, L, conv_dim]
         """
-        if HAS_CAUSAL_CONV1D:
+        if HAS_CAUSAL_CONV1D and x_BC.is_cuda:
             # Use optimized causal conv1d
             x_BC = x_BC.transpose(1, 2)  # [B, conv_dim, L]
             x_BC = causal_conv1d_fn(
@@ -458,7 +458,7 @@ class NemotronHMamba2Mixer(nn.Module):
         )
 
         # 3. Causal conv1d update (single step)
-        if HAS_CAUSAL_CONV1D:
+        if HAS_CAUSAL_CONV1D and x_BC.is_cuda:
             x_BC = causal_conv1d_update(
                 x=x_BC,
                 conv_state=state.conv_state,
@@ -501,7 +501,7 @@ class NemotronHMamba2Mixer(nn.Module):
         A = -torch.exp(self.A_log.float())
         dt_val = F.softplus(dt + self.dt_bias)  # [B, H]
 
-        if HAS_MAMBA_SSM:
+        if HAS_MAMBA_SSM and x.is_cuda:
             y = selective_state_update(
                 state.ssm_state,
                 x,
