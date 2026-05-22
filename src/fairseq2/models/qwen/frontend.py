@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from typing import Final
 
-import torch
 from torch import Tensor
 
 from fairseq2.models.qwen.vision_encoder import QwenVisionEncoder, QwenVisionMerger

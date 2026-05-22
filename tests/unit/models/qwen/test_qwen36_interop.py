@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import pytest
 import torch
 
 from fairseq2.models.qwen.config import Qwen36Config, Qwen36MoeConfig

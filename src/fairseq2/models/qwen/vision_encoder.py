@@ -15,7 +15,6 @@ Architecture (from HF checkpoint weights):
 
 from __future__ import annotations
 
-import math
 from typing import Final
 
 import torch
