@@ -255,34 +255,44 @@ class NemotronHMoE(nn.Module):
 
         # Compute routed expert outputs
         # Use token-level dispatch (efficient for moderate number of active experts)
-        final_output = torch.zeros_like(hidden_states_flat)
+        # Accumulate in float32 for numerical stability (HF does the same)
+        final_output = torch.zeros(
+            num_tokens, hidden_dim,
+            dtype=torch.float32,
+            device=hidden_states_flat.device,
+        )
 
-        # Process each expert
-        for expert_idx in range(self.num_experts):
-            # Find tokens routed to this expert
-            # expert_mask: [num_tokens, top_k] boolean
-            expert_mask = selected_experts == expert_idx
-            # token_indices: which tokens use this expert
-            token_indices, slot_indices = torch.where(expert_mask)
+        # Precompute which experts have tokens (avoids looping over all 128)
+        with torch.no_grad():
+            expert_mask = F.one_hot(selected_experts, num_classes=self.num_experts)
+            # expert_mask: [num_tokens, top_k, num_experts]
+            expert_mask = expert_mask.permute(2, 1, 0)  # [num_experts, top_k, num_tokens]
+            expert_hit = torch.greater(expert_mask.sum(dim=(-1, -2)), 0).nonzero().squeeze(-1)
 
-            if token_indices.shape[0] == 0:
+        # Process only experts that have tokens routed to them
+        for expert_idx in expert_hit:
+            expert_idx_item = expert_idx.item()
+            top_k_pos, token_indices = torch.where(expert_mask[expert_idx_item])
+
+            if token_indices.numel() == 0:
                 continue
 
             # Get the routing weights for these token-expert pairs
-            weights = routing_weights[token_indices, slot_indices]  # [num_selected]
+            weights = routing_weights[token_indices, top_k_pos]  # [num_selected]
 
             # Compute expert output
             expert_input = hidden_states_flat[token_indices]  # [num_selected, D]
-            expert_output = self.experts[expert_idx](expert_input)  # [num_selected, D]
+            expert_output = self.experts[expert_idx_item](expert_input)  # [num_selected, D]
 
-            # Weighted accumulation
+            # Weighted accumulation in float32
             final_output.index_add_(
                 0,
                 token_indices,
-                expert_output * weights.unsqueeze(-1),
+                (expert_output * weights.unsqueeze(-1)).float(),
             )
 
-        # Add shared expert output
+        # Cast back to input dtype, then add shared expert output
+        final_output = final_output.to(hidden_states_flat.dtype)
         final_output = final_output + shared_output
 
         return final_output.view(orig_shape)

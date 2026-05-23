@@ -82,23 +82,29 @@ class NemotronHMamba2State(IncrementalState):
 class RMSNormGated(nn.Module):
     """Gated RMS Normalization as used in Mamba2 (Zamba2RMSNormGated).
 
-    Applies RMS normalization to the first half of the input and gates it
-    with the SiLU-activated second half:
-        output = rms_norm(hidden_states) * silu(gate)
+    Matches the HF implementation exactly:
+    1. Gate first: hidden = hidden * silu(gate)  (in float32)
+    2. Group-wise RMSNorm: split into groups, normalize each independently
+    3. Scale by learnable weight
+
+    This is different from applying norm then gate — RMSNorm is not linear,
+    so the order matters.
     """
 
     def __init__(
         self,
         hidden_size: int,
+        group_size: int,
         eps: float = 1e-5,
     ) -> None:
         super().__init__()
         self.weight = nn.Parameter(torch.ones(hidden_size))
         self.variance_epsilon = eps
+        self.group_size = group_size
 
     @override
     def forward(self, hidden_states: Tensor, gate: Tensor) -> Tensor:
-        """Apply gated RMS normalization.
+        """Apply gated RMS normalization (gate-first, group-wise).
 
         Args:
             hidden_states: Input to normalize. Shape: [..., hidden_size]
@@ -109,13 +115,20 @@ class RMSNormGated(nn.Module):
         """
         input_dtype = hidden_states.dtype
         hidden_states = hidden_states.to(torch.float32)
-        variance = hidden_states.pow(2).mean(-1, keepdim=True)
-        hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
-        hidden_states = hidden_states.to(input_dtype) * self.weight
 
-        # Gate with SiLU activation
-        hidden_states = hidden_states * F.silu(gate.to(input_dtype))
-        return hidden_states
+        # 1. Gate FIRST (in float32)
+        hidden_states = hidden_states * F.silu(gate.to(torch.float32))
+
+        # 2. Group-wise RMSNorm
+        *prefix_dims, last_dim = hidden_states.shape
+        group_count = last_dim // self.group_size
+        hidden_states_group = hidden_states.view(*prefix_dims, group_count, self.group_size)
+        variance = hidden_states_group.pow(2).mean(-1, keepdim=True)
+        hidden_states_group = hidden_states_group * torch.rsqrt(variance + self.variance_epsilon)
+        hidden_states = hidden_states_group.view(*prefix_dims, group_count * self.group_size)
+
+        # 3. Scale by weight
+        return self.weight * hidden_states.to(input_dtype)
 
 
 @final
@@ -186,8 +199,9 @@ class NemotronHMamba2Mixer(nn.Module):
         # dt_bias: bias for the time-step projection
         self.dt_bias = nn.Parameter(torch.empty(num_heads))
 
-        # Gated RMSNorm (Zamba2RMSNormGated)
-        self.norm = RMSNormGated(self.intermediate_size, eps=eps)
+        # Gated RMSNorm (Zamba2RMSNormGated) — group_size = intermediate_size // n_groups
+        group_size = self.intermediate_size // n_groups
+        self.norm = RMSNormGated(self.intermediate_size, group_size=group_size, eps=eps)
 
         # Output projection: intermediate -> D
         self.out_proj = nn.Linear(self.intermediate_size, model_dim, bias=proj_bias)

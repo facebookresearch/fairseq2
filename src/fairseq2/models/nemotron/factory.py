@@ -183,6 +183,10 @@ class NemotronHFactory:
         attn_bias = CausalAttentionBias()
         sdpa = create_default_sdpa(attn_bias)
 
+        # NemotronH does NOT use RoPE in attention layers.
+        # The Mamba2 layers handle position awareness implicitly through
+        # sequential state processing, so attention layers only do
+        # global context aggregation without positional encoding.
         return StandardMultiheadAttention(
             config.model_dim,
             config.num_attn_heads,
@@ -190,7 +194,7 @@ class NemotronHFactory:
             head_dim=config.attn_head_dim,
             num_key_value_heads=config.num_key_value_heads,
             bias=False,  # attention_bias = False
-            pos_encoder=pos_encoder,
+            pos_encoder=None,  # No RoPE
             output_proj_bias=False,
         )
 

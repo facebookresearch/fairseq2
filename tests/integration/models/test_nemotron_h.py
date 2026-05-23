@@ -47,7 +47,7 @@ TEST_PROMPTS = [
     "The meaning of life, the universe, and everything is",
 ]
 
-MODEL_PATH = "/engshare/yunchaoyang1/models/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16"
+MODEL_PATH = "/storage/home/yunchaoyang1/models/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16"
 RESULTS_DIR = Path("/storage/home/yunchaoyang1/ProfAI/projects/12_NemotronH_fairseq2_Implementation/experiments")
 
 

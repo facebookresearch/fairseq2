@@ -21,7 +21,7 @@ from fairseq2.nn import IncrementalStateBag
 
 class TestRMSNormGated:
     def test_output_shape(self) -> None:
-        norm = RMSNormGated(64)
+        norm = RMSNormGated(64, group_size=16)
         x = torch.randn(2, 8, 64)
         gate = torch.randn(2, 8, 64)
         out = norm(x, gate)
@@ -29,18 +29,35 @@ class TestRMSNormGated:
 
     def test_zero_gate(self) -> None:
         """With zero gate, SiLU(0) = 0, so output should be ~0."""
-        norm = RMSNormGated(64)
+        norm = RMSNormGated(64, group_size=16)
         x = torch.randn(2, 8, 64)
         gate = torch.zeros(2, 8, 64)
         out = norm(x, gate)
         assert torch.allclose(out, torch.zeros_like(out), atol=1e-6)
 
     def test_preserves_dtype(self) -> None:
-        norm = RMSNormGated(64)
+        norm = RMSNormGated(64, group_size=16)
         x = torch.randn(2, 8, 64, dtype=torch.float32)
         gate = torch.randn(2, 8, 64, dtype=torch.float32)
         out = norm(x, gate)
         assert out.dtype == torch.float32
+
+    def test_gate_first_order(self) -> None:
+        """Verify gate is applied BEFORE normalization (not after)."""
+        norm = RMSNormGated(64, group_size=16)
+        x = torch.randn(2, 8, 64)
+        gate = torch.randn(2, 8, 64)
+
+        # Compute expected: gate first, then group-wise RMSNorm
+        gated = x.float() * torch.nn.functional.silu(gate.float())
+        group_count = 64 // 16
+        gated_grouped = gated.view(2, 8, group_count, 16)
+        var = gated_grouped.pow(2).mean(-1, keepdim=True)
+        normed = gated_grouped * torch.rsqrt(var + 1e-5)
+        expected = (norm.weight * normed.view(2, 8, 64)).to(x.dtype)
+
+        out = norm(x, gate)
+        assert torch.allclose(out, expected, atol=1e-5)
 
 
 class TestNemotronHMamba2Mixer:

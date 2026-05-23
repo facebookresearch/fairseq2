@@ -122,10 +122,8 @@ class NemotronHBlock(TransformerLMDecoderLayer):
         else:
             raise ValueError(f"Unknown block type: {self.block_type}")
 
-        # Residual connection with optional scaling
-        if self.rescale_prenorm_residual:
-            seqs = seqs * self._residual_scale
-
+        # Residual connection (no runtime scaling — HF bakes the scaling
+        # into out_proj weight init via _init_weights, not at runtime)
         seqs = seqs + residual
 
         return seqs
