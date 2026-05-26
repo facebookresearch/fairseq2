@@ -394,7 +394,9 @@ class TestGemma4HFParity:
         hf_tokenizer = AutoTokenizer.from_pretrained(E4B_IT_CHECKPOINT)
         hf_model = AutoModelForCausalLM.from_pretrained(
             E4B_IT_CHECKPOINT, torch_dtype=torch.bfloat16
-        ).to(device)
+        ).to(
+            device  # type: ignore[arg-type]
+        )
         hf_model.eval()
 
         config = get_gemma4_e4b_config()
@@ -416,7 +418,9 @@ class TestGemma4HFParity:
 
         hf_model = AutoModelForCausalLM.from_pretrained(
             E4B_IT_CHECKPOINT, torch_dtype=torch.bfloat16
-        ).to(device)
+        ).to(
+            device  # type: ignore[arg-type]
+        )
         hf_model.eval()
 
         test_prompts = [
