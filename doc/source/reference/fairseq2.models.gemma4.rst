@@ -7,7 +7,7 @@ fairseq2.models.gemma4
 .. currentmodule:: fairseq2.models.gemma4
 
 The Gemma 4 module provides support for Google's Gemma 4 model family, including dense
-(E4B, 31B) and Mixture-of-Experts (26B-A4B) variants with base and instruction-tuned
+(E2B, E4B, 31B) and Mixture-of-Experts (26B-A4B) variants with base and instruction-tuned
 versions. The architecture features Per-Layer Embeddings (PLE), partial rotary position
 encodings, KV sharing across attention layers, QK/V-norm, logit soft-capping, and an
 optional Conformer-based audio tower for multimodal inference.
@@ -36,6 +36,12 @@ Model Variants
      - model_dim
      - Features
      - Active Params
+   * - E2B / E2B-it
+     - 2B
+     - 26
+     - 2048
+     - KV-share
+     - 2B (dense)
    * - E4B / E4B-it
      - 7.5B
      - 34
@@ -310,14 +316,12 @@ Constants
 
     The family name identifier for Gemma 4 models.
 
-SFT Recipe Configs
+SFT Recipe Config
 ------------------
 
-Pre-built SFT recipe configurations for GSM8K fine-tuning are provided:
+A pre-built SFT recipe configuration for GSM8K fine-tuning is provided:
 
 - ``recipes/lm/sft/configs/gemma4_e4b_gsm8k.yaml``
-- ``recipes/lm/sft/configs/gemma4_31b_gsm8k.yaml``
-- ``recipes/lm/sft/configs/gemma4_26b_a4b_gsm8k.yaml``
 
 Example usage:
 
