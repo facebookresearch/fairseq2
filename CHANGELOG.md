@@ -3,6 +3,9 @@ All notable changes to fairseq2 are documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
+## [0.8.2] - Unreleased
+- Gemma 4 model family (E4B, 31B, 26B-A4B) with base and instruction-tuned variants. Includes decoder with Per-Layer Embeddings (PLE), partial RoPE, KV sharing across sliding/global attention layers, Mixture-of-Experts (26B-A4B), QK/V-norm, logit soft-capping, audio tower (Conformer encoder for multimodal E4B), bidirectional HuggingFace state dict conversion, FSDP/activation checkpointing/tensor parallel support, and SFT recipe configs.
+
 ## [0.8.0] - March 25th, 2026
 - fsspec integration for remote filesystem support. Checkpoints can be saved to and loaded from S3 via `--checkpoint-dir s3://bucket/path/`. Requires `s3fs`. (#1126)
 - New `GlobalFileSystem` replaces `LocalFileSystem` as default, dispatching to the appropriate backend based on URI scheme. (#1126)
@@ -24,7 +27,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 - Improved support for gated Hugging Face models. (#1422)
 - `get_family` utility functions for detecting model families. (#1454)
 - Gemma3n model family (E2B/E4B) with text + audio inference and SFT training. (#1496)
-- Gemma 4 model family (E4B, 31B, 26B-A4B) with base and instruction-tuned variants. Includes decoder with Per-Layer Embeddings (PLE), partial RoPE, KV sharing across sliding/global attention layers, Mixture-of-Experts (26B-A4B), QK/V-norm, logit soft-capping, audio tower (Conformer encoder for multimodal E4B), bidirectional HuggingFace state dict conversion, FSDP/activation checkpointing/tensor parallel support, and SFT recipe configs.
 - Generic HuggingFace model integration: load, shard, and train any HuggingFace CausalLM model directly through `HgCausalLMAdapter` without requiring a native fairseq2 reimplementation. Includes FSDP sharding, HF tokenizer integration, and SFT recipe support. (#1479)
 - `AssetDownloadManager` gains `local_only` parameter and custom download subpath support. (#1423, #1425)
 - Recipes now set Python `random` and `numpy` seeds for reproducibility. (#1419)
