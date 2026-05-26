@@ -225,7 +225,7 @@ class NemotronHMoE(nn.Module):
             model_dim, shared_expert_intermediate_size, bias=bias
         )
 
-        # If set, is used at the end of the forward to reduce the output
+        # TODO: Implement all-reduce when tensor parallel sharding is added.
         self.tp_gang: Gang | None = None
 
     @override
@@ -267,7 +267,7 @@ class NemotronHMoE(nn.Module):
             expert_mask = F.one_hot(selected_experts, num_classes=self.num_experts)
             # expert_mask: [num_tokens, top_k, num_experts]
             expert_mask = expert_mask.permute(2, 1, 0)  # [num_experts, top_k, num_tokens]
-            expert_hit = torch.greater(expert_mask.sum(dim=(-1, -2)), 0).nonzero().squeeze(-1)
+            expert_hit = torch.greater(expert_mask.sum(dim=(-1, -2)), 0).nonzero().reshape(-1)
 
         # Process only experts that have tokens routed to them
         for expert_idx in expert_hit:

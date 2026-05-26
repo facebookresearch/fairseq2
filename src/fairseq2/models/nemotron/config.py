@@ -156,9 +156,6 @@ class NemotronHConfig:
     rms_norm_eps: float = 1e-5
     """The epsilon value for RMSNorm."""
 
-    rescale_prenorm_residual: bool = True
-    """If ``True``, scale residual by 1/sqrt(2*num_layers) (GPT-2 style)."""
-
     # === Dropout ===
     dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""

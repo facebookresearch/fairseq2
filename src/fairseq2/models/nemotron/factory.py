@@ -14,9 +14,6 @@ Builds a TransformerLM with the 3-way hybrid decoder:
 
 from __future__ import annotations
 
-import torch.nn as nn
-from torch import Tensor
-
 from fairseq2.models.nemotron.config import NemotronHConfig
 from fairseq2.models.nemotron.decoder_layer import NemotronHBlock
 from fairseq2.models.nemotron.mamba2 import NemotronHMamba2Mixer
@@ -39,15 +36,11 @@ from fairseq2.nn import (
     ColumnShardedLinear,
     Embedding,
     LayerNorm,
-    Linear,
-    PositionEncoder,
     Projection,
     RMSNorm,
-    StandardEmbedding,
     TiedProjection,
     VocabShardedEmbedding,
 )
-from fairseq2.nn.position_encoder import ReferenceRotaryEncoder
 
 
 def create_nemotron_h_model(config: NemotronHConfig) -> TransformerLM:
@@ -102,35 +95,23 @@ class NemotronHFactory:
     def create_decoder(self) -> TransformerLMDecoder:
         config = self._config
 
-        pos_encoder = self.create_position_encoder()
-
         layer_types = config.layer_types
 
         layers: list[TransformerLMDecoderLayer] = []
 
         for idx in range(config.num_layers):
             block_type = layer_types[idx]
-            layer = self.create_decoder_layer(idx, block_type, pos_encoder)
+            layer = self.create_decoder_layer(idx, block_type)
             layers.append(layer)
 
         layer_norm = self.create_layer_norm()
 
         return StandardTransformerLMDecoder(layers, layer_norm)
 
-    def create_position_encoder(self) -> PositionEncoder:
-        config = self._config
-
-        return ReferenceRotaryEncoder(
-            config.attn_head_dim,
-            config.max_seq_len,
-            theta=config.rope_theta,
-        )
-
     def create_decoder_layer(
         self,
         layer_idx: int,
         block_type: str,
-        pos_encoder: PositionEncoder,
     ) -> TransformerLMDecoderLayer:
         config = self._config
 
@@ -139,7 +120,7 @@ class NemotronHFactory:
         if block_type == "mamba":
             mixer = self.create_mamba2_mixer(layer_idx)
         elif block_type == "attention":
-            mixer = self.create_self_attention(layer_idx, pos_encoder)
+            mixer = self.create_self_attention()
         elif block_type == "moe":
             mixer = self.create_moe_block(layer_idx)
         else:
@@ -151,7 +132,6 @@ class NemotronHFactory:
             norm=norm,
             layer_idx=layer_idx,
             num_layers=config.num_layers,
-            rescale_prenorm_residual=config.rescale_prenorm_residual,
         )
 
     def create_mamba2_mixer(self, layer_idx: int) -> NemotronHMamba2Mixer:
@@ -173,11 +153,7 @@ class NemotronHFactory:
             layer_idx=layer_idx,
         )
 
-    def create_self_attention(
-        self,
-        layer_idx: int,
-        pos_encoder: PositionEncoder,
-    ) -> MultiheadAttention:
+    def create_self_attention(self) -> MultiheadAttention:
         config = self._config
 
         attn_bias = CausalAttentionBias()
@@ -237,12 +213,3 @@ class NemotronHFactory:
             dim = config.model_dim
 
         return RMSNorm(dim, bias=False, eps=config.rms_norm_eps)
-
-
-def _init_truncated_normal(
-    weight: Tensor, bias: Tensor | None, *, std: float = 1.0
-) -> None:
-    nn.init.trunc_normal_(weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
-
-    if bias is not None:
-        nn.init.zeros_(bias)

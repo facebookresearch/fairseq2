@@ -19,7 +19,6 @@ The layer applies: pre-norm (RMSNorm) -> mixer -> residual
 
 from __future__ import annotations
 
-import math
 from typing import final
 
 from torch import Tensor
@@ -56,7 +55,6 @@ class NemotronHBlock(TransformerLMDecoderLayer):
         *,
         layer_idx: int = 0,
         num_layers: int = 52,
-        rescale_prenorm_residual: bool = True,
     ) -> None:
         super().__init__()
 
@@ -65,13 +63,6 @@ class NemotronHBlock(TransformerLMDecoderLayer):
         self.norm = norm
         self.layer_idx = layer_idx
         self.num_layers = num_layers
-        self.rescale_prenorm_residual = rescale_prenorm_residual
-
-        # GPT-2 style residual scaling: 1/sqrt(2*num_layers)
-        if rescale_prenorm_residual:
-            self._residual_scale = 1.0 / math.sqrt(2 * num_layers)
-        else:
-            self._residual_scale = 1.0
 
     @override
     def forward(
@@ -132,6 +123,5 @@ class NemotronHBlock(TransformerLMDecoderLayer):
     def extra_repr(self) -> str:
         return (
             f"block_type={self.block_type}, "
-            f"layer_idx={self.layer_idx}, "
-            f"rescale={self.rescale_prenorm_residual}"
+            f"layer_idx={self.layer_idx}"
         )
