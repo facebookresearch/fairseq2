@@ -67,6 +67,7 @@ other content generation tasks.
     reference/fairseq2.gang
     reference/fairseq2.model_checkpoint
     reference/fairseq2.models
+    reference/fairseq2.models.gemma4
     reference/fairseq2.models.hg
     reference/fairseq2.models.hub
     reference/fairseq2.models.llama

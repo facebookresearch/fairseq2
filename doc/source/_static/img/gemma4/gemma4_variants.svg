@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 380" style="font-family:'Segoe UI',system-ui,sans-serif">
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#555"/></marker>
+  </defs>
+
+  <!-- Title -->
+  <rect x="0" y="0" width="820" height="38" rx="6" fill="#4285F4"/>
+  <text x="410" y="26" text-anchor="middle" font-size="15" font-weight="bold" fill="white">Gemma 4 Model Variants</text>
+
+  <!-- E4B -->
+  <rect x="20" y="55" width="245" height="310" rx="10" fill="#E8F5E9" stroke="#34A853" stroke-width="2"/>
+  <text x="142" y="80" text-anchor="middle" font-size="15" font-weight="bold" fill="#1B5E20">E4B / E4B-it</text>
+  <text x="142" y="98" text-anchor="middle" font-size="11" fill="#555">7.5B params (dense)</text>
+  <line x1="40" y1="108" x2="245" y2="108" stroke="#A5D6A7"/>
+  <text x="42" y="128" font-size="11" fill="#333">model_dim: 2560</text>
+  <text x="42" y="146" font-size="11" fill="#333">num_layers: 34</text>
+  <text x="42" y="164" font-size="11" fill="#333">attn_heads: 10</text>
+  <text x="42" y="182" font-size="11" fill="#333">kv_heads: 2 (local), 4 (global)</text>
+  <text x="42" y="200" font-size="11" fill="#333">head_dim: 128 / 256</text>
+  <text x="42" y="218" font-size="11" fill="#333">ffn_dim: 10240</text>
+  <text x="42" y="236" font-size="11" fill="#333">sliding_window: 512</text>
+  <line x1="40" y1="248" x2="245" y2="248" stroke="#A5D6A7"/>
+  <rect x="40" y="256" width="90" height="22" rx="4" fill="#C8E6C9" stroke="#66BB6A"/>
+  <text x="85" y="272" text-anchor="middle" font-size="10" font-weight="600" fill="#2E7D32">PLE</text>
+  <rect x="140" y="256" width="110" height="22" rx="4" fill="#C8E6C9" stroke="#66BB6A"/>
+  <text x="195" y="272" text-anchor="middle" font-size="10" font-weight="600" fill="#2E7D32">KV Sharing</text>
+  <rect x="40" y="286" width="90" height="22" rx="4" fill="#C8E6C9" stroke="#66BB6A"/>
+  <text x="85" y="302" text-anchor="middle" font-size="10" font-weight="600" fill="#2E7D32">K=V</text>
+  <rect x="140" y="286" width="110" height="22" rx="4" fill="#BBDEFB" stroke="#42A5F5"/>
+  <text x="195" y="302" text-anchor="middle" font-size="10" font-weight="600" fill="#1565C0">Audio Tower</text>
+  <rect x="40" y="316" width="210" height="22" rx="4" fill="#C8E6C9" stroke="#66BB6A"/>
+  <text x="145" y="332" text-anchor="middle" font-size="10" font-weight="600" fill="#2E7D32">Partial RoPE (50%) + QK-norm</text>
+
+  <!-- 31B -->
+  <rect x="288" y="55" width="245" height="310" rx="10" fill="#E3F2FD" stroke="#1976D2" stroke-width="2"/>
+  <text x="410" y="80" text-anchor="middle" font-size="15" font-weight="bold" fill="#0D47A1">31B / 31B-it</text>
+  <text x="410" y="98" text-anchor="middle" font-size="11" fill="#555">30.7B params (dense)</text>
+  <line x1="308" y1="108" x2="513" y2="108" stroke="#90CAF9"/>
+  <text x="310" y="128" font-size="11" fill="#333">model_dim: 4608</text>
+  <text x="310" y="146" font-size="11" fill="#333">num_layers: 48</text>
+  <text x="310" y="164" font-size="11" fill="#333">attn_heads: 16</text>
+  <text x="310" y="182" font-size="11" fill="#333">kv_heads: 4 (local), 8 (global)</text>
+  <text x="310" y="200" font-size="11" fill="#333">head_dim: 128 / 256</text>
+  <text x="310" y="218" font-size="11" fill="#333">ffn_dim: 18432</text>
+  <text x="310" y="236" font-size="11" fill="#333">sliding_window: 512</text>
+  <line x1="308" y1="248" x2="513" y2="248" stroke="#90CAF9"/>
+  <rect x="308" y="256" width="100" height="22" rx="4" fill="#BBDEFB" stroke="#42A5F5"/>
+  <text x="358" y="272" text-anchor="middle" font-size="10" font-weight="600" fill="#1565C0">KV Sharing</text>
+  <rect x="418" y="256" width="100" height="22" rx="4" fill="#BBDEFB" stroke="#42A5F5"/>
+  <text x="468" y="272" text-anchor="middle" font-size="10" font-weight="600" fill="#1565C0">K=V</text>
+  <rect x="308" y="286" width="100" height="22" rx="4" fill="#BBDEFB" stroke="#42A5F5"/>
+  <text x="358" y="302" text-anchor="middle" font-size="10" font-weight="600" fill="#1565C0">Double MLP</text>
+  <rect x="308" y="316" width="210" height="22" rx="4" fill="#BBDEFB" stroke="#42A5F5"/>
+  <text x="413" y="332" text-anchor="middle" font-size="10" font-weight="600" fill="#1565C0">Partial RoPE (50%) + QK-norm</text>
+
+  <!-- 26B-A4B -->
+  <rect x="556" y="55" width="245" height="310" rx="10" fill="#FCE4EC" stroke="#E91E63" stroke-width="2"/>
+  <text x="678" y="80" text-anchor="middle" font-size="15" font-weight="bold" fill="#880E4F">26B-A4B</text>
+  <text x="678" y="98" text-anchor="middle" font-size="11" fill="#555">25.2B total, ~3.8B active (MoE)</text>
+  <line x1="576" y1="108" x2="781" y2="108" stroke="#F48FB1"/>
+  <text x="578" y="128" font-size="11" fill="#333">model_dim: 2560</text>
+  <text x="578" y="146" font-size="11" fill="#333">num_layers: 34</text>
+  <text x="578" y="164" font-size="11" fill="#333">attn_heads: 10</text>
+  <text x="578" y="182" font-size="11" fill="#333">kv_heads: 2 (local), 4 (global)</text>
+  <text x="578" y="200" font-size="11" fill="#333">head_dim: 128 / 256</text>
+  <text x="578" y="218" font-size="11" fill="#333">ffn_dim: 10240 (shared)</text>
+  <text x="578" y="236" font-size="11" fill="#333">sliding_window: 512</text>
+  <line x1="576" y1="248" x2="781" y2="248" stroke="#F48FB1"/>
+  <rect x="576" y="256" width="90" height="22" rx="4" fill="#F8BBD0" stroke="#EC407A"/>
+  <text x="621" y="272" text-anchor="middle" font-size="10" font-weight="600" fill="#880E4F">MoE (128e)</text>
+  <rect x="676" y="256" width="100" height="22" rx="4" fill="#F8BBD0" stroke="#EC407A"/>
+  <text x="726" y="272" text-anchor="middle" font-size="10" font-weight="600" fill="#880E4F">top-2 routing</text>
+  <rect x="576" y="286" width="90" height="22" rx="4" fill="#F8BBD0" stroke="#EC407A"/>
+  <text x="621" y="302" text-anchor="middle" font-size="10" font-weight="600" fill="#880E4F">KV Sharing</text>
+  <rect x="676" y="286" width="100" height="22" rx="4" fill="#F8BBD0" stroke="#EC407A"/>
+  <text x="726" y="302" text-anchor="middle" font-size="10" font-weight="600" fill="#880E4F">K=V</text>
+  <rect x="576" y="316" width="210" height="22" rx="4" fill="#F8BBD0" stroke="#EC407A"/>
+  <text x="681" y="332" text-anchor="middle" font-size="10" font-weight="600" fill="#880E4F">Partial RoPE (50%) + QK-norm</text>
+</svg>
