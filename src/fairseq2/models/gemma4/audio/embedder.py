@@ -22,11 +22,12 @@ from fairseq2.nn.projection import Linear
 class Gemma4MultimodalAudioEmbedder(Module):
     """Projects audio tower output to text model space.
 
-    Much simpler than Gemma3n's embedder — no hard/soft token distinction,
-    no embedding lookup table. Just:
+    Much simpler than Gemma3n's embedder -- no hard/soft token distinction,
+    no embedding lookup table. Just::
+
       RMSNorm(output_proj_dims, with_scale=False) -> Linear(output_proj_dims, text_model_dim)
 
-    Note: HF does NOT use ClippableLinear for the embedder projection —
+    Note: HF does NOT use ClippableLinear for the embedder projection --
     the checkpoint key is ``model.embed_audio.embedding_projection.weight``
     (plain nn.Linear, no clipping buffers).
     """
