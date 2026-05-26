@@ -321,7 +321,8 @@ class Gemma4ConformerAttention(Module):
 class Gemma4ConformerBlock(TransformerEncoderLayer):
     """Gemma4 conformer block.
 
-    Forward flow:
+    Forward flow::
+
       FFN1:  clamp -> pre_norm -> ffn -> clamp -> post_norm -> *0.5 -> residual
       Attn:  clamp -> pre_norm -> self_attn -> clamp -> post_norm -> residual
       Conv:  (mask) -> pre_norm -> conv -> residual
