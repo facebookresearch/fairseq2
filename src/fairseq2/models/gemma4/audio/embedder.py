@@ -23,13 +23,13 @@ class Gemma4MultimodalAudioEmbedder(Module):
     """Projects audio tower output to text model space.
 
     Much simpler than Gemma3n's embedder -- no hard/soft token distinction,
-    no embedding lookup table. Just::
-
-      RMSNorm(output_proj_dims, with_scale=False) -> Linear(output_proj_dims, text_model_dim)
+    no embedding lookup table.  Applies ``RMSNorm`` (without learnable scale)
+    followed by a ``Linear`` projection from ``output_proj_dims`` to
+    ``text_model_dim``.
 
     Note: HF does NOT use ClippableLinear for the embedder projection --
     the checkpoint key is ``model.embed_audio.embedding_projection.weight``
-    (plain nn.Linear, no clipping buffers).
+    (plain ``nn.Linear``, no clipping buffers).
     """
 
     embedding_pre_projection_norm: Gemma4AudioRMSNorm
