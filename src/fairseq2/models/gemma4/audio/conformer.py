@@ -483,7 +483,7 @@ class Gemma4ConformerEncoder(Module):
         :param seqs: Audio features. *Shape:* :math:`(N,T,H)`.
         :param seqs_layout: Layout information for the sequences.
         :param mask: Where True=masked (invalid). *Shape:* :math:`(N,T)`.
-        :returns: Encoded features. *Shape:* :math:`(N,T,H)` — NO reduction.
+        :returns: Encoded features. *Shape:* :math:`(N,T,H)` -- NO reduction.
         """
         bias_cache = AttentionBiasCache()
 
