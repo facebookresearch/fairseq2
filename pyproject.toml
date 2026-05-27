@@ -34,6 +34,10 @@ module = "torch.distributed.*,torch.optim.*"
 implicit_reexport = true
 
 [[tool.mypy.overrides]]
+module = "causal_conv1d.*,fla.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = "fairseq2.data.parquet.*,tests.unit.data.parquet.*,tests.integration.parquet.*"
 ignore_errors = true
 
