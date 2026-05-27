@@ -14,6 +14,44 @@ from fairseq2.runtime.dependency import DependencyContainer
 
 NEMOTRON_H_FAMILY: Final = "nemotron_h"
 
+
+@dataclass(kw_only=True)
+class ParakeetAudioConfig:
+    """Configuration for the Parakeet (FastConformer) audio encoder."""
+
+    hidden_size: int = 1024
+    """The hidden size of the conformer layers."""
+
+    num_attention_heads: int = 8
+    """The number of attention heads."""
+
+    head_dim: int = 128
+    """The dimensionality of each attention head."""
+
+    num_hidden_layers: int = 24
+    """The number of conformer layers."""
+
+    intermediate_size: int = 4096
+    """The intermediate size of the feed-forward networks."""
+
+    conv_kernel_size: int = 9
+    """The kernel size for the conformer convolution module."""
+
+    num_mel_bins: int = 128
+    """The number of mel spectrogram bins."""
+
+    subsampling_factor: int = 8
+    """Temporal downsampling factor (8 = 3 stages of stride-2 convolutions)."""
+
+    subsampling_conv_channels: int = 256
+    """The number of channels in subsampling convolutions."""
+
+    ffn_activation: str = "silu"
+    """The activation function for feed-forward networks."""
+
+    convolution_bias: bool = False
+    """If ``True``, the conformer convolution module uses bias."""
+
 # The 52-layer hybrid pattern for Nemotron-H 30B-A3B
 # M = Mamba2 SSM, E = MoE FFN, A = Full Attention (GQA)
 _DEFAULT_HYBRID_PATTERN: Final = (
@@ -160,6 +198,19 @@ class NemotronHConfig:
     dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""
 
+    # === Audio (Parakeet) config ===
+    audio_config: ParakeetAudioConfig | None = None
+    """If not ``None``, the model includes a Parakeet audio encoder."""
+
+    sound_projection_hidden_size: int = 4096
+    """The intermediate hidden size of the sound projection MLP."""
+
+    sound_projection_bias: bool = False
+    """If ``True``, the sound projection MLP uses bias."""
+
+    sound_context_token_id: int = 27
+    """The token ID for audio placeholder tokens (``<so_embedding>``)."""
+
     @property
     def layer_types(self) -> list[BlockType]:
         """Parse the hybrid pattern into a list of block types."""
@@ -216,5 +267,12 @@ def register_nemotron_h_configs(container: DependencyContainer) -> None:
     def nemotron_h_30b_a3b() -> NemotronHConfig:
         """NemotronH 30B total / 3B active parameters."""
         config = NemotronHConfig()
+        config.validate()
+        return config
+
+    @arch("nemotron_h_30b_a3b_audio")
+    def nemotron_h_30b_a3b_audio() -> NemotronHConfig:
+        """NemotronH 30B with Parakeet audio encoder."""
+        config = NemotronHConfig(audio_config=ParakeetAudioConfig())
         config.validate()
         return config

@@ -26,7 +26,10 @@ from fairseq2.gang import Gang, Gangs, get_current_gangs
 from fairseq2.models.nemotron.config import NemotronHConfig
 from fairseq2.models.nemotron.decoder_layer import NemotronHBlock
 from fairseq2.models.nemotron.mamba2 import NemotronHMamba2Mixer
+from fairseq2.models.nemotron.model import NemotronHMultimodalModel
 from fairseq2.models.nemotron.moe import NemotronHMoE
+from fairseq2.models.nemotron.audio.conformer import ParakeetAudioTower
+from fairseq2.models.nemotron.audio.projection import SoundProjection
 from fairseq2.models.transformer import (
     CausalAttentionBias,
     MultiheadAttention,
@@ -56,6 +59,31 @@ from fairseq2.nn import (
 def create_nemotron_h_model(config: NemotronHConfig) -> TransformerLM:
     """Create a NemotronH language model."""
     return NemotronHFactory(config).create_model()
+
+
+def create_nemotron_h_multimodal_model(
+    config: NemotronHConfig,
+) -> TransformerLM | NemotronHMultimodalModel:
+    """Create a NemotronH model, optionally with audio.
+
+    Returns a plain ``TransformerLM`` when ``config.audio_config`` is None,
+    or a ``NemotronHMultimodalModel`` wrapping the LM + audio encoder.
+    """
+    factory = NemotronHFactory(config)
+    lm = factory.create_model()
+
+    if config.audio_config is None:
+        return lm
+
+    audio_tower = factory.create_audio_tower()
+    sound_projection = factory.create_sound_projection()
+
+    return NemotronHMultimodalModel(
+        language_model=lm,
+        sound_encoder=audio_tower,
+        sound_projection=sound_projection,
+        sound_context_token_id=config.sound_context_token_id,
+    )
 
 
 class NemotronHFactory:
@@ -299,3 +327,51 @@ class NemotronHFactory:
             dim = config.model_dim
 
         return RMSNorm(dim, bias=False, eps=config.rms_norm_eps)
+
+    def create_audio_tower(self) -> ParakeetAudioTower:
+        """Create the Parakeet audio encoder tower.
+
+        Requires ``config.audio_config`` to be set.
+        """
+        config = self._config
+        audio_config = config.audio_config
+
+        if audio_config is None:
+            raise ValueError(
+                "Cannot create audio tower without audio_config. "
+                "Set config.audio_config = ParakeetAudioConfig()."
+            )
+
+        return ParakeetAudioTower(
+            num_mel_bins=audio_config.num_mel_bins,
+            hidden_size=audio_config.hidden_size,
+            num_heads=audio_config.num_attention_heads,
+            num_layers=audio_config.num_hidden_layers,
+            ffn_dim=audio_config.intermediate_size,
+            conv_kernel_size=audio_config.conv_kernel_size,
+            conv_channels=audio_config.subsampling_conv_channels,
+            head_dim=audio_config.head_dim,
+        )
+
+    def create_sound_projection(self) -> SoundProjection:
+        """Create the sound projection MLP.
+
+        Projects audio encoder output (encoder_dim) to LM hidden space (model_dim).
+        Requires ``config.audio_config`` to be set.
+        """
+        config = self._config
+        audio_config = config.audio_config
+
+        if audio_config is None:
+            raise ValueError(
+                "Cannot create sound projection without audio_config. "
+                "Set config.audio_config = ParakeetAudioConfig()."
+            )
+
+        return SoundProjection(
+            encoder_dim=audio_config.hidden_size,
+            model_dim=config.model_dim,
+            hidden_dim=config.sound_projection_hidden_size,
+            bias=config.sound_projection_bias,
+            eps=config.rms_norm_eps,
+        )

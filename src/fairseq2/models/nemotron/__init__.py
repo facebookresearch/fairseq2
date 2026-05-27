@@ -9,12 +9,18 @@ from __future__ import annotations
 from fairseq2.models.nemotron.config import NEMOTRON_H_FAMILY as NEMOTRON_H_FAMILY
 from fairseq2.models.nemotron.config import NemotronHConfig as NemotronHConfig
 from fairseq2.models.nemotron.config import (
+    ParakeetAudioConfig as ParakeetAudioConfig,
+)
+from fairseq2.models.nemotron.config import (
     register_nemotron_h_configs as register_nemotron_h_configs,
 )
 from fairseq2.models.nemotron.decoder_layer import NemotronHBlock as NemotronHBlock
 from fairseq2.models.nemotron.factory import NemotronHFactory as NemotronHFactory
 from fairseq2.models.nemotron.factory import (
     create_nemotron_h_model as create_nemotron_h_model,
+)
+from fairseq2.models.nemotron.factory import (
+    create_nemotron_h_multimodal_model as create_nemotron_h_multimodal_model,
 )
 from fairseq2.models.nemotron.hub import (
     get_nemotron_h_model_hub as get_nemotron_h_model_hub,
@@ -27,6 +33,9 @@ from fairseq2.models.nemotron.interop import (
 )
 from fairseq2.models.nemotron.mamba2 import (
     NemotronHMamba2Mixer as NemotronHMamba2Mixer,
+)
+from fairseq2.models.nemotron.model import (
+    NemotronHMultimodalModel as NemotronHMultimodalModel,
 )
 from fairseq2.models.nemotron.moe import NemotronHMoE as NemotronHMoE
 from fairseq2.models.nemotron.sharder import (

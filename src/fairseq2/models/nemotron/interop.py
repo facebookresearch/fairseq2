@@ -85,12 +85,53 @@ _HG_KEY_MAP: Final = {
     # fmt: on
 }
 
-# Keys to skip during conversion (multimodal components for Phase 1)
-_SKIP_PREFIXES: Final = [
+# Audio key mapping (HF sound_encoder/sound_projection -> fairseq2)
+# In the multimodal model, audio modules are at the top level:
+#   sound_encoder.encoder.* -> sound_encoder.*
+#   sound_projection.* -> sound_projection.*
+_HG_AUDIO_KEY_MAP: Final = {
+    # fmt: off
+    # === Sound encoder: strip "encoder." prefix ===
+    # Subsampling layers (direct mapping, just strip "encoder.")
+    r"^sound_encoder\.encoder\.subsampling\.":                                       r"sound_encoder.subsampling.",
+
+    # Conformer layers: FFN linear1/linear2 -> inner_proj/output_proj
+    # (StandardFeedForwardNetwork uses inner_proj/output_proj)
+    r"^sound_encoder\.encoder\.layers\.([0-9]+)\.feed_forward1\.linear1\.":          r"sound_encoder.layers.\1.feed_forward1.inner_proj.",
+    r"^sound_encoder\.encoder\.layers\.([0-9]+)\.feed_forward1\.linear2\.":          r"sound_encoder.layers.\1.feed_forward1.output_proj.",
+    r"^sound_encoder\.encoder\.layers\.([0-9]+)\.feed_forward2\.linear1\.":          r"sound_encoder.layers.\1.feed_forward2.inner_proj.",
+    r"^sound_encoder\.encoder\.layers\.([0-9]+)\.feed_forward2\.linear2\.":          r"sound_encoder.layers.\1.feed_forward2.output_proj.",
+
+    # Conformer layers: self_attn o_proj -> output_proj
+    r"^sound_encoder\.encoder\.layers\.([0-9]+)\.self_attn\.o_proj\.":               r"sound_encoder.layers.\1.self_attn.output_proj.",
+
+    # Conformer layers: conv norm -> batch_norm (ConformerConvolution naming)
+    r"^sound_encoder\.encoder\.layers\.([0-9]+)\.conv\.norm\.":                      r"sound_encoder.layers.\1.conv.batch_norm.",
+
+    # Conformer layers: all other keys (norms, self_attn q/k/v/bias_u/v, conv, etc.)
+    # Just strip "encoder." prefix
+    r"^sound_encoder\.encoder\.layers\.":                                            r"sound_encoder.layers.",
+
+    # === Sound projection (direct mapping — same names) ===
+    r"^sound_projection\.":                                                          r"sound_projection.",
+    # fmt: on
+}
+
+# Keys to skip during conversion (multimodal components not yet implemented)
+_SKIP_PREFIXES_TEXT_ONLY: Final = [
     "vision_model.",
     "mlp1.",
     "sound_encoder.",
     "sound_projection.",
+]
+
+# Keys to skip when audio is enabled (still skip vision)
+_SKIP_PREFIXES_AUDIO: Final = [
+    "vision_model.",
+    "mlp1.",
+    # Non-persistent buffers that are not in the state dict
+    "sound_encoder.encoder.feature_extractor.",
+    "sound_encoder.encoder.encode_positions.",
 ]
 
 
@@ -102,6 +143,9 @@ def convert_nemotron_h_state_dict(
     Handles both HuggingFace format (with language_model.backbone prefix)
     and already-converted fairseq2 format.
 
+    When ``config.audio_config`` is set, audio keys (sound_encoder.*,
+    sound_projection.*) are converted instead of skipped.
+
     Args:
         state_dict: The state dict to convert.
         config: The NemotronH configuration.
@@ -111,14 +155,24 @@ def convert_nemotron_h_state_dict(
     """
     # Check if this is HuggingFace format
     if any(k.startswith("language_model.") for k in state_dict.keys()):
-        # Skip multimodal keys for now (Phase 1 = text only)
+        has_audio = config.audio_config is not None
+        skip_prefixes = _SKIP_PREFIXES_AUDIO if has_audio else _SKIP_PREFIXES_TEXT_ONLY
+
+        # Filter out keys we don't handle
         filtered_state_dict = {}
         for key, value in state_dict.items():
-            if any(key.startswith(prefix) for prefix in _SKIP_PREFIXES):
+            if any(key.startswith(prefix) for prefix in skip_prefixes):
                 continue
             filtered_state_dict[key] = value
 
+        # Convert LM keys
         state_dict = convert_state_dict(filtered_state_dict, _HG_KEY_MAP)
+
+        # If audio is enabled, convert audio keys separately
+        # (they don't have the language_model prefix, so they pass through
+        # the LM key map unchanged — apply audio map to those)
+        if has_audio:
+            state_dict = convert_state_dict(state_dict, _HG_AUDIO_KEY_MAP)
 
     return state_dict
 
