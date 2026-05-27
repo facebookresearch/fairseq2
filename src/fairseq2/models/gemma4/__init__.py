@@ -54,9 +54,6 @@ from fairseq2.models.gemma4.interop import (
 from fairseq2.models.gemma4.model import Gemma4Model as Gemma4Model
 from fairseq2.models.gemma4.moe import Gemma4Experts as Gemma4Experts
 from fairseq2.models.gemma4.moe import Gemma4Router as Gemma4Router
-from fairseq2.models.gemma4.sharder import (
-    get_gemma4_shard_specs as get_gemma4_shard_specs,
-)
 from fairseq2.models.gemma4.tokenizer import Gemma4Tokenizer as Gemma4Tokenizer
 from fairseq2.models.gemma4.tokenizer import (
     load_gemma4_tokenizer as load_gemma4_tokenizer,
@@ -91,7 +88,6 @@ __all__ = [
     "get_gemma4_e2b_config",
     "get_gemma4_e4b_config",
     "get_gemma4_model_hub",
-    "get_gemma4_shard_specs",
     "get_gemma4_tokenizer_hub",
     "load_gemma4_tokenizer",
     "register_gemma4_configs",

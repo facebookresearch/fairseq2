@@ -304,10 +304,6 @@ Distributed Training
 
     Apply activation checkpointing to a Gemma 4 model.
 
-.. autofunction:: get_gemma4_shard_specs
-
-    Get tensor parallel shard specifications for a Gemma 4 model configuration.
-
 Constants
 ---------
 

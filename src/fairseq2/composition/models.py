@@ -42,7 +42,6 @@ from fairseq2.models.gemma4 import (
     apply_fsdp_to_gemma4,
     convert_gemma4_state_dict,
     create_gemma4_model,
-    get_gemma4_shard_specs,
     register_gemma4_configs,
 )
 from fairseq2.models.hg import (
@@ -306,7 +305,6 @@ def _register_model_families(container: DependencyContainer) -> None:
         config_kls=Gemma4Config,
         factory=create_gemma4_model,
         state_dict_converter=convert_gemma4_state_dict,
-        shard_specs=get_gemma4_shard_specs,
         fsdp_applier=apply_fsdp_to_gemma4,
         layerwise_ac_applier=apply_ac_to_gemma4,
     )
