@@ -86,6 +86,7 @@ from fairseq2.models.nemotron import (
     _NemotronHHuggingFaceConverter,
     convert_nemotron_h_state_dict,
     create_nemotron_h_model,
+    get_nemotron_h_shard_specs,
     register_nemotron_h_configs,
 )
 from fairseq2.models.nllb import (
@@ -352,6 +353,7 @@ def _register_model_families(container: DependencyContainer) -> None:
         config_kls=NemotronHConfig,
         factory=create_nemotron_h_model,
         state_dict_converter=convert_nemotron_h_state_dict,
+        shard_specs=get_nemotron_h_shard_specs,
         compiler=compile_transformer_lm,
         fsdp_applier=apply_fsdp_to_transformer_lm,
         layerwise_ac_applier=apply_ac_to_transformer_lm,

@@ -70,6 +70,7 @@ from fairseq2.model_checkpoint import (
 from fairseq2.models.hub import GlobalModelLoader
 from fairseq2.models.llama import _LLaMACheckpointLoader
 from fairseq2.models.llama4.sharder import MoESharder
+from fairseq2.models.nemotron.sharder import NemotronHMoESharder
 from fairseq2.runtime.dependency import (
     DependencyContainer,
     DependencyResolver,
@@ -241,6 +242,7 @@ def _register_library(
     container.collection.register_type(ModuleSharder, EmbeddingSharder)
     container.collection.register_type(ModuleSharder, LinearSharder)
     container.collection.register_type(ModuleSharder, MoESharder)
+    container.collection.register_type(ModuleSharder, NemotronHMoESharder)
 
     container.collection.register_type(
         ModelCheckpointLoader, _BasicModelCheckpointLoader

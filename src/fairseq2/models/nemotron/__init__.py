@@ -29,3 +29,9 @@ from fairseq2.models.nemotron.mamba2 import (
     NemotronHMamba2Mixer as NemotronHMamba2Mixer,
 )
 from fairseq2.models.nemotron.moe import NemotronHMoE as NemotronHMoE
+from fairseq2.models.nemotron.sharder import (
+    NemotronHMoESharder as NemotronHMoESharder,
+)
+from fairseq2.models.nemotron.sharder import (
+    get_nemotron_h_shard_specs as get_nemotron_h_shard_specs,
+)

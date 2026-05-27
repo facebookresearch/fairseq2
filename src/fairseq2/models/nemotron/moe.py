@@ -31,6 +31,7 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.gang import Gang
+from fairseq2.ops.tensor_parallel import reduce
 
 
 class SquaredReLU(nn.Module):
@@ -294,6 +295,10 @@ class NemotronHMoE(nn.Module):
         # Cast back to input dtype, then add shared expert output
         final_output = final_output.to(hidden_states_flat.dtype)
         final_output = final_output + shared_output
+
+        # All-reduce across TP ranks if tensor parallelism is active
+        if self.tp_gang is not None:
+            final_output = reduce(final_output, self.tp_gang)
 
         return final_output.view(orig_shape)
 
