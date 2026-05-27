@@ -188,13 +188,13 @@ class TestQwen35HFParity:
         print(f"  Full-seq logit max  abs diff: {full_max_diff:.6e}")
         print(f"  Full-seq logit mean abs diff: {full_mean_diff:.6e}")
 
-        hf_top1 = hf_last.argmax().item()
-        fs2_top1 = fs2_last.argmax().item()
+        hf_top1 = int(hf_last.argmax().item())
+        fs2_top1 = int(fs2_last.argmax().item())
         print(f"\n  HF  top-1 token: {hf_top1} -> '{hf_tokenizer.decode([hf_top1])}'")
         print(f"  fs2 top-1 token: {fs2_top1} -> '{hf_tokenizer.decode([fs2_top1])}'")
 
-        hf_top5 = hf_last.topk(5).indices.tolist()
-        fs2_top5 = fs2_last.topk(5).indices.tolist()
+        hf_top5: list[int] = [int(t) for t in hf_last.topk(5).indices.tolist()]
+        fs2_top5: list[int] = [int(t) for t in fs2_last.topk(5).indices.tolist()]
         print(
             f"\n  HF  top-5: {hf_top5} -> {[hf_tokenizer.decode([t]) for t in hf_top5]}"
         )
