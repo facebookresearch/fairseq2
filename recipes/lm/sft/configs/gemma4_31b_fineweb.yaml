@@ -1,0 +1,159 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+# Gemma4 31B Continued Pretraining / SFT on FineWeb-Edu 10BT
+#
+# 31B: 30.7B params, dense (no MoE, no PLE), 48 layers, model_dim=6144,
+# head_dim=128, 32 attn heads, 16 KV heads with K=V attention sharing.
+#
+# Validated on 8x H200 (141 GB HBM3e each):
+#   - Peak active memory: 81.70 GiB (59%)
+#   - Peak reserved memory: 99.39 GiB (72%)
+#   - Throughput: ~8,038 elements/sec
+#   - 200 steps in ~945 seconds
+#
+# Usage:
+#   torchrun --standalone --nproc_per_node=8 -m recipes.lm.sft \
+#     --config-file recipes/lm/sft/configs/gemma4_31b_fineweb.yaml \
+#     /path/to/output_dir
+
+model:
+  name: null
+  path: null
+  family: gemma4
+  arch: 31b
+  dtype: bfloat16
+  mmap: false
+  compile: false
+  compile_options:
+    fullgraph: false
+    dynamic: false
+    mode: default
+    backend: inductor
+    backend_options: null
+
+dataset:
+  name: null
+  family: lm_train
+  config_overrides:
+    sources:
+      - path: /checkpoint/smallomnillm/shared/data/fineweb-edu/jsonl/10BT
+        weight: 1.0
+  max_seq_len: 4096
+  max_num_tokens: 4096
+  prefetch: 4
+  sync_ranks: false
+
+tokenizer:
+  name: null
+  path: null
+  family: gemma4
+  config_overrides: null
+
+gang:
+  tensor_parallel_size: 1
+  timeout: 15
+  high_priority: true
+
+trainer:
+  data_parallelism: fsdp
+  fsdp:
+    version: v2
+    granularity: layer
+    hybrid: false
+    reshard_after_forward: true
+    fp32_reduce: true
+  mixed_precision:
+    mode: static
+    dtype: bfloat16
+  grad_accumulation:
+    num_batches: 1
+    no_sync: false
+  activation_checkpointing:
+    mode: layerwise
+    every_nth_layer: 1
+  max_grad_norm: 1.0
+  fp16_loss_scale:
+  - 128.0
+  - 0.0001
+  gc_every_n_steps: 100
+  grad_check: false
+  anomaly_detection: false
+
+optimizer:
+  name: adamw
+  config:
+    lr: 5.0e-5
+    betas:
+    - 0.9
+    - 0.95
+    eps: 1.0e-8
+    weight_decay: 0.1
+    amsgrad: false
+    maximize: false
+    capturable: false
+    differentiable: false
+    impl: fused
+    groups: []
+
+lr_scheduler:
+  name: cosine_annealing
+  config:
+    cycle_len: null
+    num_warmup_steps: 20
+    cycle_mul: 1.0
+    lr_mul: 1.0
+    start_lr: 1.0e-30
+    final_lr: null
+    final_lr_scale: 0.01
+
+regime:
+  num_steps: 200
+  num_data_epochs: null
+  validate_at_start: false
+  validate_after_n_steps: 0
+  validate_every_n_steps: 100
+  validate_after_n_data_epochs: 0
+  validate_every_n_data_epochs: null
+  score_metric: null
+  checkpoint_after_n_steps: 0
+  checkpoint_every_n_steps: 200
+  checkpoint_after_n_data_epochs: 0
+  checkpoint_every_n_data_epochs: null
+  save_model_only: all_but_last
+  export_hugging_face: false
+  keep_last_n_checkpoints: 1
+  keep_best_n_checkpoints: null
+  keep_checkpoint_every_n_steps: null
+  publish_metrics_after_n_steps: 0
+  publish_metrics_every_n_steps: 10
+  publish_metrics_after_n_data_epochs: 0
+  publish_metrics_every_n_data_epochs: null
+
+common:
+  torch:
+    num_threads: null
+    allow_tf32: true
+    fp16_reduced_precision: true
+    bf16_reduced_precision: true
+    default_sdpa: torch
+    compiled_region_activation_memory_budget: 0.9
+  metric_recorders:
+    tensorboard:
+      enabled: true
+    wandb:
+      enabled: false
+  profilers:
+    torch:
+      enabled: false
+  assets:
+    extra_paths: []
+    prev_checkpoint_dir: null
+  seed: 2
+  debug: false
+  cluster: auto
+  no_sweep_dir: false
+  sweep_format: ws_{world_size}.{hash}
