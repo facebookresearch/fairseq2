@@ -271,6 +271,8 @@ class NemotronHMoE(nn.Module):
             expert_hit = torch.greater(expert_mask.sum(dim=(-1, -2)), 0).nonzero().reshape(-1)
 
         # Process only experts that have tokens routed to them
+        # Move to CPU to avoid per-iteration CPU-GPU sync from .item()
+        expert_hit = expert_hit.cpu()
         for expert_idx in expert_hit:
             expert_idx_item = expert_idx.item()
             top_k_pos, token_indices = torch.where(expert_mask[expert_idx_item])

@@ -259,40 +259,36 @@ class NemotronHMamba2Mixer(nn.Module):
             # Incremental decoding: process one token at a time
             return self._forward_incremental(hidden_states, state)
 
-        # Full sequence forward
-        output = self._forward_training(hidden_states, attention_mask)
+        # Full sequence forward — capture final states if entering incremental mode
+        need_states = state_bag is not None
+        result = self._forward_training(
+            hidden_states, attention_mask, return_final_states=need_states,
+        )
 
-        # Initialize state for future incremental decoding
-        if state_bag is not None:
-            conv_state = torch.zeros(
-                batch_size,
-                self.conv_dim,
-                self.conv_kernel,
-                device=hidden_states.device,
-                dtype=hidden_states.dtype,
+        if need_states:
+            output, conv_state, ssm_state = result
+            state = NemotronHMamba2State(
+                conv_state=conv_state, ssm_state=ssm_state,
             )
-            ssm_state = torch.zeros(
-                batch_size,
-                self.num_heads,
-                self.head_dim,
-                self.state_size,
-                device=hidden_states.device,
-                dtype=hidden_states.dtype,
-            )
-            state = NemotronHMamba2State(conv_state=conv_state, ssm_state=ssm_state)
             state_bag.set_state(self, state)
+            return output
 
-        return output
+        return result
 
     def _forward_training(
         self,
         hidden_states: Tensor,
         attention_mask: Optional[Tensor] = None,
-    ) -> Tensor:
+        return_final_states: bool = False,
+    ) -> Tensor | tuple[Tensor, Tensor, Tensor]:
         """Full sequence forward for training.
 
         Uses mamba_chunk_scan_combined when CUDA kernels are available,
         otherwise falls back to a pure PyTorch implementation.
+
+        When return_final_states=True, returns (output, conv_state, ssm_state)
+        so that the final states from the prefill pass are properly captured
+        for subsequent incremental decoding.
         """
         batch_size, seq_len, _ = hidden_states.shape
 
@@ -305,6 +301,8 @@ class NemotronHMamba2Mixer(nn.Module):
         )
 
         # 3. Causal conv1d on x_BC
+        # Save pre-conv x_BC for conv_state capture (if needed for caching)
+        x_BC_pre_conv = x_BC if return_final_states else None
         x_BC = self._apply_conv1d(x_BC)
 
         # 4. Split conv output into hidden_states (x), B, C
@@ -329,9 +327,10 @@ class NemotronHMamba2Mixer(nn.Module):
 
         # 5. Selective scan
         A = -torch.exp(self.A_log.float())  # [num_heads]
+        ssm_state_final: Tensor | None = None
 
         if HAS_MAMBA_SSM and x.is_cuda:
-            y = mamba_chunk_scan_combined(
+            scan_result = mamba_chunk_scan_combined(
                 x,
                 dt,
                 A,
@@ -343,10 +342,15 @@ class NemotronHMamba2Mixer(nn.Module):
                 dt_bias=self.dt_bias,
                 dt_softplus=True,
                 seq_idx=None,
+                return_final_states=return_final_states,
             )
+            if return_final_states:
+                y, ssm_state_final = scan_result
+            else:
+                y = scan_result
             # y: [B, L, num_heads, head_dim]
         else:
-            y = self._selective_scan_pytorch(x, dt, A, B, C)
+            y, ssm_state_final = self._selective_scan_pytorch(x, dt, A, B, C)
 
         # Reshape back to [B, L, intermediate_size]
         y = y.view(batch_size, seq_len, self.intermediate_size)
@@ -356,6 +360,20 @@ class NemotronHMamba2Mixer(nn.Module):
 
         # 7. Output projection
         output = self.out_proj(y)
+
+        if return_final_states:
+            assert x_BC_pre_conv is not None
+            # Build conv_state from last conv_kernel timesteps of x_BC (pre-conv)
+            # conv_state: [B, conv_dim, conv_kernel]
+            x_BC_t = x_BC_pre_conv.transpose(1, 2)  # [B, conv_dim, L]
+            conv_state = F.pad(
+                x_BC_t,
+                (self.conv_kernel - x_BC_t.shape[-1], 0),
+            )[:, :, -self.conv_kernel:]
+
+            # ssm_state_final: [B, num_heads, head_dim, state_size]
+            assert ssm_state_final is not None
+            return output, conv_state, ssm_state_final
 
         return output
 
@@ -394,14 +412,16 @@ class NemotronHMamba2Mixer(nn.Module):
         A: Tensor,  # [H]
         B: Tensor,  # [B, L, G, N]
         C: Tensor,  # [B, L, G, N]
-    ) -> Tensor:
+    ) -> tuple[Tensor, Tensor]:
         """Pure PyTorch fallback for selective scan.
 
         This is a simple sequential scan (not chunked) for correctness reference.
         Much slower than the CUDA kernel but numerically equivalent.
 
         Returns:
-            Output tensor. Shape: [B, L, H, D]
+            Tuple of:
+            - Output tensor. Shape: [B, L, H, D]
+            - Final SSM state. Shape: [B, H, D, N]
         """
         batch_size, seq_len, num_heads, head_dim = x.shape
         state_size = B.shape[-1]
@@ -445,7 +465,7 @@ class NemotronHMamba2Mixer(nn.Module):
 
             outputs.append(y_t)
 
-        return torch.stack(outputs, dim=1)  # [B, L, H, D]
+        return torch.stack(outputs, dim=1), ssm_state  # [B, L, H, D], [B, H, D, N]
 
     def _forward_incremental(
         self,
