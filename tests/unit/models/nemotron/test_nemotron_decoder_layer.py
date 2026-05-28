@@ -37,7 +37,6 @@ def _make_tiny_config() -> NemotronHConfig:
     config.num_experts_per_tok = 2
     config.moe_intermediate_size = 64
     config.shared_expert_intermediate_size = 128
-    config.rescale_prenorm_residual = False
     return config
 
 
@@ -45,9 +44,7 @@ class TestNemotronHBlock:
     def test_mamba_block(self) -> None:
         config = _make_tiny_config()
         factory = NemotronHFactory(config)
-        block = factory.create_decoder_layer(
-            0, "mamba", factory.create_position_encoder()
-        )
+        block = factory.create_decoder_layer(0, "mamba")
         assert isinstance(block, NemotronHBlock)
         assert block.block_type == "mamba"
 
@@ -60,9 +57,7 @@ class TestNemotronHBlock:
     def test_moe_block(self) -> None:
         config = _make_tiny_config()
         factory = NemotronHFactory(config)
-        block = factory.create_decoder_layer(
-            1, "moe", factory.create_position_encoder()
-        )
+        block = factory.create_decoder_layer(1, "moe")
         assert isinstance(block, NemotronHBlock)
         assert block.block_type == "moe"
 
@@ -75,9 +70,7 @@ class TestNemotronHBlock:
     def test_attention_block(self) -> None:
         config = _make_tiny_config()
         factory = NemotronHFactory(config)
-        block = factory.create_decoder_layer(
-            3, "attention", factory.create_position_encoder()
-        )
+        block = factory.create_decoder_layer(3, "attention")
         assert isinstance(block, NemotronHBlock)
         assert block.block_type == "attention"
 
@@ -91,9 +84,7 @@ class TestNemotronHBlock:
         """Output should not be identical to input (mixer changes it)."""
         config = _make_tiny_config()
         factory = NemotronHFactory(config)
-        block = factory.create_decoder_layer(
-            0, "mamba", factory.create_position_encoder()
-        )
+        block = factory.create_decoder_layer(0, "mamba")
 
         x = torch.randn(2, 8, 128)
         layout = BatchLayout.of(torch.zeros(2, 8, dtype=torch.long))

@@ -9,6 +9,9 @@ from __future__ import annotations
 from fairseq2.models.nemotron.config import NEMOTRON_H_FAMILY as NEMOTRON_H_FAMILY
 from fairseq2.models.nemotron.config import NemotronHConfig as NemotronHConfig
 from fairseq2.models.nemotron.config import (
+    CRADIOVisionConfig as CRADIOVisionConfig,
+)
+from fairseq2.models.nemotron.config import (
     ParakeetAudioConfig as ParakeetAudioConfig,
 )
 from fairseq2.models.nemotron.config import (

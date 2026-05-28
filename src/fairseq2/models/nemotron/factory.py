@@ -30,6 +30,8 @@ from fairseq2.models.nemotron.model import NemotronHMultimodalModel
 from fairseq2.models.nemotron.moe import NemotronHMoE
 from fairseq2.models.nemotron.audio.conformer import ParakeetAudioTower
 from fairseq2.models.nemotron.audio.projection import SoundProjection
+from fairseq2.models.nemotron.vision.encoder import CRADIOViTEncoder
+from fairseq2.models.nemotron.vision.projection import VisionProjection
 from fairseq2.models.transformer import (
     CausalAttentionBias,
     MultiheadAttention,
@@ -64,25 +66,35 @@ def create_nemotron_h_model(config: NemotronHConfig) -> TransformerLM:
 def create_nemotron_h_multimodal_model(
     config: NemotronHConfig,
 ) -> TransformerLM | NemotronHMultimodalModel:
-    """Create a NemotronH model, optionally with audio.
+    """Create a NemotronH model, optionally with audio and/or vision.
 
-    Returns a plain ``TransformerLM`` when ``config.audio_config`` is None,
-    or a ``NemotronHMultimodalModel`` wrapping the LM + audio encoder.
+    Returns a plain ``TransformerLM`` when neither audio nor vision is configured,
+    or a ``NemotronHMultimodalModel`` wrapping the LM + encoder(s).
     """
     factory = NemotronHFactory(config)
     lm = factory.create_model()
 
-    if config.audio_config is None:
+    has_audio = config.audio_config is not None
+    has_vision = config.vision_config is not None
+
+    if not has_audio and not has_vision:
         return lm
 
-    audio_tower = factory.create_audio_tower()
-    sound_projection = factory.create_sound_projection()
+    audio_tower = factory.create_audio_tower() if has_audio else None
+    sound_projection = factory.create_sound_projection() if has_audio else None
+    vision_encoder = factory.create_vision_tower() if has_vision else None
+    vision_projection = factory.create_vision_projection() if has_vision else None
 
     return NemotronHMultimodalModel(
         language_model=lm,
         sound_encoder=audio_tower,
         sound_projection=sound_projection,
         sound_context_token_id=config.sound_context_token_id,
+        vision_encoder=vision_encoder,
+        vision_projection=vision_projection,
+        img_context_token_id=config.img_context_token_id,
+        downsample_ratio=config.vision_config.downsample_ratio if config.vision_config else 0.5,
+        patch_size=config.vision_config.patch_size if config.vision_config else 16,
     )
 
 
@@ -373,5 +385,58 @@ class NemotronHFactory:
             model_dim=config.model_dim,
             hidden_dim=config.sound_projection_hidden_size,
             bias=config.sound_projection_bias,
+            eps=config.rms_norm_eps,
+        )
+
+    def create_vision_tower(self) -> CRADIOViTEncoder:
+        """Create the C-RADIO ViT vision encoder tower.
+
+        Requires ``config.vision_config`` to be set.
+        """
+        config = self._config
+        vision_config = config.vision_config
+
+        if vision_config is None:
+            raise ValueError(
+                "Cannot create vision tower without vision_config. "
+                "Set config.vision_config = CRADIOVisionConfig()."
+            )
+
+        return CRADIOViTEncoder(
+            hidden_size=vision_config.hidden_size,
+            num_heads=vision_config.num_attention_heads,
+            num_layers=vision_config.num_hidden_layers,
+            mlp_dim=vision_config.intermediate_size,
+            patch_size=vision_config.patch_size,
+            num_registers=vision_config.num_registers,
+            max_grid_size=vision_config.max_grid_size,
+            image_size=vision_config.image_size,
+        )
+
+    def create_vision_projection(self) -> VisionProjection:
+        """Create the vision projection MLP (mlp1).
+
+        Projects pixel-shuffled ViT features (vit_hidden * 4) to LM hidden space.
+        Requires ``config.vision_config`` to be set.
+        """
+        config = self._config
+        vision_config = config.vision_config
+
+        if vision_config is None:
+            raise ValueError(
+                "Cannot create vision projection without vision_config. "
+                "Set config.vision_config = CRADIOVisionConfig()."
+            )
+
+        # After pixel shuffle with ratio 0.5: channels expand by 1/(0.5^2) = 4
+        encoder_dim = int(
+            vision_config.hidden_size / (vision_config.downsample_ratio ** 2)
+        )
+
+        return VisionProjection(
+            encoder_dim=encoder_dim,
+            model_dim=config.model_dim,
+            hidden_dim=config.vision_projection_hidden_size,
+            bias=config.vision_projection_bias,
             eps=config.rms_norm_eps,
         )

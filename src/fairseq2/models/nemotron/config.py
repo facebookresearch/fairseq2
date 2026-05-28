@@ -16,6 +16,41 @@ NEMOTRON_H_FAMILY: Final = "nemotron_h"
 
 
 @dataclass(kw_only=True)
+class CRADIOVisionConfig:
+    """Configuration for the C-RADIO (ViT-Huge) vision encoder."""
+
+    hidden_size: int = 1280
+    """The hidden size of the ViT blocks."""
+
+    num_attention_heads: int = 16
+    """The number of attention heads."""
+
+    head_dim: int = 80
+    """The dimensionality of each attention head (hidden_size / num_heads)."""
+
+    num_hidden_layers: int = 32
+    """The number of ViT transformer blocks."""
+
+    intermediate_size: int = 5120
+    """The intermediate size of the MLP in each ViT block."""
+
+    patch_size: int = 16
+    """The size of image patches (patch_size × patch_size)."""
+
+    num_registers: int = 10
+    """The number of register (cls) tokens prepended to the sequence."""
+
+    max_grid_size: int = 128
+    """The maximum grid size for position embeddings (128×128 = 16384 patches)."""
+
+    image_size: int = 512
+    """The default image size (512×512 pixels → 32×32 grid = 1024 patches)."""
+
+    downsample_ratio: float = 0.5
+    """Pixel shuffle spatial downsampling ratio (0.5 = merge 2×2 → 4× channels)."""
+
+
+@dataclass(kw_only=True)
 class ParakeetAudioConfig:
     """Configuration for the Parakeet (FastConformer) audio encoder."""
 
@@ -211,6 +246,19 @@ class NemotronHConfig:
     sound_context_token_id: int = 27
     """The token ID for audio placeholder tokens (``<so_embedding>``)."""
 
+    # === Vision (C-RADIO) config ===
+    vision_config: CRADIOVisionConfig | None = None
+    """If not ``None``, the model includes a C-RADIO vision encoder."""
+
+    vision_projection_hidden_size: int = 20480
+    """The intermediate hidden size of the vision projection MLP (mlp1)."""
+
+    vision_projection_bias: bool = False
+    """If ``True``, the vision projection MLP uses bias."""
+
+    img_context_token_id: int = 18
+    """The token ID for image placeholder tokens (``<image>``)."""
+
     @property
     def layer_types(self) -> list[BlockType]:
         """Parse the hybrid pattern into a list of block types."""
@@ -274,5 +322,22 @@ def register_nemotron_h_configs(container: DependencyContainer) -> None:
     def nemotron_h_30b_a3b_audio() -> NemotronHConfig:
         """NemotronH 30B with Parakeet audio encoder."""
         config = NemotronHConfig(audio_config=ParakeetAudioConfig())
+        config.validate()
+        return config
+
+    @arch("nemotron_h_30b_a3b_vision")
+    def nemotron_h_30b_a3b_vision() -> NemotronHConfig:
+        """NemotronH 30B with C-RADIO vision encoder."""
+        config = NemotronHConfig(vision_config=CRADIOVisionConfig())
+        config.validate()
+        return config
+
+    @arch("nemotron_h_30b_a3b_omni")
+    def nemotron_h_30b_a3b_omni() -> NemotronHConfig:
+        """NemotronH 30B with both vision and audio encoders."""
+        config = NemotronHConfig(
+            vision_config=CRADIOVisionConfig(),
+            audio_config=ParakeetAudioConfig(),
+        )
         config.validate()
         return config

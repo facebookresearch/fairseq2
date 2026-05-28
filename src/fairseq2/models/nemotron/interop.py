@@ -117,6 +117,46 @@ _HG_AUDIO_KEY_MAP: Final = {
     # fmt: on
 }
 
+# Vision key mapping (HF vision_model/mlp1 -> fairseq2 vision_encoder/vision_projection)
+# In the multimodal model, vision modules are at the top level:
+#   vision_model.radio_model.* -> vision_encoder.*
+#   mlp1.* -> vision_projection.*
+_HG_VISION_KEY_MAP: Final = {
+    # fmt: off
+    # === Vision encoder: strip "radio_model.model." prefix ===
+
+    # Input conditioner: norm_mean/norm_std
+    r"^vision_model\.radio_model\.input_conditioner\.norm_mean":                         r"vision_encoder.norm_mean",
+    r"^vision_model\.radio_model\.input_conditioner\.norm_std":                          r"vision_encoder.norm_std",
+
+    # Patch generator: cls_token, embedder, pos_embed, video_embedder
+    r"^vision_model\.radio_model\.model\.patch_generator\.cls_token\.token":             r"vision_encoder.cls_token",
+    r"^vision_model\.radio_model\.model\.patch_generator\.embedder\.":                   r"vision_encoder.patch_embed.",
+    r"^vision_model\.radio_model\.model\.patch_generator\.pos_embed":                    r"vision_encoder.pos_embed",
+    r"^vision_model\.radio_model\.model\.patch_generator\.video_embedder\.":             r"vision_encoder.video_embedder.",
+
+    # ViT blocks: attention qkv and proj
+    r"^vision_model\.radio_model\.model\.blocks\.([0-9]+)\.attn\.qkv\.":                r"vision_encoder.blocks.\1.attn_qkv.",
+    r"^vision_model\.radio_model\.model\.blocks\.([0-9]+)\.attn\.proj\.":               r"vision_encoder.blocks.\1.attn_proj.",
+
+    # ViT blocks: MLP fc1/fc2
+    r"^vision_model\.radio_model\.model\.blocks\.([0-9]+)\.mlp\.fc1\.":                 r"vision_encoder.blocks.\1.mlp_fc1.",
+    r"^vision_model\.radio_model\.model\.blocks\.([0-9]+)\.mlp\.fc2\.":                 r"vision_encoder.blocks.\1.mlp_fc2.",
+
+    # ViT blocks: norms
+    r"^vision_model\.radio_model\.model\.blocks\.([0-9]+)\.norm1\.":                    r"vision_encoder.blocks.\1.norm1.",
+    r"^vision_model\.radio_model\.model\.blocks\.([0-9]+)\.norm2\.":                    r"vision_encoder.blocks.\1.norm2.",
+
+    # === Vision projection (mlp1) ===
+    # mlp1.0 = RMSNorm → vision_projection.norm
+    r"^mlp1\.0\.":                                                                       r"vision_projection.norm.",
+    # mlp1.1 = Linear → vision_projection.linear1
+    r"^mlp1\.1\.":                                                                       r"vision_projection.linear1.",
+    # mlp1.3 = Linear → vision_projection.linear2
+    r"^mlp1\.3\.":                                                                       r"vision_projection.linear2.",
+    # fmt: on
+}
+
 # Keys to skip during conversion (multimodal components not yet implemented)
 _SKIP_PREFIXES_TEXT_ONLY: Final = [
     "vision_model.",
@@ -134,6 +174,19 @@ _SKIP_PREFIXES_AUDIO: Final = [
     "sound_encoder.encoder.encode_positions.",
 ]
 
+# Keys to skip when vision is enabled (still skip audio)
+_SKIP_PREFIXES_VISION: Final = [
+    "sound_encoder.",
+    "sound_projection.",
+]
+
+# Keys to skip when both audio and vision are enabled
+_SKIP_PREFIXES_OMNI: Final = [
+    # Non-persistent buffers from audio
+    "sound_encoder.encoder.feature_extractor.",
+    "sound_encoder.encoder.encode_positions.",
+]
+
 
 def convert_nemotron_h_state_dict(
     state_dict: dict[str, object], config: NemotronHConfig
@@ -146,6 +199,9 @@ def convert_nemotron_h_state_dict(
     When ``config.audio_config`` is set, audio keys (sound_encoder.*,
     sound_projection.*) are converted instead of skipped.
 
+    When ``config.vision_config`` is set, vision keys (vision_model.*,
+    mlp1.*) are converted instead of skipped.
+
     Args:
         state_dict: The state dict to convert.
         config: The NemotronH configuration.
@@ -156,7 +212,17 @@ def convert_nemotron_h_state_dict(
     # Check if this is HuggingFace format
     if any(k.startswith("language_model.") for k in state_dict.keys()):
         has_audio = config.audio_config is not None
-        skip_prefixes = _SKIP_PREFIXES_AUDIO if has_audio else _SKIP_PREFIXES_TEXT_ONLY
+        has_vision = config.vision_config is not None
+
+        # Select skip prefixes based on which modalities are enabled
+        if has_audio and has_vision:
+            skip_prefixes = _SKIP_PREFIXES_OMNI
+        elif has_audio:
+            skip_prefixes = _SKIP_PREFIXES_AUDIO
+        elif has_vision:
+            skip_prefixes = _SKIP_PREFIXES_VISION
+        else:
+            skip_prefixes = _SKIP_PREFIXES_TEXT_ONLY
 
         # Filter out keys we don't handle
         filtered_state_dict = {}
@@ -173,6 +239,11 @@ def convert_nemotron_h_state_dict(
         # the LM key map unchanged — apply audio map to those)
         if has_audio:
             state_dict = convert_state_dict(state_dict, _HG_AUDIO_KEY_MAP)
+
+        # If vision is enabled, convert vision keys separately
+        # (vision_model.* and mlp1.* don't have language_model prefix)
+        if has_vision:
+            state_dict = convert_state_dict(state_dict, _HG_VISION_KEY_MAP)
 
     return state_dict
 
