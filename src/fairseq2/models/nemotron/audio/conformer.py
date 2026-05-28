@@ -80,13 +80,13 @@ class ParakeetConformerBlock(Module):
             model_dim, bias=True, device=device, dtype=dtype
         )
 
-        # Feed-forward networks (SiLU activation, bias=True)
+        # Feed-forward networks (SiLU activation, bias=False per HF checkpoint)
         # Using StandardFeedForwardNetwork: keys are inner_proj/output_proj
         # (HF uses linear1/linear2 — handled by interop key mapping)
         self.feed_forward1 = StandardFeedForwardNetwork(
             model_dim,
             ffn_dim,
-            bias=True,
+            bias=False,
             inner_activation=SiLU(),
             device=device,
             dtype=dtype,
@@ -94,7 +94,7 @@ class ParakeetConformerBlock(Module):
         self.feed_forward2 = StandardFeedForwardNetwork(
             model_dim,
             ffn_dim,
-            bias=True,
+            bias=False,
             inner_activation=SiLU(),
             device=device,
             dtype=dtype,
@@ -105,7 +105,7 @@ class ParakeetConformerBlock(Module):
             model_dim,
             num_heads,
             head_dim=head_dim,
-            bias=True,
+            bias=False,
             device=device,
             dtype=dtype,
         )
@@ -126,7 +126,7 @@ class ParakeetConformerBlock(Module):
         :param x:
             Input features. *Shape:* ``[B, T, D]``.
         :param pos_enc:
-            Position encodings. *Shape:* ``[T, D]``.
+            Position encodings. *Shape:* ``[2*T-1, D]``.
         :param seqs_layout:
             Batch layout for the sequences (needed by ConformerConvolution).
 

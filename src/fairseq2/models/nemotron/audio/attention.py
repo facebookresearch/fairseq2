@@ -13,6 +13,10 @@ NVIDIA's FastConformer/Parakeet architecture:
 
 where R is position-encoded via sinusoidal relative position embeddings
 projected through relative_k_proj.
+
+Position encoding generates 2*T-1 positions (both positive and negative
+relative distances) with interleaved sin/cos:
+  [sin(f0*p), cos(f0*p), sin(f1*p), cos(f1*p), ...]
 """
 
 from __future__ import annotations
@@ -23,6 +27,7 @@ from typing import TYPE_CHECKING, final
 import torch
 from torch import Tensor
 from torch.nn import Linear, Module, Parameter
+from torch.nn.functional import pad
 from typing_extensions import override
 
 from fairseq2.data_type import DataType
@@ -32,6 +37,9 @@ from fairseq2.device import Device
 @final
 class ParakeetRelativePositionalEncoding(Module):
     """Sinusoidal relative positional encoding for Parakeet.
+
+    Generates 2*seq_len - 1 positions (from seq_len-1 to -(seq_len-1))
+    with interleaved sin/cos encoding, matching HF ParakeetEncoder.
 
     Holds an ``inv_freq`` buffer (non-persistent, like the HF model) and
     computes sinusoidal position embeddings on the fly during forward.
@@ -59,19 +67,26 @@ class ParakeetRelativePositionalEncoding(Module):
             The sequence length.
 
         :returns:
-            Position embeddings. *Shape:* ``[seq_len, model_dim]``.
+            Position embeddings with interleaved sin/cos.
+            *Shape:* ``[2*seq_len - 1, model_dim]``.
         """
-        # Create position indices [seq_len-1, seq_len-2, ..., 0]
-        # (relative positions: most distant first)
+        # Create position indices [seq_len-1, seq_len-2, ..., 0, -1, ..., -(seq_len-1)]
+        # This covers both positive and negative relative distances.
         positions = torch.arange(
-            seq_len - 1, -1, -1.0, device=self.inv_freq.device, dtype=self.inv_freq.dtype
+            seq_len - 1, -seq_len, -1.0,
+            device=self.inv_freq.device, dtype=torch.float32,
         )
 
-        # [seq_len, dim/2]
-        sinusoid = torch.outer(positions, self.inv_freq)
+        # [2*seq_len-1, dim/2]
+        freqs = torch.outer(positions, self.inv_freq)
 
-        # [seq_len, dim] — interleave sin and cos
-        pos_enc = torch.cat([sinusoid.sin(), sinusoid.cos()], dim=-1)
+        # Interleave sin and cos: [sin(f0), cos(f0), sin(f1), cos(f1), ...]
+        # This matches HF's torch.stack([sin, cos], dim=-1).reshape(...)
+        sin = freqs.sin()
+        cos = freqs.cos()
+        pos_enc = torch.stack([sin, cos], dim=-1).reshape(
+            2 * seq_len - 1, -1
+        )
 
         return pos_enc
 
@@ -83,28 +98,32 @@ def _rel_shift(x: Tensor) -> Tensor:
     """Perform relative shift (skew) operation for relative position attention.
 
     Converts the position-based attention scores into the correct alignment
-    by padding and slicing.
+    by padding, reshaping, and slicing. Works for any position length P
+    (typically P = 2*T - 1 for full relative positions).
 
     :param x:
-        Tensor of shape ``[B, H, T, 2*T-1]`` or ``[B, H, T, T+pad]``.
+        Tensor of shape ``[B, H, T, P]`` where P is the position length.
 
     :returns:
-        Tensor of shape ``[B, H, T, T]`` after relative shift.
+        Tensor of shape ``[B, H, T, P]`` after relative shift.
     """
-    b, h, t, _ = x.shape
+    b, h, t, p = x.shape
 
     # Pad with one column on the left
-    # [B, H, T, 2T-1] -> [B, H, T, 2T]
-    x = torch.nn.functional.pad(x, (1, 0))
+    # [B, H, T, P] -> [B, H, T, P+1]
+    x = pad(x, (1, 0))
 
     # Reshape to allow diagonal extraction
-    # [B, H, T, 2T] -> [B, H, 2T, T]
-    x = x.view(b, h, -1, t)
+    # [B, H, T, P+1] -> [B, H, P+1, T]
+    x = x.view(b, h, p + 1, t)
 
-    # Take first T rows (this performs the skew)
-    # [B, H, 2T, T] -> [B, H, T, T]
-    x = x[:, :, 1:, :]  # Skip first row (padding)
-    x = x[:, :, :t, :]  # Take only T rows
+    # Skip first row (padding) to perform the skew
+    # [B, H, P+1, T] -> [B, H, P, T]
+    x = x[:, :, 1:]
+
+    # Reshape back
+    # [B, H, P, T] -> [B, H, T, P]
+    x = x.view(b, h, t, p)
 
     return x
 
@@ -115,9 +134,12 @@ class ParakeetRelativeAttention(Module):
 
     Uses per-head content (``bias_u``) and position (``bias_v``) biases:
 
-        content_score = (Q + bias_u) @ K^T
-        position_score = rel_shift((Q + bias_v) @ R^T)
-        score = (content_score + position_score) / sqrt(head_dim)
+        content_score = (Q + bias_u) @ K^T * scale
+        position_score = rel_shift((Q + bias_v) @ R^T)[:, :, :, :T] * scale
+        score = content_score + position_score
+
+    Position embeddings have shape [2*T-1, D] to cover both positive and
+    negative relative distances, matching HF ParakeetEncoder.
     """
 
     def __init__(
@@ -126,7 +148,7 @@ class ParakeetRelativeAttention(Module):
         num_heads: int,
         *,
         head_dim: int | None = None,
-        bias: bool = True,
+        bias: bool = False,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -163,7 +185,7 @@ class ParakeetRelativeAttention(Module):
             Input features. *Shape:* ``[B, T, D]``.
         :param pos_enc:
             Position encodings from ``ParakeetRelativePositionalEncoding``.
-            *Shape:* ``[T, D]``.
+            *Shape:* ``[2*T-1, D]``.
 
         :returns:
             Attention output. *Shape:* ``[B, T, D]``.
@@ -179,23 +201,29 @@ class ParakeetRelativeAttention(Module):
         v = self.v_proj(x).view(b, t, h, d).transpose(1, 2)
 
         # Project position encoding to key space
-        # [T, D] -> [T, D] -> [T, H, d] -> [H, T, d]
-        rel_k = self.relative_k_proj(pos_enc).view(t, h, d).permute(1, 0, 2)
+        # pos_enc: [2T-1, D] -> [2T-1, D] -> [2T-1, H, d]
+        # Cast to model dtype (pos_enc is computed in float32 for accuracy)
+        p = pos_enc.shape[0]  # 2*T - 1
+        rel_k = self.relative_k_proj(pos_enc.to(dtype=q.dtype)).view(p, h, d)
 
-        # Content-based attention: (Q + bias_u) @ K^T
+        # Content-based attention: (Q + bias_u) @ K^T * scale
         # bias_u: [H, d] -> [1, H, 1, d]
         q_with_u = q + self.bias_u.unsqueeze(0).unsqueeze(2)
+        scale = 1.0 / math.sqrt(d)
         content_score = torch.matmul(q_with_u, k.transpose(-2, -1))  # [B, H, T, T]
+        content_score = content_score * scale
 
-        # Position-based attention: rel_shift((Q + bias_v) @ R^T)
+        # Position-based attention: rel_shift((Q + bias_v) @ R^T)[:T] * scale
         q_with_v = q + self.bias_v.unsqueeze(0).unsqueeze(2)
-        # [B, H, T, d] @ [H, d, T] -> [B, H, T, T]
-        position_score = torch.matmul(q_with_v, rel_k.transpose(-2, -1))
+        # [B, H, T, d] @ [1, H, d, 2T-1] -> [B, H, T, 2T-1]
+        rel_k_transposed = rel_k.permute(1, 2, 0).unsqueeze(0)  # [1, H, d, 2T-1]
+        position_score = torch.matmul(q_with_v, rel_k_transposed)
         position_score = _rel_shift(position_score)
+        position_score = position_score[..., :t]  # [B, H, T, T]
+        position_score = position_score * scale
 
         # Combined score
-        scale = 1.0 / math.sqrt(d)
-        attn_weights = (content_score + position_score) * scale
+        attn_weights = content_score + position_score
 
         attn_weights = torch.softmax(attn_weights, dim=-1)
 

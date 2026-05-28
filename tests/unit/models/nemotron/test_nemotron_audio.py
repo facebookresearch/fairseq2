@@ -97,16 +97,16 @@ class TestParakeetSubsamplingConv2D:
 
 class TestParakeetRelativePositionalEncoding:
     def test_output_shape(self) -> None:
-        """Position encoding should be [seq_len, model_dim]."""
+        """Position encoding should be [2*seq_len-1, model_dim]."""
         enc = ParakeetRelativePositionalEncoding(1024)
         out = enc(100)
-        assert out.shape == (100, 1024)
+        assert out.shape == (2 * 100 - 1, 1024)
 
     def test_different_lengths(self) -> None:
         enc = ParakeetRelativePositionalEncoding(512)
         for T in [10, 50, 200]:
             out = enc(T)
-            assert out.shape == (T, 512)
+            assert out.shape == (2 * T - 1, 512)
 
     def test_values_bounded(self) -> None:
         """Sin/cos values should be in [-1, 1]."""
