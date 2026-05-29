@@ -526,29 +526,51 @@ class NemotronHMamba2Mixer(nn.Module):
         B_val = B_val.view(batch_size, self.n_groups, self.state_size)
         C_val = C_val.view(batch_size, self.n_groups, self.state_size)
 
-        # Expand B, C from groups to heads
-        heads_per_group = self.num_heads // self.n_groups
-        B_val = B_val.repeat_interleave(heads_per_group, dim=1)
-        C_val = C_val.repeat_interleave(heads_per_group, dim=1)
-
         # 5. SSM state update
         A = -torch.exp(self.A_log.float())
-        dt_val = F.softplus(dt + self.dt_bias)  # [B, H]
 
         if HAS_MAMBA_SSM and x.is_cuda:
+            # selective_state_update expects specific shapes:
+            #   state:   [B, H, D, N]
+            #   x:       [B, H, D]
+            #   dt:      [B, H, D]  (raw, before bias/softplus)
+            #   A:       [H, D, N]  (nheads, dim, dstate)
+            #   B:       [B, ngroups, N]  (kernel handles group→head)
+            #   C:       [B, ngroups, N]  (kernel handles group→head)
+            #   D:       [H, D]  (nheads, dim)
+            #   dt_bias: [H, D]  (must be non-None — kernel checks .stride())
+            # Let the kernel handle bias + softplus natively.
+            dt_expanded = dt.unsqueeze(-1).expand_as(x)  # [B,H] → [B,H,D]
+            A_expanded = A.unsqueeze(-1).unsqueeze(-1).expand(
+                -1, self.head_dim, self.state_size
+            )  # [H] → [H,D,N]
+            D_expanded = self.D.unsqueeze(-1).expand(
+                -1, self.head_dim
+            )  # [H] → [H,D]
+            dt_bias_expanded = self.dt_bias.float().unsqueeze(-1).expand(
+                -1, self.head_dim
+            )  # [H] → [H,D]
             y = selective_state_update(
                 state.ssm_state,
                 x,
-                dt_val,
-                A,
-                B_val,
-                C_val,
-                D=self.D,
+                dt_expanded,
+                A_expanded,
+                B_val,   # [B, ngroups, N] — kernel handles group→head
+                C_val,   # [B, ngroups, N] — kernel handles group→head
+                D=D_expanded,
                 z=None,
-                dt_softplus=False,  # Already applied softplus
+                dt_bias=dt_bias_expanded,
+                dt_softplus=True,  # Kernel applies softplus(dt + dt_bias)
             )
         else:
-            # PyTorch fallback
+            # PyTorch fallback — apply bias+softplus ourselves
+            dt_val = F.softplus(dt + self.dt_bias)  # [B, H]
+
+            # Expand B, C from groups to heads
+            heads_per_group = self.num_heads // self.n_groups
+            B_val = B_val.repeat_interleave(heads_per_group, dim=1)
+            C_val = C_val.repeat_interleave(heads_per_group, dim=1)
+
             dA = torch.exp(A.unsqueeze(0) * dt_val)  # [1, H] * [B, H] -> [B, H]
             dA = dA.unsqueeze(-1).unsqueeze(-1)  # [B, H, 1, 1]
 
