@@ -247,6 +247,7 @@
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.gang.html">fairseq2.gang</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.model_checkpoint.html">fairseq2.model_checkpoint</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.models.html">fairseq2.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference/fairseq2.models.gemma4.html">fairseq2.models.gemma4</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="reference/fairseq2.models.hg.html">fairseq2.models.hg</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of fairseq2.models.hg</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="reference/generated/fairseq2.models.hg.api.html">fairseq2.models.hg.api</a></li>
 <li class="toctree-l2"><a class="reference internal" href="reference/generated/fairseq2.models.hg.config.html">fairseq2.models.hg.config</a></li>
@@ -327,6 +328,8 @@
   <h2>A</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4SubsampleConvProjection.activation">activation (fairseq2.models.gemma4.Gemma4SubsampleConvProjection attribute)</a>
+</li>
         <li><a href="reference/fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationResult.add_error">add_error() (fairseq2.utils.validation.ValidationResult method)</a>
 </li>
         <li><a href="reference/fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationResult.add_sub_result">add_sub_result() (fairseq2.utils.validation.ValidationResult method)</a>
@@ -349,8 +352,6 @@
           <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ProcessGroupGang.all_gather_to_list">(fairseq2.gang.ProcessGroupGang method)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.FakeGang.all_reduce">all_reduce() (fairseq2.gang.FakeGang method)</a>
 
         <ul>
@@ -360,6 +361,14 @@
 </li>
         </ul></li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.all_sum">all_sum() (in module fairseq2.gang)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.apply_ac_to_gemma4">apply_ac_to_gemma4() (in module fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Tokenizer.apply_chat_template">apply_chat_template() (fairseq2.models.gemma4.Gemma4Tokenizer method)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.apply_fsdp_to_gemma4">apply_fsdp_to_gemma4() (in module fairseq2.models.gemma4)</a>
 </li>
         <li><a href="reference/fairseq2.nn.utils.html#fairseq2.nn.utils.mask.apply_mask">apply_mask() (in module fairseq2.nn.utils.mask)</a>
 </li>
@@ -373,6 +382,28 @@
           <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ProcessGroupGang.as_process_group">(fairseq2.gang.ProcessGroupGang method)</a>
 </li>
         </ul></li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioConfig.attention_chunk_size">attention_chunk_size (fairseq2.models.gemma4.Gemma4AudioConfig attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioConfig.attention_context_left">attention_context_left (fairseq2.models.gemma4.Gemma4AudioConfig attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioConfig.attention_context_right">attention_context_right (fairseq2.models.gemma4.Gemma4AudioConfig attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.attention_k_eq_v">attention_k_eq_v (fairseq2.models.gemma4.Gemma4Config attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioConfig.attention_logit_cap">attention_logit_cap (fairseq2.models.gemma4.Gemma4AudioConfig attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.audio_config">audio_config (fairseq2.models.gemma4.Gemma4Config attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Model.audio_embedder">audio_embedder (fairseq2.models.gemma4.Gemma4Model attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.audio_token_id">audio_token_id (fairseq2.models.gemma4.Gemma4Config attribute)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Frontend.audio_token_id">(fairseq2.models.gemma4.Gemma4Frontend attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Model.audio_tower">audio_tower (fairseq2.models.gemma4.Gemma4Model attribute)</a>
+</li>
     </ul></td>
   </tr></table>
 </section>
@@ -463,9 +494,11 @@
         </ul></li>
         <li><a href="reference/fairseq2.nn.incremental_state.html#fairseq2.nn.IncrementalStateBag.capacity_increment">capacity_increment (fairseq2.nn.IncrementalStateBag property)</a>
 </li>
-        <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HgTokenizer.chat_template">chat_template (fairseq2.models.hg.HgTokenizer property)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Tokenizer.chat_template">chat_template (fairseq2.models.gemma4.Gemma4Tokenizer property)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HgTokenizer.chat_template">(fairseq2.models.hg.HgTokenizer property)</a>
+</li>
           <li><a href="reference/generated/fairseq2.models.hg.tokenizer.html#fairseq2.models.hg.tokenizer.HgTokenizer.chat_template">(fairseq2.models.hg.tokenizer.HgTokenizer property)</a>
 </li>
         </ul></li>
@@ -479,9 +512,29 @@
           <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ProcessGroupGang.close">(fairseq2.gang.ProcessGroupGang method)</a>
 </li>
         </ul></li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Decoder.compile_layerwise">compile_layerwise() (fairseq2.models.gemma4.Gemma4Decoder method)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Model.compile_loss">compile_loss() (fairseq2.models.gemma4.Gemma4Model method)</a>
+</li>
         <li><a href="reference/fairseq2.nn.batch_layout.html#fairseq2.nn.BatchLayout.compiled_max_seq_len">compiled_max_seq_len (fairseq2.nn.BatchLayout attribute)</a>
 </li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Model.compute_fused_loss">compute_fused_loss() (fairseq2.models.gemma4.Gemma4Model method)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Model.compute_loss">compute_loss() (fairseq2.models.gemma4.Gemma4Model method)</a>
+</li>
         <li><a href="reference/fairseq2.nn.utils.html#fairseq2.nn.utils.mask.compute_row_mask">compute_row_mask() (in module fairseq2.nn.utils.mask)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerBlock.conv">conv (fairseq2.models.gemma4.Gemma4ConformerBlock attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4SubsampleConvProjection.conv_0">conv_0 (fairseq2.models.gemma4.Gemma4SubsampleConvProjection attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4SubsampleConvProjection.conv_1">conv_1 (fairseq2.models.gemma4.Gemma4SubsampleConvProjection attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioConfig.conv_kernel_size">conv_kernel_size (fairseq2.models.gemma4.Gemma4AudioConfig attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerBlock.conv_layer_norm">conv_layer_norm (fairseq2.models.gemma4.Gemma4ConformerBlock attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.convert_gemma4_state_dict">convert_gemma4_state_dict() (in module fairseq2.models.gemma4)</a>
 </li>
         <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HgTokenizer.convert_tokens_to_ids">convert_tokens_to_ids() (fairseq2.models.hg.HgTokenizer method)</a>
 
@@ -491,9 +544,17 @@
         </ul></li>
         <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.CorruptModelCheckpointError">CorruptModelCheckpointError (class in fairseq2.model_checkpoint)</a>
 </li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Factory.create_audio_embedder">create_audio_embedder() (fairseq2.models.gemma4.Gemma4Factory method)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Factory.create_audio_tower">create_audio_tower() (fairseq2.models.gemma4.Gemma4Factory method)</a>
+</li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.Tokenizer.create_decoder">create_decoder() (fairseq2.data.tokenizers.Tokenizer method)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Factory.create_decoder">(fairseq2.models.gemma4.Gemma4Factory method)</a>
+</li>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Tokenizer.create_decoder">(fairseq2.models.gemma4.Gemma4Tokenizer method)</a>
+</li>
           <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HgTokenizer.create_decoder">(fairseq2.models.hg.HgTokenizer method)</a>
 </li>
           <li><a href="reference/generated/fairseq2.models.hg.tokenizer.html#fairseq2.models.hg.tokenizer.HgTokenizer.create_decoder">(fairseq2.models.hg.tokenizer.HgTokenizer method)</a>
@@ -503,11 +564,21 @@
           <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenTokenizer.create_decoder">(fairseq2.models.qwen.QwenTokenizer method)</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Factory.create_decoder_frontend">create_decoder_frontend() (fairseq2.models.gemma4.Gemma4Factory method)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Factory.create_decoder_layer">create_decoder_layer() (fairseq2.models.gemma4.Gemma4Factory method)</a>
+</li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ProcessGroupGang.create_default_process_group">create_default_process_group() (fairseq2.gang.ProcessGroupGang class method)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Factory.create_embedding">create_embedding() (fairseq2.models.gemma4.Gemma4Factory method)</a>
 </li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.Tokenizer.create_encoder">create_encoder() (fairseq2.data.tokenizers.Tokenizer method)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Tokenizer.create_encoder">(fairseq2.models.gemma4.Gemma4Tokenizer method)</a>
+</li>
           <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HgTokenizer.create_encoder">(fairseq2.models.hg.HgTokenizer method)</a>
 </li>
           <li><a href="reference/generated/fairseq2.models.hg.tokenizer.html#fairseq2.models.hg.tokenizer.HgTokenizer.create_encoder">(fairseq2.models.hg.tokenizer.HgTokenizer method)</a>
@@ -517,9 +588,9 @@
           <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenTokenizer.create_encoder">(fairseq2.models.qwen.QwenTokenizer method)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.create_fake_gangs">create_fake_gangs() (in module fairseq2.gang)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Factory.create_final_projection">create_final_projection() (fairseq2.models.gemma4.Gemma4Factory method)</a>
 </li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.create_fsdp_gangs">create_fsdp_gangs() (in module fairseq2.gang)</a>
 </li>
@@ -531,19 +602,27 @@
           <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ProcessGroupGang.create_gang">(fairseq2.gang.ProcessGroupGang method)</a>
 </li>
         </ul></li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.create_gemma4_model">create_gemma4_model() (in module fairseq2.models.gemma4)</a>
+</li>
         <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.create_hg_model">create_hg_model() (in module fairseq2.models.hg)</a>
 
         <ul>
           <li><a href="reference/generated/fairseq2.models.hg.factory.html#fairseq2.models.hg.factory.create_hg_model">(in module fairseq2.models.hg.factory)</a>
 </li>
         </ul></li>
-        <li><a href="reference/generated/fairseq2.models.hg.factory.html#fairseq2.models.hg.factory.HgFactory.create_model">create_model() (fairseq2.models.hg.factory.HgFactory method)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Factory.create_model">create_model() (fairseq2.models.gemma4.Gemma4Factory method)</a>
+
+        <ul>
+          <li><a href="reference/generated/fairseq2.models.hg.factory.html#fairseq2.models.hg.factory.HgFactory.create_model">(fairseq2.models.hg.factory.HgFactory method)</a>
 </li>
+        </ul></li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.create_parallel_gangs">create_parallel_gangs() (in module fairseq2.gang)</a>
 </li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.Tokenizer.create_raw_encoder">create_raw_encoder() (fairseq2.data.tokenizers.Tokenizer method)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Tokenizer.create_raw_encoder">(fairseq2.models.gemma4.Gemma4Tokenizer method)</a>
+</li>
           <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HgTokenizer.create_raw_encoder">(fairseq2.models.hg.HgTokenizer method)</a>
 </li>
           <li><a href="reference/generated/fairseq2.models.hg.tokenizer.html#fairseq2.models.hg.tokenizer.HgTokenizer.create_raw_encoder">(fairseq2.models.hg.tokenizer.HgTokenizer method)</a>
@@ -593,6 +672,10 @@
         </ul></li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.TokenDecoder.decode_from_tokens">decode_from_tokens() (fairseq2.data.tokenizers.TokenDecoder method)</a>
 </li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Model.decoder">decoder (fairseq2.models.gemma4.Gemma4Model attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Model.decoder_frontend">decoder_frontend (fairseq2.models.gemma4.Gemma4Model attribute)</a>
+</li>
         <li><a href="reference/fairseq2.device.html#fairseq2.device.detect_default_device">detect_default_device() (in module fairseq2.device)</a>
 </li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.FakeGang.device">device (fairseq2.gang.FakeGang property)</a>
@@ -617,9 +700,11 @@
 </li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.Gangs.dp">dp (fairseq2.gang.Gangs attribute)</a>
 </li>
-        <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.dropout_p">dropout_p (fairseq2.models.llama.LLaMAConfig attribute)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.dropout_p">dropout_p (fairseq2.models.gemma4.Gemma4Config attribute)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.dropout_p">(fairseq2.models.llama.LLaMAConfig attribute)</a>
+</li>
           <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.dropout_p">(fairseq2.models.olmo.OLMOConfig attribute)</a>
 </li>
           <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.dropout_p">(fairseq2.models.qwen.QwenConfig attribute)</a>
@@ -639,7 +724,15 @@
   <h2>E</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Frontend.embed">embed (fairseq2.models.gemma4.Gemma4Frontend attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Frontend.embed_tokens_per_layer">embed_tokens_per_layer (fairseq2.models.gemma4.Gemma4Frontend attribute)</a>
+</li>
         <li><a href="reference/fairseq2.nn.embedding.html#fairseq2.nn.Embedding">Embedding (class in fairseq2.nn)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4MultimodalAudioEmbedder.embedding_pre_projection_norm">embedding_pre_projection_norm (fairseq2.models.gemma4.Gemma4MultimodalAudioEmbedder attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4MultimodalAudioEmbedder.embedding_projection">embedding_projection (fairseq2.models.gemma4.Gemma4MultimodalAudioEmbedder attribute)</a>
 </li>
         <li><a href="reference/generated/fairseq2.models.hg.config.html#fairseq2.models.hg.config.HuggingFaceModelConfig.enable_gradient_checkpointing">enable_gradient_checkpointing (fairseq2.models.hg.config.HuggingFaceModelConfig attribute)</a>
 
@@ -647,6 +740,14 @@
           <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HuggingFaceModelConfig.enable_gradient_checkpointing">(fairseq2.models.hg.HuggingFaceModelConfig attribute)</a>
 </li>
         </ul></li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.enable_moe">enable_moe (fairseq2.models.gemma4.Gemma4Config attribute)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer.enable_moe">(fairseq2.models.gemma4.Gemma4DecoderLayer attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer.enable_ple">enable_ple (fairseq2.models.gemma4.Gemma4DecoderLayer attribute)</a>
+</li>
         <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HgTokenizer.encode">encode() (fairseq2.models.hg.HgTokenizer method)</a>
 
         <ul>
@@ -655,8 +756,12 @@
         </ul></li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.TokenEncoder.encode_as_tokens">encode_as_tokens() (fairseq2.data.tokenizers.TokenEncoder method)</a>
 </li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioTower.encoder">encoder (fairseq2.models.gemma4.Gemma4AudioTower attribute)</a>
+</li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.VocabularyInfo.eoh_idx">eoh_idx (fairseq2.data.tokenizers.VocabularyInfo attribute)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HgTokenizer.eoh_token">eoh_token (fairseq2.models.hg.HgTokenizer property)</a>
 
         <ul>
@@ -667,8 +772,6 @@
           <li><a href="reference/generated/fairseq2.models.hg.tokenizer.html#fairseq2.models.hg.tokenizer.HgTokenizerConfig.eoh_token">(fairseq2.models.hg.tokenizer.HgTokenizerConfig attribute)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.VocabularyInfo.eos_idx">eos_idx (fairseq2.data.tokenizers.VocabularyInfo attribute)</a>
 </li>
         <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HgTokenizer.eos_token">eos_token (fairseq2.models.hg.HgTokenizer property)</a>
@@ -690,6 +793,8 @@
 </li>
         </ul></li>
         <li><a href="reference/fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationResult.errors">errors (fairseq2.utils.validation.ValidationResult property)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer.experts">experts (fairseq2.models.gemma4.Gemma4DecoderLayer attribute)</a>
 </li>
         <li><a href="reference/fairseq2.nn.normalization.html#fairseq2.nn.RMSNorm.extra_repr">extra_repr() (fairseq2.nn.RMSNorm method)</a>
 
@@ -803,8 +908,6 @@
           <li><a href="reference/fairseq2.recipe.optim.html#module-fairseq2.recipe.optim">module</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     fairseq2.utils.validation
 
@@ -814,23 +917,73 @@
         </ul></li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.FakeGang">FakeGang (class in fairseq2.gang)</a>
 </li>
-        <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.ffn_inner_dim">ffn_inner_dim (fairseq2.models.llama.LLaMAConfig attribute)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer.ffn">ffn (fairseq2.models.gemma4.Gemma4DecoderLayer attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerBlock.ffn1">ffn1 (fairseq2.models.gemma4.Gemma4ConformerBlock attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerBlock.ffn1_layer_norm">ffn1_layer_norm (fairseq2.models.gemma4.Gemma4ConformerBlock attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerBlock.ffn1_post_layer_norm">ffn1_post_layer_norm (fairseq2.models.gemma4.Gemma4ConformerBlock attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerBlock.ffn2">ffn2 (fairseq2.models.gemma4.Gemma4ConformerBlock attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerBlock.ffn2_layer_norm">ffn2_layer_norm (fairseq2.models.gemma4.Gemma4ConformerBlock attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerBlock.ffn2_post_layer_norm">ffn2_post_layer_norm (fairseq2.models.gemma4.Gemma4ConformerBlock attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.ffn_inner_dim">ffn_inner_dim (fairseq2.models.gemma4.Gemma4Config attribute)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.ffn_inner_dim">(fairseq2.models.llama.LLaMAConfig attribute)</a>
+</li>
           <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.ffn_inner_dim">(fairseq2.models.olmo.OLMOConfig attribute)</a>
 </li>
           <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.ffn_inner_dim">(fairseq2.models.qwen.QwenConfig attribute)</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.ffn_inner_dim_multiple_of">ffn_inner_dim_multiple_of (fairseq2.models.llama.LLaMAConfig attribute)</a>
 </li>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.ffn_inner_dim_multiplier">ffn_inner_dim_multiplier (fairseq2.models.llama.LLaMAConfig attribute)</a>
 </li>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.ffn_inner_dim_scale">ffn_inner_dim_scale (fairseq2.models.llama.LLaMAConfig attribute)</a>
 </li>
-        <li><a href="reference/fairseq2.nn.residual.html#fairseq2.nn.AdditiveResidualConnect.forward">forward() (fairseq2.nn.AdditiveResidualConnect method)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.final_logit_soft_cap">final_logit_soft_cap (fairseq2.models.gemma4.Gemma4Config attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.final_logit_softcapping">final_logit_softcapping (fairseq2.models.gemma4.Gemma4Config property)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Model.final_proj">final_proj (fairseq2.models.gemma4.Gemma4Model attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Attention.forward">forward() (fairseq2.models.gemma4.Gemma4Attention method)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioTower.forward">(fairseq2.models.gemma4.Gemma4AudioTower method)</a>
+</li>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerAttention.forward">(fairseq2.models.gemma4.Gemma4ConformerAttention method)</a>
+</li>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerBlock.forward">(fairseq2.models.gemma4.Gemma4ConformerBlock method)</a>
+</li>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerEncoder.forward">(fairseq2.models.gemma4.Gemma4ConformerEncoder method)</a>
+</li>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Decoder.forward">(fairseq2.models.gemma4.Gemma4Decoder method)</a>
+</li>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer.forward">(fairseq2.models.gemma4.Gemma4DecoderLayer method)</a>
+</li>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Experts.forward">(fairseq2.models.gemma4.Gemma4Experts method)</a>
+</li>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Frontend.forward">(fairseq2.models.gemma4.Gemma4Frontend method)</a>
+</li>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Model.forward">(fairseq2.models.gemma4.Gemma4Model method)</a>
+</li>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4MultimodalAudioEmbedder.forward">(fairseq2.models.gemma4.Gemma4MultimodalAudioEmbedder method)</a>
+</li>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Router.forward">(fairseq2.models.gemma4.Gemma4Router method)</a>
+</li>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4SubsampleConvProjection.forward">(fairseq2.models.gemma4.Gemma4SubsampleConvProjection method)</a>
+</li>
+          <li><a href="reference/fairseq2.nn.residual.html#fairseq2.nn.AdditiveResidualConnect.forward">(fairseq2.nn.AdditiveResidualConnect method)</a>
+</li>
           <li><a href="reference/fairseq2.nn.embedding.html#fairseq2.nn.Embedding.forward">(fairseq2.nn.Embedding method)</a>
 </li>
           <li><a href="reference/fairseq2.nn.normalization.html#fairseq2.nn.LayerNorm.forward">(fairseq2.nn.LayerNorm method)</a>
@@ -882,12 +1035,50 @@
 </li>
         <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoadOptions.gangs">gangs (fairseq2.model_checkpoint.ModelCheckpointLoadOptions attribute)</a>
 </li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.GEMMA4_FAMILY">GEMMA4_FAMILY (in module fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Attention">Gemma4Attention (class in fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioConfig">Gemma4AudioConfig (class in fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioTower">Gemma4AudioTower (class in fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config">Gemma4Config (class in fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerAttention">Gemma4ConformerAttention (class in fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerBlock">Gemma4ConformerBlock (class in fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerEncoder">Gemma4ConformerEncoder (class in fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Decoder">Gemma4Decoder (class in fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer">Gemma4DecoderLayer (class in fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Experts">Gemma4Experts (class in fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Factory">Gemma4Factory (class in fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Frontend">Gemma4Frontend (class in fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Model">Gemma4Model (class in fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4MultimodalAudioEmbedder">Gemma4MultimodalAudioEmbedder (class in fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Router">Gemma4Router (class in fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4SubsampleConvProjection">Gemma4SubsampleConvProjection (class in fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Tokenizer">Gemma4Tokenizer (class in fairseq2.models.gemma4)</a>
+</li>
         <li><a href="reference/fairseq2.device.html#fairseq2.device.DeviceContext.get_current_device">get_current_device() (fairseq2.device.DeviceContext method)</a>
 
         <ul>
           <li><a href="reference/fairseq2.device.html#fairseq2.device.get_current_device">(in module fairseq2.device)</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.data_type.html#fairseq2.data_type.DataTypeContext.get_current_dtype">get_current_dtype() (fairseq2.data_type.DataTypeContext method)</a>
 
         <ul>
@@ -900,8 +1091,6 @@
           <li><a href="reference/fairseq2.gang.html#fairseq2.gang.get_current_gangs">(in module fairseq2.gang)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.get_data_parallel_facade">get_data_parallel_facade() (in module fairseq2.nn.data_parallel)</a>
 </li>
         <li><a href="reference/fairseq2.datasets.hub.html#fairseq2.datasets.hub.DatasetHub.get_dataset_config">get_dataset_config() (fairseq2.datasets.hub.DatasetHub method)</a>
@@ -909,6 +1098,18 @@
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.get_default_gangs">get_default_gangs() (in module fairseq2.gang)</a>
 </li>
         <li><a href="reference/fairseq2.device.html#fairseq2.device.CudaContext.get_device_properties">get_device_properties() (fairseq2.device.CudaContext method)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.get_gemma4_26b_a4b_config">get_gemma4_26b_a4b_config() (in module fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.get_gemma4_31b_config">get_gemma4_31b_config() (in module fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.get_gemma4_e2b_config">get_gemma4_e2b_config() (in module fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.get_gemma4_e4b_config">get_gemma4_e4b_config() (in module fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.get_gemma4_model_hub">get_gemma4_model_hub (in module fairseq2.models.gemma4)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.get_gemma4_tokenizer_hub">get_gemma4_tokenizer_hub (in module fairseq2.models.gemma4)</a>
 </li>
         <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.get_hg_model_hub">get_hg_model_hub() (in module fairseq2.models.hg)</a>
 </li>
@@ -926,6 +1127,14 @@
 </li>
         <li><a href="reference/fairseq2.data.tokenizers.hub.html#fairseq2.data.tokenizers.hub.TokenizerHub.get_tokenizer_config">get_tokenizer_config() (fairseq2.data.tokenizers.hub.TokenizerHub method)</a>
 </li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.global_head_dim">global_head_dim (fairseq2.models.gemma4.Gemma4Config attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioConfig.gradient_clipping">gradient_clipping (fairseq2.models.gemma4.Gemma4AudioConfig attribute)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerBlock.gradient_clipping">(fairseq2.models.gemma4.Gemma4ConformerBlock attribute)</a>
+</li>
+        </ul></li>
     </ul></td>
   </tr></table>
 </section>
@@ -936,8 +1145,18 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationResult.has_error">has_error() (fairseq2.utils.validation.ValidationResult method)</a>
 </li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.head_dim">head_dim (fairseq2.models.qwen.QwenConfig attribute)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.has_ple">has_ple (fairseq2.models.gemma4.Gemma4Config property)</a>
 </li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Attention.head_dim">head_dim (fairseq2.models.gemma4.Gemma4Attention attribute)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.head_dim">(fairseq2.models.gemma4.Gemma4Config attribute)</a>
+</li>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerAttention.head_dim">(fairseq2.models.gemma4.Gemma4ConformerAttention attribute)</a>
+</li>
+          <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.head_dim">(fairseq2.models.qwen.QwenConfig attribute)</a>
+</li>
+        </ul></li>
         <li><a href="reference/generated/fairseq2.models.hg.config.html#fairseq2.models.hg.config.HuggingFaceModelConfig.hf_name">hf_name (fairseq2.models.hg.config.HuggingFaceModelConfig attribute)</a>
 
         <ul>
@@ -960,6 +1179,12 @@
           <li><a href="reference/generated/fairseq2.models.hg.tokenizer.html#fairseq2.models.hg.tokenizer.HgTokenizerConfig">(class in fairseq2.models.hg.tokenizer)</a>
 </li>
         </ul></li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.hidden_activation">hidden_activation (fairseq2.models.gemma4.Gemma4Config attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioConfig.hidden_size">hidden_size (fairseq2.models.gemma4.Gemma4AudioConfig attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.hidden_size_per_layer_input">hidden_size_per_layer_input (fairseq2.models.gemma4.Gemma4Config attribute)</a>
+</li>
         <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HuggingFaceConfig">HuggingFaceConfig (class in fairseq2.models.hg)</a>
 </li>
         <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HuggingFaceConverter">HuggingFaceConverter (class in fairseq2.models.hg)</a>
@@ -990,9 +1215,11 @@
 </li>
         <li><a href="reference/fairseq2.nn.embedding.html#fairseq2.nn.init_scaled_embedding">init_scaled_embedding() (in module fairseq2.nn)</a>
 </li>
-        <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.init_std">init_std (fairseq2.models.llama.LLaMAConfig attribute)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.init_std">init_std (fairseq2.models.gemma4.Gemma4Config attribute)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.init_std">(fairseq2.models.llama.LLaMAConfig attribute)</a>
+</li>
           <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.init_std">(fairseq2.models.olmo.OLMOConfig attribute)</a>
 </li>
         </ul></li>
@@ -1004,7 +1231,13 @@
           <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.init_std_scale">(fairseq2.models.olmo.OLMOConfig attribute)</a>
 </li>
         </ul></li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioConfig.input_feat_size">input_feat_size (fairseq2.models.gemma4.Gemma4AudioConfig attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer.input_layernorm">input_layernorm (fairseq2.models.gemma4.Gemma4DecoderLayer attribute)</a>
+</li>
         <li><a href="reference/fairseq2.device.html#fairseq2.device.CudaContext.is_available">is_available() (fairseq2.device.CudaContext method)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Attention.is_kv_consumer">is_kv_consumer (fairseq2.models.gemma4.Gemma4Attention attribute)</a>
 </li>
         <li><a href="reference/fairseq2.data.tokenizers.hub.html#fairseq2.data.tokenizers.hub.TokenizerHub.iter_cards">iter_cards() (fairseq2.data.tokenizers.hub.TokenizerHub method)</a>
 
@@ -1020,10 +1253,14 @@
   <h2>K</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Attention.k_eq_v">k_eq_v (fairseq2.models.gemma4.Gemma4Attention attribute)</a>
+</li>
         <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.k_norm">k_norm (fairseq2.models.qwen.QwenConfig attribute)</a>
 </li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerAttention.k_proj">k_proj (fairseq2.models.gemma4.Gemma4ConformerAttention attribute)</a>
+</li>
         <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HuggingFaceConfig.kls_name">kls_name (fairseq2.models.hg.HuggingFaceConfig attribute)</a>
 </li>
     </ul></td>
@@ -1034,10 +1271,26 @@
   <h2>L</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.layer_types">layer_types (fairseq2.models.olmo.OLMOConfig attribute)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerBlock.layer_norm">layer_norm (fairseq2.models.gemma4.Gemma4ConformerBlock attribute)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Decoder.layer_norm">(fairseq2.models.gemma4.Gemma4Decoder attribute)</a>
 </li>
+        </ul></li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.layer_types">layer_types (fairseq2.models.gemma4.Gemma4Config attribute)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.layer_types">(fairseq2.models.olmo.OLMOConfig attribute)</a>
+</li>
+        </ul></li>
         <li><a href="reference/fairseq2.nn.normalization.html#fairseq2.nn.LayerNorm">LayerNorm (class in fairseq2.nn)</a>
 </li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerEncoder.layers">layers (fairseq2.models.gemma4.Gemma4ConformerEncoder attribute)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Decoder.layers">(fairseq2.models.gemma4.Gemma4Decoder attribute)</a>
+</li>
+        </ul></li>
         <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoader.lazy_load">lazy_load() (fairseq2.model_checkpoint.ModelCheckpointLoader method)</a>
 </li>
         <li><a href="reference/fairseq2.nn.position_encoder.html#fairseq2.nn.LearnedPositionEncoder">LearnedPositionEncoder (class in fairseq2.nn)</a>
@@ -1056,20 +1309,22 @@
         </ul></li>
         <li><a href="reference/fairseq2.data.tokenizers.hub.html#fairseq2.data.tokenizers.hub.TokenizerHub.load_custom_tokenizer">load_custom_tokenizer() (fairseq2.data.tokenizers.hub.TokenizerHub method)</a>
 </li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.load_gemma4_tokenizer">load_gemma4_tokenizer() (in module fairseq2.models.gemma4)</a>
+</li>
         <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.load_hg_model_simple">load_hg_model_simple() (in module fairseq2.models.hg)</a>
 
         <ul>
           <li><a href="reference/generated/fairseq2.models.hg.api.html#fairseq2.models.hg.api.load_hg_model_simple">(in module fairseq2.models.hg.api)</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.load_hg_tokenizer">load_hg_tokenizer() (in module fairseq2.models.hg)</a>
 
         <ul>
           <li><a href="reference/generated/fairseq2.models.hg.tokenizer.html#fairseq2.models.hg.tokenizer.load_hg_tokenizer">(in module fairseq2.models.hg.tokenizer)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.load_hg_tokenizer_simple">load_hg_tokenizer_simple() (in module fairseq2.models.hg)</a>
 
         <ul>
@@ -1124,9 +1379,11 @@
 </li>
         <li><a href="reference/fairseq2.nn.incremental_state.html#fairseq2.nn.IncrementalStateBag.max_num_steps">max_num_steps (fairseq2.nn.IncrementalStateBag property)</a>
 </li>
-        <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.max_seq_len">max_seq_len (fairseq2.models.llama.LLaMAConfig attribute)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.max_seq_len">max_seq_len (fairseq2.models.gemma4.Gemma4Config attribute)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.max_seq_len">(fairseq2.models.llama.LLaMAConfig attribute)</a>
+</li>
           <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.max_seq_len">(fairseq2.models.olmo.OLMOConfig attribute)</a>
 </li>
           <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.max_seq_len">(fairseq2.models.qwen.QwenConfig attribute)</a>
@@ -1154,9 +1411,17 @@
           <li><a href="reference/generated/fairseq2.models.hg.tokenizer.html#fairseq2.models.hg.tokenizer.HgTokenizer.model">(fairseq2.models.hg.tokenizer.HgTokenizer property)</a>
 </li>
         </ul></li>
-        <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.model_dim">model_dim (fairseq2.models.llama.LLaMAConfig attribute)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.model_dim">model_dim (fairseq2.models.gemma4.Gemma4Config attribute)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Experts.model_dim">(fairseq2.models.gemma4.Gemma4Experts attribute)</a>
+</li>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Model.model_dim">(fairseq2.models.gemma4.Gemma4Model attribute)</a>
+</li>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Router.model_dim">(fairseq2.models.gemma4.Gemma4Router attribute)</a>
+</li>
+          <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.model_dim">(fairseq2.models.llama.LLaMAConfig attribute)</a>
+</li>
           <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.model_dim">(fairseq2.models.olmo.OLMOConfig attribute)</a>
 </li>
           <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.model_dim">(fairseq2.models.qwen.QwenConfig attribute)</a>
@@ -1170,12 +1435,12 @@
         </ul></li>
         <li><a href="reference/fairseq2.models.html#fairseq2.models.ModelArchitectureNotKnownError">ModelArchitectureNotKnownError (class in fairseq2.models)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoader">ModelCheckpointLoader (class in fairseq2.model_checkpoint)</a>
 </li>
         <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoadOptions">ModelCheckpointLoadOptions (class in fairseq2.model_checkpoint)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.models.html#fairseq2.models.ModelFamilyNotKnownError">ModelFamilyNotKnownError (class in fairseq2.models)</a>
 </li>
         <li><a href="reference/fairseq2.models.hub.html#fairseq2.models.ModelHub">ModelHub (class in fairseq2.models)</a>
@@ -1223,6 +1488,12 @@
           <li><a href="reference/fairseq2.utils.validation.html#module-fairseq2.utils.validation">fairseq2.utils.validation</a>
 </li>
         </ul></li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.moe_intermediate_size">moe_intermediate_size (fairseq2.models.gemma4.Gemma4Config attribute)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Experts.moe_intermediate_size">(fairseq2.models.gemma4.Gemma4Experts attribute)</a>
+</li>
+        </ul></li>
         <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.YaRNScaleConfig.mscale">mscale (fairseq2.models.olmo.YaRNScaleConfig attribute)</a>
 </li>
         <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.YaRNScaleConfig.mscale_all_dim">mscale_all_dim (fairseq2.models.olmo.YaRNScaleConfig attribute)</a>
@@ -1237,32 +1508,70 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.nn.data_parallel.html#fairseq2.nn.data_parallel.DataParallelFacade.no_sync">no_sync() (fairseq2.nn.data_parallel.DataParallelFacade method)</a>
 </li>
-        <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.num_attn_heads">num_attn_heads (fairseq2.models.llama.LLaMAConfig attribute)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4SubsampleConvProjection.norm_0">norm_0 (fairseq2.models.gemma4.Gemma4SubsampleConvProjection attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4SubsampleConvProjection.norm_1">norm_1 (fairseq2.models.gemma4.Gemma4SubsampleConvProjection attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioConfig.num_attention_heads">num_attention_heads (fairseq2.models.gemma4.Gemma4AudioConfig attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.num_attn_heads">num_attn_heads (fairseq2.models.gemma4.Gemma4Config attribute)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.num_attn_heads">(fairseq2.models.llama.LLaMAConfig attribute)</a>
+</li>
           <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.num_attn_heads">(fairseq2.models.olmo.OLMOConfig attribute)</a>
 </li>
           <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.num_attn_heads">(fairseq2.models.qwen.QwenConfig attribute)</a>
 </li>
         </ul></li>
-        <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.num_key_value_heads">num_key_value_heads (fairseq2.models.llama.LLaMAConfig attribute)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.num_experts">num_experts (fairseq2.models.gemma4.Gemma4Config attribute)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Experts.num_experts">(fairseq2.models.gemma4.Gemma4Experts attribute)</a>
+</li>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Router.num_experts">(fairseq2.models.gemma4.Gemma4Router attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.num_global_key_value_heads">num_global_key_value_heads (fairseq2.models.gemma4.Gemma4Config attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Attention.num_heads">num_heads (fairseq2.models.gemma4.Gemma4Attention attribute)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerAttention.num_heads">(fairseq2.models.gemma4.Gemma4ConformerAttention attribute)</a>
+</li>
+        </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioConfig.num_hidden_layers">num_hidden_layers (fairseq2.models.gemma4.Gemma4AudioConfig attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Attention.num_key_value_heads">num_key_value_heads (fairseq2.models.gemma4.Gemma4Attention attribute)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.num_key_value_heads">(fairseq2.models.gemma4.Gemma4Config attribute)</a>
+</li>
+          <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.num_key_value_heads">(fairseq2.models.llama.LLaMAConfig attribute)</a>
+</li>
           <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.num_key_value_heads">(fairseq2.models.olmo.OLMOConfig attribute)</a>
 </li>
           <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.num_key_value_heads">(fairseq2.models.qwen.QwenConfig attribute)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.num_layers">num_layers (fairseq2.models.llama.LLaMAConfig attribute)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.num_kv_shared_layers">num_kv_shared_layers (fairseq2.models.gemma4.Gemma4Config attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.num_layers">num_layers (fairseq2.models.gemma4.Gemma4Config attribute)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Frontend.num_layers">(fairseq2.models.gemma4.Gemma4Frontend attribute)</a>
+</li>
+          <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.num_layers">(fairseq2.models.llama.LLaMAConfig attribute)</a>
+</li>
           <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.num_layers">(fairseq2.models.olmo.OLMOConfig attribute)</a>
 </li>
           <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.num_layers">(fairseq2.models.qwen.QwenConfig attribute)</a>
 </li>
         </ul></li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Attention.num_query_groups">num_query_groups (fairseq2.models.gemma4.Gemma4Attention attribute)</a>
+</li>
     </ul></td>
   </tr></table>
 </section>
@@ -1279,17 +1588,25 @@
 </li>
         <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig">OLMOConfig (class in fairseq2.models.olmo)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOTokenizer">OLMOTokenizer (class in fairseq2.models.olmo)</a>
 </li>
         <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOTokenizerConfig">OLMOTokenizerConfig (class in fairseq2.models.olmo)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.datasets.hub.html#fairseq2.datasets.hub.DatasetHub.open_custom_dataset">open_custom_dataset() (fairseq2.datasets.hub.DatasetHub method)</a>
 </li>
         <li><a href="reference/fairseq2.datasets.hub.html#fairseq2.datasets.hub.DatasetHub.open_dataset">open_dataset() (fairseq2.datasets.hub.DatasetHub method)</a>
 </li>
         <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.YaRNScaleConfig.original_max_seq_len">original_max_seq_len (fairseq2.models.olmo.YaRNScaleConfig attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioTower.output_proj">output_proj (fairseq2.models.gemma4.Gemma4AudioTower attribute)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerAttention.output_proj">(fairseq2.models.gemma4.Gemma4ConformerAttention attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioConfig.output_proj_dims">output_proj_dims (fairseq2.models.gemma4.Gemma4AudioConfig attribute)</a>
 </li>
     </ul></td>
   </tr></table>
@@ -1304,6 +1621,10 @@
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.VocabularyInfo.pad_idx">pad_idx (fairseq2.data.tokenizers.VocabularyInfo attribute)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.pad_idx">(fairseq2.models.gemma4.Gemma4Config attribute)</a>
+</li>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Model.pad_idx">(fairseq2.models.gemma4.Gemma4Model attribute)</a>
+</li>
           <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.pad_idx">(fairseq2.models.llama.LLaMAConfig attribute)</a>
 </li>
           <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.pad_idx">(fairseq2.models.olmo.OLMOConfig attribute)</a>
@@ -1325,15 +1646,45 @@
           <li><a href="reference/generated/fairseq2.models.hg.tokenizer.html#fairseq2.models.hg.tokenizer.HgTokenizer.pad_token_id">(fairseq2.models.hg.tokenizer.HgTokenizer property)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.nn.batch_layout.html#fairseq2.nn.BatchLayout.padded">padded (fairseq2.nn.BatchLayout property)</a>
 </li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.partial_rotary_factor">partial_rotary_factor (fairseq2.models.gemma4.Gemma4Config attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer.per_layer_input_gate">per_layer_input_gate (fairseq2.models.gemma4.Gemma4DecoderLayer attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Frontend.per_layer_model_projection">per_layer_model_projection (fairseq2.models.gemma4.Gemma4Frontend attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer.per_layer_projection">per_layer_projection (fairseq2.models.gemma4.Gemma4DecoderLayer attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Frontend.per_layer_projection_norm">per_layer_projection_norm (fairseq2.models.gemma4.Gemma4Frontend attribute)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.ple_hidden_dim">ple_hidden_dim (fairseq2.models.gemma4.Gemma4Config property)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Frontend.ple_hidden_dim">(fairseq2.models.gemma4.Gemma4Frontend attribute)</a>
+</li>
+        </ul></li>
         <li><a href="reference/fairseq2.nn.batch_layout.html#fairseq2.nn.BatchLayout.position_indices">position_indices (fairseq2.nn.BatchLayout property)</a>
 </li>
         <li><a href="reference/fairseq2.nn.position_encoder.html#fairseq2.nn.PositionEncoder">PositionEncoder (class in fairseq2.nn)</a>
 </li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer.post_attention_layernorm">post_attention_layernorm (fairseq2.models.gemma4.Gemma4DecoderLayer attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer.post_feedforward_layernorm">post_feedforward_layernorm (fairseq2.models.gemma4.Gemma4DecoderLayer attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer.post_feedforward_layernorm_1">post_feedforward_layernorm_1 (fairseq2.models.gemma4.Gemma4DecoderLayer attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer.post_feedforward_layernorm_2">post_feedforward_layernorm_2 (fairseq2.models.gemma4.Gemma4DecoderLayer attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer.post_per_layer_input_norm">post_per_layer_input_norm (fairseq2.models.gemma4.Gemma4DecoderLayer attribute)</a>
+</li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.Gangs.pp">pp (fairseq2.gang.Gangs attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer.pre_feedforward_layernorm">pre_feedforward_layernorm (fairseq2.models.gemma4.Gemma4DecoderLayer attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer.pre_feedforward_layernorm_2">pre_feedforward_layernorm_2 (fairseq2.models.gemma4.Gemma4DecoderLayer attribute)</a>
 </li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.TokenEncoder.prefix_indices">prefix_indices (fairseq2.data.tokenizers.TokenEncoder property)</a>
 </li>
@@ -1342,6 +1693,8 @@
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ProcessGroupGang">ProcessGroupGang (class in fairseq2.gang)</a>
 </li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ReduceOperation.PRODUCT">PRODUCT (fairseq2.gang.ReduceOperation attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4SubsampleConvProjection.proj">proj (fairseq2.models.gemma4.Gemma4SubsampleConvProjection attribute)</a>
 </li>
         <li><a href="reference/fairseq2.nn.projection.html#fairseq2.nn.Projection">Projection (class in fairseq2.nn)</a>
 </li>
@@ -1355,12 +1708,14 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.q_norm">q_norm (fairseq2.models.qwen.QwenConfig attribute)</a>
 </li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.qkv_proj_bias">qkv_proj_bias (fairseq2.models.qwen.QwenConfig attribute)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerAttention.q_proj">q_proj (fairseq2.models.gemma4.Gemma4ConformerAttention attribute)</a>
 </li>
-        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QWEN_FAMILY">QWEN_FAMILY (in module fairseq2.models.qwen)</a>
+        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.qkv_proj_bias">qkv_proj_bias (fairseq2.models.qwen.QwenConfig attribute)</a>
 </li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QWEN_FAMILY">QWEN_FAMILY (in module fairseq2.models.qwen)</a>
+</li>
         <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig">QwenConfig (class in fairseq2.models.qwen)</a>
 </li>
         <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenTokenizer">QwenTokenizer (class in fairseq2.models.qwen)</a>
@@ -1393,6 +1748,8 @@
 </li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ReduceOperation">ReduceOperation (class in fairseq2.gang)</a>
 </li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.register_gemma4_configs">register_gemma4_configs() (in module fairseq2.models.gemma4)</a>
+</li>
         <li><a href="reference/generated/fairseq2.models.hg.config.html#fairseq2.models.hg.config.register_hg_configs">register_hg_configs() (in module fairseq2.models.hg.config)</a>
 </li>
         <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.register_hg_model_class">register_hg_model_class() (in module fairseq2.models.hg)</a>
@@ -1409,9 +1766,11 @@
           <li><a href="reference/fairseq2.nn.incremental_state.html#fairseq2.nn.IncrementalStateBag.reorder">(fairseq2.nn.IncrementalStateBag method)</a>
 </li>
         </ul></li>
-        <li><a href="reference/fairseq2.nn.position_encoder.html#fairseq2.nn.RotaryEncoder.reset_non_persistent_buffers">reset_non_persistent_buffers() (fairseq2.nn.RotaryEncoder method)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Frontend.reset_non_persistent_buffers">reset_non_persistent_buffers() (fairseq2.models.gemma4.Gemma4Frontend method)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.nn.position_encoder.html#fairseq2.nn.RotaryEncoder.reset_non_persistent_buffers">(fairseq2.nn.RotaryEncoder method)</a>
+</li>
           <li><a href="reference/fairseq2.nn.position_encoder.html#fairseq2.nn.SinusoidalPositionEncoder.reset_non_persistent_buffers">(fairseq2.nn.SinusoidalPositionEncoder method)</a>
 </li>
         </ul></li>
@@ -1439,29 +1798,47 @@
 </li>
         <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.reshard_tensor">reshard_tensor() (in module fairseq2.model_checkpoint)</a>
 </li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioConfig.residual_weight">residual_weight (fairseq2.models.gemma4.Gemma4AudioConfig attribute)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerBlock.residual_weight">(fairseq2.models.gemma4.Gemma4ConformerBlock attribute)</a>
+</li>
+        </ul></li>
         <li><a href="reference/fairseq2.nn.residual.html#fairseq2.nn.ResidualConnect">ResidualConnect (class in fairseq2.nn)</a>
 </li>
         <li><a href="reference/fairseq2.model_checkpoint.html#fairseq2.model_checkpoint.ModelCheckpointLoadOptions.restrict">restrict (fairseq2.model_checkpoint.ModelCheckpointLoadOptions attribute)</a>
 </li>
         <li><a href="reference/fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationError.result">result (fairseq2.utils.validation.ValidationError attribute)</a>
 </li>
-        <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.rms_norm_eps">rms_norm_eps (fairseq2.models.olmo.OLMOConfig attribute)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioConfig.rms_norm_eps">rms_norm_eps (fairseq2.models.gemma4.Gemma4AudioConfig attribute)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.rms_norm_eps">(fairseq2.models.gemma4.Gemma4Config attribute)</a>
 </li>
+          <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.rms_norm_eps">(fairseq2.models.olmo.OLMOConfig attribute)</a>
+</li>
+        </ul></li>
         <li><a href="reference/fairseq2.nn.normalization.html#fairseq2.nn.RMSNorm">RMSNorm (class in fairseq2.nn)</a>
 </li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.Gangs.root">root (fairseq2.gang.Gangs attribute)</a>
 </li>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.rope_scale">rope_scale (fairseq2.models.llama.LLaMAConfig attribute)</a>
 </li>
-        <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.rope_theta">rope_theta (fairseq2.models.llama.LLaMAConfig attribute)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.rope_theta">rope_theta (fairseq2.models.gemma4.Gemma4Config attribute)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.rope_theta">(fairseq2.models.llama.LLaMAConfig attribute)</a>
+</li>
           <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.rope_theta">(fairseq2.models.olmo.OLMOConfig attribute)</a>
 </li>
           <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.rope_theta">(fairseq2.models.qwen.QwenConfig attribute)</a>
 </li>
         </ul></li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.rope_theta_global">rope_theta_global (fairseq2.models.gemma4.Gemma4Config attribute)</a>
+</li>
         <li><a href="reference/fairseq2.nn.position_encoder.html#fairseq2.nn.RotaryEncoder">RotaryEncoder (class in fairseq2.nn)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer.router">router (fairseq2.models.gemma4.Gemma4DecoderLayer attribute)</a>
 </li>
     </ul></td>
   </tr></table>
@@ -1473,11 +1850,27 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.save_hugging_face_model">save_hugging_face_model() (in module fairseq2.models.hg)</a>
 </li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Router.scalar_root_size">scalar_root_size (fairseq2.models.gemma4.Gemma4Router attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Frontend.scale">scale (fairseq2.models.gemma4.Gemma4Frontend attribute)</a>
+</li>
         <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.YaRNScaleConfig.scale_factor">scale_factor (fairseq2.models.olmo.YaRNScaleConfig attribute)</a>
 </li>
         <li><a href="reference/fairseq2.nn.residual.html#fairseq2.nn.ScaledResidualConnect">ScaledResidualConnect (class in fairseq2.nn)</a>
 </li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.Gangs.sdp">sdp (fairseq2.gang.Gangs attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerAttention.sdpa">sdpa (fairseq2.models.gemma4.Gemma4ConformerAttention attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerBlock.self_attn">self_attn (fairseq2.models.gemma4.Gemma4ConformerBlock attribute)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4DecoderLayer.self_attn">(fairseq2.models.gemma4.Gemma4DecoderLayer attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerBlock.self_attn_layer_norm">self_attn_layer_norm (fairseq2.models.gemma4.Gemma4ConformerBlock attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerBlock.self_attn_post_norm">self_attn_post_norm (fairseq2.models.gemma4.Gemma4ConformerBlock attribute)</a>
 </li>
         <li><a href="reference/fairseq2.nn.batch_layout.html#fairseq2.nn.BatchLayout.seq_begin_indices">seq_begin_indices (fairseq2.nn.BatchLayout property)</a>
 </li>
@@ -1519,6 +1912,8 @@
         </ul></li>
         <li><a href="reference/fairseq2.nn.embedding.html#fairseq2.nn.ShardedEmbedding">ShardedEmbedding (class in fairseq2.nn)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.nn.position_encoder.html#fairseq2.nn.SinusoidalPositionEncoder">SinusoidalPositionEncoder (class in fairseq2.nn)</a>
 </li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.VocabularyInfo.size">size (fairseq2.data.tokenizers.VocabularyInfo attribute)</a>
@@ -1531,16 +1926,18 @@
           <li><a href="reference/fairseq2.gang.html#fairseq2.gang.ProcessGroupGang.size">(fairseq2.gang.ProcessGroupGang property)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.nn.incremental_state.html#fairseq2.nn.IncrementalState.size_bytes">size_bytes() (fairseq2.nn.IncrementalState method)</a>
 
         <ul>
           <li><a href="reference/fairseq2.nn.incremental_state.html#fairseq2.nn.IncrementalStateBag.size_bytes">(fairseq2.nn.IncrementalStateBag method)</a>
 </li>
         </ul></li>
-        <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.sliding_window">sliding_window (fairseq2.models.olmo.OLMOConfig attribute)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.sliding_window">sliding_window (fairseq2.models.gemma4.Gemma4Config attribute)</a>
+
+        <ul>
+          <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.sliding_window">(fairseq2.models.olmo.OLMOConfig attribute)</a>
 </li>
+        </ul></li>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMATokenizerConfig.split_regex">split_regex (fairseq2.models.llama.LLaMATokenizerConfig attribute)</a>
 </li>
         <li><a href="reference/fairseq2.nn.embedding.html#fairseq2.nn.StandardEmbedding">StandardEmbedding (class in fairseq2.nn)</a>
@@ -1556,6 +1953,10 @@
         <li><a href="reference/fairseq2.nn.incremental_state.html#fairseq2.nn.IncrementalStateBag.step_nr">step_nr (fairseq2.nn.IncrementalStateBag property)</a>
 </li>
         <li><a href="reference/fairseq2.utils.validation.html#fairseq2.utils.validation.ValidationResult.sub_results">sub_results (fairseq2.utils.validation.ValidationResult property)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioTower.subsample">subsample (fairseq2.models.gemma4.Gemma4AudioTower attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioConfig.subsampling_conv_channels">subsampling_conv_channels (fairseq2.models.gemma4.Gemma4AudioConfig attribute)</a>
 </li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.TokenEncoder.suffix_indices">suffix_indices (fairseq2.data.tokenizers.TokenEncoder property)</a>
 </li>
@@ -1583,9 +1984,11 @@
   <h2>T</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.tied_embeddings">tied_embeddings (fairseq2.models.llama.LLaMAConfig attribute)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.tied_embeddings">tied_embeddings (fairseq2.models.gemma4.Gemma4Config attribute)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.tied_embeddings">(fairseq2.models.llama.LLaMAConfig attribute)</a>
+</li>
           <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.tied_embeddings">(fairseq2.models.olmo.OLMOConfig attribute)</a>
 </li>
           <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.tied_embeddings">(fairseq2.models.qwen.QwenConfig attribute)</a>
@@ -1601,10 +2004,10 @@
 </li>
         <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HuggingFaceConverter.to_hg_state_dict">to_hg_state_dict() (fairseq2.models.hg.HuggingFaceConverter method)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.TokenDecoder">TokenDecoder (class in fairseq2.data.tokenizers)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.TokenEncoder">TokenEncoder (class in fairseq2.data.tokenizers)</a>
 </li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.Tokenizer">Tokenizer (class in fairseq2.data.tokenizers)</a>
@@ -1612,6 +2015,10 @@
         <li><a href="reference/fairseq2.data.tokenizers.hub.html#fairseq2.data.tokenizers.hub.TokenizerHub">TokenizerHub (class in fairseq2.data.tokenizers.hub)</a>
 </li>
         <li><a href="reference/fairseq2.data.tokenizers.hub.html#fairseq2.data.tokenizers.hub.TokenizerHubAccessor">TokenizerHubAccessor (class in fairseq2.data.tokenizers.hub)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Router.top_k">top_k (fairseq2.models.gemma4.Gemma4Router attribute)</a>
+</li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.top_k_experts">top_k_experts (fairseq2.models.gemma4.Gemma4Config attribute)</a>
 </li>
         <li><a href="reference/fairseq2.gang.html#fairseq2.gang.Gangs.tp">tp (fairseq2.gang.Gangs attribute)</a>
 </li>
@@ -1643,6 +2050,8 @@
           <li><a href="reference/generated/fairseq2.models.hg.tokenizer.html#fairseq2.models.hg.tokenizer.HgTokenizerConfig.unk_token">(fairseq2.models.hg.tokenizer.HgTokenizerConfig attribute)</a>
 </li>
         </ul></li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.use_double_wide_mlp">use_double_wide_mlp (fairseq2.models.gemma4.Gemma4Config attribute)</a>
+</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMATokenizerConfig.use_eot">use_eot (fairseq2.models.llama.LLaMATokenizerConfig attribute)</a>
@@ -1669,6 +2078,8 @@
   <h2>V</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4ConformerAttention.v_proj">v_proj (fairseq2.models.gemma4.Gemma4ConformerAttention attribute)</a>
+</li>
         <li><a href="reference/fairseq2.utils.validation.html#fairseq2.utils.validation.Validatable">Validatable (class in fairseq2.utils.validation)</a>
 </li>
         <li><a href="reference/fairseq2.utils.validation.html#fairseq2.utils.validation.ObjectValidator.validate">validate() (fairseq2.utils.validation.ObjectValidator method)</a>
@@ -1686,6 +2097,8 @@
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.Tokenizer.vocab_info">vocab_info (fairseq2.data.tokenizers.Tokenizer property)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Tokenizer.vocab_info">(fairseq2.models.gemma4.Gemma4Tokenizer property)</a>
+</li>
           <li><a href="reference/fairseq2.models.hg.html#fairseq2.models.hg.HgTokenizer.vocab_info">(fairseq2.models.hg.HgTokenizer property)</a>
 </li>
           <li><a href="reference/generated/fairseq2.models.hg.tokenizer.html#fairseq2.models.hg.tokenizer.HgTokenizer.vocab_info">(fairseq2.models.hg.tokenizer.HgTokenizer property)</a>
@@ -1697,14 +2110,18 @@
         </ul></li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.vocab_size">vocab_size (fairseq2.models.llama.LLaMAConfig attribute)</a>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.vocab_size">vocab_size (fairseq2.models.gemma4.Gemma4Config attribute)</a>
 
         <ul>
+          <li><a href="reference/fairseq2.models.llama.html#fairseq2.models.llama.LLaMAConfig.vocab_size">(fairseq2.models.llama.LLaMAConfig attribute)</a>
+</li>
           <li><a href="reference/fairseq2.models.olmo.html#fairseq2.models.olmo.OLMOConfig.vocab_size">(fairseq2.models.olmo.OLMOConfig attribute)</a>
 </li>
           <li><a href="reference/fairseq2.models.qwen.html#fairseq2.models.qwen.QwenConfig.vocab_size">(fairseq2.models.qwen.QwenConfig attribute)</a>
 </li>
         </ul></li>
+        <li><a href="reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4Config.vocab_size_per_layer_input">vocab_size_per_layer_input (fairseq2.models.gemma4.Gemma4Config attribute)</a>
+</li>
         <li><a href="reference/fairseq2.data.tokenizers.html#fairseq2.data.tokenizers.VocabularyInfo">VocabularyInfo (class in fairseq2.data.tokenizers)</a>
 </li>
     </ul></td>
@@ -1771,7 +2188,7 @@
       
     </aside>
   </div>
-</div><script src="_static/documentation_options.js?v=72773080"></script>
+</div><script src="_static/documentation_options.js?v=90223905"></script>
     <script src="_static/doctools.js?v=9a2dae69"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/scripts/furo.js?v=5fa4622c"></script>

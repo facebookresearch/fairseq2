@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 680" style="font-family:'Segoe UI',system-ui,sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#555"/></marker>
+    <linearGradient id="headerGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#4285F4"/><stop offset="100%" stop-color="#34A853"/></linearGradient>
+  </defs>
+
+  <!-- Title -->
+  <rect x="0" y="0" width="800" height="44" fill="url(#headerGrad)" rx="6"/>
+  <text x="400" y="29" text-anchor="middle" font-size="17" font-weight="bold" fill="white">Gemma 4 — Decoder Architecture Overview</text>
+
+  <!-- Input -->
+  <rect x="310" y="60" width="180" height="34" rx="6" fill="#E8F0FE" stroke="#4285F4" stroke-width="1.5"/>
+  <text x="400" y="82" text-anchor="middle" font-size="13" fill="#1A73E8">Token IDs (B, S)</text>
+
+  <!-- Arrow -->
+  <line x1="400" y1="94" x2="400" y2="118" stroke="#555" marker-end="url(#arrow)"/>
+
+  <!-- Embedding -->
+  <rect x="280" y="120" width="240" height="34" rx="6" fill="#FFF3E0" stroke="#F9AB00" stroke-width="1.5"/>
+  <text x="400" y="142" text-anchor="middle" font-size="13" fill="#E37400">StandardEmbedding (262,144 x d)</text>
+
+  <!-- Arrow -->
+  <line x1="400" y1="154" x2="400" y2="178" stroke="#555" marker-end="url(#arrow)"/>
+
+  <!-- Frontend -->
+  <rect x="230" y="180" width="340" height="80" rx="8" fill="#E8F5E9" stroke="#34A853" stroke-width="1.5"/>
+  <text x="400" y="200" text-anchor="middle" font-size="13" font-weight="600" fill="#137333">Gemma4Frontend</text>
+  <text x="400" y="218" text-anchor="middle" font-size="11" fill="#555">embed * sqrt(d) + per_layer_embeds (PLE)</text>
+  <text x="400" y="234" text-anchor="middle" font-size="10" fill="#888">PLE: model_projection -> split -> gate * sigmoid -> project</text>
+  <text x="400" y="250" text-anchor="middle" font-size="10" fill="#888">+ optional audio injection at audio_token positions</text>
+
+  <!-- Arrow -->
+  <line x1="400" y1="260" x2="400" y2="284" stroke="#555" marker-end="url(#arrow)"/>
+
+  <!-- Decoder Stack -->
+  <rect x="100" y="286" width="600" height="290" rx="10" fill="#F3E5F5" stroke="#9C27B0" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="400" y="308" text-anchor="middle" font-size="14" font-weight="600" fill="#6A1B9A">Gemma4Decoder — N layers (sliding + full attention)</text>
+
+  <!-- Decoder Layer -->
+  <rect x="130" y="318" width="540" height="240" rx="8" fill="white" stroke="#7B1FA2" stroke-width="1"/>
+  <text x="400" y="338" text-anchor="middle" font-size="12" font-weight="600" fill="#4A148C">Gemma4DecoderLayer (per layer)</text>
+
+  <!-- PLE inject -->
+  <rect x="150" y="348" width="200" height="26" rx="4" fill="#E8F5E9" stroke="#66BB6A"/>
+  <text x="250" y="366" text-anchor="middle" font-size="10" fill="#2E7D32">+ PLE per-layer embed (E4B)</text>
+
+  <!-- Attn block -->
+  <rect x="150" y="382" width="500" height="72" rx="6" fill="#E3F2FD" stroke="#1976D2"/>
+  <text x="400" y="400" text-anchor="middle" font-size="11" font-weight="600" fill="#0D47A1">Gemma4Attention</text>
+  <text x="400" y="416" text-anchor="middle" font-size="10" fill="#555">Q/K/V proj -> QK-norm + V-norm -> partial RoPE (full) or full RoPE (sliding)</text>
+  <text x="400" y="432" text-anchor="middle" font-size="10" fill="#555">-> Gemma4SDPA (scale=1.0) -> output_proj | K=V sharing | KV cross-layer sharing</text>
+  <text x="400" y="448" text-anchor="middle" font-size="10" fill="#888">Full: head_dim=256, partial_rotary=0.5 | Sliding: head_dim=128, window=512</text>
+
+  <!-- FFN block -->
+  <rect x="150" y="462" width="240" height="44" rx="6" fill="#FFF8E1" stroke="#FFA000"/>
+  <text x="270" y="480" text-anchor="middle" font-size="11" font-weight="600" fill="#E65100">GLU FFN (SwiGeLU)</text>
+  <text x="270" y="496" text-anchor="middle" font-size="10" fill="#555">gate_proj + inner_proj -> GELU * gate -> out_proj</text>
+
+  <!-- MoE block -->
+  <rect x="410" y="462" width="240" height="44" rx="6" fill="#FCE4EC" stroke="#E91E63"/>
+  <text x="530" y="480" text-anchor="middle" font-size="11" font-weight="600" fill="#880E4F">MoE (26B-A4B only)</text>
+  <text x="530" y="496" text-anchor="middle" font-size="10" fill="#555">Router -> top-k experts -> combine</text>
+
+  <!-- 4 norms label -->
+  <text x="400" y="546" text-anchor="middle" font-size="10" fill="#777">4x RMSNorm per layer: input, post-attn, pre-ffn, post-ffn</text>
+
+  <!-- Arrow from decoder -->
+  <line x1="400" y1="576" x2="400" y2="600" stroke="#555" marker-end="url(#arrow)"/>
+
+  <!-- Final norm + proj -->
+  <rect x="260" y="602" width="280" height="34" rx="6" fill="#FFEBEE" stroke="#D32F2F" stroke-width="1.5"/>
+  <text x="400" y="624" text-anchor="middle" font-size="13" fill="#B71C1C">SoftcappedProjection (cap=30.0, tied)</text>
+
+  <!-- Arrow -->
+  <line x1="400" y1="636" x2="400" y2="660" stroke="#555" marker-end="url(#arrow)"/>
+
+  <!-- Output -->
+  <rect x="310" y="662" width="180" height="30" rx="6" fill="#E8F0FE" stroke="#4285F4" stroke-width="1.5"/>
+  <text x="400" y="682" text-anchor="middle" font-size="13" fill="#1A73E8">Logits (B, S, V)</text>
+</svg>
