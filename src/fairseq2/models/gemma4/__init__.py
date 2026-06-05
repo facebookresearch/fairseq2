@@ -30,6 +30,7 @@ from fairseq2.models.gemma4.config import (
 from fairseq2.models.gemma4.config import get_gemma4_31b_config as get_gemma4_31b_config
 from fairseq2.models.gemma4.config import get_gemma4_e2b_config as get_gemma4_e2b_config
 from fairseq2.models.gemma4.config import get_gemma4_e4b_config as get_gemma4_e4b_config
+from fairseq2.models.gemma4.config import get_gemma4_12b_config as get_gemma4_12b_config
 from fairseq2.models.gemma4.config import (
     register_gemma4_configs as register_gemma4_configs,
 )

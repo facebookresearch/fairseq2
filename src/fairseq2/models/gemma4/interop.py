@@ -204,9 +204,15 @@ def convert_gemma4_state_dict(
     """
     # Determine which multimodal prefixes to filter out.
     # Always filter vision; only filter audio when not configured.
+    #
+    # Vision prefixes cover both the existing ``gemma4`` family (vision_tower
+    # + multi_modal_projector) and the newer ``gemma4_unified`` family which
+    # ships a ``vision_embedder`` (LN + Dense + LN + factorized 2D positional
+    # embedding + RMSNorm + Linear) in place of a SigLIP-style tower.
     multimodal_prefixes = [
         "model.vision_tower.",
         "model.embed_vision.",
+        "model.vision_embedder.",
         "model.multi_modal_projector.",
     ]
     if config.audio_config is None:
