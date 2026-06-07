@@ -19,7 +19,7 @@ The layer applies: pre-norm (RMSNorm) -> mixer -> residual
 
 from __future__ import annotations
 
-from typing import final
+from typing import cast, final
 
 from torch import Tensor
 from typing_extensions import override
@@ -89,14 +89,22 @@ class NemotronHBlock(TransformerLMDecoderLayer):
         # Pre-normalization
         seqs = self.norm(seqs)
 
-        # Dispatch to appropriate mixer
+        # Dispatch to appropriate mixer.
+        #
+        # NB: do NOT isinstance-check ``self.mixer`` here. Under FSDP child
+        # wrapping (e.g. when ``NemotronHMamba2Mixer`` / ``NemotronHMoE`` /
+        # ``StandardMultiheadAttention`` are added to the wrap policy so the
+        # 128-expert MoE all-gather buffer is bounded), the attribute is an
+        # ``FSDP(...)`` proxy rather than the bare class. ``block_type`` is
+        # the authoritative tag. The ``cast`` calls are purely for the type
+        # checker; the runtime dispatch has no isinstance check.
         if self.block_type == "mamba":
-            assert isinstance(self.mixer, NemotronHMamba2Mixer)
-            seqs = self.mixer(seqs, state_bag=state_bag)
+            mamba_mixer = cast(NemotronHMamba2Mixer, self.mixer)
+            seqs = mamba_mixer(seqs, state_bag=state_bag)
 
         elif self.block_type == "attention":
-            assert isinstance(self.mixer, MultiheadAttention)
-            seqs = self.mixer(
+            attn_mixer = cast(MultiheadAttention, self.mixer)
+            seqs = attn_mixer(
                 seqs,
                 seqs_layout,
                 keys=seqs,
@@ -107,8 +115,8 @@ class NemotronHBlock(TransformerLMDecoderLayer):
             )
 
         elif self.block_type == "moe":
-            assert isinstance(self.mixer, NemotronHMoE)
-            seqs = self.mixer(seqs)
+            moe_mixer = cast(NemotronHMoE, self.mixer)
+            seqs = moe_mixer(seqs)
 
         else:
             raise ValueError(f"Unknown block type: {self.block_type}")
