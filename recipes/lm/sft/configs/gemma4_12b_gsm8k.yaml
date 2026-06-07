@@ -90,8 +90,8 @@ common:
   seed: 0
   metric_recorders:
     wandb:
-      enabled: false
-      project: "fairseq2"
+      enabled: true
+      project: "gemma-4-fairseq2"
       run_name: "sft_gemma4_12b_gsm8k"
     tensorboard:
-      enabled: false
+      enabled: true
