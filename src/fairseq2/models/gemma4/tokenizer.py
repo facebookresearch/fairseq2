@@ -57,15 +57,25 @@ class Gemma4Tokenizer(Tokenizer):
         if lang is not None:
             raise ValueError(f"`lang` must be `None`, but is '{lang}' instead.")
 
-        if mode is not None and mode not in ("default", "prompt", "as_is"):
+        if mode is not None and mode not in (
+            "default", "prompt", "prompt_response", "as_is"
+        ):
             raise ValueError(
-                f"`mode` must be 'default', 'prompt', or 'as_is', but is '{mode}' instead."
+                "`mode` must be 'default', 'prompt', 'prompt_response', or "
+                f"'as_is', but is '{mode}' instead."
             )
 
-        # Gemma 4 uses BOS token (ID 2) as prefix, no EOS suffix.
+        # Gemma 4 uses BOS token (ID 2) as prefix, no EOS suffix by default.
+        # The SFT recipe (chat_mode=false) calls create_encoder twice per
+        # example: once with mode='prompt' for the source (BOS-prefixed, no
+        # EOS) and once with mode='prompt_response' for the target (no BOS,
+        # EOS-suffixed). The two encodings are concatenated.
         if mode == "as_is":
             prefix_tokens: list[str] = []
             suffix_tokens: list[str] = []
+        elif mode == "prompt_response":
+            prefix_tokens = []
+            suffix_tokens = ["<eos>"]
         else:
             prefix_tokens = ["<bos>"]
             suffix_tokens = []
