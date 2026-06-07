@@ -36,7 +36,16 @@ dataset:
   max_seq_len: 4096
   max_num_tokens: 8192
   valid_split: "sft_test"
-  chat_mode: true
+  # NOTE: chat_mode=true requires the chat_template.jinja to use
+  # {% generation %} markers so apply_chat_template can return a non-empty
+  # assistant_masks. Google's Gemma 4 chat_template.jinja does NOT use
+  # {% generation %} (verified 2026-06-07), so target_mask is all-false and
+  # loss collapses to 0 with zero gradient. Until the chat template is
+  # patched upstream (or replaced with a fairseq2-side variant), use
+  # chat_mode=false: the SFT runs as LM continuation on the src+tgt pair,
+  # which still validates the recipe wiring end-to-end and produces a
+  # nonzero loss signal.
+  chat_mode: false
   config_overrides:
     sources:
       train:

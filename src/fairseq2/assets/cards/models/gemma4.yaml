@@ -79,8 +79,8 @@ tokenizer_family: gemma4
 name: gemma4_12b
 model_family: gemma4
 model_arch: 12b
-checkpoint: "hg://google/gemma-4-12B"
-tokenizer: "hg://google/gemma-4-12B"
+checkpoint: "file:///checkpoint/smallomnillm/shared/models/gemma-4-12B"
+tokenizer: "file:///checkpoint/smallomnillm/shared/models/gemma-4-12B"
 tokenizer_family: gemma4
 
 ---
@@ -88,6 +88,6 @@ tokenizer_family: gemma4
 name: gemma4_12b_it
 model_family: gemma4
 model_arch: 12b_it
-checkpoint: "hg://google/gemma-4-12B-it"
-tokenizer: "hg://google/gemma-4-12B-it"
+checkpoint: "file:///checkpoint/smallomnillm/shared/models/gemma-4-12B-it"
+tokenizer: "file:///checkpoint/smallomnillm/shared/models/gemma-4-12B-it"
 tokenizer_family: gemma4
