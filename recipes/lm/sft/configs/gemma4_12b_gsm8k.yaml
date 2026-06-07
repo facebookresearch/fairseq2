@@ -26,7 +26,11 @@ model:
 
 tokenizer:
   family: "gemma4"
-  name: "gemma4_12b"
+  # Use the -it tokenizer so that chat_template.jinja is loaded; the BASE
+  # google/gemma-4-12B repo does not ship chat_template.jinja since it is
+  # not meant to be chatted with. SFT with chat_mode=true requires the
+  # chat template; the model weights are unchanged so this is safe.
+  name: "gemma4_12b_it"
 
 dataset:
   max_seq_len: 4096
