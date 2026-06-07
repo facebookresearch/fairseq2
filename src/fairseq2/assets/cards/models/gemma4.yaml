@@ -79,8 +79,8 @@ tokenizer_family: gemma4
 name: gemma4_12b
 model_family: gemma4
 model_arch: 12b
-checkpoint: "file:///checkpoint/smallomnillm/shared/models/gemma-4-12B"
-tokenizer: "file:///checkpoint/smallomnillm/shared/models/gemma-4-12B"
+checkpoint: "file:///checkpoint/fairseq2/shared/models/gemma-4-12B"
+tokenizer: "file:///checkpoint/fairseq2/shared/models/gemma-4-12B"
 tokenizer_family: gemma4
 
 ---

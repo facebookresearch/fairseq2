@@ -21,15 +21,15 @@
 
 model:
   family: "gemma4"
-  name: "gemma4_12b"
+  # Fine-tune the -it variant. SFT on the instruction-tuned checkpoint is the
+  # standard pattern for domain adaptation. The base gemma4_12b card is also
+  # registered (points at /checkpoint/fairseq2/shared/models/gemma-4-12B) if
+  # the user wants to SFT from base — just swap the name below.
+  name: "gemma4_12b_it"
   dtype: bfloat16
 
 tokenizer:
   family: "gemma4"
-  # Use the -it tokenizer so that chat_template.jinja is loaded; the BASE
-  # google/gemma-4-12B repo does not ship chat_template.jinja since it is
-  # not meant to be chatted with. SFT with chat_mode=true requires the
-  # chat template; the model weights are unchanged so this is safe.
   name: "gemma4_12b_it"
 
 dataset:
