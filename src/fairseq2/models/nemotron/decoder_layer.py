@@ -100,7 +100,7 @@ class NemotronHBlock(TransformerLMDecoderLayer):
         # checker; the runtime dispatch has no isinstance check.
         if self.block_type == "mamba":
             mamba_mixer = cast(NemotronHMamba2Mixer, self.mixer)
-            seqs = mamba_mixer(seqs, state_bag=state_bag)
+            seqs = mamba_mixer(seqs, seqs_layout, state_bag=state_bag)
 
         elif self.block_type == "attention":
             attn_mixer = cast(MultiheadAttention, self.mixer)

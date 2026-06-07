@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Optional, final
+from typing import final
 
 import torch
 import torch.nn as nn
@@ -32,7 +32,8 @@ import torch.nn.functional as F
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.nn import IncrementalState, IncrementalStateBag
+from fairseq2.models.nemotron._layout import batch_layout_to_seq_idx
+from fairseq2.nn import BatchLayout, IncrementalState, IncrementalStateBag
 
 # Try to import CUDA-accelerated Mamba2 ops
 try:
@@ -234,35 +235,47 @@ class NemotronHMamba2Mixer(nn.Module):
     def forward(
         self,
         hidden_states: Tensor,
+        seqs_layout: BatchLayout | None = None,
         *,
-        attention_mask: Optional[Tensor] = None,
-        state_bag: Optional[IncrementalStateBag] = None,
+        state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
         """Forward pass of Mamba2 mixer.
 
-        Args:
-            hidden_states: Input tensor. Shape: [batch, seq_len, model_dim]
-            attention_mask: Optional attention mask (used for padding).
-            state_bag: Incremental state bag for generation.
+        :param hidden_states:
+            Input tensor. *Shape:* ``[batch, seq_len, model_dim]``.
+        :param seqs_layout:
+            The batch layout describing packing / padding. When the layout is
+            *packed* (multiple logical sequences concatenated into a single
+            row), the mamba_ssm kernel is told the sub-sequence boundaries via
+            ``seq_idx`` so the SSM state is reset between sub-sequences. For
+            ordinary rectangular ``[N, S]`` batches (the common case during
+            training and decode) pass ``None`` -- the kernel takes its faster
+            default path. Padding tokens in non-packed batches still propagate
+            state, matching the convention used by fairseq2's multi-head
+            attention (the loss/attention downstream masks them).
+        :param state_bag:
+            Incremental state bag for generation.
 
-        Returns:
-            Output tensor. Shape: [batch, seq_len, model_dim]
+        :returns:
+            Output tensor. *Shape:* ``[batch, seq_len, model_dim]``.
         """
-        batch_size, seq_len, _ = hidden_states.shape
-
-        # Check for incremental decoding (generation mode)
+        # Check for incremental decoding (generation mode).
         state: NemotronHMamba2State | None = None
         if state_bag is not None:
             state = state_bag.maybe_get_state(self, NemotronHMamba2State)
 
         if state is not None:
-            # Incremental decoding: process one token at a time
+            # Incremental decoding: process one token at a time.
             return self._forward_incremental(hidden_states, state)
 
-        # Full sequence forward — capture final states if entering incremental mode
+        # Full sequence forward -- capture final states if entering
+        # incremental mode after this call (state_bag was passed but has no
+        # cached state yet, i.e. this is the prefill pass).
         need_states = state_bag is not None
         result = self._forward_training(
-            hidden_states, attention_mask, return_final_states=need_states,
+            hidden_states,
+            seqs_layout=seqs_layout,
+            return_final_states=need_states,
         )
 
         if need_states:
@@ -278,12 +291,12 @@ class NemotronHMamba2Mixer(nn.Module):
     def _forward_training(
         self,
         hidden_states: Tensor,
-        attention_mask: Optional[Tensor] = None,
+        seqs_layout: BatchLayout | None = None,
         return_final_states: bool = False,
     ) -> Tensor | tuple[Tensor, Tensor, Tensor]:
         """Full sequence forward for training.
 
-        Uses mamba_chunk_scan_combined when CUDA kernels are available,
+        Uses ``mamba_chunk_scan_combined`` when CUDA kernels are available,
         otherwise falls back to a pure PyTorch implementation.
 
         When return_final_states=True, returns (output, conv_state, ssm_state)
@@ -329,6 +342,13 @@ class NemotronHMamba2Mixer(nn.Module):
         A = -torch.exp(self.A_log.float())  # [num_heads]
         ssm_state_final: Tensor | None = None
 
+        # Translate fairseq2 BatchLayout into the kernel's seq_idx. Returns
+        # None for the common rectangular-batch case so the kernel can take
+        # its faster default path.
+        seq_idx = (
+            batch_layout_to_seq_idx(seqs_layout) if seqs_layout is not None else None
+        )
+
         if HAS_MAMBA_SSM and x.is_cuda:
             scan_result = mamba_chunk_scan_combined(
                 x,
@@ -341,7 +361,7 @@ class NemotronHMamba2Mixer(nn.Module):
                 z=None,  # No gating inside scan
                 dt_bias=self.dt_bias,
                 dt_softplus=True,
-                seq_idx=None,
+                seq_idx=seq_idx,
                 return_final_states=return_final_states,
             )
             if return_final_states:
