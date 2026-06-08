@@ -567,10 +567,19 @@ class Gemma4Factory:
             Gemma4MultimodalAudioEmbedder,
         )
 
+        # Linear mode (Gemma 4 Unified family) requires the HF Unified
+        # behaviour where the embedder casts raw inputs to its weight dtype
+        # before the norm. The classic conformer path does not need this
+        # (its inputs come from the audio tower already in the right dtype).
+        cast_input_dtype = (
+            getattr(config.audio_config, "audio_mode", "conformer") == "linear"
+        )
+
         return Gemma4MultimodalAudioEmbedder(
             output_proj_dims=config.audio_config.output_proj_dims,
             text_model_dim=config.model_dim,
             rms_norm_eps=config.audio_config.rms_norm_eps,
+            cast_input_dtype=cast_input_dtype,
             device=self._device,
             dtype=self._dtype,
         )
