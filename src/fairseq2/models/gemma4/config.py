@@ -248,6 +248,14 @@ def register_gemma4_configs(container: DependencyContainer) -> None:
     def _12b_it() -> Gemma4Config:
         return get_gemma4_12b_config()
 
+    @arch("12b_audio")
+    def _12b_audio() -> Gemma4Config:
+        return get_gemma4_12b_audio_config()
+
+    @arch("12b_it_audio")
+    def _12b_it_audio() -> Gemma4Config:
+        return get_gemma4_12b_audio_config()
+
 
 def get_gemma4_e2b_config() -> Gemma4Config:
     """Get configuration for Gemma4 E2B (small dense, on-device).
@@ -345,6 +353,27 @@ def get_gemma4_26b_a4b_config() -> Gemma4Config:
     )
 
 
+def get_gemma4_unified_audio_config() -> Gemma4AudioConfig:
+    """Audio config for the Gemma 4 Unified family (12B+).
+
+    Linear (tower-free) pipeline: raw 16 kHz waveform is chunked into frames
+    of ``audio_samples_per_token`` = 640 samples (40 ms each), then projected
+    to the text model dim through RMSNorm + Linear. No mel-spectrogram, no
+    Conformer.
+
+    Matches HF's ``Gemma4UnifiedAudioConfig`` (model_type=gemma4_unified_audio)
+    where ``audio_embed_dim = audio_samples_per_token = output_proj_dims = 640``.
+    """
+    return Gemma4AudioConfig(
+        audio_mode="linear",
+        # In linear mode, only output_proj_dims (= 640 raw samples per token)
+        # and rms_norm_eps are read. Other Conformer fields default values
+        # are unused.
+        output_proj_dims=640,
+        rms_norm_eps=1e-6,
+    )
+
+
 def get_gemma4_12b_config() -> Gemma4Config:
     """Get configuration for Gemma4 12B (Unified family, dense).
 
@@ -385,3 +414,22 @@ def get_gemma4_12b_config() -> Gemma4Config:
         hidden_size_per_layer_input=0,  # PLE disabled (Unified family has no PLE)
         final_logit_soft_cap=30.0,
     )
+
+
+def get_gemma4_12b_audio_config() -> Gemma4Config:
+    """Get configuration for Gemma4 12B (Unified family) WITH the audio
+    embedder enabled.
+
+    Identical to :func:`get_gemma4_12b_config` except that ``audio_config`` is
+    set to :func:`get_gemma4_unified_audio_config` (linear mode, no tower).
+    Use this arch when you want to consume audio inputs through the
+    fairseq2 inference path (audio+text -> text).
+
+    The text-only ``12b`` / ``12b_it`` archs are unchanged and remain the
+    canonical entry point for logit parity, MMLU, SFT — keeping the audio
+    embedder out of those configs avoids loading unused parameters and
+    preserves the converter's multimodal filter.
+    """
+    cfg = get_gemma4_12b_config()
+    cfg.audio_config = get_gemma4_unified_audio_config()
+    return cfg

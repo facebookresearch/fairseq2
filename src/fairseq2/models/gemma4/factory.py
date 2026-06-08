@@ -527,12 +527,21 @@ class Gemma4Factory:
     def create_audio_tower(self) -> Module | None:
         """Create the audio tower for mel-spectrogram encoding.
 
-        :returns: A :class:`Gemma4AudioTower` if audio is configured,
-            ``None`` otherwise.
+        :returns: A :class:`Gemma4AudioTower` if audio is configured AND the
+            audio_mode is ``"conformer"``; ``None`` otherwise.
+
+        The Gemma 4 Unified family (``audio_mode="linear"``) has no audio
+        tower — raw waveform frames are fed directly through the
+        multimodal embedder (see :meth:`create_audio_embedder` and
+        ``Gemma4Model.forward``).
         """
         config = self._config
 
         if config.audio_config is None:
+            return None
+
+        # Unified family: no tower; embedder consumes raw waveform frames.
+        if getattr(config.audio_config, "audio_mode", "conformer") == "linear":
             return None
 
         from fairseq2.models.gemma4.audio.tower import Gemma4AudioTower

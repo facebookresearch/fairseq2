@@ -169,11 +169,22 @@ class Gemma4Model(CausalLM):
         :returns: Logits or loss (or both if return_logits=True).
         """
         # Encode audio through tower + embedder before frontend.
+        # Two supported audio pipelines:
+        #   (a) Conformer family (E*, classic Gemma 4): mel-spec ->
+        #       audio_tower -> audio_embedder -> text-space embeds.
+        #   (b) Unified family (gemma4_unified / 12B+): raw waveform frames
+        #       of audio_samples_per_token=640 samples each, fed directly
+        #       through the embedder (RMSNorm + Linear). No tower.
+        # Selection: presence of self.audio_tower.
         audio_embeds: Tensor | None = None
-        if audio_features is not None:
-            if self.audio_tower is not None and self.audio_embedder is not None:
+        if audio_features is not None and self.audio_embedder is not None:
+            if self.audio_tower is not None:
                 tower_output = self.audio_tower(audio_features)
                 audio_embeds = self.audio_embedder(tower_output)
+            else:
+                # Unified family: embedder consumes raw waveform frames
+                # (shape (B, T, audio_samples_per_token)) directly.
+                audio_embeds = self.audio_embedder(audio_features)
 
         seqs, seqs_layout, per_layer_embeds = self.decoder_frontend(
             seqs,

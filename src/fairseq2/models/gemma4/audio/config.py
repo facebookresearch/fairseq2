@@ -11,19 +11,38 @@ from dataclasses import dataclass
 
 @dataclass(kw_only=True)
 class Gemma4AudioConfig:
-    """Configuration for the Gemma 4 audio tower (USM Conformer).
+    """Configuration for the Gemma 4 audio pipeline.
 
-    Default values correspond to the E4B model.
+    Default values correspond to the E4B model (Conformer-based mel pipeline).
+
+    The ``audio_mode`` field selects between the two Gemma 4 audio pipelines:
+
+    * ``"conformer"`` (default; used by E4B / classic Gemma 4): mel-spectrogram
+      input goes through a subsampling Conv2d stack and 12 Conformer layers
+      (the audio tower) before the multimodal embedder projects to text space.
+
+    * ``"linear"`` (used by Gemma 4 Unified family — 12B+): raw waveform frames
+      of ``audio_samples_per_token`` (640) samples each are fed directly through
+      the multimodal embedder (RMSNorm + Linear) — no tower, no mel, no convs.
+      The ``hidden_size``, ``num_hidden_layers``, conv/attention etc. fields
+      are ignored in this mode; only ``output_proj_dims`` (= 640 for unified)
+      and ``rms_norm_eps`` are read.
     """
 
+    audio_mode: str = "conformer"
+    """Audio pipeline selector: ``"conformer"`` or ``"linear"``."""
+
     hidden_size: int = 1024
-    """Audio encoder hidden dimension."""
+    """Audio encoder hidden dimension. (conformer mode only)"""
 
     output_proj_dims: int = 1536
-    """Output projection dimension (before text embedder)."""
+    """Output projection dimension (before text embedder).
+
+    For the unified ``linear`` mode this equals the raw-waveform frame size
+    (typically 640 samples = 40 ms @ 16 kHz)."""
 
     num_hidden_layers: int = 12
-    """Number of conformer layers."""
+    """Number of conformer layers. (conformer mode only)"""
 
     num_attention_heads: int = 8
     """Number of attention heads. head_dim = hidden_size / num_attention_heads."""
