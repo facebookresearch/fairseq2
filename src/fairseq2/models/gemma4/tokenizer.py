@@ -58,7 +58,10 @@ class Gemma4Tokenizer(Tokenizer):
             raise ValueError(f"`lang` must be `None`, but is '{lang}' instead.")
 
         if mode is not None and mode not in (
-            "default", "prompt", "prompt_response", "as_is"
+            "default",
+            "prompt",
+            "prompt_response",
+            "as_is",
         ):
             raise ValueError(
                 "`mode` must be 'default', 'prompt', 'prompt_response', or "
