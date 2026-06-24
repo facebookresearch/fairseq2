@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 
 @dataclass(kw_only=True)
@@ -29,7 +30,7 @@ class Gemma4AudioConfig:
       and ``rms_norm_eps`` are read.
     """
 
-    audio_mode: str = "conformer"
+    audio_mode: Literal["conformer", "linear"] = "conformer"
     """Audio pipeline selector: ``"conformer"`` or ``"linear"``."""
 
     hidden_size: int = 1024

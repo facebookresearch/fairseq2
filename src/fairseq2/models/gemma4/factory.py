@@ -541,7 +541,7 @@ class Gemma4Factory:
             return None
 
         # Unified family: no tower; embedder consumes raw waveform frames.
-        if getattr(config.audio_config, "audio_mode", "conformer") == "linear":
+        if config.audio_config.audio_mode == "linear":
             return None
 
         from fairseq2.models.gemma4.audio.tower import Gemma4AudioTower
@@ -571,9 +571,7 @@ class Gemma4Factory:
         # behaviour where the embedder casts raw inputs to its weight dtype
         # before the norm. The classic conformer path does not need this
         # (its inputs come from the audio tower already in the right dtype).
-        cast_input_dtype = (
-            getattr(config.audio_config, "audio_mode", "conformer") == "linear"
-        )
+        cast_input_dtype = config.audio_config.audio_mode == "linear"
 
         return Gemma4MultimodalAudioEmbedder(
             output_proj_dims=config.audio_config.output_proj_dims,
