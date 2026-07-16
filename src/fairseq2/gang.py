@@ -689,7 +689,7 @@ class Gangs(Closable):
 
     def __post_init__(self) -> None:
         if self.root.rank == 0:
-            if self.dp.rank != 0 or self.tp.rank != 0 and self.pp.rank != 0:
+            if self.dp.rank != 0 or self.tp.rank != 0 or self.pp.rank != 0:
                 raise ValueError(
                     "Coordinator process of the root gang (i.e. `root.rank == 0`) must be rank 0 in all parallel gangs."
                 )
