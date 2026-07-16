@@ -240,6 +240,22 @@ def register_gemma4_configs(container: DependencyContainer) -> None:
     def _e2b_it() -> Gemma4Config:
         return get_gemma4_e2b_config()
 
+    @arch("12b")
+    def _12b() -> Gemma4Config:
+        return get_gemma4_12b_config()
+
+    @arch("12b_it")
+    def _12b_it() -> Gemma4Config:
+        return get_gemma4_12b_config()
+
+    @arch("12b_audio")
+    def _12b_audio() -> Gemma4Config:
+        return get_gemma4_12b_audio_config()
+
+    @arch("12b_it_audio")
+    def _12b_it_audio() -> Gemma4Config:
+        return get_gemma4_12b_audio_config()
+
 
 def get_gemma4_e2b_config() -> Gemma4Config:
     """Get configuration for Gemma4 E2B (small dense, on-device).
@@ -335,3 +351,85 @@ def get_gemma4_26b_a4b_config() -> Gemma4Config:
         moe_intermediate_size=704,
         final_logit_soft_cap=30.0,
     )
+
+
+def get_gemma4_unified_audio_config() -> Gemma4AudioConfig:
+    """Audio config for the Gemma 4 Unified family (12B+).
+
+    Linear (tower-free) pipeline: raw 16 kHz waveform is chunked into frames
+    of ``audio_samples_per_token`` = 640 samples (40 ms each), then projected
+    to the text model dim through RMSNorm + Linear. No mel-spectrogram, no
+    Conformer.
+
+    Matches HF's ``Gemma4UnifiedAudioConfig`` (model_type=gemma4_unified_audio)
+    where ``audio_embed_dim = audio_samples_per_token = output_proj_dims = 640``.
+    """
+    return Gemma4AudioConfig(
+        audio_mode="linear",
+        # In linear mode, only output_proj_dims (= 640 raw samples per token)
+        # and rms_norm_eps are read. Other Conformer fields default values
+        # are unused.
+        output_proj_dims=640,
+        rms_norm_eps=1e-6,
+    )
+
+
+def get_gemma4_12b_config() -> Gemma4Config:
+    """Get configuration for Gemma4 12B (Unified family, dense).
+
+    First member of HF ``gemma4_unified`` model_type (released 2026-05-23).
+    The text decoder is a dense Gemma 4 model that reuses the same attention,
+    decoder, and frontend code paths as the existing 31B dense variant.
+    Distinguishing values vs the existing dense archs:
+
+    * ``num_global_key_value_heads = 1`` — multi-query (MQA) global attention.
+      Previously the dense archs only used 2 (26B-A4B) and 4 (31B).
+    * ``attention_k_eq_v = True`` — keys reused as values in global layers.
+    * ``hidden_size_per_layer_input = 0`` — no PLE.
+    * ``num_kv_shared_layers = 0`` — no KV sharing.
+    * 48 layers, 5:1 sliding:full pattern (40 sliding + 8 full).
+
+    The 12B Unified checkpoint also ships an ``embed_audio`` projection
+    (``[3840, 640]``) and a ``vision_embedder`` pipeline (LN + Dense + LN +
+    factorized 2D positional embedding + RMSNorm + Linear), but those are
+    not required for text-only logit parity or downstream text evaluation.
+    Multimodal embedders are intentionally not registered here — when
+    ``audio_config`` is ``None`` (the default), :func:`convert_gemma4_state_dict`
+    filters multimodal keys (audio_tower, embed_audio, vision_tower,
+    embed_vision, vision_embedder, multi_modal_projector).
+    """
+    return Gemma4Config(
+        model_dim=3840,
+        max_seq_len=262_144,
+        num_layers=48,
+        num_attn_heads=16,
+        num_key_value_heads=8,
+        head_dim=256,
+        global_head_dim=512,
+        num_global_key_value_heads=1,
+        ffn_inner_dim=15_360,
+        sliding_window=1024,
+        attention_k_eq_v=True,
+        num_kv_shared_layers=0,
+        hidden_size_per_layer_input=0,  # PLE disabled (Unified family has no PLE)
+        final_logit_soft_cap=30.0,
+    )
+
+
+def get_gemma4_12b_audio_config() -> Gemma4Config:
+    """Get configuration for Gemma4 12B (Unified family) WITH the audio
+    embedder enabled.
+
+    Identical to :func:`get_gemma4_12b_config` except that ``audio_config`` is
+    set to :func:`get_gemma4_unified_audio_config` (linear mode, no tower).
+    Use this arch when you want to consume audio inputs through the
+    fairseq2 inference path (audio+text -> text).
+
+    The text-only ``12b`` / ``12b_it`` archs are unchanged and remain the
+    canonical entry point for logit parity, MMLU, SFT — keeping the audio
+    embedder out of those configs avoids loading unused parameters and
+    preserves the converter's multimodal filter.
+    """
+    cfg = get_gemma4_12b_config()
+    cfg.audio_config = get_gemma4_unified_audio_config()
+    return cfg
