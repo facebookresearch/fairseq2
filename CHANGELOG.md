@@ -4,6 +4,7 @@ All notable changes to fairseq2 are documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [0.8.1] - Unreleased
+- Qwen 3.5 model family (0.8B, 2B, 9B, 27B dense and 35B-A3B MoE) with base and instruction-tuned variants. Features hybrid GatedDeltaNet linear attention (75%) + full attention (25%) architecture, partial RoPE, QK-norm, output gating, Top-K MoE routing with shared experts, RMSNorm 1+w convention, bidirectional HuggingFace state dict conversion, and SFT/pretraining recipe configs.
 - Gemma 4 model family (E4B, 31B, 26B-A4B) with base and instruction-tuned variants. Includes decoder with Per-Layer Embeddings (PLE), partial RoPE, KV sharing across sliding/global attention layers, Mixture-of-Experts (26B-A4B), QK/V-norm, logit soft-capping, audio tower (Conformer encoder for multimodal E4B), bidirectional HuggingFace state dict conversion, FSDP/activation checkpointing/tensor parallel support, and SFT recipe configs.
 - Bump transformers~=v5.5 and loosen huggingface_hub upper bound. (#1508)
 - Fixed typo in WerMetric: use `hyp_seqs` instead of `ref_seqs` for `hyp_seqs_list`. (#1506)
