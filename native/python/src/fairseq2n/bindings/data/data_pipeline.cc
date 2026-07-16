@@ -500,7 +500,7 @@ def_data_pipeline(py::module_ &data_module)
                 return self;
             },
             py::arg("threshold"),
-            py::arg("fn"),
+            py::arg("cost_fn"),
             py::arg("bucket_creation_fn") = std::nullopt,
             py::arg("min_num_examples") = std::nullopt,
             py::arg("max_num_examples") = std::nullopt,
