@@ -17,6 +17,7 @@ from fairseq2.metrics import (
     format_as_int,
     format_as_percentage,
     format_as_seconds,
+    scale_as_percentage,
 )
 from fairseq2.metrics.recorders import (
     CompositeMetricRecorder,
@@ -180,7 +181,8 @@ def _register_metric_descriptors(container: DependencyContainer) -> None:
     register("num_source_elements",       "Number of Source Elements",       830, format_as_int)
     register("num_target_elements",       "Number of Target Elements",       830, format_as_int)
     register("padding",                   "Padding",                         835, format_as_int)
-    register("padding_ratio",             "Padding Ratio (%)",               835, format_as_percentage)
+    register("padding_ratio",             "Padding Ratio (%)",               835, format_as_percentage,
+             value_transform=scale_as_percentage)
     register("total_num_examples",        "Total Number of Examples",        840, format_as_int)
     register("total_num_elements",        "Total Number of Elements",        850, format_as_int)
     register("total_num_source_elements", "Total Number of Source Elements", 850, format_as_int)
@@ -195,7 +197,9 @@ def _register_metric_descriptors(container: DependencyContainer) -> None:
 
     # Memory
     register("peak_active_mem_bytes",   "Peak Active Device Memory",       920, format_as_byte_size)
-    register("peak_active_mem_ratio",   "Peak Active Device Memory (%)",   920, format_as_percentage)
+    register("peak_active_mem_ratio",   "Peak Active Device Memory (%)",   920, format_as_percentage,
+             value_transform=scale_as_percentage)
     register("peak_reserved_mem_bytes", "Peak Reserved Device Memory",     925, format_as_byte_size)
-    register("peak_reserved_mem_ratio", "Peak Reserved Device Memory (%)", 925, format_as_percentage)
+    register("peak_reserved_mem_ratio", "Peak Reserved Device Memory (%)", 925, format_as_percentage,
+             value_transform=scale_as_percentage)
     # fmt: on
