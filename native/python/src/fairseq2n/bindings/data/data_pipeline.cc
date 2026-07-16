@@ -513,7 +513,7 @@ def_data_pipeline(py::module_ &data_module)
 
                 return self;
             },
-            py::arg("fn"))
+            py::arg("predicate"))
         .def(
             "map",
             [](
