@@ -27,7 +27,7 @@ from fairseq2.metrics.recorders.recorder import MetricRecorder
 
 @final
 class JsonlMetricRecorder(MetricRecorder):
-    """Records metric values to JSONL files."""
+    """Records metric values to JSONL files"""
 
     _CATEGORY_PART_REGEX: Final = re.compile("^[-_a-zA-Z0-9]+$")
 
