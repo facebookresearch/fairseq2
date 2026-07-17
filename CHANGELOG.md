@@ -4,6 +4,7 @@ All notable changes to fairseq2 are documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [0.8.1] - Unreleased
+- NemotronH model family (Mamba2-Transformer hybrid MoE, 30B-A3B). Phase 1: text-only LLM with 52-layer 3-way hybrid pattern (23 Mamba2 SSM + 23 MoE FFN + 6 GQA attention), 128 sigmoid-routed experts with bias correction and shared expert, squared-ReLU activations, group-wise gated RMSNorm, and bidirectional HuggingFace state dict conversion. Includes tensor-parallel sharding (column/row-sharded experts with TP all-reduce), FSDP support, and 4 unit test modules (config, decoder layer, Mamba2 mixer, MoE).
 - Gemma 4 model family (E4B, 31B, 26B-A4B) with base and instruction-tuned variants. Includes decoder with Per-Layer Embeddings (PLE), partial RoPE, KV sharing across sliding/global attention layers, Mixture-of-Experts (26B-A4B), QK/V-norm, logit soft-capping, audio tower (Conformer encoder for multimodal E4B), bidirectional HuggingFace state dict conversion, FSDP/activation checkpointing/tensor parallel support, and SFT recipe configs.
 - Bump transformers~=v5.5 and loosen huggingface_hub upper bound. (#1508)
 - Fixed typo in WerMetric: use `hyp_seqs` instead of `ref_seqs` for `hyp_seqs_list`. (#1506)

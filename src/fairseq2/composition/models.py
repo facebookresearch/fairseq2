@@ -91,6 +91,15 @@ from fairseq2.models.mistral import (
     create_mistral_model,
     register_mistral_configs,
 )
+from fairseq2.models.nemotron import (
+    NEMOTRON_H_FAMILY,
+    NemotronHConfig,
+    _NemotronHHuggingFaceConverter,
+    convert_nemotron_h_state_dict,
+    create_nemotron_h_model,
+    get_nemotron_h_shard_specs,
+    register_nemotron_h_configs,
+)
 from fairseq2.models.nllb import (
     NLLB_FAMILY,
     NllbConfig,
@@ -364,6 +373,26 @@ def _register_model_families(container: DependencyContainer) -> None:
     )
 
     register_mistral_configs(container)
+
+    # NemotronH
+    register_model_family(
+        container,
+        NEMOTRON_H_FAMILY,
+        kls=TransformerLM,
+        config_kls=NemotronHConfig,
+        factory=create_nemotron_h_model,
+        state_dict_converter=convert_nemotron_h_state_dict,
+        shard_specs=get_nemotron_h_shard_specs,
+        compiler=compile_transformer_lm,
+        fsdp_applier=apply_fsdp_to_transformer_lm,
+        layerwise_ac_applier=apply_ac_to_transformer_lm,
+    )
+
+    register_nemotron_h_configs(container)
+
+    container.register_type(
+        HuggingFaceConverter, _NemotronHHuggingFaceConverter, key=NEMOTRON_H_FAMILY
+    )
 
     # NLLB
     register_model_family(

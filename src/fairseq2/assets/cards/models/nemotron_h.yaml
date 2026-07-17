@@ -1,0 +1,12 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: nemotron_h_30b_a3b
+model_family: nemotron_h
+model_arch: nemotron_h_30b_a3b
+checkpoint: "hg://nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16"
+tokenizer: "hg://nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16"
+tokenizer_family: qwen
