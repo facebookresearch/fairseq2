@@ -330,25 +330,45 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span>
 
 
 <div class="viewcode-block" id="Gemma4AudioConfig">
 <a class="viewcode-back" href="../../../../../reference/fairseq2.models.gemma4.html#fairseq2.models.gemma4.Gemma4AudioConfig">[docs]</a>
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Gemma4AudioConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for the Gemma 4 audio tower (USM Conformer).</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for the Gemma 4 audio pipeline.</span>
 
-<span class="sd">    Default values correspond to the E4B model.</span>
+<span class="sd">    Default values correspond to the E4B model (Conformer-based mel pipeline).</span>
+
+<span class="sd">    The ``audio_mode`` field selects between the two Gemma 4 audio pipelines:</span>
+
+<span class="sd">    * ``&quot;conformer&quot;`` (default; used by E4B / classic Gemma 4): mel-spectrogram</span>
+<span class="sd">      input goes through a subsampling Conv2d stack and 12 Conformer layers</span>
+<span class="sd">      (the audio tower) before the multimodal embedder projects to text space.</span>
+
+<span class="sd">    * ``&quot;linear&quot;`` (used by Gemma 4 Unified family — 12B+): raw waveform frames</span>
+<span class="sd">      of ``audio_samples_per_token`` (640) samples each are fed directly through</span>
+<span class="sd">      the multimodal embedder (RMSNorm + Linear) — no tower, no mel, no convs.</span>
+<span class="sd">      The ``hidden_size``, ``num_hidden_layers``, conv/attention etc. fields</span>
+<span class="sd">      are ignored in this mode; only ``output_proj_dims`` (= 640 for unified)</span>
+<span class="sd">      and ``rms_norm_eps`` are read.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
+    <span class="n">audio_mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;conformer&quot;</span><span class="p">,</span> <span class="s2">&quot;linear&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;conformer&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Audio pipeline selector: ``&quot;conformer&quot;`` or ``&quot;linear&quot;``.&quot;&quot;&quot;</span>
+
     <span class="n">hidden_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1024</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Audio encoder hidden dimension.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Audio encoder hidden dimension. (conformer mode only)&quot;&quot;&quot;</span>
 
     <span class="n">output_proj_dims</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1536</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Output projection dimension (before text embedder).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Output projection dimension (before text embedder).</span>
+
+<span class="sd">    For the unified ``linear`` mode this equals the raw-waveform frame size</span>
+<span class="sd">    (typically 640 samples = 40 ms @ 16 kHz).&quot;&quot;&quot;</span>
 
     <span class="n">num_hidden_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Number of conformer layers.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Number of conformer layers. (conformer mode only)&quot;&quot;&quot;</span>
 
     <span class="n">num_attention_heads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Number of attention heads. head_dim = hidden_size / num_attention_heads.&quot;&quot;&quot;</span>
@@ -419,7 +439,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../../_static/documentation_options.js?v=15f6d7eb"></script>
+</div><script src="../../../../../_static/documentation_options.js?v=14689e79"></script>
     <script src="../../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/scripts/furo.js?v=5fa4622c"></script>

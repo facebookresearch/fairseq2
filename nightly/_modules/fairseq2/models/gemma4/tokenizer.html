@@ -384,15 +384,28 @@
         <span class="k">if</span> <span class="n">lang</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`lang` must be `None`, but is &#39;</span><span class="si">{</span><span class="n">lang</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">mode</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;default&quot;</span><span class="p">,</span> <span class="s2">&quot;prompt&quot;</span><span class="p">,</span> <span class="s2">&quot;as_is&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span>
+            <span class="s2">&quot;default&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;prompt&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;prompt_response&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;as_is&quot;</span><span class="p">,</span>
+        <span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;`mode` must be &#39;default&#39;, &#39;prompt&#39;, or &#39;as_is&#39;, but is &#39;</span><span class="si">{</span><span class="n">mode</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
+                <span class="s2">&quot;`mode` must be &#39;default&#39;, &#39;prompt&#39;, &#39;prompt_response&#39;, or &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;&#39;as_is&#39;, but is &#39;</span><span class="si">{</span><span class="n">mode</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
             <span class="p">)</span>
 
-        <span class="c1"># Gemma 4 uses BOS token (ID 2) as prefix, no EOS suffix.</span>
+        <span class="c1"># Gemma 4 uses BOS token (ID 2) as prefix, no EOS suffix by default.</span>
+        <span class="c1"># The SFT recipe (chat_mode=false) calls create_encoder twice per</span>
+        <span class="c1"># example: once with mode=&#39;prompt&#39; for the source (BOS-prefixed, no</span>
+        <span class="c1"># EOS) and once with mode=&#39;prompt_response&#39; for the target (no BOS,</span>
+        <span class="c1"># EOS-suffixed). The two encodings are concatenated.</span>
         <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;as_is&quot;</span><span class="p">:</span>
             <span class="n">prefix_tokens</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="n">suffix_tokens</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;prompt_response&quot;</span><span class="p">:</span>
+            <span class="n">prefix_tokens</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">suffix_tokens</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;&lt;eos&gt;&quot;</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">prefix_tokens</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;&lt;bos&gt;&quot;</span><span class="p">]</span>
             <span class="n">suffix_tokens</span> <span class="o">=</span> <span class="p">[]</span>
@@ -532,7 +545,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=15f6d7eb"></script>
+</div><script src="../../../../_static/documentation_options.js?v=14689e79"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

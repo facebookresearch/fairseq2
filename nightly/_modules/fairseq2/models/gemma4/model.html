@@ -496,11 +496,22 @@
 <span class="sd">        :returns: Logits or loss (or both if return_logits=True).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Encode audio through tower + embedder before frontend.</span>
+        <span class="c1"># Two supported audio pipelines:</span>
+        <span class="c1">#   (a) Conformer family (E*, classic Gemma 4): mel-spec -&gt;</span>
+        <span class="c1">#       audio_tower -&gt; audio_embedder -&gt; text-space embeds.</span>
+        <span class="c1">#   (b) Unified family (gemma4_unified / 12B+): raw waveform frames</span>
+        <span class="c1">#       of audio_samples_per_token=640 samples each, fed directly</span>
+        <span class="c1">#       through the embedder (RMSNorm + Linear). No tower.</span>
+        <span class="c1"># Selection: presence of self.audio_tower.</span>
         <span class="n">audio_embeds</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">audio_features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">audio_tower</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">audio_embedder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">audio_features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">audio_embedder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">audio_tower</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">tower_output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">audio_tower</span><span class="p">(</span><span class="n">audio_features</span><span class="p">)</span>
                 <span class="n">audio_embeds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">audio_embedder</span><span class="p">(</span><span class="n">tower_output</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Unified family: embedder consumes raw waveform frames</span>
+                <span class="c1"># (shape (B, T, audio_samples_per_token)) directly.</span>
+                <span class="n">audio_embeds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">audio_embedder</span><span class="p">(</span><span class="n">audio_features</span><span class="p">)</span>
 
         <span class="n">seqs</span><span class="p">,</span> <span class="n">seqs_layout</span><span class="p">,</span> <span class="n">per_layer_embeds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decoder_frontend</span><span class="p">(</span>
             <span class="n">seqs</span><span class="p">,</span>
@@ -642,7 +653,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=15f6d7eb"></script>
+</div><script src="../../../../_static/documentation_options.js?v=14689e79"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

@@ -875,12 +875,21 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">create_audio_tower</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create the audio tower for mel-spectrogram encoding.</span>
 
-<span class="sd">        :returns: A :class:`Gemma4AudioTower` if audio is configured,</span>
-<span class="sd">            ``None`` otherwise.</span>
+<span class="sd">        :returns: A :class:`Gemma4AudioTower` if audio is configured AND the</span>
+<span class="sd">            audio_mode is ``&quot;conformer&quot;``; ``None`` otherwise.</span>
+
+<span class="sd">        The Gemma 4 Unified family (``audio_mode=&quot;linear&quot;``) has no audio</span>
+<span class="sd">        tower — raw waveform frames are fed directly through the</span>
+<span class="sd">        multimodal embedder (see :meth:`create_audio_embedder` and</span>
+<span class="sd">        ``Gemma4Model.forward``).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span>
 
         <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">audio_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># Unified family: no tower; embedder consumes raw waveform frames.</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">audio_config</span><span class="o">.</span><span class="n">audio_mode</span> <span class="o">==</span> <span class="s2">&quot;linear&quot;</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 
         <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.gemma4.audio.tower</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gemma4AudioTower</span>
@@ -909,10 +918,17 @@
             <span class="n">Gemma4MultimodalAudioEmbedder</span><span class="p">,</span>
         <span class="p">)</span>
 
+        <span class="c1"># Linear mode (Gemma 4 Unified family) requires the HF Unified</span>
+        <span class="c1"># behaviour where the embedder casts raw inputs to its weight dtype</span>
+        <span class="c1"># before the norm. The classic conformer path does not need this</span>
+        <span class="c1"># (its inputs come from the audio tower already in the right dtype).</span>
+        <span class="n">cast_input_dtype</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">audio_config</span><span class="o">.</span><span class="n">audio_mode</span> <span class="o">==</span> <span class="s2">&quot;linear&quot;</span>
+
         <span class="k">return</span> <span class="n">Gemma4MultimodalAudioEmbedder</span><span class="p">(</span>
             <span class="n">output_proj_dims</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">audio_config</span><span class="o">.</span><span class="n">output_proj_dims</span><span class="p">,</span>
             <span class="n">text_model_dim</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">model_dim</span><span class="p">,</span>
             <span class="n">rms_norm_eps</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">audio_config</span><span class="o">.</span><span class="n">rms_norm_eps</span><span class="p">,</span>
+            <span class="n">cast_input_dtype</span><span class="o">=</span><span class="n">cast_input_dtype</span><span class="p">,</span>
             <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="p">,</span>
             <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_dtype</span><span class="p">,</span>
         <span class="p">)</span></div>
@@ -954,7 +970,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=15f6d7eb"></script>
+</div><script src="../../../../_static/documentation_options.js?v=14689e79"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

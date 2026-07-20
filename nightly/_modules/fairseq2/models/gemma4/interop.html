@@ -529,9 +529,15 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Determine which multimodal prefixes to filter out.</span>
     <span class="c1"># Always filter vision; only filter audio when not configured.</span>
+    <span class="c1">#</span>
+    <span class="c1"># Vision prefixes cover both the existing ``gemma4`` family (vision_tower</span>
+    <span class="c1"># + multi_modal_projector) and the newer ``gemma4_unified`` family which</span>
+    <span class="c1"># ships a ``vision_embedder`` (LN + Dense + LN + factorized 2D positional</span>
+    <span class="c1"># embedding + RMSNorm + Linear) in place of a SigLIP-style tower.</span>
     <span class="n">multimodal_prefixes</span> <span class="o">=</span> <span class="p">[</span>
         <span class="s2">&quot;model.vision_tower.&quot;</span><span class="p">,</span>
         <span class="s2">&quot;model.embed_vision.&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;model.vision_embedder.&quot;</span><span class="p">,</span>
         <span class="s2">&quot;model.multi_modal_projector.&quot;</span><span class="p">,</span>
     <span class="p">]</span>
     <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">audio_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -784,7 +790,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=15f6d7eb"></script>
+</div><script src="../../../../_static/documentation_options.js?v=14689e79"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

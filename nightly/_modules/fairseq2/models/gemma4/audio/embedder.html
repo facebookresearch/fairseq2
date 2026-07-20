@@ -352,6 +352,23 @@
 <span class="sd">    followed by a ``Linear`` projection from ``output_proj_dims`` to</span>
 <span class="sd">    ``text_model_dim``.</span>
 
+<span class="sd">    This single class implements **two** matching HF classes:</span>
+
+<span class="sd">    * ``transformers.Gemma4MultimodalEmbedder`` (classic gemma4 family,</span>
+<span class="sd">      E4B/31B/26B-A4B): forward is ``RMSNorm -&gt; Linear``, callers are</span>
+<span class="sd">      expected to feed inputs already in the embedder&#39;s dtype.</span>
+
+<span class="sd">    * ``transformers.Gemma4UnifiedMultimodalEmbedder`` (gemma4_unified</span>
+<span class="sd">      family, 12B+): identical math, but the forward additionally casts</span>
+<span class="sd">      ``inputs_embeds`` to ``self.embedding_projection.weight.dtype`` before</span>
+<span class="sd">      the norm. This matters when raw waveform features (typically fp32 from</span>
+<span class="sd">      the feature extractor) are fed into a bf16 embedder.</span>
+
+<span class="sd">    The ``cast_input_dtype`` ctor flag selects between the two: ``False``</span>
+<span class="sd">    (default) preserves the classic gemma4 behaviour bit-for-bit; ``True``</span>
+<span class="sd">    activates the Unified family&#39;s input cast. The factory sets it to</span>
+<span class="sd">    ``True`` when ``audio_config.audio_mode == &quot;linear&quot;``.</span>
+
 <span class="sd">    Note: HF does NOT use ClippableLinear for the embedder projection --</span>
 <span class="sd">    the checkpoint key is ``model.embed_audio.embedding_projection.weight``</span>
 <span class="sd">    (plain ``nn.Linear``, no clipping buffers).</span>
@@ -359,6 +376,7 @@
 
     <span class="n">embedding_pre_projection_norm</span><span class="p">:</span> <span class="n">Gemma4AudioRMSNorm</span>
     <span class="n">embedding_projection</span><span class="p">:</span> <span class="n">Linear</span>
+    <span class="n">cast_input_dtype</span><span class="p">:</span> <span class="nb">bool</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -366,10 +384,13 @@
         <span class="n">text_model_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">rms_norm_eps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
+        <span class="n">cast_input_dtype</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">cast_input_dtype</span> <span class="o">=</span> <span class="n">cast_input_dtype</span>
 
         <span class="c1"># RMSNorm without learnable scale (elementwise_affine=False)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">embedding_pre_projection_norm</span> <span class="o">=</span> <span class="n">Gemma4AudioRMSNorm</span><span class="p">(</span>
@@ -397,6 +418,11 @@
 <span class="sd">        :param features: Audio tower output. *Shape:* :math:`(N,T,D)`.</span>
 <span class="sd">        :returns: Text-space embeddings. *Shape:* :math:`(N,T,H_{text})`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cast_input_dtype</span><span class="p">:</span>
+            <span class="c1"># Match HF Gemma4UnifiedMultimodalEmbedder: cast raw inputs</span>
+            <span class="c1"># (often fp32 from the feature extractor) to the embedder weight</span>
+            <span class="c1"># dtype (typically bf16) before the norm.</span>
+            <span class="n">features</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">embedding_projection</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
         <span class="n">features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedding_pre_projection_norm</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
         <span class="n">features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedding_projection</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">features</span></div>
@@ -438,7 +464,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../../_static/documentation_options.js?v=15f6d7eb"></script>
+</div><script src="../../../../../_static/documentation_options.js?v=14689e79"></script>
     <script src="../../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/scripts/furo.js?v=5fa4622c"></script>
