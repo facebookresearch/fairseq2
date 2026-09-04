@@ -89,7 +89,19 @@ matrix shows the supported combinations.
   </thead>
   <tbody>
     <tr>
-      <td rowspan=3><code>HEAD</code></td>
+      <td rowspan=5><code>HEAD</code></td>
+      <td><code>2.13.0</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
+      <td><code>cpu</code>, <code>cu130</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
+      <td><code>2.11.0</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
+      <td><code>cpu</code>, <code>cu126</code>, <code>cu128</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
       <td><code>2.9.1</code></td>
       <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>cpu</code>, <code>cu126</code>, <code>cu128</code></td>

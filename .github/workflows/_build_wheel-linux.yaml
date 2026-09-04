@@ -85,16 +85,30 @@ jobs:
       - name: Build fairseq2n
         working-directory: native
         env:
+          TORCH: ${{ inputs.torch }}
           VARIANT: ${{ inputs.variant }}
           SANITIZERS: ${{ inputs.sanitizers }}
         run: |
-          # We build our CUDA kernels for Volta and Ampere.
           if [[ $VARIANT == cu* ]]; then
-            cuda_archs="70-real;80-real;80-virtual"
+            # CUDA 13 dropped Volta; its oldest supported architecture is Turing.
+            if [[ ${VARIANT#cu} -ge 130 ]]; then
+              cuda_archs="75-real;80-real;90-real;90-virtual"
+            else
+              # We build our CUDA kernels for Volta and Ampere.
+              cuda_archs="70-real;80-real;80-virtual"
+            fi
 
             cuda=ON
           else
             cuda=OFF
+          fi
+
+          # PyTorch 2.12 and later require C++20, which needs GCC 11.3 or greater;
+          # gcc-toolset-11 ships GCC 11.2.
+          if [[ $(printf '%s\n2.12\n' "$TORCH" | sort --version-sort | head -1) == 2.12 ]]; then
+            toolset=gcc-toolset-14
+          else
+            toolset=gcc-toolset-11
           fi
 
           # Since they do not play well together, we perform LTO only if no
@@ -109,7 +123,7 @@ jobs:
             lto=OFF
           fi
 
-          scl enable gcc-toolset-11 - <<EOF
+          scl enable $toolset - <<EOF
           cmake\
             -GNinja\
             -DCMAKE_BUILD_TYPE=$build_type\
@@ -122,7 +136,7 @@ jobs:
             -B build
           EOF
 
-          scl enable gcc-toolset-11 "cmake --build build"
+          scl enable $toolset "cmake --build build"
       - name: Package fairseq2n
         working-directory: native/python
         run: |

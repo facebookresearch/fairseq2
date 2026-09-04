@@ -13,6 +13,13 @@ macro(fairseq2n_add_zip)
 
         add_subdirectory(${PROJECT_SOURCE_DIR}/third-party/zip EXCLUDE_FROM_ALL)
 
+        # The zip project compiles itself with `-Werror`. Newer compilers (e.g.
+        # GCC 14 and its `-Wcalloc-transposed-args`) emit warnings in its
+        # sources that we cannot fix here.
+        if(TARGET zip)
+            target_compile_options(zip PRIVATE -Wno-error)
+        endif()
+
         # Revert.
         set(BUILD_SHARED_LIBS ${backup_build_shared_libs})
 

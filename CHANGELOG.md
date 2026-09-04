@@ -4,6 +4,10 @@ All notable changes to fairseq2 are documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [0.8.1] - Unreleased
+- PyTorch 2.13.0 with CUDA 13 is now supported, enabling co-installation with newer vllm (e.g. `vllm==0.28.0`, which pins `torch==2.13.0` and CUDA 13 runtime packages) and `transformers~=5.16`. Wheels are built for the `cpu` and `cu130` variants.
+- **Breaking (source builds):** fairseq2n is now compiled as C++20, because PyTorch 2.12 and later require it. Building from source now needs GCC 11.3 or greater, or Clang 16 or greater. The CI images build PyTorch 2.12+ variants with `gcc-toolset-14`.
+- The default `CMAKE_CUDA_ARCHITECTURES` is no longer Volta when building against a CUDA 13 build of PyTorch, since CUDA 13 dropped Volta support; Turing is used instead.
+- PyTorch 2.11.0 is now supported, enabling co-installation with newer vllm (e.g. `vllm==0.23.0`, which pins `torch==2.11.0`). Wheels are built for the `cpu`, `cu126`, and `cu128` variants.
 - Gemma 4 model family (E4B, 31B, 26B-A4B) with base and instruction-tuned variants. Includes decoder with Per-Layer Embeddings (PLE), partial RoPE, KV sharing across sliding/global attention layers, Mixture-of-Experts (26B-A4B), QK/V-norm, logit soft-capping, audio tower (Conformer encoder for multimodal E4B), bidirectional HuggingFace state dict conversion, FSDP/activation checkpointing/tensor parallel support, and SFT recipe configs.
 - Bump transformers~=v5.5 and loosen huggingface_hub upper bound. (#1508)
 - Fixed typo in WerMetric: use `hyp_seqs` instead of `ref_seqs` for `hyp_seqs_list`. (#1506)

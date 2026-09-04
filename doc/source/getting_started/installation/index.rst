@@ -75,6 +75,10 @@ Replace ``pt2.8.0/cu128`` in the commands above with your desired combination:
 
    * - PyTorch Version
      - Variants
+   * - 2.13.0
+     - ``pt2.13.0/cpu``, ``pt2.13.0/cu130``
+   * - 2.11.0
+     - ``pt2.11.0/cpu``, ``pt2.11.0/cu126``, ``pt2.11.0/cu128``
    * - 2.8.0
      - ``pt2.8.0/cpu``, ``pt2.8.0/cu126``, ``pt2.8.0/cu128``
    * - 2.7.1
@@ -89,6 +93,10 @@ Replace ``pt2.8.0/cu128`` in the commands above with your desired combination:
 
    * - PyTorch Version
      - Variants
+   * - 2.13.0
+     - ``pt2.13.0/cpu``
+   * - 2.11.0
+     - ``pt2.11.0/cpu``
    * - 2.8.0
      - ``pt2.8.0/cpu``
    * - 2.7.1

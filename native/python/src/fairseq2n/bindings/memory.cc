@@ -98,7 +98,8 @@ def_memory(py::module_ &base_module)
 
                 return py::buffer_info{
                     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-                    const_cast<T *>(self.data()), sizeof(T), "B", ssize(self), /*readonly=*/true
+                    const_cast<T *>(self.data()), sizeof(T), "B",
+                    fairseq2n::detail::ssize(self), /*readonly=*/true
                 };
             })
 

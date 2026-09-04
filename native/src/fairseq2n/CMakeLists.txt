@@ -89,14 +89,14 @@ endif()
 
 fairseq2n_set_compile_options(fairseq2n)
 
-target_compile_features(fairseq2n PUBLIC cxx_std_17)
+target_compile_features(fairseq2n PUBLIC cxx_std_20)
 
 if(FAIRSEQ2N_SUPPORT_IMAGE)
     target_compile_definitions(fairseq2n PRIVATE FAIRSEQ2N_SUPPORT_IMAGE)
 endif()
 
 if(FAIRSEQ2N_USE_CUDA)
-    target_compile_features(fairseq2n PRIVATE cuda_std_17)
+    target_compile_features(fairseq2n PRIVATE cuda_std_20)
 
     target_compile_definitions(fairseq2n PRIVATE FAIRSEQ2N_USE_CUDA)
 endif()

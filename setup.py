@@ -82,7 +82,7 @@ setup(
         ],
         "hg": [
             "accelerate>=1.10.0",
-            "transformers>=4.56.1",
+            "transformers~=5.5",
             "qwen-omni-utils~=0.0.8",
             "tqdm>=4.27",
             "types-tqdm",
