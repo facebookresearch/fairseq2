@@ -527,12 +527,21 @@ class Gemma4Factory:
     def create_audio_tower(self) -> Module | None:
         """Create the audio tower for mel-spectrogram encoding.
 
-        :returns: A :class:`Gemma4AudioTower` if audio is configured,
-            ``None`` otherwise.
+        :returns: A :class:`Gemma4AudioTower` if audio is configured AND the
+            audio_mode is ``"conformer"``; ``None`` otherwise.
+
+        The Gemma 4 Unified family (``audio_mode="linear"``) has no audio
+        tower — raw waveform frames are fed directly through the
+        multimodal embedder (see :meth:`create_audio_embedder` and
+        ``Gemma4Model.forward``).
         """
         config = self._config
 
         if config.audio_config is None:
+            return None
+
+        # Unified family: no tower; embedder consumes raw waveform frames.
+        if config.audio_config.audio_mode == "linear":
             return None
 
         from fairseq2.models.gemma4.audio.tower import Gemma4AudioTower
@@ -558,10 +567,17 @@ class Gemma4Factory:
             Gemma4MultimodalAudioEmbedder,
         )
 
+        # Linear mode (Gemma 4 Unified family) requires the HF Unified
+        # behaviour where the embedder casts raw inputs to its weight dtype
+        # before the norm. The classic conformer path does not need this
+        # (its inputs come from the audio tower already in the right dtype).
+        cast_input_dtype = config.audio_config.audio_mode == "linear"
+
         return Gemma4MultimodalAudioEmbedder(
             output_proj_dims=config.audio_config.output_proj_dims,
             text_model_dim=config.model_dim,
             rms_norm_eps=config.audio_config.rms_norm_eps,
+            cast_input_dtype=cast_input_dtype,
             device=self._device,
             dtype=self._dtype,
         )

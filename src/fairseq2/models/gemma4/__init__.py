@@ -24,6 +24,7 @@ from fairseq2.models.gemma4.audio import (
 )
 from fairseq2.models.gemma4.config import GEMMA4_FAMILY as GEMMA4_FAMILY
 from fairseq2.models.gemma4.config import Gemma4Config as Gemma4Config
+from fairseq2.models.gemma4.config import get_gemma4_12b_config as get_gemma4_12b_config
 from fairseq2.models.gemma4.config import (
     get_gemma4_26b_a4b_config as get_gemma4_26b_a4b_config,
 )
@@ -83,6 +84,7 @@ __all__ = [
     "apply_fsdp_to_gemma4",
     "convert_gemma4_state_dict",
     "create_gemma4_model",
+    "get_gemma4_12b_config",
     "get_gemma4_26b_a4b_config",
     "get_gemma4_31b_config",
     "get_gemma4_e2b_config",
