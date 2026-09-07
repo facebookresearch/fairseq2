@@ -49,7 +49,11 @@ jobs:
           cmake -GNinja -B build
       - name: Install fairseq2n
         run: |
-          pip install --editable native/python
+          # Without `--no-build-isolation`, pip would resolve the `torch` build
+          # requirement of fairseq2n in an isolated environment, pick up the
+          # latest release, and bake it into `install_requires`, silently
+          # replacing the version of PyTorch that we installed above.
+          pip install --no-build-isolation --editable native/python
       - name: Install fairseq2
         id: install_fairseq2
         run: |
