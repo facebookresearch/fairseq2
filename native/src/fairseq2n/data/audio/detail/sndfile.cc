@@ -163,9 +163,9 @@ sndfile::check_handle(::SNDFILE *handle)
         err_msg = "An unknown libsndfile error has occurred.";
 
     if (err_num == ::SF_ERR_SYSTEM || err_num == ::SF_ERR_UNSUPPORTED_ENCODING)
-        throw_<std::runtime_error>(err_msg);
+        throw_<std::runtime_error>("{}", err_msg);
     else
-        throw_<std::invalid_argument>(err_msg);
+        throw_<std::invalid_argument>("{}", err_msg);
 }
 
 }  // namespace fairseq2n::detail

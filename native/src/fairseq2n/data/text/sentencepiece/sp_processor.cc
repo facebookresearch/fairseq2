@@ -141,7 +141,7 @@ sp_processor::sp_processor(std::unique_ptr<ModelProto> &&proto)
 
     auto st = native_->Load(std::move(proto));
     if (!st.ok())
-        throw_<std::runtime_error>(st.message());
+        throw_<std::runtime_error>("{}", st.message());
 
     unk_idx = conditional_cast<std::int32_t>(native_->unk_id());
     bos_idx = conditional_cast<std::int32_t>(native_->bos_id());
@@ -162,7 +162,7 @@ sp_processor::encode(std::string_view text) const
 
     auto st = native_->Encode(text, spt.mutable_proto());
     if (!st.ok())
-        throw_<std::runtime_error>(st.message());
+        throw_<std::runtime_error>("{}", st.message());
 
     return spt;
 }
@@ -174,7 +174,7 @@ sp_processor::sample(std::string_view text, std::int32_t nbest_size, float alpha
 
     auto st = native_->SampleEncode(text, nbest_size, alpha, spt.mutable_proto());
     if (!st.ok())
-        throw_<std::runtime_error>(st.message());
+        throw_<std::runtime_error>("{}", st.message());
 
     return spt;
 }
@@ -186,7 +186,7 @@ sp_processor::decode(const std::vector<std::string_view> &tokens) const
 
     auto st = native_->Decode(tokens, &text);
     if (!st.ok())
-        throw_<std::runtime_error>(st.message());
+        throw_<std::runtime_error>("{}", st.message());
 
     return text;
 }

@@ -533,6 +533,19 @@ class ProcessGroupGang(Gang):
                 f"Child process group for ranks {s} cannot be created."
             ) from ex
 
+        # TODO: Fix before supporting PyTorch 2.14 or later.
+        #
+        # As of PyTorch 2.14, `new_group()` and `split_group()` are annotated as
+        # returning `ProcessGroup | Literal[-100]`, where -100 is
+        # `GroupMember.NON_GROUP_MEMBER`, which makes mypy reject the calls to
+        # `ProcessGroupGang()` here and in `create_parallel_gangs()` and
+        # `create_fsdp_gangs()` below.
+        #
+        # This call site is safe since we return early above for ranks that are
+        # not group members, but the `split_group()` call sites are not: they
+        # only check the result against `None`, and, as of PyTorch 2.14,
+        # `split_group()` returns `GroupMember.NON_GROUP_MEMBER` instead of
+        # `None` for non-members. They have to check for both.
         if self.rank not in ranks:
             return None
 

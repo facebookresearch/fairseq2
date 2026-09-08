@@ -76,6 +76,70 @@ jobs:
       release_type: ${{ inputs.release_type }}
       arch: 'arm64'
 
+  publish_pt211_s3-linux:
+    name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
+    strategy:
+      matrix:
+        torch: ['2.11.0']
+        py: ['3.10', '3.11', '3.12']
+        variant: ['cpu', 'cu126', 'cu128']
+      max-parallel: 1
+    uses: ./.github/workflows/_publish_s3.yaml
+    with:
+      os: 'linux'
+      torch: ${{ matrix.torch }}
+      py: ${{ matrix.py }}
+      variant: ${{ matrix.variant }}
+      release_type: ${{ inputs.release_type }}
+
+  publish_pt211_s3-macos:
+    name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, macos-arm64)
+    strategy:
+      matrix:
+        torch: ['2.11.0']
+        py: ['3.10', '3.11', '3.12']
+      max-parallel: 1
+    uses: ./.github/workflows/_publish_s3.yaml
+    with:
+      os: 'macos'
+      torch: ${{ matrix.torch }}
+      py: ${{ matrix.py }}
+      variant: 'cpu'
+      release_type: ${{ inputs.release_type }}
+      arch: 'arm64'
+
+  publish_pt213_s3-linux:
+    name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
+    strategy:
+      matrix:
+        torch: ['2.13.0']
+        py: ['3.10', '3.11', '3.12']
+        variant: ['cpu', 'cu130']
+      max-parallel: 1
+    uses: ./.github/workflows/_publish_s3.yaml
+    with:
+      os: 'linux'
+      torch: ${{ matrix.torch }}
+      py: ${{ matrix.py }}
+      variant: ${{ matrix.variant }}
+      release_type: ${{ inputs.release_type }}
+
+  publish_pt213_s3-macos:
+    name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, macos-arm64)
+    strategy:
+      matrix:
+        torch: ['2.13.0']
+        py: ['3.10', '3.11', '3.12']
+      max-parallel: 1
+    uses: ./.github/workflows/_publish_s3.yaml
+    with:
+      os: 'macos'
+      torch: ${{ matrix.torch }}
+      py: ${{ matrix.py }}
+      variant: 'cpu'
+      release_type: ${{ inputs.release_type }}
+      arch: 'arm64'
+
   publish_pypi-linux:
     name: Publish to PyPI (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
     needs:

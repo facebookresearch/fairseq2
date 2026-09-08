@@ -10,6 +10,7 @@ from typing import Any
 
 import wandb
 from wandb import Run as WandbRun
+from wandb.sdk.lib.runid import generate_id as generate_wandb_run_id
 
 from fairseq2.metrics import (
     format_as_byte_size,
@@ -131,7 +132,7 @@ def _register_metric_recorders(container: DependencyContainer) -> None:
 
     def create_wandb_run_id_manager(resolver: DependencyResolver) -> _WandbRunIdManager:
         return wire_object(
-            resolver, _StandardWandbRunIdManager, id_generator=wandb.util.generate_id
+            resolver, _StandardWandbRunIdManager, id_generator=generate_wandb_run_id
         )
 
     container.register(_WandbRunIdManager, create_wandb_run_id_manager)

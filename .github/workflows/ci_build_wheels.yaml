@@ -48,6 +48,13 @@ jobs:
             variant: 'cpu'
             sanitizers: 'nosan'
             run_integration_tests: false
+
+          # Newest Supported Version
+          - torch: '2.13.0'
+            py: '3.12'
+            variant: 'cpu'
+            sanitizers: 'nosan'
+            run_integration_tests: false
     with:
       torch: ${{ matrix.torch }}
       py: ${{ matrix.py }}
@@ -68,6 +75,10 @@ jobs:
           # Lowest Supported Version
           - torch: '2.7.1'
             py: '3.10'
+
+          # Newest Supported Version
+          - torch: '2.13.0'
+            py: '3.12'
     with:
       torch: ${{ matrix.torch }}
       py: ${{ matrix.py }}

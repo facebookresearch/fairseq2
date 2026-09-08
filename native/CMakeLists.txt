@@ -218,9 +218,15 @@ endif()
 # CUDA
 # ------------------------------------------------------------
 
-# By default, we build our CUDA kernels only for the Volta architecture.
+# By default, we build our CUDA kernels only for the oldest architecture that
+# the CUDA version of PyTorch still supports. CUDA 13 dropped Volta and has
+# Turing as its floor.
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES 70-real 70-virtual)
+    if(TORCH_CUDA_VERSION_MAJOR AND TORCH_CUDA_VERSION_MAJOR GREATER_EQUAL 13)
+        set(CMAKE_CUDA_ARCHITECTURES 75-real 75-virtual)
+    else()
+        set(CMAKE_CUDA_ARCHITECTURES 70-real 70-virtual)
+    endif()
 endif()
 
 if(FAIRSEQ2N_USE_CUDA)
