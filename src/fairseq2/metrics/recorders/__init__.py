@@ -17,6 +17,9 @@ from fairseq2.metrics.recorders.descriptor import (
     MetricDescriptorRegistry as MetricDescriptorRegistry,
 )
 from fairseq2.metrics.recorders.descriptor import MetricFormatter as MetricFormatter
+from fairseq2.metrics.recorders.descriptor import (
+    MetricValueTransform as MetricValueTransform,
+)
 from fairseq2.metrics.recorders.jsonl import JsonlMetricRecorder as JsonlMetricRecorder
 from fairseq2.metrics.recorders.log import LogMetricRecorder as LogMetricRecorder
 from fairseq2.metrics.recorders.recorder import (

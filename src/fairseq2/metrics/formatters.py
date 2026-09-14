@@ -62,6 +62,13 @@ def format_as_float(value: object, *, postfix: str | None = None) -> str:
     return s
 
 
+def scale_as_percentage(value: object) -> object:
+    """Scale metric ``value`` from [0, 1] to [0, 100] for numeric logging."""
+    if isinstance(value, (int, float, Tensor)):
+        return value * 100.0
+    return value
+
+
 def format_as_percentage(value: object) -> str:
     """Format metric ``value`` as percentage."""
     if isinstance(value, float):
@@ -76,9 +83,7 @@ def format_as_percentage(value: object) -> str:
     else:
         return f"{value}"
 
-    i = math.ceil(f * 100)
-
-    return f"{i}%"
+    return f"{f * 100:.2f}%"
 
 
 _UNITS: Final = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]

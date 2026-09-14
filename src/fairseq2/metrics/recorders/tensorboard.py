@@ -49,6 +49,8 @@ class TensorBoardRecorder(MetricRecorder):
                     display_name = name
                 else:
                     display_name = descriptor.display_name
+                    if descriptor.value_transform is not None:
+                        value = descriptor.value_transform(value)
 
                 self._add_value(writer, step_nr, display_name, value)
 

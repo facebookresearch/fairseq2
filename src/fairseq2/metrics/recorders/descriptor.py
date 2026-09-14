@@ -15,6 +15,10 @@ class MetricFormatter(Protocol):
     def __call__(self, value: object) -> str: ...
 
 
+class MetricValueTransform(Protocol):
+    def __call__(self, value: object) -> object: ...
+
+
 @dataclass
 class MetricDescriptor:
     name: str
@@ -23,6 +27,7 @@ class MetricDescriptor:
     formatter: MetricFormatter
     log: bool = True
     higher_better: bool = False
+    value_transform: MetricValueTransform | None = None
 
 
 NOOP_METRIC_DESCRIPTOR: Final = MetricDescriptor(
