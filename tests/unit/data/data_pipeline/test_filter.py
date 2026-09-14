@@ -39,3 +39,13 @@ class TestFilterOp:
                 pass
 
         assert str(exc_info.value) == "filter error"
+
+    def test_op_works_when_predicate_is_passed_as_kwarg(self) -> None:
+        # Same kwarg-mismatch bug as #1103 / #1510 (dynamic_bucket), for filter().
+        seq = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+        pipeline = (
+            read_sequence(seq).filter(predicate=lambda d: d % 2 == 1).and_return()
+        )
+
+        assert list(pipeline) == [1, 3, 5, 7, 9]
