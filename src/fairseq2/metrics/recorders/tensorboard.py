@@ -40,6 +40,13 @@ class TensorBoardRecorder(MetricRecorder):
     def record_metric_values(
         self, category: str, values: Mapping[str, object], step_nr: int | None = None
     ) -> None:
+        """
+        Retrieves TensorBoard :class:`SummaryWriter` ``objects`` for the metric scalars.
+        Maps descriptors to metric, step number, name, and scalar value and
+        flushes output
+        :raises OSError: If an operational system error occurs (FileNotFound, PermissionError, ConnectionError)
+        :raises RuntimeError: If the values cannot be written
+        """
         writer = self._get_writer(category)
 
         try:
@@ -63,6 +70,11 @@ class TensorBoardRecorder(MetricRecorder):
     def _add_value(
         self, writer: SummaryWriter, step_nr: int | None, name: str, value: object
     ) -> None:
+        """
+        Adds a `value` ``object`` to the `SummaryWriter`.
+        Can be text, a scalar, or torch Tensor
+        :raises ValueError: If `value` is not of type `int`, `float`, `Tensor` or `str`
+        """
         if isinstance(value, str):
             writer.add_text(name, value, step_nr)
 
@@ -84,6 +96,10 @@ class TensorBoardRecorder(MetricRecorder):
         )
 
     def _get_writer(self, category: str) -> SummaryWriter:
+        """
+        Instantiates a `SummaryWriter` and adds it to the ``writers`` `dict`
+        Stores `writer` under its category as key
+        """
         writer = self._writers.get(category)
         if writer is None:
             path = self._output_dir.joinpath(category)
@@ -96,6 +112,9 @@ class TensorBoardRecorder(MetricRecorder):
 
     @override
     def close(self) -> None:
+        """
+        Close out and destroy every ``writer``
+        """
         for writer in self._writers.values():
             writer.close()
 

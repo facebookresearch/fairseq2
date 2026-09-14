@@ -32,6 +32,12 @@ class LogMetricRecorder(MetricRecorder):
     def record_metric_values(
         self, category: str, values: Mapping[str, object], step_nr: int | None = None
     ) -> None:
+        """
+        Retrieves names, descriptors, and values for all metrics from a :class:`Mapping`.
+        Stores and sorts (values, descriptors) as ``tuples`` and formats a ``str``
+        with | separated tabular values. Splits metrics into multiple category parts
+        where they exist.
+        """
         if not log.is_enabled_for_info():
             return
 
@@ -81,4 +87,7 @@ class LogMetricRecorder(MetricRecorder):
 
     @override
     def close(self) -> None:
+        """
+        Close the :class:`LogMetricRecorder`
+        """
         pass
