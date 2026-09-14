@@ -320,3 +320,22 @@ class TestDynamicBucketOp:
 
         with pytest.raises(StopIteration):
             next(iter(pipeline))
+
+    def test_op_works_when_cost_fn_is_passed_as_kwarg(self) -> None:
+        # Regression for #1103: the binding used to expose this kwarg as `fn`.
+        seq = list(range(1, 7))
+
+        pipeline = (
+            read_sequence(seq)
+            .dynamic_bucket(threshold=6, cost_fn=lambda x: x)
+            .and_return()
+        )
+
+        it = iter(pipeline)
+
+        assert next(it) == [1, 2, 3]
+        assert next(it) == [4, 5]
+        assert next(it) == [6]
+
+        with pytest.raises(StopIteration):
+            next(it)
