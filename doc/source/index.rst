@@ -18,6 +18,7 @@ other content generation tasks.
     :maxdepth: 1
     :caption: Latest News
 
+    news/whats_new_v0_8
     news/whats_new_v0_5
 
 .. toctree::
