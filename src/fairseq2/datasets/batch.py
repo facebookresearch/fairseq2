@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import final
 
+import torch
 from torch import Tensor
 from typing_extensions import override
 
@@ -662,3 +663,34 @@ class Seq2SeqBatch(SupportsDeviceTransfer):
         )
 
         return f"Seq2SeqBatch({s})"
+
+
+@final
+class PreferenceBatch(SupportsDeviceTransfer):
+    """Represents a preference optimization dataset batch."""
+
+    chosen: SequenceBatch
+    rejected: SequenceBatch
+    reference_score_chosen: torch.Tensor | None
+    reference_score_rejected: torch.Tensor | None
+
+    @property
+    def batch_size(self) -> int:
+        """The size of the batch dimension."""
+        return self.chosen.batch_size
+
+    @override
+    def to(self, device: Device, *, non_blocking: bool = False) -> None:
+        self.chosen.to(device, non_blocking=non_blocking)
+
+        self.rejected.to(device, non_blocking=non_blocking)
+
+        if self.reference_score_chosen is not None:
+            self.reference_score_chosen = self.reference_score_chosen.to(
+                device, non_blocking=non_blocking
+            )
+
+        if self.reference_score_rejected is not None:
+            self.reference_score_rejected = self.reference_score_rejected.to(
+                device, non_blocking=non_blocking
+            )

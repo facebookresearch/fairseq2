@@ -33,7 +33,7 @@ from .config import LMSFTConfig
 from .dataset import (
     LM_SFT_DATASET,
     Batching,
-    DataReadOptions,
+    LMSFTDataReadOptions,
     LengthBatching,
     LMSFTDataset,
     LMSFTDatasetConfig,
@@ -73,7 +73,7 @@ class LMSFTRecipe(Recipe):
         else:
             batching = LengthBatching(config.dataset.max_num_tokens)
 
-        read_options = DataReadOptions(
+        read_options = LMSFTDataReadOptions(
             batching=batching,
             example_shuffle_window=config.dataset.example_shuffle_window,
             batch_shuffle_window=config.dataset.batch_shuffle_window,
@@ -107,7 +107,7 @@ class LMSFTRecipe(Recipe):
 
             valid_batching = LengthBatching(max_num_tokens)
 
-            read_options = DataReadOptions(
+            read_options = LMSFTDataReadOptions(
                 batching=valid_batching,
                 prefetch=config.dataset.prefetch,
                 source_encode_mode=config.dataset.source_encode_mode,
