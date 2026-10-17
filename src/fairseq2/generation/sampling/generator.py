@@ -429,6 +429,8 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
                 f"Maximum prompt length in `prompt_seqs` must be less than `max_seq_len` ({max_seq_len}), but is {self._max_prompt_len} instead."
             )
 
+        self._max_gen_len = max_gen_len
+
         self._min_seq_len = min(max_seq_len, self._max_prompt_len + min_gen_len)
         self._max_seq_len = min(max_seq_len, self._max_prompt_len + max_gen_len)
 
@@ -639,6 +641,15 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
 
             # (N)
             vocab_indices = self._sampler.sample(probs)
+
+            # `_max_seq_len` is relative to the longest prompt, so sequences
+            # with shorter prompts have to be cut off at their own limit.
+            if self._prompt_lens is not None:
+                max_gen_len_mask = (
+                    self._step_nr >= self._prompt_lens + self._max_gen_len - 1
+                )
+
+                vocab_indices[max_gen_len_mask] = self._eos_idx
 
         # EOS mask of the current step.
         # (N)
