@@ -15,7 +15,7 @@ Quick Start
 
 .. code-block:: python
 
-    from fairseq2.models.olmo import get_olmo_model_hub, load_olmo_tokenizer
+    from fairseq2.models.olmo import get_olmo_model_hub, get_olmo_tokenizer_hub
 
     # Get the model hub
     hub = get_olmo_model_hub()
@@ -25,25 +25,25 @@ Quick Start
         print(f"  - {arch}")
 
     # Load a model
-    model = hub.load_model("olmo2_7b")
+    model = hub.load_model("olmo-2-1124-7b")
 
     # Load corresponding tokenizer
-    tokenizer = load_olmo_tokenizer("olmo2_7b")
+    tokenizer = get_olmo_tokenizer_hub().load_tokenizer("olmo-2-1124-7b")
 
 Available Models
 ----------------
 
 **OLMo2 Series** — standard causal attention, 4K context:
 
-- ``olmo2_1b`` - 1B parameters
-- ``olmo2_7b`` - 7B parameters
-- ``olmo2_13b`` - 13B parameters
-- ``olmo2_32b`` - 32B parameters (GQA)
+- ``olmo-2-0425-1b`` - 1B parameters
+- ``olmo-2-1124-7b`` - 7B parameters
+- ``olmo-2-1124-13b`` - 13B parameters
+- ``olmo-2-0325-32b`` - 32B parameters (GQA)
 
 **OLMo3 Series** — hybrid sliding window + full attention, 8K–65K context with YaRN:
 
-- ``olmo3_7b`` - 7B parameters
-- ``olmo3_32b`` - 32B parameters (GQA)
+- ``olmo-3-1025-7b`` - 7B parameters
+- ``olmo-3-1125-32b`` - 32B parameters (GQA)
 
 Model Configuration
 -------------------
@@ -121,7 +121,7 @@ get_olmo_model_hub
         from fairseq2.models.olmo import get_olmo_model_hub
 
         hub = get_olmo_model_hub()
-        model = hub.load_model("olmo2_7b", device=device)
+        model = hub.load_model("olmo-2-1124-7b")
 
 Constants
 ---------
@@ -145,14 +145,14 @@ Basic Model Usage
     import torch
 
     from fairseq2.device import get_default_device
-    from fairseq2.models.olmo import get_olmo_model_hub, load_olmo_tokenizer
+    from fairseq2.models.olmo import get_olmo_model_hub, get_olmo_tokenizer_hub
     from fairseq2.nn import BatchLayout
 
     device = get_default_device()
 
     hub = get_olmo_model_hub()
-    model = hub.load_model("olmo2_7b", device=device)
-    tokenizer = load_olmo_tokenizer("olmo2_7b")
+    model = hub.load_model("olmo-2-1124-7b", device=device)
+    tokenizer = get_olmo_tokenizer_hub().load_tokenizer("olmo-2-1124-7b")
 
     texts = ["The capital of France is", "The capital of Germany is"]
     encoder = tokenizer.create_encoder()
