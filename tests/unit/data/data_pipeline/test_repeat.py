@@ -6,9 +6,11 @@
 
 from __future__ import annotations
 
+from itertools import islice
+
 import pytest
 
-from fairseq2.data.data_pipeline import read_sequence
+from fairseq2.data.data_pipeline import DataPipeline, read_sequence
 
 
 class TestRepeatOp:
@@ -83,3 +85,27 @@ class TestRepeatOp:
 
         with pytest.raises(StopIteration):
             next(iter(pipeline))
+
+    @pytest.mark.parametrize("num_repeats", [None, 3])
+    def test_op_restores_its_state_in_a_new_pipeline(
+        self, num_repeats: int | None
+    ) -> None:
+        def make_pipeline() -> DataPipeline:
+            return read_sequence([1, 2, 3]).repeat(num_repeats).and_return()
+
+        pipeline = make_pipeline()
+
+        it = iter(pipeline)
+
+        # Move to the end of the first pass.
+        for _ in range(3):
+            next(it)
+
+        state_dict = pipeline.state_dict()
+
+        # A new pipeline, e.g. in a new process after a restart.
+        pipeline = make_pipeline()
+
+        pipeline.load_state_dict(state_dict)
+
+        assert list(islice(pipeline, 4)) == [1, 2, 3, 1]

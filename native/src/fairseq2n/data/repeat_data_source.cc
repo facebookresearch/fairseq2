@@ -51,6 +51,8 @@ repeat_data_source::record_position(tape &t, bool strict) const
 {
     t.record(repeat_nr_);
 
+    t.record(has_data_);
+
     inner_->record_position(t, strict);
 }
 
@@ -58,6 +60,8 @@ void
 repeat_data_source::reload_position(tape &t, bool strict)
 {
     repeat_nr_ = t.read<std::size_t>();
+
+    has_data_ = t.read<bool>();
 
     inner_->reload_position(t, strict);
 }
