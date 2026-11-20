@@ -10,6 +10,7 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import Union
 
 import pytest
 import torch
@@ -81,6 +82,35 @@ def test_structure_works() -> None:
     )
 
     assert foo == expected_foo
+
+
+@pytest.mark.parametrize("target_type", [int | None, None | int, Union[None, int]])
+@pytest.mark.parametrize("value", [None, 3, "3"])
+def test_structure_optional_union(target_type: object, value: object) -> None:
+    converter = StandardValueConverter()
+
+    assert converter.structure(value, target_type) == (None if value is None else 3)
+
+
+@pytest.mark.parametrize("target_type", [int | None, None | int, Union[None, int]])
+def test_structure_optional_union_rejects_invalid_value(target_type: object) -> None:
+    converter = StandardValueConverter()
+
+    with pytest.raises(StructureError):
+        converter.structure("", target_type)
+
+
+@pytest.mark.parametrize(
+    "data,expected", [({}, None), ({"value": None}, None), ({"value": "3"}, 3)]
+)
+def test_structure_none_first_optional_field(data: object, expected: object) -> None:
+    @dataclass
+    class Config:
+        value: None | int = None
+
+    converter = StandardValueConverter()
+
+    assert converter.structure(data, Config) == Config(expected)
 
 
 @pytest.mark.parametrize(
