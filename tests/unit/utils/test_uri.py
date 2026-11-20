@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from fairseq2.error import NotSupportedError
@@ -51,6 +53,15 @@ class TestUri:
             NotSupportedError, match=r"^`to_path\(\)` is only supported for URIs with file scheme\.$"  # fmt: skip
         ):
             uri.to_path()
+
+    @pytest.mark.parametrize(
+        "name",
+        ["", "model.pt", "my model.pt", "model%20.pt", "modèle.pt", "model#?.pt"],
+    )
+    def test_path_round_trip(self, tmp_path: Path, name: str) -> None:
+        path = tmp_path / name
+
+        assert Uri.from_path(path).to_path() == path
 
     def test_str_works(self) -> None:
         s = "https://foo.com/foo2/foo3;a = 1; bc =2; de= 4?x=3&y=4"
