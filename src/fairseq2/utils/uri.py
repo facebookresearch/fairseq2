@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import final
 from urllib.parse import ParseResult, urlparse, urlunparse
+from urllib.request import url2pathname
 
 from fairseq2.error import InternalError, NotSupportedError
 
@@ -81,7 +82,7 @@ class Uri:
 
         s = str(self)
 
-        return Path(s[7:])
+        return Path(url2pathname(s[7:]))
 
     def __str__(self) -> str:
         return urlunparse(self._result)
