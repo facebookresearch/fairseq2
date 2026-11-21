@@ -476,6 +476,9 @@ class StandardValueConverter(ValueConverter):
         errors = []
 
         for target_type in type_args:
+            if is_optional and target_type is NoneType:
+                continue
+
             try:
                 return self.structure(obj, target_type)
             except StructureError as ex:
