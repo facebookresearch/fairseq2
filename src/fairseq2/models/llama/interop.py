@@ -135,8 +135,13 @@ class _LLaMAHuggingFaceConverter(HuggingFaceConverter):
 
         intermediate_size = multiple_of * ((int(multiplier * int(8 * config.model_dim / 3)) + multiple_of - 1) // multiple_of)  # fmt: skip
 
+        # Transformers v5 keeps the RoPE base frequency in `rope_parameters`
+        # alongside the scaling settings; `LlamaConfig` has no `rope_theta`.
+        rope_parameters: dict[str, object]
+
         if config.use_scaled_rope:
-            rope_scale = {
+            rope_parameters = {
+                "rope_theta": config.rope_theta,
                 "factor": config.rope_scale.factor,
                 "low_freq_factor": config.rope_scale.frequency_factors[0],
                 "high_freq_factor": config.rope_scale.frequency_factors[1],
@@ -144,7 +149,7 @@ class _LLaMAHuggingFaceConverter(HuggingFaceConverter):
                 "rope_type": "llama3",
             }
         else:
-            rope_scale = None
+            rope_parameters = {"rope_theta": config.rope_theta, "rope_type": "default"}
 
         if config.vocab_size == 32_000:  # LLaMA 1 and 2
             bos_idx = 1
@@ -164,8 +169,7 @@ class _LLaMAHuggingFaceConverter(HuggingFaceConverter):
             "num_hidden_layers": config.num_layers,
             "num_key_value_heads": config.num_key_value_heads,
             "rms_norm_eps": 1e-5,
-            "rope_scaling": rope_scale,
-            "rope_theta": config.rope_theta,
+            "rope_parameters": rope_parameters,
             "tie_word_embeddings": config.tied_embeddings,
             "vocab_size": config.vocab_size,
             "head_dim": config.model_dim // config.num_attn_heads,

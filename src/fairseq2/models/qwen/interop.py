@@ -62,7 +62,13 @@ class _QwenHuggingFaceConverter(HuggingFaceConverter):
             "num_attention_heads": config.num_attn_heads,
             "num_key_value_heads": config.num_key_value_heads,
             "intermediate_size": config.ffn_inner_dim,
-            "rope_theta": config.rope_theta,
+            "rope_parameters": {
+                "rope_theta": config.rope_theta,
+                "rope_type": "default",
+            },
+            # Transformers v5 fills in `layer_types` for the default 32 layers
+            # and checks it against `num_hidden_layers` when saving.
+            "layer_types": ["full_attention"] * config.num_layers,
         }
 
         if config.qkv_proj_bias:
