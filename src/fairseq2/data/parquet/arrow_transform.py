@@ -225,6 +225,13 @@ def filter_strings_by_length(
         ).alias("mask")
     )["mask"].to_arrow()
 
+    # A null list (or an empty list, whose min/max are also null) produces a
+    # null mask entry. Treat it as not passing: its strings are not all
+    # within the length bounds. Without this, `pa.compute.all` below skips
+    # nulls while `table.filter` drops them, so null rows would be kept or
+    # dropped depending on whether any other row fails.
+    filter_series = pc.fill_null(filter_series, False)
+
     # If all rows pass, return the original table
     all_pass = pa.compute.all(filter_series).as_py()
     if all_pass:

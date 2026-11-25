@@ -344,6 +344,31 @@ class TestFilterStringsByLength:
         with pytest.raises(ValueError):
             filter_strings_by_length(table, "col", min_len=None, max_len=None)
 
+    def test_filter_strings_by_length_null_row_always_dropped(self) -> None:
+        """
+        A null list row is dropped whether or not another row fails: its
+        strings are not all within the length bounds.
+        """
+        table = pa.table(
+            {
+                "id": [1, 2, 3],
+                "texts": [["abc"], None, ["de"]],
+            }
+        )
+        result = filter_strings_by_length(table, "texts", min_len=1, max_len=6)
+        expected = pa.table({"id": [1, 3], "texts": [["abc"], ["de"]]})
+        assert result.equals(expected)
+
+        # Same outcome when another row also fails the bounds.
+        table = pa.table(
+            {
+                "id": [1, 2, 3, 4],
+                "texts": [["abc"], None, ["de"], ["abcdefghij"]],
+            }
+        )
+        result = filter_strings_by_length(table, "texts", min_len=1, max_len=6)
+        assert result.equals(expected)
+
 
 class TestFilterListByRange:
     def test_filter_list_by_range_no_bounds(self) -> None:
