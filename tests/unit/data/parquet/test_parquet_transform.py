@@ -15,6 +15,7 @@ from fairseq2.data.parquet.arrow_transform import (
     apply_filter,
     concat_table,
     filter_list_by_range,
+    filter_list_with_min_max_length,
     filter_strings_by_length,
     maybe_cast,
     repeat_list_column,
@@ -343,6 +344,31 @@ class TestFilterStringsByLength:
         with pytest.raises(ValueError):
             filter_strings_by_length(table, "col", min_len=None, max_len=None)
 
+    def test_filter_strings_by_length_null_row_always_dropped(self) -> None:
+        """
+        A null list row is dropped whether or not another row fails: its
+        strings are not all within the length bounds.
+        """
+        table = pa.table(
+            {
+                "id": [1, 2, 3],
+                "texts": [["abc"], None, ["de"]],
+            }
+        )
+        result = filter_strings_by_length(table, "texts", min_len=1, max_len=6)
+        expected = pa.table({"id": [1, 3], "texts": [["abc"], ["de"]]})
+        assert result.equals(expected)
+
+        # Same outcome when another row also fails the bounds.
+        table = pa.table(
+            {
+                "id": [1, 2, 3, 4],
+                "texts": [["abc"], None, ["de"], ["abcdefghij"]],
+            }
+        )
+        result = filter_strings_by_length(table, "texts", min_len=1, max_len=6)
+        assert result.equals(expected)
+
 
 class TestFilterListByRange:
     def test_filter_list_by_range_no_bounds(self) -> None:
@@ -443,3 +469,117 @@ class TestFilterListByRange:
         # This is a giant range => all pass
         result = filter_list_by_range(table, "scores", min_val=-1e10, max_val=1e10)
         assert result.equals(table)
+
+    def test_filter_list_by_range_null_row_always_dropped(self) -> None:
+        """
+        A null list row is dropped whether or not another row fails: its
+        values are not entirely in the [min_val, max_val] range.
+        """
+        table = pa.table(
+            {
+                "id": [1, 2, 3],
+                "scores": pa.array([[1.0], None, [2.0]], type=pa.list_(pa.float64())),
+            }
+        )
+        result = filter_list_by_range(table, "scores", min_val=0.0, max_val=100.0)
+        expected = pa.table(
+            {
+                "id": [1, 3],
+                "scores": pa.array([[1.0], [2.0]], type=pa.list_(pa.float64())),
+            }
+        )
+        assert result.equals(expected)
+
+        # Same outcome when another row also fails the range.
+        table = pa.table(
+            {
+                "id": [1, 2, 3, 4],
+                "scores": pa.array(
+                    [[1.0], None, [2.0], [1e6]], type=pa.list_(pa.float64())
+                ),
+            }
+        )
+        result = filter_list_by_range(table, "scores", min_val=0.0, max_val=100.0)
+        assert result.equals(expected)
+
+    def test_filter_list_by_range_empty_list_dropped(self) -> None:
+        """
+        An empty list has null min/max, so it is treated like a null list:
+        its values are not entirely in the range and the row is dropped.
+        """
+        table = pa.table(
+            {
+                "id": [1, 2],
+                "scores": pa.array([[], [2.0]], type=pa.list_(pa.float64())),
+            }
+        )
+        result = filter_list_by_range(table, "scores", min_val=0.0, max_val=100.0)
+        expected = pa.table(
+            {
+                "id": [2],
+                "scores": pa.array([[2.0]], type=pa.list_(pa.float64())),
+            }
+        )
+        assert result.equals(expected)
+
+
+class TestFilterListWithMinMaxLength:
+    def test_filter_list_with_min_max_length_basic(self) -> None:
+        """
+        Rows are kept only if their list length is within [min_length, max_length].
+        """
+        table = pa.table(
+            {
+                "id": [1, 2, 3],
+                "values": [[1], [1, 2, 3], [1, 2, 3, 4, 5, 6]],
+            }
+        )
+        result = filter_list_with_min_max_length(table, ["values"], 1, 5)
+        expected = pa.table({"id": [1, 2], "values": [[1], [1, 2, 3]]})
+        assert result.equals(expected)
+
+    def test_filter_list_with_min_max_length_null_row_always_dropped(self) -> None:
+        """
+        A null list row is dropped whether or not another row fails: its
+        length is not within [min_length, max_length].
+        """
+        table = pa.table(
+            {
+                "id": [1, 2, 3],
+                "values": pa.array([[1, 2], None, [3]], type=pa.list_(pa.int64())),
+            }
+        )
+        result = filter_list_with_min_max_length(table, ["values"], 1, 5)
+        expected = pa.table(
+            {
+                "id": [1, 3],
+                "values": pa.array([[1, 2], [3]], type=pa.list_(pa.int64())),
+            }
+        )
+        assert result.equals(expected)
+
+        # Same outcome when another row also fails the length bounds.
+        table = pa.table(
+            {
+                "id": [1, 2, 3, 4],
+                "values": pa.array(
+                    [[1, 2], None, [3], [1, 2, 3, 4, 5, 6]],
+                    type=pa.list_(pa.int64()),
+                ),
+            }
+        )
+        result = filter_list_with_min_max_length(table, ["values"], 1, 5)
+        assert result.equals(expected)
+
+    def test_filter_list_with_min_max_length_empty_list(self) -> None:
+        """
+        An empty list has length 0 (not null), so it is kept exactly when 0
+        is within [min_length, max_length].
+        """
+        table = pa.table({"id": [1, 2], "values": [[], [1]]})
+        result = filter_list_with_min_max_length(table, ["values"], 0, 5)
+        assert result.equals(table)
+
+        result = filter_list_with_min_max_length(table, ["values"], 1, 5)
+        expected = pa.table({"id": [2], "values": [[1]]})
+        assert result.equals(expected)

@@ -225,6 +225,13 @@ def filter_strings_by_length(
         ).alias("mask")
     )["mask"].to_arrow()
 
+    # A null list (or an empty list, whose min/max are also null) produces a
+    # null mask entry. Treat it as not passing: its strings are not all
+    # within the length bounds. Without this, `pa.compute.all` below skips
+    # nulls while `table.filter` drops them, so null rows would be kept or
+    # dropped depending on whether any other row fails.
+    filter_series = pc.fill_null(filter_series, False)
+
     # If all rows pass, return the original table
     all_pass = pa.compute.all(filter_series).as_py()
     if all_pass:
@@ -284,6 +291,13 @@ def filter_list_by_range(
         ).alias("mask")
     )["mask"].to_arrow()
 
+    # A null list (or an empty list, whose min/max are also null) produces a
+    # null mask entry. Treat it as not passing: such a row's values are not
+    # entirely in the [min_val, max_val] range. Without this, `pc.all` below
+    # skips nulls while `table.filter` drops them, so null rows would be kept
+    # or dropped depending on whether any other row fails.
+    filter_series = pc.fill_null(filter_series, False)
+
     # If all rows pass, return the table unchanged
     if pc.all(filter_series).as_py():
         return table
@@ -301,7 +315,12 @@ def filter_list_with_min_max_length(
     def _length_filter(column):
         filter_min = pc.greater_equal(pc.list_value_length(table[column]), min_length)
         filter_max = pc.less_equal(pc.list_value_length(table[column]), max_length)
-        filter_ = pc.and_kleene(filter_min, filter_max)
+        # A null list has a null length, hence a null mask entry. Treat it as
+        # not passing: its length is not within [min_length, max_length].
+        # Without this, `pc.all` below skips nulls while `table.filter` drops
+        # them, so null rows would be kept or dropped depending on whether
+        # any other row fails.
+        filter_ = pc.fill_null(pc.and_kleene(filter_min, filter_max), False)
 
         if pc.all(filter_).as_py():
             return table
